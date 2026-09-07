@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, background, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, feat, grant, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, feat, job, kept, ledger, legacy, naive, outright, parity, re-pointed, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -101,7 +101,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, check, control, css, expression, finds, fires, green, grown, layout, lesson, machine, page, past, review, screenshot, stale, vanished
+**topics:** borrowing, check, css, expression, finds, fires, green, grown, layout, lesson, machine, page, past, relationship, review, screenshot, stale, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -158,11 +158,29 @@ _builder-conversion-gallery · builder conversion gallery_
 - Was it confusing? In one specific place, yes
 - What that implies for the remaining nine
 
+## builder-disposition-audit.md
+
+_builder-disposition-audit · builder disposition audit_
+
+**topics:** ---, background, bespoke, disposition, effect, expertise, grant, header, monster, node, omv, pool, race, row, rows, widget, widgets, writes
+
+- Legend
+- Race — 152 lines, 19 widgets
+- Subrace — 129 lines, 15 widgets
+- Class — 268 lines, 15 widgets
+- Subclass — 105 lines, 13 widgets
+- Background — 46 lines, 11 widgets
+- Monster — 233 lines, 12 widgets — a stat block, not a character
+- What the six tables add up to
+- Pools to register before the grant node can replace those widgets
+- Two open design points the tables surface
+- OMV (port/redesign-on-refactor)
+
 ## builder-form-schemas.md
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, background, builders, creatures, fields, fragment, framework, group, june, monster, node, row, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, node, row, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -446,7 +464,7 @@ _data-safety-layers · data safety layers_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, skill, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
+**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, skill, spell, spell-choice, spellcasting, subclass, sustainability, templates
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -477,7 +495,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, idiomatic, layer-a, multiple, nested, progression, rows, select, spell, spells, two-level, vocabulary
+**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, nested, progression, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -509,7 +527,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, deletions, directory, dotfiles, goes, indexed, irreducible, learned, push, reminder, scripts, session, stale
+**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, indexed, irreducible, learned, machine, push, reminder, scripts, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -525,7 +543,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, forget, free, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, typed, widget
+**topics:** asi, bug, cleanup, coerce, coercion, dropdown, forget, free, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -538,7 +556,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, dex, feat, five, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets, writes
+**topics:** arm, bool, compiler, dex, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -568,7 +586,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
+**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, tag, thrown, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -594,7 +612,7 @@ _fonts · fonts_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, dark, header, menu, menus, mock, omv, popover, redesign, switcher, theme, workaround
+**topics:** accent, card, cards, chip, chips, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, var, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -626,7 +644,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, points, selection, suppressed, switch, tooltip, tortle, waives
+**topics:** attached, attaches, confused, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, selection, suppressed, switch, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -638,7 +656,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** appear, built-in, coexist, combines, copy, keys, membership, override, plugin, predictable, reduces, same-key, spell, union, unique, winner, wins, within
+**topics:** appear, built-in, coexist, combines, copy, duplicate, last-wins, membership, override, plugin, predictable, reduces, same-key, spell, unique, winner, wins, within
 
 - TL;DR
 - The map (VERIFIED)
@@ -678,7 +696,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, demo, envelope, extension, implemented, in-file, incompatible, name, pickers, placeholder, poll, tag, version, versioning, won
+**topics:** boot-load, brew, builds, community, compat, demo, envelope, extension, implemented, in-file, incompatible, pickers, placeholder, poll, tag, version, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -689,7 +707,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, irregularity, membership, node, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
 
 - In four sentences
 - The three layers
@@ -767,7 +785,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -824,7 +842,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** baseline, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, number, optimisation, session, single-function, understanding, unverified, upgrade
+**topics:** adjudicating, baseline, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, understanding, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)

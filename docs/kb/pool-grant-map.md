@@ -98,8 +98,10 @@ list-shaped pools.
 
 ## Provisional — set by one agent, not decided
 
-- `:offerable-by` sets on the three registered pools are guesses (`:languages` offerable by monster?).
-  The direction doc decided the *mechanism* ("pools carry scoping metadata"); the values are open.
+- `:offerable-by` sets on the three registered pools are guesses. One is now decided by evidence:
+  **`:monster` is in none of them** — a monster is a stat block, and every `option-*` widget it shares
+  with the character silos compiles to display text there, not to a grant
+  (`builder-disposition-audit.md`). The rest remain open.
 - `feat-builder-audit.md` §7 calls the Custom Feat option list "a third grant vocabulary." That
   overstates: it is a hardcoded `option-cfg` menu — the same "bespoke positional wiring / hardcoded
   vector" pattern D17b names as the thing the branch exists to replace, not a new vocabulary. The

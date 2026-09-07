@@ -48,7 +48,7 @@
    assembly fn, not any sub."
   {:languages
    {:name "Language"
-    :offerable-by #{:feat :race :subrace :background :class :subclass :monster}
+    :offerable-by #{:feat :race :subrace :background :class :subclass}   ; not :monster — a stat block grants nothing (builder-disposition-audit.md)
     :tags #{:profs :language-profs}            ; = language-selection-aux, so it lands on Proficiencies
     ;; built-in ++ homebrew, both raw; one constructor over the lot
     :options-fn (fn [plugin-vals]
