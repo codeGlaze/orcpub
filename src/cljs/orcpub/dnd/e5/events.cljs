@@ -5368,15 +5368,29 @@
    (let [conflicts (get-in db [:conflict-resolution :conflicts])
          decisions (into {}
                          (map (fn [{:keys [id type suggested-new-key suggested-renames
-                                           import-source]}]
+                                           import-source sources]}]
                                 [id (if (= type :internal)
                                       ;; A key duplicated across N sources within the import
                                       ;; needs N-1 renames in ONE pass: keep the first source's
                                       ;; key and rename the rest to their distinct source-suffixed
                                       ;; keys. Renaming only one (the old behavior) left the others
                                       ;; colliding, so the conflict reappeared on every re-import.
-                                      {:action :rename-import
-                                       :renames (vec (rest suggested-renames))}
+                                      ;;
+                                      ;; :keeper names the source that keeps the key. It is what
+                                      ;; the radio for an internal conflict tests against, so
+                                      ;; leaving it out recorded the decision without selecting
+                                      ;; anything -- Rename All appeared to do nothing. It also
+                                      ;; states the choice instead of implying it. Keeper and
+                                      ;; renames are derived the same way the default and the
+                                      ;; hand-picked decision derive them -- first source keeps,
+                                      ;; everyone else is renamed -- so the three agree by
+                                      ;; construction rather than by two lists happening to be
+                                      ;; ordered alike.
+                                      (let [keeper (-> sources first :source)]
+                                        {:action :rename-import
+                                         :keeper keeper
+                                         :renames (vec (remove #(= keeper (:source %))
+                                                               suggested-renames))})
                                       {:action :rename-import
                                        :source import-source
                                        :new-key suggested-new-key})])
