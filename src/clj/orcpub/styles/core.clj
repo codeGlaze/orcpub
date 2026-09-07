@@ -1083,10 +1083,19 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; color-scheme is what makes the browser draw the native option LIST dark.
+    ;; Without it the popup is white while the options inherit the select's white
+    ;; text, so an unclassed dropdown opens as a blank white box with invisible
+    ;; entries. The explicit option colours cover browsers that ignore it.
     [:select
      {:font-family font-family
       :color "white"
+      :color-scheme "dark"
       :background-color :transparent}]
+
+    [:option
+     {:background-color "#1a1e28"
+      :color "rgba(255,255,255,0.9)"}]
 
     [:*:focus
      {:outline 0}]
@@ -1634,7 +1643,12 @@
      [:select
       {:font-family font-family
        :color "black";
+       :color-scheme "light"
        :background-color :transparent}]
+
+     [:option
+      {:background-color :white
+       :color "#282828"}]
 
      [:.item-list
       {:border-top "1px solid rgba(0,0,0,0.5)"}]

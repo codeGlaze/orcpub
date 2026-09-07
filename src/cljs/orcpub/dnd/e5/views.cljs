@@ -8666,7 +8666,7 @@
    for them; it lists exactly the types the source is currently missing."
   [source-name missing-specs]
   [:div.p-t-10
-   [:select.m-l-5.p-5
+   [:select.m-l-5.p-5.builder-option-dropdown.w-auto
     {:value ""
      :on-change (fn [e]
                   (let [v (.. e -target -value)
@@ -8674,11 +8674,11 @@
                     (set! (.. e -target -value) "")
                     (when spec
                       (dispatch [(:add-event spec) source-name]))))}
-    [:option {:value ""} "+ add content…"]
+    [:option.builder-dropdown-item {:value ""} "+ add content…"]
     (doall
      (for [{:keys [type-name type-key]} missing-specs]
        ^{:key type-name}
-       [:option {:value (name type-key)} (str "add " type-name)]))]])
+       [:option.builder-dropdown-item {:value (name type-key)} (str "add " type-name)]))]])
 
 (defn source-disabled-count
   "Total disabled items across every content type in one source — the number shown
