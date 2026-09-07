@@ -110,8 +110,13 @@ mean zero.
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | Sheets generated at once. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server says it is busy. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before waiting for a click. |
+> Every start prints these with their resolved values and where each came from — `set`,
+> `default`, or `IGNORED` when a value was given but rejected. See
+> [ENVIRONMENT.md](ENVIRONMENT.md#what-the-server-prints-at-boot). Read the boot log rather
+> than inferring from behaviour whether a change took effect.
+
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game. |
-| `ORCPUB_PDF_MAX_CARDS` | `200` | Most cards of one kind a single export prints. A level 20 wizard's spellbook is about 44. |
+| `ORCPUB_PDF_MAX_CARDS` | `198` | Most cards of one kind a single export prints — nine to a sheet, so 22 whole sheets. A level 20 wizard's spellbook is about 44. |
 
 ### Sizing them
 

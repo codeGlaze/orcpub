@@ -789,6 +789,50 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
   independent stories (the ordinary one, and the cookie notice) run in parallel
   contexts, so the wall clock is the longer lane rather than the sum (`61ddd603`).
 
+### hotfix/boot-config-report
+
+**Added**
+
+- The server says it started and what it is configured with, on every start. Every setting
+  the app reads is listed with its value and where that value came from — `SET` from the
+  environment or `DEFAULT` — grouped by runtime, database, security, email, content and
+  capacity, plus a count of the 21 `APP_*` branding variables (`a80b5aec`, `c2754d28`).
+- A value that was supplied and rejected is called out by name beneath the table, since its
+  row shows the default that is running rather than the value you asked for (`e65dfda6`).
+- A setting whose absence breaks the site says **why and how to fix it**, in the boot banner,
+  the startup warning and the `500` a caller receives — the same text in all three, so
+  nobody has to work the remedy out from the symptom (`2c425afa`).
+
+**Fixed**
+
+- The database password is no longer printed at startup. It was in four places, not one: the
+  startup line and three `ex-info` maps, which reach logs and error reporters just as
+  readily. Credentials are blanked in both shapes they arrive in — a `password=`-style query
+  parameter and `user:pass@host` userinfo — while the host, port, database and user still
+  show (`24aa9971`).
+- `SIGNATURE` missing now fails clearly everywhere. `create-token`, `unsubscribe-token` and
+  `unsubscribe` read the environment straight into `jwt/sign`, failing deep inside the
+  library with nothing an operator could act on (`2c425afa`).
+- `EMAIL_SERVER_URL` missing is reported as breaking, because it is: the verification email
+  is sent inside the signup transaction, so unconfigured mail does not skip an email — every
+  registration fails with "please try again", and password reset fails too (`e66eeef8`).
+- `DATOMIC_URL` unset defaults to a local development transactor, and the failure read
+  "cannot connect to localhost:4334", naming the symptom rather than the cause. It now says
+  the development default is in use (`e66eeef8`).
+- `ENVIRONMENT.md` was missing `ORCPUB_PDF_MAX_CASTER_SECTIONS`, `ORCPUB_PDF_MAX_CARDS`,
+  `EMAIL_SERVER_URL`, `EMAIL_SERVER_PORT` and `EMAIL_ACCESS_KEY`, despite being the variable
+  reference (`e66eeef8`, `c2754d28`).
+
+**Changed**
+
+- Secrets report presence only — `SIGNATURE`, `DATOMIC_PASSWORD`, `EMAIL_ACCESS_KEY` and
+  `EMAIL_SECRET_KEY` show `set` or `NOT SET`, never a value, dropped before printing rather
+  than at print time (`c2754d28`).
+- `ORCPUB_PDF_MAX_CARDS` defaults to `198` rather than `200`. Nine cards to a sheet, so 200
+  was 22 sheets plus two cards stranded on a twenty-third (`ac886c74`).
+- `ORCPUB_HTTP_MAX_THREADS` reports the pool size read back off the running server when it is
+  unset, rather than a formula copied from Pedestal that would drift (`cf7d8cdd`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure

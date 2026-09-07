@@ -23,7 +23,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATOMIC_URL` | `datomic:dev://localhost:4334/orcpub` | Database connection URI |
+| `DATOMIC_URL` | `datomic:dev://localhost:4334/orcpub` | Database connection URI. A `datomic:sql` URI carries the database password; it is redacted wherever it is logged (see [DOCKER-SECURITY.md](DOCKER-SECURITY.md#credentials-in-logs)). |
 | `DATOMIC_VERSION` | `1.0.7482` | Datomic Pro version for installer |
 | `DATOMIC_TYPE` | `pro` | Datomic distribution type |
 | `DATOMIC_PASSWORD` | — | Transactor password |
@@ -46,9 +46,87 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | How many character sheets are generated at once. Bounded separately so a rush of exports cannot starve logins and saves. Each in flight holds roughly 11 MB of heap. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server answers 503 with a `Retry-After` instead of holding the connection open. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
+| `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game, which no character can exceed. |
+| `ORCPUB_PDF_MAX_CARDS` | `198` | Most **cards** — not pages — of each kind a single export prints. Nine to a sheet, so 198 is exactly 22 sheets. Counted per kind, so spells, items and features are bounded separately. A level 20 wizard's spellbook is about 44. |
 
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
+
+### What the server prints at boot
+
+Every start prints what it resolved, so you never have to guess whether a change was
+picked up:
+
+```
+-------------------------------------------------------------------------------------------------------
+  orcpub started
+-------------------------------------------------------------------------------------------------------
+  SETTING                          VALUE                  SOURCE
+  [RUNTIME]
+  PORT                             8080                   SET
+  DEV_MODE                         -                      DEFAULT   dev-only behaviour and relaxed CORS
+  [DATABASE]
+  DATOMIC_URL                      ...?user=u&password=****   SET
+  DATOMIC_PASSWORD                 set
+  [SECURITY]
+  SIGNATURE                        set                              JWT signing key; every login and API call fails without it
+  CSP_POLICY                       -                      DEFAULT   overrides the built-in policy
+  [EMAIL]
+  EMAIL_FROM_ADDRESS               noreply@example.com    SET
+  EMAIL_ERRORS_TO                  -                      DEFAULT
+  EMAIL_SECRET_KEY                 set
+  [CONTENT]
+  LOAD_HOMEBREW_URL                -                      DEFAULT   homebrew loaded at page load
+  [CAPACITY]
+  ORCPUB_HTTP_MAX_THREADS          50                     DEFAULT   worker pool: requests of any kind in flight
+  ORCPUB_PDF_CONCURRENCY           24                     SET       sheets generated at once
+  ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000                  DEFAULT   how long an export waits for a slot
+  ORCPUB_PDF_MAX_RETRIES           3                      DEFAULT   busy-page retries before it waits for a click
+  ORCPUB_PDF_MAX_CASTER_SECTIONS   13                     DEFAULT   most spellcasting sections on one sheet
+  ORCPUB_PDF_MAX_CARDS             198                    DEFAULT   cards of each kind per export; 9 to a sheet, so 22 sheets
+  [BRANDING]
+                                   3 of 21 set
+-------------------------------------------------------------------------------------------------------
+  (!)  ORCPUB_PDF_MAX_CARDS=oops was ignored: not a positive integer. The default above is in use.
+  (!!) SIGNATURE is not set, so every login, signup and authenticated API call fails.
+        It is the key JWT tokens are signed with; without it none can be issued or verified.
+        Fix: set a long random value and restart, either as a Docker secret at
+        /run/secrets/signature (preferred) or as the SIGNATURE environment variable.
+        e.g.  openssl rand -base64 48
+        Keep it stable: changing it signs out everyone and invalidates unsubscribe links.
+-------------------------------------------------------------------------------------------------------
+```
+
+A setting that breaks the site says **why and how to fix it**, not just that it is missing —
+and the same text appears wherever the failure surfaces: the boot banner, the startup
+warning, and the `500` a caller receives. An operator reading any one of them is told the
+same remedy rather than having to work it out from the symptom.
+
+| Column | Meaning |
+|---|---|
+| `SET` | the value came from the environment |
+| `DEFAULT` | nothing usable was set; this is what is running anyway |
+| `set` / `NOT SET` | a **secret**. Its value is never printed, only whether it is present — no `SOURCE`, because `DEFAULT` beside `NOT SET` would read as though there were a default password |
+| `(!)` line | **a value was given and rejected.** Its row reads `DEFAULT` because the default is what is running; this line names what was thrown away |
+| `(!!)` line | a setting whose absence breaks the site, called out rather than left to be spotted among thirty rows |
+
+Everything the app reads is reported, grouped: runtime, database, security, email, content
+and capacity, plus a count of the 21 `APP_*` branding variables rather than 21 more rows.
+
+**These are the values actually in force, not a restatement of the documentation.** They are
+read from the same functions the running code reads. `ORCPUB_HTTP_MAX_THREADS` is the
+exception worth understanding: when it is unset we hand Pedestal nothing and Pedestal
+chooses, so the number shown is read back off the **live Jetty thread pool** after it starts
+— not a formula copied from Pedestal that would drift. If the pool cannot be read the column
+shows `-` rather than a guess.
+
+The source column always describes where the **shown value** came from. A rejected setting
+therefore reads `DEFAULT` — it was your value that was ignored, not the default — and the
+`(!)` line under the table is what tells you to go fix it.
+
+The banner fires on Jetty's own started event, so `orcpub started` means listening, and it
+prints as a single write — printed line by line, Jetty's logging interleaved with it and cut
+the table in half. Plain ASCII, no colour: it is read in aggregators as often as terminals.
 
 ### Plugins
 

@@ -73,7 +73,17 @@
   (environ/env :signature))
 
 (when-not jwt-secret
-  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+  (println (str "WARNING: " config/signature-missing-message)))
+
+(defn- signature-or-throw
+  "The JWT secret, or an error that says how to fix it.
+
+   The token-minting paths used to read the env var straight into jwt/sign, which fails deep
+   inside the library with nothing an operator can act on. check-auth already answered a
+   clear 500; these did not."
+  []
+  (or jwt-secret
+      (throw (ex-info config/signature-missing-message {:error :signature-not-set}))))
 
 (def backend (backends/jws {:secret jwt-secret}))
 
@@ -154,8 +164,10 @@
    {:name :check-auth
     :enter (fn [context]
              (if-not jwt-secret
+               ;; The full remedy, not just the symptom: whoever sees this 500 in a log is
+               ;; the person who can fix it.
                (terminate-request context 500
-                                  "Server misconfigured: SIGNATURE env var not set")
+                                  (str "Server misconfigured. " config/signature-missing-message))
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
@@ -233,7 +245,7 @@
 (defn create-token [username exp]
   (jwt/sign {:user username
              :exp exp}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn following-usernames [db ids]
   (map :orcpub.user/username
@@ -460,7 +472,7 @@
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
   (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -471,7 +483,7 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token (signature-or-throw))]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
             (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
