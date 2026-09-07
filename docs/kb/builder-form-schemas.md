@@ -406,6 +406,15 @@ nil and the `:props` compiler reads that.
   (`grant_pools.cljc`); the UI half is what E4 proves.
 - **E5 — Convert the rest**, cheapest first, class last. Each conversion: pin, swap, same numbers.
 
+### The feat builder, proposed — code and picture
+
+`assets/feat-builder-mockup.html` renders the proposed feat form (header + ASI spread + Effects +
+Grants + Prerequisites + the spellcasting passthrough) beside the `.orcbrew` entry it writes. The
+code it implies — `(content-builder :feat)`, `feat-fields`, the `grant-rows` node with
+`:kinds :from-registry`, `compile-grants` returning `{:modifiers :selections}` with `:key` → the
+entry's modifiers (D4), the seven pool registrations, and `legacy_shims.cljc` — is laid out in
+`builder-disposition-audit.md` and the pool/grant map; the mockup is the visual for that code.
+
 ### What "good UX" means here, concretely
 
 The form starts at three controls. Adding an effect adds one titled row. A `+1` is number-width,
