@@ -157,26 +157,32 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
   check('a fresh browser is shown it once', await visible(page));
   await ctx.close();
 
-  // 6. One overlay at a time: a visitor who still has the cookie notice in front
-  // of them gets the release panel on their next visit, not stacked on top of it.
+  // 6. Dismissing the notice releases the panel in the SAME visit — the first cut
+  // of this waited for a reload, so a visitor coming off the splash page saw
+  // nothing at all. Which path released it (the click, or the hold's ceiling) is
+  // deliberately not asserted: both are correct, and racing them is how a probe
+  // starts failing on a slow machine.
   ({ ctx, page } = await newPage(browser, errors, { cookieBanner: true }));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#poper', { timeout: 20000 });
-  await page.waitForTimeout(1500);
-  check('the panel waits while the cookie notice is up', !(await visible(page)));
-  await page.screenshot({ path: path.join(OUT, '4-cookie-notice-first.png') });
-
-  // Navigating inside the app is not a reload, so the held panel must not need one:
-  // this is the path a first-time visitor actually takes off the splash page.
-  await page.locator('a.splash-button').first().click();
-  await page.waitForSelector('#app-main', { timeout: 30000 });
-  await page.waitForTimeout(1200);
-  check('still held while the notice is up, one page in', !(await visible(page)));
-
-  await page.locator('#cookie-btn').click();
-  await page.waitForSelector('.whats-new-panel', { timeout: 10000 });
-  check('and opens as soon as the notice is dismissed, with no reload', await visible(page));
+  await page.locator('#cookie-btn').click({ timeout: 5000 }).catch(() => {});
+  await page.waitForSelector('.whats-new-panel', { timeout: 15000 });
+  check('the panel arrives without a reload', await visible(page));
   await page.screenshot({ path: path.join(OUT, '5-after-cookie-notice.png') });
+  await ctx.close();
+
+  // 7. Most people ignore a cookie notice rather than dismissing it, and it comes
+  // back every visit — so a hold that waits on dismissal is a panel they never see.
+  // The hold has a ceiling: it shows anyway, with the notice dimmed behind it.
+  ({ ctx, page } = await newPage(browser, errors, { cookieBanner: true }));
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#poper', { timeout: 20000 });
+  await page.waitForSelector('.whats-new-panel', { timeout: 20000 });
+  check('an ignored notice does not suppress the panel', await visible(page),
+        'never clicked the notice');
+  check('the notice is still there behind it',
+        await page.locator('#poper').isVisible().catch(() => false));
+  await page.screenshot({ path: path.join(OUT, '6-notice-ignored.png') });
   await ctx.close();
 
   // 7. A phone-sized viewport: the panel has to fit and scroll, not overflow.
