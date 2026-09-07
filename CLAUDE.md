@@ -80,6 +80,14 @@ It also catches the two ways a probe lies rather than fails:
   it. A 30s heartbeat reports how long a probe has been silent, separately from how long it
   has been running.
 
+**If a probe is slow, trace it — do not reason about it.**
+`node scripts/test/trace-probe.js <probe>` runs it under `DEBUG=pw:api` and reports the
+slowest calls. A ROUND NUMBER REPEATED IS A TIMEOUT, NOT WORK: several calls at exactly
+30.0s means a default is being waited out. `character_image_capture`'s runtime was guessed
+wrong four times (the network, sleeps, the PDF renders, PDF parsing) before one trace found
+nine swallowed 30s timeouts — 400s to 126s. `sticky_header` had the same defect, 193s to 73s.
+Never `await x.click().catch(() => {})` with no `timeout`; use `clickIfVisible()`.
+
 Write assertions that can fail: `after <= opened` under the name "filtering narrows the list"
 passes when filtering does nothing, and a missing control is the failure, not a reason to
 print SKIP and carry on. Both were real, in this repo.

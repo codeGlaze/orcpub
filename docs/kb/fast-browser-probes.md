@@ -150,9 +150,64 @@ That guess was wrong. Timed from a browser in this sandbox via Playwright's requ
 
 The proxy answers both in under a second, so dead-host latency is not the cause.
 
-**✅ ANSWERED 2026-09-07 -- it renders nine PDFs.** Running the probe with
+**❌ ALSO WRONG. ✅ ANSWERED 2026-09-07 — nine swallowed 30-second timeouts.** Running the probe with
 `ORCPUB_E2E_OUT` set and looking at what it leaves behind settled it: nine sheets, ~260 KB
-each. Nine server-side PDFBox renders at roughly 40s apiece is the 393s.
+each. The PDF count was right and the conclusion was not: the renders are 0.2-2s each, ~35s for
+all nine, measured by timing one export click-to-bytes and `hasImage()` on the sheets (0.0s).
+The 393s was this line, called once per export:
+
+```js
+await page.getByText(/^cancel$/i).first().click().catch(() => {});
+```
+
+The options panel closes itself once the sheet is made, so there was no Cancel to press.
+With no `timeout` the click waited playwright's full 30s default, and `.catch(() => {})`
+discarded the failure. Nine exports, 270s, invisible — the probe passed 31/31 throughout.
+Fixed: 400s -> 126s.
+
+## The technique that found it, after four wrong answers
+
+The runtime was diagnosed wrong four times **by reasoning about the code instead of
+measuring it**: the network (dead hosts answer in 0.4s), blind sleeps (17s total), the PDF
+renders (0.2-2s), parsing the sheets (0.0s). All plausible. All wrong.
+
+What settled it in one run:
+
+```
+node scripts/test/trace-probe.js character_image_capture_e2e.js
+```
+
+It runs the probe under `DEBUG=pw:api`, pairs each call's start with its end, and reports the
+slowest calls and totals by operation:
+
+```
+FAILED calls: 9, 270s of dead time   <-- this is most of the runtime
+  30.0s  locator.click   (x9, all failed)
+```
+
+**A ROUND NUMBER REPEATED IS A TIMEOUT, NOT WORK.** Nine calls at *exactly* 30.0s is a
+default being waited out. Sort failures first: a failed call that consumed its whole timeout
+is dead time, and wrapped in `.catch()` nothing else will ever surface it.
+
+The same tool found the same defect in two more probes:
+
+| probe | was | now | waiting for |
+| --- | --- | --- | --- |
+| `character_image_capture` | 400s | 126s | a Cancel button that had already closed |
+| `sticky_header` | 193s | 73s | a cookie banner the runner had suppressed |
+| `spell_layout_pdf` | 86s | 55s | the same banner, plus a spell |
+
+**The anti-pattern**, now grepped for by the runner:
+
+```js
+await page.getByText('Got it!').click().catch(() => {});   // 30s when it is absent
+await clickIfVisible(page.getByText('Got it!'));           // ~0s, and reports a miss
+```
+
+**Second-order trap worth carrying:** suppressing overlays made two of these *worse*. The
+banner used to exist, so the click succeeded; suppress it and the identical line waits the
+full timeout for something that will never appear. The only symptom was a probe getting
+slower, which was misread as contention.
 
 ```
 cors-allowed.pdf  cors-refused.pdf  oversized.pdf  slow-host.pdf  refused-again.pdf
