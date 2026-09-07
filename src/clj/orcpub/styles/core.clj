@@ -673,6 +673,14 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
+   ;; Neutral counterpart to .bg-warning, for a callout that is telling you
+   ;; something rather than warning you: same box, no severity colour, so an
+   ;; offer or an explanation does not read as a problem to fix.
+   [:.bg-note
+    {:background-color "rgba(255, 255, 255, 0.05)"
+     :border "1px solid rgba(255, 255, 255, 0.15)"
+     :border-radius "4px"}]
+
    [:.fade-out
     {:animation-name :fade-out
      :animation-duration :5s}]
