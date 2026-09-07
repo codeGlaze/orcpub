@@ -33,7 +33,7 @@
 
 (def v2-grant
   {"Pack" {:orcpub.dnd.e5/feats {:g {:name "G" :key :g :option-pack "Pack"
-                                     :grant {:pool :fighting-styles :count 1}}}}})
+                                     :grants [{:pool :fighting-styles :count 1}]}}}})
 
 (def v2-spread
   {"Pack" {:orcpub.dnd.e5/feats {:s {:name "S" :key :s :option-pack "Pack"
@@ -53,7 +53,7 @@
 
 (deftest incompatible-features-classify-as-v2
   (testing "any non-backward-compatible feature makes content v2"
-    (doseq [[label c marker] [["grant" v2-grant :grant]
+    (doseq [[label c marker] [["grants" v2-grant :grants]
                               ["ability-increase spread" v2-spread :ability-increase-spread]
                               ["draconic ancestries type" v2-draconic :orcpub.dnd.e5/draconic-ancestries]]]
       (is (= 2 (orcbrew-format/content-format-version c)) (str label " is v2"))

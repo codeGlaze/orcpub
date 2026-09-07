@@ -1478,7 +1478,7 @@
      :on-change (fn [e] (dispatch [:set-custom-race (.. e -target -value)]))}]])
 
 (defn template-selections
-  ;; 12-arity: no grantable pools. Preserves every existing caller — content with a :grant simply
+  ;; 12-arity: no grantable pools. Preserves every existing caller — content with a :grants simply
   ;; offers nothing, which is the same graceful-miss behaviour as naming an unregistered pool.
   ;; The production sub passes the assembled registry via the 13-arity below (::e5/grantable-pools).
   ([magic-weapon-options magic-armor-options other-magic-item-options weapon-map
@@ -1540,7 +1540,7 @@
     {:options (conj
                (map
                 ;; The pool registry arrives assembled (grant_pools.cljc) and is passed to every
-                ;; assembly fn that compiles a :grant. Registering a new pool is one entry there —
+                ;; assembly fn that compiles :grants. Registering a new pool is one entry there —
                 ;; nothing here changes.
                 (partial opt5e/race-option spell-lists spells-map language-map weapon-map
                          grantable-pools)
@@ -1559,7 +1559,7 @@
                (let [race-map (common/map-by-key races)]
                  (map
                   ;; Same assembled registry as race-option above, so a feat's
-                  ;; :grant {:pool <p> :count N} offers a choice from any registered pool —
+                  ;; :grants {:pool <p> :count N} offers a choice from any registered pool —
                   ;; including pack-authored entries, since every open pool derives from
                   ;; plugin-vals.
                   (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map

@@ -168,7 +168,7 @@ offering the `:boon` pool — **no boon↔feat wiring.**
 
 4. ✅ DONE — **the pool REGISTRY, and the maintainability gate met.** `grant_pools.cljc` is the
    single registry; `::e5/grantable-pools` assembles it from `plugin-vals`; `template-selections`
-   takes that one map and hands it to every assembly fn that compiles a `:grant`.
+   takes that one map and hands it to every assembly fn that compiles a `:grants`.
    - **The gate, measured.** Registering `:skills` — the third pool — cost **one entry in
      `grant_pools.cljc` and nothing else**: no change to `template-selections`, no new sub, no
      arity, no assembly fn. That is the "~1-line registration, shown in a commit" acceptance
@@ -196,7 +196,7 @@ offering the `:boon` pool — **no boon↔feat wiring.**
    - Pools registered: `:languages`, `:fighting-styles`, `:skills`. Silos wired: feat, race.
    - Tests: `grant_pool_registry_test.clj` (the gate + the two disciplines),
      `race_grant_pool_test.clj` (both verbs through the hook, on the real registry).
-   - Still open: no builder emits `:grant`. This is the data path only.
+   - Still open: no builder emits `:grants`. This is the data path only.
 
 ### Validation against official expansion (Fizban's Treasury of Dragons, FTD)
 Checked FTD because it officially expands draconic ancestry — a real stress-test, not theory.
@@ -330,7 +330,7 @@ route-keyword def.
   as built carries generic `:tags #{:grant <pool>}` and no `:ref`, dropping the metadata the bespoke
   constructors carry. Wiring race through it confirmed the consequence: `language-selection-aux`
   tags `#{:profs :language-profs}` and the character builder routes selections to tabs by tag, so
-  a bespoke language choice lands on the Proficiencies tab and a `{:grant {:pool :languages}}`
+  a bespoke language choice lands on the Proficiencies tab and a `{:grants [{:pool :languages}]}`
   choice does not — it renders nested under its owner. Mechanics are identical (both emit
   `modifiers/language`); placement is not. The fix is discipline 1 applied to metadata: the
   **pool's own registry entry carries its `:tags`** (`:languages` → `#{:profs :language-profs}`),

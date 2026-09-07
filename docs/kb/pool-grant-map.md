@@ -19,7 +19,7 @@ filter on it. That is the whole idea; everything below is which parts of it exis
 ```
   AUTHOR    builder form                          ← the grant-authoring UI  ✗ AIR
               ↓ writes
-  DATA      {:grant {:pool :languages :count 2}}  ← the vocabulary          ✓ REAL
+  DATA      {:grants [{:pool :languages :count 2}]}  ← the vocabulary          ✓ REAL
               ↓ compiled by
   ENGINE    grant-selection → selection-cfg       ← the thin compiler       ✓ REAL
               ↑ reads
@@ -42,6 +42,7 @@ The engine and the data path are built and tested. **Nothing writes the data** �
 | entry eligibility | fighting style `:classes` (absent = all); the class path reads the open pool via `eligible-homebrew-styles` — direction lever (a)(i), done | 2026-09-02 |
 | `effect-rows` | the repeatable-row builder node, for *effects* (not grants). **Map-keyed only** — a row is present when data exists at a fixed path | 2026-09-05 |
 | pools carry `:tags` | the D30 fix: a grant lands on the same tab as the bespoke choice it replaces | 2026-09-07 |
+| `:grants` — one key, always a vector | `[{:pool :languages :count 2} {:pool :skills :count 1}]`. The prototype's singular `:grant {…}` renamed at every use incl. the v2 format marker (`orcbrew_format.cljc`); nothing released ever wrote either | 2026-09-07 |
 
 **The maintainability gate is met and measured**: registering `:skills` — the third pool — cost one
 entry in `grant_pools.cljc` and nothing else.
@@ -51,7 +52,6 @@ entry in `grant_pools.cljc` and nothing else.
 | thing | what it unblocks | decided in |
 |---|---|---|
 | **filter as a metadata predicate** | today `:filter` is a key set (`#{:elvish}`) and can only enumerate. As a predicate (`{:level 0 :lists :bard}`) it expresses "2 bard cantrips" and "fighter-eligible styles" with one machinery | direction doc, "Filtering is optional and graceful" |
-| **`:grants` plural** | a bundle. "2 skills AND a language" is one feat; singular `:grant` cannot say it | direction doc, "Compound grants" |
 | **entries carrying their own `:grants`** | Magic Initiate ("pick a class, then spells from *that* list"), and a subclass entry declaring what it grants | — (see Correction below) |
 | **`:gate`** | prereqs, as part of a grant. **Must be a small declarative vocabulary** (`has-class?`, `level>=`, `has-feature?`, `ability>=`) — homebrew prereqs are never raw fns (direction doc PINS) | direction doc, discipline 1 + PINS |
 | **`:offerable-by` consumed** | declared on every pool today, read by nothing. Stops a feat offering "choose a subrace" | direction doc, discipline 2 |
@@ -67,7 +67,7 @@ This is the part that does not fit in one's head, so here it is as a graph rathe
 filter-as-predicate ──┬─→ spells as a pool ──→ every spell grant
                       └─→ fighting styles filterable by :classes
 
-:grants plural ───────┬─→ grant-authoring UI
+E3 vector rows ───────┬─→ grant-authoring UI (E4)
 dynamic field options ┘        (options from a sub, and depending on a sibling field)
 
 entries carry :grants ──→ Magic Initiate, subclass grants
@@ -75,9 +75,8 @@ entries carry :grants ──→ Magic Initiate, subclass grants
 :gate ──→ prereqs
 ```
 
-Nothing here is blocked on anything unbuilt except the two arrows shown. **`filter-as-predicate` and
-`:grants` plural are both leaves** — neither depends on anything, and between them they unblock
-everything else.
+Nothing here is blocked on anything unbuilt except the two arrows shown. **`filter-as-predicate` is a leaf**, and
+`:grants` was one (done). E3 vector rows is the remaining prerequisite for the grant node.
 
 ## Spells: closer than it looks
 
@@ -127,14 +126,15 @@ was re-derived worse. **Grep the KB before designing.**
 
 ## The path — three items, then wait for a case
 
-**Nothing writes `:grant`.** The engine, the data path and the registry are all built and tested,
+**Nothing writes `:grants`.** The engine, the data path and the registry are all built and tested,
 and no builder emits the key. That single gap is the whole reason none of this is visible in the
 app, and closing it needs three things — the middle one is Track E3, which `builder-form-schemas.md`
 already owns:
 
-1. **`:grants` plural** — a feat is a bundle by definition ("2 skills AND a language"), so a builder
-   that writes grants needs the plural immediately. A mechanical rename while nothing writes it yet;
-   no shim, since `:grant` has never existed off a feature branch.
+1. ✅ **`:grants` — one key, always a vector** (2026-09-07). Both compile sites `keep` over it;
+   an entry naming an unregistered pool drops out without taking its siblings. The v2 format marker
+   moved with it — a `:grants` pack exports as v2 so an old build declines it rather than silently
+   dropping the grants.
 2. **Vector rows (Track E3).** `:grants` is a vector — ordered, duplicates allowed (two language
    grants). `effect-rows` is map-keyed: a row exists when data sits at a fixed path like
    `[:props :ac-bonus]`. `builder-form-schemas.md` §6 left the vector case open as E3 (encounter

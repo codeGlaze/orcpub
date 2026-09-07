@@ -56,7 +56,7 @@
   [item]
   (when (map? item)
     (cond-> #{}
-      (contains? item :grant)                (conj :grant)
+      (seq (:grants item))                   (conj :grants)
       (seq (:save-proficiencies item))       (conj :save-proficiencies)
       ;; the ability-increase SPREAD is the vector form [[amount pool] ...]; the
       ;; legacy feat format is a set (#{:str}) and stays backward compatible.

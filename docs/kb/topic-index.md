@@ -304,7 +304,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, breath-weapon, descriptor, event, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, prototype, registry, schema, variant
+**topics:** adding, allowlist, ancestry, breath-weapon, descriptor, event, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -433,7 +433,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, drop, garbage, guessing, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -689,7 +689,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, irregularity, language, membership, pieces, plural, pool, pools, registered, spells, two-level, writes
+**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, irregularity, membership, node, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
 
 - In four sentences
 - The three layers

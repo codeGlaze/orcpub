@@ -2550,7 +2550,7 @@
                            weapon-proficiencies
                            profs
                            plugin?
-                           grant                 ; ← generic cross-pool grant {:pool <p> :count N}
+                           grants                ; ← [{:pool <p> :count N} …]; see grant-selection
                            edit-event]
                     :as race}]
   (let [key (or key (common/name-to-kw name))
@@ -2573,10 +2573,10 @@
                    (when (seq subraces)
                      [(subrace-selection race spell-lists spells-map language-map weapon-map plugin? source subraces [:race key])])
                    (when (seq language-options) [(language-selection language-map language-options)])
-                   ;; The generic hook, second silo. A race's DATA can grant a choice from any
-                   ;; registered pool via :grant — the same key and the same grant-selection the
-                   ;; feat bridge prototype uses, with no per-pool code here.
-                   (when grant [(grant-selection grant grantable-pools)])
+                   ;; The generic hook, second silo. A race's :grants — a vector, one entry per
+                   ;; grant — each compile through grant-selection; an entry naming an unregistered
+                   ;; pool yields nil and is dropped. No per-pool code here.
+                   (keep #(grant-selection % grantable-pools) grants)
                    (when (seq weapon-proficiency-options)
                      [(weapon-proficiency-selection-2 weapon-map weapon-proficiency-options)])
                    selections)
@@ -3915,7 +3915,7 @@
 ;; ─── BRIDGE PROTOTYPE: feat-granted fighting style (pool+grant as DATA) ──────────
 ;; Additive/reversible. Mirrors the draconic-ancestry pool+grant pattern for a different
 ;; bucket (feats), to test whether that pattern generalizes. To revert: delete this block,
-;; the `:grant` hook in feat-option-from-cfg, the grantable-pools arg at its call site
+;; the `:grants` hook in feat-option-from-cfg, the grantable-pools arg at its call site
 ;; (template.cljc), and any ::e5/fighting-styles pool sub (spell_subs.cljs).
 ;; Placed here (after plugin-modifiers) so it can compile homebrew styles' :props.
 (defn fighting-style-option
@@ -3935,7 +3935,8 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "GENERIC cross-bucket grant. Given `:grant {:pool <pool-key> …}` data and a `grantable-pools`
+  "GENERIC cross-bucket grant. Compiles ONE entry of a content item's `:grants` vector,
+   `{:pool <pool-key> …}`, against a `grantable-pools`
    registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
      {:pool p}                 -> ALL entries (count N, default 1)
      {:pool p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
@@ -3990,7 +3991,7 @@
            ability-increases
            save-proficiencies
            edit-event
-           grant]}]                       ; ← generic cross-pool grant {:pool <p> :count N}
+           grants]}]                      ; ← [{:pool <p> :count N} …]; see grant-selection
   ;; ASI dual-format reader (D34 feat-path reconciliation): a feat's :ability-increases is read by
   ;; SHAPE, so the cross-silo spread reaches feats without breaking the released format.
   ;;   - vector  → the new terse [amount pool] SPREAD → compile-ability-increases (same path as
@@ -4023,12 +4024,10 @@
                                                  props
                                                  legacy-ai)
                                 ai-sels sp-sels)
-        ;; BRIDGE PROTOTYPE: a feat's DATA can grant a choice from any pool via the generic
-        ;; :grant key. Same hook every other bucket would use — see grant-selection. The same
-        ;; one line, added to background/race/subclass assembly fns, gives them grants too.
-        feat-selections (cond-> feat-selections
-                          grant
-                          (concat [(grant-selection grant grantable-pools)]))]
+        ;; A feat's :grants — a vector, one entry per grant — each compile through
+        ;; grant-selection (race-option has the same line). Unregistered pools drop out as nil.
+        feat-selections (concat feat-selections
+                                (keep #(grant-selection % grantable-pools) grants))]
     (t/option-cfg
      {:name name
       :key key

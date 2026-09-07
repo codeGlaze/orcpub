@@ -194,15 +194,16 @@ apply is D11: derive pools as layered memoized subs, never inline inside a hot s
 - **New GRANTABLE pool (2026-09-07):** one entry in `src/cljc/orcpub/dnd/e5/grant_pools.cljc` —
   `{:name … :offerable-by #{…} :options-fn (fn [plugin-vals] -> [option-cfg …])}`. Nothing else
   changes: `::e5/grantable-pools` assembles the registry and `template-selections` passes it to every
-  assembly fn that compiles a `:grant`. The entry's fn absorbs its own shape (raw built-ins vs
+  assembly fn that compiles a `:grants`. The entry's fn absorbs its own shape (raw built-ins vs
   pre-compiled, open vs closed); `assemble`/`grant-selection` never branch on pool kind (D21).
   Measured: the third pool cost one entry — the D21 gate.
 - **A pool that is consumed only by a hardcoded caller** (the draconic pool → `dragonborn-option-cfg`)
   still uses the older form: `(reg-sub ::x-pool :<- [::e5/plugin-vals] (fn [pv _] (pool pv ::e5/<key>
   <built-in>)))`. Register it in `grant_pools.cljc` when something needs to *grant* from it.
-- **Grant, as data:** `{:pool <k> :count n}` / `{:pool <k> :key <entry>}` / `{:pool <k> :count n
-  :filter …}` on any content that an assembly fn compiles (feat, race today). Compiled by
-  `opt5e/grant-selection`. Pass each entry's stored `:key` through (D10).
+- **Grants, as data:** `:grants [{:pool <k> :count n} {:pool <k> :key <entry>} …]` — one key,
+  always a vector, on any content an assembly fn compiles (feat, race today). Each entry compiles
+  through `opt5e/grant-selection`; unregistered pools drop out as nil. A pack carrying `:grants`
+  exports as format v2 (`orcbrew_format.cljc`). Pass each entry's stored `:key` through (D10).
 
 ---
 

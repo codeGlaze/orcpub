@@ -24,7 +24,7 @@ builder had to be written bespoke.
 | 2 | `[:profs :language-options {:choose 2 :options {:elvish true}}]` | `option-language-proficiency-choice` (race) | `language-selection` |
 | 3 | `[:props :language-choice 2]` — bare count, whole pool only | `feat-languages` (feat) | `make-feat-selections` |
 | 4 | `[:props :language {:elvish true}]` | `option-languages` (subrace, monster) | `make-feat-modifiers` |
-| 5 | `{:grant {:pool :languages …}}` | *nothing yet* | `grant-selection` |
+| 5 | `{:grants [{:pool :languages …}]}` | *nothing yet* | `grant-selection` |
 
 Shape 1 keys by name and shape 4 keys by key — for the same fact. Shape 2 can restrict the pool;
 shape 3 cannot. Shape 3 is feat-only; shape 2 is race/subrace-only.
@@ -33,9 +33,9 @@ shape 3 cannot. Shape 3 is feat-only; shape 2 is race/subrace-only.
 
 | existing shape | as a grant |
 |---|---|
-| 1 and 4 (creator names a member) | `{:grant {:pool :languages :key :elvish}}` |
+| 1 and 4 (creator names a member) | `{:grants [{:pool :languages :key :elvish}]}` |
 | 2 (creator names a count and a subset) | `{:grant {:pool :languages :count 2 :filter #{…}}}` |
-| 3 (creator names a count) | `{:grant {:pool :languages :count 2}}` |
+| 3 (creator names a count) | `{:grants [{:pool :languages :count 2}]}` |
 
 What IS still one-sided, verified against the widget map:
 - **A feat cannot grant a specific language from its builder.** The compiler arm exists
@@ -64,17 +64,17 @@ hook:
    pool is consumed by a hardcoded caller (`dragonborn-option-cfg`, `spell_subs.cljs:1201`) rather
    than through the generic hook.
 2. **One call site.** `feat-option-from-cfg` was the only assembly fn taking `grantable-pools`.
-3. **No builder writes `:grant`.** No widget in any builder emits the key. Still true.
+3. **No builder writes `:grants`.** No widget in any builder emits the key. Still true.
 
 The three feat-only select props are instances of the generic key, and the grant widgets are its
 `:key` mode:
 
 | today | as a grant | who has it today |
 |---|---|---|
-| `{:language-choice 2}` | `{:grant {:pool :languages :count 2}}` | feat only |
-| `{:skill-tool-choice 3}` | `{:grant {:pool :skills-and-tools :count 3}}` | feat only |
-| `{:weapon-prof-choice 4}` | `{:grant {:pool :weapons :count 4}}` | feat only |
-| `{:language {:elvish true}}` | `{:grant {:pool :languages :key :elvish}}` | race/subrace/monster only |
+| `{:language-choice 2}` | `{:grants [{:pool :languages :count 2}]}` | feat only |
+| `{:skill-tool-choice 3}` | `{:grants [{:pool :skills-and-tools :count 3}]}` | feat only |
+| `{:weapon-prof-choice 4}` | `{:grants [{:pool :weapons :count 4}]}` | feat only |
+| `{:language {:elvish true}}` | `{:grants [{:pool :languages :key :elvish}]}` | race/subrace/monster only |
 
 Old keys stay as D9 read-shims — nothing saved moves. The same registry entry that lets a feat grant
 a specific language lets a race offer a language *choice*, because the hook does not know who owns
@@ -85,13 +85,13 @@ it. **This is the years-old duplication the pool/grant initiative was started to
 
 `grant_pools.cljc` is the registry; `::e5/grantable-pools` assembles it; `template-selections`
 takes that one map. `:languages`, `:fighting-styles` and `:skills` are registered, and `race-option`
-compiles `:grant` alongside `feat-option-from-cfg`. A race's `{:grant {:pool :languages :count 2}}`
+compiles `:grant` alongside `feat-option-from-cfg`. A race's `{:grants [{:pool :languages :count 2}]}`
 offers a language choice, `{:key :elvish}` forces one, `{:filter #{…}}` narrows.
 
 Registering the third pool cost one entry and nothing else — the direction doc's acceptance gate.
 `language-option` now carries the language's own `:key` (a no-op for saved data: `name-to-kw`
 already equalled `:key` for all 16 built-ins), and the built-in language list moved out of
-`spell_subs.cljs` into `languages.cljc` so cljc can read it. No builder writes `:grant` yet — this
+`spell_subs.cljs` into `languages.cljc` so cljc can read it. No builder writes `:grants` yet — this
 is the data path only.
 
 ## 2. The AC work landed a general vocabulary. The feat builder never got it.

@@ -2,7 +2,7 @@
   "The generic grant hook, second silo. `grant-selection` was written pool-agnostic and
    owner-agnostic but wired to ONE assembly fn (feats) with ONE pool registered
    (:fighting-styles). This pins the second wire: race-option takes the same registry, a race's
-   `:grant` data produces a choice from any pool in it, and :languages is registered.
+   `:grants` data produces a choice from any pool in it, and :languages is registered.
 
    Both verbs go through the one hook:
      {:pool :languages :count 2}          -> the SELECT verb (user picks 2 of the pool)
@@ -44,8 +44,8 @@
             (str name " derives a different key than it stores"))))))
 
 (deftest select-verb-through-the-hook
-  (let [sel (selection-named (race-with {:grant {:pool :languages :count 2}}) "Language")]
-    (testing "a race's :grant produces a choice from the registered pool"
+  (let [sel (selection-named (race-with {:grants [{:pool :languages :count 2}]}) "Language")]
+    (testing "a race's :grants produces a choice from the registered pool"
       (is (some? sel) "no selection was produced")
       (is (= 2 (::t/min sel)))
       (is (= 2 (::t/max sel)))
@@ -54,25 +54,25 @@
           "the whole open pool should be on offer"))))
 
 (deftest grant-verb-through-the-same-hook
-  (let [sel (selection-named (race-with {:grant {:pool :languages :key :elvish}}) "Language")]
+  (let [sel (selection-named (race-with {:grants [{:pool :languages :key :elvish}]}) "Language")]
     (testing ":key narrows the same hook to a creator-chosen entry"
       (is (some? sel))
       (is (= 1 (::t/min sel)) "a forced grant is a single-option choice")
       (is (= [:elvish] (map ::t/key (::t/options sel)))))))
 
 (deftest filter-verb-through-the-same-hook
-  (let [sel (selection-named (race-with {:grant {:pool :languages :count 1
-                                                 :filter #{:elvish :dwarvish}}})
+  (let [sel (selection-named (race-with {:grants [{:pool :languages :count 1
+                                                  :filter #{:elvish :dwarvish}}]})
                              "Language")]
     (testing ":filter offers a creator-chosen subset"
       (is (= #{:elvish :dwarvish} (set (map ::t/key (::t/options sel))))))))
 
 (deftest unknown-pool-is-inert-not-fatal
-  (testing "a :grant naming a pool that is not registered yields no selection and does not throw"
-    (is (nil? (selection-named (race-with {:grant {:pool :nope :count 1}}) "Language")))))
+  (testing "a :grants naming a pool that is not registered yields no selection and does not throw"
+    (is (nil? (selection-named (race-with {:grants [{:pool :nope :count 1}]}) "Language")))))
 
 (deftest no-grant-means-no-selection
-  (testing "races without :grant are unchanged"
+  (testing "races without :grants are unchanged"
     (is (empty? (::t/selections (race-with {}))))))
 
 (deftest legacy-language-options-path-untouched
@@ -84,3 +84,12 @@
       (is (some? sel) "the legacy path stopped producing a selection")
       (is (= 2 (::t/max sel)))
       (is (= #{:elvish :dwarvish} (set (map ::t/key (::t/options sel))))))))
+
+(deftest several-grants-on-one-item
+  (testing ":grants is a vector — a feat that grants 2 languages AND a skill is two rows, and an
+            entry naming an unregistered pool drops out without taking the others with it"
+    (let [sels (::t/selections (race-with {:grants [{:pool :languages :count 2}
+                                                    {:pool :skills    :count 1}
+                                                    {:pool :nope      :count 1}]}))]
+      (is (= ["Language" "Skill"] (map ::t/name sels)))
+      (is (= [2 1] (map ::t/max sels))))))

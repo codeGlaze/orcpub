@@ -39,11 +39,11 @@
          (srd/builder-equipment :fighter)
          {:weapons (assoc (:weapons (srd/builder-equipment :fighter)) :dagger 1)}))
 
-;; The :grant feat is what makes this content v2, so stamp actually produces an envelope.
+;; The :grants feat is what makes this content v2, so stamp actually produces an envelope.
 (def v2-plugins
   {"Pack" {::e5/classes {:battle-sage collapsible-class}
            :orcpub.dnd.e5/feats {:g {:name "G" :key :g :option-pack "Pack"
-                                     :grant {:pool :fighting-styles :count 1}}}}})
+                                     :grants [{:pool :fighting-styles :count 1}]}}}})
 
 (defn- export [data] (orcbrew-format/serialize-orcbrew
                       (orcbrew-format/stamp (walk-classes ledger/collapse-class data))))

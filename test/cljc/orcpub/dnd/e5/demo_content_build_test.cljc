@@ -235,7 +235,7 @@
       (is (zero? (get (char5e/race-ability-increases built) CON 0))
           "a background ASI is :general, never racial"))))
 
-;; --- the demo feat's :grant from the fighting-style pool (built-in ++ homebrew) ---
+;; --- the demo feat's :grants from the fighting-style pool (built-in ++ homebrew) ---
 
 ;; Mirrors ::classes5e/fighting-style-pool: the built-in style cfgs ++ the pack's
 ;; homebrew styles mapped through the constructor. This is what the app now threads
@@ -269,7 +269,7 @@
                  :orcpub.entity/options {:fighting-style {:orcpub.entity/key :archery}}}}})
 
 (deftest demo-feat-grant-offers-both-built-in-and-homebrew-and-builds
-  (testing "the feat's :grant offers the built-in styles AND the pack's homebrew style"
+  (testing "the feat's :grants offers the built-in styles AND the pack's homebrew style"
     (let [fs-sel (first (filter #(= "Fighting Style" (::t/name %))
                                 (::t/selections demo-grant-feat-option)))
           offered (set (map ::t/name (::t/options fs-sel)))]

@@ -3,7 +3,7 @@
    fighting style lands on the sheet: ALL / FILTERED / SPECIFIC / CUSTOM. The grant compiler
    (opt5e/grant-selection) is silo-agnostic (see fighting-style-feat-e2e-test/grant-is-bucket-agnostic),
    so these modes establish the capability for every other silo too; wiring each remaining silo's
-   one-line :grant hook (background/race/subrace/class/subclass) is the mechanical next increment.
+   one-line :grants hook (background/race/subrace/class/subclass) is the mechanical next increment.
 
    NOTE: built-in Dueling carries a cljs-only condition (@re-frame.db/app-db), so it is only OFFERED
    in compile-level checks here, never selected in a JVM build. JVM/clojure.test."
@@ -53,7 +53,7 @@
 ;; ---------------------------------------------------------------------------
 (defn- feat-of [pool grant]
   (opt5e/feat-option-from-cfg language-map spells5e/spell-map sl5e/spell-lists weapons5e/weapons-map {}
-                              pool {:name "Style Adept" :key :style-adept :grant grant}))
+                              pool {:name "Style Adept" :key :style-adept :grants [grant]}))
 
 (defn- template-of [pool grant]
   (t5e/template

@@ -47,10 +47,10 @@
       :name "Demo: Versatile"
       :option-pack source-name
       :description "You adopt a fighting style of your choice."
-      ;; Exercises the generic :grant primitive from the fighting-style pool —
+      ;; Exercises the generic :grants primitive from the fighting-style pool —
       ;; built-in ++ homebrew, so it offers the demo style below alongside the SRD
       ;; ones.
-      :grant {:pool :fighting-styles :count 1}}}
+      :grants [{:pool :fighting-styles :count 1}]}}
     ::e5/backgrounds
     {:demo-traveler
      {:key :demo-traveler
@@ -98,7 +98,7 @@
                         "speed of 30 feet.")
       ;; Exercises homebrew fighting-style AUTHORING: a pack adds a style under
       ;; ::e5/fighting-styles, it folds into the fighting-style pool, and the
-      ;; Demo: Versatile feat's :grant offers it. Its mechanic rides the shared
+      ;; Demo: Versatile feat's :grants offers it. Its mechanic rides the shared
       ;; :props vocabulary.
       :props {:swimming-speed 30}}}
     ::e5/spells
