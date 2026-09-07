@@ -36,6 +36,20 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 | `SIGNATURE` | — | **Required.** JWT signing secret for authentication. All login and API calls fail without it. |
 | `ADMIN_PASSWORD` | — | Admin password |
 
+### Capacity
+
+See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how to size them.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ORCPUB_HTTP_MAX_THREADS` | Pedestal's own, which is 50 until roughly 16 cores | Jetty worker pool: how many requests of any kind are in flight. The rest queue in the accept backlog. |
+| `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | How many character sheets are generated at once. Bounded separately so a rush of exports cannot starve logins and saves. Each in flight holds roughly 11 MB of heap. |
+| `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server answers 503 with a `Retry-After` instead of holding the connection open. |
+| `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
+
+A value that is present but not a positive integer is reported at boot and the
+default is used, so a typo does not take the server down or silently mean zero.
+
 ### Plugins
 
 | Variable | Default | Description |

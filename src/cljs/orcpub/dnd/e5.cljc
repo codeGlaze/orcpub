@@ -45,6 +45,50 @@
     {:kept {} :rejected {}}))
 
 
+(defn salvage-plugin-items
+  "Per-ENTRY salvage of ONE source. Walks each content group and splits its items
+   by `valid-item?` (a fn of [content-type item-key item]) — valid items go to
+   :kept, invalid to :rejected. Non-content entries (e.g. `:disabled?`, or a
+   content group that is a boolean) stay with :kept. Returns {:kept <plugin>
+   :rejected <plugin>}; a content-type key is absent on a side that has nothing.
+
+   This is what lets ONE bad entry be siloed WITHOUT quarantining its whole source:
+   the source keeps its valid items, only the broken ones are set aside for repair.
+   `valid-item?` is injected (content-specs supplies the load-floor version) so this
+   stays pure/JVM-testable. Non-map input yields two empty maps."
+  [valid-item? plugin]
+  (if (map? plugin)
+    (reduce-kv
+     (fn [acc k v]
+       (if (and (qualified-keyword? k) (map? v))
+         (reduce-kv
+          (fn [a ik iv]
+            (assoc-in a [(if (valid-item? k ik iv) :kept :rejected) k ik] iv))
+          acc
+          v)
+         ;; non-content-group entry (or boolean content group) — keep as-is
+         (assoc-in acc [:kept k] v)))
+     {:kept {} :rejected {}}
+     plugin)
+    {:kept {} :rejected {}}))
+
+(defn salvage-library-items
+  "Per-ENTRY salvage across a whole library `{source-name plugin}`. Returns
+   {:kept {name plugin} :rejected {name plugin}}: each source's valid items in
+   :kept, its invalid items (a partial plugin) in :rejected. A source is absent
+   from a side when it has nothing there. Non-map input yields two empty maps."
+  [valid-item? plugins]
+  (if (map? plugins)
+    (reduce-kv
+     (fn [acc name plugin]
+       (let [{:keys [kept rejected]} (salvage-plugin-items valid-item? plugin)]
+         (cond-> acc
+           (seq kept)     (assoc-in [:kept name] kept)
+           (seq rejected) (assoc-in [:rejected name] rejected))))
+     {:kept {} :rejected {}}
+     plugins)
+    {:kept {} :rejected {}}))
+
 (defn reconcile-rejected
   "Maintain the name-keyed quarantine map (`plugins:rejected`) across loads: merge
    this load's rejected sources into the already-quarantined ones (latest-wins per
@@ -134,4 +178,31 @@
    merge-plugins
    all-plugins-1
    all-plugins-2))
+
+(defn reconcile-rejected-items
+  "Per-ENTRY analog of `reconcile-rejected`. Merge this load's rejected entries
+   into the already-quarantined ones (latest-wins per item), then drop any item
+   that now appears in `kept` (repaired or re-imported valid), and drop content
+   groups / sources left empty. Keeps an item from being BOTH live and quarantined,
+   and lets a fixed entry self-clear. Returns the cleaned {source partial-plugin}."
+  [old-rejected new-rejected kept]
+  (let [merged (merge-all-plugins (if (map? old-rejected) old-rejected {})
+                                  (if (map? new-rejected) new-rejected {}))]
+    (reduce-kv
+     (fn [acc src plugin]
+       (let [kept-src (get kept src)
+             cleaned (reduce-kv
+                      (fn [p ct items]
+                        (if (and (qualified-keyword? ct) (map? items))
+                          (let [kept-items (get kept-src ct)
+                                remaining (into {} (remove (fn [[ik _]]
+                                                             (contains? kept-items ik))
+                                                           items))]
+                            (if (seq remaining) (assoc p ct remaining) p))
+                          (assoc p ct items)))
+                      {}
+                      plugin)]
+         (if (seq cleaned) (assoc acc src cleaned) acc)))
+     {}
+     merged)))
 

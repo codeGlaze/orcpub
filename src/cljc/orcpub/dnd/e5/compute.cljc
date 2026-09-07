@@ -10,26 +10,33 @@
 
 (defn compute-plugin-vals
   "Filters out disabled plugins and disabled entries within plugins.
-   Replicates ::e5/plugin-vals subscription."
-  [plugins]
-  (map
-   (fn [p]
-     (into
-      {}
-      (map
-       (fn [[type-k type-m]]
-         [type-k
-          (if (coll? type-m)
+   Replicates ::e5/plugin-vals subscription, including the local disable overlay
+   (:global? drops everything; :sections drops a [source content-type] pair) so
+   event-handler reads see exactly what the reactive builder sees."
+  ([plugins] (compute-plugin-vals plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name p]]
+          (when (and (map? p) (not (:disabled? p)))
             (into
              {}
-             (remove
-              (fn [[_k {:keys [disabled?]}]]
-                disabled?)
-              type-m))
-            type-m)])
-       p)))
-   (filter (comp not :disabled?)
-           (vals plugins))))
+             (keep
+              (fn [[type-k type-m]]
+                (when-not (contains? sections [source-name type-k])
+                  [type-k
+                   (if (coll? type-m)
+                     (into
+                      {}
+                      (remove
+                       (fn [[_k {:keys [disabled?]}]]
+                         disabled?)
+                       type-m))
+                     type-m)]))
+              p))))
+        plugins)))))
 
 (defn compute-sorted-spells
   "Computes sorted spells from db. Replicates the chain:
@@ -37,7 +44,7 @@
    ::spells5e/spells -> ::char5e/sorted-spells."
   [db]
   (let [plugins (get db :plugins)
-        plugin-vals (compute-plugin-vals plugins)
+        plugin-vals (compute-plugin-vals plugins (get db :disable-overlay))
         plugin-spells (map
                        (fn [spell]
                          (assoc spell :edit-event [::spells/edit-spell spell]))

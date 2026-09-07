@@ -6,6 +6,7 @@
 (def dnd-e5-newb-char-builder-route :newb-char-builder-5e)
 (def dnd-e5-char-list-route :char-list-5e)
 (def dnd-e5-char-route :char-5e)
+(def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
 (def dnd-e5-char-summary-list-route :char-summary-list-5e-page)
@@ -100,6 +101,7 @@
 (def login-page-route :login-page)
 (def follow-user-route :follow-user)
 (def character-pdf-route :character-pdf)
+(def image-probe-route :image-probe)
 (def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
@@ -131,6 +133,7 @@
                           "/email" user-email-route}
 
                   "character.pdf" character-pdf-route
+                  "image-probe" image-probe-route
                   "check-email" check-email-route
                   "check-username" check-username-route
 
@@ -152,6 +155,7 @@
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
                                         ["/" :id] dnd-e5-char-route}
+                          "character-load-reports" dnd-e5-char-report-route
                           "my-content" dnd-e5-my-content-route
                           "items" {"" dnd-e5-items-route
                                    ["/" :id] dnd-e5-item-route}

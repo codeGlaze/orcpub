@@ -1,0 +1,8 @@
+{
+  "name": "orcpub-browser-e2e",
+  "private": true,
+  "description": "Dev-only Node tooling for the browser e2e in test/browser/ (see its header). Not part of the Clojure/lein build.",
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

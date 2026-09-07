@@ -5,6 +5,32 @@
 
 (def dot-char "•")
 
+(def ^:private bare-colon-re
+  ;; Matches EITHER a full "string literal" OR a bare-colon token (the printed
+  ;; form of the empty keyword `:`). Scanning left-to-right, a string literal is
+  ;; consumed whole, so a `:` inside a string is never seen as a bare colon.
+  ;; The lookahead requires the colon to be followed by a delimiter or end, so
+  ;; `:foo`, `::x`, `:ns/foo`, and `#:ns{...}` are all left untouched.
+  #"\"(?:[^\"\\]|\\.)*\"|:(?=[\s,{}\[\]()\";]|$)")
+
+(defn sanitize-edn-colons
+  "SELF-HEAL: return `edn-str` with every bare-colon token (unreadable empty
+   keyword) replaced by a unique placeholder `:unnamed-N`, so an already-corrupt
+   EDN blob (a saved character or localStorage plugins carrying a `:` key) can
+   be read instead of crashing the load with \"A single colon is not a valid
+   keyword.\" String-aware: colons inside \"...\" and all valid keywords are
+   preserved. Returns {:text <sanitized> :count <replacements>}; :count 0 means
+   the input was already clean (do not rewrite it)."
+  [edn-str]
+  (if (string? edn-str)
+    (let [cnt (atom 0)
+          text (s/replace edn-str bare-colon-re
+                          (fn [m] (if (= \" (first m))
+                                    m
+                                    (str ":unnamed-" (swap! cnt inc)))))]
+      {:text text :count @cnt})
+    {:text edn-str :count 0}))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $
@@ -12,6 +38,13 @@
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
+        ;; Never emit the empty keyword `:` — a name that reduced to "" (blank,
+        ;; or apostrophe-only like "'") would build (keyword "") = a bare `:`,
+        ;; an unreadable EDN token that crashes read-string on load. Substitute a
+        ;; stable placeholder keyed off the ORIGINAL name so distinct empties
+        ;; ("" vs "'" vs "''") stay distinct. Only the empty case is touched, so
+        ;; no existing (non-blank) key changes.
+        (if (s/blank? $) (str "unnamed-" (hash name)) $)
         (keyword ns $))))
 
 (def memoized-name-to-kw (memoize name-to-kw-aux))
@@ -160,6 +193,124 @@
 (defn keyword-starts-with-letter? [kw]
   (and (keyword? kw)
        (-> kw name starts-with-letter?)))
+
+;; ── Number-word translation, for repairing keyword-trap names ────────────────
+;; A homebrew NAME derives its KEY, and a key must start with a letter
+;; (keyword-starts-with-letter?). Names that LEAD with a number ("9 Lives",
+;; "2nd Wind") are the most common trap. Instead of discarding the name, we
+;; translate the leading number to its word form so the user's intent survives:
+;;   "9 Lives"  -> "Nine Lives"      "2nd Wind" -> "Second Wind"
+;;   "20 Sided" -> "Twenty Sided"    "13th Warrior" -> "Thirteenth Warrior"
+;; This is BOUNDED on purpose (see max-number-word): above the cap a leading
+;; number reads as data — a year/stat/code ("2020 Vision") — not a word, so the
+;; translator declines and the caller falls back (strip symbols, else placeholder).
+;; Depth is cheap to extend; the cap is a quality knob, not an effort limit.
+
+(def ^:const max-number-word
+  "Inclusive cap for number->word name repair. 0..this translate to words; a
+   larger leading number reads as data, not a name, so translation declines.
+   999 covers every realistic name ('100 Hands', '300'); bump to 9999 for
+   '1000 Cuts'. It's a constant precisely so moving the ceiling stays one edit."
+  999)
+
+(def ^:private cardinal-ones
+  ["zero" "one" "two" "three" "four" "five" "six" "seven" "eight" "nine" "ten"
+   "eleven" "twelve" "thirteen" "fourteen" "fifteen" "sixteen" "seventeen"
+   "eighteen" "nineteen"])
+
+(def ^:private cardinal-tens
+  ["" "" "twenty" "thirty" "forty" "fifty" "sixty" "seventy" "eighty" "ninety"])
+
+(defn cardinal->words
+  "Cardinal words for 0 <= n <= 999 (121 -> \"one hundred twenty-one\"), else nil."
+  [n]
+  (cond
+    (or (not (integer? n)) (neg? n) (> n 999)) nil
+    (< n 20)  (nth cardinal-ones n)
+    (< n 100) (let [t (nth cardinal-tens (quot n 10)) o (rem n 10)]
+                (if (zero? o) t (str t "-" (nth cardinal-ones o))))
+    :else     (let [h (nth cardinal-ones (quot n 100)) r (rem n 100)]
+                (if (zero? r) (str h " hundred")
+                    (str h " hundred " (cardinal->words r))))))
+
+(def ^:private cardinal->ordinal-word
+  ;; The irregular ordinal stems; every other word just takes a "th" suffix
+  ;; (fourth, sixth, seventh, tenth, thirteenth, …).
+  {"zero" "zeroth"  "one" "first"   "two" "second"  "three" "third"
+   "five" "fifth"   "eight" "eighth" "nine" "ninth" "twelve" "twelfth"
+   "twenty" "twentieth"  "thirty" "thirtieth"  "forty" "fortieth"
+   "fifty" "fiftieth"    "sixty" "sixtieth"    "seventy" "seventieth"
+   "eighty" "eightieth"  "ninety" "ninetieth"  "hundred" "hundredth"})
+
+(defn- ordinalize-word [w]
+  (or (cardinal->ordinal-word w) (str w "th")))
+
+(defn ordinal->words
+  "Ordinal words for 0 <= n <= 999 (21 -> \"twenty-first\", 13 -> \"thirteenth\",
+   100 -> \"one hundredth\"), else nil. Only the FINAL atom is ordinalized."
+  [n]
+  (when-let [c (cardinal->words n)]
+    (let [sp   (s/last-index-of c " ")
+          head (if sp (subs c 0 (inc sp)) "")
+          tail (if sp (subs c (inc sp)) c)
+          hy   (s/last-index-of tail "-")]
+      (if hy
+        (str head (subs tail 0 (inc hy)) (ordinalize-word (subs tail (inc hy))))
+        (str head (ordinalize-word tail))))))
+
+(defn- parse-uint [digits]
+  #?(:clj  (try (Long/parseLong digits) (catch Exception _ nil))
+     :cljs (let [n (js/parseInt digits 10)] (when-not (js/isNaN n) n))))
+
+(defn- title-number-phrase
+  "Title-case a number phrase for a name lead: \"twenty-one\" -> \"Twenty-one\",
+   \"one hundred\" -> \"One Hundred\" (capitalize the letter after start/space)."
+  [phrase]
+  (s/replace phrase #"(^|\s)([a-z])"
+             (fn [[_ pre ch]] (str pre (s/upper-case ch)))))
+
+(defn lead-number->words
+  "If `name` starts with a number — cardinal (\"9 Lives\") or ordinal
+   (\"2nd Wind\") — return it with that leading number replaced by its
+   Title-Cased word form (\"Nine Lives\", \"Second Wind\"). Returns nil when the
+   name doesn't start with a translatable, in-range (<= max-number-word) number,
+   or when the digits are glued to a non-ordinal letter (dice/version tokens like
+   \"3d6\", \"5e\" are deliberately left alone rather than mangled)."
+  [name]
+  (when (string? name)
+    (let [t (s/triml name)]
+      (when-let [[_ digits tail] (re-matches #"(\d+)([\s\S]*)" t)]
+        (when (<= (count digits) 4)                 ; length guard before parse
+          (when-let [n (parse-uint digits)]
+            (when (<= n max-number-word)
+              (let [ord (re-find #"(?i)^(st|nd|rd|th)($|\s[\s\S]*|[^a-zA-Z][\s\S]*)" tail)]
+                (cond
+                  ;; ordinal: "2nd Wind" -> "Second Wind"
+                  ord
+                  (when-let [w (ordinal->words n)]
+                    (str (title-number-phrase w) (nth ord 2)))
+                  ;; cardinal: only when the digits are a standalone token —
+                  ;; followed by whitespace or the end of the string. Anything
+                  ;; else glued on ("3d6", "5e", or junk like "1@-asdml;") is NOT
+                  ;; a "N word" name, so we decline and let it become "Unnamed".
+                  (re-find #"^(\s|$)" tail)
+                  (when-let [w (cardinal->words n)]
+                    (str (title-number-phrase w) tail))
+                  :else nil)))))))))
+
+(defn repair-name-lead
+  "Best-effort coerce `name` to a valid, letter-leading name by translating a
+   leading NUMBER to its word form (\"9 Lives\" -> \"Nine Lives\"). Returns the
+   repaired name, an already-valid name unchanged, or nil when it can't be
+   salvaged this way (symbol-leading or out-of-range) — the caller then falls
+   back to a placeholder like \"Unnamed <Type>\". Deliberately conservative:
+   symbol-led junk (\"@@@\", \"1@-asdml;\") is left for the placeholder rather
+   than salvaged into more junk. Purely a SUGGESTION; the caller still checks the
+   derived key for collisions."
+  [name]
+  (when (string? name)
+    (let [t (s/trim name)]
+      (if (starts-with-letter? t) t (lead-number->words t)))))
 
 (defn toggle-flag
   "Flip a boolean flag, but leave a collection untouched instead of collapsing it.

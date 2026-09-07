@@ -1,6 +1,7 @@
 (ns orcpub.dnd.e5.db
   (:require [orcpub.route-map :as route-map]
             [orcpub.user-agent :as user-agent]
+            [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
@@ -51,6 +52,19 @@
 ;; Resilient-loader companion to `plugins`: sources that failed validation on load
 ;; are preserved for repair here instead of being silently discarded.
 (def local-storage-plugins-rejected-key "plugins:rejected")
+;; Local "view" overlay for the disable hierarchy: a global "disable all homebrew"
+;; flag and a set of section-disabled [source content-type] pairs. Kept OUT of the
+;; plugin/.orcbrew data (zero format/spec change; never travels with an export) —
+;; it's a per-device preference, so it lives in its own slot.
+(def local-storage-disable-overlay-key "disable-overlay")
+;; Which library-health issue-signature the user last dismissed. Kept per-device
+;; so a dismissed heads-up stays hidden across reloads — but only until the set of
+;; problems changes (the signature changes), and never on the My Content hub.
+(def local-storage-health-dismissed-key "health-dismissed")
+;; Which release the What's New panel last showed here. Per-device: the panel is a
+;; heads-up, not account state, so a stamp that never arrives (private browsing,
+;; storage off) costs one extra showing rather than an error.
+(def local-storage-whats-new-key "whats-new-seen")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -263,6 +277,33 @@
         (re-frame/dispatch [::e5/plugins-save-failed]))
       ok?)))
 
+(defn disable-overlay->local-store [overlay]
+  (when js/window.localStorage
+    (set-item local-storage-disable-overlay-key (str overlay))))
+
+(defn health-dismissed->local-store [sig]
+  (when js/window.localStorage
+    (set-item local-storage-health-dismissed-key (str sig))))
+
+(defn cookie-banner-pending?
+  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
+   It shows unless its consent cookie is set or the localStorage opt-out is on.
+   Two overlays at once on a first visit is one too many, so the release panel
+   waits a visit rather than stacking on top of it."
+  []
+  (let [suppressed? (try
+                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
+                      (catch js/Object _ false))
+        consented? (boolean (re-find #"flatsome_cookie_notice"
+                                     (or js/document.cookie "")))]
+    (not (or suppressed? consented?))))
+
+(defn whats-new-seen->local-store [release-id]
+  (when js/window.localStorage
+    ;; pr-str, not str: the slot is read back with read-string, and a bare id would
+    ;; come back as a symbol and fail the string spec.
+    (set-item local-storage-whats-new-key (pr-str release-id))))
+
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
@@ -274,27 +315,48 @@
   #{local-storage-plugins-key
     local-storage-plugins-rejected-key})
 
+(defn- handle-unreadable
+  "Fallback for a parse failure that self-heal could not repair: preserve
+   homebrew slots to their :corrupt companion (recoverable), remove others."
+  [local-storage-key stored-str e]
+  (if (contains? preserve-on-unreadable-keys local-storage-key)
+    ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
+    ;; then clear the active slot so a poison value can't brick boot. Recoverable.
+    (do
+      (js/console.warn
+       "UNREADABLE homebrew storage; preserved raw copy for recovery in"
+       (corrupt-slot-key local-storage-key) "and cleared the active slot."
+       local-storage-key)
+      (set-item (corrupt-slot-key local-storage-key) stored-str)
+      (.removeItem js/window.localStorage local-storage-key)
+      nil)
+    (do
+      (prn "E" e)
+      (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
+      (.removeItem js/window.localStorage local-storage-key)
+      nil)))
+
 (defn get-local-storage-item [local-storage-key]
   (when-let [stored-str (when js/window.localStorage
                         (.getItem js/window.localStorage local-storage-key))]
     (try (reader/read-string stored-str)
          (catch js/Object e
-           (if (contains? preserve-on-unreadable-keys local-storage-key)
-             ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
-             ;; then clear the active slot so a poison value can't brick boot. Recoverable.
-             (do
-               (js/console.warn
-                "UNREADABLE homebrew storage; preserved raw copy for recovery in"
-                (corrupt-slot-key local-storage-key) "and cleared the active slot."
-                local-storage-key)
-               (set-item (corrupt-slot-key local-storage-key) stored-str)
-               (.removeItem js/window.localStorage local-storage-key)
-               nil)
-             (do
-               (prn "E" e)
-               (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
-               (.removeItem js/window.localStorage local-storage-key)
-               nil))))))
+           ;; SELF-HEAL first: the common corruption is a bare-colon empty
+           ;; keyword (":") from a custom element named "" or "'". Repair it in
+           ;; place, re-save, and load — instead of quarantining/deleting data.
+           (let [{:keys [text count]} (common/sanitize-edn-colons stored-str)]
+             (if (pos? count)
+               (try
+                 (let [healed (reader/read-string text)]
+                   (js/console.warn "REPAIRED" count "invalid empty-keyword key(s) in"
+                                    local-storage-key "- healed in place and re-saved.")
+                   (set-item local-storage-key text)
+                   healed)
+                 ;; sanitize produced something still unreadable -> normal fallback
+                 (catch js/Object _e2
+                   (handle-unreadable local-storage-key stored-str e)))
+               ;; nothing to heal (some other corruption) -> normal fallback
+               (handle-unreadable local-storage-key stored-str e)))))))
 
 (defn reg-local-store-cofx [key local-storage-key item-spec & [item-fn]]
   (re-frame/reg-cofx
@@ -345,6 +407,28 @@
  :local-store-magic-item
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
+
+;; Disable-overlay (global + section view preference). Validated loosely as a map
+;; so an older/emptier shape can't brick boot; the sub tolerates missing keys.
+(spec/def ::disable-overlay map?)
+(reg-local-store-cofx
+ ::e5/disable-overlay
+ local-storage-disable-overlay-key
+ ::disable-overlay)
+
+;; Dismissed health-signature — a number (hash of the current problem set).
+(spec/def ::health-dismissed number?)
+(reg-local-store-cofx
+ ::e5/health-dismissed
+ local-storage-health-dismissed-key
+ ::health-dismissed)
+
+;; Which release the What's New panel last showed on this device.
+(spec/def ::whats-new-seen string?)
+(reg-local-store-cofx
+ ::e5/whats-new-seen
+ local-storage-whats-new-key
+ ::whats-new-seen)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this
@@ -423,25 +507,28 @@
               ;; It's a map: salvage per source — keep the valid sources and
               ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
               (let [{:keys [kept rejected]}
-                    ;; Load acceptance predicate comes from the shared content-specs
-                    ;; registry (the source save & load agree on), not inline — so
-                    ;; the load floor can't drift from what save guarantees.
-                    (e5/salvage-plugins content-specs/valid-for-load? stored)
-                    reconciled (e5/reconcile-rejected
+                    ;; PER-ENTRY salvage: keep each source's valid items, set aside
+                    ;; only its broken ones — so one bad entry can't drop a whole
+                    ;; source. The item floor comes from the shared content-specs
+                    ;; registry (save & load agree), not inline, so it can't drift.
+                    ;; `stored` normally holds only valid items, so `rejected` is
+                    ;; usually empty here — it's the defensive net if the floor tightens.
+                    (e5/salvage-library-items content-specs/valid-item-for-load? stored)
+                    reconciled (e5/reconcile-rejected-items
                                 (get-local-storage-item local-storage-plugins-rejected-key)
                                 rejected
                                 kept)]
                 (if (seq reconciled)
                   (set-item local-storage-plugins-rejected-key (str reconciled))
-                  ;; self-clearing: no quarantined sources left → drop the key
+                  ;; self-clearing: no set-aside entries left → drop the key
                   (when js/window.localStorage
                     (.removeItem js/window.localStorage local-storage-plugins-rejected-key)))
                 (when (seq rejected)
                   (js/console.warn
-                   (str "Quarantined " (count rejected) " invalid homebrew "
-                        "source(s) (kept the other " (count kept) "). Preserved "
-                        "for repair in '" local-storage-plugins-rejected-key
-                        "': " (pr-str (vec (keys rejected))))))
+                   (str "Set aside newly-invalid homebrew entries on load (kept the "
+                        "rest of each source). Preserved for repair in '"
+                        local-storage-plugins-rejected-key "': "
+                        (pr-str (vec (keys rejected))))))
                 kept))))))
 
 ;; Load the name-keyed quarantine map into app-db so the repair UI can
