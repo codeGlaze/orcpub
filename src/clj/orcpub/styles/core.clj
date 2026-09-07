@@ -1799,9 +1799,15 @@
       :justify-content :center}]
 
     [:.conflict-modal
+     ;; 600px was set for a short warning and inherited by the conflict panel,
+     ;; where every row carries two source names and a key: "Keep Eberron - Rising
+     ;; from the Last War's :quori -- rename the other source(s)" wrapped onto two
+     ;; lines, so a list of 27 of them read as a wall. There is no fixed width, so
+     ;; a modal still shrinks to its content -- the export warning is unchanged --
+     ;; and the clamp keeps it off the edges on a narrow screen.
      {:background "#1a1e28"
       :border-radius "5px"
-      :max-width "600px"
+      :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
@@ -1830,6 +1836,24 @@
       :overflow-y :auto
       :color "rgba(255,255,255,0.85)"
       :flex 1}]
+
+    ;; On a phone the panel is the screen. The footer is the part that actually
+    ;; breaks: four buttons in a nowrap flex row overflow a 360px viewport and push
+    ;; the modal wider than the clamp, so let it wrap and let the primary action
+    ;; take the full width when it does. Padding comes down because at this size
+    ;; 20px each side is a fifth of the screen, and the panel takes more height
+    ;; because there is nothing behind it worth looking at.
+    (at-media {:max-width "600px"}
+              [:.conflict-modal
+               {:max-width "calc(100vw - 16px)"
+                :max-height "92vh"}]
+              [:.conflict-modal-header {:padding "12px 14px"}]
+              [:.conflict-modal-body {:padding "12px 14px"}]
+              [:.conflict-modal-footer
+               {:padding "12px 14px"
+                :flex-wrap :wrap
+                :gap "8px"}
+               [:.form-button {:flex "1 1 auto"}]])
 
     ;; Header elements
     [:.conflict-title-icon

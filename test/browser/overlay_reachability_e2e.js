@@ -316,8 +316,11 @@ const TEST_PASSWORD = process.env.ORCPUB_TEST_PASSWORD;
     if (modal) {
       await auditState(page, 'import conflict modal open', '.conflict-modal');
       await page.screenshot({ path: path.join(OUT, '4-conflict-modal.png') });
-      await page.keyboard.press('Escape').catch(() => {});
-      await page.locator('.conflict-modal-footer button').last().click({ timeout: 3000 }).catch(() => {});
+      // Cancel Import, not the primary: the last button in that footer is
+      // "Import with these fixes", so clicking it would import 464 items rather
+      // than close the modal.
+      await page.locator('.conflict-modal-footer .link-button')
+        .filter({ hasText: /cancel/i }).first().click({ timeout: 3000 }).catch(() => {});
       await page.waitForTimeout(800);
     } else {
       skip('import conflict modal', 'a second import of the same pack raised no conflict');
