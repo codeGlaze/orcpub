@@ -27,8 +27,9 @@
   "Persistent contextual notice: a box with an optional fa icon class, body content
    (a string or hiccup — multi-line is fine), and optional actions.
 
-   `accent` draws a rail down the leading edge in the colour you pass, for a notice
-   that wants an identity without being tinted like a severity.
+   `accent` draws a rail down the leading edge for a notice that wants an identity
+   without being tinted like a severity. It names a shade rather than carrying one:
+   :brand is the app's accent. Add further options in styles/core.clj.
 
    `tone` picks the box: :warning (default) is the severity-coloured one, :note is
    the neutral one for a callout that informs rather than warns, so an offer or an
@@ -40,13 +41,12 @@
    a bare anchor."
   [{:keys [icon text actions tone accent]}]
   [:div.p-10.m-b-10.flex.align-items-c
-   {:class (case tone :note "bg-note" "bg-warning")
-    :style (cond-> {:gap "8px"}
-             ;; An accent rail on the leading edge, the same device .health-rail
-             ;; uses, so a callout can carry an identity without a severity colour
-             ;; filling the box. Colour is the caller's: this component should not
-             ;; decide what a notice is about.
-             accent (assoc :border-left (str "3px solid " accent)))}
+   {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
+             ;; A rail on the leading edge, the same device .health-rail uses, so a
+             ;; callout can carry an identity without a severity colour filling the
+             ;; box. Named, not a colour: the shades live in styles/core.clj.
+             (= accent :brand) (conj "callout-accent-brand"))
+    :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
    (for [{:keys [label on-click href target]} actions]

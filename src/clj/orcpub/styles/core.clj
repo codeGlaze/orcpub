@@ -673,6 +673,14 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
+   ;; Accent rails for a callout. The rail is the same device .health-rail uses,
+   ;; but coloured by identity rather than severity, so a notice can say whose it
+   ;; is without borrowing the warning palette. Named options only -- a caller
+   ;; picks one of these rather than passing a colour, which keeps the site's
+   ;; colours in this file instead of spread across component styles.
+   [:.callout-accent-brand
+    {:border-left (str "3px solid " orange)}]
+
    ;; A small neutral pill for naming things inline -- the items a feature covers,
    ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
    ;; colours or its row-specific margin, so it reads as a label rather than as a
