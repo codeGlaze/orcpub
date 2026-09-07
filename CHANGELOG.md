@@ -753,6 +753,14 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
 - **The What's New panel opens when the cookie notice is dismissed** — it no
   longer waits for a reload the visitor never makes (`2573f976`).
 
+### fix/release-panel-hold-ceiling
+
+**Fixed**
+
+- **An ignored cookie notice no longer hides the release panel** — the hold has a
+  ten-second ceiling, after which the panel shows anyway with the notice left
+  where it was, behind it.
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
