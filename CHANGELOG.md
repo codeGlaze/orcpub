@@ -772,6 +772,23 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
   cannot quietly stop asserting. Overlays needing a login, an import or saved
   content are listed as skips rather than left unmentioned.
 
+### hotfix/my-content-dropdown-and-probe-cost
+
+**Fixed**
+
+- **The "+ add content…" dropdown in My Content is readable and matches the app** —
+  its option list follows the theme instead of opening as a white box with
+  invisible entries, and the control takes the same border and text as every other
+  dropdown. `color-scheme` is set on `select` for both themes, so any unclassed
+  dropdown is covered too (`61ddd603`).
+
+**Changed**
+
+- **The release-panel probe runs in 30 seconds instead of 124** — same 18 checks.
+  Cases that did not need their own app boot are folded together, and the two
+  independent stories (the ordinary one, and the cookie notice) run in parallel
+  contexts, so the wall clock is the longer lane rather than the sum (`61ddd603`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
