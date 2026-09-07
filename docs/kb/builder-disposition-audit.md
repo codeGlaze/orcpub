@@ -192,42 +192,51 @@ one — today only monster writes it, and monster is a stat block.
 
 ## The 35 deletions — replacement and shim, one row each
 
-> ⚠️ **CORRECTION (2026-09-07, same day).** An earlier version of this section said "zero new shim
-> code." That was true of the compile path and false of the builder path, and the builder path is
-> where users hit it. D34 says a released shape gets *a characterization test and a read-shim*; the
-> arm is the test's subject, not the shim. Two shims are needed, described below.
+> ⚠️ **Two corrections, same day (2026-09-07).** First version said "zero shim code" — false on the
+> builder path. Second version proposed ~20 builder-side legacy readers and read-only legacy rows.
+> Superseded by the model below, which the user set: **normalize legacy shapes to the canonical one at
+> import, from one shim registry, so the old stuff can be deprecated OUT** rather than read forever.
 
-**Compile path — nothing moves.** Deleting a widget removes what *writes* a key. Every arm that
-*reads* one — `make-feat-modifiers`, `make-feat-selections`, `race-option`, `background-option`, the
-cljs assembly — stays exactly as it is (D9). An old pack compiles through the unchanged arm and the
-*character* is right. Import does not strip unknown keys (`bf/fields->spec` is optional-by-default;
-`strip-export-blanks` drops only nils and empties), so `:grants` and legacy keys coexist in one item.
-
-**Builder path — the read-shim (D34).** The author imports the old pack and opens the race to edit it.
-`grant-rows` reads `:grants`; the old race has none; the widget that used to show `:props :skill-prof`
-is deleted. **The form is blind to the item's own grants.** The author re-adds what looks missing and
-saves — the item now carries both the invisible legacy key and the new row, and every character built
-on it is double-granted. So `grant-rows` must derive rows from the legacy keys too — one reader per
-key in the "writes today" column:
+**The model: one shim registry, applied once, at the seam June reserved.**
 
 ```
-:props  {:skill-prof {:athletics true}}     →  row {:pool :skills :key :athletics}
-:profs  {:language-options {:choose 2 …}}   →  row {:pool :languages :count 2 :filter #{…}}
-:languages {"Elvish" true}                  →  row {:pool :languages :key :elvish}   ; via name-to-kw (D10)
+raw :plugins → [normalize-legacy]  → resolved-content → pools → grants → compiler / builder / export
+                 ↑ legacy_shims.cljc          ↑ ::e5/plugin-vals (spell_subs.cljs:243), identity today —
+                   one entry per legacy key     the slot the direction doc reserved for resolve-variants
 ```
 
-This is real code — ~20 readers — and it is the first time on this branch the generator introduces a
-**new key for an existing fact**. `effect-rows` never needed this: it reads `:props :ac-bonus`
-directly, which *is* the storage. `grant-rows` is different in kind.
+- **`legacy_shims.cljc`** — a registry, `{legacy-key {:since <date> :remove-after <date> :normalize (fn
+  [item] …)}}`, one entry per row of the 35-table's "writes today" column. Each entry rewrites its key
+  into `:grants [{:pool … }]` and dissocs itself. Date-stamped per D34; the backfill ledger tracks them.
+- **Applied once**, at `::e5/plugin-vals`. Everything downstream — compiler, builder, export — sees
+  only canonical `:grants`. So: **no builder-side readers**, no read-only legacy rows, export writes
+  canonical (v2), and an author who imports an old pack and opens a race sees its grants as grant rows
+  because they *are* grant rows by the time the form reads them.
+- **Then the legacy compiler arms are unreachable** — nothing downstream carries the old key — and
+  each is `#_`-struck per D34 (date + pinning test + ledger row), removed ~3 months later. That is the
+  deprecate-out path; it did not exist under "keep both readable forever."
 
-**Save path — do NOT migrate.** Legacy `language-selection` carries `:ref [:languages]`;
-`grant-selection` deliberately carries no `:ref` (the prototype verified one breaks nested
-addressing) and is addressed by nesting. **Those are different storage paths for a character's
-pick.** If the builder rewrites an old race from `:profs` to `:grants` on save, every character
-built on that race has its language choice at a path the race no longer produces — orphaned, the
-D10 failure. So: legacy rows render **read-only** ("authored in the older format") and keep their
-keys; only rows the author *adds* write to `:grants`. Converting an item is an explicit act, if
-offered at all, and needs a test that a character's pick survives it — not built here.
+**Precondition — pick-path safety.** Normalization changes what an item *is*; it must not change
+where a character's existing picks live. The 35 legacy keys split in two:
+
+| class | legacy keys | today compiles to | normalizes to | safe? |
+|---|---|---|---|---|
+| **fixed** ("grant these specific ones") | `:props :skill-prof / :weapon-prof / :armor-prof / :language / :damage-resistance / :damage-immunity / :skill-prof-or-expertise / :tool-prof-or-expertise {k true}`, `:profs :skill / :tool k`, `:languages "Name"` | a **modifier** — no selection, no pick | `{:pool p :key k}` | ✅ **once `:key` mode emits modifiers** (below). No pick before, none after |
+| **choice** ("choose N") | `:profs :language-options / :skill-options / :weapon-proficiency-options / :tool-options / :skill-expertise-options {:choose n …}`, `:props :language-choice / :skill-tool-choice / :weapon-prof-choice n` | a **selection** with `:ref [:languages]` etc. | `{:pool p :count n …}` — a selection with **no `:ref`**, nested | ⚠️ **blocked** — the pick moves path; existing characters orphan |
+
+The **fixed** class is most of the table (rows 1, 3, 5, 7–11, 14–18, 23–24, 29–32) and can be
+normalized as soon as the `:key` fix lands. The **choice** class waits on one decision: either
+`grant-selection` honours a pool-declared `:ref` (the prototype found a `:ref` on a *nested* grant
+broke addressing — re-test whether that holds for `:profs`-level grants, which are not nested), or
+a `content_reconciliation` pass rewrites pick paths at load (the pattern
+`reconcile-spell-selection-keys` already uses). Registry entries for the choice class carry
+`:status :blocked-on-ref` until then, so nothing normalizes them by accident.
+
+**Prerequisite fix — `grant-selection` `:key` mode.** Direction doc §"The spine", line 72: *"`grant
+{:pool :feat :key :lucky}` — fixed. Equivalent to a modifier (D4)."* The bridge prototype emits a
+one-option `selection-cfg` instead. Branch-local, so fixed outright when the registry lands: `:key`
+mode returns the entry's `::t/modifiers`; `:count` mode returns a selection. The grant-matrix test's
+`:key` assertions change with it.
 
 **The one deliberate incompatibility** runs the other way: a pack carrying `:grants` exports as
 format v2 and an *old* build declines it rather than loading it with the grants silently missing.
@@ -271,10 +280,12 @@ the "pin" column. Removal of the struck widget after ~3 months, tracked in `back
 | 34 | feat | `feat-speed-bonuses` | `[:props :speed n]` | `make-feat-modifiers :speed` | an EFFECT kind (`:number`), not a grant row | `modifiers/speed` |
 | 35 | feat | `feat-spellcasting` ×3 | `[:props :magic-novice\|:ritual-casting\|:attack-spell true]` | `make-feat-selections` templates | **not yet** — waits for the spell pool + nested grants; stays as passthrough hiccup | |
 
-Rows 1–32 are grant-row deletions and need the seven pool registrations, the node, **and the ~20
-legacy readers** — the read-shim — before any widget is struck.
+Rows 1–32 are grant-row deletions and need the seven pool registrations, the node, and **the shim
+registry normalizing their legacy keys at import** before any widget is struck — fixed-class rows
+first, choice-class rows once the `:ref` question is settled.
 Row 33 is a widget swap to a shared widget that already exists. Row 34 is an `effect-rows` kind.
-Row 35 stays until spells are a pool. **Not one of the 35 touches a compiler arm; all 32 grant rows need the read-shim.**
+Row 35 stays until spells are a pool. **Not one of the 35 touches a compiler arm at deletion time; each arm is struck later, once its
+shim has normalized it out of reach.**
 
 Two things the table makes visible that the summary did not:
 

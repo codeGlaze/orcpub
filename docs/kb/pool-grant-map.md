@@ -126,11 +126,11 @@ grepping.
 The pattern in all three: the answer was in `content-extensibility-direction.md` or in the code, and
 was re-derived worse. **Grep the KB before designing.**
 
-## The path — three items, then wait for a case
+## The path — four items, then wait for a case
 
 **Nothing writes `:grants`.** The engine, the data path and the registry are all built and tested,
 and no builder emits the key. That single gap is the whole reason none of this is visible in the
-app, and closing it needs three things — the middle one is Track E3, which `builder-form-schemas.md`
+app, and closing it needs four things — the second is Track E3, which `builder-form-schemas.md`
 already owns:
 
 1. ✅ **`:grants` — one key, always a vector** (2026-09-07). Both compile sites `keep` over it;
@@ -147,12 +147,13 @@ already owns:
    component, not a forked menu per builder… the builder's 'add a grant' UI iterates the registered
    pools."* Needs `:grants`, dynamic field options (from a subscription; dependent on a sibling), and
    **the D30 tag fix** — the moment a builder writes a language grant, the choice has to land where
-   the bespoke one did, or the conversion is a visible regression. And **legacy readers**: `grant-rows`
-   must render an imported item's `:props :skill-prof` / `:profs :language-options` / `:languages` as
-   rows, read-only, or the form is blind to the item's own grants and authors double-grant. Never
-   migrate on save — legacy and grant selections address a character's pick at different paths
-   (`builder-disposition-audit.md`, "The 35 deletions"). Built against feat, because feat is the
-   only silo needing the full set.
+   the bespoke one did, or the conversion is a visible regression. Built against feat, because feat
+   is the only silo needing the full set.
+4. **The shim registry — `legacy_shims.cljc`, applied at `::e5/plugin-vals`.** Legacy keys normalize
+   to `:grants` once at import; downstream sees only canonical; the legacy arms then deprecate out
+   (D34). Fixed-class keys (modifier-producing) first, once `grant-selection`'s `:key` mode emits
+   modifiers per D4; choice-class keys (selection-producing) wait on the `:ref` decision. Full table:
+   `builder-disposition-audit.md`, "The 35 deletions".
 
 Everything else in the AIR table is real but **waits for a case that demands it**. In particular:
 

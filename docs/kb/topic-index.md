@@ -289,7 +289,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, safe, safety, section, selection
+**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, section, selection
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -718,7 +718,7 @@ _pool-grant-map · pool grant map_
 - Spells: closer than it looks
 - Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
-- The path — three items, then wait for a case
+- The path — four items, then wait for a case
 
 ## registry-before-after.md
 
@@ -786,7 +786,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
