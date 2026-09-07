@@ -2,7 +2,8 @@
 
 Audit of `feat-builder` (`views.cljs:5877`) against what the compiler actually accepts. Written
 because a previous pass sorted the widgets by *shape* and called that a map; shape alone misses the
-three things that matter — the verb split, the AC vocabulary the builder never got, and the dead
+four things that matter — the verb split and the built-but-unwired hook that dissolves it, the AC
+vocabulary the builder never got, the third grant vocabulary in the Custom Feat path, and the dead
 control.
 
 Method: every widget the builder renders → the `:props` key it writes → the arm in
@@ -27,6 +28,43 @@ silo is the prime cross-silo target."
 
 This is why feat was planned LAST. Every other silo has to be opened up to cross-pool granting
 first; feat is where the two halves meet.
+
+## 1b. The hook that dissolves the split is ALREADY BUILT — it is wired to one silo, one pool
+
+`grant-selection` (`options.cljc:3922`) is the generic cross-pool grant, and its own docstring says
+so: *"Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass."*
+Four modes, of which two ARE the two verbs:
+
+| mode | meaning | verb |
+|---|---|---|
+| `{:from p :choose n}` | n from the whole pool | **select** (user picks) |
+| `{:from p :filter #{…}}` | n from a subset | select, narrowed |
+| `{:from p :key :k}` | one forced entry | **grant** (creator picks) |
+
+So the verb split is not a missing abstraction. It is a wiring gap. Three wires, none of them the
+hook:
+
+1. **The registry holds one pool.** `template.cljc:1563` passes
+   `{:fighting-styles {:name "Fighting Style" :options fighting-style-pool}}`. Languages, skills,
+   tools, weapons and armor are not registered — though `content-pools/pool` is the generic
+   constructor for exactly that (built-in ++ homebrew, order-stable).
+2. **One call site.** `feat-option-from-cfg` is the only assembly fn that takes `grantable-pools`.
+3. **No builder writes `:grant`.** No widget in any builder emits the key.
+
+The three feat-only select props are instances of the generic key, and the grant widgets are its
+`:key` mode:
+
+| today | as a grant | who has it today |
+|---|---|---|
+| `{:language-choice 2}` | `{:grant {:from :languages :choose 2}}` | feat only |
+| `{:skill-tool-choice 3}` | `{:grant {:from :skills-and-tools :choose 3}}` | feat only |
+| `{:weapon-prof-choice 4}` | `{:grant {:from :weapons :choose 4}}` | feat only |
+| `{:language {:elvish true}}` | `{:grant {:from :languages :key :elvish}}` | race/subrace/monster only |
+
+Old keys stay as D9 read-shims — nothing saved moves. The same registry entry that lets a feat grant
+a specific language lets a race offer a language *choice*, because the hook does not know who owns
+it. **This is the years-old asymmetry the pool/grant initiative was started to fix**
+(`content-extensibility-direction.md`), and the prototype is one pool short of demonstrating it.
 
 ## 2. The AC work landed a general vocabulary. The feat builder never got it.
 
@@ -107,19 +145,44 @@ number. That is the one thing worth a unit test.
 
 ## 6. What this changes about sequencing
 
-Feat is not a conversion. It is three jobs that happen to meet in one builder:
+Feat is not a conversion. It is three jobs that happen to meet in one builder, in this order:
 
-1. **Extend** — drop `(bf/effect-rows)` into feat and the six AC/weapon props become authorable.
-   Already written, already tested in fighting style. Smallest, most valuable step.
-2. **Open up** — make the grant/select verbs reachable from every silo, so feat gets `:language`
-   and race gets `:language-choice`. This is the "everything is a feat" work and it touches
-   `make-feat-selections`' caller set, not the builder.
-3. **Convert** — the field-schema port. Cheapest of the three, and the least useful done first: a
-   generated form over the un-opened data path renders the same gaps in a nicer grid.
+1. **Register a second pool and thread `grantable-pools` to one more silo.** The smallest change
+   that proves the bridge prototype generalises, and the load-bearing one: it is what makes the
+   grant/select verbs reachable from anywhere. Registry entry + one more assembly-fn arg; the hook
+   itself is untouched (§1b).
+2. **Extend** — drop `(bf/effect-rows)` into feat's `extra-fields` and the six AC/weapon props
+   become authorable. Already written, already tested in fighting style. One line, independent of
+   step 1, and worth doing whenever (§2).
+3. **Convert** — the field-schema port. Cheapest, and least useful first: a generated form over the
+   un-opened data path renders the same gaps in a nicer grid.
 
 `declarative-grant-vocabulary.md` §Sequencing already said this ("make the data path uniform first
 — THEN let the registry generate the builder form"). Feat being last in the original plan is the
 same conclusion arrived at from the other end.
+
+## 7. A THIRD grant vocabulary — the Custom Feat option list
+
+`decision-vocabulary.md` compares vocabularies A (`:props`, flat, cljc) and B (`:level-modifiers`,
+level-gated, cljs). There is a third, unlisted: the **Custom Feat** "Feat Modifiers" multiselect
+built by `custom-option-builder` (`options.cljc:1470`, list at `:1855-1960`). It is the in-character
+custom feat, not the feat builder page, and it spells the same effects a third time as ~20 hardcoded
+`option-cfg`s — "Speed +10", "Initiative +5", "Passive Perception +5", "Medium Armor: Max DEX Bonus
+of 3", "Three Skills or Tools" — each a fixed instance of a prop the compiler already parameterises.
+
+Two defects in it, found while chasing `:improvised-weapons-prof`:
+
+- **`"Passive Investigation +5"` grants passive PERCEPTION** (`options.cljc:1901`).
+  `modifiers/passive-investigation` exists (`modifiers.cljc:445`) and the `:props` path uses it
+  correctly; this is a copy-paste from the entry directly above. ⚠️ Fixing it changes the sheet of
+  any saved character that selected it — a behaviour change, not a silent tidy-up.
+- **`"Improvised Weapons Proficiency"`** (`:1923`) has `:name` and `:help` and no `:modifiers`. A
+  player selects it, it persists in the character entity, the box stays checked — and it grants
+  nothing and shows no trait. `modifiers/weapon-proficiency :improvised` exists and Tavern Brawler
+  uses it (`:1813`).
+
+So `:improvised-weapons-prof` is inert in **both** authoring surfaces, in two different ways: no
+compiler arm in the feat builder (§3), no `:modifiers` in the Custom Feat list.
 
 ## Corrections
 - **A previous pass reported feat as "14 widgets → 3 shapes + 3 one-offs" and recommended feat as
@@ -127,3 +190,6 @@ same conclusion arrived at from the other end.
   wrong: it counted controls and never diffed the builder against the compiler, so it missed the
   verb split (§1), the entire AC vocabulary gap (§2), and the dead control (§3). Sorting widgets by
   the control they render is not a map of a builder; the map is builder-key → compiler-arm.
+- **§6 originally led with the `bf/effect-rows` extension.** Reordered once `grant-selection` was
+  found: extending feat is a one-line win but silo-local, while registering a second pool is what
+  actually unblocks every other builder. The extension keeps its place as an independent step.

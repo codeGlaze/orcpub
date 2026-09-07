@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, background, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, background, breakdown, con, fixed, floating, increment, mental, race, reader, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -54,7 +54,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, ring, scalar, shield, sweep, tie-break, unarmored, worn
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, ring, scalar, shield, sum, sweep, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -101,7 +101,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, borrowing, check, control, css, expression, fires, green, grown, lesson, machine, page, past, review, screenshot, stale, stays, vanished
+**topics:** block, borrowing, check, control, css, expression, fires, green, grown, lesson, machine, page, past, relationship, review, screenshot, stale, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -343,7 +343,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, draft, events, framework, generated, irreducible, loops, page, pool, registry, routes, schema, spa
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, draft, events, framework, generated, irreducible, loops, pool, registry, routes, schema, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -401,7 +401,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, independent, library, management, override, owned, per-account, same-key, sources, variant, versioned, warn
+**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, sources, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -537,14 +537,16 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** accepts, arm, bool, compiler, control, conversion, dead, feat, map-of-flags, modifiers, ranges, scalar, select, tag, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, dex, feat, grant, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, verbs, widget, widgets
 
 - 1. The verb split is PHYSICAL — both halves already exist, wired to opposite silos
+- 1b. The hook that dissolves the split is ALREADY BUILT — it is wired to one silo, one pool
 - 2. The AC work landed a general vocabulary. The feat builder never got it.
 - 3. Dead control
 - 4. Hardcoded UI ranges the compiler does not impose
 - 5. Full widget map
 - 6. What this changes about sequencing
+- 7. A THIRD grant vocabulary — the Custom Feat option list
 - Corrections
 
 ## fighting-style-authoring.md
@@ -611,7 +613,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _homebrew-content-merge · homebrew content merge_
 
-**topics:** -commented, -ed, assembly, built-in, built-ins, concat, def, feats, grappler, homebrew-extensible, merge, mostly, nearly, plugin, srd-minimal, static, sub, supported
+**topics:** -commented, -ed, built-in, built-ins, commented, concat, def, feats, grappler, homebrew-extensible, merge, mostly, nearly, plugin, srd-minimal, static, sub, supported
 
 - The trap, concretely (feats)
 - The general pattern (applies to most content types)
@@ -685,7 +687,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, identically, input-field, plumbing, registry-driven, spec-valid, type, wires
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, identically, input-field, plumbing, registry-driven, representative, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -702,7 +704,7 @@ _registry-before-after · registry before after_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bucket, class-feature, d29, detail, feat, grant, grant-authoring, hook, node, phase, pool, pools, proven, round-trip, spread, track
+**topics:** 2026-09-05, background, bucket, class-feature, d29, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, remaining, round-trip, spread, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -721,7 +723,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, feat, granted, ledger, party, permission, permissions, prop, rules, scope, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, everyone, expressible, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
