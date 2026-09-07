@@ -47,7 +47,7 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server answers 503 with a `Retry-After` instead of holding the connection open. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game, which no character can exceed. |
-| `ORCPUB_PDF_MAX_CARDS` | `200` | Most cards of one kind a single export prints. A level 20 wizard's spellbook is about 44. |
+| `ORCPUB_PDF_MAX_CARDS` | `200` | Most **cards** — not pages — of each kind a single export prints; nine cards to a page, so 200 is roughly 23 pages. Counted per kind, so spells, items and features are bounded separately. A level 20 wizard's spellbook is about 44. |
 
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
@@ -83,7 +83,7 @@ picked up:
   ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000                  DEFAULT   how long an export waits for a slot
   ORCPUB_PDF_MAX_RETRIES           3                      DEFAULT   busy-page retries before it waits for a click
   ORCPUB_PDF_MAX_CASTER_SECTIONS   13                     DEFAULT   most spellcasting sections on one sheet
-  ORCPUB_PDF_MAX_CARDS             200                    DEFAULT   most cards of one kind per export
+  ORCPUB_PDF_MAX_CARDS             200                    DEFAULT   cards (not pages) of each kind per export; 9 to a page
   [BRANDING]
                                    3 of 21 set
 -------------------------------------------------------------------------------------------------------

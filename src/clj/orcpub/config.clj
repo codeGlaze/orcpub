@@ -213,6 +213,18 @@
        "        e.g.  openssl rand -base64 48\n"
        "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
 
+(def email-missing-message
+  "Registration is inside the same try as the verification email, so an unconfigured mail
+   server does not merely skip the email -- signup throws and the caller is told to \"try
+   again\", which will never work. Password reset fails the same way."
+  (str "EMAIL_SERVER_URL is not set, so no mail can be sent.\n"
+       "   Registration FAILS for every new user -- the verification email is sent inside the\n"
+       "   signup transaction, so the whole signup errors with \"please try again\". Password\n"
+       "   reset fails too, so existing users cannot recover an account.\n"
+       "   Fix: set EMAIL_SERVER_URL to your SMTP host, with EMAIL_ACCESS_KEY and\n"
+       "        EMAIL_SECRET_KEY for authentication, then restart.\n"
+       "        EMAIL_SERVER_PORT defaults to 587; set EMAIL_SSL or EMAIL_TLS if required."))
+
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
    banner nobody reads because it scrolls is no better than no banner."
@@ -242,9 +254,13 @@
      :note "JWT signing key; every login and API call fails without it"
      :fix signature-missing-message}
     {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
+    {:group "email"    :var "EMAIL_SERVER_URL" :critical? true :fix email-missing-message
+     :note "SMTP host; signup and password reset fail without it"}
+    {:group "email"    :var "EMAIL_SERVER_PORT" :note "defaults to 587"}
+    {:group "email"    :var "EMAIL_ACCESS_KEY" :secret? true}
+    {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS"}
     {:group "email"    :var "EMAIL_ERRORS_TO"}
-    {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
     {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}]
    [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
      :note "worker pool: requests of any kind in flight"}
@@ -255,9 +271,9 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
-     :note "most spellcasting sections on one sheet"}
+     :note "spellcasting sections one sheet may grow to"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "most cards of one kind per export"}]))
+     :note "cards (not pages) of each kind per export; 9 to a page"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."

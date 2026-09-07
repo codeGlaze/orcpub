@@ -151,3 +151,21 @@
                        (str/starts-with? % "-"))
                   blk)
           (pr-str blk)))))
+
+(deftest critical-settings-are-the-ones-that-actually-break-the-site
+  (testing "SIGNATURE: no login, signup or authenticated call works"
+    (is (some #(and (= "SIGNATURE" (:var %)) (:critical? %)) config/settings)))
+  (testing "EMAIL_SERVER_URL: send-verification-email runs INSIDE the signup transaction,
+            so unconfigured mail does not merely skip the email -- registration throws and
+            tells the user to try again, which never works. Password reset fails too."
+    (is (some #(and (= "EMAIL_SERVER_URL" (:var %)) (:critical? %)) config/settings)))
+  (testing "and the ones that degrade rather than break are NOT marked, so the (!!) lines
+            keep meaning something"
+    (doseq [v ["PORT" "CSP_POLICY" "DEV_MODE" "LOAD_HOMEBREW_URL" "EMAIL_ERRORS_TO"
+               "ORCPUB_PDF_CONCURRENCY"]]
+      (is (not (some #(and (= v (:var %)) (:critical? %)) config/settings))
+          (str v " is marked critical but has a working default"))))
+  (testing "every critical setting explains how to fix it, not just what broke"
+    (doseq [{:keys [var fix]} (filter :critical? config/settings)]
+      (is (some? fix) (str var " is critical with no remedy"))
+      (is (str/includes? fix "Fix:") (str var "'s message has no Fix: line")))))

@@ -21,6 +21,11 @@
 
         ;; NEVER log the raw uri: a datomic:sql one carries the database password.
         (println "Creating/connecting to Datomic database:" (config/redact-secrets uri))
+        ;; Unset, the uri defaults to a LOCAL DEV transactor. In production that fails with
+        ;; "cannot connect to localhost:4334", which names the symptom and not the cause.
+        (when-not (config/datomic-env)
+          (println (str "NOTE: DATOMIC_URL is not set, so the local development default is in use.\n"
+                        "      If this is not a development machine, set DATOMIC_URL and restart.")))
         (d/create-database uri)
 
         (let [connection (try
