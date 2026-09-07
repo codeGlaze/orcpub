@@ -132,6 +132,26 @@ then throws the failure away. Use `clickIfVisible(locator, { timeout, label })` 
 visibility first, caps the wait, and reports a miss instead of hiding it. The runner greps
 for the pattern and warns, so it cannot quietly come back.
 
+### The sweep, so nobody redoes it
+
+Every probe in the runner was traced. Result as of 2026-09-07:
+
+| probe | verdict |
+| --- | --- |
+| `character_image_capture` | **fixed** 400s -> 126s, 9 x 30s |
+| `sticky_header` | **fixed** 193s -> 73s, 4 x 30s |
+| `spell_layout_pdf` | **fixed** 86s -> 55s |
+| `whats_new` | clean. 110s is real: 8 x 12.5s `page.goto`, because "a fresh browser is shown it once" needs fresh loads |
+| `class_handlers_functional` | clean, no failed calls |
+| `equipment_add_functional` | clean, no failed calls |
+| `spell_help_laziness` | clean, no failed calls |
+| `notification_flows`, `notifications_acceptance`, `starting_equipment_*` | 3-9s, nothing to find |
+| `export_busy_retry` | not traced — needs `lein e2e-server-busy` |
+
+`textContent()` and `hover()` carry the same 30s default as `click()`, so five swallowed
+calls elsewhere were given explicit short timeouts as insurance. None were firing; they were
+one absent element away from costing 30s each.
+
 Note the second-order trap: suppressing overlays made these worse, not better. The banner
 used to be there, so the click succeeded. Suppress it and the same line waits the full
 timeout for something that will never appear.

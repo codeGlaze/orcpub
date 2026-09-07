@@ -115,11 +115,11 @@ function saturate(until) {
   const navigations = [];
   tab.on('framenavigated', f => { if (f === tab.mainFrame()) navigations.push(f.url()); });
 
-  const heading = await tab.textContent('h1').catch(() => null);
+  const heading = await tab.textContent('h1', { timeout: 5000 }).catch(() => null);
   check('a real Export lands on the busy page',
         heading && /sheets are being made/i.test(heading), heading);
 
-  const countdown = await tab.textContent('#countdown').catch(() => null);
+  const countdown = await tab.textContent('#countdown', { timeout: 5000 }).catch(() => null);
   check('it says when it will try again',
         countdown && /trying again in \d+ second/i.test(countdown), countdown);
 

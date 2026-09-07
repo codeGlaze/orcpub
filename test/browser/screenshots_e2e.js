@@ -57,7 +57,7 @@ function findChrome() {
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(OUT, '2-open.png') });
 
-    const term = await page.locator('.inv-combo-row').first().textContent().catch(() => null);
+    const term = await page.locator('.inv-combo-row').first().textContent({ timeout: 3000 }).catch(() => null);
     if (term) {
       await search.fill(term.trim().slice(0, 4));
       await page.waitForTimeout(1200);
