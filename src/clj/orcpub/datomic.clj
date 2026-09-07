@@ -6,6 +6,7 @@
   All operations include error handling with clear error messages."
   (:require [com.stuartsierra.component :as component]
             [datomic.api :as d]
+            [orcpub.config :as config]
             [orcpub.db.schema :as schema]))
 
 (defrecord DatomicComponent [uri conn]
@@ -18,7 +19,8 @@
           (throw (ex-info "Database URI is required but not configured"
                           {:error :missing-db-uri})))
 
-        (println "Creating/connecting to Datomic database:" uri)
+        ;; NEVER log the raw uri: a datomic:sql one carries the database password.
+        (println "Creating/connecting to Datomic database:" (config/redact-secrets uri))
         (d/create-database uri)
 
         (let [connection (try
@@ -26,7 +28,7 @@
                            (catch Exception e
                              (throw (ex-info "Failed to connect to Datomic database. Please verify the database URI and that Datomic is running."
                                              {:error :db-connection-failed
-                                              :uri uri}
+                                              :uri (config/redact-secrets uri)}
                                              e))))]
           (try
             @(d/transact connection schema/all-schemas)
@@ -34,7 +36,7 @@
             (catch Exception e
               (throw (ex-info "Failed to initialize database schema. The database may be in an inconsistent state."
                               {:error :schema-initialization-failed
-                               :uri uri}
+                               :uri (config/redact-secrets uri)}
                               e))))
           (assoc this :conn connection))
         (catch clojure.lang.ExceptionInfo e
@@ -42,10 +44,11 @@
         (catch Exception e
           (throw (ex-info "Unexpected error during database initialization"
                           {:error :db-init-failed
-                           :uri uri}
+                           :uri (config/redact-secrets uri)}
                           e))))))
   (stop [this]
     (assoc this :conn nil)))
 
 (defn new-datomic [uri]
+  ;; The real uri, not a redacted one -- this is what d/connect is given.
   (map->DatomicComponent {:uri uri}))

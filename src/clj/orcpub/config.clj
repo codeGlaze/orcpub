@@ -13,6 +13,26 @@
     (when (.exists f)
       (not-empty (str/trim (slurp f))))))
 
+(defn redact-secrets
+  "Blank out credentials in a connection string so it can be logged.
+
+   A Datomic SQL URI carries the database password in plain sight:
+
+     datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
+
+   Handles both shapes a credential arrives in -- a `password=`/`secret=`/`token=`
+   query parameter, and `scheme://user:pass@host` userinfo. Anything else is returned
+   unchanged, so a `datomic:mem://orcpub` or `datomic:dev://localhost:4334/orcpub`
+   still reads normally in the log.
+
+   Redacting is not the same as being safe to print: only call this on values that are
+   meant to be seen, and never widen what is logged because it is redacted."
+  [s]
+  (when s
+    (-> (str s)
+        (str/replace #"(?i)([?&](?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
+        (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
+
 (defn datomic-env
   "Return the raw DATOMIC_URL environment value or nil if unset." []
   (or (env :datomic-url)
