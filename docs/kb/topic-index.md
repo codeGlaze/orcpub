@@ -54,7 +54,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, authored, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, ring, scalar, shield, sweep, tie-break, unarmored, worn
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, ring, scalar, shield, sweep, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -343,7 +343,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, form, framework, generated, irreducible, loops, pool, registry, routes, schema, spa, type
+**topics:** builder-item, component, conventions, d22, draconic, events, form, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, schema, spa
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -356,6 +356,7 @@ _content-extensibility-framework · content extensibility framework_
 - 3a. Pool
 - 3b. Grant
 - 3c. Mechanics as data
+- 3c′. Where the cost lives — authored-data shape is never a runtime cost
 - 3d. Worked example — draconic ancestry (the proven slice)
 - 3e. How to add a pool / a grant
 - 4. Invariants & gotchas (agents: violating these breaks user data or the framework)
@@ -754,7 +755,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** apply, armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, roll, rolling, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated

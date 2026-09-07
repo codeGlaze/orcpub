@@ -27,6 +27,11 @@ the commit**. That is the whole point of it being a decision.
 
 ## Judgement calls — no test can catch these
 
+- **Choosing an authored data shape** (a new `:props` key, `:grant` vs `:grants`, map vs vector) —
+  runtime cost is not a factor; content compiles once and the hot path never sees it
+  (`content-extensibility-framework.md` §3c′). Decide on readability, uniformity with the other
+  authored collections, and the wire format (D9, D33).
+
 ### Before designing anything (a control, a palette, a layout)
 
 **List the branches first.** `git for-each-ref --sort=-committerdate refs/remotes/origin | head -25`

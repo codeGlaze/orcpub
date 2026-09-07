@@ -157,6 +157,30 @@ Content carries real mechanics declaratively via a `:props` map compiled by the 
 `opt5e/plugin-modifiers` / `make-feat-modifiers` vocabulary (speed, flying-speed,
 saving-throw-advantage, skill-prof, language, …). Built-ins with no `:props` are unchanged.
 
+### 3c′. Where the cost lives — authored-data shape is never a runtime cost
+
+Recorded because it was re-derived during a vocabulary decision (`:grant {…}` vs `:grants [{…}]`,
+2026-09-07) and an agent raised "objects in arrays are a performance hit" as if it applied.
+
+**Three layers, one hot:**
+
+| layer | what it is | how often it runs |
+|---|---|---|
+| authored data | the `.orcbrew` / `:plugins` maps — `:props`, `:grants`, `:ability-increases` | read **once**, when the template assembles |
+| compiled template | `selection-cfg`s / `option-cfg`s — persistent vectors of persistent maps, thousands of them | built once per content change (`::char5e/template-selections` is a memoized sub, D11) |
+| character build | walks the compiled template against one character's choices | **this is the hot path** |
+
+The hot path runs over the *compiled* layer, whose shape is fixed regardless of how the source
+was spelled: every authored collection is already a vector of maps — `:selections [{…}]`,
+`:options [{…}]`, `:modifiers [{…}]`, `:traits [{…}]`. So a one-element `[{…}]` in authored data
+costs one PersistentVector and one `mapcat` at assembly, not per render and not per recompute. If
+vectors-of-maps were a cost that mattered here, the template would already be paying it ten
+thousand times over.
+
+**Consequence for vocabulary decisions:** choose authored shapes for readability, uniformity and
+the wire-format (D9, D33) — never for runtime performance. The one performance rule that *does*
+apply is D11: derive pools as layered memoized subs, never inline inside a hot sub.
+
 ### 3d. Worked example — draconic ancestry (the proven slice)
 - Pool: `::races5e/draconic-ancestry-pool` = built-in colours `++` `::e5/draconic-ancestries`
   homebrew (`content_pools/pool`). Dragonborn's "Draconic Ancestry" choice grants from it.
