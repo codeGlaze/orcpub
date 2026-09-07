@@ -309,9 +309,14 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 4. **C2 → C3** — feature registry then builder surfaces (on F + B1).
 5. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
 6. ~~**E** — last.~~ **Superseded 2026-09-05** (see Track E above): E was pulled forward because its
-   missing primitive is item 1's substrate. Concretely: the grant-authoring "UI" is **one field type**,
-   `:type :grant`, next to `:enum`/`:boolean`/`:rows` — a field that writes `{:pool p :count n}` into the
-   content. Pools stay source-registered; builders *use* them through this field. Built against feat
+   missing primitive is item 1's substrate. Concretely: the grant-authoring "UI" is **one node**,
+   `grant-rows`, next to `effect-rows` — it writes `{:grants [{:pool p :count n} …]}` into the content.
+   **It names no pool.** A builder embeds it once with only its own silo id, `(bf/grant-rows :feat)`, and
+   the node shows every registered pool whose `:offerable-by` includes that silo. So registering a pool
+   puts it in every eligible builder with zero schema edits — "register once, grantable everywhere" made
+   literal. (A per-pool field, `{:type :grant :pool :languages}` in each schema, was briefly proposed; it
+   is the five-edits problem again and is rejected.) Pools stay source-registered and carry the offer
+   side themselves via `:offerable-by`; the builder carries nothing but its identity. Built against feat
    (the diverse silo), with unregistered pools left as bespoke passthrough until registered — the same
    escape hatch the spell builder used for `spell-lists-field`. **Pause the remaining E conversions until
    it exists**: most bespoke widgets in the unconverted builders are grant-shaped (three widgets, three
