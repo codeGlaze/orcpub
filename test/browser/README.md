@@ -244,8 +244,11 @@ re-frame events. Routing via the app's own router is fine for navigation.
   chrome, Orcacle, the PDF options panel and the release panel, at 1366x720. One cold
   load, every state driven on the same page, bounded by `BUDGET_S` (default 150) so it
   fails rather than hangs. `SELFTEST=1` drops a transparent sheet over the page and every
-  state must then fail — run it after changing the audit. Overlays needing a login, an
-  import or saved content are printed as SKIP lines, so the gap stays visible.
+  state must then fail — run it after changing the audit. Three lanes run in parallel
+  contexts: anonymous chrome, a signed-in lane that logs in for real when
+  `ORCPUB_TEST_USER`/`ORCPUB_TEST_PASSWORD` are set, and one that imports the fixture pack
+  twice — the second time under a renamed source, so its keys collide and the import
+  conflict modal opens for real. What is still uncovered is printed as SKIP lines.
 - `header_menus_e2e.js` — every item in every header dropdown is HITTABLE, not merely
   visible: `elementFromPoint` at each item's centre has to land in the flyout. Visibility
   passes while a dropdown renders under the sticky button row, which is exactly the state
