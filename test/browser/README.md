@@ -93,6 +93,49 @@ The release id in the preload must track the newest `:id` in `src/cljc/orcpub/wh
 A new id reopens the panel by design and will break probes again; the runner is what catches
 that, and the fix is that one line.
 
+## A probe is slow — find out why, do not guess
+
+```
+node scripts/test/trace-probe.js sticky_header_e2e.js
+```
+
+Runs it under `DEBUG=pw:api`, pairs each call's start and end, and reports the slowest calls
+and totals by operation.
+
+**A ROUND NUMBER REPEATED IS A TIMEOUT, NOT WORK.** Several calls at exactly 30.0s means
+something is waiting out a default. Sort failures first: a failed call that took its full
+timeout is pure dead time, and if it is wrapped in `.catch()` nothing else will ever tell
+you.
+
+This is not hypothetical. Two probes were spending most of their runtime this way, silently,
+while passing every assertion:
+
+| probe | was | now | what it was doing |
+| --- | --- | --- | --- |
+| `character_image_capture` | 400s | 126s | 9 × 30s waiting for a Cancel button that had already closed |
+| `sticky_header` | 193s | 73s | 4 × 30s waiting for a cookie banner the runner had suppressed |
+| `spell_layout_pdf` | 86s | 55s | same, plus a spell click |
+
+`character_image_capture`'s cause was guessed wrong **four times** by reasoning about it — the
+network, blind sleeps, the PDF renders, the PDF parsing — and all four were refuted by
+measurement. The trace found it in one run.
+
+### The anti-pattern
+
+```js
+await page.getByText('Got it!').click().catch(() => {});   // 30s when it is not there
+await clickIfVisible(page.getByText('Got it!'));           // ~0s, and says when it misses
+```
+
+`.click()` with no `timeout`, wrapped in `.catch()`, waits playwright's full 30s default and
+then throws the failure away. Use `clickIfVisible(locator, { timeout, label })` — it checks
+visibility first, caps the wait, and reports a miss instead of hiding it. The runner greps
+for the pattern and warns, so it cannot quietly come back.
+
+Note the second-order trap: suppressing overlays made these worse, not better. The banner
+used to be there, so the click succeeded. Suppress it and the same line waits the full
+timeout for something that will never appear.
+
 ## Two ways a probe lies, and what catches them
 
 **It stops asserting.** A control renamed out from under an `if (await x.count())` guard

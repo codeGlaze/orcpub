@@ -26,6 +26,21 @@ const os = require('os');
 const path = require('path');
 const { chromium, devices } = require('playwright');
 
+
+// Click something that may not be there, without paying a 30s default timeout for the
+// privilege. `locator.click().catch(() => {})` waits the full default when the element is
+// absent and then throws the failure away -- that pattern cost 270s in
+// character_image_capture and 120s in sticky_header, both invisible because every assertion
+// still passed. Ask first, cap the wait, and say when it misses.
+async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
+  if (!(await locator.isVisible().catch(() => false))) return false;
+  try { await locator.click({ timeout }); return true; }
+  catch (e) {
+    if (label) console.log(`    note: ${label} was visible but would not click`);
+    return false;
+  }
+}
+
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'sticky-header-'));
 
@@ -78,7 +93,8 @@ const PAGES = [
       for (const [label, url] of PAGES) {
         await page.goto(BASE + url, { waitUntil: 'networkidle' });
         await page.waitForTimeout(2500);
-        await page.getByText('Got it!').click().catch(() => {});
+        // Redundant now the runner suppresses the banner; kept as a hand-run safety net.
+        await clickIfVisible(page.getByText('Got it!'));
         await page.waitForTimeout(400);
 
         const headers = await page.locator('.sticky-header').count();

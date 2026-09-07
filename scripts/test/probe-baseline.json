@@ -26,7 +26,7 @@
   },
   "spell_layout_pdf_e2e.js": {
     "checks": 20,
-    "seconds": 52
+    "seconds": 55
   },
   "starting_equipment_browser_e2e.js": {
     "checks": 8,
@@ -38,7 +38,7 @@
   },
   "sticky_header_e2e.js": {
     "checks": 30,
-    "seconds": 131
+    "seconds": 73
   },
   "whats_new_e2e.js": {
     "checks": 19,

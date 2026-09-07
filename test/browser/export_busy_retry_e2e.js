@@ -21,6 +21,21 @@
 //            preload, which is why this file also calls suppressOverlays itself.
 const { chromium } = require('playwright');
 
+
+// Click something that may not be there, without paying a 30s default timeout for the
+// privilege. `locator.click().catch(() => {})` waits the full default when the element is
+// absent and then throws the failure away -- that pattern cost 270s in
+// character_image_capture and 120s in sticky_header, both invisible because every assertion
+// still passed. Ask first, cap the wait, and say when it misses.
+async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
+  if (!(await locator.isVisible().catch(() => false))) return false;
+  try { await locator.click({ timeout }); return true; }
+  catch (e) {
+    if (label) console.log(`    note: ${label} was visible but would not click`);
+    return false;
+  }
+}
+
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
 const MAX_RETRIES = parseInt(process.env.ORCPUB_PDF_MAX_RETRIES || '2', 10);
 
@@ -76,7 +91,7 @@ function saturate(until) {
   await page.goto(BASE + '/', { waitUntil: 'networkidle', timeout: 60000 });
   await page.waitForTimeout(1200);
   const cookie = page.locator('text=Got it!');
-  if (await cookie.count()) await cookie.first().click().catch(() => {});
+  await clickIfVisible(cookie.first());
 
   await page.click('text=D&D 5e Character Builder / Sheet');
   await page.waitForTimeout(4000);
