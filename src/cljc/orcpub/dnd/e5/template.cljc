@@ -1502,6 +1502,13 @@
     feats
     language-map
     fighting-style-pool]
+  ;; The grantable-pool registry: {pool-key {:name … :options [option-cfg …]}}. Built once and
+  ;; passed to every assembly fn that takes a :grant, so adding a pool is one entry here rather
+  ;; than a code change in each silo. Options must be option-cfgs — grant-selection reads ::t/key.
+  (let [grantable-pools
+        {:fighting-styles {:name "Fighting Style" :options fighting-style-pool}
+         :languages       {:name "Language"
+                           :options (map opt5e/language-option (vals language-map))}}]
   [#_optional-content-selection
    (t/selection-cfg
     {:name "Base Ability Scores"
@@ -1540,7 +1547,13 @@
    (opt5e/race-selection
     {:options (conj
                (map
-                (partial opt5e/race-option spell-lists spells-map language-map weapon-map)
+                ;; Second silo on the generic grant hook. The registry is built here, once, and
+                ;; passed to both race-option and feat-option-from-cfg below — :languages is the
+                ;; open language pool (built-in ++ homebrew) that language-map already resolves,
+                ;; so a race's :grant {:from :languages :choose 2} offers a language choice with
+                ;; no per-pool code in race-option.
+                (partial opt5e/race-option spell-lists spells-map language-map weapon-map
+                         grantable-pools)
                 races)
                (opt5e/custom-race-option spell-lists spells-map language-map weapon-map))})
    (opt5e/background-selection
@@ -1561,7 +1574,7 @@
                   ;; ::classes5e/fighting-style-pool via the sub, so a feat can grant a
                   ;; pack-authored style, not just the built-in ones.
                   (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map
-                           {:fighting-styles {:name "Fighting Style" :options fighting-style-pool}})
+                           grantable-pools)
                   feats)))
      :show-if-zero? true
      :min 0
@@ -1579,7 +1592,7 @@
    (inventory-selection "Armor" "breastplate" armor5e/armor mod5e/deferred-armor)
    (magic-item-selection "Magic Armor" "magic-shield" magic-armor-options mod5e/deferred-magic-armor magic-item-details)
    (inventory-selection "Equipment" "backpack" equip5e/equipment mod5e/deferred-equipment)
-   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)]))
+   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)])))
 
 (defn template [selections]
   {::t/base t-base/template-base

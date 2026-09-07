@@ -609,8 +609,13 @@
     :options elemental-disciplines}))
 
 (defn language-option [{:keys [name key]}]
+  ;; :key is passed explicitly so a grant can address a language by its key (grant-selection's
+  ;; :key/:filter modes read ::t/key). Without it option-cfg derives the key from the NAME, which
+  ;; is right for all 16 built-ins (verified: name-to-kw == :key for every one, "Deep Speech" ->
+  ;; :deep-speech included) but wrong for a homebrew language whose name and key diverge.
   (t/option-cfg
    {:name name
+    :key key
     :modifiers [(modifiers/language key)]
     :prereqs [(t/option-prereq
                "You already have this language"
@@ -2517,10 +2522,15 @@
 ;; skill-selection/language-selection), :subraces, :traits, :spells (fixed known), :selections, and
 ;; :props (make-feat-modifiers). Comparable richness to feats minus ASI options/prereqs/spell
 ;; choice. See docs/kb/decision-vocabulary.md (backward trace: Race).
+;; grant-selection lives with the bridge prototype (after plugin-modifiers, which it needs);
+;; race-option is above it, so forward-declare rather than move the prototype block.
+(declare grant-selection)
+
 (defn race-option [spell-lists
                    spells-map
                    language-map
                    weapon-map
+                   grantable-pools               ; ← registry {pool-key {:name … :options}}; see grant-selection
                    {:keys [name
                            icon
                            key
@@ -2540,6 +2550,7 @@
                            weapon-proficiencies
                            profs
                            plugin?
+                           grant                 ; ← generic cross-pool grant {:from <pool> :choose N}
                            edit-event]
                     :as race}]
   (let [key (or key (common/name-to-kw name))
@@ -2562,6 +2573,10 @@
                    (when (seq subraces)
                      [(subrace-selection race spell-lists spells-map language-map weapon-map plugin? source subraces [:race key])])
                    (when (seq language-options) [(language-selection language-map language-options)])
+                   ;; The generic hook, second silo. A race's DATA can grant a choice from any
+                   ;; registered pool via :grant — the same key and the same grant-selection the
+                   ;; feat bridge prototype uses, with no per-pool code here.
+                   (when grant [(grant-selection grant grantable-pools)])
                    (when (seq weapon-proficiency-options)
                      [(weapon-proficiency-selection-2 weapon-map weapon-proficiency-options)])
                    selections)

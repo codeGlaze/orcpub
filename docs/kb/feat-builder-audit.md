@@ -2,34 +2,47 @@
 
 Audit of `feat-builder` (`views.cljs:5877`) against what the compiler actually accepts. Written
 because a previous pass sorted the widgets by *shape* and called that a map; shape alone misses the
-four things that matter — the verb split and the built-but-unwired hook that dissolves it, the AC
-vocabulary the builder never got, the third grant vocabulary in the Custom Feat path, and the dead
-control.
+four things that matter — the five storage shapes one question is persisted in and the
+built-but-unwired hook that collapses them, the AC vocabulary the builder never got, the third grant
+vocabulary in the Custom Feat path, and the dead control.
 
 Method: every widget the builder renders → the `:props` key it writes → the arm in
 `make-feat-modifiers` / `make-feat-selections` (`options.cljc:3766` / `:3682`) that reads it.
 
-## 1. The verb split is PHYSICAL — both halves already exist, wired to opposite silos
+## 1. Not "one verb per silo" — FIVE storage shapes for one question
 
-`declarative-grant-vocabulary.md` names two verbs: **grant** (creator picks the members) and
-**select** (user picks at build time, creator picks the count). Both are built. Neither builder has
-both.
+⚠️ **An earlier version of this section claimed "a race cannot offer a language choice." That is
+wrong** — see Corrections. Both verbs reach most silos through *some* path. The real defect is
+narrower and worse: the same question is stored five different ways, which is why every silo's
+builder had to be written bespoke.
 
-| pool | grant widget | used by | select widget | used by |
-|---|---|---|---|---|
-| languages | `option-languages` (`:5178`) | race, subrace, monster | `feat-languages` (`:5546`) | **feat only** |
-| skills | `option-skill-proficiency` (`:5162`) | race, subrace | `feat-skill-proficiency` (`:5407`) | **feat only** |
-| weapons | `option-weapon-proficiency` (`:5641`) | race, subrace | `feat-weapon-proficiency` (`:5424`) | **feat only** |
+"Which languages does this content give?" is persisted as:
 
-So **a feat cannot grant a specific language; a race cannot offer a language choice.** Not a missing
-feature — the widget exists, it is wired to the other silo. `options.cljc:3676` says the same thing
-from the compiler side: `make-feat-selections` is feat-only, and "making this reachable from every
-silo is the prime cross-silo target."
+| # | shape | written by | read by |
+|---|---|---|---|
+| 1 | `race[:languages {"Elvish" true}]` — keyed by display **NAME** | `language-checkboxes` (race) | `race-option`, via `(name-to-kw language)` |
+| 2 | `[:profs :language-options {:choose 2 :options {:elvish true}}]` | `option-language-proficiency-choice` (race) | `language-selection` |
+| 3 | `[:props :language-choice 2]` — bare count, whole pool only | `feat-languages` (feat) | `make-feat-selections` |
+| 4 | `[:props :language {:elvish true}]` | `option-languages` (subrace, monster) | `make-feat-modifiers` |
+| 5 | `{:grant {:from :languages …}}` | *nothing yet* | `grant-selection` |
 
-This is why feat was planned LAST. Every other silo has to be opened up to cross-pool granting
-first; feat is where the two halves meet.
+Shape 1 keys by name and shape 4 keys by key — for the same fact. Shape 2 can restrict the pool;
+shape 3 cannot. Shape 3 is feat-only; shape 2 is race/subrace-only.
 
-## 1b. The hook that dissolves the split is ALREADY BUILT — it is wired to one silo, one pool
+**Shape 5 subsumes all four**, which is the point of the wire in §1b:
+
+| existing shape | as a grant |
+|---|---|
+| 1 and 4 (creator names a member) | `{:grant {:from :languages :key :elvish}}` |
+| 2 (creator names a count and a subset) | `{:grant {:from :languages :choose 2 :filter #{…}}}` |
+| 3 (creator names a count) | `{:grant {:from :languages :choose 2}}` |
+
+What IS still one-sided, verified against the widget map:
+- **A feat cannot grant a specific language from its builder.** The compiler arm exists
+  (`make-feat-modifiers :language`) and orcbrew data using it compiles; no feat widget writes it.
+- **A feat's language choice cannot be restricted to a subset.** Shape 3 is a bare count.
+
+## 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
 
 `grant-selection` (`options.cljc:3922`) is the generic cross-pool grant, and its own docstring says
 so: *"Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass."*
@@ -44,12 +57,14 @@ Four modes, of which two ARE the two verbs:
 So the verb split is not a missing abstraction. It is a wiring gap. Three wires, none of them the
 hook:
 
-1. **The registry holds one pool.** `template.cljc:1563` passes
-   `{:fighting-styles {:name "Fighting Style" :options fighting-style-pool}}`. Languages, skills,
-   tools, weapons and armor are not registered — though `content-pools/pool` is the generic
-   constructor for exactly that (built-in ++ homebrew, order-stable).
-2. **One call site.** `feat-option-from-cfg` is the only assembly fn that takes `grantable-pools`.
-3. **No builder writes `:grant`.** No widget in any builder emits the key.
+1. **Pools exist; the GRANTABLE registry is the narrow part.** Three de-facto pools are already
+   built — `::races5e/draconic-ancestry-pool` and `::classes5e/fighting-style-pool` (both via
+   `content-pools/pool`) and `::langs5e/languages` (hand-rolled, built-in ++ plugin). Only pools in
+   the `grantable-pools` registry are reachable from `:grant` data, and it held **one**. Draconic's
+   pool is consumed by a hardcoded caller (`dragonborn-option-cfg`, `spell_subs.cljs:1201`) rather
+   than through the generic hook.
+2. **One call site.** `feat-option-from-cfg` was the only assembly fn taking `grantable-pools`.
+3. **No builder writes `:grant`.** No widget in any builder emits the key. Still true.
 
 The three feat-only select props are instances of the generic key, and the grant widgets are its
 `:key` mode:
@@ -63,8 +78,18 @@ The three feat-only select props are instances of the generic key, and the grant
 
 Old keys stay as D9 read-shims — nothing saved moves. The same registry entry that lets a feat grant
 a specific language lets a race offer a language *choice*, because the hook does not know who owns
-it. **This is the years-old asymmetry the pool/grant initiative was started to fix**
-(`content-extensibility-direction.md`), and the prototype is one pool short of demonstrating it.
+it. **This is the years-old duplication the pool/grant initiative was started to fix**
+(`content-extensibility-direction.md`).
+
+### ✅ LANDED — second pool, second silo
+
+`:languages` is registered and `race-option` takes the registry (`template.cljc:1507`,
+`options.cljc:2531`). A race's `{:grant {:from :languages :choose 2}}` now offers a language choice,
+`{:key :elvish}` forces one, `{:filter #{…}}` narrows — with no per-pool code in `race-option`.
+`language-option` now carries the language's own `:key` so `:key`/`:filter` can address entries;
+verified a no-op for saved data, since `name-to-kw` already equalled `:key` for all 16 built-ins.
+Pinned by `race_grant_pool_test.clj` (7 tests), including that the legacy shape-2 path still
+compiles. No builder writes `:grant` yet — this is the data path only.
 
 ## 2. The AC work landed a general vocabulary. The feat builder never got it.
 
@@ -147,10 +172,9 @@ number. That is the one thing worth a unit test.
 
 Feat is not a conversion. It is three jobs that happen to meet in one builder, in this order:
 
-1. **Register a second pool and thread `grantable-pools` to one more silo.** The smallest change
-   that proves the bridge prototype generalises, and the load-bearing one: it is what makes the
-   grant/select verbs reachable from anywhere. Registry entry + one more assembly-fn arg; the hook
-   itself is untouched (§1b).
+1. ✅ **DONE — register a second pool and thread `grantable-pools` to one more silo.** Proved the
+   bridge prototype generalises: registry entry + one more assembly-fn arg, hook untouched (§1b).
+   Next along this line: `subrace-option` (mirrors `race-option`), then a `:skills`/`:tools` pool.
 2. **Extend** — drop `(bf/effect-rows)` into feat's `extra-fields` and the six AC/weapon props
    become authorable. Already written, already tested in fighting style. One line, independent of
    step 1, and worth doing whenever (§2).
@@ -190,6 +214,12 @@ compiler arm in the feat builder (§3), no `:modifiers` in the Custom Feat list.
   wrong: it counted controls and never diffed the builder against the compiler, so it missed the
   verb split (§1), the entire AC vocabulary gap (§2), and the dead control (§3). Sorting widgets by
   the control they render is not a map of a builder; the map is builder-key → compiler-arm.
+- **§1 claimed "a race cannot offer a language choice."** False: `option-language-proficiency-choice`
+  (`views.cljs:5145`) writes `:profs :language-options`, which `race-option` has always compiled via
+  `language-selection`. The claim came from grepping which silo each `option-*` / `feat-*` widget was
+  wired to and reading the gaps as capability gaps, without checking the `:profs` path that sits
+  beside them. Rewritten as what the evidence actually supports: five storage shapes for one
+  question. The narrower one-sided claims that survive are listed in §1.
 - **§6 originally led with the `bf/effect-rows` extension.** Reordered once `grant-selection` was
   found: extending feat is a one-line win but silo-local, while registering a second pool is what
   actually unblocks every other builder. The extension keeps its place as an independent step.

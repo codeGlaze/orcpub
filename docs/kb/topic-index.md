@@ -419,7 +419,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, library, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -537,10 +537,11 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, dex, feat, grant, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, verbs, widget, widgets
+**topics:** arm, bool, compiler, dex, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets, writes
 
-- 1. The verb split is PHYSICAL — both halves already exist, wired to opposite silos
-- 1b. The hook that dissolves the split is ALREADY BUILT — it is wired to one silo, one pool
+- 1. Not "one verb per silo" — FIVE storage shapes for one question
+- 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
+- ✅ LANDED — second pool, second silo
 - 2. The AC work landed a general vocabulary. The feat builder never got it.
 - 3. Dead control
 - 4. Hardcoded UI ranges the compiler does not impose
@@ -676,7 +677,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compatibility, demo, envelope, extension, implemented, in-file, incompatible, name, pickers, poll, tag, version, versioning, won
+**topics:** boot-load, brew, builds, community, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, placeholder, poll, tag, version, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -805,7 +806,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** baseline, bracers, callers, characterization, checking, claim, claims, compare, confident, faster, integration, miss, number, optimisation, session, shown, unverified, upgrade
+**topics:** baseline, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, number, optimisation, session, shown, understanding, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
