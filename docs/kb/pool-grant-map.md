@@ -113,14 +113,28 @@ grepping.
 The pattern in all three: the answer was in `content-extensibility-direction.md` or in the code, and
 was re-derived worse. **Grep the KB before designing.**
 
-## Suggested order (not a commitment)
+## The path — two items, then wait for a case
 
-1. **filter as a predicate** — a leaf, no UI, unblocks spells and makes `:classes` filterable
-2. **`:grants` plural** — a leaf; a mechanical rename while nothing writes it yet
-3. **spells as a pool** — needs 1
-4. **entries carry `:grants`** — Magic Initiate stops being special
-5. **the grant-authoring UI** — needs 2 + dynamic field options; built against feat, because feat is
-   the only silo needing the full set, so building it correctly *is* building the shared node
-6. **`:gate`** — prereqs, last
+**Nothing writes `:grant`.** The engine, the data path and the registry are all built and tested,
+and no builder emits the key. That single gap is the whole reason none of this is visible in the
+app, and closing it needs exactly two things:
 
-Steps 1 and 2 are independent of each other and of everything else.
+1. **`:grants` plural** — a feat is a bundle by definition ("2 skills AND a language"), so a builder
+   that writes grants needs the plural immediately. A mechanical rename while nothing writes it yet;
+   no shim, since `:grant` has never existed off a feature branch.
+2. **A control that emits it** — the grant-authoring UI. Needs `:grants` plus dynamic field options
+   (options from a subscription, and depending on a sibling field's value). Built against feat,
+   because feat is the only silo needing the full set, so building it correctly *is* building the
+   node every other builder embeds.
+
+Everything else in the AIR table is real but **waits for a case that demands it**. In particular:
+
+> ⚠️ **`filter`-as-a-predicate is NOT a prerequisite, and an earlier version of this page wrongly
+> listed it first.** `:filter` is used in tests only — no real data narrows a pool. And the rule it
+> would generalise already exists as `eligible-homebrew-styles` (`options.cljc:2084`), which does
+> rule-not-list filtering for fighting styles by hand. So the work is "let `grant` say what that fn
+> already says, for every pool instead of one" — worth doing when spells force it, speculative
+> before then.
+
+The argument for it, when the time comes, is one sentence: an enumerated filter closes an open pool.
+`#{:archery :defense}` stops matching the moment someone homebrews a new fighter style.

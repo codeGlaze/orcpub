@@ -688,7 +688,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, constrain, direction, eligibility, fighting, filter, initiate, irregularity, membership, pieces, plural, pool, registered, shaped, spells, styles, unblocks
+**topics:** 2026-09-07, air, direction, eligibility, fighting, filter, initiate, irregularity, membership, pieces, plural, pool, shaped, skills, spells, styles, tested, writes
 
 - In four sentences
 - The three layers
@@ -697,7 +697,7 @@ _pool-grant-map · pool grant map_
 - How the open pieces constrain each other
 - Spells: closer than it looks
 - Where the confusion came from (so it does not recur)
-- Suggested order (not a commitment)
+- The path — two items, then wait for a case
 
 ## registry-before-after.md
 
