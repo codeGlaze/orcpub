@@ -43,6 +43,10 @@ re-frame events. Routing via the app's own router is fine for navigation.
   both spell-sheet layouts, and checks the packed one comes out shorter.
 - `sticky_header_e2e.js` — one sticky header, not a fixed copy above an inline one, in a desktop
   and a phone viewport.
+- `header_menus_e2e.js` — every item in every header dropdown is HITTABLE, not merely
+  visible: `elementFromPoint` at each item's centre has to land in the flyout. Visibility
+  passes while a dropdown renders under the sticky button row, which is exactly the state
+  that swallows the click.
 - `tab_switch_freeze_e2e.js` — the builder freeze: longest single task per Race<->Class
   switch under CPU throttle, plus heap, counters and stacks. `SKIP_CONTROL=1` omits the
   positive control, which otherwise realises the expensive content up front and suppresses

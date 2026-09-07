@@ -1103,13 +1103,19 @@
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
     ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
-    ;; z-index on hover/focus-within prevents adjacent tabs from intercepting the dropdown
+    ;;
+    ;; The z-index does two jobs, and the SECOND one sets the number. It keeps an
+    ;; adjacent tab from intercepting the dropdown, and it has to beat the sticky
+    ;; button row below (`.sticky-header`, z-index 100) — the tab is positioned
+    ;; and z-indexed, so it forms a stacking context and the flyout's own z-index
+    ;; is resolved INSIDE it. At an equal 100 the button row wins on document
+    ;; order, and the dropdown renders under buttons that then swallow the click.
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
-     [:&:hover {:z-index 100}
+     [:&:hover {:z-index 200}
       [:.header-flyout {:display :block}]]
-     [:&:focus-within {:z-index 100}
+     [:&:focus-within {:z-index 200}
       [:.header-flyout {:display :block}]]]
 
     #_[:.header-tab:hover
