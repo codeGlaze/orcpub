@@ -64,7 +64,7 @@ const PROBES = [
   { file: 'starting_equipment_browser_e2e.js', needs: 'standalone' },
   { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
   { file: 'sticky_header_e2e.js',              needs: 'server' },
-  { file: 'whats_new_e2e.js',                 needs: 'server' },
+  { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
 ];
 
 const get = url => new Promise(res => {
@@ -78,7 +78,14 @@ function run(probe, pack, budgetMs) {
     const args = [path.join('test/browser', probe.file)];
     if (probe.needsPack) args.push(pack);
     const t0 = Date.now();
-    const p = spawn('node', args, { cwd: ROOT });
+    // Overlay suppression is DEFAULT-ON, injected here rather than left to each probe to
+    // remember. `suppress: false` opts a probe out -- for one whose point is that an
+    // overlay fires.
+    const preload = path.join(ROOT, 'test/browser/lib/suppress-overlays-preload.js');
+    const env = { ...process.env,
+                  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${preload}`.trim() };
+    if (probe.suppress === false) env.PROBE_SUPPRESS = '0';
+    const p = spawn('node', args, { cwd: ROOT, env });
     let out = '', lastAt = Date.now(), timedOut = false;
     const note = d => { out += d; lastAt = Date.now(); };
     p.stdout.on('data', note);

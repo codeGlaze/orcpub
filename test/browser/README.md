@@ -61,6 +61,33 @@ not validated** — the `server` probes share one in-memory backend, so concurre
 principle see each other's saved characters. Default is 1 for that reason; raise it when you
 want speed over certainty.
 
+## Overlays are suppressed by default, not per probe
+
+The cookie notice and the What's New panel open over the page and their backdrops swallow
+clicks. Suppression used to be opt-in — each probe called `suppressOverlays` itself — which
+means any probe that did not know to was silently exposed to the next overlay someone
+shipped. That is exactly how the What's New panel broke `spell_help_laziness`; the other ten
+probes survived by luck, not by opting in.
+
+The runner now injects `lib/suppress-overlays-preload.js` via `NODE_OPTIONS`, patching
+playwright so **every** context a probe makes carries the suppression, whether it asks or
+not. Both creation paths are covered (`browser.newContext()` and `browser.newPage()`, which
+makes its own context internally).
+
+**Opting out:** set `suppress: false` on the probe's entry in the runner list — for a probe
+whose whole point is that an overlay fires, like `whats_new_e2e.js`. That sets
+`PROBE_SUPPRESS=0`, which the preload honours. Running a probe by hand gets no preload, so
+probes still call `suppressOverlays` themselves; the two are belt and braces.
+
+Watch for this trap when reasoning about overlays: the What's New panel **waits while the
+cookie notice is up**. So a probe with no suppression at all can pass, because the banner
+shields it from the panel — and suppressing only the cookie banner is what exposes it. A
+"control" that removes both suppressions proves nothing.
+
+The release id in the preload must track the newest `:id` in `src/cljc/orcpub/whats_new.cljc`.
+A new id reopens the panel by design and will break probes again; the runner is what catches
+that, and the fix is that one line.
+
 ## Two ways a probe lies, and what catches them
 
 **It stops asserting.** A control renamed out from under an `if (await x.count())` guard
