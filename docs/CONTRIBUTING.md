@@ -78,8 +78,13 @@ Automation:
 - The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
   still contains `docs/branch-changelog.md` — the unskippable backstop if the fold gets
   skipped.
+- **`scripts/lint-changelog.py`** checks CHANGELOG.md against the mechanical half of the
+  house style: bullets under 80 words, one change per bullet, no jargon, and prose only
+  inside a Highlights block of at most three sentences. It runs in `changelog-guard` on
+  pull requests as well as pushes, so the feedback arrives while the branch can still be
+  edited. Run it yourself with `scripts/lint-changelog.py --stats`.
 - **`scripts/setup-hooks.sh`** (run once per clone) enables a local **`pre-push`** guard
-  (`.githooks/pre-push`) that mirrors the CI check — a fail-fast reminder before the push
+  (`.githooks/pre-push`) that mirrors both CI checks — a fail-fast reminder before the push
   leaves your machine. It only reminds; the fold stays a deliberate manual step.
 
 ## Authorship — required, no exceptions
