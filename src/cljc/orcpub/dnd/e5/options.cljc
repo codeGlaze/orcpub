@@ -3948,7 +3948,7 @@
    :choose holds a vector of sub-choices, while :profs uses :choose for a count. Reusing either
    would put two unrelated registries behind one keyword."
   [{:keys [pool count key] flt :filter} grantable-pools]
-  (when-let [{:keys [name options]} (get grantable-pools pool)]
+  (when-let [{:keys [name tags options]} (get grantable-pools pool)]
     (let [opts (cond->> options
                  flt (filter (fn [o] (contains? flt (::t/key o))))
                  key (filter (fn [o] (= key (::t/key o)))))
@@ -3958,7 +3958,10 @@
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
       (t/selection-cfg
        {:name name
-        :tags #{:grant pool}
+        ;; The pool's own tags ride along (D30): tags route a selection to its TAB, so a granted
+        ;; language carries :profs like the bespoke one and lands on Proficiencies, not nested
+        ;; under its owner. Pools without tags keep just the generic pair.
+        :tags (into #{:grant pool} tags)
         :multiselect? true
         :min n
         :max n

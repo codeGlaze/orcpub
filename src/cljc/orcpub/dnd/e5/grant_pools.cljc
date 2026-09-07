@@ -28,6 +28,11 @@
      `:plugins` (the variant forward-compat pin: `raw → resolve-variants → resolved → pools`).
    - `:offerable-by` is the scoping metadata the direction doc calls for (\"which builders may offer
      me\", so a feat can't grant \"choose a subrace\"). Declared now; no builder UI consumes it yet.
+   - `:tags` are the selection tags a grant from this pool carries — the D30 fix. The character
+     builder routes a selection to a TAB by its tags, so a granted language must carry the same
+     `:profs :language-profs` the bespoke `language-selection-aux` does or it lands on a different
+     tab than the choice it replaces. grant-selection merges these into its own `#{:grant <pool>}`.
+     A pool with no `:tags` keeps the generic pair only.
    - A closed pool ignores `plugin-vals`. That is the whole difference between open and closed —
      not a second mechanism."
   (:require [orcpub.dnd.e5 :as e5]
@@ -37,13 +42,14 @@
             [orcpub.dnd.e5.options :as opt5e]))
 
 (def pools
-  "{pool-key {:name … :offerable-by #{…} :options-fn (fn [plugin-vals] -> [option-cfg …])}}
+  "{pool-key {:name … :offerable-by #{…} :tags #{…} :options-fn (fn [plugin-vals] -> [option-cfg …])}}
 
    To register a pool: add one entry. Nothing else changes — not template-selections, not any
    assembly fn, not any sub."
   {:languages
    {:name "Language"
     :offerable-by #{:feat :race :subrace :background :class :subclass :monster}
+    :tags #{:profs :language-profs}            ; = language-selection-aux, so it lands on Proficiencies
     ;; built-in ++ homebrew, both raw; one constructor over the lot
     :options-fn (fn [plugin-vals]
                   (map opt5e/language-option
@@ -62,6 +68,7 @@
    :skills
    {:name "Skill"
     :offerable-by #{:feat :race :subrace :background :class :subclass}
+    :tags #{:profs :skill-profs}               ; = skill-selection
     ;; closed: a fixed vocabulary with no homebrew half. It ignores plugin-vals, and that is the
     ;; only way a closed pool differs from an open one.
     :options-fn (fn [_] (map opt5e/skill-option skills5e/skills))}})
@@ -71,6 +78,6 @@
    {pool-key {:name … :options [option-cfg …]}}. Uniform — it never inspects a pool."
   [plugin-vals]
   (into {}
-        (map (fn [[k {:keys [name options-fn]}]]
-               [k {:name name :options (options-fn plugin-vals)}]))
+        (map (fn [[k {:keys [name tags options-fn]}]]
+               [k {:name name :tags tags :options (options-fn plugin-vals)}]))
         pools))

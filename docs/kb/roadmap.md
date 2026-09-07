@@ -297,8 +297,12 @@ then merge `develop` in, since the shared files here have diverged for the feat 
    data→builder→character→round-trip path.
    - ✅ **Registry built, race wired, gate met** (2026-09-07, above). Remaining silos
      (background/subrace/class/subclass) are each a one-line thread whenever a case wants one.
+   - ✅ **D30 tag gap closed** (2026-09-07): pools carry `:tags`; a granted language lands on
+     Proficiencies like the bespoke one.
    - ➡️ **Next, in order:** (a) `:grant` → `:grants` plural — a feat is a bundle; mechanical rename,
-     no shim, nothing writes it yet. (b) **A control that emits it** — the grant-authoring UI, built
+     no shim, nothing writes it yet. (b) **Track E3 — vector rows.** `effect-rows` is map-keyed;
+     `:grants`, encounter creatures and background traits are all vectors. E4 is E3's third consumer.
+     (c) **A control that emits it** — E4, the grant-authoring UI, built
      against feat (the only silo needing the full set, so building it right *is* building the node every
      builder embeds). Needs dynamic field options (from a sub; dependent on a sibling). **Nothing writes
      `:grant` today — that single gap is why the capability is invisible in the app.**

@@ -81,3 +81,12 @@
 
 (deftest count-defaults-to-one
   (is (= 1 (::t/max (sel {:pool :skills})))))
+
+(deftest pools-carry-their-tags
+  (testing "D30: a grant carries its pool's selection tags, so it lands on the same TAB as the bespoke
+            choice it replaces (the character builder routes by tag)"
+    (is (= #{:grant :languages :profs :language-profs} (::t/tags (sel {:pool :languages :count 1})))
+        "a granted language must carry :profs/:language-profs like language-selection-aux")
+    (is (= #{:grant :skills :profs :skill-profs} (::t/tags (sel {:pool :skills :count 1}))))
+    (is (= #{:grant :fighting-styles} (::t/tags (sel {:pool :fighting-styles :count 1})))
+        "a pool that declares no tags keeps only the generic pair")))

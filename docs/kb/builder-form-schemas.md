@@ -397,9 +397,13 @@ nil and the `:props` compiler reads that.
 - **E3 — Tier 3 stab**: `:rows :as :vector` over encounter's creatures; then background traits. If
   the same node serves effects *and* creatures *and* traits, it earned its place. If it needs a
   fourth shape, stop and reassess.
-- **E4 — Grant-authoring UI**: `:rows` where each row is `{:from <pool> :choose n}` and `:kinds` is
-  derived from the **registered pools**. D21's falsifiable gate applies verbatim: *exposing a second
-  pool must be a ~1-line registration, shown in a commit.*
+- **E4 — Grant-authoring UI**: `:rows :as :vector` over `:grants`, each row `{:pool <k> :count n}`
+  (the decided spelling; this line said `:from`/`:choose` until 2026-09-07), with `:kinds` derived
+  from **`grant-pools/pools`** filtered by the builder's silo against each pool's `:offerable-by` — so
+  the node names no pool and a builder embeds it with only its own id. **Depends on E3**: grants are
+  a vector, and `:rows` today is map-keyed. D21's falsifiable gate applies verbatim: *exposing a
+  second pool must be a ~1-line registration, shown in a commit* — met at the data layer 2026-09-07
+  (`grant_pools.cljc`); the UI half is what E4 proves.
 - **E5 — Convert the rest**, cheapest first, class last. Each conversion: pin, swap, same numbers.
 
 ### What "good UX" means here, concretely

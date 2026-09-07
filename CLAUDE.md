@@ -21,6 +21,15 @@
 - **Registration is one entry.** Adding a content type is one entry in `content_types.cljc`; adding a
   grantable pool is one entry in `grant_pools.cljc`. If your change needs edits in several files to
   wire one thing in, stop — that is the pattern this branch exists to remove.
+- **Audit what a new piece REPLACES before building it (D17).** Find the existing path that does
+  the job; if the new thing is not thicker than it, or drops what it carries (`:ref`, `:tags`,
+  modifiers), extend the existing path instead.
+- **A grant compiles to the same `selection-cfg` the bespoke path made (D30).** Same tags, same
+  placement, same mechanics. If a granted choice renders somewhere the hand-wired one did not, that
+  is a regression, not a feature.
+- **The rules index is the status table at the top of `content-extensibility-decisions.md`** — one
+  line per D-number. Check a design against it before proposing; do not re-derive from the history
+  below it.
 - **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
   `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
   Corrections section — never overwrite.

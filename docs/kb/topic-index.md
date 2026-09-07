@@ -162,7 +162,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, background, builders, creatures, encounter, fragment, framework, group, june, monster, node, row, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, background, builders, creatures, fields, fragment, framework, group, june, monster, node, row, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -567,7 +567,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, tag, thrown, unarmed, warrior, weapon
+**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -698,7 +698,7 @@ _pool-grant-map · pool grant map_
 - Spells: closer than it looks
 - Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
-- The path — two items, then wait for a case
+- The path — three items, then wait for a case
 
 ## registry-before-after.md
 

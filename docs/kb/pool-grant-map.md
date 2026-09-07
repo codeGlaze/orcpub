@@ -40,7 +40,8 @@ The engine and the data path are built and tested. **Nothing writes the data** �
 | silos compiling `:grant` | feat, race | 06-17 / 09-07 |
 | pools registered | `:languages`, `:fighting-styles`, `:skills` | 2026-09-07 |
 | entry eligibility | fighting style `:classes` (absent = all); the class path reads the open pool via `eligible-homebrew-styles` — direction lever (a)(i), done | 2026-09-02 |
-| `effect-rows` | the repeatable-row builder node, for *effects* (not grants) | 2026-09-05 |
+| `effect-rows` | the repeatable-row builder node, for *effects* (not grants). **Map-keyed only** — a row is present when data exists at a fixed path | 2026-09-05 |
+| pools carry `:tags` | the D30 fix: a grant lands on the same tab as the bespoke choice it replaces | 2026-09-07 |
 
 **The maintainability gate is met and measured**: registering `:skills` — the third pool — cost one
 entry in `grant_pools.cljc` and nothing else.
@@ -53,7 +54,6 @@ entry in `grant_pools.cljc` and nothing else.
 | **`:grants` plural** | a bundle. "2 skills AND a language" is one feat; singular `:grant` cannot say it | direction doc, "Compound grants" |
 | **entries carrying their own `:grants`** | Magic Initiate ("pick a class, then spells from *that* list"), and a subclass entry declaring what it grants | — (see Correction below) |
 | **`:gate`** | prereqs, as part of a grant. **Must be a small declarative vocabulary** (`has-class?`, `level>=`, `has-feature?`, `ability>=`) — homebrew prereqs are never raw fns (direction doc PINS) | direction doc, discipline 1 + PINS |
-| **pool entries carry `:tags`** | the D30 gap: `grant-selection` tags every grant `#{:grant <pool>}`, so a granted language choice does not land on the Proficiencies tab where the bespoke one does. Fix: the registry entry carries its tags and the compiler merges them. `:ref` stays out (verified to break nested addressing) | D30, confirmed 2026-09-07 |
 | **`:offerable-by` consumed** | declared on every pool today, read by nothing. Stops a feat offering "choose a subrace" | direction doc, discipline 2 |
 | **the grant-authoring UI** | the whole point: a control that iterates *registered* pools, so registration is the only edit | direction doc, "the next lever" |
 | **spells as a registered pool** | every spell-granting case | this doc, below |
@@ -125,16 +125,23 @@ grepping.
 The pattern in all three: the answer was in `content-extensibility-direction.md` or in the code, and
 was re-derived worse. **Grep the KB before designing.**
 
-## The path — two items, then wait for a case
+## The path — three items, then wait for a case
 
 **Nothing writes `:grant`.** The engine, the data path and the registry are all built and tested,
 and no builder emits the key. That single gap is the whole reason none of this is visible in the
-app, and closing it needs exactly two things:
+app, and closing it needs three things — the middle one is Track E3, which `builder-form-schemas.md`
+already owns:
 
 1. **`:grants` plural** — a feat is a bundle by definition ("2 skills AND a language"), so a builder
    that writes grants needs the plural immediately. A mechanical rename while nothing writes it yet;
    no shim, since `:grant` has never existed off a feature branch.
-2. **A control that emits it** — direction doc discipline 2: *"one reused grant-authoring UI
+2. **Vector rows (Track E3).** `:grants` is a vector — ordered, duplicates allowed (two language
+   grants). `effect-rows` is map-keyed: a row exists when data sits at a fixed path like
+   `[:props :ac-bonus]`. `builder-form-schemas.md` §6 left the vector case open as E3 (encounter
+   creatures, background traits are the other two vector-shaped needs). **E4 — the grant node — is
+   E3's third consumer, not a separate primitive.** This step was missing from earlier versions of
+   this page.
+3. **A control that emits it** — direction doc discipline 2: *"one reused grant-authoring UI
    component, not a forked menu per builder… the builder's 'add a grant' UI iterates the registered
    pools."* Needs `:grants`, dynamic field options (from a subscription; dependent on a sibling), and
    **the D30 tag fix** — the moment a builder writes a language grant, the choice has to land where

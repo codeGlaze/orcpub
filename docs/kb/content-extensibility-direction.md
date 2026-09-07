@@ -322,7 +322,11 @@ route-keyword def.
   until 2026-09-07; it was stale.) Remaining (a) work is (iii) the authoring UI, still unbuilt —
   and one D30 gap surfaced 2026-09-07, below.
 
-  **D30 gap, confirmed against the second silo (2026-09-07).** D30 warned that `grant-selection`
+  **D30 gap — confirmed, then CLOSED (2026-09-07).** Pools now carry `:tags` in their
+  `grant_pools.cljc` entry and `grant-selection` merges them into `#{:grant <pool>}`; a granted
+  language carries `:profs :language-profs` and lands on Proficiencies. Pinned by
+  `pools-carry-their-tags`. `:ref` stays out (verified to break nested addressing). The record of
+  how it was found follows. D30 warned that `grant-selection`
   as built carries generic `:tags #{:grant <pool>}` and no `:ref`, dropping the metadata the bespoke
   constructors carry. Wiring race through it confirmed the consequence: `language-selection-aux`
   tags `#{:profs :language-profs}` and the character builder routes selections to tabs by tag, so
