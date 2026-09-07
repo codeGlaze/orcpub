@@ -23,7 +23,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATOMIC_URL` | `datomic:dev://localhost:4334/orcpub` | Database connection URI |
+| `DATOMIC_URL` | `datomic:dev://localhost:4334/orcpub` | Database connection URI. A `datomic:sql` URI carries the database password; it is redacted wherever it is logged (see [DOCKER-SECURITY.md](DOCKER-SECURITY.md#credentials-in-logs)). |
 | `DATOMIC_VERSION` | `1.0.7482` | Datomic Pro version for installer |
 | `DATOMIC_TYPE` | `pro` | Datomic distribution type |
 | `DATOMIC_PASSWORD` | — | Transactor password |
@@ -46,9 +46,46 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | How many character sheets are generated at once. Bounded separately so a rush of exports cannot starve logins and saves. Each in flight holds roughly 11 MB of heap. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server answers 503 with a `Retry-After` instead of holding the connection open. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
+| `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game, which no character can exceed. |
+| `ORCPUB_PDF_MAX_CARDS` | `200` | Most cards of one kind a single export prints. A level 20 wizard's spellbook is about 44. |
 
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
+
+### What the server prints at boot
+
+Every start prints what it resolved, so you never have to guess whether a change was
+picked up:
+
+```
+----------------------------------------------------------------------------------------
+  orcpub started
+  database   datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=****
+----------------------------------------------------------------------------------------
+  ORCPUB_HTTP_MAX_THREADS          unset   DEFAULT   worker pool: requests in flight; Pedestal decides when unset
+  ORCPUB_PDF_CONCURRENCY              24   SET       sheets generated at once
+  ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000   DEFAULT   how long an export waits for a slot
+  ORCPUB_PDF_MAX_RETRIES               3   DEFAULT   busy-page retries before it waits for a click
+  ORCPUB_PDF_MAX_CASTER_SECTIONS      13   DEFAULT   most spellcasting sections on one sheet
+  ORCPUB_PDF_MAX_CARDS               200   DEFAULT   most cards of one kind per export
+----------------------------------------------------------------------------------------
+  (!)  ORCPUB_PDF_MAX_CARDS=oops was ignored: not a positive integer. The default above is in use.
+----------------------------------------------------------------------------------------
+```
+
+| Column | Meaning |
+|---|---|
+| `SET` | the value came from the environment |
+| `DEFAULT` | nothing usable was set; the code chose |
+| `unset` (value) | nothing was set and we have no number of our own — Pedestal decides, by a formula not copied here in case it changes |
+| `(!)` line | **a value was given and rejected.** Its row reads `DEFAULT` because the default is what is running; this line names what was thrown away |
+
+The source column always describes where the **shown value** came from. A rejected setting
+therefore reads `DEFAULT` — it was your value that was ignored, not the default — and the
+`(!)` line under the table is what tells you to go fix it.
+
+The banner appears after the components start, so `orcpub started` means started.
+Plain ASCII, no colour — it is read in aggregators as often as terminals.
 
 ### Plugins
 

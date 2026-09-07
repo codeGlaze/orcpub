@@ -211,7 +211,7 @@
 
    Adding a knob without adding it here is caught by config-report-test."
   [{:var "ORCPUB_HTTP_MAX_THREADS"        :get #(get-http-max-threads)
-    :unset-source "Pedestal's"            :note "worker pool: requests in flight"}
+    :unset-source "Pedestal's"            :note "worker pool: requests in flight; Pedestal decides when unset"}
    {:var "ORCPUB_PDF_CONCURRENCY"         :get #(get-pdf-concurrency)
     :note "sheets generated at once"}
    {:var "ORCPUB_PDF_QUEUE_TIMEOUT_MS"    :get #(get-pdf-queue-timeout-ms)
@@ -250,11 +250,11 @@
   ([] (report-lines (report) (get-datomic-uri)))
   ([rows uri]
    (let [val    (fn [{:keys [value]}] (if value (str value) "unset"))
-         source (fn [{:keys [set? ignored? unset-source]}]
-                  (cond ignored?     "IGNORED"
-                        set?         "set"
-                        unset-source unset-source
-                        :else        "default"))
+         ;; Two states, and the column always describes where the SHOWN value came from.
+         ;; A rejected value is running the default, so it reads DEFAULT like any other --
+         ;; labelling that row IGNORED read as "the default was ignored", which is
+         ;; backwards. The (!) line under the table names what was thrown away.
+         source (fn [{:keys [set?]}] (if set? "SET" "DEFAULT"))
          w   (apply max (map (comp count :var) rows))
          vw  (apply max (map (comp count val) rows))
          sw  (apply max (map (comp count source) rows))
@@ -270,7 +270,7 @@
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
               (for [{:keys [var raw]} bad]
-                (format "  IGNORED  %s=%s is not a positive integer; the default above is in use"
+                (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
                         var raw))))
       [rule]))))
 

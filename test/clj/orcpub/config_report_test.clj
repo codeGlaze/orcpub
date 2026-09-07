@@ -23,19 +23,21 @@
   (let [out (lines [set-row default-row ignored-row unset-row])]
     (testing "a value from the environment"
       (is (str/includes? (row-for out "CONCURRENCY") "24"))
-      (is (str/includes? (row-for out "CONCURRENCY") "set")))
+      (is (str/includes? (row-for out "CONCURRENCY") "SET")))
     (testing "a value the code chose"
-      (is (str/includes? (row-for out "MAX_CARDS") "default")))
-    (testing "present but rejected is NOT reported as set -- the number shown is the default"
+      (is (str/includes? (row-for out "MAX_CARDS") "DEFAULT")))
+    (testing "present but rejected reports DEFAULT, because the number shown IS the
+              default. An earlier version labelled that row IGNORED, which reads as 'the
+              default was ignored' -- backwards. It was the supplied value that was ignored,
+              and the (!) line below the table says so."
       (let [r (row-for out "MAX_RETRIES")]
-        (is (str/includes? r "IGNORED") r)
-        (is (not (re-find #"\bset\b" r)) r)))
+        (is (str/includes? r "DEFAULT") r)
+        (is (not (str/includes? r "SET")) r)))
     (testing "and the rejected value is named underneath, so it can be fixed"
-      (is (some #(and (str/includes? % "IGNORED") (str/includes? % "oops")) out)))
-    (testing "unset with no number of our own names who decides instead of inventing one"
-      (let [r (row-for out "MAX_THREADS")]
-        (is (str/includes? r "unset") r)
-        (is (str/includes? r "Pedestal's") r)))))
+      (is (some #(and (str/includes? % "(!)") (str/includes? % "oops")
+                      (str/includes? % "ignored")) out)))
+    (testing "unset with no number of our own still shows a value of 'unset'"
+      (is (str/includes? (row-for out "MAX_THREADS") "unset")))))
 
 (deftest banner-is-plain-ascii
   (testing "no colour codes and no characters that come back as ? through a log pipe"
