@@ -14,6 +14,11 @@
 //   lein e2e-server        (port 8890 free)
 // Run:  node test/browser/whats_new_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     the real app at :8890 (`lein e2e-server`)
+// Runs in:   ~110s.
+// Overlays:  NOT suppressed. This probe's whole point is that the panel fires, so its runner
+//            entry carries `suppress: false` (PROBE_SUPPRESS=0). Do not add suppression here.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

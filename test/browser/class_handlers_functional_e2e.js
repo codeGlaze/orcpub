@@ -8,6 +8,12 @@
 //
 // Run: lein fig:build && lein e2e-server, then
 //   node test/browser/class_handlers_functional_e2e.js /path/to/pack.orcbrew
+//
+// Needs:     the real app at :8890, plus a homebrew pack (ORCBREW_PACK) -- it asserts against imported content
+// Runs in:   ~60s, most of it importing the pack.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');

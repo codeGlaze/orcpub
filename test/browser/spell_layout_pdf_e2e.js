@@ -13,6 +13,13 @@
 //   lein e2e-server        (port 8890 free; `fuser -k 8890/tcp` first)
 // Run:  node test/browser/spell_layout_pdf_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     the real app at :8890 (`lein e2e-server`)
+// Runs in:   ~60-85s. It builds a character and exports sheets, but far fewer than
+//            character_image_capture -- which is why its 20 checks land in a fraction of the time.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

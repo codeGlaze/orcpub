@@ -15,6 +15,12 @@
 // Prerequisites:
 //   lein fig:build && lein garden once && lein e2e-server
 // Run:  node test/browser/sticky_header_e2e.js
+//
+// Needs:     the real app at :8890 (`lein e2e-server`)
+// Runs in:   ~130-190s. It runs the whole pass twice, desktop and phone.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

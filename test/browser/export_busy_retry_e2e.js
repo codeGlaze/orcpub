@@ -11,6 +11,14 @@
 //
 // Exits non-zero on the first failed check.
 
+//
+// Needs:     `lein e2e-server-busy`, NOT the ordinary server -- that profile holds every export slot so the
+//            busy page appears. Against a normal server every check fails. The runner skips it
+//            unless BUSY_SERVER=1
+// Runs in:   unmeasured under the busy profile.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const { chromium } = require('playwright');
 
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';

@@ -21,6 +21,15 @@
 //   lein e2e-server        (ports 8890 and 8899 free)
 // Run:  node test/browser/character_image_capture_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     the real app at :8890 (`lein e2e-server`); it also serves its own picture origin on :8899
+// Runs in:   ~390s. It renders NINE sheets via exportSheet(), ~40s each -- that is the whole runtime.
+//            Do not count exports by grepping "create pdf" (returns 2): the clicking is inside
+//            exportSheet(), which is CALLED nine times. Nine distinct export paths are the
+//            point of the probe, so there is nothing to trim without dropping coverage.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs');
 const os = require('os');
 const https = require('https');

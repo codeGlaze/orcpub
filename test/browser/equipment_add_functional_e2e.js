@@ -9,6 +9,12 @@
 // It was left targeting .opt-menu-* selectors after the combobox swap and failed three
 // assertions against a control that was no longer wired; retargeted rather than deleted,
 // because the app-db assertion is the part worth keeping.
+//
+// Needs:     the real app at :8890, plus a homebrew pack (ORCBREW_PACK) -- it asserts against imported content
+// Runs in:   ~55s, most of it importing the pack.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');

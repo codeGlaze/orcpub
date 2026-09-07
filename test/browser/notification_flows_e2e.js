@@ -14,6 +14,13 @@
 //   3. Playwright module:   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install playwright
 // Run:  node test/browser/notification_flows_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     nothing. It serves resources/public from its own throwaway origin and expects NO backend,
+//            so connection-refused (and CORS, if an e2e-server happens to be up) is benign noise
+// Runs in:   ~5s.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
