@@ -33,6 +33,18 @@ ONLY=equipment,sticky                # substring filter
 STRICT=1                             # a probe that could not run counts as a failure
 ```
 
+**The two server profiles are not interchangeable.** `lein e2e-server-busy` sets
+`pdf-concurrency=1`, so every export lands on the busy page — which is what
+`export_busy_retry` needs and what breaks anything that wants a real sheet
+(`character_image_capture` fails 1 of 31 against it, for no reason of its own). With
+`BUSY_SERVER=1` the runner runs only the busy-profile probes and skips the rest with that
+reason; without it, the reverse. Run both passes to cover everything:
+
+```
+lein e2e-server       + node scripts/test/run-browser-probes.js                 # 11 probes
+lein e2e-server-busy  + BUSY_SERVER=1 node scripts/test/run-browser-probes.js   # 5 probes
+```
+
 The runner waits up to `SERVER_WAIT_S` (default 90) for the server, then gives up and says
 so. **Do not wrap it in `until curl ...; do sleep; done`** — an unbounded wait has no
 timeout, prints nothing, and sits forever if the server never comes up. One did exactly that
@@ -146,7 +158,7 @@ Every probe in the runner was traced. Result as of 2026-09-07:
 | `equipment_add_functional` | clean, no failed calls |
 | `spell_help_laziness` | clean, no failed calls |
 | `notification_flows`, `notifications_acceptance`, `starting_equipment_*` | 3-9s, nothing to find |
-| `export_busy_retry` | not traced — needs `lein e2e-server-busy` |
+| `export_busy_retry` | clean. 41s, no failed calls; 60% is fixed sleeps waiting out the retry cycle |
 
 `textContent()` and `hover()` carry the same 30s default as `click()`, so five swallowed
 calls elsewhere were given explicit short timeouts as insurance. None were firing; they were

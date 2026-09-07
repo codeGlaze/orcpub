@@ -162,6 +162,10 @@ function run(probe, pack, budgetMs) {
     // Not merely unnecessary: this profile is the whole point of the probe, and against the
     // ordinary server the busy page never appears and every check fails.
     if (p.needs === 'busy-server' && !process.env.BUSY_SERVER) { skip(p, 'needs `lein e2e-server-busy` + BUSY_SERVER=1'); return false; }
+    // The two server profiles are NOT interchangeable, and running the wrong probes against
+    // the busy one produces a real-looking failure: pdf-concurrency=1 sends every export to
+    // the busy page, so character_image_capture fails 1 of 31 for no reason of its own.
+    if (p.needs === 'server' && process.env.BUSY_SERVER) { skip(p, 'BUSY_SERVER is set; this needs the ordinary `lein e2e-server`'); return false; }
     if (p.needsPack && !pack) { skip(p, 'needs ORCBREW_PACK'); return false; }
     return true;
   });
