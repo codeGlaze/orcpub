@@ -238,7 +238,7 @@
      "Review / change"]
     [:button.form-button
      {:on-click #(dispatch [:apply-conflict-resolutions])}
-     "Import with these fixes"]]])
+     "Import with default fixes"]]])
 
 (defn- conflict-resolution-advanced
   "The full per-conflict panel — every option exposed for power users and mods.
@@ -259,7 +259,7 @@
        ;; problem. The library flow really does start empty.
        (if all-decided?
          (str (count conflicts) " conflict" (when (not= 1 (count conflicts)) "s")
-              " — each already has a suggested fix. Change any you disagree with.")
+              " — each already has a default fix applied. Change any you disagree with.")
          (str (count conflicts) " conflict(s) need resolution"
               (if library? "." " before import can continue.")))]]
 
