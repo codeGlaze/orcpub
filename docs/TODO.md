@@ -307,3 +307,47 @@ Two approaches:
 Out of scope for `bugfix/pdf-widget-warnings`. Worth filing as its own
 PR, especially since the programmatic approach is testable and produces
 diff-able binary output.
+
+## Style 4 drops the `inspiration` value — no such field on the template
+
+**Status:** Open  
+**Severity:** Low — one value, on one sheet, reported rather than silently lost  
+**Reported:** 2026-09-06
+
+### Summary
+
+Exporting to style 4 (Petersen Games Cthulhu Mythos Sagas) logs:
+
+```
+pdf/write-fields!: 1 value(s) had no field in this template and were dropped: inspiration
+```
+
+The template has no `inspiration` widget, so the value has nowhere to go. Styles
+1, 2 and 3 place all 194 fields; style 4 places 193.
+
+### Why this is low
+
+Nothing is lost silently: the value is surfaced by the unplaceable-field
+reporting path, which is doing exactly its job. A missing box is a known
+characteristic of style 4 rather than a regression — that sheet also ships
+without a `backstory` field, noted in `test/clj/orcpub/pdf_test.clj`. The
+master-template consolidation did not cause this; it only made it visible,
+because the run now reports what it could not place.
+
+### Proposed fix
+
+Either is fine, and the choice is really about whether the sheet has room:
+
+- Add an `inspiration` widget to the style-4 master via
+  `dev/prepare_templates.clj`, if there is space for it on the page.
+- Otherwise record `inspiration` as not-applicable for style 4, so an export
+  run comes back clean instead of reporting a drop every time. Preferred if
+  adding a box would crowd the sheet, since a permanently noisy report trains
+  people to ignore it.
+
+### Verified
+
+`dev/style_gallery.clj` against the integration-into-dmv pre-merge tree,
+2026-09-06: a level 20 evoker on every style. Styles 1/2/3 report 194 fields
+each, style 4 reports 193 with this single drop. No other unplaceable field on
+any style.
