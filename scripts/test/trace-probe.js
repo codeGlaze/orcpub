@@ -43,9 +43,19 @@ if (!fs.existsSync(path.join(ROOT, rel))) {
 }
 const extra = process.argv.slice(3).filter(a => a !== '--');
 
+// Honour the runner's own opt-out list. Tracing whats_new_e2e.js WITH suppression measured
+// 35s against its real 110s -- the panel it exists to test never appeared, so the trace
+// described a run that does not happen. A tool that quietly measures the wrong configuration
+// is worse than no tool.
 const preload = path.join(ROOT, 'test/browser/lib/suppress-overlays-preload.js');
+const runnerSrc = fs.readFileSync(path.join(__dirname, 'run-browser-probes.js'), 'utf8');
+const optedOut = new RegExp(`file:\\s*'${path.basename(rel).replace('.', '\\.')}'[^}]*suppress:\\s*false`).test(runnerSrc);
 const env = { ...process.env, DEBUG: 'pw:api',
               NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${preload}`.trim() };
+if (optedOut || process.env.PROBE_SUPPRESS === '0') {
+  env.PROBE_SUPPRESS = '0';
+  console.log(`(${path.basename(rel)} opts out of overlay suppression — tracing it that way)`);
+}
 
 const t0 = Date.now();
 const p = spawn('node', [rel, ...extra], { cwd: ROOT, env });

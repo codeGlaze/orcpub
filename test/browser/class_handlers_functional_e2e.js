@@ -132,7 +132,9 @@ const check = (name, ok, detail) => {
     if (before < 0)   console.log('  SKIP  spell selection (subscription unavailable)');
     else if (!n)      console.log('  SKIP  spell selection (no spell option card rendered)');
     else {
-      const label = (await card.textContent().catch(() => '')).trim().slice(0, 24);
+      // Explicit timeout: textContent carries the same 30s default as click, and the
+      // .catch would hide it. A missing card should cost 2s, not half a minute.
+      const label = (await card.textContent({ timeout: 2000 }).catch(() => '')).trim().slice(0, 24);
       await card.click({ timeout: 20000 });
       await page.waitForTimeout(2500);
       const after = await knownSpells();

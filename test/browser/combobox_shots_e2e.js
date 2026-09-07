@@ -129,7 +129,7 @@ async function stats(page, label) {
   await bigInput.fill('+1');
   await page.waitForTimeout(900);
   // Hover a row so the accent bar and hover tint appear in the shot.
-  await page.locator('.inv-combo-row').nth(2).hover().catch(() => {});
+  await page.locator('.inv-combo-row').nth(2).hover({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(400);
   const many = await page.evaluate(() => document.querySelectorAll('.inv-combo-hit').length);
   console.log(`broad filter "+1" on largest section: ${many} highlighted rows`);
