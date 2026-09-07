@@ -793,6 +793,14 @@ rather than something they'd have to go read the changelog to find.
   two styles that could not export a multiclass caster, and the packed multiclass
   layout, alongside the homebrew and portrait work (`9e3017d3`).
 
+### fix/header-flyout-under-sticky-toolbar
+
+**Fixed**
+
+- **Header dropdowns are clickable again** — Characters, Spells, Monsters, Items,
+  Encounters and My Content all rendered under the button row, which swallowed
+  the click on most of their items (`9eb3ac81`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
