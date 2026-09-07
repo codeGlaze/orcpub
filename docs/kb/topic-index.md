@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, feat, job, kept, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, feat, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -162,7 +162,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, background, bespoke, disposition, effect, expertise, grant, header, monster, node, omv, pool, race, row, rows, widget, widgets, writes
+**topics:** ---, arm, background, bespoke, disposition, effect, feat, grant, header, monster, omv, pool, race, row, subrace, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -172,8 +172,8 @@ _builder-disposition-audit · builder disposition audit_
 - Background — 46 lines, 11 widgets
 - Monster — 233 lines, 12 widgets — a stat block, not a character
 - What the six tables add up to
-- Pools to register before the grant node can replace those widgets
-- Two open design points the tables surface
+- Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
+- The 35 deletions — replacement and shim, one row each
 - OMV (port/redesign-on-refactor)
 
 ## builder-form-schemas.md
@@ -211,7 +211,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, companion, d28, dead, express, first-class, gap, infusions, int-mod, magic-item, multiselect, non-srd, piece, pool, profs, scaling, tool
+**topics:** artificer, builders, cfg, companion, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, non-srd, piece, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -258,7 +258,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roller, rolls, scaling, sneak, structured, summary, surge, user-reported, wind
+**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -322,7 +322,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** adding, allowlist, ancestry, breath-weapon, descriptor, event, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, breath-weapon, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -361,7 +361,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** builder-item, component, conventions, d22, draconic, events, form, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, schema, spa
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, schema, spa
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -387,7 +387,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -586,7 +586,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, tag, thrown, unarmed, warrior, weapon
+**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -707,7 +707,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, eligibility, fighting, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
 
 - In four sentences
 - The three layers
@@ -785,7 +785,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, silo, spell, spells, sustainable, unreachable, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -812,7 +812,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map

@@ -145,31 +145,102 @@ not porting. The BESPOKE column is three things in every builder: `:traits` (E3 
 six builders), `:spells` / `subclass-spells` (the spell pool), and class/subclass's level
 vocabularies (D31 keeps the level-gated mode; not this work).
 
-### Pools to register before the grant node can replace those widgets
+### Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
 
-Four entries in `grant_pools.cljc`, each a fixed vocabulary with no homebrew half (like `:skills`):
+Checked the raw material for each (2026-09-07):
 
-| pool | built-ins | option constructor exists? |
-|---|---|---|
-| `:weapons` | `weapons/weapons` (+ custom, via `custom-and-standard-weapons`) | `weapon-proficiency-option` ✅ |
-| `:armor` | `armor/armor-types` + `:shields` | `homebrew-armor-prof-selection` builds them inline |
-| `:tools` | `equipment/tools` | `tool-proficiency-selection-2` builds them inline |
-| `:damage-types` | `opt/damage-types` | inline in the resistance widgets |
+| pool | built-ins | entries carry `:key`? | option constructor | homebrew half |
+|---|---|---|---|---|
+| `:weapons` | `weapons/weapons` | ✅ | `weapon-proficiency-option` ✅ exists, sets `:key` | custom weapons exist — but via `::mi5e/custom-weapons`, the **server-backed magic-item seam**, not `plugin-vals` (D14 excludes it from the registry). Register **closed** over built-ins; custom weapons are a separate D14 question |
+| `:armor` | `armor/armor-types` = `[:light :medium :heavy]` + `:shields` | keywords | inline in `homebrew-armor-prof-selection` (`options.cljc:1400`) — lift to a fn | none — closed |
+| `:tools` | `equipment/tools` = musical ++ artisan ++ misc | ✅ | `tool-option` ✅ exists, sets `:key` | none — closed |
+| damage types | `damage-types` — **defined twice**, `options.cljc:124` and `damage_types.cljc:3`, identical | keywords | inline in the resistance widgets | none — closed |
 
-Plus `:skills-or-tools` for feat (a union pool — `skilled-selection` hand-builds it today).
+"Extensible" for these would mean a homebrew pack adding a new tool or damage type. None has a
+plugin key or a builder; they are **vocabularies, not content types**. The direction doc's PINS
+already place this: *"New skills (creating a brand-new skill, not granting one): adds to the skill
+registry itself — different shape. Defer."* Same for the other three. A closed pool is exactly what
+`:skills` already is; nothing about the registry needs them open.
 
-### Two open design points the tables surface
+**Damage types are not one pool — they are three.** A `:damage-types` entry "cold" has no single
+modifier: resistance, immunity and vulnerability are different `mod5e/*` primitives. Expressing
+that as a mode on the grant — `{:pool :damage-types :key :cold :as :resistance}` — puts a `cond`
+over kinds inside `grant`, which is discipline 1's named failure. So: `:damage-resistances`,
+`:damage-immunities`, `:damage-vulnerabilities` — three registry entries over the same 13 keywords,
+each entry's `:options-fn` carrying its own modifier. **The same argument resolves the two points
+left open above:** expertise is a second pool over the skill entries (`:skill-expertise`, whose
+options carry `skill-prof-or-expertise`), not a flag on the `:skills` grant; and
+`:saving-throw-advantage` stays an EFFECT — a pool per save-advantage flavour would be a pool of
+one modifier over six fixed keywords, which is a `:multi-enum` parameter wearing a pool's clothes.
 
-1. **Expertise.** `option-skill-expertise-choice` writes `:skill-expertise-options`, compiled by
-   `skill-prof-or-expertise` (proficiency, or expertise if already proficient). As a grant that is
-   either a `:skills` grant carrying `:expertise? true`, or a separate `:skill-expertise` pool over
-   the same entries. The first is one flag on the row; the second is a second pool for the same
-   things. Lean first; decide before E4 lands on class.
-2. **Resistance-shaped effects.** `:saving-throw-advantage` is a map-of-flags over abilities, like
-   `:damage-resistance` over damage types — but "advantage on saves" reads as a *mechanic with a
-   parameter*, not "gain a thing from a pool". Tabled as EFFECT above. If `:damage-resistance` is a
-   GRANT, the line between them is the pool: damage types are a real vocabulary people extend
-   (FTD adds them); abilities are six and fixed. Revisit if it feels wrong when the rows render.
+**Pools to register, final:** `:weapons`, `:armor`, `:tools`, `:damage-resistances`,
+`:damage-immunities`, `:skill-expertise`, and `:skills-or-tools` for feat (a union — `skilled-selection`
+hand-builds it today). Seven entries. `:damage-vulnerabilities` only if a character silo ever grants
+one — today only monster writes it, and monster is a stat block.
+
+## The 35 deletions — replacement and shim, one row each
+
+**The shim is the existing compiler arm, and it does not move.** Deleting a widget removes what
+*writes* a key. Nothing here removes what *reads* one: every arm in `make-feat-modifiers`,
+`make-feat-selections`, `race-option`, `background-option` and the cljs assembly stays exactly as it
+is (D9). An exported pack written by today's build imports tomorrow and compiles through the
+unchanged arm. Import does not strip unknown keys — `bf/fields->spec` is optional-by-default and
+`strip-export-blanks` drops only nils and empties — so `:grants` and the legacy keys coexist in one
+item. The one deliberate incompatibility is the other direction: a pack carrying `:grants` exports as
+format v2 and an **old** build declines it rather than loading it with the grants silently missing.
+
+Per D34: each deleted widget is `#_`-struck with a date, and the arm it wrote to gets a
+characterization test proving the grant row compiles to an equivalent `selection-cfg` / modifier —
+the "pin" column. Removal of the struck widget after ~3 months, tracked in `backfill-ledger.md`.
+
+| # | builder | widget (deleted) | writes today | kept readable by (the shim) | replaced by | pin |
+|---|---|---|---|---|---|---|
+| 1 | race | `language-checkboxes` | `[:languages "Elvish"]` (by NAME) | `race-option` → `(modifiers/language (name-to-kw …))` | `{:pool :languages :key :elvish}` | same `modifiers/language` on the built char |
+| 2 | race | `option-language-proficiency-choice` | `[:profs :language-options {:choose n :options}]` | `language-selection` | `{:pool :languages :count n :filter #{…}}` | same options, min/max, `:profs` tag |
+| 3 | race | `option-skill-proficiency` | `[:props :skill-prof k]` | `make-feat-modifiers :skill-prof` | `{:pool :skills :key k}` | `modifiers/skill-proficiency` |
+| 4 | race | `option-skill-proficiency-choice` | `[:profs :skill-options {…}]` | `skill-selection` | `{:pool :skills :count n :filter}` | options + tag |
+| 5 | race | `option-weapon-proficiency` | `[:props :weapon-prof k]` | `make-feat-modifiers :weapon-prof` | `{:pool :weapons :key k}` | `modifiers/weapon-proficiency` |
+| 6 | race | `option-weapon-proficiency-choice` | `[:profs :weapon-proficiency-options {…}]` | `weapon-proficiency-selection-2` | `{:pool :weapons :count n :filter}` | options + tag |
+| 7 | race | `option-armor-proficiency` | `[:props :armor-prof type]` | `make-feat-modifiers :armor-prof` | `{:pool :armor :key type}` | `modifiers/armor-proficiency` |
+| 8 | race | `option-tool-proficiency` | `[:profs :tool k]` | `race-option` | `{:pool :tools :key k}` | `modifiers/tool-proficiency` |
+| 9 | race | `option-damage-resistance` | `[:props :damage-resistance type]` | `make-feat-modifiers :damage-resistance` | `{:pool :damage-resistances :key type}` | `modifiers/damage-resistance` |
+| 10 | race | `option-damage-immunity` | `[:props :damage-immunity type]` | `make-feat-modifiers :damage-immunity` | `{:pool :damage-immunities :key type}` | `modifiers/damage-immunity` |
+| 11 | subrace | `option-languages` | `[:props :language k]` | `make-feat-modifiers :language` | `{:pool :languages :key k}` | `modifiers/language` |
+| 12–13 | subrace | `option-skill-proficiency`, `-choice` | as 3–4 | as 3–4 | as 3–4 | |
+| 14 | subrace | `option-weapon-proficiency` | as 5 | | | |
+| 15 | subrace | `option-armor-proficiency` | as 7 | | | |
+| 16 | subrace | `option-tool-proficiency` | as 8 (via `subrace-option`) | | | |
+| 17–18 | subrace | `option-damage-resistance`, `-immunity` | as 9–10 | | | |
+| 19 | class | `option-skill-proficiency-choice` | as 4 (via `level-option`) | `skill-selection` | as 4 | |
+| 20 | class | `option-skill-expertise-choice` | `[:profs :skill-expertise-options {…}]` | `skill-prof-or-expertise` | `{:pool :skill-expertise :count n :filter}` | expertise-or-prof modifier |
+| 21–22 | subclass | `option-skill-proficiency-choice`, `option-skill-expertise-choice` | as 19–20 | | | |
+| 23 | background | `background-skill-proficiencies` | `[:profs :skill k]` | `background-option` | `{:pool :skills :key k}` | |
+| 24 | background | `background-tool-proficiencies` | `[:profs :tool k]`, `[:profs :tool-options …]` | `background-option` | `{:pool :tools :key k}` / `{:pool :tools :count n}` | |
+| 25 | background | `background-languages` | `[:profs :language-options :choose]` (count only) | `background-option` | `{:pool :languages :count n}` | |
+| 26 | feat | `feat-skill-proficiency` | `[:props :skill-tool-choice n]` | `make-feat-selections :skill-tool-choice` | `{:pool :skills-or-tools :count n}` | `skilled-selection` ×n equivalent |
+| 27 | feat | `feat-languages` | `[:props :language-choice n]` | `make-feat-selections :language-choice` | `{:pool :languages :count n}` | `language-selection-aux` equivalent |
+| 28 | feat | `feat-weapon-proficiency` (choice half) | `[:props :weapon-prof-choice n]` | `make-feat-selections :weapon-prof-choice` | `{:pool :weapons :count n}` | |
+| 29 | feat | `feat-armor-proficiency` (armor half) | `[:props :armor-prof type]` | as 7 | as 7 | |
+| 30 | feat | `feat-damage-resistance` | as 9 | as 9 | as 9 | |
+| 31 | feat | `option-skill-proficiency-or-expertise` | `[:props :skill-prof-or-expertise k]` | `make-feat-modifiers :skill-prof-or-expertise` | `{:pool :skill-expertise :key k}` | |
+| 32 | feat | `option-tool-proficiency-or-expertise` | `[:props :tool-prof-or-expertise k]` | `make-feat-modifiers :tool-prof-or-expertise` | `{:pool :tools :key k}` — **open:** tool expertise has no pool yet | |
+| 33 | feat | `feat-ability-increase-options` | `:ability-increases #{:str :con}` (legacy SET) | `feat-option-from-cfg` dual-format reader — set stays legacy forever | the SHARED `ability-increase-choices` spread widget (not a grant row) | `ability_increase_grant_test` feat-legacy-* already pins the set path |
+| 34 | feat | `feat-speed-bonuses` | `[:props :speed n]` | `make-feat-modifiers :speed` | an EFFECT kind (`:number`), not a grant row | `modifiers/speed` |
+| 35 | feat | `feat-spellcasting` ×3 | `[:props :magic-novice\|:ritual-casting\|:attack-spell true]` | `make-feat-selections` templates | **not yet** — waits for the spell pool + nested grants; stays as passthrough hiccup | |
+
+Rows 1–32 are grant-row deletions and need only the seven pool registrations above plus the node.
+Row 33 is a widget swap to a shared widget that already exists. Row 34 is an `effect-rows` kind.
+Row 35 stays until spells are a pool. **Not one of the 35 touches a compiler arm.**
+
+Two things the table makes visible that the summary did not:
+
+- The three residue widgets that write **the same key from different silos** — `:armor-prof`,
+  `:damage-resistance`, `:skill-prof` — collapse to one pin each, not one per builder: the
+  characterization test is on the arm, and the arm is shared.
+- **Feat's `feat-armor-proficiency` and `feat-weapon-proficiency` are half grant, half effect.**
+  The armor widget also carries `:medium-armor-stealth` and `:medium-armor-max-dex-3` (effects); the
+  weapon widget carries the dead `:improvised-weapons-prof`. Deleting the widget means the effect
+  halves move to `effect-rows` kinds in the same commit, or they vanish from the form.
 
 ## OMV (`port/redesign-on-refactor`)
 
