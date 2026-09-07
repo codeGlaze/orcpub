@@ -96,4 +96,26 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
   })).catch(e => ({ evalErr: String(e).slice(0, 100) }));
   return { ok: false, viaModal: clicked, count: await pluginCount(), diag, lastClickErr };
 }
-module.exports = { importPack, dismissCookieBanner, suppressCookieBanner };
+// The What's New panel opens over the page for any browser that has not seen the current
+// release, and its backdrop swallows clicks -- it broke spell_help_laziness the moment the
+// panel landed. Stamp it as seen before the app boots.
+//
+// The id must match the newest `:id` in src/cljc/orcpub/whats_new.cljc. A new release id
+// makes the panel open again by design, which will break probes again; the probe runner is
+// what catches that, and the fix is this one line.
+const WHATS_NEW_RELEASE = 'summer-patch-2026';
+
+async function suppressWhatsNew(context) {
+  return context.addInitScript(id => {
+    try { localStorage.setItem('whats-new-seen', JSON.stringify(id)); } catch (e) {}
+  }, WHATS_NEW_RELEASE);
+}
+
+// Most probes want both. whats_new_e2e.js deliberately uses neither.
+async function suppressOverlays(context) {
+  await suppressCookieBanner(context);
+  await suppressWhatsNew(context);
+}
+
+module.exports = { importPack, dismissCookieBanner, suppressCookieBanner,
+                   suppressWhatsNew, suppressOverlays, WHATS_NEW_RELEASE };

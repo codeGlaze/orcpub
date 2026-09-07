@@ -8,7 +8,7 @@
 //   node test/browser/freeze_cpu_profile_e2e.js /path/to/pack.orcbrew [throttle]
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -65,7 +65,7 @@ function selfTimes(profile) {
   const PACK = process.argv[2], RATE = Number(process.argv[3] || 4);
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
 
   await page.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });
@@ -111,18 +111,19 @@ function selfTimes(profile) {
     try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration)); })
             .observe({entryTypes:['longtask']}); } catch (e) {}
   });
-  await click('Class / Level'); await page.waitForTimeout(900);
-  await click('Race');          await page.waitForTimeout(900);
+  const TAB = process.env.TAB || 'Class / Level';
+  await click(TAB);    await page.waitForTimeout(900);
+  await click('Race'); await page.waitForTimeout(900);
 
   await page.evaluate(() => { window.__tasks = []; });
   await cdp.send('Profiler.start');
   const t = Date.now();
-  await click('Class / Level');
+  await click(TAB);
   await page.waitForTimeout(1500);
   const { profile } = await cdp.send('Profiler.stop');
   const tasks = await page.evaluate(() => window.__tasks);
   const worst = tasks.length ? Math.max(...tasks) : 0;
-  console.log(`\n=== 2nd visit to Class / Level (${Date.now() - t - 1500}ms wall, ${RATE}x) ===`);
+  console.log(`\n=== 2nd visit to ${TAB} (${Date.now() - t - 1500}ms wall, ${RATE}x) ===`);
   console.log(`longest task: ${worst}ms  ${worst > 500 ? '<- FREEZE CAPTURED' : '<- NOT captured, ranking below is of a normal switch'}`);
   console.log('\n-- INCLUSIVE time (function contains the work) --');
   for (const [name, us] of totalTimes(profile).slice(0, 22)) {

@@ -43,6 +43,10 @@
       :headline "Portraits from far more sites"
       :detail "Paste a picture's address and the sheet takes it, including hosts that used to refuse. When an address can't work, the field says why and what to try instead."}
      {:group "Characters"
+      :icon "fa-search"
+      :headline "Find equipment by typing"
+      :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
+     {:group "Characters"
       :icon "fa-share-alt"
       :headline "Share a character with its homebrew"
       :detail "A view-only link carries the custom content the sheet needs, magic items included, and the recipient can keep it in their library."}

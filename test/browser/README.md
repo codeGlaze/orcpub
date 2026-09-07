@@ -14,6 +14,128 @@ node test/browser/<name>.js
 `lein e2e-server` needs port 8890 free — kill any prior server first
 (`fuser -k 8890/tcp`) or you'll get a bind failure.
 
+## Run them all at once
+
+```
+node scripts/test/run-browser-probes.js
+```
+
+Runs every **asserting** probe and exits non-zero if any fails. Neither `lein test` nor the
+CLJS runner invokes anything in this directory, so without it "both suites green" says
+nothing about these files — `equipment_add_functional_e2e.js` once sat failing three
+assertions and exiting 1 for several commits because nothing ran it.
+
+```
+ORCBREW_PACK=/path/to/pack.orcbrew   # enables the two probes that need imported homebrew
+BUSY_SERVER=1                        # with `lein e2e-server-busy`, enables the export probe
+JOBS=1                               # run one at a time (default is 3)
+ONLY=equipment,sticky                # substring filter
+STRICT=1                             # a probe that could not run counts as a failure
+```
+
+The runner waits up to `SERVER_WAIT_S` (default 90) for the server, then gives up and says
+so. **Do not wrap it in `until curl ...; do sleep; done`** — an unbounded wait has no
+timeout, prints nothing, and sits forever if the server never comes up. One did exactly that
+for 22 minutes, and it defeats the runner's own no-server handling by never letting it start.
+
+A probe that cannot run is reported as `SKIP` with its reason, loudly. Silence is how the
+stale one hid.
+
+**The probes do not all want the same world.** Running them as though they did is wrong in
+both directions — it was, on the runner's first outing:
+
+| `needs` | what it wants |
+| --- | --- |
+| `server` | the real app at `:8890` (`lein e2e-server`) |
+| `standalone` | serves `resources/public` itself and expects **no** usable backend; it treats connection-refused as benign |
+| `busy-server` | `:8890` under `lein e2e-server-busy`, the profile that holds every export slot so the busy page appears |
+
+So the server is not a blanket precondition: it is required only when a selected probe needs
+one, and the standalone probes run either way. `export_busy_retry` against the ordinary
+server fails all six of its checks, and `notifications_acceptance` fails *because* a server
+is up — its XHR gets CORS-blocked instead of refused. Both are preconditions, not bugs.
+
+A full pass is **about 7 minutes**, running 3 probes at once (`JOBS=3`, the default).
+
+Measured against sequential: **421s wall vs 976s, 2.3x**, with all 11 probes reporting
+identical check counts. The worry was that the `server` probes share one in-memory Datomic
+and might see each other's saved characters — they do not. Contention adds a few seconds to
+individual probes and takes minutes off the total.
+
+Use `JOBS=1` for a clean single-probe timing. More than 3 buys nothing: wall time already
+equals the longest probe, `character_image_capture` at ~420s, which is nine PDF renders and
+is the floor until that changes.
+
+## Overlays are suppressed by default, not per probe
+
+The cookie notice and the What's New panel open over the page and their backdrops swallow
+clicks. Suppression used to be opt-in — each probe called `suppressOverlays` itself — which
+means any probe that did not know to was silently exposed to the next overlay someone
+shipped. That is exactly how the What's New panel broke `spell_help_laziness`; the other ten
+probes survived by luck, not by opting in.
+
+The runner now injects `lib/suppress-overlays-preload.js` via `NODE_OPTIONS`, patching
+playwright so **every** context a probe makes carries the suppression, whether it asks or
+not. Both creation paths are covered (`browser.newContext()` and `browser.newPage()`, which
+makes its own context internally).
+
+**Opting out:** set `suppress: false` on the probe's entry in the runner list — for a probe
+whose whole point is that an overlay fires, like `whats_new_e2e.js`. That sets
+`PROBE_SUPPRESS=0`, which the preload honours. Running a probe by hand gets no preload, so
+probes still call `suppressOverlays` themselves; the two are belt and braces.
+
+Watch for this trap when reasoning about overlays: the What's New panel **waits while the
+cookie notice is up**. So a probe with no suppression at all can pass, because the banner
+shields it from the panel — and suppressing only the cookie banner is what exposes it. A
+"control" that removes both suppressions proves nothing.
+
+The release id in the preload must track the newest `:id` in `src/cljc/orcpub/whats_new.cljc`.
+A new id reopens the panel by design and will break probes again; the runner is what catches
+that, and the fix is that one line.
+
+## Two ways a probe lies, and what catches them
+
+**It stops asserting.** A control renamed out from under an `if (await x.count())` guard
+takes its checks with it, and the probe still exits 0 reporting everything it *did* run as
+passing. `scripts/test/probe-baseline.json` records how many assertions each probe is
+expected to run; the runner fails one that runs fewer and says so. Regenerate with
+`UPDATE_BASELINE=1` — and only when you meant to change the count.
+
+**It sits there.** Probes carry 15-minute navigation timeouts and blind `waitForTimeout`
+sleeps, so a stuck one looks exactly like a slow one until the whole run ends.
+
+A total-runtime limit cannot tell those apart: `character_image_capture` legitimately runs
+393s, so any limit short enough to catch a hang quickly would kill it every time. **Silence
+is the signal that separates them** — a probe still printing is working, one quiet for
+minutes is wedged, whatever its normal runtime. So there are two independent kills:
+
+| | default | env | sized by |
+| --- | --- | --- | --- |
+| silence | 180s | `PROBE_SILENCE_S` | measured worst legitimate gap is 79s (`character_image_capture`); `sticky_header` shows 42s+ |
+| total budget | `max(180s, measured × 2)` | `PROBE_BUDGET_S` | each probe's `seconds` in `probe-baseline.json` |
+| heartbeat | 30s | `PROBE_HEARTBEAT_S` | — |
+
+The heartbeat reports how long the probe has been **silent** separately from how long it has
+been running; the silent number is the one that tells you whether to worry. A kill says which
+limit it hit and prints the last output before it stopped.
+
+Per-probe budgets mean a 2-second probe is not handed ten minutes to hang in:
+`starting_equipment_ledger` gets 180s, `sticky_header` 262s, `character_image_capture` 786s.
+
+Write assertions that can fail. `after <= opened` for a check named "filtering narrows the
+list" passes when filtering does nothing — it was in this directory. And a missing control
+is the failure, not a reason to print SKIP and stop asserting.
+
+Only asserting probes are in the runner. The measurement probes (`tab_switch_freeze`,
+`freeze_cpu_profile`, `combobox_scroll`, `select_option_census`, …) report numbers rather
+than pass/fail and are run by hand — putting them in would turn timing noise into build
+failures.
+
+**These probes go stale silently.** One that finds its control by class name breaks the
+moment that control is swapped, and only an *unguarded* assertion tells you: a guarded
+`if (await x.count())` degrades to doing nothing at all. When you change a control, grep
+this directory for its class names.
+
 ## The rule: real server, real UI
 
 Drive the actual UI against `http://localhost:8890` — navigate, click, upload `.orcbrew`

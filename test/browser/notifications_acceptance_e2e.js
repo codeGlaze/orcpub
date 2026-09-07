@@ -15,6 +15,13 @@
 //
 // Prereqs (not part of `lein test`): lein fig:build; lein garden once; playwright installed.
 // Run:  node test/browser/notifications_acceptance_e2e.js       Exit 0 = all checks passed.
+//
+// Needs:     nothing. It serves resources/public from its own throwaway origin and expects NO backend,
+//            so connection-refused (and CORS, if an e2e-server happens to be up) is benign noise
+// Runs in:   ~8s.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -123,7 +130,11 @@ const check = (n, ok, d='') => { results.push({ok}); console.log(`${ok?'PASS':'F
         window.cljs.reader.read_string.call(null, '[:export-warning :active?]'))) === 'true'));
 
     // Real app problems vs known harness noise.
-    const benign = /reactive context|ERR_CONNECTION_REFUSED|Unhandled HTTP status|fetch character|Failed to load resource/i;
+    // CORS sits alongside ERR_CONNECTION_REFUSED: this harness serves the app from its own
+    // throwaway origin with no backend of its own, so an XHR to the real backend either is
+    // refused (nothing listening) or is CORS-blocked (an e2e-server happens to be up). Same
+    // condition, and whether some other server is running must not decide this probe.
+    const benign = /reactive context|ERR_CONNECTION_REFUSED|Unhandled HTTP status|fetch character|Failed to load resource|blocked by CORS policy|Access to XMLHttpRequest/i;
     const unexpected = consoleMsgs.filter(m => !benign.test(m));
     if (unexpected.length) { console.log('UNEXPECTED console messages:'); unexpected.forEach(m => console.log('  ' + m)); }
     if (pageErrs.length)   { console.log('PAGE ERRORS:'); pageErrs.forEach(m => console.log('  ' + m)); }

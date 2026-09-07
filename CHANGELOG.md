@@ -793,6 +793,46 @@ rather than something they'd have to go read the changelog to find.
   two styles that could not export a multiclass caster, and the packed multiclass
   layout, alongside the homebrew and portrait work (`9e3017d3`).
 
+### feat/option-picker
+
+**Highlights**
+
+Equipment items are picked from a filtering dropdown instead of a 1037-option native select.
+Type to narrow it, scroll the whole list, or walk it with the arrow keys.
+
+**Added**
+
+- Equipment inventory sections use a filtering dropdown: type to narrow, click or press Enter
+  to add (`95d38f67`).
+- Arrow keys walk the list and scroll the highlight into view, so it can be used without the
+  mouse (`ba52a219`).
+- The matched text is highlighted, which shows why a row matched when the match lands
+  mid-word — filtering by `+1` marks the suffix, not the name (`4082bc20`).
+- The dropdown shows how many items it holds and what the keys do (`4082bc20`).
+- `scripts/test/run-browser-probes.js` runs every asserting browser probe and fails the run
+  if any fails. Neither test suite invokes `test/browser/`, so nothing was checking them
+  (`89d49918`, `6e60959f`).
+
+**Fixed**
+
+- An item with no name no longer throws while filtering (`78deb2ad`).
+- The dropdown lines up with its input and flips above it rather than running off the bottom
+  of the screen (`95d38f67`).
+- Two browser probes had been left pointed at a control that no longer existed: one was
+  failing unnoticed, the other had quietly stopped taking screenshots (`d51aa979`).
+
+**Changed**
+
+- The Equipment dropdown no longer caps what it shows. The previous 12-row cap left 294 of
+  306 magic weapons unreachable unless you already knew the name (`ba52a219`).
+- The dropdown menu was flat; it now has depth, a themed scrollbar, a highlight bar and a
+  short open animation that respects reduced-motion (`78deb2ad`).
+- Removed the growable option-menu namespaces lifted from `redesign/growable-option-menus`.
+  Nothing referenced them, and they carry theming, layout modes and page structure — a
+  site-wide redesign, not a picker (`233d032e`).
+- A probe that stops asserting, or sits silent for 180s, now fails instead of passing
+  (`7369cc33`, `ee0b3781`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure

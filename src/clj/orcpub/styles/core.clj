@@ -2136,6 +2136,212 @@
       (merge text-color
              {:font-weight 600
               :font-variant-numeric :tabular-nums})]]
+
+    ;; Ported from port/redesign-on-refactor (option_menu_views.cljs). Self-contained:
+    ;; no theme tokens, no CSS custom properties, only str + handle-browsers.
+    ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
+    ;; Sized so it works on a phone: the popover is width-capped but never wider than the
+    ;; viewport, and the list scrolls rather than growing the page.
+    [:.inv-picker {:position :relative
+                   :margin "6px 0 10px"}]
+
+    [:.inv-picker-btn
+     {:background "rgba(255,255,255,0.06)"
+      :border "1px solid rgba(255,255,255,0.18)"
+      :border-radius "4px"
+      :color "#f0a100"
+      :cursor :pointer
+      :font-size "14px"
+      :font-weight 600
+      :padding "7px 14px"}]
+
+    [:.inv-picker-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :z-index 40}]
+
+    [:.inv-picker-pop
+     {:position :absolute
+      :z-index 41
+      :top "calc(100% + 4px)"
+      :left 0
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      :background "#1a2430"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "5px"
+      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      :padding "8px"}]
+
+    [:.inv-picker-search
+     {:width "100%"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "3px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "8px 10px"
+      :margin-bottom "6px"}]
+
+    [:.inv-picker-list
+     {:max-height "280px"
+      :overflow-y :auto}]
+
+    [:.inv-picker-row
+     {:padding "8px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"
+      :transition "background-color 90ms ease, box-shadow 90ms ease"}
+     [:&:hover {:background "rgba(240,161,0,0.18)"
+                :color "#fff"}]]
+
+    [:.inv-picker-empty
+     {:padding "10px"
+      :color "rgba(255,255,255,0.5)"
+      :font-size "13px"
+      :font-style :italic}]
+
+    [:.inv-picker-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    ;; ----- native filtering dropdown (character-builder/inventory-datalist) -----
+    ;; Only the INPUT is styleable. The suggestion list is a browser-drawn popup and
+    ;; ignores page CSS -- that is the trade against the custom popover above.
+    [:.inv-datalist {:margin "6px 0 10px"}]
+
+    [:.inv-datalist-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    ;; ----- filter-and-pick combobox on the native Popover API -----
+    ;; The popover element gets the browser's top layer, light dismiss and Escape handling;
+    ;; none of that is implemented here. Anchor positioning pins it under its input, and
+    ;; where unsupported the popover still opens (centred) rather than breaking.
+    [:.inv-combo {:margin "6px 0 10px"}]
+
+    [:.inv-combo-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    [:.inv-combo-pop
+     {:position :absolute
+      ;; content-box here made the dropdown 14px wider than its input (6px padding + 1px
+      ;; border each side), which anchor-size() alone does not correct.
+      :box-sizing :border-box
+      :position-area "bottom span-right"
+      ;; Flip above the input when there is no room below, instead of running off-screen.
+      :position-try-fallbacks "flip-block"
+      :margin "4px 0 0 0"
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      ;; Depth, in the order light would build it: a hairline top highlight so the panel
+      ;; catches light from above, a tight contact shadow, then a wide soft one. A single
+      ;; flat shadow on a flat fill is what made this look pasted on.
+      :background "linear-gradient(180deg, #1f2b39 0%, #151f2a 100%)"
+      :border "1px solid rgba(255,255,255,0.16)"
+      :border-radius "6px"
+      :box-shadow (str "inset 0 1px 0 rgba(255,255,255,0.09), "
+                       "0 2px 6px rgba(0,0,0,0.45), "
+                       "0 14px 34px rgba(0,0,0,0.55)")
+      :padding "6px"
+      :inset :auto}]
+
+    ;; Entry animation. 120 ms is under the threshold where a menu starts to feel slow, and
+    ;; the 4px rise reads as the panel arriving from its input rather than blinking on.
+    [:.inv-combo-pop:popover-open
+     {:animation "inv-combo-in 120ms cubic-bezier(0.2, 0, 0.2, 1)"}]
+
+    ;; Separate rule, not a second :width in the map above -- duplicate keys are illegal in a
+    ;; Clojure map literal. 320px above is the fallback for engines without anchor-size();
+    ;; where this resolves the dropdown matches its input the way a native picker does.
+    [:.inv-combo-pop {:width "anchor-size(width)"}]
+
+    ;; Keep the dropdown short enough to sit below its input in the common case -- at 300px
+    ;; it did not fit and flip-block kept throwing it up over the page header.
+    [:.inv-combo-list
+     {;; The default scrollbar is a wide light slab against a dark panel -- a large part of
+      ;; why this read as cheap. Thin and themed, track left transparent.
+      :scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"
+      :max-height "230px"
+      :overflow-y :auto}]
+
+    [:.inv-combo-row
+     {:padding "9px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"}
+     ;; inset box-shadow rather than a border-left: an accent bar that costs no layout, so
+     ;; the text does not jump sideways on hover.
+     [:&:hover {:background "rgba(240,161,0,0.16)"
+                :color "#fff"
+                :box-shadow "inset 3px 0 0 rgba(240,161,0,0.75)"}]
+     ;; Keyboard highlight. Stronger than :hover so the two are distinguishable when the
+     ;; pointer happens to rest on a different row than the arrow keys are on.
+     [:&.active {:background "rgba(240,161,0,0.28)"
+                 :color "#fff"
+                 :box-shadow "inset 3px 0 0 #f0a100"}]]
+
+    ;; The matched substring. Colour plus weight, so it still reads if the row is highlighted.
+    [:.inv-combo-hit {:color "#f0a100" :font-weight :bold}]
+
+    ;; Count and key hints. The arrow-key navigation is invisible otherwise.
+    [:.inv-combo-hint
+     {:display :flex
+      :justify-content :space-between
+      :align-items :center
+      :gap "10px"
+      :padding "7px 10px 2px"
+      :margin-top "4px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "11px"}]
+
+    [:.inv-combo-keys {:white-space :nowrap :letter-spacing "0.02em"}]
+
+    [:.inv-combo-empty
+     {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]
+
+    [:.inv-combo-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    (at-keyframes
+     "inv-combo-in"
+     [:from {:opacity 0 :transform "translateY(-4px)"}]
+     [:to   {:opacity 1 :transform "translateY(0)"}])
+
+    ;; Motion is decoration here; the control works identically without it.
+    (at-media
+     {:prefers-reduced-motion :reduce}
+     [:.inv-combo-pop:popover-open {:animation :none}]
+     [:.inv-combo-row {:transition :none}])
+
 ];concat-bracket
    margin-lefts
    margin-tops
