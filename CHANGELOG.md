@@ -833,6 +833,23 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
 - `ORCPUB_HTTP_MAX_THREADS` reports the pool size read back off the running server when it is
   unset, rather than a formula copied from Pedestal that would drift (`cf7d8cdd`).
 
+### test/overlay-probe-user-menu-and-modals
+
+**Added**
+
+- The overlay probe drives the **import conflict modal** — the fixture pack is
+  imported twice, the second time with its source renamed so all 180 keys collide,
+  which is the conflict a user hits when two packs overlap (`26f8c602`).
+- A **signed-in lane** that logs in through the real form when `ORCPUB_TEST_USER`
+  and `ORCPUB_TEST_PASSWORD` are set, and audits the user menu (`26f8c602`).
+
+**Fixed**
+
+- **The import helper targets the labels that exist**, most specific first, so a
+  rename fails loudly instead of quietly matching something else (`950ab526`).
+- **The cookie-banner fallback is scoped to the banner**, so it can no longer
+  close the release panel and record that as consent (`950ab526`, `031daf73`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
