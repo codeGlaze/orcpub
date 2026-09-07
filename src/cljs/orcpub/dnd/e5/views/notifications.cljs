@@ -24,15 +24,28 @@
     [:i.fa.fa-times]]])
 
 (defn callout
-  "Persistent contextual notice: a warning-box (.bg-warning) with an optional fa icon class,
-   body content (a string or hiccup — multi-line is fine), and optional action buttons (each
-   {:label :on-click})."
-  [{:keys [icon text actions]}]
-  [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
+  "Persistent contextual notice: a box with an optional fa icon class, body content
+   (a string or hiccup — multi-line is fine), and optional actions.
+
+   `tone` picks the box: :warning (default) is the severity-coloured one, :note is
+   the neutral one for a callout that informs rather than warns, so an offer or an
+   explanation is not dressed as a problem.
+
+   Each action is {:label ...} plus either :on-click for a button, or :href (with
+   optional :target) for a link. A link renders with the same button styling, so a
+   call to action sits flush with the buttons beside it instead of trailing off as
+   a bare anchor."
+  [{:keys [icon text actions tone]}]
+  [:div.p-10.m-b-10.flex.align-items-c
+   {:class (case tone :note "bg-note" "bg-warning")
+    :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
-   (for [{:keys [label on-click]} actions]
-     ^{:key label} [:button.form-button {:on-click on-click} label])])
+   (for [{:keys [label on-click href target]} actions]
+     ^{:key label}
+     (if href
+       [:a.form-button {:href href :target (or target "_blank")} label]
+       [:button.form-button {:on-click on-click} label]))])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content
