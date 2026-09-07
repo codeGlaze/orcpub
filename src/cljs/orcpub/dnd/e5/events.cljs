@@ -158,30 +158,44 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
+(def ^:private hold-ceiling-ms
+  "How long the release panel waits on the cookie notice before showing anyway.
+   Long enough to let someone dismiss the notice first, short enough that ignoring
+   it costs them the panel for a few seconds rather than forever."
+  10000)
+
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
 
 (reg-fx
  ::e5/watch-cookie-notice
  ;; The release panel is held while the cookie notice is up so a first visit gets
- ;; one overlay, not two. The notice only goes away on a click on its own button,
- ;; so re-check after any click and open as soon as it is gone — otherwise the
- ;; panel waits for a reload that a visitor has no reason to perform, which is
- ;; the same as never showing it. Takes the flag, since an effect map entry runs
- ;; its handler whatever the value is.
+ ;; one overlay, not two. The hold is BOUNDED in both directions, because a hold
+ ;; with no bound is the same as never showing it:
+ ;;
+ ;;   * the notice only goes away on a click on its own button, so re-check after
+ ;;     any click and release as soon as it has gone — waiting for a reload the
+ ;;     visitor has no reason to perform means they never see the release;
+ ;;   * a notice that is ignored rather than dismissed never goes away, and it
+ ;;     comes back every visit, so release anyway after hold-ceiling-ms.
+ ;;
+ ;; Takes the flag, since an effect map entry runs its handler whatever the value.
  (fn [watch?]
    (when watch?
-     (let [handler (atom nil)]
-     (reset! handler
-             (fn [_]
-               (js/setTimeout
-                (fn []
-                  (when-not (cookie-banner-pending?)
-                    (js/document.removeEventListener "click" @handler true)
-                    (dispatch [::e5/open-whats-new])))
-                ;; after the notice's own fade-out, so the two don't cross
-                450)))
-       (js/document.addEventListener "click" @handler true)))))
+     (let [handler (atom nil)
+           done? (atom false)
+           release! (fn []
+                      (when-not @done?
+                        (reset! done? true)
+                        (when-let [h @handler]
+                          (js/document.removeEventListener "click" h true))
+                        (dispatch [::e5/release-whats-new])))]
+       (reset! handler
+               (fn [_]
+                 ;; after the notice's own fade-out, so the two don't cross
+                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
+       (js/document.addEventListener "click" @handler true)
+       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -4693,6 +4707,15 @@
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
+
+(reg-event-db
+ ::e5/release-whats-new
+ ;; The end of a hold, not a request to open: if the reader has meanwhile opened
+ ;; and closed the panel from the footer, the release is stamped and there is
+ ;; nothing left to show.
+ (fn [db _]
+   (cond-> db
+     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
