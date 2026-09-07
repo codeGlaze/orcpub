@@ -33,7 +33,7 @@
 
 (def v2-grant
   {"Pack" {:orcpub.dnd.e5/feats {:g {:name "G" :key :g :option-pack "Pack"
-                                     :grant {:from :fighting-styles :choose 1}}}}})
+                                     :grant {:pool :fighting-styles :count 1}}}}})
 
 (def v2-spread
   {"Pack" {:orcpub.dnd.e5/feats {:s {:name "S" :key :s :option-pack "Pack"

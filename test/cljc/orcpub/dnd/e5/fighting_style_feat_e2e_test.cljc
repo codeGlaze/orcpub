@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.fighting-style-feat-e2e-test
   "BRIDGE EXPERIMENT — the GENERIC :grant key. A feat (and, via the same hook, any
-   bucket) grants a choice from a named pool with `:grant {:from <pool> :choose N}`,
+   bucket) grants a choice from a named pool with `:grant {:pool <pool> :count N}`,
    resolved against a grantable-pools registry. Proves the draconic pool+grant pattern
    generalizes AND that the hook is bucket-agnostic (one mechanism, not per-capability).
 
@@ -35,7 +35,7 @@
     :props {:swimming-speed 30}}))
 
 ;; The GRANTABLE-POOLS registry: pool-key -> {:name display :options (built-in ++ homebrew)}.
-;; Any bucket consults this with a :grant {:from <pool-key>} — not feat-specific.
+;; Any bucket consults this with a :grant {:pool <pool-key>} — not feat-specific.
 (def grantable-pools
   {:fighting-styles {:name "Fighting Style"
                      :options (concat opt5e/fighting-style-options [homebrew-style])}})
@@ -44,14 +44,14 @@
 (def feat-cfg
   {:name "Style Adept" :key :style-adept
    :description "You gain a fighting style of your choice."
-   :grant {:from :fighting-styles :choose 1}})
+   :grant {:pool :fighting-styles :count 1}})
 
 (defn feat-option []
   (opt5e/feat-option-from-cfg
    language-map spells-map spell-lists weapons5e/weapons-map race-map grantable-pools feat-cfg))
 
 (deftest feat-data-grants-a-choice-from-the-pool-via-generic-grant
-  (testing "a feat's generic :grant {:from :fighting-styles} compiles to a choice offering built-in AND homebrew styles"
+  (testing "a feat's generic :grant {:pool :fighting-styles} compiles to a choice offering built-in AND homebrew styles"
     (let [opt (feat-option)
           fs-sel (first (filter #(= "Fighting Style" (::t/name %)) (::t/selections opt)))]
       (is (some? fs-sel)
@@ -64,7 +64,7 @@
 
 (deftest grant-is-bucket-agnostic
   (testing "the SAME grant-selection helper + registry, called for ANY owner, produces the same choice — proving :grant isn't feat-specific (one hook serves every bucket)"
-    (let [sel (opt5e/grant-selection {:from :fighting-styles :choose 1} grantable-pools)
+    (let [sel (opt5e/grant-selection {:pool :fighting-styles :count 1} grantable-pools)
           offered (set (map ::t/name (::t/options sel)))]
       (is (= "Fighting Style" (::t/name sel)))
       (is (contains? offered "Archery"))

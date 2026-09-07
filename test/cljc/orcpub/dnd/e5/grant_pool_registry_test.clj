@@ -66,11 +66,11 @@
            (set (map ::t/key (::t/options (sel {:pool :languages :count 1
                                                 :filter #{:elvish :dwarvish}}))))))))
 
-(deftest prototype-spelling-still-reads
-  (testing ":from / :choose are aliases, so branch-local prototype data keeps working"
-    (let [s (sel {:from :fighting-styles :choose 2})]
-      (is (= 2 (::t/max s)))
-      (is (= "Fighting Style" (::t/name s))))))
+(deftest one-spelling-only
+  (testing ":from / :choose are NOT accepted. Both are already taken by the starting-equipment
+            vocabulary for other things, and an alias for a shape introduced on this branch would be
+            tech debt from birth — a grant must say :pool."
+    (is (nil? (sel {:from :fighting-styles :choose 2})))))
 
 (deftest filtering-is-graceful-never-an-error
   (testing "a filter naming nothing present yields an empty offer, not a throw (the direction doc's

@@ -24,7 +24,7 @@ builder had to be written bespoke.
 | 2 | `[:profs :language-options {:choose 2 :options {:elvish true}}]` | `option-language-proficiency-choice` (race) | `language-selection` |
 | 3 | `[:props :language-choice 2]` — bare count, whole pool only | `feat-languages` (feat) | `make-feat-selections` |
 | 4 | `[:props :language {:elvish true}]` | `option-languages` (subrace, monster) | `make-feat-modifiers` |
-| 5 | `{:grant {:from :languages …}}` | *nothing yet* | `grant-selection` |
+| 5 | `{:grant {:pool :languages …}}` | *nothing yet* | `grant-selection` |
 
 Shape 1 keys by name and shape 4 keys by key — for the same fact. Shape 2 can restrict the pool;
 shape 3 cannot. Shape 3 is feat-only; shape 2 is race/subrace-only.
@@ -33,9 +33,9 @@ shape 3 cannot. Shape 3 is feat-only; shape 2 is race/subrace-only.
 
 | existing shape | as a grant |
 |---|---|
-| 1 and 4 (creator names a member) | `{:grant {:from :languages :key :elvish}}` |
-| 2 (creator names a count and a subset) | `{:grant {:from :languages :choose 2 :filter #{…}}}` |
-| 3 (creator names a count) | `{:grant {:from :languages :choose 2}}` |
+| 1 and 4 (creator names a member) | `{:grant {:pool :languages :key :elvish}}` |
+| 2 (creator names a count and a subset) | `{:grant {:pool :languages :count 2 :filter #{…}}}` |
+| 3 (creator names a count) | `{:grant {:pool :languages :count 2}}` |
 
 What IS still one-sided, verified against the widget map:
 - **A feat cannot grant a specific language from its builder.** The compiler arm exists
@@ -50,9 +50,9 @@ Four modes, of which two ARE the two verbs:
 
 | mode | meaning | verb |
 |---|---|---|
-| `{:from p :choose n}` | n from the whole pool | **select** (user picks) |
-| `{:from p :filter #{…}}` | n from a subset | select, narrowed |
-| `{:from p :key :k}` | one forced entry | **grant** (creator picks) |
+| `{:pool p :count n}` | n from the whole pool | **select** (user picks) |
+| `{:pool p :filter #{…}}` | n from a subset | select, narrowed |
+| `{:pool p :key :k}` | one forced entry | **grant** (creator picks) |
 
 So the verb split is not a missing abstraction. It is a wiring gap. Three wires, none of them the
 hook:
@@ -71,10 +71,10 @@ The three feat-only select props are instances of the generic key, and the grant
 
 | today | as a grant | who has it today |
 |---|---|---|
-| `{:language-choice 2}` | `{:grant {:from :languages :choose 2}}` | feat only |
-| `{:skill-tool-choice 3}` | `{:grant {:from :skills-and-tools :choose 3}}` | feat only |
-| `{:weapon-prof-choice 4}` | `{:grant {:from :weapons :choose 4}}` | feat only |
-| `{:language {:elvish true}}` | `{:grant {:from :languages :key :elvish}}` | race/subrace/monster only |
+| `{:language-choice 2}` | `{:grant {:pool :languages :count 2}}` | feat only |
+| `{:skill-tool-choice 3}` | `{:grant {:pool :skills-and-tools :count 3}}` | feat only |
+| `{:weapon-prof-choice 4}` | `{:grant {:pool :weapons :count 4}}` | feat only |
+| `{:language {:elvish true}}` | `{:grant {:pool :languages :key :elvish}}` | race/subrace/monster only |
 
 Old keys stay as D9 read-shims — nothing saved moves. The same registry entry that lets a feat grant
 a specific language lets a race offer a language *choice*, because the hook does not know who owns

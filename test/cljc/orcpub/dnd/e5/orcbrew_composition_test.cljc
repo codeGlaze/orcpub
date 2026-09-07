@@ -43,7 +43,7 @@
 (def v2-plugins
   {"Pack" {::e5/classes {:battle-sage collapsible-class}
            :orcpub.dnd.e5/feats {:g {:name "G" :key :g :option-pack "Pack"
-                                     :grant {:from :fighting-styles :choose 1}}}}})
+                                     :grant {:pool :fighting-styles :count 1}}}}})
 
 (defn- export [data] (orcbrew-format/serialize-orcbrew
                       (orcbrew-format/stamp (walk-classes ledger/collapse-class data))))

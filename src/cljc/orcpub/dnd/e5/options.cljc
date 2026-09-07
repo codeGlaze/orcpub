@@ -2550,7 +2550,7 @@
                            weapon-proficiencies
                            profs
                            plugin?
-                           grant                 ; ← generic cross-pool grant {:from <pool> :choose N}
+                           grant                 ; ← generic cross-pool grant {:pool <p> :count N}
                            edit-event]
                     :as race}]
   (let [key (or key (common/name-to-kw name))
@@ -3942,22 +3942,23 @@
      {:pool p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
      (custom entry)            -> the pool already includes homebrew entries, so {:pool p} grants them too
    Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass.
-   `:from`/`:choose` are read as aliases of `:pool`/`:count` (the bridge prototype's spelling)."
-  [{:keys [pool count from choose key] flt :filter} grantable-pools]
-  ;; :pool/:count is the DECIDED vocabulary (content-extensibility-direction.md, "The spine");
-  ;; :from/:choose is what the bridge prototype was written with. Both read, one canonical — the
-  ;; prototype spelling is branch-local, but reading it costs nothing and D9 says never break data.
-  (when-let [{:keys [name options]} (get grantable-pools (clojure.core/or pool from))]
+
+   :pool and :count deliberately, not :from and :choose. Both are already taken by the
+   starting-equipment vocabulary for other things: there :from addresses a weapon category and
+   :choose holds a vector of sub-choices, while :profs uses :choose for a count. Reusing either
+   would put two unrelated registries behind one keyword."
+  [{:keys [pool count key] flt :filter} grantable-pools]
+  (when-let [{:keys [name options]} (get grantable-pools pool)]
     (let [opts (cond->> options
                  flt (filter (fn [o] (contains? flt (::t/key o))))
                  key (filter (fn [o] (= key (::t/key o)))))
-          n    (if key 1 (clojure.core/or count choose 1))]
+          n    (if key 1 (clojure.core/or count 1))]
       ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
       ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
       (t/selection-cfg
        {:name name
-        :tags #{:grant (clojure.core/or pool from)}
+        :tags #{:grant pool}
         :multiselect? true
         :min n
         :max n
@@ -3986,7 +3987,7 @@
            ability-increases
            save-proficiencies
            edit-event
-           grant]}]                       ; ← BRIDGE PROTOTYPE: generic grant {:from <pool> :choose N}
+           grant]}]                       ; ← generic cross-pool grant {:pool <p> :count N}
   ;; ASI dual-format reader (D34 feat-path reconciliation): a feat's :ability-increases is read by
   ;; SHAPE, so the cross-silo spread reaches feats without breaking the released format.
   ;;   - vector  → the new terse [amount pool] SPREAD → compile-ability-increases (same path as

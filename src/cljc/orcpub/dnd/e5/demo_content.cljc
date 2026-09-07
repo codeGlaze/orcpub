@@ -50,7 +50,7 @@
       ;; Exercises the generic :grant primitive from the fighting-style pool —
       ;; built-in ++ homebrew, so it offers the demo style below alongside the SRD
       ;; ones.
-      :grant {:from :fighting-styles :choose 1}}}
+      :grant {:pool :fighting-styles :count 1}}}
     ::e5/backgrounds
     {:demo-traveler
      {:key :demo-traveler

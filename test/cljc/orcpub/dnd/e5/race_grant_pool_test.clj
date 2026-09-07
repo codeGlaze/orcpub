@@ -5,8 +5,8 @@
    `:grant` data produces a choice from any pool in it, and :languages is registered.
 
    Both verbs go through the one hook:
-     {:from :languages :choose 2}          -> the SELECT verb (user picks 2 of the pool)
-     {:from :languages :key :elvish}       -> the GRANT verb (creator picked; forced single option)
+     {:pool :languages :count 2}          -> the SELECT verb (user picks 2 of the pool)
+     {:pool :languages :key :elvish}       -> the GRANT verb (creator picked; forced single option)
 
    Also pins that the pre-existing `:profs :language-options` path is untouched — the point of the
    wire is that one shape can replace several, not that any saved shape stops working (D9).

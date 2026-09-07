@@ -183,8 +183,14 @@ offering the `:boon` pool — **no boon↔feat wiring.**
      descriptor key; that is the D14 god-function trap hoisted one level, and it was rejected.
    - **Open vs closed is data, not a mechanism.** A closed pool ignores `plugin-vals`. That is the
      whole difference, exactly as "blank-slate parametric grants are just built-in pools" says.
-   - **Vocabulary converged on the decided spelling.** `grant-selection` reads `{:pool … :count …}`;
-     `{:from … :choose …}` (the bridge prototype's spelling) is kept as an alias.
+   - **Vocabulary converged on the decided spelling, with no alias.** `grant-selection` reads
+     `{:pool … :count …}` and nothing else. The bridge prototype's `{:from … :choose …}` was briefly
+     kept readable and then removed: a compatibility shim for a shape introduced on this same branch
+     is tech debt from birth, and D9 protects *released* data, not a week-old prototype spelling.
+     The names are also load-bearing — `:from` and `:choose` are both already taken by the
+     starting-equipment vocabulary (`{:name "Martial Weapon" :from :martial}`; `:choose` holds a
+     vector of sub-choices there and a count in `:profs`), so reusing either would put two unrelated
+     registries behind one keyword.
    - **Scoping metadata declared.** Each pool carries `:offerable-by` — "which builders may offer
      me". No builder UI consumes it yet; the grant-authoring UI remains the next lever.
    - Pools registered: `:languages`, `:fighting-styles`, `:skills`. Silos wired: feat, race.
