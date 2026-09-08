@@ -657,25 +657,71 @@
    [:.bg-green
     {:background-color "#70a800"}]
 
+   ;; Transient banner. A row: severity icon, the message body, the dismiss.
+   ;; Tinted rather than filled — a solid saturated slab reads as an alarm even
+   ;; when what it says is "that worked".
    [:.message
-    ;; pre-line, because the messages are WRITTEN with blank lines between their
-    ;; parts ("Import successful\n\nImported 464 items\n\nTo be safe, ..."). HTML
-    ;; collapses those, which ran the sentences together with no punctuation
-    ;; between them and read like a typo. The gap keeps the close icon off the
-    ;; text on a narrow screen, and flex-start puts it on the first line rather
-    ;; than halfway down a three-line message.
-    {:padding "12px 14px"
-     :border-radius "5px"
-     :display :flex
-     :justify-content :space-between
+    ;; Sized to what it says. A five-word confirmation was stretching the width of
+    ;; a desktop, with the dismiss a screen away from the words; then a flat cap
+    ;; squeezed a two-sentence warning into a narrow column. fit-content does both:
+    ;; small messages stay small, longer ones run out to the cap.
+    {:display :flex
      :align-items :flex-start
-     :gap "14px"
+     :gap "12px"
+     :padding "12px 14px"
+     :width :fit-content
+     :max-width "min(100%, 900px)"
+     :border-radius "6px"
+     :border "1px solid transparent"
      :line-height "1.45"
-     :white-space :pre-line
-     :color :white}
-    [:.fa-times
-     {:flex-shrink 0
-      :margin-top "2px"}]]
+     :color :white}]
+
+   [:.message.tone-success
+    {:background-color "rgba(112, 168, 0, 0.16)"
+     :border-color "rgba(112, 168, 0, 0.5)"}]
+   [:.message.tone-warning
+    {:background-color "rgba(240, 161, 0, 0.14)"
+     :border-color "rgba(240, 161, 0, 0.45)"}]
+   [:.message.tone-error
+    {:background-color "rgba(154, 3, 30, 0.18)"
+     :border-color "rgba(255, 107, 107, 0.5)"}]
+
+   ;; The icon carries the severity colour, so the box does not have to shout it.
+   [:.message-icon
+    {:font-size "18px"
+     :line-height "1.3"
+     :flex-shrink 0}]
+   [:.tone-success [:.message-icon {:color "#8cc63f"}]]
+   [:.tone-warning [:.message-icon {:color orange}]]
+   [:.tone-error [:.message-icon {:color red-on-dark}]]
+
+   [:.message-body
+    {:flex "1 1 auto"
+     :min-width 0}]
+
+   [:.message-title
+    {:font-size "15px"
+     :font-weight 600}]
+
+   ;; Detail lines are the count, the conflicts, the hint — supporting text, not a
+   ;; second headline, which is what they looked like when everything was bold.
+   [:.message-detail
+    {:font-size "13px"
+     :font-weight 400
+     :opacity 0.85
+     :margin-top "2px"}]
+
+   ;; A bare glyph is a ~14px target on a phone. Pad it out to something a thumb
+   ;; can actually land on.
+   [:.message-close
+    {:flex-shrink 0
+     :padding "6px 4px"
+     :margin "-6px -4px 0 0"
+     :min-width "32px"
+     :min-height "32px"
+     :text-align :right
+     :opacity 0.75}
+    [:&:hover {:opacity 1}]]
 
    ;; Warning/alert styles
    [:.bg-warning

@@ -89,9 +89,9 @@ const check = (n, ok, d='') => { results.push({ok}); console.log(`${ok?'PASS':'F
     // Header surfaces (My Content page): toasts + confirmation.
     await d('[:route :my-content-5e-page]'); await page.waitForTimeout(500);
     for (const [tag, edn, cls] of [
-      ['toast-error',   '[:show-error-message "Import failed: parse error on line 3."]', '.message.bg-red'],
-      ['toast-warning', '[:show-warning-message "Imported — 2 entries set aside."]',      '.message.bg-orange'],
-      ['toast-success', '[:show-message "Your class has been saved."]',                    '.message.bg-green']]) {
+      ['toast-error',   '[:show-error-message "Import failed: parse error on line 3."]', '.message.tone-error'],
+      ['toast-warning', '[:show-warning-message "Imported — 2 entries set aside."]',      '.message.tone-warning'],
+      ['toast-success', '[:show-message "Your class has been saved."]',                    '.message.tone-success']]) {
       await d('[:hide-message]'); await d(edn); await page.waitForTimeout(400);
       check(tag + ' renders', await has(cls));
       await clip(tag, 640);
