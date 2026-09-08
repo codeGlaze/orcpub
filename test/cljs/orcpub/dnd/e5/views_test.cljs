@@ -27,34 +27,44 @@
 ;; Banner rendering
 ;;
 ;; `message` is a plain function returning hiccup, so what it does to its input
-;; IS testable without a DOM — which is the part that broke. Wrapping the input
-;; in `str` to collapse blank lines rendered hiccup messages as their own source
-;; text, and the save banner's export link stopped being a link at all. Nothing
-;; caught it because every test in the suite passed strings.
+;; IS testable without a DOM — which is the part that broke. Collapsing blank
+;; lines by running `str` over the input rendered hiccup messages as their own
+;; source text, and the save banner's export link stopped being a link at all.
+;; Nothing caught it because every message in the suite was a string.
+;;
+;; Asserted through the body slot rather than by walking indices from the top:
+;; the tone icon and close button have moved once already, and a test that
+;; breaks when they move is testing the wrong thing.
 ;; ---------------------------------------------------------------------------
 
-(defn- rendered-body
-  "The banner's content node: [:div.pointer [:div.message _ BODY [:i]]]."
+(defn- message-body
+  "The child of the banner's [:div.message-body …] node."
   [msg]
-  (-> (notifications/message :warning msg identity) (nth 2) (nth 2) second))
+  (-> (notifications/message :warning msg identity) (nth 2) (nth 3) (nth 1)))
 
 (deftest hiccup-messages-are-not-stringified
-  (testing "a hiccup message reaches the DOM as hiccup, not as printed source"
+  (testing "a hiccup message reaches the body as hiccup, not as printed source"
     (let [msg [:div "Saved. " [:span.pointer.underline {:on-click identity} "Export"]]]
-      (is (vector? (rendered-body msg))
-          "a stringified message renders markup as text and kills every control in it")
-      (is (= msg (rendered-body msg)))))
+      (is (vector? (message-body msg))
+          "stringifying renders markup as text and kills every control in it")
+      (is (= msg (message-body msg)))))
 
-  (testing "the clickable child survives with its handler"
+  (testing "a clickable child keeps the handler that makes it do anything"
     (let [handler (fn [_] :clicked)
           msg [:div [:span.pointer {:on-click handler} "Export"]]
-          body (rendered-body msg)
-          link (nth body 1)]
+          link (nth (message-body msg) 1)]
       (is (vector? link))
       (is (= handler (:on-click (second link)))))))
 
-(deftest string-messages-still-collapse-blank-lines
-  (testing "runs of blank lines become one break, so parts stay on their own lines"
-    (is (= "one\ntwo\nthree" (rendered-body "one\n\ntwo\n\n\nthree"))))
-  (testing "a single break is left alone"
-    (is (= "one\ntwo" (rendered-body "one\ntwo")))))
+(deftest string-messages-become-a-title-and-details
+  (testing "the first line titles the banner, the rest are details"
+    (let [body (message-body "one\n\ntwo\n\n\nthree")
+          title (nth body 1)
+          details (vec (nth body 2))]
+      (is (= [:div.message-title "one"] title))
+      (is (= ["two" "three"] (mapv #(nth % 1) details)))))
+
+  (testing "a single-line string is all title, with no empty detail rows"
+    (let [body (message-body "just this")]
+      (is (= [:div.message-title "just this"] (nth body 1)))
+      (is (empty? (vec (nth body 2)))))))
