@@ -8747,29 +8747,30 @@
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-              "export"]
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/delete-plugin name)}
-              "delete"]]
-            ;; One toolbar filters every category below: a name search and a
-            ;; show-disabled toggle whose (N) is the source's disabled count, so
-            ;; disabled content (which will grow once duplicate-key resolution
-            ;; disables a colliding side) stays discoverable, not buried.
-            (when has-content?
-              [:div.flex.align-items-c.flex-wrap.m-b-10
-               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+            ;; One row for the whole source: the search that filters every category
+            ;; below, the show-disabled toggle whose (N) is this source's disabled
+            ;; count, and the source's own actions. It wraps on a narrow screen —
+            ;; search first, then the toggle and the buttons.
+            [:div.mc-source-toolbar
+             (when has-content?
+               [:input.input.h-40.p-l-10.f-s-14.mc-source-search
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}]
+                 :on-change #(reset! search (.. % -target -value))}])
+             (when has-content?
                (let [dn (source-disabled-count plugin)]
-                 [:div.flex.align-items-c.pointer.f-s-14
+                 [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [comps/checkbox show? false]
-                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
+             [:div.flex.align-items-c.uppercase.mc-source-actions
+              [:button.form-button
+               {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+               "export"]
+              [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/delete-plugin name)}
+               "delete"]]]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
