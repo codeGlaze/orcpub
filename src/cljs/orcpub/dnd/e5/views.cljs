@@ -1102,6 +1102,14 @@
   (let [expanded? (r/atom false)]
     (fn []
       [:div.t-a-r
+       ;; The safety valve: dumps the library as it actually is, skipping the
+       ;; export gate, so a user whose content the validation refuses can still
+       ;; get it out. Stays reachable in production for exactly that reason —
+       ;; guarding it to dev would remove the out when it is most needed.
+       [:div.orange.pointer.underline
+        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
+        [:i.fa.fa-cloud-download-alt]]
        [:div.orange.pointer.underline
         {:on-click #(swap! expanded? not)
          :title "Development - Debug Info" }

@@ -4769,23 +4769,22 @@
                                                        " item(s) on the way out.")]}]])))})))))
 
 
-(defn clj->json
-  [ds]
-  (.stringify js/JSON (clj->js ds) nil 2))
-
-(reg-event-fx
- ::e5/save-to-json
- (fn [_ [_ name plugin]]
-   (let [blob (js/Blob.
-               (clj->js [(clj->json (map-plugin-classes sel/collapse-class plugin))])
-               (clj->js {:type "application/json;charset=utf-8"}))]
-     (js/saveAs blob (str name ".json"))
-     {})))
-
 (reg-event-fx
  ::e5/export-plugin-pretty-print
  (fn [{:keys [db]} [_ name plugin]]
    (validate-and-show-modal-or-export db name plugin {:pretty-print? true})))
+
+;; The debug hatch: the whole library, pretty-printed, with NO validation — the
+;; deliberate exception to "every export runs the gate", for reading the store
+;; as it actually is when a validated export would have corrected it first.
+;; Dev-only: views/debug-data renders its control behind goog/DEBUG.
+;; Goes through save-orcbrew-blob! like every other download; only the gate is
+;; skipped, not the shared serialization.
+(reg-event-fx
+ ::e5/export-all-plugins-pretty-print
+ (fn [{:keys [db]} _]
+   (save-orcbrew-blob! "all-content.orcbrew" (:plugins db) :pretty-print? true)
+   {}))
 
 (reg-event-fx
  ::e5/delete-plugin
