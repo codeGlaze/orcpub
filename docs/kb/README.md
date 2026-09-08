@@ -81,7 +81,16 @@ wrong, and why.
   Per-source localStorage keys. Measured ceiling 5,177,344 chars; why copy-then-delete
   migration is dead; why this does not fix the reported freeze.
 
-### Operations
+### Plans
+
+- **[plan-companions-and-wild-shape.md](plan-companions-and-wild-shape.md)** -- *not built.*
+  Fall-update research into pets, summons and Wild Shape. Foundry's dnd5e system splits these
+  into two systems (creature-plus-owner-formulas vs transformation), which kills the
+  "one companion sheet" idea. Names the smallest first slice -- filtering beasts from the
+  sheet by the character's own bounds -- and the type collision waiting in the commented-out
+  Circle of the Moon code.
+
+## Operations
 
 - **[secrets-in-boot-output.md](secrets-in-boot-output.md)** -- the database password was in
   every boot log, in four places rather than one, because `ex-info` data is log output too.
