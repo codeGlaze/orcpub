@@ -367,3 +367,65 @@ this ships anywhere.
    Still the gate on anything that renames keys in bulk.
 4. **Bulk cleanup of existing libraries**, last, with a dry run reporting which
    characters reference each key.
+
+## The resolution ladder
+
+Four ways a stored key finds its option, each catching what the one above cannot:
+
+    1. exact ::t/key match          the normal case, unchanged
+    2. former-keys   (recorded)     the item remembers what it used to be called
+    3. canonical-key (inferred)     shape-based; shipped, refuses when ambiguous
+    4. inline relink (the person)   the only rung that can resolve ambiguity
+
+Rung 4 is what makes rung 3's refusal defensible. `index-matching-key` declines to
+guess when two candidates match, which is right, but on its own "declining" just
+means the option stays quietly broken. With a relink affordance, refusing becomes
+"we will not guess, so here is the choice". The seven Eberron/UA pairs are exactly
+that case.
+
+### Rung 2: former-keys (user's idea, not built)
+
+Record the outgoing key on the item when it is renamed, and match against it. It
+beats rung 3 on the axis that matters: canonical-key INFERS equivalence from the
+shape of a key, former-keys RECORDS it as fact. Where both apply, the recorded one
+should win.
+
+It also removes the need to warn anybody. A rename that cannot break a character
+does not need a prompt, a count, or the word "unbind".
+
+Cost, measured rather than guessed:
+
+- `t/option-cfg` (template.cljc:74) builds the option from an explicit allow-list
+  of keys and DROPS everything else, so `:former-keys` on a plugin item does not
+  reach the template on its own. It needs a `former-keys` parameter there, then
+  threading through each homebrew option builder -- `subrace-option` and its
+  siblings, one per content type. That per-builder threading is the real cost;
+  count them before committing.
+- Item specs are `spec/keys :req-un [...]`, which is open, so an extra field
+  validates without touching any spec.
+- It travels in the `.orcbrew`, so a rename history is inherited by whoever
+  imports the content. Desirable -- their characters keep working too -- but it is
+  a consequence of putting it in the data rather than in local state.
+- Repeated renames accumulate keys. Harmless in size, but it widens the match
+  surface, so exact-match-first has to stay a rule rather than an accident of
+  ordering.
+
+### Rung 4: inline relink (designed in RECONCILIATION-LOG, not built)
+
+Model exists: `missing-content-warning` (character_builder.cljs:2400) already
+detects and reports content a character references but cannot find. It offers no
+picker. The relink UI is that picker -- choose the replacement, rebind
+`::entity/key`, re-dispatch `:set-character`.
+
+### What this does to the count question
+
+The character list route pulls only `[:db/id ::se/summary ::se/owner]`
+(`routes.clj:1509`), a precomputed summary with no `::entity/options`, so
+`extract-content-keys` has nothing to walk and the client CANNOT count affected
+characters without new server work. Recorded because an earlier note in this
+document claimed otherwise; that claim was read off a different handler and was
+wrong.
+
+With rungs 2 and 4 in place the count is largely moot: renames stop breaking
+things, and what cannot be matched gets asked about at the point of use rather
+than predicted at the point of edit.
