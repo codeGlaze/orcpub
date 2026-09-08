@@ -23,14 +23,10 @@ rather than offered as an action.
   supporting detail at a lighter weight, a tinted box instead of a filled slab,
   and a dismiss with a real touch target.
 - **A successful import reads as success** — green, not warning-orange.
-
-## Added
-
-- **"Export a backup" in the import banner** — the advice line becomes the action
-  it was describing. It uses the pretty-print export (a blob and a save) rather
-  than the gated one, which can open the export-warning or conflict modal, and it
-  stops its own click so the banner's click-to-close cannot pull the surface out
-  from under it.
+- **The banner says what happened and stops there.** The advice line — "To be
+  safe, export all content now" — is gone rather than promoted to a button: on My
+  Content it would have sat directly above the page's own Export All. A message
+  pointing at a control already on screen is noise.
 
 ## Fixed
 

@@ -705,9 +705,6 @@
      :opacity 0.85
      :margin-top "2px"}]
 
-   [:.message-action
-    {:margin-top "10px"}]
-
    ;; A bare glyph is a ~14px target on a phone. Pad it out to something a thumb
    ;; can actually land on.
    [:.message-close

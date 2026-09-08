@@ -10,7 +10,7 @@
             [orcpub.dnd.e5.character :as char]))
 
 (defn- as-parts
-  "Normalise whatever a producer handed us into {:title :details :action}.
+  "Normalise whatever a producer handed us into {:title :details}.
 
    The structured map is the shape to use. A plain string is the LEGACY shape:
    messages used to be one string with blank lines standing in for structure, and
@@ -32,15 +32,15 @@
     "fa-check-circle"))
 
 (defn message
-  "Transient banner. `message-text` is {:title :details :action} — or a plain
-   string, which `as-parts` splits (see there).
+  "Transient banner. `message-text` is {:title :details} — or a plain string,
+   which `as-parts` splits (see there).
 
-   `:action` is {:label ... :event [...]}: an offer the message can carry, like
-   backing up a library right after importing one. It stops its own click, because
-   the banner closes on any click that reaches it — an action that let the click
-   through would fire and then have its surface disappear underneath it."
+   It says what happened and nothing else. An import banner briefly carried an
+   \"Export a backup\" button, which on My Content sat directly above the page's
+   own Export All: a message telling you to use a control that is already on
+   screen is noise, not help."
   [message-type message-text close-handler]
-  (let [{:keys [title details action]} (as-parts message-text)]
+  (let [{:keys [title details]} (as-parts message-text)]
     [:div.pointer
      {:on-click close-handler}
      [:div.message
@@ -54,12 +54,7 @@
        (for [line details]
          ^{:key line}
          [:div.message-detail line])
-       (when action
-         [:button.form-button.message-action
-          {:on-click (fn [e]
-                       (.stopPropagation e)
-                       (dispatch (:event action)))}
-          (:label action)])]
+       ]
       [:i.fa.fa-times.message-close
        {:title "Dismiss"
         :aria-label "Dismiss"}]]]))
