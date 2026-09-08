@@ -117,7 +117,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** assets, beside, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+**topics:** ---, assets, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -181,7 +181,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, node, row, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, 2026, background, builders, conditionals, creatures, feat, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -204,6 +204,7 @@ _builder-form-schemas · builder form schemas_
 - The :rows node — BUILT 2026-09-05 (this section kept as the design record)
 - The :rows node — original design
 - Phases (E0–E5) — the roadmap carries status; the acceptance tests are here
+- The feat builder, proposed — code and picture
 - What "good UX" means here, concretely
 - 7. What this does NOT solve
 - 8. Open questions
@@ -274,7 +275,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, captures, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, captures, case-sensitive, chromium, div, errors, gotchas, headless, hidden, html, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -323,7 +324,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, variant
+**topics:** adding, allowlist, ancestry, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -362,7 +363,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, schema, spa
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -452,7 +453,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -496,7 +497,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level, vocabulary
+**topics:** agreed, cantrips, cha, churning, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -613,7 +614,7 @@ _fonts · fonts_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, var, workaround
+**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, tray, var, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -629,6 +630,26 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 - The strategic point
 - Overlap worth reconciling before either branch merges
 - How this was missed
+
+## handoff-grant-rows.md
+
+_handoff-grant-rows · handoff grant rows_
+
+**topics:** acceptance, commit, feat, fixed-class, goes, jvm, kinds, legacy, nested, normalization, normalize, pick, pool, rewrites, row, session, strike, tab
+
+- Where you are
+- The work, in order
+- 1. Re-record the gallery baseline — 5 minutes
+- 2. legacyshims.cljc — fixed-class keys normalize at import
+- 3. The :ref decision — unblocks the choice class
+- 4. grant-rows on the other silos — one line each
+- 5. Effect kinds feat is missing
+- 6. E3 proper — creatures and traits
+- 7. content-builder :feat — the one-liner
+- 8. Spells as a pool — last
+- Rules that bit this session — do not re-learn them
+- Don'ts
+- Commands
 
 ## homebrew-content-merge.md
 
@@ -679,7 +700,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, sources, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -708,7 +729,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, eligibility, fighting, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, eligibility, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers
@@ -774,7 +795,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, roll, rolling, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, computes, condition, deferred, entity, equipped, flag, play-state, player, positioning, roll, rolling, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -786,7 +807,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo

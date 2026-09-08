@@ -311,6 +311,7 @@ then merge `develop` in, since the shared files here have diverged for the feat 
      Feat's `set-feat-prop` was plain `assoc` and stored `[:grants]` as a key — now path-accepting
      like the generated handlers. Sits beside the bespoke widgets; nothing struck until the shim
      registry lands. The gallery baseline will drift (Grants is a new labelled section) — re-record.
+     **Next steps, in order, with acceptance tests: `handoff-grant-rows.md`.**
      Originally: **A control that emits it** — E4, the grant-authoring UI, built
      against feat (the only silo needing the full set, so building it right *is* building the node every
      builder embeds). Needs dynamic field options (from a sub; dependent on a sibling). **Nothing writes
