@@ -5,6 +5,7 @@
             [clojure.spec.alpha :as spec]
             [orcpub.common :as common]
             [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.classes :as classes]))
 
@@ -64,10 +65,34 @@
             does nothing."
     (doseq [{:keys [key]} bf/ac-bonus-fields]
       (is (= [:props :ac-bonus] (vec (take 2 key))) (str key " must live under :props :ac-bonus"))
-      (is (contains? #{:bonus :armor? :shield?} (last key))
-          (str (last key) " must be a key the :ac-bonus prop compiler understands. The value key is
-               :bonus, matching :attack-bonus and :damage-bonus; :ac-bonus is read as a legacy
-               alias but the FORM must write the canonical one.")))))
+      ;; Reads opt5e/ac-conditions rather than repeating the tag list. That list used to live in
+      ;; THREE places — the predicate's destructure, the field fragment, and this set — so adding a
+      ;; condition meant three edits and forgetting one silently did nothing. Now the engine's
+      ;; vocabulary is the table and this test asks the table.
+      (is (contains? (conj (set (keys opt5e/ac-conditions)) :bonus) (last key))
+          (str (last key) " must be a key the :ac-bonus prop compiler understands — either :bonus or
+               a tag in opt5e/ac-conditions. The value key is :bonus, matching :attack-bonus and
+               :damage-bonus; :ac-bonus is read as a legacy alias but the FORM must write the
+               canonical one.")))))
+
+(deftest ac-conditions-table-behaves-exactly-like-the-hand-written-predicate
+  (testing "CHARACTERIZATION — ac-applies? was a two-clause `and` over :armor?/:shield?. The table
+            must agree with it on every combination of authored spec and equipped state, or this
+            refactor changed a shipped AC number."
+    (let [reference (fn [{:keys [armor? shield?]} armor shield]     ; the code as it was
+                      (and (or (nil? armor?)  (= armor?  (some? armor)))
+                           (or (nil? shield?) (= shield? (some? shield)))))
+          table-fn  #'orcpub.dnd.e5.options/ac-applies?]
+      (doseq [armor?  [nil true false]
+              shield? [nil true false]
+              armor   [nil {:name "Plate"}]
+              shield  [nil {:name "Shield"}]]
+        (let [spec {:bonus 1 :armor? armor? :shield? shield?}]
+          (is (= (reference spec armor shield) (table-fn spec armor shield))
+              (str "disagreed for " (pr-str spec) " armor=" (some? armor) " shield=" (some? shield)))))))
+  (testing "and an unknown tag is IGNORED, not failed — a pack from a build that knows more
+            conditions than this one still applies its bonus"
+    (is (true? (#'orcpub.dnd.e5.options/ac-applies? {:bonus 1 :dual-wield? true} nil nil)))))
 
 (deftest every-shipped-schema-uses-a-known-field-type
   (testing "a typo'd :type silently degrades to (constantly true) in field-value-pred, so the field

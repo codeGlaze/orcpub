@@ -27,6 +27,10 @@ the commit**. That is the whole point of it being a decision.
 
 ## Judgement calls — no test can catch these
 
+- **Adding a tag, flag or condition to an authored vocabulary** (a weapon tag, an AC condition) —
+  read `authoring-vocabulary.md` first. These are deliberate lookup tables, not ceremony: they
+  absorb storage names that cannot be derived, and they are three-state with unknown tags ignored so
+  old packs keep working. Adding one is one entry *if* the predicate can already see what it needs.
 - **Choosing an authored data shape** (a new `:props` key, `:grant` vs `:grants`, map vs vector) —
   runtime cost is not a factor; content compiles once and the hot path never sees it
   (`content-extensibility-framework.md` §3c′). Decide on readability, uniformity with the other

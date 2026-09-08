@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -86,11 +86,25 @@ _armor-class-refactor · armor class refactor_
 - Ledger
 - Corrections
 
+## authoring-vocabulary.md
+
+_authoring-vocabulary · authoring vocabulary_
+
+**topics:** agree, author, condition, contract, equipped, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
+
+- The syntax first
+- Why the map can't be derived
+- The shared semantics: three-state, unknown-ignored
+- What the values are, and why they differ
+- When to build one of these (and when not)
+- Growing one
+- Where these live
+
 ## backfill-ledger.md
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, feat, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, job, kept, ledger, legacy, naive, outright, parity, re-pointed, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -185,7 +199,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, background, builders, conditionals, creatures, feat, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, 2026, background, builders, creatures, feat, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -279,7 +293,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, captures, case-sensitive, chromium, div, errors, gotchas, headless, hidden, html, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, captures, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -328,7 +342,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** adding, allowlist, ancestry, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -352,7 +366,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, checklist, checks, confirm, console, datomic, dev, environment, errors, fail, loads, name-keyword, phase, read-seams, setup, skips, spell-selection
+**topics:** appears, backend, checklist, checks, confirm, console, datomic, dev, environment, errors, fail, loads, name-keyword, phase, phases, read-seams, setup, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -549,7 +563,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, forget, free, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -562,7 +576,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, creator, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, creator, dex, feat, five, gaps, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -592,7 +606,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, predicate, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
+**topics:** archery, attack, damage, dueling, end, fighting, great, one-handed, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -812,7 +826,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, usage, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -869,7 +883,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, understanding, unverified, upgrade
+**topics:** adjudicating, baseline, bracers, callers, characterization, claim, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
