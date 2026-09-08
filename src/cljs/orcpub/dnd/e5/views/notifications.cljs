@@ -20,11 +20,18 @@
               :error "bg-red"
               :warning "bg-orange"
               "bg-green")}
-    ;; The messages are written with blank lines between their parts, which the
+    ;; String messages are written with blank lines between their parts, which the
     ;; banner renders (white-space: pre-line) so the sentences do not run together.
     ;; One break per part rather than two: on a phone the doubled gaps make a
     ;; three-part message twice as tall as it needs to be.
-    [:span (s/replace (str message-text) #"\n{2,}" "\n")]
+    ;;
+    ;; Hiccup messages pass through UNTOUCHED. `str` over a vector renders the
+    ;; markup as text — the save banner's export link became printed source and
+    ;; stopped being clickable at all. Only a string can need the collapse, so
+    ;; only a string gets it.
+    [:span (if (string? message-text)
+             (s/replace message-text #"\n{2,}" "\n")
+             message-text)]
     [:i.fa.fa-times]]])
 
 (defn callout
