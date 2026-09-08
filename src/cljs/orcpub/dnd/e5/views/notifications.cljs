@@ -61,9 +61,11 @@
          body
          [:<>
           [:div.message-title title]
-          (for [line details]
-            ^{:key line}
-            [:div.message-detail line])])]
+          ;; keyed by position: a detail line may be hiccup, which is no key at all
+          (map-indexed (fn [i line]
+                         ^{:key i}
+                         [:div.message-detail line])
+                       details)])]
       [:i.fa.fa-times.message-close
        {:title "Dismiss"
         :aria-label "Dismiss"}]]]))

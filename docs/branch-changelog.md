@@ -28,11 +28,15 @@ rather than offered as an action.
   Content it would have sat directly above the page's own Export All. A message
   pointing at a control already on screen is noise.
 
+- **The browser-storage warning leads with the point.** It was one
+  200-character sentence opening with "IMPORTANT!:" and ending with the export
+  link — the part that matters, last. Now: "Spell saved — in this browser only",
+  and under it "Clearing browser data loses it. Export this source to keep a copy."
+- **The banner is sized to what it says** rather than to one fixed width. A flat
+  cap fixed the five-word slab and then squeezed a two-sentence warning into a
+  narrow column; `fit-content` with a ceiling does both jobs.
 - **A save confirmation says what it saved** — "Saved “Flame Tongue”" rather than
   "Your item has been saved.", for characters too when they have a name.
-- **The banner is capped at a readable width** instead of running the full width
-  of a desktop, which put the dismiss a screen away from the five words it
-  dismisses. An import report fills the cap; a save confirmation sits inside it.
 
 ## Fixed
 

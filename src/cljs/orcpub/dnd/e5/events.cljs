@@ -906,12 +906,18 @@
                {:dispatch-n [[::e5/set-plugins new-plugins]
                              [:set-builder-field-errors {}]
                              [:show-warning-message
-                              [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                               [:span.text-shadow
-                                (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
-                               [:span.pointer.underline.black
-                                {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
-                                "here"]]
+                              ;; Headline carries the point — it is saved, and only
+                              ;; here. The caveat and the way out sit under it. It
+                              ;; used to be one 200-character sentence that opened
+                              ;; with IMPORTANT! and buried the export link at the
+                              ;; end, which is a thing people scroll past.
+                              {:title (str type-name " saved — in this browser only")
+                               :details [[:span
+                                          "Clearing browser data loses it. "
+                                          [:span.pointer.underline
+                                           {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                                           "Export this source"]
+                                          " to keep a copy."]]}
                               60000]]})
   (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
 
@@ -1043,12 +1049,13 @@
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
-                        [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                         [:span.text-shadow
-                          "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
-                         [:span.pointer.underline.black
-                          {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
-                          "here"]]
+                        {:title "Selection saved — in this browser only"
+                         :details [[:span
+                                    "Clearing browser data loses it. "
+                                    [:span.pointer.underline
+                                     {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                                     "Export this source"]
+                                    " to keep a copy."]]}
                         60000]]})))))
 
 ;; Selection is a standalone handler (for its option-name checks), so it doesn't

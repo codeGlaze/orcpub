@@ -661,14 +661,16 @@
    ;; Tinted rather than filled — a solid saturated slab reads as an alarm even
    ;; when what it says is "that worked".
    [:.message
-    ;; Capped, not full-bleed: "Saved “Flame Tongue”" stretched the width of a
-    ;; desktop, which put the dismiss a screen away from the words it dismisses.
-    ;; An import report can fill the cap; a save confirmation sits well inside it.
+    ;; Sized to what it says. A five-word confirmation was stretching the width of
+    ;; a desktop, with the dismiss a screen away from the words; then a flat cap
+    ;; squeezed a two-sentence warning into a narrow column. fit-content does both:
+    ;; small messages stay small, longer ones run out to the cap.
     {:display :flex
      :align-items :flex-start
      :gap "12px"
      :padding "12px 14px"
-     :max-width "680px"
+     :width :fit-content
+     :max-width "min(100%, 900px)"
      :border-radius "6px"
      :border "1px solid transparent"
      :line-height "1.45"
