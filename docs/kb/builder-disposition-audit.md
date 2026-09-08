@@ -127,6 +127,68 @@ shared; the compile is not. Consequences:
 - The five widgets become ordinary `:multi-enum` fields on monster and grant rows everywhere else.
   Same data key, two schemas — which is fine, because the schema is per type.
 
+## ⚠️ REFRAMING (2026-09-08) — most of these are TEMPLATES with frozen parameters
+
+The tables above sort every widget by **what it stores**. That is the right axis for the compiler and
+the wrong one for the form, and reading "delete it, the compiler takes any number" as the whole
+answer throws away something real.
+
+`feat-hps` renders two checkboxes — "+1 per level", "+2 per level". Its disposition above is EFFECT
+(number), which is correct about storage. But the widget is not an accident: it is the sentence
+*"Your hit point maximum increases by N for each of your levels"* with N frozen to a menu of two.
+The frozen values came from mimicking published feats — which is why the form is fast and
+recognizable, and the bug is only that it stops there.
+
+| widget | frozen at | the template it is |
+|---|---|---|
+| `feat-hps` | N ∈ {1,2} | "Your hit point maximum increases by **[N]** for each of your levels" |
+| `feat-speed-bonuses` | 5/10/15 | "Your speed increases by **[N]** ft." |
+| `feat-initiative-bonuses` | 1–5 | "You gain a +**[N]** bonus to initiative" |
+| `feat-armor-proficiency` | one checkbox per type | "You gain proficiency with **[Light ▾]** armor" |
+| `feat-languages` | 1/2/3 | "You learn **[N]** languages of your choice" |
+| `feat-skill-proficiency` | 1–3 | "You gain proficiency in **[N]** skills or tools of your choice" |
+| `:two-weapon-ac-1` | +1, wielding two melee weapons | "+**[N]** AC while **[scenario ▾]**" |
+
+**A template is a preset over the same storage — it needs no new data shape.**
+
+```
+"You gain proficiency with [Light] armor"   →  {:grants [{:pool :armor :key :light}]}
+"You learn [2] languages of your choice"    →  {:grants [{:pool :languages :count 2}]}
+"Your HP increases by [2] per level"        →  {:props {:max-hp-bonus 2}}
+```
+
+So the pool/grant and effect-rows foundation stands; templates are an authoring SURFACE over it, and
+the deletion table below is still correct about storage. What changes is the *disposition*: a row
+marked GRANT or EFFECT may be **parameterized in place as a template** rather than replaced by a
+generic row. Three tiers, not two — and the KB already specifies the shape in two disconnected places:
+
+- **D24/D25** (`class-features-and-mechanization.md`) — *"a feature [is] a structured, parameterized
+  record with defaults; overrides merge onto defaults at compile"*, and *"you can only override a
+  parameter the feature exposes"*. Scoped there to class features; it is the same model.
+- **Two entry points, not either/or** (same doc) — *"Template-from-a-base-class (the default UX —
+  most homebrew is 'an official class, tweaked')… Filterable picker (the editing tool, needed
+  regardless). The template is a thin layer over the picker."*
+- **The direction doc's "blank-slate parametric grants"** — *"just built-in pools + parametric
+  modifiers, same primitive: +N ASI to X, +N to swim/climb/move."*
+
+| tier | what it is | who it serves |
+|---|---|---|
+| **1 — templates** | a sentence with typed holes, emitting grants/props. D25's *"fields + a fill template, NOT string interpolation"* (`{n}` prints, `{+n}` signs) | an author who does not know the model; the recognizable-pattern path |
+| **2 — generic rows** | `grant-rows`, `effect-rows` | an author who knows what they want |
+| **3 — bespoke** | the escape hatch | the irreducible cases |
+
+### OPEN — the scenario vocabulary (a real design question, not yet answered)
+
+"+N AC while **[scenario]**" needs a condition vocabulary. Today `:ac-bonus` carries `:armor?` /
+`:shield?` three-state tags and nothing else — which is exactly why `:two-weapon-ac-1` is hardcoded
+and cannot be re-expressed without a new `:dual-wield?` tag (§2, above). A scenario picker is that
+tag vocabulary made authorable.
+
+**Hard boundary** (`builder-form-schemas.md` §4): a scenario may only be a CONDITION — state the
+engine can inspect (worn armor, wielded weapons, the weapon being used). A TRIGGER ("when a creature
+you can see attacks a target other than you") is a sheet entry, not a computed condition, and a
+picker that offers one is the start of a combat simulator. The picker lists conditions only.
+
 ## What the six tables add up to
 
 | | GRANT | EFFECT | FIELD | SHARED | BESPOKE |

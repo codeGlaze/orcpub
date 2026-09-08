@@ -98,6 +98,22 @@ Needs a spell → `option-cfg` constructor and the built-in list membership inve
 `spell_lists.cljc` inside the pool's own `:options-fn` (`pool-grant-map.md`, "Spells"). Then the
 three feat spellcasting templates become nested grants and the passthrough goes. Not before 2–7.
 
+## ⚠️ Read before step 5 — the template tier (added 2026-09-08)
+
+Steps 2 and 5 say "strike `feat-hps` / `feat-speed-bonuses` / `feat-initiative-bonuses` /
+`feat-misc-modifiers`". That is right about storage and wrong about the form: those widgets are
+**templates with frozen parameters** — "Your HP increases by [1|2] per level" is the sentence with N
+frozen to a menu of two. Deleting them for a generic number field loses the sentence, which is what
+makes the form recognizable and fast.
+
+See `builder-disposition-audit.md` §"REFRAMING" for the full argument and the three tiers. The
+practical consequence for these steps: a widget's replacement may be a **parameterized template**
+rather than a generic row, and a template emits the same `:grants` / `:props` either way — so
+nothing about the storage work below changes, only which surface an author sees. The template
+registry itself is unbuilt and unscoped; do not invent it mid-step. If a step's widget is clearly a
+frozen template, parameterize it in place and note it, rather than striking it for a bare number
+field.
+
 ## Rules that bit this session — do not re-learn them
 All in `CLAUDE.md` ("Working rules") and `before-you-start.md`. The two that cost the most:
 - **Walk the five readers** of a content item before declaring a storage change safe. The builder

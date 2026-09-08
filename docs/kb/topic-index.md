@@ -163,7 +163,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, grant, header, legacy, monster, omv, pool, race, row, rows, subrace, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, grant, header, legacy, monster, omv, pool, race, row, rows, scenario, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -172,6 +172,8 @@ _builder-disposition-audit · builder disposition audit_
 - Subclass — 105 lines, 13 widgets
 - Background — 46 lines, 11 widgets
 - Monster — 233 lines, 12 widgets — a stat block, not a character
+- ⚠️ REFRAMING (2026-09-08) — most of these are TEMPLATES with frozen parameters
+- OPEN — the scenario vocabulary (a real design question, not yet answered)
 - What the six tables add up to
 - Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
 - The 35 deletions — replacement and shim, one row each
@@ -260,7 +262,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
+**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, summary, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -635,7 +637,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, commit, feat, fixed-class, goes, jvm, kinds, legacy, nested, normalization, normalize, pick, pool, rewrites, row, session, strike, tab
+**topics:** 2026-09-08, acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, sentence, session, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -647,6 +649,7 @@ _handoff-grant-rows · handoff grant rows_
 - 6. E3 proper — creatures and traits
 - 7. content-builder :feat — the one-liner
 - 8. Spells as a pool — last
+- ⚠️ Read before step 5 — the template tier (added 2026-09-08)
 - Rules that bit this session — do not re-learn them
 - Don'ts
 - Commands
