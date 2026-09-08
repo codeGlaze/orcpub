@@ -16,10 +16,17 @@
    messages used to be one string with blank lines standing in for structure, and
    HTML collapses those, which ran the sentences together with no punctuation
    between them. Splitting happens here, at the edge, rather than being papered
-   over in CSS — and it goes away as producers move to the map."
+   over in CSS — and it goes away as producers move to the map.
+
+   HICCUP passes through untouched. Some messages are markup, not text — the
+   builders' \"please fill in X\" carries a bolded field name and a clickable
+   \"Save anyway with placeholders\" — and running (str) over a vector prints the
+   markup at the reader instead of rendering it."
   [message-text]
-  (if (map? message-text)
-    message-text
+  (cond
+    (map? message-text) message-text
+    (vector? message-text) {:body message-text}
+    :else
     (let [lines (->> (s/split (str message-text) #"\n")
                      (map s/trim)
                      (remove s/blank?))]
@@ -40,7 +47,7 @@
    own Export All: a message telling you to use a control that is already on
    screen is noise, not help."
   [message-type message-text close-handler]
-  (let [{:keys [title details]} (as-parts message-text)]
+  (let [{:keys [title details body]} (as-parts message-text)]
     [:div.pointer
      {:on-click close-handler}
      [:div.message
@@ -50,11 +57,13 @@
                 "tone-success")}
       [:i.fa.message-icon {:class (tone-icon message-type)}]
       [:div.message-body
-       [:div.message-title title]
-       (for [line details]
-         ^{:key line}
-         [:div.message-detail line])
-       ]
+       (if body
+         body
+         [:<>
+          [:div.message-title title]
+          (for [line details]
+            ^{:key line}
+            [:div.message-detail line])])]
       [:i.fa.fa-times.message-close
        {:title "Dismiss"
         :aria-label "Dismiss"}]]]))

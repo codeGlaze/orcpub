@@ -36,6 +36,11 @@ rather than offered as an action.
 
 ## Fixed
 
+- **A message that is markup renders as markup.** The builders' "please fill in
+  X" carries a bolded field name and a clickable "Save anyway with placeholders",
+  and the new banner ran `str` over it, printing the hiccup at the reader. Vectors
+  now pass through untouched.
+
 - **Callout action buttons carry a React key again** — the key was attached to the
   `let` form rather than the element it returns, so every callout with actions
   logged a missing-key warning.
