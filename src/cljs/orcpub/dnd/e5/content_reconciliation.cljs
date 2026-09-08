@@ -458,3 +458,88 @@
                   (::entity/options character))]
       {:character (assoc character ::entity/options walked)
        :rewrote @rewrote})))
+
+;; ── Class binding report ────────────────────────────────────────────────────
+;; The reconcilers above REPAIR. This one only reports, and deliberately so: a
+;; report threaded through a repair function's return value is a report that gets
+;; dropped by the next caller who destructures only the part it wanted, which is
+;; precisely how :rewrote went unread for as long as it did.
+;;
+;; It answers two questions the missing-content banner could not. "Something is
+;; missing" is true but useless when a class fails to bind, because the builder
+;; resets every choice downstream of a class -- the person needs to know WHICH
+;; class, and whether the subclass hanging off it even belongs to it.
+
+(defn- class-entry-subclass
+  "The [selection-key subclass-key] a class entry carries, or nil. Mirrors the
+   scan in extract-class-keys rather than re-deriving it differently."
+  [class-opts]
+  (some (fn [sel-key]
+          (when-let [k (get-in class-opts [sel-key ::entity/key])]
+            [sel-key k]))
+        subclass-selection-keys))
+
+(defn class-binding-report
+  "What is wrong with this character's class bindings, if anything.
+
+   - `loaded-class-keys`  the classes that exist right now (built-ins union
+     plugins) -- the same set the class dropdown is built from, so the report
+     cannot disagree with what the person can actually pick.
+   - `subclass->class`    {subclass-key -> owning class-key}, as far as it is
+     known. Homebrew subclasses carry :class; anything absent from this map is
+     simply not judged.
+
+   Returns {:unbound-classes [...] :subclass-mismatches [...]}.
+
+   A subclass is only called a mismatch when the map SAYS it belongs elsewhere.
+   An unknown subclass is left alone -- accusing content of being misfiled
+   because we happen not to have loaded it would turn every missing plugin into
+   a second, wrong complaint."
+  [character loaded-class-keys subclass->class]
+  (let [known (set loaded-class-keys)
+        entries (get-in character [::entity/options :class])]
+    (if-not (sequential? entries)
+      {:unbound-classes [] :subclass-mismatches []}
+      (reduce
+       (fn [acc class-entry]
+         (let [class-key (::entity/key class-entry)
+               [sel-key subclass-key] (class-entry-subclass (::entity/options class-entry))
+               owner (get subclass->class subclass-key)]
+           (cond-> acc
+             (and class-key (not (contains? known class-key)))
+             (update :unbound-classes conj
+                     (cond-> {:class-key class-key}
+                       subclass-key (assoc :subclass-key subclass-key)))
+
+             ;; Only a real disagreement counts. Note this fires even when the
+             ;; class IS loaded -- a subclass filed under the wrong class binds
+             ;; without error and then grants the wrong features, which is worse
+             ;; than not binding at all because nothing looks broken.
+             (and class-key subclass-key owner (not= owner class-key))
+             (update :subclass-mismatches conj
+                     {:class-key class-key
+                      :subclass-key subclass-key
+                      :belongs-to owner
+                      :selection-key sel-key}))))
+       {:unbound-classes [] :subclass-mismatches []}
+       entries))))
+
+(defn subclass->class-index
+  "{subclass-key -> class-key} from loaded plugins. Homebrew subclasses record
+   their class in :class, which is the same field rename-key-in-plugin rewrites
+   when a class is renamed, so this stays correct across a conflict resolution.
+
+   A subclass claimed by two different classes across sources is dropped rather
+   than guessed at, for the same reason former-key-index drops a contested
+   claim: binding to whichever source was walked first is not an answer."
+  [plugins]
+  (let [claims (for [[_ plugin] plugins
+                     :when (map? plugin)
+                     [k item] (:orcpub.dnd.e5/subclasses plugin)
+                     :when (and (map? item) (:class item))]
+                 [k (:class item)])]
+    (->> (group-by first claims)
+         (keep (fn [[k pairs]]
+                 (let [owners (set (map second pairs))]
+                   (when (= 1 (count owners)) [k (first owners)]))))
+         (into {}))))

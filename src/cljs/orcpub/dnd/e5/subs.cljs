@@ -112,6 +112,14 @@
    (get db :loading)))
 
 (reg-sub
+ :character-binding-report
+ ;; {:unbound-classes [...] :subclass-mismatches [...]}, or nil when the character's
+ ;; classes all bind cleanly. Unlike :character-healed this is not a prompt to
+ ;; save -- nothing was repaired, and nothing can be without a person choosing.
+ (fn [db _]
+   (get db :character-binding-report)))
+
+(reg-sub
  :character-healed
  ;; Set by :set-character when a reconciler repaired a stored key, cleared when it
  ;; did not. The repair is in memory only, so this is what tells the save button

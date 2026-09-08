@@ -1626,10 +1626,21 @@
         ;; next load -- the rewrite lives in memory only. Keeping it lets the save
         ;; button say the character is worth saving, which is the difference
         ;; between healing once and re-healing forever.
-        rewrote (into (vec former-rewrote) spell-rewrote)]
+        rewrote (into (vec former-rewrote) spell-rewrote)
+        ;; Reported, not repaired: an unbound class cannot be fixed by guessing,
+        ;; and a subclass filed under the wrong class binds cleanly while granting
+        ;; the wrong features, so both need a person. Computed after the repairs
+        ;; so it describes what is STILL wrong, not what already got fixed.
+        binding-report (content-recon/class-binding-report
+                        character
+                        (loaded-class-keys db)
+                        (content-recon/subclass->class-index (:plugins db)))]
     (assoc db
            :character character
            :loading false
+           :character-binding-report (when (or (seq (:unbound-classes binding-report))
+                                               (seq (:subclass-mismatches binding-report)))
+                                       binding-report)
            ;; Cleared when there is nothing to report, which is what makes it
            ;; self-resetting: after a save, :set-character runs again over the
            ;; SAVED character, the reconcilers find nothing left to fix, and the

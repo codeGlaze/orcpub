@@ -566,3 +566,77 @@
       (is (resolves? :gray-dwarf-duerger- :gray-dwarf-duerger)))
     (testing "but it still refuses to guess between two candidates"
       (is (nil? (entity/index-matching-key [{tk :foo} {tk :foo-}] tk :foo--))))))
+
+;; ============================================================================
+;; class-binding-report — which class failed, and is the subclass even its own
+;; ============================================================================
+
+(def ^:private binding-plugins
+  {"Pak" {:orcpub.dnd.e5/subclasses
+          {:alchemist {:key :alchemist :class :artificer}
+           :evocation {:key :evocation :class :wizard}}}})
+
+(defn- char-with [class-key sel-key subclass-key]
+  {::entity/options
+   {:class [{::entity/key class-key
+             ::entity/options {sel-key {::entity/key subclass-key}}}]}})
+
+(deftest binding-report-names-the-class-that-failed-to-bind
+  ;; "Something is missing" is useless for a class: the builder resets every
+  ;; choice downstream of one, so the person has to know which.
+  (let [r (reconcile/class-binding-report
+           (char-with :artificer-kt :artificer-specialist :alchemist)
+           #{:wizard :fighter}
+           {})]
+    (is (= [{:class-key :artificer-kt :subclass-key :alchemist}]
+           (:unbound-classes r))
+        "the subclass rides along so both can be offered for relink"))
+  (testing "a loaded class is not reported"
+    (is (empty? (:unbound-classes
+                 (reconcile/class-binding-report
+                  (char-with :wizard :arcane-tradition :evocation)
+                  #{:wizard} {}))))))
+
+(deftest binding-report-catches-a-subclass-filed-under-the-wrong-class
+  ;; This one binds cleanly and grants the wrong features, so nothing LOOKS
+  ;; broken -- which is why it needs detecting rather than waiting for a crash.
+  (let [idx (reconcile/subclass->class-index binding-plugins)
+        r (reconcile/class-binding-report
+           (char-with :wizard :arcane-tradition :alchemist)
+           #{:wizard :artificer}
+           idx)]
+    (is (= [{:class-key :wizard
+             :subclass-key :alchemist
+             :belongs-to :artificer
+             :selection-key :arcane-tradition}]
+           (:subclass-mismatches r)))
+    (is (empty? (:unbound-classes r)) "the class itself is fine"))
+  (testing "a subclass under its own class is not a mismatch"
+    (is (empty? (:subclass-mismatches
+                 (reconcile/class-binding-report
+                  (char-with :artificer :artificer-specialist :alchemist)
+                  #{:artificer}
+                  (reconcile/subclass->class-index binding-plugins)))))))
+
+(deftest binding-report-does-not-accuse-content-it-does-not-know
+  ;; An unloaded subclass is absent from the index. Calling that a mismatch would
+  ;; turn every missing plugin into a second, wrong complaint.
+  (is (empty? (:subclass-mismatches
+               (reconcile/class-binding-report
+                (char-with :wizard :arcane-tradition :some-homebrew-thing)
+                #{:wizard}
+                (reconcile/subclass->class-index binding-plugins))))))
+
+(deftest subclass-index-drops-a-subclass-two-classes-both-claim
+  ;; Same rule as former-key-index: a contested claim is not an answer.
+  (let [contested {"A" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}
+                   "B" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :cleric}}}}]
+    (is (= {} (reconcile/subclass->class-index contested))))
+  (testing "but two sources agreeing is still usable"
+    (let [agreed {"A" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}
+                  "B" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}}]
+      (is (= {:shared :wizard} (reconcile/subclass->class-index agreed))))))
+
+(deftest binding-report-is-empty-for-a-character-with-no-classes
+  (is (= {:unbound-classes [] :subclass-mismatches []}
+         (reconcile/class-binding-report {::entity/options {}} #{:wizard} {}))))
