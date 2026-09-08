@@ -68,6 +68,13 @@ async function rescues(page, label) {
     const v = await visible(page);
     check('bundle 404s -> control visible', v.present && v.display === 'flex' && v.h > 0,
           JSON.stringify(v));
+    // The size is the only evidence a panicking user has that the file about to
+    // download is really their content. Math.round(bytes/1024) reported "0 KB"
+    // for anything under a kilobyte, which reads as "there is nothing here".
+    check('size reads as a real quantity',
+          /\((\d+ bytes|\d+(\.\d)? KB|\d+ MB)\)/.test(v.text || '') &&
+          !/\(0 (KB|MB|bytes)\)/.test(v.text || ''),
+          v.text);
     if (v.present && v.display === 'flex') {
       const r = await rescues(page, 'bundle-404');
       check('bundle 404s -> homebrew comes out intact', r.intact, r.name + ' ' + r.bytes + 'B');
