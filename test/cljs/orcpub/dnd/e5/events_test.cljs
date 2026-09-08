@@ -655,9 +655,11 @@
                                    {:name "Artificer"})]
       (is (= :overwrite (:kind c))))))
 
-(deftest save-collision-reports-another-source-without-blocking
-  (testing "the same key in a different source is mutual exclusion, not loss"
-    ;; Both copies survive; the disable hierarchy decides which is live.
+(deftest save-collision-reports-another-source
+  (testing "the same key in a different source is reported as :cross"
+    ;; Both kinds stop the save. They are distinguished so the message can say what
+    ;; is at stake -- losing an entry, versus creating a pair where only one can be
+    ;; switched on -- not because one of them is allowed through.
     (let [c (events/save-collision plugins-fixture "My Stuff" ct :druid
                                    {:name "Druid"})]
       (is (= :cross (:kind c)))

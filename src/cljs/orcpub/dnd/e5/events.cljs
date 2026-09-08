@@ -849,24 +849,32 @@
          (if-let [{:keys [kind source] twin-name :name}
                   (and (nil? explanation)
                        (save-collision plugins option-pack plugin-key key item))]
-           (if (= :overwrite kind)
-             ;; Blocked: the write would discard another item. Flagged on :name,
-             ;; since the name is what derives the key.
-             {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
-                           [:show-error-message
+           ;; Both kinds stop the save. They differ in what is at stake, so they
+           ;; differ in what they say, but neither should happen quietly.
+           ;;
+           ;; The cross-source case is the common one -- 27 of the conflicts in one
+           ;; shipped pak are a key held by more than one source -- and it is not
+           ;; harmless. Two sources claiming a key is a mutual-exclusion pair: only
+           ;; one can be on, the library health card reports it until somebody
+           ;; resolves it, and which one wins is not obvious from the builder.
+           ;; Creating that state as a side effect of pressing Save, and mentioning
+           ;; it afterwards, is how a library accumulates dozens of them.
+           ;;
+           ;; Wanting both copies IS legitimate -- a published class and its
+           ;; playtest version -- but that arrives through IMPORT, where the
+           ;; conflict modal asks and "keep both" is a choice someone made. It does
+           ;; not arrive by authoring a class here that happens to collide.
+           {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
+                         [:show-error-message
+                          (if (= :overwrite kind)
                             (str "\"" twin-name "\" in \"" source "\" already uses the name "
                                  "\"" name "\". Saving would replace it. Give this one a "
                                  "different name, or edit the existing entry instead.")
-                            builder-error-ttl]]}
-             ;; Cross-source: both copies survive, so save and say so.
-             (let [new-plugins (assoc-in plugins [option-pack plugin-key key] item-with-key)]
-               {:dispatch-n [[::e5/set-plugins new-plugins]
-                             [:set-builder-field-errors {}]
-                             [:show-warning-message
-                              (str "Saved. \"" source "\" also has a " (s/lower-case type-name)
-                                   " named \"" twin-name "\" — only one of them can be turned on "
-                                   "at a time. Choose which in My Content.")
-                              15000]]}))
+                            (str "\"" source "\" already has a " (s/lower-case type-name)
+                                 " named \"" twin-name "\". Two sources with the same name can't "
+                                 "both be switched on — give this one a different name, or turn "
+                                 "one off in My Content."))
+                          builder-error-ttl]]}
            (if (nil? explanation)
              (let [new-plugins (assoc-in plugins
                                          [option-pack plugin-key key]
