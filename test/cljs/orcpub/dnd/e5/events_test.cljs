@@ -700,3 +700,55 @@
                   plugins "Pak" ct :artificer
                   {:key :artificer :name "Artificer"} :artificer-2)]
       (is (= #{:artificer :druid} (set (keys (get-in result ["Pak" ct]))))))))
+
+;; ---------------------------------------------------------------------------
+;; :set-character reports what it healed
+;;
+;; The reconcilers always returned a :rewrote list and set-character always threw
+;; it away, so an automatic repair was invisible -- and because the repair lives
+;; in memory until the character is saved, invisible meant routinely lost.
+;; ---------------------------------------------------------------------------
+
+(def ^:private renamed-plugins
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"}}}})
+
+(deftest set-character-flags-a-repair-so-the-save-button-can-ask-for-it
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (testing "the stored key is repaired"
+    (is (= :half-elf-ua
+           (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
+  (testing "and the repair is recorded rather than discarded"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest set-character-stays-quiet-when-nothing-needed-fixing
+  ;; A clean load must not glint the save button, or the cue means nothing.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-ua}}}])
+  (is (nil? (:character-healed @app-db))))
+
+(deftest the-heal-flag-clears-itself-once-the-character-is-saved
+  ;; What makes this self-resetting rather than a banner someone has to dismiss:
+  ;; saving re-dispatches :set-character over the SAVED character, whose keys are
+  ;; now current, so the reconcilers find nothing and the flag drops on its own.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (some? (:character-healed @app-db)) "flagged on the broken load")
+  (let [healed (:character @app-db)]
+    ;; stands in for the post-save re-dispatch in ::char5e/save-character
+    (rf/dispatch-sync [:set-character healed])
+    (is (nil? (:character-healed @app-db))
+        "second pass over the repaired character clears the prompt")))
+
+(deftest healed-message-counts-what-moved
+  (is (= (events/healed-message [{:from :a :to :b}])
+         "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
+  (is (re-find #"^Reconnected 2 references"
+               (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))

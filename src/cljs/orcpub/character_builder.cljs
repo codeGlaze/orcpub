@@ -2637,6 +2637,10 @@
                   "Save New Character")
          :icon "save"
          :style (when character-changed? unsaved-button-style)
+         ;; A reconciler repaired a stored key on load. That repair only exists in
+         ;; memory, so the button keeps glinting until the character is saved --
+         ;; a toast alone is gone in eight seconds and takes the fix with it.
+         :class-name (when @(subscribe [:character-healed]) "save-healed")
          :on-click #(save-character built-char)}
         (when (:db/id character)
           {:title "View"

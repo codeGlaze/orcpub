@@ -112,6 +112,14 @@
    (get db :loading)))
 
 (reg-sub
+ :character-healed
+ ;; Set by :set-character when a reconciler repaired a stored key, cleared when it
+ ;; did not. The repair is in memory only, so this is what tells the save button
+ ;; the character is carrying a fix that will be lost if the page is left.
+ (fn [db _]
+   (get db :character-healed)))
+
+(reg-sub
  :active-tabs
  (fn [db _]
    (get-in db tab-path)))

@@ -1527,6 +1527,48 @@
      [:.health-act {:color broken-red}]]
     (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
 
+    ;; ── save button, carrying an unsaved repair ──────────────────────────────
+    ;; A reconciler fixed a stored key on load, but only in memory. The toast that
+    ;; says so is gone in eight seconds, and leaving the page takes the fix with
+    ;; it -- so the button keeps a slow glint going until the character is saved.
+    ;; Deliberately unlike .health-flash, which fires twice and stops: this is a
+    ;; standing condition, not an event, so it repeats.
+    ;;
+    ;; Slow and low-contrast on purpose. It sits in the header next to the other
+    ;; actions and has to read as "worth doing" without behaving like an error.
+    (at-keyframes "save-healed-glint"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:35% {:box-shadow "0 0 10px 2px rgba(255,210,26,0.45)"}]
+                  [:70% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}])
+    [:.save-healed
+     {:animation "save-healed-glint 2.6s ease-in-out infinite"
+      :position :relative}]
+    ;; The sparkle itself. A pseudo-element rather than markup so the button's
+    ;; hiccup stays a plain button, and pointer-events none so it can never eat
+    ;; the click it is advertising.
+    [:.save-healed:after
+     {:content "'\\2726'"
+      :position :absolute
+      :top "-4px"
+      :right "-3px"
+      :font-size "11px"
+      :line-height 1
+      :color "rgba(255,210,26,0.95)"
+      :pointer-events :none
+      :animation "save-healed-sparkle 2.6s ease-in-out infinite"}]
+    (at-keyframes "save-healed-sparkle"
+                  [:0% {:opacity 0 :transform "scale(0.6)"}]
+                  [:35% {:opacity 1 :transform "scale(1)"}]
+                  [:70% {:opacity 0 :transform "scale(0.6)"}]
+                  [:100% {:opacity 0 :transform "scale(0.6)"}])
+    ;; Motion is the whole mechanism here, so with it suppressed the state still
+    ;; has to be visible -- a steady ring and a steady sparkle, no movement.
+    (at-media {:prefers-reduced-motion "reduce"}
+              [:.save-healed {:animation :none
+                              :box-shadow "0 0 0 2px rgba(255,210,26,0.55)"}]
+              [:.save-healed:after {:animation :none :opacity 1}])
+
     [:.link-button
      {:color button-color
       :border :none

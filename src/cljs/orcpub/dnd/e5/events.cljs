@@ -1613,15 +1613,36 @@
         ;; conflict renamed it is pointing at a key nothing answers to any more.
         ;; Translating it back before anything else means the spell-selection pass
         ;; below sees the class key it expects rather than an orphan.
-        {:keys [character]}
+        {character :character former-rewrote :rewrote}
         (content-recon/reconcile-former-keys
          character
          (content-recon/former-key-index (:plugins db)))
-        {:keys [character]}
+        {character :character spell-rewrote :rewrote}
         (content-recon/reconcile-spell-selection-keys
          character
-         (loaded-class-keys db))]
-    (assoc db :character character :loading false)))
+         (loaded-class-keys db))
+        ;; Both reconcilers report what they repaired and it used to be dropped on
+        ;; the floor here, so every automatic heal was invisible AND undone by the
+        ;; next load -- the rewrite lives in memory only. Keeping it lets the save
+        ;; button say the character is worth saving, which is the difference
+        ;; between healing once and re-healing forever.
+        rewrote (into (vec former-rewrote) spell-rewrote)]
+    (assoc db
+           :character character
+           :loading false
+           ;; Cleared when there is nothing to report, which is what makes it
+           ;; self-resetting: after a save, :set-character runs again over the
+           ;; SAVED character, the reconcilers find nothing left to fix, and the
+           ;; prompt goes away on its own rather than needing to be dismissed.
+           :character-healed (when (seq rewrote) {:rewrote rewrote}))))
+
+(defn healed-message
+  "Toast copy for an automatic reconciliation. Says what moved and what to do
+   about it, because the repair is in memory until the character is saved."
+  [rewrote]
+  (let [n (count rewrote)]
+    (str "Reconnected " n " reference" (when (not= 1 n) "s")
+         " to content that had been renamed. Save the character to keep the fix.")))
 
 (reg-event-fx
  ::char5e/relink-content
@@ -1661,10 +1682,15 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
-(reg-event-db
+(reg-event-fx
  :set-character
  [db-char->local-store]
- set-character)
+ (fn [{:keys [db]} event]
+   (let [db' (set-character db event)
+         rewrote (get-in db' [:character-healed :rewrote])]
+     (cond-> {:db db'}
+       ;; Only on an actual repair. A clean load stays silent.
+       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
 
 (def character-values-path
   [::entity/values])
