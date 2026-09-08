@@ -850,6 +850,16 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
 - **The cookie-banner fallback is scoped to the banner**, so it can no longer
   close the release panel and record that as consent (`950ab526`, `031daf73`).
 
+### fix/message-banner-spacing
+
+**Fixed**
+
+- **Message banners keep their line breaks**, so a multi-part message reads as
+  separate lines instead of sentences run together with no punctuation (`2e13d2b2`).
+- **The banner has room to breathe** — padding above it as well as below, a gap
+  between the text and the close icon, and the icon aligned to the first line
+  rather than halfway down a three-line message (`2e13d2b2`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
