@@ -209,17 +209,43 @@ has to print.
 
 ### OPEN — the scenario vocabulary: port `tag->flag`, do not invent
 
-**Measured 2026-09-08 — the codebase contains both the right pattern and the wrong one.**
+> ⚠️ **CORRECTED 2026-09-08, same day.** The first version of this section said AC "is not
+> extensible — four coordinated edits across the engine." **Wrong, and the error was reading the
+> declarative arm's predicate and calling it the engine.** Corrected below. (The user caught it:
+> *"ac was absolutely meant to be extensible with +N sources being stacked on."* It is.)
 
-| vocabulary | cost to add a condition | forward-compatible? |
+**The AC channel IS extensible, and always was.** `?ac-bonus-fns` accepts any contributor and stacks
+them; one that does not apply returns 0. And a contributor's condition can read **anything on the
+character** — via the modifier-level condition slot, which resolves `?`-attributes:
+
+```clojure
+;; hand-written: the condition sits at the MODIFIER level and reads any ?-attribute
+(mods/vec-mod ?ac-bonus-fns (fn [_ _] 1) nil nil
+              [(let [main-hand-weapon ?…/main-hand-weapon
+                     off-hand-weapon  ?…/off-hand-weapon]
+                 (and main-hand-weapon …))])          ; = dual-wield-ac-mod, options.cljc:1437
+
+;; declarative: the condition sits INSIDE the contributor fn, which only receives (armor shield)
+(modifiers/ac-bonus-fn (fn [armor shield] (if (ac-applies? spec armor shield) n 0)))
+```
+
+So the gap is narrower than claimed, and it is in the **authoring vocabulary**, not the engine:
+
+| path | conditions available | extensible? |
 |---|---|---|
-| **weapon tags** (`weapons/tag->flag`) | **one entry** in a 13-entry map, authoring tag → storage field | ✅ *"Unknown tags are ignored rather than silently failing the match, so old content with a tag this build does not know still applies its bonus"* |
-| **AC conditions** (`ac-applies?`) | **four coordinated edits** — the predicate destructures exactly `{:keys [armor? shield?]}` and only ever receives `(armor, shield)`; a tag like `:dual-wield?` needs the wielded weapons, which never reach it | ✗ |
+| hand-written modifier | anything on the built character (`?`-attributes) | ✅ unlimited |
+| declarative `:ac-bonus` arm (`ac-applies?`) | exactly `:armor?` and `:shield?` | ✗ two tags wide |
+| weapon tags (`weapons/tag->flag`) | 13 entries; **one entry** to add; unknown tags ignored so old content survives a build that does not know one | ✅ the model |
 
-**This is why `:two-weapon-ac-1` is hardcoded** — not a design gap, a vocabulary that was never made
-extensible, sitting beside one that was. So a scenario picker is a **port of `tag->flag` to AC
-conditions**: a registry of tag → predicate over character state, unknown tags ignored. Working
-precedent, same codebase, bounded — not a new invention.
+**`:two-weapon-ac-1` is hardcoded because it needed a condition the AUTHORING vocabulary could not
+express** — so its author dropped to the hand-written path, which worked. Not an engine limit.
+
+**The fix, already specified in the KB** (`runtime-toggles-and-conditional-modifiers.md`, §"Design
+implication"): *"build-state condition → auto-predicate (function modifier reads the build), applies
+for real."* A **condition registry** — `tag → predicate over the build` — that `ac-bonus-modifiers`
+selects from. The `tag->flag` shape, and the app already treats "predicate over the built character"
+as first-class (`option-prereq`, `prereq-fn`). One entry per condition, and it serves `:attack-bonus`
+and `:damage-bonus` too, since they share the tag vocabulary.
 
 Hard boundary unchanged (`builder-form-schemas.md` §4): a scenario may only be a CONDITION the engine
 can inspect. A play-time TRIGGER is a sheet entry — which, per the template finding above, is a

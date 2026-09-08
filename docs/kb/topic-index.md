@@ -163,7 +163,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, frozen, grant, header, legacy, monster, pool, race, row, rows, weapons, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, race, row, rows, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -426,7 +426,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, sources, variant, versioned, warn
+**topics:** cross-source, dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -705,7 +705,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, sources, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
