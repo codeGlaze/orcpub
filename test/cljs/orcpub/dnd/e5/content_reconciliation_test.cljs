@@ -438,3 +438,28 @@
            {:keen-mind- :keen-mind})]
       (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
                                            :orcpub.entity/key]))))))
+
+(deftest relink-rewrites-through-the-same-path-as-an-automatic-rebind
+  (testing "a one-entry index is how a manual relink is expressed"
+    ;; ::char5e/relink-content builds exactly this and routes through
+    ;; :set-character, so a person's choice and an automatic rebind rewrite the
+    ;; character by the same code rather than two implementations that can drift.
+    (let [character {:orcpub.entity/options
+                     {:class [{:orcpub.entity/key :artificer-kibbles-tasty}]}}
+          {:keys [character rewrote]}
+          (reconcile/reconcile-former-keys character
+                                           {:artificer-kibbles-tasty :artificer})]
+      (is (= :artificer (get-in character [:orcpub.entity/options :class 0
+                                           :orcpub.entity/key])))
+      (is (= [{:from :artificer-kibbles-tasty :to :artificer}] rewrote))))
+
+  (testing "an unrelated key in the same character is untouched"
+    (let [{:keys [character]}
+          (reconcile/reconcile-former-keys
+           {:orcpub.entity/options {:race {:orcpub.entity/key :elf}
+                                    :background {:orcpub.entity/key :spy}}}
+           {:elf :high-elf})]
+      (is (= :high-elf (get-in character [:orcpub.entity/options :race
+                                          :orcpub.entity/key])))
+      (is (= :spy (get-in character [:orcpub.entity/options :background
+                                     :orcpub.entity/key]))))))

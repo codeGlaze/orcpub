@@ -1605,6 +1605,24 @@
          (loaded-class-keys db))]
     (assoc db :character character :loading false)))
 
+(reg-event-fx
+ ::char5e/relink-content
+ (fn [{:keys [db]} [_ from-key to-key]]
+   ;; Rung 4 of the resolution ladder. Rungs 2 and 3 rebind a stored key when the
+   ;; answer is unambiguous and DECLINE when it is not -- which is right, but on
+   ;; its own leaves the option quietly broken. This is where the person decides.
+   ;;
+   ;; Reuses reconcile-former-keys with a one-entry index, so a manual relink and
+   ;; an automatic one rewrite the character by exactly the same code. Routing
+   ;; through :set-character means the other reconcilers run over the result and
+   ;; the rebuild happens the way it does on any load.
+   (let [{:keys [character]}
+         (content-recon/reconcile-former-keys (:character db) {from-key to-key})]
+     {:dispatch-n [[:set-character character]
+                   [:show-message
+                    (str "Relinked " (name from-key) " to " (name to-key)
+                         ". Save the character to keep it.")]]})))
+
 (reg-event-db
  :toggle-character-expanded
  (fn [db [_ character-id]]

@@ -2447,11 +2447,25 @@
                      [:div.f-s-12.m-t-5.main-text-color
                       [:span "Likely from source: "]
                       [:span.i inferred-source]])
+                   ;; The suggestions were already computed and shown as prose,
+                   ;; which told someone what would fix this and gave them no way
+                   ;; to do it. They are the choice now: picking one rebinds the
+                   ;; character's stored key to that content.
+                   ;;
+                   ;; This is the end of the resolution ladder. The automatic
+                   ;; rungs rebind only when the answer is unambiguous and decline
+                   ;; otherwise; declining is only honest if there is somewhere to
+                   ;; ask, and this is it.
                    (when (seq suggestions)
                      [:div.m-t-5
-                      [:span.f-s-12.main-text-color "Similar available: "]
-                      [:span.f-s-12.main-text-color
-                       (s/join ", " (map #(or (:name %) (str ":" (name (:key %)))) suggestions))]])])
+                      [:div.f-s-12.main-text-color.m-b-5 "Use instead:"]
+                      [:div.chip-row
+                       (for [{s-key :key s-name :name} suggestions]
+                         ^{:key (str s-key)}
+                         [:button.form-button.f-s-12
+                          {:title (str "Point this character at :" (name s-key))
+                           :on-click #(dispatch [::char5e/relink-content key s-key])}
+                          (or s-name (str ":" (name s-key)))])]])])
                 (:items report))]])])))))
 
 #_(defn al-legality []
