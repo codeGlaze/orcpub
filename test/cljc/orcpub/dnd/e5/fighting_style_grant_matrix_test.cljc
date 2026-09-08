@@ -37,6 +37,8 @@
 ;; ---------------------------------------------------------------------------
 (defn- offered [grant] (set (map ::t/name (::t/options (opt5e/grant-selection grant pools)))))
 
+(declare build-with trait-names)   ; defined below; the fixed-grant assertions build a character
+
 (deftest the-four-modes-offer-the-right-options
   (testing "ALL — every built-in style plus the custom one"
     (let [o (offered {:pool :fighting-styles})]
@@ -44,9 +46,15 @@
   (testing "FILTERED — only the allowed subset"
     (is (= #{"Archery" "Defense"} (offered {:pool :fighting-styles :filter #{:archery :defense}}))))
   (testing "SPECIFIC — exactly the one named (built-in)"
-    (is (= #{"Dueling"} (offered {:pool :fighting-styles :key :dueling}))))
+    ;; a FIXED grant offers nothing — it IS the entry's modifiers, so it is proven the way the
+    ;; end-to-end block below proves :archery: build a character and read its traits.
+    (is (contains? (trait-names (build-with pools {:pool :fighting-styles :key :dueling} :dueling))
+                   "Dueling Fighting Style"))
+    (is (nil? (opt5e/grant-selection {:pool :fighting-styles :key :dueling} pools))
+        "a fixed grant is never a one-option selection"))
   (testing "CUSTOM — the homebrew style, addressable by key"
-    (is (= #{"Tidewalker"} (offered {:pool :fighting-styles :key :tidewalker})))))
+    (is (= 30 (char5e/base-swimming-speed (build-with pools {:pool :fighting-styles :key :tidewalker} :tidewalker)))
+        "the homebrew style's mechanic lands with no pick")))
 
 ;; ---------------------------------------------------------------------------
 ;; End-to-end on the FEAT silo: build a character per mode, the chosen style's mechanic lands
@@ -117,6 +125,7 @@
       (is (= #{"Custom Style 3" "Custom Style 7" "Custom Style 15"}
              (offered* {:pool :fighting-styles :filter #{:custom-3 :custom-7 :custom-15}}))))
     (testing "SPECIFIC — granting one custom by key offers exactly it"
-      (is (= #{"Custom Style 12"} (offered* {:pool :fighting-styles :key :custom-12})))))
+      (is (= 120 (char5e/base-swimming-speed (build-with big-pool {:pool :fighting-styles :key :custom-12} :custom-12)))
+          "custom 12 → swim 120, granted fixed")))
   (testing "END-TO-END — a character can pick an arbitrary custom (Custom Style 7) and its mechanic lands"
     (is (= 70 (char5e/base-swimming-speed (build-with big-pool {:pool :fighting-styles} :custom-7))))))

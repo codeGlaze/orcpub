@@ -6,7 +6,7 @@
 
    Both verbs go through the one hook:
      {:pool :languages :count 2}          -> the SELECT verb (user picks 2 of the pool)
-     {:pool :languages :key :elvish}       -> the GRANT verb (creator picked; forced single option)
+     {:pool :languages :key :elvish}       -> the GRANT verb (creator picked; a modifier, no pick)
 
    Also pins that the pre-existing `:profs :language-options` path is untouched — the point of the
    wire is that one shape can replace several, not that any saved shape stops working (D9).
@@ -54,11 +54,11 @@
           "the whole open pool should be on offer"))))
 
 (deftest grant-verb-through-the-same-hook
-  (let [sel (selection-named (race-with {:grants [{:pool :languages :key :elvish}]}) "Language")]
-    (testing ":key narrows the same hook to a creator-chosen entry"
-      (is (some? sel))
-      (is (= 1 (::t/min sel)) "a forced grant is a single-option choice")
-      (is (= [:elvish] (map ::t/key (::t/options sel)))))))
+  (let [race (race-with {:grants [{:pool :languages :key :elvish}]})]
+    (testing ":key is FIXED — the entry's modifier lands on the race, and there is no selection"
+      (is (nil? (selection-named race "Language")) "a fixed grant must not create a pick")
+      (is (some #(= :languages (:orcpub.modifiers/key %)) (::t/modifiers race))
+          "modifiers/language :elvish should be among the race's own modifiers"))))
 
 (deftest filter-verb-through-the-same-hook
   (let [sel (selection-named (race-with {:grants [{:pool :languages :count 1

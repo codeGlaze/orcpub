@@ -28,8 +28,10 @@
         (is (seq options) (str k " assembled to no options"))
         (is (every? ::t/key options)
             (str k " has options with no ::t/key — :key and :filter address entries by it")))))
-  (testing "and the three pools registered so far differ ONLY in their own :options-fn"
-    (is (= #{:languages :fighting-styles :skills} (set (keys gp/pools))))
+  (testing "and every registered pool differs ONLY in its own :options-fn"
+    (is (= #{:languages :fighting-styles :skills :skill-expertise :tools :skills-or-tools
+             :weapons :armor :damage-resistances :damage-immunities}
+           (set (keys gp/pools))))
     (doseq [[k d] gp/pools]
       (is (fn? (:options-fn d)) (str k " must own its shape as a fn, not describe it with keys"))
       (is (set? (:offerable-by d)) (str k " is missing its scoping metadata")))))
@@ -57,10 +59,9 @@
     (let [s (sel {:pool :languages :count 2})]
       (is (= 2 (::t/min s)))
       (is (= 2 (::t/max s)))))
-  (testing ":key forces a single creator-chosen entry"
-    (let [s (sel {:pool :languages :key :elvish})]
-      (is (= 1 (::t/min s)))
-      (is (= [:elvish] (map ::t/key (::t/options s))))))
+  (testing ":key is FIXED and never a selection — grant-selection is the CHOICE compiler only;
+            fixed grants compile to modifiers in compile-grants (fixed-grant-emits-modifiers-not-a-pick)"
+    (is (nil? (sel {:pool :languages :key :elvish}))))
   (testing ":filter offers a creator-chosen subset"
     (is (= #{:elvish :dwarvish}
            (set (map ::t/key (::t/options (sel {:pool :languages :count 1
@@ -90,3 +91,38 @@
     (is (= #{:grant :skills :profs :skill-profs} (::t/tags (sel {:pool :skills :count 1}))))
     (is (= #{:grant :fighting-styles} (::t/tags (sel {:pool :fighting-styles :count 1})))
         "a pool that declares no tags keeps only the generic pair")))
+
+
+(deftest monster-is-offered-nothing
+  (testing "a stat block grants nothing; every option-* widget it shares with the character silos
+            compiles to display text there (builder-disposition-audit.md)"
+    (is (empty? (gp/offerable-pools :monster)))
+    (is (= 10 (count (gp/offerable-pools :feat))))))
+
+(deftest damage-type-is-one-vocabulary
+  (testing "options.cljc's damage-types is the damage_types.cljc def, not a second copy"
+    (is (identical? opt5e/damage-types orcpub.dnd.e5.damage-types/damage-types)))
+  (testing "and the two damage pools are spokes over it with different primitives"
+    (let [a (gp/assemble [])
+          res (first (filter #(= :cold (::t/key %)) (get-in a [:damage-resistances :options])))
+          imm (first (filter #(= :cold (::t/key %)) (get-in a [:damage-immunities  :options])))]
+      (is (some? res)) (is (some? imm))
+      (is (not= (map :orcpub.modifiers/key (::t/modifiers res))
+                (map :orcpub.modifiers/key (::t/modifiers imm)))))))
+
+(deftest fixed-grant-emits-modifiers-not-a-pick
+  (testing "D4 / direction doc line 72: {:pool p :key k} is the entry's modifiers, no selection"
+    (let [{:keys [modifiers selections]} (opt5e/compile-grants [{:pool :skills :key :athletics}]
+                                                               (gp/assemble []))]
+      (is (empty? selections) "a fixed grant must not create a dropdown-of-one")
+      (is (= 1 (count modifiers)))
+      (is (= :skill-profs (:orcpub.modifiers/key (first modifiers))))))
+  (testing "a choice grant is a selection, and both halves merge in one pass"
+    (let [{:keys [modifiers selections]} (opt5e/compile-grants [{:pool :skills :key :athletics}
+                                                               {:pool :languages :count 2}
+                                                               {:pool :nope :key :x}
+                                                               {:pool :skills :key :not-a-skill}]
+                                                               (gp/assemble []))]
+      (is (= 1 (count modifiers)))
+      (is (= ["Language"] (map ::t/name selections)))
+      (is (= 2 (::t/max (first selections)))))))

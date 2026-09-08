@@ -11,6 +11,7 @@
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.modifiers :as modifiers]
             [orcpub.dnd.e5.weapons :as weapons]
+            [orcpub.dnd.e5.damage-types :as dt]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.armor :as armor]
@@ -121,20 +122,9 @@
     :key :unconscious
     :icon "coma"}])
 
-(def damage-types
-  [:acid
-   :bludgeoning
-   :cold
-   :fire
-   :force
-   :lightning
-   :necrotic
-   :piercing
-   :poison
-   :psychic
-   :radiant
-   :slashing
-   :thunder])
+;; The damage-type VOCABULARY lives in damage_types.cljc — one def that weapons, spells, breath
+;; weapons and the resistance/immunity pools all index into. This name is kept for its callers.
+(def damage-types dt/damage-types)
 
 (def conditions-map
   (common/map-by-key (common/add-keys conditions)))
@@ -2524,7 +2514,7 @@
 ;; choice. See docs/kb/decision-vocabulary.md (backward trace: Race).
 ;; grant-selection lives with the bridge prototype (after plugin-modifiers, which it needs);
 ;; race-option is above it, so forward-declare rather than move the prototype block.
-(declare grant-selection)
+(declare grant-selection compile-grants)
 
 (defn race-option [spell-lists
                    spells-map
@@ -2554,6 +2544,7 @@
                            edit-event]
                     :as race}]
   (let [key (or key (common/name-to-kw name))
+        {grant-mods :modifiers grant-sels :selections} (compile-grants grants grantable-pools)
         {:keys [armor weapon save skill-options weapon-proficiency-options tool-options tool language-options]} profs
         {skill-num :choose options :options} skill-options
         skill-kws (if (:any options)
@@ -2573,14 +2564,14 @@
                    (when (seq subraces)
                      [(subrace-selection race spell-lists spells-map language-map weapon-map plugin? source subraces [:race key])])
                    (when (seq language-options) [(language-selection language-map language-options)])
-                   ;; The generic hook, second silo. A race's :grants — a vector, one entry per
-                   ;; grant — each compile through grant-selection; an entry naming an unregistered
-                   ;; pool yields nil and is dropped. No per-pool code here.
-                   (keep #(grant-selection % grantable-pools) grants)
+                   ;; :grants — choice entries become selections here; fixed entries become
+                   ;; modifiers below. compile-grants, same shape as compile-ability-grants.
+                   grant-sels
                    (when (seq weapon-proficiency-options)
                      [(weapon-proficiency-selection-2 weapon-map weapon-proficiency-options)])
                    selections)
       :modifiers (concat
+                  grant-mods
                   (when (not plugin?)
                     (remove
                      nil?
@@ -3940,7 +3931,7 @@
    registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
      {:pool p}                 -> ALL entries (count N, default 1)
      {:pool p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
-     {:pool p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
+     {:pool p :key :k}         -> NOT here: fixed grants compile to modifiers in compile-grants
      (custom entry)            -> the pool already includes homebrew entries, so {:pool p} grants them too
    Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass.
 
@@ -3949,11 +3940,12 @@
    :choose holds a vector of sub-choices, while :profs uses :choose for a count. Reusing either
    would put two unrelated registries behind one keyword."
   [{:keys [pool count key] flt :filter} grantable-pools]
-  (when-let [{:keys [name tags options]} (get grantable-pools pool)]
+  ;; CHOICE only. A :key grant is fixed and compiles to modifiers in compile-grants (D4) — it
+  ;; never becomes a one-option selection here. One mechanism per job (D29).
+  (when-let [{:keys [name tags options]} (when-not key (get grantable-pools pool))]
     (let [opts (cond->> options
-                 flt (filter (fn [o] (contains? flt (::t/key o))))
-                 key (filter (fn [o] (= key (::t/key o)))))
-          n    (if key 1 (clojure.core/or count 1))]
+                 flt (filter (fn [o] (contains? flt (::t/key o)))))
+          n    (clojure.core/or count 1)]
       ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
       ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
@@ -3967,6 +3959,32 @@
         :min n
         :max n
         :options opts}))))
+
+(defn compile-grants
+  "Every entry of a content item's `:grants` → {:modifiers […] :selections […]} — the shape
+   compile-ability-grants returns, so a silo merges both the same way.
+     {:pool p :key k}             FIXED. The creator chose; nothing to pick. Emits the entry's own
+                                  modifiers and any sub-selections it carries — no one-option
+                                  dropdown, no stored pick. Direction doc line 72 / D4.
+     {:pool p :count n :filter …} CHOICE. One selection-cfg via grant-selection.
+   An entry naming an unregistered pool, or a :key not in its pool, contributes nothing — never
+   an error (the direction doc's graceful rule)."
+  [grants grantable-pools]
+  (reduce
+   (fn [acc {:keys [pool key] :as g}]
+     (if-let [{:keys [options]} (get grantable-pools pool)]
+       (if key
+         (if-let [e (first (filter #(= key (::t/key %)) options))]
+           (-> acc
+               (update :modifiers  into (::t/modifiers  e))
+               (update :selections into (::t/selections e)))
+           acc)
+         (if-let [sel (grant-selection g grantable-pools)]
+           (update acc :selections conj sel)
+           acc))
+       acc))
+   {:modifiers [] :selections []}
+   grants))
 ;; ─── end bridge prototype (part 1) ──────────────────────────────────────────────
 
 (defn feat-option-from-cfg
@@ -4024,16 +4042,15 @@
                                                  props
                                                  legacy-ai)
                                 ai-sels sp-sels)
-        ;; A feat's :grants — a vector, one entry per grant — each compile through
-        ;; grant-selection (race-option has the same line). Unregistered pools drop out as nil.
-        feat-selections (concat feat-selections
-                                (keep #(grant-selection % grantable-pools) grants))]
+        ;; :grants — fixed entries are modifiers, choice entries are selections.
+        {grant-mods :modifiers grant-sels :selections} (compile-grants grants grantable-pools)
+        feat-selections (concat feat-selections grant-sels)]
     (t/option-cfg
      {:name name
       :key key
       :icon icon
       :edit-event edit-event
-      :modifiers feat-mods
+      :modifiers (concat feat-mods grant-mods)
       :selections feat-selections
       :summary description
       :prereqs (feat-prereqs prereqs path-prereqs race-map)})))
