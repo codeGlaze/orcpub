@@ -1,8 +1,8 @@
 {
   "_comment": "Per probe: `checks` = assertions it should RUN (pass or fail); a probe running fewer has quietly stopped asserting, which is what a renamed control inside an `if (await x.count())` guard does. `seconds` = observed runtime, used to size its timeout. Observed with ORCBREW_PACK set. Regenerate with UPDATE_BASELINE=1. export_busy_retry_e2e.js was observed under `lein e2e-server-busy`; BUSY_SERVER=1 runs it and skips the ordinary-server probes, which the busy profile would fail for reasons of its own.",
   "boot_rescue_e2e.js": {
-    "checks": 13,
-    "seconds": 100
+    "checks": 16,
+    "seconds": 120
   },
   "character_image_capture_e2e.js": {
     "checks": 31,

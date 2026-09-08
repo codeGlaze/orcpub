@@ -12,6 +12,9 @@ const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
 const PLUGINS = '{"Rescue Me Pack" {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "Rescue Me Pack" :name "Witch Bolt" :level 1}}}}';
+// What the store looks like after the user works for a while. The rescue must
+// hand over THIS, not the snapshot that existed when the page opened.
+const PLUGINS_LATER = '{"Rescue Me Pack" {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "Rescue Me Pack" :name "Witch Bolt" :level 1} :firebolt {:option-pack "Rescue Me Pack" :name "Fire Bolt" :level 0}}}}';
 
 const results = [];
 function check(name, pass, detail) {
@@ -144,6 +147,59 @@ async function rescues(page, label) {
       check('view errored -> homebrew comes out intact', r.intact, r.name + ' ' + r.bytes + 'B');
     }
     await page.screenshot({ path: path.join(OUT, '3-view-error.png'), fullPage: true });
+    await ctx.close();
+  }
+
+  // ---- 3b. content created DURING the session ----------------------------
+  //  The failure this exists for: an export that snapshots localStorage at page
+  //  load hands back an empty or hours-old file, because everything the user
+  //  built after the page opened never reached the copy it kept.
+  {
+    const ctx = await browser.newContext({ acceptDownloads: true });
+    // Deliberately opens with NOTHING stored, so a load-time read would both
+    // fail to arm the control and have nothing to give.
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('orcpub:no-cookie-banner', '1');
+        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      } catch (e) {}
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('text=/My Content|MY CONTENT/i', { timeout: 180000 });
+    await page.waitForTimeout(1200);
+
+    // The user builds something. Then the view falls over.
+    await page.evaluate(v => localStorage.setItem('plugins', v), PLUGINS_LATER);
+    await page.evaluate(() => {
+      var v = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5
+              && window.orcpub.dnd.e5.views;
+      if (v && v.source_disabled_counts) {
+        v.source_disabled_counts = function () { throw new Error('simulated render failure'); };
+      }
+      if (window.orcpubBootRescue) { window.orcpubBootRescue(); }
+    });
+    await page.waitForTimeout(800);
+
+    const v = await visible(page);
+    check('opened empty, built later -> control arms anyway',
+          v.display === 'flex' && v.h > 0, JSON.stringify(v));
+    if (v.display === 'flex') {
+      const [dl] = await Promise.all([
+        page.waitForEvent('download', { timeout: 15000 }),
+        page.click('#boot-rescue-btn'),
+      ]);
+      const f = path.join(OUT, 'session-work.orcbrew');
+      await dl.saveAs(f);
+      const got = fs.readFileSync(f, 'utf8');
+      check('rescue hands over what is stored NOW, not at page load',
+            got === PLUGINS_LATER,
+            got === PLUGINS ? 'STALE: got the page-load snapshot'
+                            : got.length + 'B vs expected ' + PLUGINS_LATER.length + 'B');
+      check('size label reflects the current store',
+            (v.text || '').indexOf(String(PLUGINS_LATER.length) + ' bytes') !== -1, v.text);
+    }
+    await page.screenshot({ path: path.join(OUT, '3b-session-work.png') });
     await ctx.close();
   }
 

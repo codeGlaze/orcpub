@@ -61,27 +61,48 @@
        var btn = document.getElementById('boot-rescue-btn');
        var note = document.getElementById('boot-rescue-note');
        if (!el || !btn || !note) { return; }
-       var armed = false;
+
+       // Read at every decision point, never once at load. A snapshot taken when
+       // the page opened is how a rescue hands someone an empty or hours-old
+       // file: they had nothing when it loaded, or they built for an hour after,
+       // and the copy it kept never moved.
+       function readPlugins() {
+         try {
+           var v = localStorage.getItem('plugins');
+           return (!v || v === '{}') ? null : v;
+         } catch (e) { return null; }
+       }
+
+       function sizeOf(s) {
+         var kb = s.length / 1024;
+         return kb < 1 ? s.length + ' bytes'
+              : kb < 10 ? kb.toFixed(1) + ' KB'
+              : Math.round(kb) + ' KB';
+       }
+
+       // Shown only when there is something to save, and labelled with what is
+       // there RIGHT NOW — the size is the only evidence the user has that the
+       // file about to download is really their content.
+       function show() {
+         var raw = readPlugins();
+         if (!raw) { el.style.display = 'none'; return; }
+         note.textContent = 'Your homebrew is saved in this browser ('
+           + sizeOf(raw) + '). Download a copy:';
+         el.style.display = 'flex';
+       }
+
        // Hidden, not removed: the app can crash AFTER a clean first render, and
-       // then the error screen asks for it back.
+       // then the error screen asks for it back — re-checked at that moment, so
+       // work done during the session counts even if the page opened empty.
        window.orcpubBootOk = function () { el.style.display = 'none'; };
-       window.orcpubBootRescue = function () {
-         if (armed) { el.style.display = 'flex'; }
-       };
-       var raw = null;
-       try { raw = localStorage.getItem('plugins'); } catch (e) {}
-       // Nothing stored means nothing to rescue: never show this to a visitor
-       // who has no homebrew of their own.
-       if (!raw || raw === '{}') { return; }
-       var kb = raw.length / 1024;
-       var size = kb < 1 ? raw.length + ' bytes'
-                : kb < 10 ? kb.toFixed(1) + ' KB'
-                : Math.round(kb) + ' KB';
-       note.textContent = 'Your homebrew is saved in this browser ('
-         + size + '). Download a copy:';
-       armed = true;
-       el.style.display = 'flex';
+       window.orcpubBootRescue = show;
+
        btn.addEventListener('click', function () {
+         var raw = readPlugins();
+         if (!raw) {
+           note.textContent = 'Nothing is saved in this browser to download.';
+           return;
+         }
          var url = URL.createObjectURL(
            new Blob([raw], { type: 'text/plain;charset=utf-8' }));
          var a = document.createElement('a');
@@ -92,6 +113,8 @@
          document.body.removeChild(a);
          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
        });
+
+       show();
      })();
     "))))
 
