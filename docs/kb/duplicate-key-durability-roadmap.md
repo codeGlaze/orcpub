@@ -309,3 +309,35 @@ check at save yet, so that collision would be silent.
 That makes **C the next piece**, ahead of A: a duplicate check at save, reading
 the memoized `collision-twin-index` the My Content health card already computes.
 It closes this residual and is the smaller build.
+
+## Built 2026-09-07 (integration 4b61904b): layer C
+
+`save-collision` in events.cljs, checked before the write:
+
+- same source, key held by a DIFFERENT item -> blocked, `:name` flagged, message
+  names the entry that would have been lost. `:key` on the item distinguishes an
+  edit returning to its own slot from a rename landing on an occupied one.
+- another source -> saved with a note; both copies survive and the disable
+  hierarchy decides which is live.
+
+This closes the residual the trim left: the seven Eberron/UA pairs now derive the
+same key, so re-saving either was a silent overwrite and is now a question.
+
+Tested in `events-test` (CLJS runner, not `lein test` -- `save-collision` is a pure
+function over the plugins map and is called directly): save over yourself, replace
+a different item, new item onto an occupied key, other source, free key.
+
+## Remaining
+
+1. **A -- source abbreviation into `:key` and `:name`.** The only piece that gives
+   genuinely different content deliberately different identity rather than relying
+   on punctuation. Still designed and unbuilt (`RECONCILIATION-LOG.md` phase 3).
+   Settle the format against `name-to-kw` first: with the trim in place
+   "Artificer (UA)" now derives `:artificer-ua` cleanly, so the round trip that
+   blocked this is no longer blocked.
+2. **Reconciler updates + relink UI.** Designed, unbuilt. Needed before any bulk
+   cleanup, since the builder resets downstream choices when a class changes.
+3. **The `[UNVERIFIED]` reconciliation test** from `name-to-kw-audit.md` section 6.
+   Still the gate on anything that renames keys in bulk.
+4. **Bulk cleanup of existing libraries**, last, with a dry run reporting which
+   characters reference each key.
