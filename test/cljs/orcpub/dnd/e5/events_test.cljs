@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             ;; Side effect: registers all event handlers
@@ -196,6 +197,59 @@
     (reset! app-db {:user {:name "test"}})
     (rf/dispatch-sync [:verify-user-session])
     (is true "Handler completed without exception")))
+
+;; ---------------------------------------------------------------------------
+;; Per-source export runs the same correction gate as Export All
+;;
+;; The cleanups below are what the two paths used to disagree on. Text
+;; normalization is NOT among them: builder saves and import both normalize on
+;; the way in, so it cannot tell the paths apart. A blank :option-pack, a nil
+;; value and duplicately-named selection options can — nothing on the builder
+;; save path touches those, so before this they survived a per-source export and
+;; were cleaned by Export All.
+;; ---------------------------------------------------------------------------
+
+(def ^:private uncleaned-source
+  {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "" :name "Witch's Bolt" :level nil}}
+   :orcpub.dnd.e5/classes
+   {:artificer {:option-pack "Pack A"
+                :name "Artificer"
+                :selections {:specialism
+                             {:name "Specialism"
+                              :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
+
+(deftest single-source-export-fills-blank-option-pack
+  (testing "a blank :option-pack is given the default source, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= orcbrew-val/default-option-source
+             (get-in plugin [:orcpub.dnd.e5/spells :witchbolt :option-pack]))))))
+
+(deftest single-source-export-strips-nils
+  (testing "nil values are dropped rather than written into the file"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (not (contains? (get-in plugin [:orcpub.dnd.e5/spells :witchbolt]) :level))))))
+
+(deftest single-source-export-dedups-selection-options
+  (testing "duplicately-named selection options collapse, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= 1 (count (get-in plugin [:orcpub.dnd.e5/classes :artificer
+                                      :selections :specialism :options])))))))
+
+(deftest single-source-export-matches-whole-library-export
+  (testing "one source exported alone equals that source inside an all-sources export"
+    (let [library {"Pack A" uncleaned-source
+                   "Pack B" {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"}}}}
+          all (:data (orcbrew-val/correct-library library))]
+      (is (= (get all "Pack A")
+             (:plugin (events/correct-single-plugin "Pack A" uncleaned-source)))))))
+
+(deftest single-source-export-reports-what-it-changed
+  (testing "clean content reports no changes, dirty content reports some"
+    (is (empty? (:changes (events/correct-single-plugin
+                           "Pack B"
+                           {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"
+                                                              :name "Fireball"}}}))))
+    (is (seq (:changes (events/correct-single-plugin "Pack A" uncleaned-source))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Emergency raw export

@@ -4442,37 +4442,67 @@
      (str "Export warnings for \"" plugin-name "\":\n  "
           (s/join "\n  " (map str (:warnings validation)))))))
 
+(defn correct-single-plugin
+  "Run the shared import/export correction gate over one source: the same
+   `correct-library` pass `::e5/export-all-plugins` runs, narrowed to one entry,
+   so a per-source file and an all-sources file agree on the same content.
+   Cross-source key conflicts are dropped — there is only one source here.
+   Returns {:plugin <corrected> :changes [...]}."
+  [plugin-name plugin]
+  (let [{corrected :data changes :changes} (orcbrew-val/correct-library {plugin-name plugin})]
+    {:plugin (get corrected plugin-name plugin)
+     :changes changes}))
+
 (defn- validate-and-show-modal-or-export
-  "Shared validation logic for both export-plugin and export-plugin-pretty-print.
-   Validates the plugin, then either shows the modal (missing fields), exports
-   directly (valid), or shows an error (spec failure)."
-  [plugin-name plugin {:keys [pretty-print?]}]
-  (let [validation (orcbrew-val/validate-before-export plugin)]
+  "Shared export path for one source, used by export-plugin and
+   export-plugin-pretty-print. Runs the same correction gate Export All runs
+   (text normalization, semantic cleaning, option dedup) so a per-source file
+   and an all-sources file agree on the same content, then either shows the
+   fill-in modal (missing fields), writes the file (valid), or shows an error
+   (spec failure). Corrections are persisted back so a second export finds
+   nothing left to fix."
+  [db plugin-name plugin {:keys [pretty-print?]}]
+  (let [{corrected :plugin cleanup-changes :changes}
+        (correct-single-plugin plugin-name plugin)
+        library (:plugins db)
+        ;; Only write back a source the store actually holds: export-plugin is
+        ;; also called with a just-built plugin that never reached storage.
+        persist (when (and (not= plugin corrected) (contains? library plugin-name))
+                  [[::e5/set-plugins (assoc library plugin-name corrected)]])
+        validation (orcbrew-val/validate-before-export corrected)]
+
+    (when (seq cleanup-changes)
+      (js/console.log "Export cleanup:" (clj->js cleanup-changes)))
+
     (cond
       (:has-missing-required-fields validation)
       (do
         (js/console.warn
          (str "Export: missing required fields in \"" plugin-name "\":\n"
               (orcbrew-val/format-export-validation-for-log validation)))
-        {:dispatch [:show-export-warning-modal
-                    {:mode :single
-                     :plugins [{:name plugin-name
-                                :plugin plugin
-                                :issues (:missing-fields-issues validation)}]
-                     :warnings (:warnings validation)
-                     :pretty-print? pretty-print?}]})
+        {:dispatch-n
+         (vec (concat persist
+                      [[:show-export-warning-modal
+                        {:mode :single
+                         :plugins [{:name plugin-name
+                                    :plugin corrected
+                                    :issues (:missing-fields-issues validation)}]
+                         :warnings (:warnings validation)
+                         :pretty-print? pretty-print?}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
         (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks plugin)
+                            (orcbrew-val/strip-export-blanks corrected)
                             :pretty-print? pretty-print?)
-        (if (seq (:warnings validation))
-          {:dispatch [:show-warning-message
-                      (str "Plugin '" plugin-name "' exported with warnings. Check console for details.")]}
-          {}))
+        {:dispatch-n
+         (vec (concat persist
+                      (when (seq (:warnings validation))
+                        [[:show-warning-message
+                          {:title (str "Exported “" plugin-name "” with warnings")
+                           :details ["The file downloaded. The console has the details."]}]])))})
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -4480,19 +4510,22 @@
       (do
         (js/console.error (str "Export validation failed for \"" plugin-name "\":\n"
                                (orcbrew-val/format-export-validation-for-log validation)))
-        {:dispatch [:show-error-message
-                    [:div
-                     [:div (str "Cannot export '" plugin-name
-                                "' - contains invalid data. Check console for details.")]
-                     [:div.m-t-5
-                      [:span.pointer.underline.f-w-b
-                       {:on-click #(dispatch [::e5/emergency-export-raw plugin-name])}
-                       "Download raw backup instead"]]]]}))))
+        {:dispatch-n
+         (vec (concat persist
+                      [[:show-error-message
+                        {:title (str "Can’t export “" plugin-name "” — it contains invalid data")
+                         :details [[:span "The console has the details. "
+                                    [:span.pointer.underline
+                                     {:on-click (fn [e]
+                                                  (.stopPropagation e)
+                                                  (dispatch [::e5/emergency-export-raw plugin-name]))}
+                                     "Download a raw backup"]
+                                    " to get the content out meanwhile."]]}]]))}))))
 
 (reg-event-fx
  ::e5/export-plugin
- (fn [_ [_ name plugin]]
-   (validate-and-show-modal-or-export name plugin {})))
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {})))
 
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
@@ -4731,9 +4764,9 @@
          {:dispatch-n (vec (concat persist
                                    (when (seq cleanup-changes)
                                      [[:show-warning-message
-                                       (str "✅ Exported all-content.orcbrew\n\n"
-                                            "Cleaned " (count cleanup-changes)
-                                            " item(s) on the way out.")]])))})))))
+                                       {:title "Exported all-content.orcbrew"
+                                        :details [(str "Cleaned " (count cleanup-changes)
+                                                       " item(s) on the way out.")]}]])))})))))
 
 
 (defn clj->json
@@ -4751,18 +4784,8 @@
 
 (reg-event-fx
  ::e5/export-plugin-pretty-print
- (fn [_ [_ name plugin]]
-   (validate-and-show-modal-or-export name plugin {:pretty-print? true})))
-
-;; Export all homebrew plugins as pretty-printed .orcbrew file.
-(reg-event-fx
- ::e5/export-all-plugins-pretty-print
- (fn [{:keys [db]} _]
-   (let [blob (js/Blob.
-               (clj->js [(with-out-str (pprint/pprint (map-plugin-classes sel/collapse-class (:plugins db))))])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob "all-content.orcbrew")
-     {})))
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:pretty-print? true})))
 
 (reg-event-fx
  ::e5/delete-plugin
