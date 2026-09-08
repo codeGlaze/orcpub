@@ -9349,7 +9349,14 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
+                      ;; NOT "Save to Browser Storage", which is what every other
+                      ;; builder's button says and does. A magic item is saved to
+                      ;; the database like a character is: ::mi/save-item posts to
+                      ;; /dnd/5e/items with an auth header, so the label was
+                      ;; promising local storage while requiring an account, and a
+                      ;; logged-out click landed on the login page having said
+                      ;; nothing about needing one.
+                      {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
