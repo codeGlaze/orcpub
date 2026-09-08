@@ -259,3 +259,53 @@ What this does NOT do is retire the shim. The count and the rebind both see only
 the CURRENT USER's characters; a party member's, or another user's referencing
 shared content, are invisible. Forward-fixing reduces what the shim carries. It
 never lets us delete it.
+
+## Built 2026-09-07 (integration 0790b3cd)
+
+The shim and the trim shipped together, shim first.
+
+- `common/canonical-key` -- reduces a key to the form derived today, trailing
+  separator only. Leading dash preserved (it is the trap detector); an
+  all-separator key preserved (stripping it empties into the blank placeholder,
+  which starts with a letter and would pass the trap check).
+- `entity/index-matching-key` -- exact match across the whole collection, then
+  canonical, and only when exactly ONE candidate matches. Applied at the five
+  `keep-indexed` matchers and `get-modifiers`.
+- `collect-modifiers-2` -- resolves by map lookup, which cannot fall back, so the
+  LOOKUP canonicalises the stored key. Canonicalising the template would be a
+  no-op; its keys are already current.
+- `name-to-kw` -- drops a trailing separator, guarded as above.
+
+`warlock_test` is the standing proof: a saved level 10 Drow storing
+`:dark-elf-drow-` still resolves after the derivation changed, keeping CHA 16.
+490 tests, 0 failures.
+
+### What the paks turned out to contain
+
+The seven "merge" groups are not accidental duplicates. They are playtest and
+published versions of the same subrace:
+
+    "Human, Mark of Passage"    Eberron - Rising from the Last War
+    "Human (Mark of Passage)"   UA - Dragonmarks
+
+Kept apart only by comma versus parenthesis, which is what gave one a trailing
+dash. Per the user, curators may well have leaned on that quirk deliberately --
+the app gave them no explicit way to say "this is the UA one", so they encoded
+source identity in punctuation. Those curators have moved on and the app has
+changed underneath the trick, so preserving it is not a constraint worth carrying.
+
+Two things follow. The conflict detector has never seen these pairs, because it
+matches exact keys and these differ by one character -- so any "N conflicts"
+figure for a large pak UNDERCOUNTS, and near-collisions hide beneath it. And this
+is the strongest argument yet for A: people resorted to punctuation because there
+was no mechanism for deliberate source distinction. A is that mechanism.
+
+### Residual, accepted knowingly
+
+Those seven pairs stay distinct on import, where file keys are used as they are.
+Re-saving either one now derives the same key as its twin. There is no duplicate
+check at save yet, so that collision would be silent.
+
+That makes **C the next piece**, ahead of A: a duplicate check at save, reading
+the memoized `collision-twin-index` the My Content health card already computes.
+It closes this residual and is the smaller build.
