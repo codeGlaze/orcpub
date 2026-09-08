@@ -661,10 +661,14 @@
    ;; Tinted rather than filled — a solid saturated slab reads as an alarm even
    ;; when what it says is "that worked".
    [:.message
+    ;; Capped, not full-bleed: "Saved “Flame Tongue”" stretched the width of a
+    ;; desktop, which put the dismiss a screen away from the words it dismisses.
+    ;; An import report can fill the cap; a save confirmation sits well inside it.
     {:display :flex
      :align-items :flex-start
      :gap "12px"
      :padding "12px 14px"
+     :max-width "680px"
      :border-radius "6px"
      :border "1px solid transparent"
      :line-height "1.45"

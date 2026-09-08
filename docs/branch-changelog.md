@@ -28,6 +28,12 @@ rather than offered as an action.
   Content it would have sat directly above the page's own Export All. A message
   pointing at a control already on screen is noise.
 
+- **A save confirmation says what it saved** — "Saved “Flame Tongue”" rather than
+  "Your item has been saved.", for characters too when they have a name.
+- **The banner is capped at a readable width** instead of running the full width
+  of a desktop, which put the dismiss a screen away from the five words it
+  dismisses. An import report fills the cap; a save confirmation sits inside it.
+
 ## Fixed
 
 - **Callout action buttons carry a React key again** — the key was attached to the

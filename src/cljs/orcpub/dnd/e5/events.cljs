@@ -449,7 +449,11 @@
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)]
-     {:dispatch-n [[:show-message "Your character has been saved."]
+     {:dispatch-n [[:show-message
+                    (if-let [char-name (not-empty
+                                        (get-in character [::entity/values ::char5e/character-name]))]
+                      (str "Saved “" char-name "”")
+                      "Your character has been saved.")]
                    [:set-character character]
                    [::char5e/set-character id character]]})))
 
@@ -589,7 +593,9 @@
                          (mapv #(if (= item-id (:db/id %)) strict-item %) existing-items)
                          (conj (vec existing-items) strict-item))]
      {:db (assoc db ::mi/custom-items updated-items)
-      :dispatch-n [[:show-message "Your item has been saved."]
+      :dispatch-n [[:show-message (if-let [item-name (not-empty (::mi/name item))]
+                                    (str "Saved “" item-name "”")
+                                    "Your item has been saved.")]
                    [::mi/set-item item]]})))
 
 (reg-event-fx
