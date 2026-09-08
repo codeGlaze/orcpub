@@ -2068,9 +2068,20 @@
       (let [;; Step 1: Rename the key in its content group. Update the item's OWN
             ;; :key field too — the content subs (map-by-key) key by :key, so a
             ;; stale :key would re-collide at read time and undo the rename.
+            ;; Record where this item came from. A character that selected it under
+            ;; the old key can be rebound on load (content-reconciliation/
+            ;; former-key-index), so resolving an import conflict stops silently
+            ;; unbinding everyone who already used the content.
+            ;;
+            ;; One key, not a history: the common case is a single disambiguation
+            ;; at import, a bounded field is defensible travelling in an .orcbrew,
+            ;; and anything a chain loses is caught by the relink UI. Renaming
+            ;; A -> B -> C remembers B.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key (assoc item :key new-key)))
+                              (assoc new-key (assoc item
+                                                    :key new-key
+                                                    :former-key old-key)))
 
             ;; Step 2: Find content types that reference this type
             referencing-types (keep (fn [[ct refs]]

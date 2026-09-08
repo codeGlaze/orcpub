@@ -9,6 +9,7 @@
    the same get-in patterns the rest of the app uses, rather than walking
    the entire options tree generically."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.common :as common]
             [orcpub.dnd.e5.classes :as class5e]))
@@ -379,3 +380,81 @@
         {:character (assoc-in character [::entity/options :class] entries)
          :rewrote rewrote})
       {:character character :rewrote []})))
+
+;; ── Former keys ─────────────────────────────────────────────────────────────
+;; Resolving an import conflict renames a key. Every character that had already
+;; selected that content stored the OLD key, and would otherwise stop resolving --
+;; the option silently unbinds and the character loses whatever it granted.
+;;
+;; rename-key-in-plugin records the outgoing key as :former-key on the item, so
+;; the rename is reversible by lookup. This translates a character's stored keys
+;; through those records when it loads, and the result persists on the next save,
+;; so each character heals once.
+;;
+;; Done here rather than at match time on purpose: t/option-cfg builds template
+;; options from a fixed allow-list and drops unknown fields, so carrying
+;; :former-key through to matching would mean threading it through every
+;; per-content-type option builder. The character is right here, and :plugins are
+;; already hydrated at :set-character.
+
+(defn former-key-index
+  "{former-key -> current-key} across every source and content type in `plugins`.
+
+   Deliberately not keyed by content type. The character's option tree stores a
+   content key as a bare value under ::entity/key with no type beside it, so a
+   type-aware index could not be consulted without reconstructing the path. Two
+   exclusions make a global index safe instead:
+
+   - a former key claimed by MORE THAN ONE item is dropped. Two items both
+     claiming to have been :artificer cannot both be rebound to, and picking one
+     would bind a character to whichever happened to be walked first.
+   - a former key that is some item's LIVE key is dropped. The live item owns that
+     key; a character pointing at it already resolves, and rebinding it away would
+     break something that works."
+  [plugins]
+  (let [items (for [[_ plugin] plugins
+                    :when (map? plugin)
+                    [ct content] plugin
+                    :when (map? content)
+                    [k item] content
+                    :when (map? item)]
+                {:key k :former (:former-key item)})
+        live (into #{} (map :key) items)
+        claims (reduce (fn [acc {:keys [key former]}]
+                         (cond-> acc
+                           (and former (not= former key))
+                           (update former (fnil conj #{}) key)))
+                       {}
+                       items)]
+    (into {}
+          (keep (fn [[former targets]]
+                  (when (and (= 1 (count targets))
+                             (not (contains? live former)))
+                    [former (first targets)])))
+          claims)))
+
+(defn reconcile-former-keys
+  "Rewrite a character's stored content keys through `index`.
+
+   Walks ::entity/options and translates every ::entity/key it finds, which is
+   where a content key always lives -- nested under a selection, or inside a
+   vector for a multi-select like :feats. Selection keys, which are MAP keys, are
+   left alone; only chosen-option identity moves.
+
+   Returns {:character .. :rewrote [{:from .. :to ..}]}, matching
+   reconcile-spell-selection-keys, so a caller can report what healed."
+  [character index]
+  (if (or (empty? index) (nil? (::entity/options character)))
+    {:character character :rewrote []}
+    (let [rewrote (atom [])
+          walked (walk/postwalk
+                  (fn [x]
+                    (if (and (map? x) (contains? x ::entity/key))
+                      (if-let [to (get index (::entity/key x))]
+                        (do (swap! rewrote conj {:from (::entity/key x) :to to})
+                            (assoc x ::entity/key to))
+                        x)
+                      x))
+                  (::entity/options character))]
+      {:character (assoc character ::entity/options walked)
+       :rewrote @rewrote})))

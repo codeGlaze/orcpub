@@ -369,3 +369,72 @@
       (is (contains? (-> classes first ::entity/options) :artificer-kibbles-tasty-cantrips-known))
       (is (contains? (-> classes second ::entity/options) :wizard-cantrips-known)
           "built-in class entry untouched"))))
+
+;; ── Former keys ─────────────────────────────────────────────────────────────
+
+(def ^:private ct :orcpub.dnd.e5/subraces)
+
+(deftest former-key-index-maps-old-to-new
+  (testing "a renamed item points its old key at its new one"
+    (is (= {:dark-elf-drow- :dark-elf-drow}
+           (reconcile/former-key-index
+            {"Pak" {ct {:dark-elf-drow {:key :dark-elf-drow
+                                        :former-key :dark-elf-drow-
+                                        :name "Dark Elf (Drow)"}}}}))))
+
+  (testing "an item that was never renamed contributes nothing"
+    (is (= {} (reconcile/former-key-index
+               {"Pak" {ct {:elf {:key :elf :name "Elf"}}}}))))
+
+  (testing "TWO items claiming the same former key are both dropped"
+    ;; Rebinding would pick whichever was walked first, which is a coin flip
+    ;; dressed as a repair.
+    (is (= {} (reconcile/former-key-index
+               {"A" {ct {:one {:key :one :former-key :shared}}}
+                "B" {ct {:two {:key :two :former-key :shared}}}}))))
+
+  (testing "a former key that is some item's LIVE key is dropped"
+    ;; :elf still exists and still resolves; rebinding it away would break a
+    ;; character that is working fine.
+    (is (= {} (reconcile/former-key-index
+               {"A" {ct {:elf {:key :elf :name "Elf"}
+                         :high-elf {:key :high-elf :former-key :elf}}}})))))
+
+(deftest reconcile-former-keys-rewrites-stored-selections
+  (let [index {:dark-elf-drow- :dark-elf-drow}
+        character {:orcpub.entity/options
+                   {:race {:orcpub.entity/key :elf
+                           :orcpub.entity/options
+                           {:subrace {:orcpub.entity/key :dark-elf-drow-}}}
+                    :feats [{:orcpub.entity/key :keen-mind}]}}]
+
+    (testing "a nested key is translated"
+      (let [{:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
+        (is (= :dark-elf-drow
+               (get-in character [:orcpub.entity/options :race
+                                  :orcpub.entity/options :subrace
+                                  :orcpub.entity/key])))
+        (is (= [{:from :dark-elf-drow- :to :dark-elf-drow}] rewrote))))
+
+    (testing "keys with no entry are left exactly as they were"
+      (let [{:keys [character]} (reconcile/reconcile-former-keys character index)]
+        (is (= :elf (get-in character [:orcpub.entity/options :race :orcpub.entity/key])))
+        (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
+                                             :orcpub.entity/key])))))
+
+    (testing "an empty index is a no-op"
+      (is (= character (:character (reconcile/reconcile-former-keys character {})))))
+
+    (testing "a character with no options is left alone"
+      (is (= {} (:character (reconcile/reconcile-former-keys {} index)))))))
+
+(deftest reconcile-former-keys-reaches-inside-a-multi-select
+  (testing "a chosen option inside a vector is translated too"
+    ;; :feats and friends store a VECTOR of chosen options, so a walk that only
+    ;; descended maps would miss them.
+    (let [{:keys [character]}
+          (reconcile/reconcile-former-keys
+           {:orcpub.entity/options {:feats [{:orcpub.entity/key :keen-mind-}]}}
+           {:keen-mind- :keen-mind})]
+      (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
+                                           :orcpub.entity/key]))))))

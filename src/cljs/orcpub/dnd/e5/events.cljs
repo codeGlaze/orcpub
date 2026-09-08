@@ -1589,8 +1589,17 @@
 
 (defn set-character [db [_ character]]
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
-  ;; :initialize-db, so the reconciler can trust loaded-class-keys.
-  (let [{:keys [character]}
+  ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
+  ;; former-key index.
+  (let [;; Former keys first: a character that selected content before an import
+        ;; conflict renamed it is pointing at a key nothing answers to any more.
+        ;; Translating it back before anything else means the spell-selection pass
+        ;; below sees the class key it expects rather than an orphan.
+        {:keys [character]}
+        (content-recon/reconcile-former-keys
+         character
+         (content-recon/former-key-index (:plugins db)))
+        {:keys [character]}
         (content-recon/reconcile-spell-selection-keys
          character
          (loaded-class-keys db))]
