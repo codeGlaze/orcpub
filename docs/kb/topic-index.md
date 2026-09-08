@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, breakdown, con, fixed, floating, increment, mental, race, reader, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, condition, contract, equipped, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
+**topics:** agree, author, contract, equipped, hand-written, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
 
 - The syntax first
 - Why the map can't be derived
@@ -104,7 +104,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, job, kept, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, grant, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -131,7 +131,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+**topics:** assets, beside, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -243,7 +243,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** abilities, accessor, blew, character-validation, computed, deferred, derived, fields, findable, flat, iterate, null, plain, realized, session, spec, test-suite-state, values
+**topics:** abilities, blew, character-validation, computed, deferred, derived, fields, findable, flat, iterate, null, plain, realized, returns, session, spec, test-suite-state, values
 
 - One-liner
 - How it actually works (verified)
@@ -267,7 +267,7 @@ _character-validation · character validation_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, features, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -407,7 +407,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -426,7 +426,7 @@ _content-extensibility-plan · content extensibility plan_
 
 _content-extensibility · content extensibility_
 
-**topics:** 8-input, 945, boons, bucket-by-key, catalog, catalogs, child, content-extensibility-compatibility, content-extensibility-plan, entity-options-architecture, homebrew-builders, issues, parent, route-registration, spa-routing-architecture, srd-vs-plugin-content, views-builders-split, warlock
+**topics:** 8-input, 945, boons, bucket-by-key, catalog, catalogs, child, content-extensibility-compatibility, content-extensibility-plan, entity-options-architecture, homebrew-builders, parent, positional, route-registration, spa-routing-architecture, srd-vs-plugin-content, views-builders-split, warlock
 
 - The problem
 - Current cross-links (verified from code)
@@ -484,7 +484,7 @@ _data-safety-layers · data safety layers_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, skill, spell, spell-choice, spellcasting, subclass, sustainability, templates
+**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -547,7 +547,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, caution, check, css, directory, dotfiles, goes, irreducible, learned, machine, push, reminder, scripts, session, stale
+**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, irreducible, learned, lessons, machine, push, reminder, scripts, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -576,7 +576,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, creator, dex, feat, five, gaps, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, creator, feat, five, gaps, grant, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -653,7 +653,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** 2026-09-08, acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, sentence, session, step, steps, strike, template, widgets
+**topics:** 2026-09-08, acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, session, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -685,7 +685,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, confused, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, selection, suppressed, switch, tooltip, tortle, waives
+**topics:** attached, attaches, confused, constraints, enforcement, icon, legal, mug, overridable, override, per-item, per-selection, selection, suppressed, switch, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -697,7 +697,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** appear, built-in, coexist, combines, copy, duplicate, last-wins, membership, override, plugin, predictable, reduces, same-key, spell, unique, winner, wins, within
+**topics:** appear, built-in, coexist, combines, copy, duplicate, membership, override, plugin, predictable, reduces, rename, same-key, spell, unique, winner, wins, within
 
 - TL;DR
 - The map (VERIFIED)
@@ -748,7 +748,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, eligibility, filter, grant, irregularity, membership, pieces, pool, pools, prerequisite, registered, spells, styles, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, filter, grant, irregularity, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector, wait
 
 - In four sentences
 - The three layers
@@ -776,6 +776,22 @@ _registry-before-after · registry before after_
 - BEFORE — a bespoke input-field wrapper + a hand-built form, in views.cljs
 - AFTER — one line (the generic form is data):
 - 4. So what do you actually WRITE to add a type now?
+
+## requirements-registry.md
+
+_requirements-registry · requirements registry_
+
+**topics:** 2026-09-08, about, accessor, asks, bonuses, describes, dual, effect, fact, gates, hand-written, prereq, requirement, requirements, sense, trigger, weapons, widen
+
+- Why: the same fact is hand-written in three places today
+- The shape
+- The three gates
+- Why :text entries still earn their place
+- Curation, not exposure
+- The naming, and what lost
+- Kinship with prereqs — same shape, different gate
+- What blocks it
+- Sequence, when it is picked up
 
 ## roadmap.md
 
@@ -814,7 +830,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, computes, condition, deferred, entity, equipped, flag, play-state, player, positioning, roll, rolling, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, function, play-state, player, positioning, roll, rolling, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -826,7 +842,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -883,7 +899,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, bracers, callers, characterization, claim, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)

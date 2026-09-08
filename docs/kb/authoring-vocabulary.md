@@ -133,3 +133,5 @@ not what is blocking it; the contract is.
 - `opt5e/ac-conditions` — 2 AC conditions. Serves `:ac` and `:ac-bonus`.
 - `content_types.cljc`, `grant_pools.cljc` — the same principle at content scale: one entry, many
   layers generated from it.
+- `requirements-registry.md` — DESIGN. The same shape for "while wielding two weapons" / "when you
+  hit", which today is hand-written in three features across two effect channels.
