@@ -31,6 +31,70 @@
       (into [:script attrs] body)
       [:script attrs])))
 
+(def ^:private rescue-filename "orcpub-homebrew-rescue.orcbrew")
+
+(defn boot-rescue
+  "The rescue control plus the inline script that arms it. Separate <script>
+   tags are independent, so a throw inside the app bundle cannot stop this one
+   from having run. `window.orcpubBootOk` is what the app calls to take it away."
+  [nonce]
+  (list
+   [:div#boot-rescue
+    {:style (str "position:fixed;left:0;right:0;bottom:0;z-index:2147483000;"
+                 "display:none;gap:12px;align-items:center;justify-content:center;"
+                 "flex-wrap:wrap;padding:10px 14px;background:#2c3445;"
+                 "border-top:1px solid rgba(255,255,255,0.15);"
+                 "font-family:Open Sans,system-ui,sans-serif;font-size:13px;"
+                 "color:#e8ebf0;line-height:1.5")}
+    [:span#boot-rescue-note]
+    [:button#boot-rescue-btn
+     {:type "button"
+      :style (str "font:inherit;font-weight:600;letter-spacing:0.04em;"
+                  "text-transform:uppercase;color:#080A0D;background:#f0a100;"
+                  "border:0;border-radius:3px;padding:8px 16px;cursor:pointer")}
+     "Download my homebrew"]]
+   (script-tag
+    {:nonce nonce}
+    (str "
+     (function () {
+       var el = document.getElementById('boot-rescue');
+       var btn = document.getElementById('boot-rescue-btn');
+       var note = document.getElementById('boot-rescue-note');
+       if (!el || !btn || !note) { return; }
+       var armed = false;
+       // Hidden, not removed: the app can crash AFTER a clean first render, and
+       // then the error screen asks for it back.
+       window.orcpubBootOk = function () { el.style.display = 'none'; };
+       window.orcpubBootRescue = function () {
+         if (armed) { el.style.display = 'flex'; }
+       };
+       var raw = null;
+       try { raw = localStorage.getItem('plugins'); } catch (e) {}
+       // Nothing stored means nothing to rescue: never show this to a visitor
+       // who has no homebrew of their own.
+       if (!raw || raw === '{}') { return; }
+       var kb = raw.length / 1024;
+       var size = kb < 1 ? raw.length + ' bytes'
+                : kb < 10 ? kb.toFixed(1) + ' KB'
+                : Math.round(kb) + ' KB';
+       note.textContent = 'Your homebrew is saved in this browser ('
+         + size + '). Download a copy:';
+       armed = true;
+       el.style.display = 'flex';
+       btn.addEventListener('click', function () {
+         var url = URL.createObjectURL(
+           new Blob([raw], { type: 'text/plain;charset=utf-8' }));
+         var a = document.createElement('a');
+         a.href = url;
+         a.download = '" rescue-filename "';
+         document.body.appendChild(a);
+         a.click();
+         document.body.removeChild(a);
+         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+       });
+     })();
+    "))))
+
 (defn index-page [{:keys [url
                           title
                           description
@@ -152,6 +216,17 @@ html {
        [:div.h-full {:style "display:flex;justify-content:space-around"}
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
+    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the
+    ;; app once it has actually rendered. Nothing has to DETECT a failure — a
+    ;; broken bundle, a CLJS error, a homebrew blob that crashes the app on load
+    ;; all simply leave it standing. It sits below the fold during a normal boot,
+    ;; so the second or two before the app clears it costs nothing.
+    ;;
+    ;; Deliberately independent of everything the app owns: server-rendered
+    ;; markup, inline styles (styles.css may not have loaded either), plain
+    ;; localStorage and a vanilla anchor download rather than FileSaver. Every
+    ;; dependency it takes is one more thing that can be broken when it is needed.
+    (boot-rescue nonce)
     (include-css "/css/compiled/styles.css")
     ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
     ;; Prod mode uses enforcing CSP with nonces
