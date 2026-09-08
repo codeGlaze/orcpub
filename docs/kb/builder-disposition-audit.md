@@ -177,17 +177,55 @@ generic row. Three tiers, not two — and the KB already specifies the shape in 
 | **2 — generic rows** | `grant-rows`, `effect-rows` | an author who knows what they want |
 | **3 — bespoke** | the escape hatch | the irreducible cases |
 
-### OPEN — the scenario vocabulary (a real design question, not yet answered)
+### A THIRD shim class: frozen boolean → parameterized shape
 
-"+N AC while **[scenario]**" needs a condition vocabulary. Today `:ac-bonus` carries `:armor?` /
-`:shield?` three-state tags and nothing else — which is exactly why `:two-weapon-ac-1` is hardcoded
-and cannot be re-expressed without a new `:dual-wield?` tag (§2, above). A scenario picker is that
-tag vocabulary made authorable.
+The shim registry named two classes (fixed grants, choice grants). There is a third, and it is the
+one the template tier creates: keys whose entire meaning lives in a compiler arm.
 
-**Hard boundary** (`builder-form-schemas.md` §4): a scenario may only be a CONDITION — state the
-engine can inspect (worn armor, wielded weapons, the weapon being used). A TRIGGER ("when a creature
-you can see attacks a target other than you") is a sheet entry, not a computed condition, and a
-picker that offers one is the start of a combat simulator. The picker lists conditions only.
+| frozen key | means | parameterized as |
+|---|---|---|
+| `:two-weapon-ac-1` | +1 AC wielding two melee weapons | `:ac-bonus {:bonus N :dual-wield? true}` — **needs the tag** |
+| `:medium-armor-max-dex-3` | medium armor, +3 Dex | `:armor-dex-cap {:medium 3}` ✅ **already done** |
+| `:lizardfolk-ac` / `:tortle-ac` | fixed natural AC | `:ac {…}` (+ `:armor-gives-no-ac`) ✅ **already done** |
+| `:passive-perception-5` / `:passive-investigation-5` | +5 | a general `:passive-perception N` — not built |
+
+**The AC refactor is the worked precedent** (`armor-class-refactor.md`): it kept each key and compiled
+it to the general form. One nuance for this work — that shim is *compiler-side*, so the BUILDER is
+still blind to the old key. For a parameterized template to render an imported item, these normalize
+at **import** like the grant classes, or the author opens a legacy feat and sees an empty form (the
+five-readers rule).
+
+### Templates carry the SENTENCE, and that is the PDF path
+
+Verified 2026-09-08: **`:props` compiles to mechanics only.** `plugin-modifiers` emits no trait; the
+sheet text is the author's separately-written `:description`. So an author today writes
+`{:speed 10}` *and* types "Your speed increases by 10 feet" — two hand-maintained things free to
+drift, and skipping the prose makes the mechanic invisible on the sheet and in the **PDF export**.
+
+A template is one authored thing producing both, which is D25's mechanism exactly — *"the summary is
+fields + a fill template, NOT string interpolation"* (`{n}` prints, `{+n}` signs). This is a
+stronger argument for the template tier than discoverability: some output HAS to be text, because it
+has to print.
+
+### OPEN — the scenario vocabulary: port `tag->flag`, do not invent
+
+**Measured 2026-09-08 — the codebase contains both the right pattern and the wrong one.**
+
+| vocabulary | cost to add a condition | forward-compatible? |
+|---|---|---|
+| **weapon tags** (`weapons/tag->flag`) | **one entry** in a 13-entry map, authoring tag → storage field | ✅ *"Unknown tags are ignored rather than silently failing the match, so old content with a tag this build does not know still applies its bonus"* |
+| **AC conditions** (`ac-applies?`) | **four coordinated edits** — the predicate destructures exactly `{:keys [armor? shield?]}` and only ever receives `(armor, shield)`; a tag like `:dual-wield?` needs the wielded weapons, which never reach it | ✗ |
+
+**This is why `:two-weapon-ac-1` is hardcoded** — not a design gap, a vocabulary that was never made
+extensible, sitting beside one that was. So a scenario picker is a **port of `tag->flag` to AC
+conditions**: a registry of tag → predicate over character state, unknown tags ignored. Working
+precedent, same codebase, bounded — not a new invention.
+
+Hard boundary unchanged (`builder-form-schemas.md` §4): a scenario may only be a CONDITION the engine
+can inspect. A play-time TRIGGER is a sheet entry — which, per the template finding above, is a
+first-class outcome (it prints), not a failure.
+
+
 
 ## What the six tables add up to
 

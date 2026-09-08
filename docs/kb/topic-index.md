@@ -163,7 +163,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, grant, header, legacy, monster, omv, pool, race, row, rows, scenario, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, frozen, grant, header, legacy, monster, pool, race, row, rows, weapons, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -173,7 +173,9 @@ _builder-disposition-audit · builder disposition audit_
 - Background — 46 lines, 11 widgets
 - Monster — 233 lines, 12 widgets — a stat block, not a character
 - ⚠️ REFRAMING (2026-09-08) — most of these are TEMPLATES with frozen parameters
-- OPEN — the scenario vocabulary (a real design question, not yet answered)
+- A THIRD shim class: frozen boolean → parameterized shape
+- Templates carry the SENTENCE, and that is the PDF path
+- OPEN — the scenario vocabulary: port tag->flag, do not invent
 - What the six tables add up to
 - Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
 - The 35 deletions — replacement and shim, one row each
@@ -560,7 +562,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, dex, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, creator, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -810,7 +812,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, usage, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
