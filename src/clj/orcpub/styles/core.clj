@@ -1589,15 +1589,22 @@
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}])
     [:.save-healed
      {:animation "save-healed-glint 2.6s ease-in-out infinite"
-      :position :relative}]
+      :position :relative
+      ;; Above its neighbours. The header buttons are siblings in a row, so the
+      ;; next one along paints over anything this draws outside its own box --
+      ;; which swallowed most of the sparkle before this was here.
+      :z-index 1}]
     ;; The sparkle itself. A pseudo-element rather than markup so the button's
     ;; hiccup stays a plain button, and pointer-events none so it can never eat
     ;; the click it is advertising.
     [:.save-healed:after
      {:content "'\\2726'"
       :position :absolute
-      :top "-4px"
-      :right "-3px"
+      ;; Inset, not hung off the corner. Sitting outside the button put it in the
+      ;; gap between Save and the next button, where it read as belonging to
+      ;; neither and was half covered by whichever one painted later.
+      :top "3px"
+      :right "4px"
       :font-size "11px"
       :line-height 1
       :color "rgba(255,210,26,0.95)"
