@@ -209,3 +209,53 @@ consumer of a stored `::entity/key` before claiming a single seam.
 
 `warlock_test.cljc` is the ready-made test: `:dark-elf-drow-` must resolve to the
 Drow subrace and give CHA 16 both before and after the derivation changes.
+
+## Where trimming belongs, and where it does not
+
+Trimming a NAME and changing a KEY are different acts. A name is display text; a
+key is identity that saved characters point at. The sites differ accordingly:
+
+| site | name | key |
+| --- | --- | --- |
+| creation | trim | derive clean -- free, nothing references it yet |
+| editing | trim | keep, unless the user consents |
+| import | trim | leave as the file has them; the shim absorbs mismatches |
+| export | leave | leave -- see below |
+| lookup miss | n/a | normalised match |
+
+Export stays faithful on purpose. A file whose keys differ from the library it
+came from does not round-trip: re-importing it produces content that no longer
+matches the user's own, which manufactures the duplicates this whole document is
+about. If names are trimmed at save there is nothing left to trim on the way out.
+
+The rule underneath all of it: **a key may change freely only while nothing
+references it.** Creation satisfies that by definition. Nothing else does.
+
+## Fixing characters forward: lazy, with an eager count
+
+Two ways to repair characters after a key changes.
+
+**Eager** -- at edit time, find every affected character and rewrite it. N server
+writes from one edit, partial-failure states if it dies halfway, and it reaches
+only characters the client can see.
+
+**Lazy** -- `reconcile-spell-selection-keys` already rebinds on `:set-character`
+and persists on the next save. No bulk write, no partial failure, and it catches
+characters that were not visible when the edit happened.
+
+Lazy wins and is already built. The eager scan still earns its place, but as the
+COUNT rather than the repair: the character list is pulled with `[*]` so full
+option trees are client-side, and `extract-content-keys` already walks one, so
+"how many of my characters use this key" is a cheap read. That makes layer B's
+prompt concrete:
+
+    This is saved as :artificer-2. Renaming the key will affect 3 of your
+    characters -- they'll be updated next time you open them.
+
+A person can act on that. The abstract version -- "this may affect saved
+characters" -- is not a decision, it is a warning nobody can price.
+
+What this does NOT do is retire the shim. The count and the rebind both see only
+the CURRENT USER's characters; a party member's, or another user's referencing
+shared content, are invisible. Forward-fixing reduces what the shim carries. It
+never lets us delete it.
