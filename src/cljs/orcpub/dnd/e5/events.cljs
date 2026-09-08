@@ -918,7 +918,13 @@
                                :details [[:span
                                           "Clearing browser data loses it. "
                                           [:span.pointer.underline
-                                           {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                                           ;; stop the click: the banner closes on
+                                           ;; any click that reaches it, so exporting
+                                           ;; used to pull the card out from under
+                                           ;; the reader mid-action.
+                                           {:on-click (fn [e]
+                                                        (.stopPropagation e)
+                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
                                            "Export this source"]
                                           " to keep a copy."]]}
                               60000]]})
@@ -1056,7 +1062,9 @@
                          :details [[:span
                                     "Clearing browser data loses it. "
                                     [:span.pointer.underline
-                                     {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                                     {:on-click (fn [e]
+                                                  (.stopPropagation e)
+                                                  (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
                                      "Export this source"]
                                     " to keep a copy."]]}
                         60000]]})))))

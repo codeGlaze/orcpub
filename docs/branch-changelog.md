@@ -32,6 +32,10 @@ rather than offered as an action.
   naming the builder you were already standing in ("Spell:"), then the problem,
   then the escape hatch — three stacked blocks for one short message. The problem
   is the headline now, with the rest beneath it.
+- **Exporting from the storage warning no longer closes the card.** The banner
+  dismisses on any click that reaches it, and the export link did not stop its
+  own, so the surface vanished mid-action — which is how a working control comes
+  to feel broken.
 - **The browser-storage warning leads with the point.** It was one
   200-character sentence opening with "IMPORTANT!:" and ending with the export
   link — the part that matters, last. Now: "Spell saved — in this browser only",
