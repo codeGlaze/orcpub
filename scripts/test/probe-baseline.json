@@ -53,7 +53,7 @@
     "seconds": 50
   },
   "overlay_reachability_e2e.js": {
-    "checks": 5,
-    "seconds": 24
+    "checks": 8,
+    "seconds": 22
   }
 }
