@@ -28,6 +28,10 @@ rather than offered as an action.
   Content it would have sat directly above the page's own Export All. A message
   pointing at a control already on screen is noise.
 
+- **The save-validation error leads with the problem.** It opened with a line
+  naming the builder you were already standing in ("Spell:"), then the problem,
+  then the escape hatch — three stacked blocks for one short message. The problem
+  is the headline now, with the rest beneath it.
 - **The browser-storage warning leads with the point.** It was one
   200-character sentence opening with "IMPORTANT!:" and ending with the export
   link — the part that matters, last. Now: "Spell saved — in this browser only",

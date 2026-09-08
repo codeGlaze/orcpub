@@ -279,22 +279,35 @@
       (is (= :name (:field opt-prob)))
       (is (= :invalid (:status opt-prob))))))
 
-(deftest builder-error-hiccup-renders-location
-  (testing "the rendered banner names the specific option"
-    (let [problems [{:field :name :status :invalid
-                     :reason "must start with a letter" :location "Option 2"}]
-          hiccup (events/builder-error-hiccup "Selection" problems)
-          flat (pr-str hiccup)]
-      (is (re-find #"Option 2 Name" flat))
-      (is (re-find #"must start with a letter" flat)))))
+(deftest builder-error-message-renders-location
+  (testing "a field inside a nested option carries its location, so it can be found"
+    (let [problems [{:field :name :status :missing :location "Option 2"}]
+          {:keys [title details]} (events/builder-error-message "Selection" problems)]
+      (is (re-find #"Option 2 Name" (pr-str title)))
+      (is (empty? details)))))
 
-(deftest builder-error-hiccup-batches-top-level-missing
-  (testing "top-level missing fields still batch onto one 'Please fill in' line"
+(deftest builder-error-message-batches-top-level-missing
+  (testing "empty top-level fields batch into the headline, one line not three"
     (let [problems [{:field :name :status :missing}
                     {:field :option-pack :status :missing}]
-          flat (pr-str (events/builder-error-hiccup "Class" problems))]
+          {:keys [title details]} (events/builder-error-message "Class" problems)
+          flat (pr-str title)]
       (is (re-find #"Please fill in" flat))
-      (is (re-find #"Option Source Name" flat)))))
+      (is (re-find #"Name" flat))
+      (is (re-find #"Option Source Name" flat))
+      (is (empty? details)))))
+
+(deftest builder-error-message-leads-with-the-problem
+  (testing "no builder-name label line: the headline is the problem itself"
+    (let [{:keys [title]} (events/builder-error-message
+                           "Spell" [{:field :name :status :missing}])]
+      (is (not (re-find #"Spell:" (pr-str title))))))
+  (testing "the escape hatch is a detail under it, not the headline"
+    (let [{:keys [title details]} (events/builder-error-message
+                                   "Spell" [{:field :name :status :missing}]
+                                   :some/save-anyway)]
+      (is (re-find #"Please fill in" (pr-str title)))
+      (is (re-find #"Save anyway with placeholders" (pr-str details))))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::e5/repair-quarantined-source — persist-to-library repair engine

@@ -727,11 +727,16 @@
     2 [(nth items 0) " and " (nth items 1)]
     (vec (concat (interpose ", " (butlast items)) [", and " (last items)]))))
 
-(defn builder-error-hiccup
-  "A clear, multi-line save-validation message: the empty fields on one line
-   (bold, 'and'-joined) and each invalid field with its reason on its own line,
-   so even a hurried reader sees the distinct problems. When `save-anyway-event`
-   is given, also offers a remediating escape hatch so imperfect work isn't trapped."
+(defn builder-error-message
+  "A save-validation failure as {:title :details}: the first problem in the
+   headline, the rest of them and the escape hatch beneath it.
+
+   It used to open with a \"Spell:\" line — a label for the builder you are
+   standing in, spending the reader's first line on something they already know.
+   Empty top-level fields batch into one 'and'-joined line; a field inside a
+   nested option gets its own line, because its location is what makes it
+   findable. When `save-anyway-event` is given the banner also offers the escape
+   hatch, so imperfect work is never trapped."
   [type-name problems & [save-anyway-event]]
   (let [located? :location
         ;; bold field label, prefixed with its nested location when known
@@ -739,29 +744,27 @@
         labelled (fn [{:keys [field location]}]
                    (let [lbl (field-label field)]
                      [:span.f-w-b (if location (str location " " lbl) lbl)]))
-        ;; top-level missing fields batch onto one "Please fill in ..." line;
-        ;; located ones each get their own line so the location is unambiguous.
         missing      (filter #(= :missing (:status %)) problems)
         flat-missing (remove located? missing)
         located-missing (filter located? missing)
         invalid      (filter #(= :invalid (:status %)) problems)
         missing-line (when (seq flat-missing)
-                       (into [:div.m-t-5 "Please fill in "]
+                       (into [:span "Please fill in "]
                              (conj (and-join (mapv labelled flat-missing)) ".")))
         located-missing-lines (for [p located-missing]
-                                [:div.m-t-5 "Please fill in " (labelled p) "."])
+                                [:span "Please fill in " (labelled p) "."])
         invalid-lines (for [p invalid]
-                        [:div.m-t-5 (labelled p) " " (:reason p) "."])]
-    (into [:div [:span.f-w-b (str type-name ":")]]
-          (cond-> []
-            missing-line (conj missing-line)
-            true (into located-missing-lines)
-            true (into invalid-lines)
-            save-anyway-event
-            (conj [:div.m-t-10
-                   [:span.pointer.underline.f-w-b
-                    {:on-click #(dispatch [save-anyway-event])}
-                    "Save anyway with placeholders"]])))))
+                        [:span (labelled p) " " (:reason p) "."])
+        lines (cond-> []
+                missing-line (conj missing-line)
+                true (into located-missing-lines)
+                true (into invalid-lines))]
+    {:title (first lines)
+     :details (cond-> (vec (rest lines))
+                save-anyway-event
+                (conj [:span.pointer.underline.f-w-b
+                       {:on-click #(dispatch [save-anyway-event])}
+                       "Save anyway with placeholders"]))}))
 
 (def ^:private builder-error-ttl
   "How long the homebrew save-validation banner stays up (ms). Long enough to
@@ -835,7 +838,7 @@
     (if (seq problems)
       {:dispatch-n [[:set-builder-field-errors (into {} (map (juxt :field :status) problems))]
                     [:show-error-message
-                     (builder-error-hiccup type-name problems save-anyway-event)
+                     (builder-error-message type-name problems save-anyway-event)
                      builder-error-ttl]]}
       {:dispatch-n [[:set-builder-field-errors {}]
                     [:show-error-message fallback-message builder-error-ttl]]})))
