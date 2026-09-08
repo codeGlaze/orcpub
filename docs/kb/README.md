@@ -84,11 +84,12 @@ wrong, and why.
 ### Plans
 
 - **[plan-companions-and-wild-shape.md](plan-companions-and-wild-shape.md)** -- *not built.*
-  Fall-update research into pets, summons and Wild Shape. Foundry's dnd5e system splits these
-  into two systems (creature-plus-owner-formulas vs transformation), which kills the
-  "one companion sheet" idea. Names the smallest first slice -- filtering beasts from the
-  sheet by the character's own bounds -- and the type collision waiting in the commented-out
-  Circle of the Moon code.
+  Fall-update research into pets, summons and Wild Shape. The druid flow -- prepare a short
+  list of forms, pick one, view merged stats, print them as cards -- lands almost entirely on
+  machinery the app already has (prepared spells, `filter-monsters`, two existing PDF card
+  families). Blocked on one type fix: monsters store CR as a number, the character stores it
+  as a string. Carries a revision log; the first draft argued the feature was the wrong shape
+  and was wrong about that.
 
 ## Operations
 

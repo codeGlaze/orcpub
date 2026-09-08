@@ -1,53 +1,122 @@
 # Plan: companions, summons and Wild Shape
 
-*Fall update research. Nothing here is built. Written 2026-09-08, from reading the codebase,
-D&D Beyond's docs, and the Foundry VTT dnd5e system's source.*
+*Fall update research. Nothing here is built. Written 2026-09-08 from the codebase, D&D
+Beyond's docs, and the Foundry VTT dnd5e source; line references are against `integration` at
+432cf375. Revised 2026-09-08 — see [Revisions](#revisions); the first draft talked itself out
+of a feature that is mostly already here.*
 
 Players of rangers, druids, warlocks and artificers have nowhere to put the creature their
-class gives them. The question was whether to build custom PDF sheets per kind of pet.
+class gives them.
 
-**The answer that survived research: it is not one feature, it is two systems, and the
-starting point is neither of them.**
+**The plan: build the druid's flow — prepare a short list of forms, pick one, see the beast's
+stats merged with the druid's, print the list as cards. Nearly every piece exists; the work
+is wiring, plus one type fix that has to land first.**
 
-## What other tools do
+## The druid flow, and what it maps onto
 
-**D&D Beyond** has an *Extras* tab: Pet, Mount, Familiar, Beast Companion, plus
-followers/sidekicks. Manage Extras -> Add an Extra -> pick a category; each creature opens in
-a sidebar with HP tracking. A "pet" does not fight, a "follower" does. Their own forums carry
-years of "how do I add my primal companion" threads, and **Extras has nothing for Wild Shape**.
+| Step | Existing machinery |
+| --- | --- |
+| Prepare N forms, bounded by level | `prepares-spells` / `prepared-spells-by-class` / `?prepare-spell-count` (`template_base.cljc:282`) — prepare N from a filtered list, keyed by class |
+| Pick from eligible beasts | `filter-monsters` (`spell_subs.cljs:1304`), 86 beasts in the list |
+| A view per form | `details-tabs` (`views.cljs:3782`) is a plain `{name -> {:icon :view}}` map |
+| Merged stats | `entity/build` + `modifiers.cljc` |
+| Compact printed cards | Card machinery in `pdf.clj` — `card-pt`, `draw-card-frame!`, charge tracks. **Two families already print**: spell cards and magic item cards |
 
-**Foundry and Roll20 have no first-class answer.** Wild Shape is third-party modules
-(`Wildshape Companion`, `AutomaticWildShape`) or manual actor-swapping. Nobody models the
-short list a druid prepares in advance.
+Beast forms would be the third card family, not the first. 2.5 x 3.5in, 9 to a sheet; a druid
+prepares four or five, so one sheet covers a character.
 
-## What Foundry's dnd5e system does, which is the useful part
+## The blocker: CR is two different types
 
-Their system source is the best available reference. Two SEPARATE systems, not one:
+Monsters store CR as a number or ratio, the character stores it as a string:
 
-### 1. Summoning — `module/data/activity/summon-data.mjs`
-
-```js
-bonuses:  { ac, hd, hp, attackDamage, saveDamage, healing }    // all FormulaField
-match:    { ability, attacks, disposition, proficiency, saves } // booleans: inherit from owner
-profiles: [ { count, cr, level: {min,max}, name, types, uuid→Actor } ]
-creatureSizes, creatureTypes                                    // constraint instead of a fixed creature
-tempHP:   FormulaField
+```clojure
+;; monsters.cljc      :challenge (/ 1 4)   :challenge 2   :challenge 0
+;; classes.cljc:788   ?wild-shape-cr  ->  "1/4"  "1/2"  "1"
 ```
 
-Three ideas worth stealing outright:
+They cannot be compared. Every other gap is downstream of this one, so it goes first.
+
+Two smaller gaps, both cheap:
+
+- **`filter-monsters` has no CR dimension** — name/size/type/subtypes only, though
+  `::monsters/challenge-ratings` exists. The filter is exclusion-based (`monster-filters`
+  holds what to *hide*), so a bound is a few lines.
+- **`:speed` is prose** — `"30 ft., fly 60 ft."` — in a consistent format, so
+  `?wild-shape-limitation`'s "no flying speed" is a substring check, not a schema change.
+
+### Circle of the Moon
+
+Moon is **commented out** (`#_`, `classes.cljc:976`) with no explanation, so Moon druids are
+missing from the app. Its dead code writes a different type to `?wild-shape-cr` than the live
+code does:
+
+```clojure
+;; base druid, live:   (mod5e/level-val (?class-level :druid) {1 "1/4" 4 "1/2" 8 "1"})
+;; Moon, commented:    (max 1 (int (/ (?class-level :druid) 3)))
+```
+
+An integer, which is the type the monster data already uses. **The live code is the one out
+of step, not the dead code.** Fix the type, then uncomment Moon on top of it. Keep the prose
+as a separate derived value — the Wild Shape action summary still needs a sentence.
+
+## Merging druid onto beast
+
+5e keeps the druid's mental stats and proficiencies and takes the beast's HP, AC and physical
+stats. That is a merge over two maps, not a new model. Foundry encodes the same thing as
+`keep` / `merge` lists plus formulas (`module/config.mjs:3542`):
+
+```js
+wildshape: {
+  keep:  ["bio","class","feats","hp","languages","mental","tempHP","type"],
+  merge: ["saves","skills"],
+  minimumAC:   "(13 + @abilities.wis.mod) * sign(@subclasses.moon.levels)",
+  tempFormula: "max(@classes.druid.levels, @subclasses.moon.levels * 3)"
+}
+```
+
+`sign(@subclasses.moon.levels)` is worth stealing: Moon's AC floor applies only with Moon
+levels, as arithmetic rather than a branch.
+
+## Slices
+
+1. **CR as one comparable type.** Characterize `?wild-shape-cr` first, then change it.
+2. **CR + speed dimensions on `filter-monsters`.** Reused by everything below.
+3. **Prepared forms on the character**, following the prepared-spells shape.
+4. **Picker + per-form view** in the sheet.
+5. **Beast cards** in the PDF, reusing the card frame.
+6. **Uncomment Circle of the Moon** — safe once 1 lands.
+
+Steps 1-2 are also the summoning substrate: Foundry's summon profiles are the same query
+(CR + types + sizes), so Find Familiar, Find Steed and the Summon spells inherit them.
+
+## Companions are a second system
+
+Still true, and still worth keeping separate from Wild Shape: *having* a creature and
+*becoming* one are different data and different UI. Foundry splits them; D&D Beyond's Extras
+tab has Pet / Mount / Familiar / Beast Companion and **nothing for Wild Shape**. Foundry and
+Roll20 have no first-class Wild Shape answer at all — third-party modules or manual
+actor-swapping — and nobody models the short list a druid prepares in advance.
+
+### Foundry's summon model — `module/data/activity/summon-data.mjs`
+
+```js
+bonuses:  { ac, hd, hp, attackDamage, saveDamage, healing }     // all FormulaField
+match:    { ability, attacks, disposition, proficiency, saves }  // booleans: inherit from owner
+profiles: [ { count, cr, level: {min,max}, name, types, uuid→Actor } ]
+creatureSizes, creatureTypes
+```
+
+Three ideas worth stealing:
 
 - **`bonuses` are formulas evaluated against the owner.** Beast of the Land's HP is
-  `5 + 5 x ranger level`; Steel Defender's is `2 + INT mod + 5 x artificer level`. Expressed
-  as a formula, neither needs a forked stat block.
+  `5 + 5 x ranger level`; Steel Defender's is `2 + INT mod + 5 x artificer level`. Neither
+  needs a forked stat block.
 - **`match` is inheritance-as-flags.** 2014 Beast Master's "add your proficiency bonus to its
-  attacks and saves" is a checkbox, not a rewritten creature. This is the cleanest part of
-  their model and the one this repo would most benefit from.
-- **A profile is EITHER a specific creature (`uuid`) OR a constraint** (`cr` +
-  `creatureTypes` + `creatureSizes`). "Summon Beast" and "any beast of CR <= X" are the same
-  mechanism.
+  attacks and saves" becomes a checkbox.
+- **A profile is EITHER a named creature (`uuid`) OR a constraint** (cr + types + sizes), so
+  "Summon Beast" and "any beast of CR <= X" are one mechanism.
 
-And the scaling-source problem is solved in four lines
-(`module/data/activity/base-activity.mjs:236`):
+The scaling source is four lines (`module/data/activity/base-activity.mjs:236`):
 
 ```js
 get relevantLevel() {
@@ -55,108 +124,48 @@ get relevantLevel() {
     : this.visibility?.identifier ? `classes.${this.visibility.identifier}.levels` : "details.level";
 ```
 
-Spell slot level, or a named class's levels, or total character level — chosen by whatever
-granted the thing. That is Tasha's summons vs Primal Companion vs a generic feature.
+Spell slot level, a named class's levels, or character level, chosen by whatever granted the
+thing — Tasha's summons vs Primal Companion vs a generic feature.
 
-### 2. Transformation — `module/config.mjs:3542`
-
-Wild Shape is NOT a companion in their model. It is a transformation preset:
-
-```js
-wildshape: {
-  keep:  ["bio","class","feats","hp","languages","mental","tempHP","type"],
-  merge: ["saves","skills"],
-  minimumAC:   "(13 + @abilities.wis.mod) * sign(@subclasses.moon.levels)",
-  tempFormula: "max(@classes.druid.levels, @subclasses.moon.levels * 3)",
-  spellLists:  ["subclass:moon"]
-}
-```
-
-Note `sign(@subclasses.moon.levels)`: Circle of the Moon's AC floor applies only if you have
-Moon levels, expressed as arithmetic rather than a branch. Their whole
-subclass-changes-the-rule problem is formulas over `@`-paths.
-
-**So "one companion renderer for beasts, sidekicks and wild-shape forms" is wrong.** Becoming
-a creature and having a creature are different data and different UI.
-
-## The taxonomy this has to cover
+### The taxonomy a companion feature has to cover
 
 | Kind | Parameterised by | Example |
 | --- | --- | --- |
 | Static | nothing | Find Familiar as printed |
 | PB grafted on | owner's proficiency bonus | 2014 Beast Master |
 | Level-scaled template | owner level + an ability mod | Primal Companion, Steel Defender |
-| Choice-parameterised | a player choice | Drakewarden damage type; Beast of Land/Sea/Sky; Pact of the Chain's four familiars |
+| Choice-parameterised | a player choice | Drakewarden damage type; Beast of Land/Sea/Sky |
 | Slot-scaled | **spell slot level**, not character level | Tasha's Summon Beast/Fey/Elemental |
 | Eligibility filter | level + subclass bounds | Wild Shape |
-| Class-levelled creature | its own progression | Tasha's sidekicks (Expert/Spellcaster/Warrior) |
+| Class-levelled creature | its own progression | Tasha's sidekicks |
 
-The last row is the odd one: a sidekick gains class levels, so it is a character-lite, not a
-parameterised monster. Do not let it drag the other six into a heavier model.
+The last row is the odd one: a sidekick gains class levels, so it is a character-lite. Do not
+let it drag the other six into a heavier model.
 
-## What this repo already has
-
-| Piece | State |
-| --- | --- |
-| Monster stat block | **Exists.** AC, HP, speed, six abilities, senses, languages, skills, damage res/imm/vuln, traits, actions, legendary, CR |
-| Homebrew monsters | **Exists.** `::monsters/homebrew-monster`, own builder page |
-| Monster filtering | **Exists.** `filter-monsters`, `spell_subs.cljs:1304` — name, size, type, subtypes |
-| Modifier/derivation engine | **Exists.** `entity/build`, `modifiers.cljc`; `character.cljc` already derives `proficiency-bonus` and doubles it for expertise |
-| Card PDF machinery | **Exists.** 2.5 x 3.5in, 9 to a sheet, vector |
-| Character -> creature link | **Missing.** Nothing in `character.cljc` references a creature |
-| Wild Shape as data | **Missing.** Prose in a trait |
-
-A homebrew companion needs no new homebrew type: it is a homebrew monster the character
-references. Sheet views are cheap too — `details-tabs` (`views.cljs:3782`) is a plain map of
-`{name -> {:icon :view}}`.
-
-## Start with the Wild Shape filter
-
-Filtering the beast list from the sheet, bounded by the character's own limits, is the
-smallest useful slice AND the piece everything else reuses — Foundry's summon profiles are the
-same query (`cr` + types + sizes). Build it for Wild Shape and Find Familiar, Find Steed and
-the Summon spells inherit it.
-
-The character **already computes both bounds** (`classes.cljc:788`):
-
-```clojure
-?wild-shape-cr         ; "1/4" at druid 2, "1/2" at 4, "1" at 8
-?wild-shape-limitation ; "no flying or swimming speed" / "no flying speed" / nil
-```
-
-Three gaps, all small:
-
-1. **The bounds are prose.** Built to be interpolated into the Wild Shape action's summary
-   sentence. A filter needs CR as a comparable number and the limitation as a predicate over
-   the beast's `speed` keys.
-2. **`filter-monsters` has no CR dimension** — name/size/type/subtypes only, though
-   `::monsters/challenge-ratings` exists as a sub. The most important axis is unwired.
-3. **No speed predicate.**
-
-### The trap: `?wild-shape-cr` already has two types
-
-Circle of the Moon is **commented out** (`#_`, `classes.cljc:976`) — so Moon druids are
-missing from the app entirely — and the dead code writes a different type to the same key:
-
-```clojure
-;; base druid, live:
-(mod/modifier ?wild-shape-cr (mod5e/level-val (?class-level :druid) {1 "1/4" 4 "1/2" 8 "1"}))
-;; Circle of the Moon, commented out:
-(mod/modifier ?wild-shape-cr (max 1 (int (/ (?class-level :druid) 3))))
-```
-
-Strings from one writer, an integer from the other. Uncommenting Moon without reconciling
-that would feed a filter values it cannot compare. **Make the bound data first, with one
-type, then restore Moon on top of it.** Keep the prose as a separate derived value for the
-action summary rather than deleting it.
+A homebrew companion needs no new homebrew type — it is a homebrew monster
+(`::monsters/homebrew-monster`, own builder page) that the character references. The missing
+link is that nothing in `character.cljc` references a creature at all.
 
 ## Open questions
 
-- **The 5etools schema was not obtained.** GitHub's API and raw URLs both return 403 through
-  this sandbox's proxy. Worth getting their `summonedBySpell` / `summonedByClass` field names
-  before fixing a data shape, if import compatibility matters.
-- **Why is Circle of the Moon commented out?** No explanatory comment at the `#_`. It may be
-  incomplete rather than deliberately disabled — check before assuming either.
+- **Why is Circle of the Moon commented out?** No comment at the `#_`. May be incomplete
+  rather than deliberately disabled — check before assuming either.
 - **2024 rules.** Beast Master and Wild Shape both changed. Confirm which edition the data
   shape targets before building.
-- The Foundry reference is a **fork** — `codeGlaze/dnd5e` of `foundryvtt/dnd5e`.
+- **The 5etools schema was not obtained** — GitHub returns 403 through this sandbox's proxy.
+  Worth their `summonedBySpell` / `summonedByClass` field names if import compatibility
+  matters.
+- The Foundry reference is a **fork**: `codeGlaze/dnd5e` of `foundryvtt/dnd5e`.
+
+## Revisions
+
+**2026-09-08.** The first draft concluded "it is not one feature, it is two systems, and the
+starting point is neither of them," and called per-form PDF sheets the wrong shape. Both were
+overstated, and the second was wrong:
+
+- The two-system split is a *modelling* distinction, not a reason to defer the druid flow.
+  Prepared forms, the picker and beast cards all land on machinery that already exists.
+- Per-form printed cards are a good fit, not a bad one — the app already prints two card
+  families off shared machinery.
+- The draft named the commented-out Moon code as the type trap. Backwards: Moon's integer
+  matches the monster data, and the live string does not.
