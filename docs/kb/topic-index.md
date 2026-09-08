@@ -54,7 +54,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, ring, scalar, shield, sweep, tie-break, unarmored, worn
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, ring, scalar, shield, sum, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -781,7 +781,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** 2026-09-08, about, accessor, asks, bonuses, describes, dual, effect, fact, gates, hand-written, prereq, requirement, requirements, sense, trigger, weapons, widen
+**topics:** 2026-09-08, about, accessor, asks, bonuses, contributors, curation, damage, dual, effect, fact, gates, macro, prereq, requirement, requirements, sense, trigger
 
 - Why: the same fact is hand-written in three places today
 - The shape
@@ -790,8 +790,9 @@ _requirements-registry · requirements registry_
 - Curation, not exposure
 - The naming, and what lost
 - Kinship with prereqs — same shape, different gate
-- What blocks it
-- Sequence, when it is picked up
+- The blocker that was not one
+- What landed
+- Still to do
 
 ## roadmap.md
 

@@ -12,6 +12,7 @@
             [orcpub.dnd.e5.modifiers :as modifiers]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.damage-types :as dt]
+            [orcpub.dnd.e5.requirements :as reqs]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.armor :as armor]
@@ -3716,48 +3717,21 @@
   {:str ::character/str :dex ::character/dex :con ::character/con
    :int ::character/int :wis ::character/wis :cha ::character/cha})
 
-(def ac-conditions
-  "Authored tag -> the predicate that tests it. This is the AUTHORING vocabulary for AC conditions,
-  and it is a table for the same reason `weapons/tag->flag` is: an author writes a short tag and the
-  engine does something else with it, so the two are kept explicit rather than derived. (There the
-  translation is tag -> namespaced storage field, and it CANNOT be derived — `:thrown?` maps to
-  `::thrown`, no question mark, and three of the thirteen are spelled like that. Here the values are
-  predicates rather than field keys, because \"is armor equipped\" is a test on the situation, not a
-  field on a record.)
-
-  THREE-STATE, matching that vocabulary exactly:
-      true    only when the condition holds
-      false   only when it does NOT
-      absent  either way
-
-  Iterating this table rather than the author's spec means an unknown tag is IGNORED, not failed —
-  so a pack authored against a build that knows more conditions than this one still applies its
-  bonus, the same forward-compatibility `weapons/matches?` documents. It also means `:bonus` and any
-  other non-condition key in the spec is skipped without a special case.
-
-  Each predicate receives the equipped context. To add a condition that needs more than the equipped
-  armor and shield — `:dual-wield?` wants the wielded weapons — the CONTEXT has to grow first:
-  `armor-class/reconcile` calls every contributor as `(f armor shield)`, so that contract widens
-  before a new predicate can read anything else. See docs/kb/authoring-vocabulary.md."
-  {:armor?  (fn [{:keys [armor]}]  (some? armor))
-   :shield? (fn [{:keys [shield]}] (some? shield))})
-
 (defn- ac-applies?
-  "Do this spec's conditions hold for the equipped armor and shield? Every tag in `ac-conditions`
-  works the same way — false = only when NOT, true = only when IS, absent = either way.
+  "Do this spec's requirements hold for the equipped armor and shield? Delegates to the shared
+  registry (`orcpub.dnd.e5.requirements`) — the same facts a damage bonus or a trait reads.
 
-  Worth keeping in mind what that means for a CALCULATION: `:shield? false` disqualifies the whole
-  calculation while a shield is held rather than merely skipping the shield's bonus — a Monk holding
-  a shield loses Unarmored Defense entirely (14, not 15). And `:shield? true` expresses the
-  opposite, \"only while wielding a shield\", which a construct-style homebrew feature wants. No
-  built-in content uses that today; the vocabulary supports it because homebrew flexibility is the
-  point, not because SRD needs it."
+  Only armor and shield reach here, because a CALCULATION is invoked as `(f armor shield)`. A bonus
+  can test more: `mod5e/ac-bonus-meeting` assembles a richer context at the contributor's own
+  definition site, which is how :dual-wielding? became authorable.
+
+  Worth keeping in mind what a requirement means for a calculation: `:shielded? false` disqualifies
+  the whole calculation while a shield is held rather than merely skipping the shield's bonus — a
+  Monk holding a shield loses Unarmored Defense entirely (14, not 15). `:shielded? true` expresses
+  the opposite, which a construct-style homebrew feature wants. No built-in content uses that today;
+  the vocabulary supports it because homebrew flexibility is the point, not because SRD needs it."
   [spec armor shield]
-  (let [ctx {:armor armor :shield shield}]
-    (every? (fn [[tag pred]]
-              (let [want (get spec tag)]
-                (or (nil? want) (= (boolean want) (boolean (pred ctx))))))
-            ac-conditions)))
+  (reqs/meets-all? spec {:armor armor :shield shield}))
 
 (defn ac-calculation-modifiers
   "Compile an authored AC calculation — {:ac N :abilities [...] :armor? b :shield? b} — into a
@@ -3786,9 +3760,9 @@
   keeps working."
   [{:keys [bonus ac-bonus] :as spec}]
   (let [n (or bonus ac-bonus 0)]
-    [(modifiers/ac-bonus-fn
-      (fn [armor shield]
-        (if (ac-applies? spec armor shield) n 0)))]))
+    ;; ac-bonus-meeting, not ac-bonus-fn: the macro assembles a context carrying the wielded
+    ;; weapons, so a bonus can require :dual-wielding? / :one-handed? as well as armor and shield.
+    [(modifiers/ac-bonus-meeting spec n)]))
 
 ;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
 ;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),

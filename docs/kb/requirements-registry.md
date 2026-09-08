@@ -1,6 +1,8 @@
 # The requirements registry — DESIGN, not built
 
-**Status: agreed shape, nothing written.** One place naming the facts about a character that content
+**Status: BUILT 2026-09-08** — registry, `meets-all?`, `mod5e/ac-bonus-meeting`, and
+`:dual-wielding?` / `:one-handed?` authorable. `:toggle` and `:text` gates are declared and
+enforced by tests but have no entries yet. One place naming the facts about a character that content
 asks about — *while wielding two weapons*, *while wearing no armor*, *when you hit with a melee
 attack* — so any effect can reference one instead of each feature re-deriving it by hand.
 
@@ -82,7 +84,7 @@ wielding"* — and `meets?` is the accessor that made it land.
 | rejected | why |
 |---|---|
 | `conditions` | **the best English word, and taken** — 5e's game term, already in the code as `:condition-immunity` (`modifiers.cljc:85`, registered `:695`). Two unrelated things behind one word is the `:from`/`:choose` mistake |
-| `requires` | `:orcbrew/requires` is the format envelope's feature list (`orcbrew_format.cljc:155`), in every v2 pack header |
+| `requires` | weak objection, recorded honestly: `:orcbrew/requires` is a NAMESPACED key in pack-envelope metadata, a different layer entirely — not a real collision. `requirement` won on its own merits, not because this ruled `requires` out |
 | `states` | genuinely close, and `has-state?` is a fine accessor. Lost on point of view: *state* describes the character, *requirement* describes what the effect demands — and it read wrong for the trigger subset |
 | `constraint` | wrong sense — these qualify when something applies, they do not restrict |
 | `criterion`/`criteria` | a standard for judging, which fits filtering; plus the singular/plural tax |
@@ -107,21 +109,47 @@ genuinely overlap: `:medium-armor-max-dex-3` is "when wearing medium armor, +3 A
 **So whoever builds the prereq vocabulary should reuse this predicate layer, not write a second
 incompatible one.** That is the whole reason this page exists.
 
-## What blocks it
+## The blocker that was not one
 
-`armor-class/reconcile` invokes every AC contributor as `(f armor shield)`, so a predicate can only
-see equipped armor and shield — the wielded weapons never reach it. That is why `:two-weapon-ac-1`
-is a hand-written modifier: the hand-written path reads `?main-hand-weapon` straight off the built
-character, which the declarative path cannot.
+An earlier version of this page said the channel contract had to widen first: `armor-class/reconcile`
+invokes contributors as `(f armor shield)`, so a predicate could never see the wielded weapons, and
+~13 contributors would need a new arity.
 
-**The context has to widen before any weapon-aware requirement can exist declaratively** — one
-change to `reconcile`'s contract and the ~7 contributors. The registry is not what blocks it.
+**Wrong — and the escape was where `dual-wield-ac-mod` already stood.** `reconcile` is called from
+`template_base.cljc`, inside the entity-spec macro context, so `?main-hand-weapon` resolves *there*.
+A macro can splice those refs into the contributor's own body and assemble the context inside it:
 
-## Sequence, when it is picked up
+```clojure
+(defmacro ac-bonus-meeting [spec n]                    ; modifiers.cljc
+  `(mods/vec-mod ~'?ac-bonus-fns
+                 (fn [armor# shield#]
+                   (if (reqs/meets-all? ~spec {:armor armor# :shield shield#
+                                               :main-hand ~'?…/main-hand-weapon
+                                               :off-hand  ~'?…/off-hand-weapon})
+                     ~n 0))))
+```
 
-1. Widen the contributor context (the blocker above), pinned by the AC characterization tests.
-2. Stand up `requirements` with the entries that already exist by hand, `:gate :build` only.
-3. Point `opt5e/ac-conditions` at it — it becomes a filtered view, not a second table.
-4. Express `:two-weapon-ac-1` and Dueling as requirements; characterization-test both against the
-   hand-written versions; deprecate per D34.
-5. `:toggle` and `:text` gates only when a real case wants them.
+Predicates stay ordinary runtime fns, the channel contract is untouched, and the other contributors
+never changed. **Adding a fact to the context is one line in that map plus one registry entry.**
+
+## What landed
+
+- `requirements.cljc` — pure leaf, four `:build` entries, `meets-all?`, `offerable`.
+- `mod5e/ac-bonus-meeting` — the context-assembling macro; `ac-bonus-modifiers` uses it.
+- `opt5e/ac-applies?` delegates to `meets-all?`; the AC-only condition table is gone.
+- Legacy `:armor?` / `:shield?` read forever (D9); the form writes `:armored?` / `:shielded?`.
+- `:dual-wielding?` and `:one-handed?` are authorable — the first weapon-aware requirements.
+
+**A regression the characterization sweep caught, worth keeping:** the first legacy-alias lookup used
+`some`, which skips falsey values, so `{:shield? false}` read as *absent* rather than *only-when-not*
+and a Monk kept Unarmored Defense while holding a shield. `false` is a meaningful value in a
+three-state vocabulary; absent and false must stay distinguishable, hence `contains?`.
+
+## Still to do
+
+1. Express `:two-weapon-ac-1` as `{:ac-bonus {:bonus 1 :dual-wielding? true}}` and Dueling's damage
+   bonus as `:one-handed?`; characterization-test against the hand-written versions; deprecate D34.
+2. The damage/attack channels need the same macro treatment to reach the registry — today only AC
+   bonuses do. That is the second consumer that proves the registry rather than assuming it.
+3. Expose the requirements in `ac-bonus-fields` so an author can pick them (curation, not automatic).
+4. `:toggle` and `:text` entries when a real case wants them.

@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.modifiers
   (:require [clojure.spec.alpha :as spec]
+            [orcpub.dnd.e5.requirements :as reqs]
             [clojure.string :as s]
             [orcpub.common :as common]
             [orcpub.modifiers :as mods]
@@ -606,6 +607,28 @@
 
 (defmacro ac-bonus-fn [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
+
+(defmacro ac-bonus-meeting
+  "A flat AC bonus of `n`, applied only while `spec`'s requirements hold.
+
+  The point of the macro is WHERE the context is assembled. A contributor is called as
+  `(f armor shield)` and sees nothing else, so a plain fn could never test the wielded weapons —
+  which is why the Dual Wielder feat's +1 AC was hand-written rather than authored. Splicing the
+  ?-refs here puts main-hand/off-hand inside the contributor's own body, so the predicates in
+  `requirements` stay ordinary runtime fns and the channel contract is untouched.
+
+  Adding a fact means adding it to this map AND to the registry — the two halves of one change."
+  [spec n]
+  `(mods/vec-mod ~'?ac-bonus-fns
+                 (fn [armor# shield#]
+                   (if (reqs/meets-all?
+                        ~spec
+                        {:armor armor#
+                         :shield shield#
+                         :main-hand ~'?orcpub.dnd.e5.character/main-hand-weapon
+                         :off-hand  ~'?orcpub.dnd.e5.character/off-hand-weapon})
+                     ~n
+                     0))))
 
 (defmacro ac-formula
   "Register a whole 'your AC = ...' calculation: unarmored defense, natural armor, a Barkskin-style

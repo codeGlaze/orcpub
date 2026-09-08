@@ -6,6 +6,7 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5.builder-fields :as bf]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.requirements :as reqs]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.classes :as classes]))
 
@@ -65,11 +66,12 @@
             does nothing."
     (doseq [{:keys [key]} bf/ac-bonus-fields]
       (is (= [:props :ac-bonus] (vec (take 2 key))) (str key " must live under :props :ac-bonus"))
-      ;; Reads opt5e/ac-conditions rather than repeating the tag list. That list used to live in
-      ;; THREE places — the predicate's destructure, the field fragment, and this set — so adding a
-      ;; condition meant three edits and forgetting one silently did nothing. Now the engine's
-      ;; vocabulary is the table and this test asks the table.
-      (is (contains? (conj (set (keys opt5e/ac-conditions)) :bonus) (last key))
+      ;; Reads the shared requirements registry rather than repeating the tag list. That list used
+      ;; to live in THREE places — the predicate's destructure, the field fragment, and this set —
+      ;; so adding one meant three edits and forgetting the predicate silently did nothing. The
+      ;; engine's vocabulary is now one registry and this test asks it. Legacy :armor?/:shield? are
+      ;; still valid in DATA (D9); the form writes the canonical names.
+      (is (contains? (into #{:bonus :armor? :shield?} (keys reqs/requirements)) (last key))
           (str (last key) " must be a key the :ac-bonus prop compiler understands — either :bonus or
                a tag in opt5e/ac-conditions. The value key is :bonus, matching :attack-bonus and
                :damage-bonus; :ac-bonus is read as a legacy alias but the FORM must write the
@@ -92,7 +94,7 @@
               (str "disagreed for " (pr-str spec) " armor=" (some? armor) " shield=" (some? shield)))))))
   (testing "and an unknown tag is IGNORED, not failed — a pack from a build that knows more
             conditions than this one still applies its bonus"
-    (is (true? (#'orcpub.dnd.e5.options/ac-applies? {:bonus 1 :dual-wield? true} nil nil)))))
+    (is (true? (#'orcpub.dnd.e5.options/ac-applies? {:bonus 1 :not-a-requirement true} nil nil)))))
 
 (deftest every-shipped-schema-uses-a-known-field-type
   (testing "a typo'd :type silently degrades to (constantly true) in field-value-pred, so the field
@@ -165,3 +167,43 @@
     (is (= {:props {:x false}} (common/toggle-in {:props {:x true}} [:props :x])))
     (is (= {:props {:x true}}  (common/toggle-in {:props false} [:props :x]))
         "a stray false intermediate from the old collapse bug heals into a map")))
+
+(deftest authored-dual-wielding-requirement-matches-the-hardcoded-feat
+  (testing "THE POINT of the requirements registry: `+1 AC while wielding two weapons` was
+            unauthorable — the declarative predicate only ever saw armor and shield, so Dual
+            Wielder was hand-written as dual-wield-ac-mod. mod5e/ac-bonus-meeting assembles the
+            wielded weapons into the contributor's own context, so it is now one authored prop.
+
+            Compared against the reference the hand-written modifier implements: +1 only when BOTH
+            hands hold a weapon."
+    (let [;; what the author now writes
+          spec      {:bonus 1 :dual-wielding? true}
+          reference (fn [{:keys [main-hand off-hand]}]        ; = dual-wield-ac-mod's condition
+                      (if (and (some? main-hand) (some? off-hand)) 1 0))
+          sword     {:name "Shortsword"}]
+      (doseq [main-hand [nil sword]
+              off-hand  [nil sword]]
+        (let [ctx {:armor nil :shield nil :main-hand main-hand :off-hand off-hand}]
+          (is (= (pos? (reference ctx)) (reqs/meets-all? spec ctx))
+              (str "main-hand=" (some? main-hand) " off-hand=" (some? off-hand)))))))
+  (testing "and its inverse — Dueling's `one hand and no other weapons` — is the same one entry"
+    (let [sword {:name "Longsword"}]
+      (is (true?  (reqs/meets-all? {:bonus 2 :one-handed? true}
+                                   {:main-hand sword :off-hand nil})))
+      (is (false? (reqs/meets-all? {:bonus 2 :one-handed? true}
+                                   {:main-hand sword :off-hand sword}))))))
+
+(deftest requirements-registry-invariants
+  (testing "every entry carries the phrasing that reaches the sheet and the PDF — :props emits
+            mechanics only, so without :text a mechanic reaches neither"
+    (doseq [[k {:keys [text]}] reqs/requirements]
+      (is (string? text) (str k " has no :text"))))
+  (testing "a :build or :toggle gate computes, so it needs a predicate; a :text gate is a TRIGGER
+            and must NOT have one — the absence is what stops anything claiming to compute a moment"
+    (doseq [[k {:keys [gate pred]}] reqs/requirements]
+      (is (contains? #{:build :toggle :text} gate) (str k " has unknown gate " gate))
+      (if (= :text gate)
+        (is (nil? pred) (str k " is a trigger and must carry no :pred"))
+        (is (fn? pred)  (str k " gate " gate " must carry a :pred")))))
+  (testing "offerable filters by gate — a form implying math never offers a trigger"
+    (is (every? #(not= :text (:gate %)) (vals (reqs/offerable #{:build :toggle}))))))
