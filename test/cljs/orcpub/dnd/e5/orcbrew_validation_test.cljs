@@ -452,15 +452,6 @@
 ;; Key Renaming Tests
 ;; ============================================================================
 
-(deftest test-generate-new-key
-  (testing "Generating new key with source suffix"
-    (is (= :artificer-kibbles-tasty
-           (orcbrew-val/generate-new-key :artificer "Kibbles' Tasty")))
-    (is (= :wizard-my-homebrew
-           (orcbrew-val/generate-new-key :wizard "My Homebrew")))
-    (is (= :monk-test-123
-           (orcbrew-val/generate-new-key :monk "Test 123")))))
-
 (deftest test-generate-new-identity-derives-key-from-the-tagged-name
   (testing "the suggestion carries a name, and the key follows from it"
     (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
@@ -1400,7 +1391,12 @@
         new-key (:to (first renamed))]
     (is (= 1 (count renamed)) "clash forced a rename")
     (is (= "Ice" (get-in plugins ["B" ::e5/spells :ice :name])) "B's original ice untouched")
-    (is (= "Frost" (get-in plugins ["B" ::e5/spells new-key :name])) "moved item kept under a fresh key")))
+    ;; The relocated item is disambiguated by NAME and keyed from it. Keeping the
+    ;; name "Frost" against a minted key would revert on its next save in the
+    ;; builder and clash in B all over again.
+    (is (= "Frost (B)" (get-in plugins ["B" ::e5/spells new-key :name])))
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name])))
+        "key is derivable from the name it was placed under")))
 
 (deftest relocate-copy-mints-fresh-key-and-keeps-original
   (let [{:keys [plugins placed renamed]}
@@ -1410,7 +1406,11 @@
     (is (= 1 (count renamed)) "copy always renames")
     (is (some? (get-in plugins ["A" ::e5/spells :fireball])) "original stays in A")
     (is (not= :fireball new-key) "copy got a distinct key")
-    (is (= "Fireball" (get-in plugins ["B" ::e5/spells new-key :name])))))
+    (is (= "Fireball (B)" (get-in plugins ["B" ::e5/spells new-key :name]))
+        "the copy is visibly distinguished, not just distinctly keyed")
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name]))))
+    (is (= "Fireball" (get-in plugins ["A" ::e5/spells :fireball :name]))
+        "the original's name is untouched")))
 
 (deftest relocate-move-to-own-source-is-noop
   (let [{:keys [plugins placed renamed]}

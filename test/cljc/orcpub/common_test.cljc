@@ -348,7 +348,7 @@
 
 (deftest source-abbreviation-short-sources-use-first-and-last-letters
   (is (= "KsTy" (common/source-abbreviation "Kibbles Tasty")))
-  (is (= "UdAa" (common/source-abbreviation "Unearthed Arcana")))
+  (is (= "BdMc" (common/source-abbreviation "Bard Magic")))
   (testing "an apostrophe joins its word instead of splitting it"
     ;; "Tasha's" must stay one word; splitting there would add a stray "s" and
     ;; push a 3-word source into the initials branch.
@@ -361,6 +361,27 @@
   (is (= "XGtE" (common/source-abbreviation "Xanathar's Guide to Everything")))
   (testing "each word keeps its own case, which is what makes the lowercase o"
     (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))))
+
+(deftest source-abbreviation-defers-to-the-real-world-form
+  ;; The derivation is right about invented source names and wrong by definition
+  ;; about ones that already have an abbreviation. Nobody writes UdAa.
+  (testing "however the source is spelled, Unearthed Arcana is UA"
+    (doseq [s ["Unearthed Arcana" "unearthed arcana" "Unearthed Arcana:"
+               "unearthed-arcana" "UA" "ua" "Ua"]]
+      (is (= "UA" (common/source-abbreviation s)) (pr-str s))))
+  (testing "other sources the two-shape rule would mangle"
+    (is (= "MM" (common/source-abbreviation "Monster Manual")))
+    (is (= "PHB" (common/source-abbreviation "Player's Handbook")))
+    (is (= "DMG" (common/source-abbreviation "Dungeon Master's Guide")))
+    (is (= "EB" (common/source-abbreviation "Eberron"))))
+  (testing "a source that is ALREADY an abbreviation passes through unchanged"
+    ;; "SRD" must not come back "Srd" -- same name, meaning filed off.
+    (is (= "SRD" (common/source-abbreviation "SRD")))
+    (is (= "XGE" (common/source-abbreviation "XGE"))))
+  (testing "sources the rule already gets right are NOT in the override table,
+            so there is only one place they can be wrong"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+    (is (= "VGtM" (common/source-abbreviation "Volo's Guide to Monsters")))))
 
 (deftest source-abbreviation-is-nil-when-there-is-nothing-to-abbreviate
   ;; nil, not "" — the caller has to be able to tell "no tag" from "empty tag"
@@ -380,6 +401,8 @@
                               ["Artificer" "Tasha's Cauldron of Everything"]
                               ["Bag of Holding" "Kibbles Tasty"]
                               ["Fireball" "Unearthed Arcana"]
+                              ["Fireball" "UA"]
+                              ["Artificer" "Eberron"]
                               ["Élan" "Kibbles Tasty"]
                               ["Artificer" "Café Noir"]
                               ["Artificer" "!!!"]]]

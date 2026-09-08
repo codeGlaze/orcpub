@@ -101,6 +101,47 @@
    just an escaped `p`, which would silently split on the letter p instead."
   #"[^a-zA-Z0-9\u00C0-\u024F]+")
 
+(def source-abbreviation-overrides
+  "Sources whose real-world abbreviation is not what the derivation would produce.
+
+   The two-shape rule below earns its keep on invented source names, where there
+   is no established form to get wrong. It is wrong by definition on sources that
+   already HAVE one: nobody writes Unearthed Arcana as UdAa. Where a name is
+   already an abbreviation in the world, the world wins.
+
+   Keys are the source name reduced by `abbreviation-lookup-key` -- lowercased,
+   apostrophes dropped, every other non-alphanumeric run collapsed to one space --
+   so \"Unearthed Arcana\", \"unearthed-arcana\" and \"Unearthed Arcana:\" all hit the
+   same entry.
+
+   Only sources the derivation gets WRONG belong here. \"Tasha's Cauldron of
+   Everything\" already derives TCoE and \"Volo's Guide to Monsters\" already derives
+   VGtM, so listing them would just be a second place to keep them correct."
+  {"unearthed arcana" "UA"
+   ;; The initialisms themselves, so someone who types the short form lowercase
+   ;; gets the same tag as someone who spells the source out. The all-caps
+   ;; passthrough below only catches them when they are already capitalised.
+   "ua" "UA"
+   "srd" "SRD"
+   "phb" "PHB"
+   "dmg" "DMG"
+   "mm" "MM"
+   "monster manual" "MM"
+   "players handbook" "PHB"
+   "dungeon masters guide" "DMG"
+   "eberron" "EB"
+   "eberron rising from the last war" "ERLW"
+   "mordenkainen presents monsters of the multiverse" "MPMM"})
+
+(defn- abbreviation-lookup-key
+  "A source name reduced to its comparable form for the override table."
+  [source-name]
+  (-> (str source-name)
+      (s/replace #"['’]" "")
+      (s/lower-case)
+      (s/replace #"[^a-z0-9À-ɏ]+" " ")
+      (s/trim)))
+
 (defn source-abbreviation
   "A short tag for a content source, for disambiguating two items that share a
    name -- \"Kibbles Tasty\" -> \"KsTy\", \"Tasha's Cauldron of Everything\" -> \"TCoE\".
@@ -129,14 +170,23 @@
                        (s/split word-separator-re))
                    (remove s/blank?))]
     (when (seq words)
-      (if (<= (count words) 3)
-        (s/join (map (fn [w]
-                       (if (= 1 (count w))
-                         (s/upper-case w)
-                         (str (s/upper-case (subs w 0 1))
-                              (s/lower-case (subs w (dec (count w)))))))
-                     words))
-        (s/join (map #(subs % 0 1) words))))))
+      (if-let [override (get source-abbreviation-overrides
+                             (abbreviation-lookup-key source-name))]
+        override
+        ;; A source that is ALREADY an abbreviation is passed through rather than
+        ;; abbreviated again: "UA" would otherwise come back "Ua", which is the
+        ;; same name with its meaning filed off. One all-caps word, short enough
+        ;; to read as a tag.
+        (if (and (= 1 (count words)) (re-matches #"[A-Z0-9]{2,6}" (first words)))
+          (first words)
+          (if (<= (count words) 3)
+            (s/join (map (fn [w]
+                           (if (= 1 (count w))
+                             (s/upper-case w)
+                             (str (s/upper-case (subs w 0 1))
+                                  (s/lower-case (subs w (dec (count w)))))))
+                         words))
+            (s/join (map #(subs % 0 1) words))))))))
 
 (defn- abbreviation-suffix-re
   "Matches a trailing \" (Abbr)\" or \" (Abbr 2)\" for one specific abbreviation, so

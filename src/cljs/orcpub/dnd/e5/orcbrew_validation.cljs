@@ -1971,44 +1971,20 @@
   {:orcpub.dnd.e5/subclasses {:class :orcpub.dnd.e5/classes}    ; :class field references a class key
    :orcpub.dnd.e5/subraces {:race :orcpub.dnd.e5/races}})       ; :race field references a race key
 
-(defn generate-new-key
-  "Generate a new key by appending source identifier.
-   E.g., :artificer + 'Kibbles Tasty' → :artificer-kibbles-tasty
-   Uses common/name-to-kw pattern for consistent slugification.
-
-   Mints a key WITHOUT touching the item's name, which is why conflict resolution
-   no longer uses it: the editor re-derives the key from the name on save, so a key
-   that has no matching name reverts and the duplicate comes back. Use
-   generate-new-identity for anything the editor can later re-save. Still used by
-   relocate-content, which has the same latent problem and is not in this change."
-  [original-key source-name]
-  (let [source-slug (name (common/name-to-kw source-name))]
-    (keyword (str (name original-key) "-" source-slug))))
-
 (defn generate-new-identity
   "The {:name :key} an item takes when its source disambiguates it -- \"Artificer\"
    from \"Kibbles Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}.
 
    The key comes from the tagged NAME, so re-deriving it reproduces it. That is the
-   difference from generate-new-key and the whole reason this exists: the visible
-   name carries the disambiguation, and the key just follows from it.
+   whole reason this exists: the visible name carries the disambiguation, and the
+   key just follows from it. It replaced a generate-new-key that minted a key on
+   its own, which reverted on the item's next save and brought the conflict back.
 
    `taken?` (optional) is a predicate on a candidate key; when it reports a clash
    the counter goes inside the parentheses -- \"Artificer (KsTy 2)\" -- so the
    tie-break stays in the name and round-trips like the rest."
   ([item-name source-name] (common/disambiguated item-name source-name))
   ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
-
-(defn- unique-key
-  "A key not already present in `existing-map`, starting from `base` and appending
-   -2, -3, … only if needed. Keeps generated keys distinct when several items land
-   in the same target in one pass."
-  [base existing-map]
-  (if-not (contains? existing-map base)
-    base
-    (loop [n 2]
-      (let [k (keyword (str (name base) "-" n))]
-        (if (contains? existing-map k) (recur (inc n)) k)))))
 
 (defn relocate-content
   "Move or copy selected homebrew items to a target source. `selections` is a seq
@@ -2018,12 +1994,15 @@
    Single vs bulk is just the length of `selections` — one mechanism for both.
 
    Policy — predictable and clobber-free:
-   • MOVE relocates the item with its key preserved, UNLESS the target already
-     holds that key (then it gets a fresh unique key so nothing is overwritten).
+   • MOVE relocates the item with its key AND name preserved, UNLESS the target
+     already holds that key — then it is disambiguated by the target's
+     abbreviation (\"Artificer\" -> \"Artificer (KsTy)\") and the key derived from
+     that name, so nothing is overwritten and the key survives a later save.
      Moving an item to the source it already lives in is a no-op.
-   • COPY always mints a fresh unique key — a copy is a new, independent variant,
-     which also avoids creating a nondeterministic same-key twin of the original.
-   The placed item's :key and :option-pack are retagged to its new home. Selections
+   • COPY always disambiguates — a copy is a new, independent variant, which also
+     avoids creating a nondeterministic same-key twin of the original.
+   The placed item's :key and :option-pack are retagged to its new home, and its
+   :name carries the disambiguation whenever the key was not kept as-is. Selections
    are applied in order against the accumulating result, so keys minted earlier in
    the batch are accounted for when uniquifying later ones."
   [plugins selections target op]
@@ -2036,10 +2015,19 @@
            (and (not copy?) (= src target))  (update acc :placed inc) ; already home
            :else
            (let [target-map (get-in plugins [target ct])
-                 new-key    (if (or copy? (contains? target-map k))
-                              (unique-key (generate-new-key k target) target-map)
-                              k)
-                 new-item   (assoc item :key new-key :option-pack target)
+                 ;; A relocation that has to rename disambiguates by NAME and
+                 ;; derives the key from it, exactly as an import conflict does.
+                 ;; Minting a key alone (what this used to do) leaves the item
+                 ;; called "Artificer" while keyed :artificer-kt, so the next save
+                 ;; in the builder re-derives :artificer and the item collides in
+                 ;; its new home all over again.
+                 ident      (when (or copy? (contains? target-map k))
+                              (generate-new-identity (or (:name item) (common/kw-to-name k))
+                                                     target
+                                                     #(contains? target-map %)))
+                 new-key    (if ident (:key ident) k)
+                 new-item   (cond-> (assoc item :key new-key :option-pack target)
+                              ident (assoc :name (:name ident)))
                  p1         (assoc-in plugins [target ct new-key] new-item)
                  p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
