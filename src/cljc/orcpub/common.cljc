@@ -91,6 +91,104 @@
           trimmed (s/replace n #"-+$" "")]
       (if (s/blank? trimmed) k (keyword (namespace k) trimmed)))))
 
+(def ^:private word-separator-re
+  "Splits a source name into words. Anything that is not a letter or digit
+   separates, with Latin-1 Supplement and Latin Extended-A/B spelled out as
+   word characters so accented names keep their shape.
+
+   The ranges are literal because the portable alternative does not exist:
+   \\p{L} and \\p{N} are Java-only, and in a JS RegExp without the `u` flag \\p is
+   just an escaped `p`, which would silently split on the letter p instead."
+  #"[^a-zA-Z0-9\u00C0-\u024F]+")
+
+(defn source-abbreviation
+  "A short tag for a content source, for disambiguating two items that share a
+   name -- \"Kibbles Tasty\" -> \"KsTy\", \"Tasha's Cauldron of Everything\" -> \"TCoE\".
+
+   Two shapes, because one rule cannot serve both lengths. A short source has too
+   few words for initials to say anything (\"Kibbles Tasty\" -> \"KT\" is noise), so
+   each word contributes its first and last letter. A long source is one people
+   already abbreviate by initials, and reading the real-world form back is the
+   whole point of showing it.
+
+   Case follows from that. The short form is normalised (`Xx` per word) because it
+   is a coinage and consistency is all it has. The long form preserves each word's
+   own case, which is what turns \"of\" into the lowercase `o` in `TCoE` rather than
+   an `O` nobody writes.
+
+   Apostrophes are removed before splitting rather than treated as separators, so
+   \"Tasha's\" stays one word; splitting there would yield a stray \"s\" word and push
+   a 3-word source into the 4-word branch.
+
+   Returns nil when there is nothing to abbreviate. Callers must handle that --
+   it means the source name carried no letters or digits at all, and inventing a
+   tag for it would be worse than leaving the name alone."
+  [source-name]
+  (let [words (->> (-> (str source-name)
+                       (s/replace #"['’]" "")
+                       (s/split word-separator-re))
+                   (remove s/blank?))]
+    (when (seq words)
+      (if (<= (count words) 3)
+        (s/join (map (fn [w]
+                       (if (= 1 (count w))
+                         (s/upper-case w)
+                         (str (s/upper-case (subs w 0 1))
+                              (s/lower-case (subs w (dec (count w)))))))
+                     words))
+        (s/join (map #(subs % 0 1) words))))))
+
+(defn- abbreviation-suffix-re
+  "Matches a trailing \" (Abbr)\" or \" (Abbr 2)\" for one specific abbreviation, so
+   re-applying the same tag replaces it instead of stacking another copy.
+
+   `abbr` is interpolated raw, which is safe only because source-abbreviation
+   emits letters and digits and nothing else. Java's \\Q...\\E quoting would be the
+   general answer and is not available here -- this is .cljc, and a JS RegExp has
+   no such construct."
+  [abbr]
+  (re-pattern (str "\\s*\\(" abbr "(?:\\s+\\d+)?\\)\\s*$")))
+
+(defn disambiguated
+  "The name and key for `item-name` tagged with `source-name`'s abbreviation, as
+   one map, so the two cannot drift:
+
+     (disambiguated \"Artificer\" \"Kibbles Tasty\") ;=> {:name \"Artificer (KsTy)\"
+                                                       :key  :artificer-ksty}
+
+   The key is DERIVED from the tagged name rather than minted alongside it. That
+   is the entire point. The editor's save path re-derives a key from the name, so
+   a key built any other way reverts on the next save and the duplicate it was
+   resolving comes back. Derived, re-derivation is a no-op.
+
+   `taken?` is an optional predicate on a candidate key; when it says the key is
+   already in use, a counter goes INSIDE the parentheses -- \"Artificer (KsTy 2)\"
+   -- so the tie-break rides in the name too and survives the same round trip.
+
+   Idempotent for a given source: re-tagging an already-tagged name replaces the
+   suffix rather than appending a second one, so importing the same file twice
+   does not yield \"Artificer (KsTy) (KsTy)\".
+
+   Returns the name unchanged (with its derived key) when the source yields no
+   abbreviation, so a nameless source degrades to today's behaviour instead of
+   producing \"Artificer ()\"."
+  ([item-name source-name] (disambiguated item-name source-name (constantly false)))
+  ([item-name source-name taken?]
+   (let [base (s/trim (str item-name))
+         abbr (source-abbreviation source-name)]
+     (if-not abbr
+       {:name base :key (name-to-kw base)}
+       (let [stem (s/replace base (abbreviation-suffix-re abbr) "")
+             stem (if (s/blank? stem) base stem)
+             candidate (fn [n] (let [nm (if n
+                                          (str stem " (" abbr " " n ")")
+                                          (str stem " (" abbr ")"))]
+                                 {:name nm :key (name-to-kw nm)}))]
+         (loop [c (candidate nil) n 2]
+           (if (or (not (taken? (:key c))) (> n 99))
+             c
+             (recur (candidate n) (inc n)))))))))
+
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)
     (as-> kw $

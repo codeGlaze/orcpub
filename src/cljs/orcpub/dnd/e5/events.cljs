@@ -5356,10 +5356,17 @@
                      :content-type content-type
                      :content-type-name content-type-name
                      :sources sources
-                     ;; For internal, user picks which source to rename
-                     :suggested-renames (mapv (fn [{:keys [source name]}]
-                                                {:source source
-                                                 :new-key (orcbrew-val/generate-new-key key source)})
+                     ;; For internal, user picks which source to rename.
+                     ;; The suggestion carries a NAME as well as a key, and the key
+                     ;; is derived from that name — see generate-new-identity. A key
+                     ;; suggested on its own reverts the first time the item is saved
+                     ;; in the editor, which is how these conflicts kept coming back.
+                     :suggested-renames (mapv (fn [{:keys [source] item-name :name}]
+                                                (let [ident (orcbrew-val/generate-new-identity
+                                                             item-name source)]
+                                                  {:source source
+                                                   :new-key (:key ident)
+                                                   :new-name (:name ident)}))
                                               sources)})
                   internal-conflicts)
 
@@ -5378,9 +5385,15 @@
                      :existing-source existing-source
                      :existing-name existing-name
                      ;; Suggested rename for the import (keep existing as base)…
-                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)
+                     :suggested-new-key (:key (orcbrew-val/generate-new-identity
+                                               import-name import-source))
+                     :suggested-new-name (:name (orcbrew-val/generate-new-identity
+                                                 import-name import-source))
                      ;; …and for the EXISTING one (keep import as base — step 2).
-                     :suggested-existing-key (orcbrew-val/generate-new-key key existing-source)})
+                     :suggested-existing-key (:key (orcbrew-val/generate-new-identity
+                                                    existing-name existing-source))
+                     :suggested-existing-name (:name (orcbrew-val/generate-new-identity
+                                                      existing-name existing-source))})
                   external-conflicts)]
     (vec (concat internal external))))
 
@@ -5482,8 +5495,8 @@
  (fn [db _]
    (let [conflicts (get-in db [:conflict-resolution :conflicts])
          decisions (into {}
-                         (map (fn [{:keys [id type suggested-new-key suggested-renames
-                                           import-source sources]}]
+                         (map (fn [{:keys [id type suggested-new-key suggested-new-name
+                                           suggested-renames import-source sources]}]
                                 [id (if (= type :internal)
                                       ;; A key duplicated across N sources within the import
                                       ;; needs N-1 renames in ONE pass: keep the first source's
@@ -5508,7 +5521,8 @@
                                                                suggested-renames))})
                                       {:action :rename-import
                                        :source import-source
-                                       :new-key suggested-new-key})])
+                                       :new-key suggested-new-key
+                                       :new-name suggested-new-name})])
                               conflicts))]
      (assoc-in db [:conflict-resolution :decisions] decisions))))
 
@@ -5571,17 +5585,19 @@
                           ;; Internal conflict: one rename per still-colliding source,
                           ;; each to its own distinct key (fully resolved in one pass).
                           (into acc
-                                (map (fn [{:keys [source new-key]}]
+                                (map (fn [{:keys [source new-key new-name]}]
                                        {:source source
                                         :content-type content-type
                                         :from key
-                                        :to new-key})
+                                        :to new-key
+                                        :to-name new-name})
                                      (:renames decision)))
                           ;; External conflict: rename the single imported item.
                           (conj acc {:source (:source decision)
                                      :content-type content-type
                                      :from key
-                                     :to (:new-key decision)}))
+                                     :to (:new-key decision)
+                                     :to-name (:new-name decision)}))
 
                         ;; Skip: no rename here — the item is dropped from the
                         ;; incoming data below via skip-targets/remove-skipped.
@@ -5618,7 +5634,8 @@
                                        (let [d (get decisions id)]
                                          (when (= :rename-existing (:action d))
                                            {:source existing-source :content-type content-type
-                                            :from key :to (:new-key d)})))
+                                            :from key :to (:new-key d)
+                                            :to-name (:new-name d)})))
                                      conflicts))
          set-disabled (fn [plugins paths]
                         (reduce (fn [p [src ct k]]

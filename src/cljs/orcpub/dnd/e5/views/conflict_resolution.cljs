@@ -29,7 +29,8 @@
   "Renders a single conflict with resolution options."
   [{:keys [id type key content-type content-type-name sources
            import-source import-name existing-source existing-name
-           suggested-renames suggested-new-key suggested-existing-key] :as conflict}
+           suggested-renames suggested-new-key suggested-existing-key
+           suggested-new-name suggested-existing-name] :as conflict}
    decision]
   (let [selected-action (:action decision)
         disable-side    (:disable decision)   ; for :keep-both-disable
@@ -106,9 +107,13 @@
                      {:action :rename-import
                       :source (or import-source (-> sources first :source))
                       :new-key (or suggested-new-key
-                                   (-> suggested-renames first :new-key))}])
+                                   (-> suggested-renames first :new-key))
+                      :new-name (or suggested-new-name
+                                    (-> suggested-renames first :new-name))}])
          [:span
-          [:span "Rename imported key to: "]
+          [:span "Rename imported copy to: "]
+          [:strong (or suggested-new-name (-> suggested-renames first :new-name))]
+          [:span " — key "]
           [:code.conflict-code
            (str ":" (clojure.core/name (or suggested-new-key (-> suggested-renames first :new-key))))]]
          :rename])
@@ -122,11 +127,14 @@
          #(dispatch [:set-conflict-decision id
                      {:action :rename-existing
                       :source existing-source
-                      :new-key suggested-existing-key}])
+                      :new-key suggested-existing-key
+                      :new-name suggested-existing-name}])
          [:span
           [:span "Keep the import as "]
           [:code.conflict-code (str ":" (clojure.core/name key))]
           [:span "; rename your existing one to: "]
+          [:strong suggested-existing-name]
+          [:span " — key "]
           [:code.conflict-code (str ":" (clojure.core/name suggested-existing-key))]]
          :rename])
 

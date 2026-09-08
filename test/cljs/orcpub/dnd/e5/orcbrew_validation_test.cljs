@@ -461,6 +461,58 @@
     (is (= :monk-test-123
            (orcbrew-val/generate-new-key :monk "Test 123")))))
 
+(deftest test-generate-new-identity-derives-key-from-the-tagged-name
+  (testing "the suggestion carries a name, and the key follows from it"
+    (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"))))
+  (testing "re-deriving the key from the suggested name reproduces it -- this is
+            what generate-new-key could not do, and why resolved conflicts used to
+            come back the first time someone saved the item in the editor"
+    (doseq [[nm src] [["Artificer" "Kibbles Tasty"]
+                      ["Fireball" "Tasha's Cauldron of Everything"]
+                      ["Bag of Holding" "Unearthed Arcana"]]]
+      (let [{:keys [name key]} (orcbrew-val/generate-new-identity nm src)]
+        (is (= key (common/name-to-kw name)) (str nm " / " src)))))
+  (testing "a taken key pushes the counter inside the parentheses"
+    (is (= {:name "Artificer (KsTy 2)" :key :artificer-ksty-2}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"
+                                              #{:artificer-ksty})))))
+
+(deftest test-rename-key-in-plugin-moves-the-name-with-the-key
+  (testing "given a new name, the item's :name changes too -- key and name must
+            move together or the stored item violates key = name-to-kw(name) the
+            moment it lands, and the next save derives the old key back"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-ksty
+                  "Artificer (KsTy)")
+          item (get-in result [:orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= :artificer-ksty (:key item)))
+      (is (= :artificer (:former-key item)) "still rebindable for characters")
+      (is (= (:key item) (common/name-to-kw (:name item)))
+          "the invariant holds on the stored item")))
+
+  (testing "without a new name the item's name is left alone (old callers)"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-test)]
+      (is (= "Artificer" (get-in result [:orcpub.dnd.e5/classes :artificer-test :name]))))))
+
+(deftest test-apply-key-renames-threads-the-new-name
+  (testing ":to-name rides the rename record through the batch applier"
+    (let [data {"KT" {:orcpub.dnd.e5/classes
+                      {:artificer {:option-pack "KT" :name "Artificer"}}}}
+          result (orcbrew-val/apply-key-renames
+                  data
+                  [{:source "KT" :content-type :orcpub.dnd.e5/classes
+                    :from :artificer :to :artificer-ksty :to-name "Artificer (KsTy)"}])
+          item (get-in result ["KT" :orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= (:key item) (common/name-to-kw (:name item)))))))
+
 (deftest test-rename-key-in-plugin
   (testing "Renaming a key in a plugin"
     (let [plugin {:orcpub.dnd.e5/classes

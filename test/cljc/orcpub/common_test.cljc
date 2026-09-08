@@ -336,3 +336,84 @@
       (let [r (common/repair-name-lead nm)]
         (is (common/keyword-starts-with-letter? (common/name-to-kw r))
             (str nm " -> " (pr-str r) " must key-validate"))))))
+
+;; ---------------------------------------------------------------------------
+;; source-abbreviation / disambiguated
+;;
+;; These matter most under CLJS, which is where the import path calls them and
+;; where the regexes are a JS RegExp rather than a java.util.regex.Pattern. The
+;; two dialects disagree on \p{L} and on \Q...\E, so a rule that reads fine in
+;; Clojure can silently split on the wrong characters in the browser.
+;; ---------------------------------------------------------------------------
+
+(deftest source-abbreviation-short-sources-use-first-and-last-letters
+  (is (= "KsTy" (common/source-abbreviation "Kibbles Tasty")))
+  (is (= "UdAa" (common/source-abbreviation "Unearthed Arcana")))
+  (testing "an apostrophe joins its word instead of splitting it"
+    ;; "Tasha's" must stay one word; splitting there would add a stray "s" and
+    ;; push a 3-word source into the initials branch.
+    (is (= "TsGe" (common/source-abbreviation "Tasha's Guide"))))
+  (testing "a one-letter word contributes one letter, not a doubled one"
+    (is (= "A" (common/source-abbreviation "A")))))
+
+(deftest source-abbreviation-long-sources-use-initials
+  (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+  (is (= "XGtE" (common/source-abbreviation "Xanathar's Guide to Everything")))
+  (testing "each word keeps its own case, which is what makes the lowercase o"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))))
+
+(deftest source-abbreviation-is-nil-when-there-is-nothing-to-abbreviate
+  ;; nil, not "" — the caller has to be able to tell "no tag" from "empty tag"
+  ;; so it can leave the name alone rather than producing "Artificer ()".
+  (doseq [s [nil "" "   " "!!!" "---"]]
+    (is (nil? (common/source-abbreviation s)) (pr-str s))))
+
+(deftest source-abbreviation-keeps-accented-letters-in-their-word
+  ;; Splitting on a non-ASCII letter would turn "Café" into "Caf" + a dropped
+  ;; letter. The word-separator class spells out the Latin ranges for this.
+  (is (= "CéNr" (common/source-abbreviation "Café Noir"))))
+
+(deftest disambiguated-key-is-always-derived-from-the-name
+  ;; The whole point of A. If these ever disagree, the editor's save path
+  ;; re-derives a DIFFERENT key from the name and the conflict comes back.
+  (doseq [[item-name source] [["Artificer" "Kibbles Tasty"]
+                              ["Artificer" "Tasha's Cauldron of Everything"]
+                              ["Bag of Holding" "Kibbles Tasty"]
+                              ["Fireball" "Unearthed Arcana"]
+                              ["Élan" "Kibbles Tasty"]
+                              ["Artificer" "Café Noir"]
+                              ["Artificer" "!!!"]]]
+    (let [{:keys [name key]} (common/disambiguated item-name source)]
+      (is (= key (common/name-to-kw name))
+          (str (pr-str item-name) " + " (pr-str source)
+               " -> " (pr-str name) " / " (pr-str key))))))
+
+(deftest disambiguated-tags-the-name-and-derives-the-key
+  (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+         (common/disambiguated "Artificer" "Kibbles Tasty")))
+  (is (= {:name "Artificer (TCoE)" :key :artificer-tcoe}
+         (common/disambiguated "Artificer" "Tasha's Cauldron of Everything"))))
+
+(deftest disambiguated-does-not-stack-the-same-tag-twice
+  ;; Importing the same file twice must not yield "Artificer (KsTy) (KsTy)".
+  (let [once (common/disambiguated "Artificer" "Kibbles Tasty")
+        twice (common/disambiguated (:name once) "Kibbles Tasty")]
+    (is (= once twice)))
+  (testing "a DIFFERENT source still tags a name that already carries one"
+    (is (= "Artificer (KsTy) (TCoE)"
+           (:name (common/disambiguated "Artificer (KsTy)"
+                                        "Tasha's Cauldron of Everything"))))))
+
+(deftest disambiguated-tie-breaks-inside-the-parentheses
+  ;; The counter has to ride in the NAME, or the tie-broken key stops being
+  ;; derivable from it and the invariant above breaks for exactly the items
+  ;; that needed disambiguating most.
+  (let [taken? #{:artificer-ksty :artificer-ksty-2}
+        r (common/disambiguated "Artificer" "Kibbles Tasty" taken?)]
+    (is (= {:name "Artificer (KsTy 3)" :key :artificer-ksty-3} r))
+    (is (= (:key r) (common/name-to-kw (:name r))))))
+
+(deftest disambiguated-leaves-the-name-alone-when-the-source-has-no-tag
+  ;; Degrade to today's behaviour rather than inventing "Artificer ()".
+  (is (= {:name "Artificer" :key :artificer}
+         (common/disambiguated "Artificer" "!!!"))))

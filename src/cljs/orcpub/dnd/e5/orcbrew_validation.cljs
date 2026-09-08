@@ -1974,10 +1974,30 @@
 (defn generate-new-key
   "Generate a new key by appending source identifier.
    E.g., :artificer + 'Kibbles Tasty' → :artificer-kibbles-tasty
-   Uses common/name-to-kw pattern for consistent slugification."
+   Uses common/name-to-kw pattern for consistent slugification.
+
+   Mints a key WITHOUT touching the item's name, which is why conflict resolution
+   no longer uses it: the editor re-derives the key from the name on save, so a key
+   that has no matching name reverts and the duplicate comes back. Use
+   generate-new-identity for anything the editor can later re-save. Still used by
+   relocate-content, which has the same latent problem and is not in this change."
   [original-key source-name]
   (let [source-slug (name (common/name-to-kw source-name))]
     (keyword (str (name original-key) "-" source-slug))))
+
+(defn generate-new-identity
+  "The {:name :key} an item takes when its source disambiguates it -- \"Artificer\"
+   from \"Kibbles Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}.
+
+   The key comes from the tagged NAME, so re-deriving it reproduces it. That is the
+   difference from generate-new-key and the whole reason this exists: the visible
+   name carries the disambiguation, and the key just follows from it.
+
+   `taken?` (optional) is a predicate on a candidate key; when it reports a clash
+   the counter goes inside the parentheses -- \"Artificer (KsTy 2)\" -- so the
+   tie-break stays in the name and round-trips like the rest."
+  ([item-name source-name] (common/disambiguated item-name source-name))
+  ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
 (defn- unique-key
   "A key not already present in `existing-map`, starting from `base` and appending
@@ -2053,11 +2073,15 @@
    - content-type: which content type contains the key (e.g., :orcpub.dnd.e5/classes)
    - old-key: the current key to rename
    - new-key: the new key to use
+   - new-name: (optional) the item's new display name, when the rename is a
+     disambiguation that renamed the item too. Omitted, only the key moves.
 
    Returns the updated plugin with:
    1. The item moved to the new key
-   2. All internal references updated (e.g., subclasses pointing to renamed class)"
-  [plugin content-type old-key new-key]
+   2. Its :name replaced when new-name is given
+   3. All internal references updated (e.g., subclasses pointing to renamed class)"
+  ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
+  ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
     ;; Only rename when the item actually exists. A redundant rename (e.g. a key
     ;; that is BOTH an internal conflict — same key across import sources — and an
@@ -2077,11 +2101,16 @@
             ;; at import, a bounded field is defensible travelling in an .orcbrew,
             ;; and anything a chain loses is caught by the relink UI. Renaming
             ;; A -> B -> C remembers B.
+            ;; The name moves with the key when the caller supplies one. Key and
+            ;; name have to change together or the invariant they were computed
+            ;; under (key = name-to-kw of name) is broken the moment it is stored,
+            ;; and the next save in the editor derives the OLD key back.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key (assoc item
-                                                    :key new-key
-                                                    :former-key old-key)))
+                              (assoc new-key (cond-> (assoc item
+                                                            :key new-key
+                                                            :former-key old-key)
+                                               new-name (assoc :name new-name))))
 
             ;; Step 2: Find content types that reference this type
             referencing-types (keep (fn [[ct refs]]
@@ -2102,7 +2131,7 @@
         updated-plugin)
       ;; old-key already gone — a no-op, not a nil-clobber.
       plugin)
-    plugin))
+    plugin)))
 
 (defn rename-key-in-plugins
   "Rename a key within a multi-plugin structure.
@@ -2113,29 +2142,33 @@
    - content-type: which content type (e.g., :orcpub.dnd.e5/classes)
    - old-key: current key
    - new-key: new key
+   - new-name: (optional) the item's new display name
 
    Returns updated plugins map."
-  [plugins source-name content-type old-key new-key]
-  (if-let [plugin (get plugins source-name)]
-    (assoc plugins source-name
-           (rename-key-in-plugin plugin content-type old-key new-key))
-    plugins))
+  ([plugins source-name content-type old-key new-key]
+   (rename-key-in-plugins plugins source-name content-type old-key new-key nil))
+  ([plugins source-name content-type old-key new-key new-name]
+   (if-let [plugin (get plugins source-name)]
+     (assoc plugins source-name
+            (rename-key-in-plugin plugin content-type old-key new-key new-name))
+     plugins)))
 
 (defn apply-key-renames
   "Apply a batch of key renames to import data.
 
    Parameters:
    - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :from :to}
+   - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
+     is optional and renames the item's display name alongside its key.
 
    Returns updated data with all renames applied."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce
-     (fn [d {:keys [source content-type from to]}]
+     (fn [d {:keys [source content-type from to to-name]}]
        (if is-multi
-         (rename-key-in-plugins d source content-type from to)
-         (rename-key-in-plugin d content-type from to)))
+         (rename-key-in-plugins d source content-type from to to-name)
+         (rename-key-in-plugin d content-type from to to-name)))
      data
      renames)))
 
