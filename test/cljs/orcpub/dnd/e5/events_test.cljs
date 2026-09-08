@@ -669,3 +669,34 @@
   (testing "nothing there, in any source"
     (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :ranger
                                      {:name "Ranger"})))))
+
+;; ── Renaming moves the entry, it does not copy it ────────────────────────────
+
+(deftest save-into-plugins-moves-a-renamed-item
+  (testing "the entry under the old key is gone"
+    ;; assoc-in alone left it behind: one item became two, the stale copy holding
+    ;; the previous data and still answering to the key characters had stored.
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer" :former-key :artificer-2}
+                  :artificer-2)
+          group (get-in result ["Pak" ct])]
+      (is (= [:artificer] (keys group)))
+      (is (= :artificer-2 (:former-key (:artificer group))))))
+
+  (testing "an ordinary save writes in place and removes nothing"
+    (let [plugins {"Pak" {ct {:artificer {:key :artificer :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer Revised"} nil)]
+      (is (= [:artificer] (keys (get-in result ["Pak" ct]))))
+      (is (= "Artificer Revised" (get-in result ["Pak" ct :artificer :name])))))
+
+  (testing "a sibling in the same source is untouched"
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}
+                              :druid {:key :druid :name "Druid"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer"} :artificer-2)]
+      (is (= #{:artificer :druid} (set (keys (get-in result ["Pak" ct]))))))))

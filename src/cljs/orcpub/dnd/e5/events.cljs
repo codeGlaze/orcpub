@@ -808,6 +808,18 @@
                                     [src occ]))]
         {:kind :cross :source src :name (:name occ)}))))
 
+(defn save-into-plugins
+  "Write `item` at `key`, and remove whatever sat under `renamed-from`.
+
+   `assoc-in` on its own writes the new entry and leaves the old one behind, so a
+   rename turned one item into two: a stale copy holding the previous data, still
+   answering to the key characters had stored. Renaming is a MOVE.
+
+   `renamed-from` is nil for an ordinary save, which makes this a plain write."
+  [plugins option-pack plugin-key key item renamed-from]
+  (cond-> (assoc-in plugins [option-pack plugin-key key] item)
+    renamed-from (update-in [option-pack plugin-key] dissoc renamed-from)))
+
 (defn builder-field-error-fx
   "Effects for a failed homebrew save: flag the offending fields and show a
    targeted, long-lived banner. Falls back to the static message when no
@@ -843,7 +855,13 @@
              ;; never silently save under a placeholder. Placeholder-filling +
              ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             item-with-key (assoc normalized-item :key key)
+             ;; A rename here changes identity. Record where it came from, the same
+             ;; way import conflict resolution does, so a character that selected
+             ;; this content under the old key is rebound on load rather than
+             ;; quietly losing it.
+             renamed? (and (:key item) (not= (:key item) key))
+             item-with-key (cond-> (assoc normalized-item :key key)
+                             renamed? (assoc :former-key (:key item)))
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
          (if-let [{:keys [kind source] twin-name :name}
@@ -876,9 +894,9 @@
                                  "one off in My Content."))
                           builder-error-ttl]]}
            (if (nil? explanation)
-             (let [new-plugins (assoc-in plugins
-                                         [option-pack plugin-key key]
-                                         item-with-key)]
+             (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
+                                                  item-with-key
+                                                  (when renamed? (:key item)))]
                {:dispatch-n [[::e5/set-plugins new-plugins]
                              [:set-builder-field-errors {}]
                              [:show-warning-message
