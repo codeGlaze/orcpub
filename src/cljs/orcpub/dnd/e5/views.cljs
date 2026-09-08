@@ -1084,7 +1084,9 @@
      (when @(subscribe [::char/options-shown?])
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
-       [:div.p-b-10.p-r-10.p-l-10.white
+       ;; p-t-10 as well as p-b: without it the banner sits flush against whatever
+       ;; is above it, which on a phone means jammed under the page title.
+       [:div.p-t-10.p-b-10.p-r-10.p-l-10.white
         [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
