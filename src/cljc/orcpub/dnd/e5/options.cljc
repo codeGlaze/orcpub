@@ -3944,7 +3944,7 @@
   ;; never becomes a one-option selection here. One mechanism per job (D29).
   (when-let [{:keys [name tags options]} (when-not key (get grantable-pools pool))]
     (let [opts (cond->> options
-                 flt (filter (fn [o] (contains? flt (::t/key o)))))
+                 (seq flt) (filter (fn [o] (contains? flt (::t/key o)))))   ; #{} = unfiltered
           n    (clojure.core/or count 1)]
       ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
       ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).

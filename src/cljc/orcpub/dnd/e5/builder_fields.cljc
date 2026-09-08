@@ -170,6 +170,22 @@
                  :tag-header "Only with weapons that are"
                  :fields damage-bonus-fields}]}])
 
+(defn grant-rows
+  "The `:rows` node for GRANTS — one row per entry of the item's `:grants` vector, each
+  `{:pool p :count n :filter #{…}}` (the player chooses) or `{:pool p :key k}` (the creator chose).
+
+  Names NO pool. The add-bar lists every registered pool whose `:offerable-by` includes `silo`, so
+  registering a pool puts it on this form with no schema edit (content-extensibility-direction.md,
+  \"register once, grantable everywhere\"). `:as :vector` — rows are the elements at `:at`, ordered,
+  duplicates allowed (two language grants); `effect-rows` is map-keyed and unchanged."
+  [silo]
+  [{:rows      :grants
+    :as        :vector
+    :at        [:grants]
+    :silo      silo
+    :title     "Grants"
+    :add-label "Add a grant"}])
+
 (defn flatten-fields
   "A schema is a vector of NODES. Today every node is a field, so this is identity; once group nodes
   land (docs/kb/builder-form-schemas.md) a group contributes its lead field plus its tags.
@@ -182,6 +198,9 @@
               ;; a :rows node contributes every field of every kind it can hold. The kinds' fields
               ;; carry absolute paths, so validation is unchanged by the grouping — which is the
               ;; point: :rows is an arrangement, not a second storage model.
+              ;; a VECTOR rows node (grant-rows) derives its kinds from the pool registry at render
+              ;; time and its rows own their fields; it contributes nothing static to validate.
+              (and (:rows node) (= :vector (:as node))) []
               (:rows node)  (mapcat :fields (:kinds node))
               (:group node) (cons (:lead node) (:tags node))
               :else         [node]))

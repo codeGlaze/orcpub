@@ -18,6 +18,7 @@
             [orcpub.dnd.e5.selections :as selections]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.grant-pools :as gp]
             [orcpub.dnd.e5.classes :as classes]
             [orcpub.dnd.e5.feats :as feats]
             [orcpub.dnd.e5.units :as units]
@@ -5874,6 +5875,8 @@
       ]
        )))
 
+(declare vector-rows-node)   ; defined with the other builder nodes, after render-builder-field
+
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
@@ -5909,7 +5912,11 @@
      [:div [feat-misc-modifiers feat]]
      [:div [feat-spellcasting feat]]
      [:div [option-skill-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
-     [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]]))
+     [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
+     ;; E4 — the grant node, first consumer. Sits beside the bespoke widgets it will replace;
+     ;; those are struck only after the shim registry normalizes their keys out of reach
+     ;; (builder-disposition-audit.md, "The 35 deletions").
+     [vector-rows-node feat ::feats/set-feat-prop (first (bf/grant-rows :feat))]]))
 
 ;; dead — zero callers
 #_(defn selection-selector [index selection-cfg value-change-event]
@@ -7536,7 +7543,7 @@
 (def ^:private remove-prop-event (partial verb-prop-event "remove"))
 (def ^:private toggle-prop-event (partial verb-prop-event "toggle"))
 
-(declare render-builder-field)
+(declare render-builder-field vector-rows-node)
 
 (defn rows-node
   "Render a `:rows` node: an add-bar of the kinds not yet present, then one titled group per
@@ -7603,6 +7610,61 @@
                        ^{:key (str (:key f))}
                        [:div.tag
                         [render-builder-field item set-prop (assoc f :compact? true)]]))]])])]))]))))
+
+(defn vector-rows-node
+  "Render a `:rows :as :vector` node (grant-rows): one row per element at `:at`. Kinds come from
+   the pool registry filtered by the node's `:silo` — the add-bar IS the registry — and every
+   pool may be added more than once. Each row is a fixed grant (`:key`, the creator chose) or a
+   choice (`:count` + optional `:filter`); the toggle rewrites the row so only one shape is ever
+   stored. Reuses render-builder-field for every control and the effect-row chrome for the box."
+  [item set-prop {:keys [at title add-label silo]}]
+  (let [rows  (vec (get-in item at))
+        pools @(subscribe [::e5/grantable-pools])]
+    [:div.w-100-p.m-t-20
+     [:div.f-s-24.f-w-b.m-b-10 title]
+     [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
+      [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
+      (doall
+       (for [{:keys [pool name]} (gp/offerable-pools silo)]
+         ^{:key (str pool)}
+         [:button.chip.m-r-5.m-b-5
+          {:on-click #(dispatch [set-prop at (conj rows {:pool pool :count 1})])}
+          (str "+ " name)]))]
+     (doall
+      (map-indexed
+       (fn [i {:keys [pool] :as row}]
+         (let [path   (conj at i)
+               pname  (get-in pools [pool :name] (name pool))
+               opts   (mapv (fn [o] {:value (::template/key o) :title (::template/name o)}) (get-in pools [pool :options]))
+               fixed? (contains? row :key)]
+           ^{:key i}
+           [:div.m-b-15.effect-row
+            [:div.flex.justify-cont-s-b.align-items-c.effect-row-header
+             [:span.f-w-b.uppercase pname]
+             [:i.fa.fa-times.pointer.opacity-5
+              {:title (str "Remove " pname)
+               :on-click #(dispatch [set-prop at (vec (concat (subvec rows 0 i) (subvec rows (inc i))))])}]]
+            [:div.effect-row-body
+             [:div.flex.flex-wrap.align-items-c.m-b-10
+              [:button.chip.chip-toggle.m-r-5
+               {:class (when fixed? "chip-on")
+                :on-click #(dispatch [set-prop path {:pool pool :key nil}])}
+               "a specific one"]
+              [:button.chip.chip-toggle
+               {:class (when-not fixed? "chip-on")
+                :on-click #(dispatch [set-prop path {:pool pool :count (or (:count row) 1)}])}
+               "let the player choose"]]
+             (if fixed?
+               [render-builder-field item set-prop
+                {:key (conj path :key) :type :enum :label "Which" :compact? true
+                 :options (into [{:value nil :title "choose…"}] opts)}]
+               [:div.flex.flex-wrap.align-items-end
+                [:div.row-lead-num
+                 [render-builder-field item set-prop {:key (conj path :count) :type :number :label "How many"}]]
+                [:div.m-l-15
+                 [render-builder-field item set-prop
+                  {:key (conj path :filter) :type :multi-enum :label "From (any, if none chosen)" :options opts}]]])]]))
+       rows))]))
 
 (defn render-builder-field
   "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
@@ -7853,6 +7915,8 @@
                                     (and (map? f) (not (:type f)) (not (:rows f))
                                          (not (:bools f)) (not (:bools-inline f)))
                                     nil
+                                    (and (:rows f) (= :vector (:as f)))
+                                                 [:div.bf-break [vector-rows-node item set-prop f]]
                                     (:rows f)    [:div.bf-break [rows-node item set-prop f]]
                                     (:bools-inline f)   ;; the toggles ARE the row: one line, hugging
                                     (into [:div.bf-bool-row]

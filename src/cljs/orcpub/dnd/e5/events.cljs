@@ -3491,7 +3491,10 @@
  ::feats5e/set-feat-prop
  feat-interceptors
  (fn [feat [_ prop-key prop-value]]
-   (assoc feat prop-key prop-value)))
+   ;; prop-key may be a single key or a PATH vector — the same contract the generated
+   ;; set-<base>-prop handlers have, so a schema node (grant-rows writes [:grants i :count])
+   ;; can drive this builder too. Plain (assoc feat [:grants] …) stored the vector AS the key.
+   (assoc-in feat (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 #_ ;; never dispatched from UI
   (reg-event-db

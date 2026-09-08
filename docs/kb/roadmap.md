@@ -302,7 +302,16 @@ then merge `develop` in, since the shared files here have diverged for the feat 
    - ✅ **`:grants`, one key, always a vector** (2026-09-07) — incl. the v2 format marker.
    - ➡️ **Next, in order:** (b) **Track E3 — vector rows.** `effect-rows` is map-keyed;
      `:grants`, encounter creatures and background traits are all vectors. E4 is E3's third consumer.
-     (c) **A control that emits it** — E4, the grant-authoring UI, built
+     (c) ✅ **E4 first consumer — on branch `feature/grant-rows`** (2026-09-08): `bf/grant-rows`,
+     `vector-rows-node`, `compile-grants` (fixed → modifiers, D4), seven pools registered, one
+     damage-type def. Feat's add-bar lists the ten registered pools and nothing else; 27/27 through
+     the real UI (`test/e2e/feat-grants.js`). **Caveat:** the vector node is grant-specific (its row
+     body is mode / which / how-many / from) — E3 proper, a vector node serving creatures and traits
+     too, is still open; whether they share `vector-rows-node`'s add/remove skeleton is E3's question.
+     Feat's `set-feat-prop` was plain `assoc` and stored `[:grants]` as a key — now path-accepting
+     like the generated handlers. Sits beside the bespoke widgets; nothing struck until the shim
+     registry lands. The gallery baseline will drift (Grants is a new labelled section) — re-record.
+     Originally: **A control that emits it** — E4, the grant-authoring UI, built
      against feat (the only silo needing the full set, so building it right *is* building the node every
      builder embeds). Needs dynamic field options (from a sub; dependent on a sibling). **Nothing writes
      `:grant` today — that single gap is why the capability is invisible in the app.**
