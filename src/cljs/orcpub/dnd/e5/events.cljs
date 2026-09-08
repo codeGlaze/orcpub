@@ -5007,6 +5007,21 @@
 ;; collapsed under one clearly-labeled source so it can't silently overwrite an
 ;; existing same-named source. Colliding keys were surfaced by the banner; the
 ;; user is choosing to keep anyway. Clears the overlay once persisted.
+(defn- with-backup-offer
+  "Attach the backup offer to an import message.
+
+   It used to be a sentence — \"To be safe, export all content now\" — which asks
+   the reader to go and find Export All themselves. As a button it is one tap, the
+   same off-ramp the delete confirmation already offers.
+
+   Deliberately the pretty-print export, not ::e5/export-all-plugins: that one runs
+   the correction gate and can open the export-warning or conflict modal, and a
+   backup offered from a banner that closes on click must not start a dialog. This
+   one is a blob and a save, and nothing else."
+  [message]
+  (assoc message :action {:label "Export a backup"
+                          :event [::e5/export-all-plugins-pretty-print]}))
+
 (reg-event-fx
  ::e5/keep-shared-content
  (fn [{:keys [db]} [_ character-name]]
@@ -5187,7 +5202,7 @@
      :dispatch-n (remove nil?
                    [(when merged
                       [::e5/store-plugins merged
-                       (when-not message [:show-warning-message user-message])])
+                       (when-not message [:show-message (with-backup-offer user-message)])])
                     (when message [:show-warning-message message])
                     import-log])}))
 
