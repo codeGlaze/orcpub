@@ -310,15 +310,35 @@ That makes **C the next piece**, ahead of A: a duplicate check at save, reading
 the memoized `collision-twin-index` the My Content health card already computes.
 It closes this residual and is the smaller build.
 
-## Built 2026-09-07 (integration 4b61904b): layer C
+## Built 2026-09-07 (integration 4b61904b, corrected in b4dcd595): layer C
 
-`save-collision` in events.cljs, checked before the write:
+`save-collision` in events.cljs, checked before the write. BOTH kinds stop the
+save; they stay distinguished so the message can name what is at stake.
 
-- same source, key held by a DIFFERENT item -> blocked, `:name` flagged, message
-  names the entry that would have been lost. `:key` on the item distinguishes an
-  edit returning to its own slot from a rename landing on an occupied one.
-- another source -> saved with a note; both copies survive and the disable
-  hierarchy decides which is live.
+- same source, key held by a DIFFERENT item -> blocked. `:name` is flagged, since
+  the name derives the key, and the message names the entry that would have been
+  lost. `:key` on the item distinguishes an edit returning to its own slot from a
+  rename landing on an occupied one.
+- another source -> also blocked. Two sources claiming a key is a
+  mutual-exclusion pair: only one can be switched on, the health card reports it
+  until somebody resolves it, and which copy wins is not visible from the builder.
+
+### The rule this settled, worth keeping
+
+The first version of C blocked the same-source overwrite and merely mentioned the
+cross-source case. That was backwards, and the reasoning behind the mistake is the
+useful part: "keep both copies" IS legitimate, so it looked harmless.
+
+But keep-both is an IMPORT-time decision. The conflict modal asks, and somebody
+chooses it. It is not something that should arrive by authoring content in the
+builder that happens to collide with another source. Applying import's permissions
+to the builder let the common case through: cross-source is the majority of what
+is out there -- 27 of the conflicts in MegaPak Unearthed Arcana are a key claimed
+by more than one source, against a handful of same-source overwrites.
+
+Generalised: **a degraded-but-supported state may be chosen, never manufactured as
+a side effect.** The disable hierarchy exists to resolve mutual exclusion, not to
+excuse creating it silently.
 
 This closes the residual the trim left: the seven Eberron/UA pairs now derive the
 same key, so re-saving either was a silent overwrite and is now a question.
@@ -326,6 +346,12 @@ same key, so re-saving either was a silent overwrite and is now a question.
 Tested in `events-test` (CLJS runner, not `lein test` -- `save-collision` is a pure
 function over the plugins map and is called directly): save over yourself, replace
 a different item, new item onto an occupied key, other source, free key.
+
+**Test gap, known:** those cover the PREDICATE only. The handler branch that turns
+a collision into a blocked save and a message is not exercised, and CLJS tests run
+in the browser via `:auto-testing` rather than under `lein test`, so they have been
+compiled but not executed. Click a collision through on a running build before
+this ships anywhere.
 
 ## Remaining
 
