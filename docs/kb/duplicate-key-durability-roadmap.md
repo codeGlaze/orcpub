@@ -497,3 +497,120 @@ Counts across this work: 288 tests / 1502 assertions before, 295 / 1521 after.
    unblocked its format problem.
 4. **Reconciler updates**, and the `[UNVERIFIED]` test from
    `name-to-kw-audit.md` section 6, before any bulk cleanup.
+
+---
+
+## Built 2026-09-08 (integration): A, the section 6 answer, and self-healing
+
+Every item in the Remaining list above is now built. What follows is what each
+turned out to be, and the four things still open.
+
+### A -- source abbreviation into `:key` and `:name`
+
+`common/disambiguated` returns the name and the key as ONE map, key derived from
+the tagged name. Two functions that agree can stop agreeing; one derived from the
+other cannot. `"Artificer"` from `"Kibbles Tasty"` becomes
+`{:name "Artificer (KsTy)" :key :artificer-ksty}`, and re-deriving on save is a
+no-op rather than a revert.
+
+The abbreviation has two shapes: up to three words, first and last letter of each
+(`KsTy`); four or more, initials keeping each word's own case (`TCoE`, where the
+lowercase `o` is the point). The format question the roadmap left open is closed
+-- the trim landed first, so a parenthesised suffix no longer derives a trailing
+dash. The tie-break counter goes INSIDE the parentheses (`Artificer (KsTy 2)`) so
+it round-trips too, and re-tagging is idempotent.
+
+**The derivation is wrong by definition for sources that already have an
+abbreviation.** It turned "Unearthed Arcana" into `UdAa`, which nobody writes,
+into a name people read. `source-abbreviation-overrides` carries the ones it gets
+wrong (UA, MM, PHB, DMG, EB, and the two settings whose initials skip words), and
+a source that is already an abbreviation passes through unchanged so `SRD` does
+not become `Srd`. Sources the rule gets right (TCoE, VGtM) are deliberately NOT
+listed -- a second place to keep them correct is a second place to get them wrong.
+
+**`generate-new-key` is deleted.** `relocate-content` was still minting a key
+without touching the name -- the same revert, in the newest feature -- so move and
+copy between libraries now disambiguate the same way an import conflict does.
+Nothing called the old function afterwards, and leaving a key-minting shortcut in
+reach invites the bug back.
+
+### Section 6's `[UNVERIFIED]`: detected, not repaired
+
+An SRD option orphaned by a key VALUE change IS flagged by
+`check-content-availability`, and is NOT repaired: the former-key rung is built
+from plugin items and SRD is not a plugin, so the rename records nothing to
+rebind against. Tested against the homebrew case side by side, which DOES rebind.
+
+The builtin key sets are **not** a stale copy of content that lives elsewhere,
+which is the easy misreading. They are SRD only, because SRD is what the site
+serves itself; non-SRD content -- much of the PHB included -- arrives as a plugin
+and SHOULD be reported when absent, the same as homebrew.
+
+Separately, a scan of `src/` for names the trim changed found 43 candidates: 12
+inside `#_` discards, 16 declaring an explicit `:key`, and 15 live and
+key-derived. Of those, the ones that can reach a saved character are one
+selection key, three equipment items and a subrace. All still resolve through
+`index-matching-key`'s canonical pass, now asserted so a later change cannot
+quietly orphan them.
+
+### Heals are no longer silent or disposable
+
+Both reconcilers always returned `:rewrote` and `set-character` always dropped
+it. Nothing in `src/` consumed it. Since the rewrite lives in memory until the
+character is saved, silent meant routinely LOST -- the same character healed on
+every load, forever, and only became durable if the user saved for some unrelated
+reason. Worse, that arrangement depends on the plugin still carrying its
+`:former-key` note; remove the source and an unsaved character breaks again.
+
+So a repair now announces itself: a toast, and a slow glint with a sparkle on the
+save button that persists until saved. The toast alone was not enough -- eight
+seconds, and leaving the page takes the fix with it -- so the standing cue lives
+on the control that resolves it.
+
+**No auto-save.** Writing to someone's character because they looked at it is
+very hard to defend the day it goes wrong, and a declined fix costs nothing: it
+re-applies next load exactly as it does today. The flag resets itself, because
+saving re-dispatches `:set-character` over the saved character and the
+reconcilers then find nothing.
+
+### `:parked` never existed
+
+The roadmap said to drop it as proven-unreachable. It is not in `src/` or `test/`
+at all -- it only ever appeared in a design that was never implemented. Nothing
+to remove.
+
+### `class-binding-report`
+
+Written as a reporter BESIDE the reconcilers, not threaded through their return
+value as designed. A report that rides inside a repair function is one
+destructure away from being dropped, and `:rewrote` had just spent months being
+dropped exactly that way. It also runs after the repairs, so it describes what is
+still wrong rather than what has already been fixed.
+
+It names the unbound class (the banner's "something is missing" is useless here,
+because the builder resets every choice downstream of a class) and catches a
+subclass filed under a class that is not its own -- which binds cleanly and grants
+the wrong features, so it will never surface by waiting for a failure. Both
+refuse to guess on the ladder's usual rule: an unknown subclass is not judged, and
+one two classes both claim is dropped rather than resolved by walk order.
+
+## Remaining
+
+1. **Bulk cleanup of existing libraries.** Now unblocked. Dry run first. One hard
+   constraint, already established: the client CANNOT count affected characters,
+   because the list route pulls only `[:db/id ::se/summary ::se/owner]`. So the
+   dry run reports what changes in the LIBRARY, and "how many characters does this
+   touch" needs server work or gets dropped from the design.
+2. **B -- ask before the save path overrides a key**, and **C -- duplicate check
+   on every save**. Both were gated on there being a way to repair what they
+   permit. There now is.
+3. **Prove a heal in a browser.** The ladder is unit-tested and has never been
+   watched working. Assert the option renders BOUND, not merely that nothing
+   crashed: fail-soft's own error boundary caught its own crash, so it passed "no
+   black screen" while every Features tab was empty.
+4. **SRD rename support -- LOW priority, deliberately.** An SRD key change has no
+   `:former-key` to rebind against, so it would need a static old-to-new table
+   consulted by the same machinery. Parked because we are not renaming SRD keys,
+   and because code that scans for plugin content gets genuinely bad every time it
+   also has to special-case SRD items. Revisit only if an SRD rename is actually
+   on the table.
