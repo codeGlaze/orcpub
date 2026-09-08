@@ -429,3 +429,60 @@ wrong.
 With rungs 2 and 4 in place the count is largely moot: renames stop breaking
 things, and what cannot be matched gets asked about at the point of use rather
 than predicted at the point of edit.
+
+## Built 2026-09-08 (integration f0896b60): rung 2, former keys
+
+`rename-key-in-plugin` records the outgoing key as `:former-key`; `set-character`
+translates a character's stored keys through those records on load and the result
+persists on the next save, so each character heals once. Import conflict
+resolution is the site wired, because that is where renames happen in bulk.
+
+Decisions that kept it small, and why:
+
+- **Resolved on the CHARACTER at load, not the template option at match time.**
+  `t/option-cfg` (template.cljc:74) builds an option from a fixed allow-list and
+  drops unknown fields, so matching would have meant threading `:former-key`
+  through every per-content-type option builder. `set-character` already holds the
+  character with `:plugins` hydrated. This is the decision that turned a large
+  change into a small one.
+- **One key, not a history.** The common case is a single disambiguation at
+  import; a bounded field is defensible travelling in an `.orcbrew`; A -> B -> C
+  losing A is rung 4's problem.
+- **Global index, not per content type.** A stored key sits under `::entity/key`
+  with no type beside it, so a type-aware index could not be consulted without
+  reconstructing the path. Two exclusions make global safe: a former key claimed
+  by more than one item is dropped, and a former key that is some item's LIVE key
+  is dropped -- that item owns it and characters pointing there already work.
+- **Ordered before the spell-selection pass**, so that pass sees a real class key
+  rather than an orphan.
+- Item specs are `spec/keys :req-un`, which is open, so carrying the field needed
+  no spec change.
+
+### CLJS tests can be executed, not just compiled
+
+Stated wrongly several times in this document and in conversation: that CLJS tests
+only compile. They can be run. `test_runner.cljs` ends in `(-main)`, so loading the
+compiled bundle runs the whole suite, and Playwright is available in the e2e
+worktree (`/home/codeglaze/projects/orcpub-testing/e2e/node_modules`).
+
+Serve `target/test/` as the web root -- the bundle `document.write`s its
+dependencies against `:asset-path "js/out"`, so a page at the root loading
+`js/test.js` resolves -- point a browser at it, and read `cljs.test` output off the
+console.
+
+First real run: **292 tests / 1518 assertions, 0 failures**, which also covered the
+`save-collision` tests from the previous day that had never been executed.
+
+## Remaining
+
+1. **Rung 4, the relink UI.** Now the most valuable unbuilt piece: rungs 2 and 3
+   both DECLINE when ambiguous, and declining without somewhere to ask is still a
+   silently broken option. Model exists at `missing-content-warning`
+   (character_builder.cljs:2400), which reports but offers no picker.
+2. **Former keys on the BUILDER rename path.** Only import records one today. Same
+   mechanism, one more call site.
+3. **A -- source abbreviation into `:key` and `:name`.** Still the only thing that
+   gives genuinely different content deliberately different identity. The trim
+   unblocked its format problem.
+4. **Reconciler updates**, and the `[UNVERIFIED]` test from
+   `name-to-kw-audit.md` section 6, before any bulk cleanup.
