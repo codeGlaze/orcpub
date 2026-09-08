@@ -458,20 +458,31 @@ Decisions that kept it small, and why:
 - Item specs are `spec/keys :req-un`, which is open, so carrying the field needed
   no spec change.
 
-### CLJS tests can be executed, not just compiled
+### CLJS tests DO run, and the runner already existed
 
 Stated wrongly several times in this document and in conversation: that CLJS tests
-only compile. They can be run. `test_runner.cljs` ends in `(-main)`, so loading the
-compiled bundle runs the whole suite, and Playwright is available in the e2e
-worktree (`/home/codeglaze/projects/orcpub-testing/e2e/node_modules`).
+only compile. They run, and there is nothing to build. `docs/CONTRIBUTING.md` line
+108 has said so all along:
 
-Serve `target/test/` as the web root -- the bundle `document.write`s its
-dependencies against `:asset-path "js/out"`, so a page at the root loading
-`js/test.js` resolves -- point a browser at it, and read `cljs.test` output off the
-console.
+    lein fig:test && node scripts/test/run-cljs-tests.js   # CLJS
+    lein test                                              # JVM
 
-First real run: **292 tests / 1518 assertions, 0 failures**, which also covered the
-`save-collision` tests from the previous day that had never been executed.
+`scripts/test/run-cljs-tests.js` serves `target/test` as a static site (the build
+is `:optimizations :none` and loads namespaces from `js/out` relative to the page),
+runs it in headless Chromium, and exits non-zero on failure. `test_runner.cljs`
+ends in `(-main)`, so loading the bundle runs the suite.
+
+Read CONTRIBUTING before concluding a tool does not exist. A whole day was spent
+asserting these tests could not be executed, and a duplicate runner was written
+before the real one was found -- while sitting in the same file that documents it.
+
+The existing runner is also stricter than the one that was written to replace it:
+it reports failure LINES scraped from the page, not just the `cljs.test` summary.
+That is how two pre-existing `test-character-spec` errors surfaced, which the
+summary reports as `0 failures, 0 errors`. Confirmed pre-existing by running the
+suite at `4ae7b5c2`, before any of this work: identical two errors.
+
+Counts across this work: 288 tests / 1502 assertions before, 295 / 1521 after.
 
 ## Remaining
 
