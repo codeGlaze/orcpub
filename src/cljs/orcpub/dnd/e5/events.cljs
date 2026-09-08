@@ -777,6 +777,37 @@
  (fn [db [_ field]]
    (update db :builder-field-errors dissoc field)))
 
+(defn save-collision
+  "What a save to [source content-type key] would land on, or nil when the way is
+   clear.
+
+   `assoc-in` cannot tell replacing yourself from replacing somebody else, so this
+   asks before the write:
+
+     :overwrite  the key already holds a DIFFERENT item in this same source, so
+                 saving would silently discard it. `:key` on the item being saved
+                 is what distinguishes an edit returning to its own slot from a
+                 rename landing on an occupied one.
+     :cross      the key exists in ANOTHER source. Not data loss -- both copies
+                 survive and the disable hierarchy decides which is live -- so
+                 this informs rather than blocks.
+
+   Returns {:kind :overwrite|:cross :source .. :name ..}."
+  [plugins option-pack plugin-key key item]
+  (let [occupant (get-in plugins [option-pack plugin-key key])
+        self?    (= key (:key item))]
+    (cond
+      (and occupant (not self?))
+      {:kind :overwrite :source option-pack :name (:name occupant)}
+
+      :else
+      (when-let [[src occ] (first (for [[src plugin] plugins
+                                        :when (and (not= src option-pack) (map? plugin))
+                                        :let [occ (get-in plugin [plugin-key key])]
+                                        :when occ]
+                                    [src occ]))]
+        {:kind :cross :source src :name (:name occ)}))))
+
 (defn builder-field-error-fx
   "Effects for a failed homebrew save: flag the offending fields and show a
    targeted, long-lived banner. Falls back to the static message when no
@@ -815,21 +846,42 @@
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
-         (if (nil? explanation)
-           (let [new-plugins (assoc-in plugins
-                                       [option-pack plugin-key key]
-                                       item-with-key)]
-             {:dispatch-n [[::e5/set-plugins new-plugins]
-                           [:set-builder-field-errors {}]
-                           [:show-warning-message
-                            [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                             [:span.text-shadow
-                              (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
-                             [:span.pointer.underline.black
-                              {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
-                              "here"]]
-                            60000]]})
-           (builder-field-error-fx type-name explanation item error-message anyway-event-key)))))
+         (if-let [{:keys [kind source] twin-name :name}
+                  (and (nil? explanation)
+                       (save-collision plugins option-pack plugin-key key item))]
+           (if (= :overwrite kind)
+             ;; Blocked: the write would discard another item. Flagged on :name,
+             ;; since the name is what derives the key.
+             {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
+                           [:show-error-message
+                            (str "\"" twin-name "\" in \"" source "\" already uses the name "
+                                 "\"" name "\". Saving would replace it. Give this one a "
+                                 "different name, or edit the existing entry instead.")
+                            builder-error-ttl]]}
+             ;; Cross-source: both copies survive, so save and say so.
+             (let [new-plugins (assoc-in plugins [option-pack plugin-key key] item-with-key)]
+               {:dispatch-n [[::e5/set-plugins new-plugins]
+                             [:set-builder-field-errors {}]
+                             [:show-warning-message
+                              (str "Saved. \"" source "\" also has a " (s/lower-case type-name)
+                                   " named \"" twin-name "\" — only one of them can be turned on "
+                                   "at a time. Choose which in My Content.")
+                              15000]]}))
+           (if (nil? explanation)
+             (let [new-plugins (assoc-in plugins
+                                         [option-pack plugin-key key]
+                                         item-with-key)]
+               {:dispatch-n [[::e5/set-plugins new-plugins]
+                             [:set-builder-field-errors {}]
+                             [:show-warning-message
+                              [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                               [:span.text-shadow
+                                (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                               [:span.pointer.underline.black
+                                {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                                "here"]]
+                              60000]]})
+  (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
     ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;

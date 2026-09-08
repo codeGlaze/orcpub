@@ -624,3 +624,46 @@
     (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
     (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
         ":weapons removed when emptied")))
+
+;; ── Save-time key collision ──────────────────────────────────────────────────
+;; `save-collision` is a pure function over the plugins map, so it is tested
+;; directly rather than by dispatching a save.
+
+(def ^:private ct :orcpub.dnd.e5/classes)
+
+(def ^:private plugins-fixture
+  {"My Stuff"  {ct {:artificer {:key :artificer :name "Artificer"}}}
+   "Someone's" {ct {:druid {:key :druid :name "Druid"}}}})
+
+(deftest save-collision-allows-saving-over-yourself
+  (testing "an edit returning to its own slot is not a collision"
+    ;; The occupant IS this item, which is what an ordinary edit looks like.
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                     {:key :artificer :name "Artificer"})))))
+
+(deftest save-collision-blocks-replacing-a-different-item
+  (testing "landing on a key held by something else in the same source"
+    ;; Renaming "Artie" to "Artificer" would silently discard the real one.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:key :artie :name "Artificer"})]
+      (is (= :overwrite (:kind c)))
+      (is (= "Artificer" (:name c)))
+      (is (= "My Stuff" (:source c)))))
+
+  (testing "a NEW item, with no key of its own, onto an occupied key"
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:name "Artificer"})]
+      (is (= :overwrite (:kind c))))))
+
+(deftest save-collision-reports-another-source-without-blocking
+  (testing "the same key in a different source is mutual exclusion, not loss"
+    ;; Both copies survive; the disable hierarchy decides which is live.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :druid
+                                   {:name "Druid"})]
+      (is (= :cross (:kind c)))
+      (is (= "Someone's" (:source c))))))
+
+(deftest save-collision-is-silent-on-a-free-key
+  (testing "nothing there, in any source"
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :ranger
+                                     {:name "Ranger"})))))
