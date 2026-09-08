@@ -658,11 +658,24 @@
     {:background-color "#70a800"}]
 
    [:.message
-    {:padding "10px"
+    ;; pre-line, because the messages are WRITTEN with blank lines between their
+    ;; parts ("Import successful\n\nImported 464 items\n\nTo be safe, ..."). HTML
+    ;; collapses those, which ran the sentences together with no punctuation
+    ;; between them and read like a typo. The gap keeps the close icon off the
+    ;; text on a narrow screen, and flex-start puts it on the first line rather
+    ;; than halfway down a three-line message.
+    {:padding "12px 14px"
      :border-radius "5px"
      :display :flex
      :justify-content :space-between
-     :color :white}]
+     :align-items :flex-start
+     :gap "14px"
+     :line-height "1.45"
+     :white-space :pre-line
+     :color :white}
+    [:.fa-times
+     {:flex-shrink 0
+      :margin-top "2px"}]]
 
    ;; Warning/alert styles
    [:.bg-warning

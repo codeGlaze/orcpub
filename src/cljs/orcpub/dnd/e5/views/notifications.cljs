@@ -20,7 +20,11 @@
               :error "bg-red"
               :warning "bg-orange"
               "bg-green")}
-    [:span message-text]
+    ;; The messages are written with blank lines between their parts, which the
+    ;; banner renders (white-space: pre-line) so the sentences do not run together.
+    ;; One break per part rather than two: on a phone the doubled gaps make a
+    ;; three-part message twice as tall as it needs to be.
+    [:span (s/replace (str message-text) #"\n{2,}" "\n")]
     [:i.fa.fa-times]]])
 
 (defn callout
