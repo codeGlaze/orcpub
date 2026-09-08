@@ -346,25 +346,44 @@
 
 (declare get-template-selection-path)
 
+(defn index-matching-key
+  "Index of the first item in `items` whose `key-fn` is `k`, or nil.
+
+   Two passes. An exact match anywhere in the collection wins outright. Only when
+   nothing matches exactly does it retry on canonical keys, and then only if
+   exactly ONE item matches -- an ambiguous fallback would bind a character to
+   whichever copy happened to be first, which is worse than leaving it unresolved.
+
+   This is what lets a character that stored `:dark-elf-drow-` keep working after
+   the derivation stopped emitting that trailing dash. It can only ever resolve
+   something that would otherwise be nil, so it cannot change an answer that is
+   already correct.
+
+   Two passes rather than a looser `=` inside one pass, because a per-element
+   comparison cannot see whether a second element would also have matched, and so
+   cannot tell an unambiguous rebind from a coin flip."
+  [items key-fn k]
+  (or (first (keep-indexed (fn [i x] (when (= (key-fn x) k) i)) items))
+      (let [ck (common/canonical-key k)]
+        (when ck
+          (let [hits (keep-indexed
+                      (fn [i x] (when (= (common/canonical-key (key-fn x)) ck) i))
+                      items)]
+            (when (= 1 (count hits)) (first hits)))))))
+
 (defn get-template-option-path [selection [f & r] current-path]
-  (let [[option option-i]
-        (first (keep-indexed
-                (fn [i s]
-                  (when (= (::t/key s) f)
-                    [s i]))
-                (selection-options selection)))
+  (let [opts (vec (selection-options selection))
+        option-i (index-matching-key opts ::t/key f)
+        option (when option-i (nth opts option-i))
         next-path (vec (concat current-path [::t/options option-i]))]
     (if (seq r)
       (get-template-selection-path option r next-path)
       next-path)))
 
 (defn get-template-selection-path [template [f & r] current-path]
-  (let [[selection selection-i]
-        (first (keep-indexed
-                (fn [i s]
-                  (when (= (::t/key s) f)
-                    [s i]))
-                (::t/selections template)))
+  (let [sels (vec (::t/selections template))
+        selection-i (index-matching-key sels ::t/key f)
+        selection (when selection-i (nth sels selection-i))
         next-path (vec (concat current-path [::t/selections selection-i]))]
     (if (seq r)
       (get-template-option-path selection r next-path)
@@ -396,29 +415,18 @@
    modifiers))
 
 (defn index-of-option [selection option-key]
-  (first
-   (keep-indexed
-    (fn [i v]
-      (when (= option-key (::key v))
-        i))
-    selection)))
+  (index-matching-key (vec selection) ::key option-key))
 
 (defn template-item-with-key [items item-key]
-  (first
-   (keep-indexed
-    (fn [i s]
-      (when (= (::t/key s) item-key)
-        [i s]))
-    items)))
+  (let [items (vec items)]
+    (when-let [i (index-matching-key items ::t/key item-key)]
+      [i (nth items i)])))
 
 (defn entity-item-with-key [items item-key]
-  (first
-   (keep-indexed
-    (fn [i s]
-      (when (and item-key
-               (= (::key s) item-key))
-        [i s]))
-    items)))
+  (when item-key
+    (let [items (vec items)]
+      (when-let [i (index-matching-key items ::key item-key)]
+        [i (nth items i)]))))
 
 (defn get-entity-path
   ([template entity option-path]
@@ -578,11 +586,9 @@
         option-key (last path)
         ref-selection (ref-selection-map selection-path)
         option (if ref-selection
-                 (first
-                  (filter
-                   (fn [{:keys [::t/key] :as option}]
-                     (= option-key key))
-                   (vec (selection-options ref-selection))))
+                 (let [opts (vec (selection-options ref-selection))]
+                   (when-let [i (index-matching-key opts ::t/key option-key)]
+                     (nth opts i)))
                  (let [template-path (get-template-selection-path template path [])]
                    (get-in-lazy template template-path)))]
     (::t/modifiers option)))
@@ -628,7 +634,20 @@
      (fn [{path ::t/path
            option-value ::value
            :as option}]
-       (let [template-option (template-option-map path)
+       (let [;; Exact path first. On a miss, retry with the STORED key canonicalised
+             ;; -- a character that selected this option before the derivation
+             ;; stopped emitting a trailing separator has ":foo-" in its path where
+             ;; the template now has ":foo". Canonicalising the lookup maps the old
+             ;; form onto the new one; canonicalising the template would be a no-op,
+             ;; since its keys are already in the new form.
+             ;;
+             ;; Miss-only, so a path that resolves today resolves identically.
+             template-option (or (template-option-map path)
+                                 (when (seq path)
+                                   (let [ck (common/canonical-key (last path))]
+                                     (when (and ck (not= ck (last path)))
+                                       (template-option-map
+                                        (conj (vec (butlast path)) ck))))))
              modifiers (::t/modifiers template-option)]
          (flatten
           (map

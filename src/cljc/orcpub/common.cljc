@@ -38,6 +38,24 @@
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
+        ;; Drop a TRAILING separator. Edge whitespace and terminal punctuation both
+        ;; became dashes above, and collapsing runs cannot remove a run of one at
+        ;; the end, so "Eladrin (Cha)" derived :eladrin-cha- -- 247 of 661 keys in
+        ;; one shipped pak carried that dangling dash and it means nothing.
+        ;;
+        ;; The LEADING dash stays. It is not noise: a name starting with a
+        ;; non-letter derives a keyword that fails keyword-starts-with-letter?,
+        ;; which is how the keyword-trap machinery catches junk. Sanitising it here
+        ;; would silently admit "  Baz", "++Plus" and "Uber" as valid content.
+        ;;
+        ;; A name that is ALL separators is left alone. "@@@" reduces to "-", and
+        ;; stripping that leaves "", which trips the blank-name placeholder below
+        ;; and yields :unnamed-<hash> -- which starts with a letter and so PASSES
+        ;; the trap check. The guard keeps junk detectable.
+        ;;
+        ;; Keys stored before this change keep their trailing dash. They still
+        ;; resolve, via entity/index-matching-key and common/canonical-key.
+        (if (re-matches #"-+" $) $ (s/replace $ #"-+$" ""))
         ;; Never emit the empty keyword `:` — a name that reduced to "" (blank,
         ;; or apostrophe-only like "'") would build (keyword "") = a bare `:`,
         ;; an unreadable EDN token that crashes read-string on load. Substitute a
@@ -51,6 +69,27 @@
 
 (defn name-to-kw [name & [ns]]
   (memoized-name-to-kw name ns))
+
+(defn canonical-key
+  "A key reduced to the form `name-to-kw` produces TODAY, for matching one that was
+   stored before the derivation changed.
+
+   It removes exactly what the derivation stopped emitting -- a trailing separator
+   -- and nothing else. Removing more would be worse than useless: strip every dash
+   and `:fire-bolt` matches `:firebolt`, binding a character to content it never
+   referenced.
+
+   The leading dash is deliberately preserved. It is how `keyword-starts-with-letter?`
+   catches junk names, and canonicalising it away here would let a trapped key
+   match a legitimate one.
+
+   A key that is nothing but separators is returned unchanged: reducing it to the
+   empty keyword would make every such key equal to every other."
+  [k]
+  (when (keyword? k)
+    (let [n (name k)
+          trimmed (s/replace n #"-+$" "")]
+      (if (s/blank? trimmed) k (keyword (namespace k) trimmed)))))
 
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)
