@@ -3981,6 +3981,11 @@
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
   [_error _stack _retry]
+  ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
+  ;; took it away, then this page threw. Getting homebrew out matters most in
+  ;; exactly the state where the app has stopped being able to export it.
+  (when-let [rescue (aget js/window "orcpubBootRescue")]
+    (rescue))
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
