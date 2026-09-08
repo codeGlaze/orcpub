@@ -2101,6 +2101,31 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
+    ;; An expanded source's own row: search, show-disabled, then its actions. The
+    ;; search used to sit on a line of its own under the buttons, edge to edge. The
+    ;; side padding keeps it off the panel wall, and the flex-basis is what makes it
+    ;; take a line of its own on a phone rather than squeezing to nothing.
+    [:.mc-source-toolbar
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :padding "0 6px"
+      :margin-bottom "10px"}]
+
+    [:.mc-source-search
+     {:flex "1 1 240px"
+      :min-width "150px"}]
+
+    [:.mc-source-disabled
+     {:flex "0 0 auto"
+      :white-space :nowrap}]
+
+    ;; Pushed to the end of the row, and still together when the row wraps.
+    [:.mc-source-actions
+     {:flex "0 0 auto"
+      :margin-left :auto}]
+
     ;;;; WHAT'S NEW PANEL
 
     ;; Dark chrome in both themes, like the conflict modal: the panel is an overlay
