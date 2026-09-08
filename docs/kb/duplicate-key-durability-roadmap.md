@@ -138,3 +138,74 @@ work that renames keys. That test gates step 2 and is small. Do it first.
 - **Scope of C's duplicate check**: the whole library is the honest answer for a
   60-conflict pak, but it runs on every save. The memoized library-health index
   built for My Content is the obvious place to hang it.
+
+## Attempted 2026-09-07: trimming name-to-kw. Reverted. Read this first.
+
+The trailing dash is real and worth fixing -- measured on two shipped paks, 247 of
+661 keys in MegaPak Unearthed Arcana and 257 of 1320 in MegaPak WotC Books carry
+one, almost all from parenthesised qualifiers ("Eladrin (Cha)" -> :eladrin-cha-).
+Seven names in the WotC pak also carry literal trailing spaces ("Samurai ").
+
+Changing `name-to-kw` to trim was attempted and reverted. Three things it broke,
+each worth knowing before anyone tries again.
+
+**The leading dash is a guard, not noise.** `name-to-kw` deliberately does not
+sanitise a leading non-letter so that the derived keyword fails
+`keyword-starts-with-letter?` and the keyword-trap machinery catches the item.
+`e5_test/name-to-kw-does-not-sanitise-leading-non-letter` says so in its name.
+Trimming the lead, and trimming `starts-with-letter?` to match, flipped 13
+assertions in `tricky-names-are-rejected-everywhere` from reject to accept. It
+silently disabled a validation gate.
+
+**Trimming a trailing dash can empty the string.** "@@@" reduces to "-", and
+stripping that leaves "", which trips the blank-name placeholder and yields
+`:unnamed-<hash>` -- which starts with a letter and so PASSES the trap check.
+Any future attempt needs a guard for the all-separator case.
+
+**Trailing-only still orphans saved characters.** This is the one that matters.
+`warlock_test.cljc` holds a raw entity for a level 10 Drow Warlock:
+
+    {:subrace {:orcpub.entity/key :dark-elf-drow-}}
+
+A saved character storing the trailing dash. With the derivation trimmed the
+subrace stops resolving: `subrace` returns nil and the Drow +1 drops CHA from 16
+to 15. That is `name-to-kw-audit.md` section 6 demonstrated rather than argued,
+and it applies to every character that ever selected one of those 247 keys.
+
+So the trim is not a hotfix. It needs the compatibility layer below first.
+
+## The shim that unblocks it (user's design, not built)
+
+Rather than migrating stored keys, resolve them. On a lookup MISS -- never on the
+happy path -- retry the match with the key normalised, and accept it only when
+exactly one candidate matches. Then `:dark-elf-drow-` continues to resolve after
+the derivation changes, and nothing stored has to be rewritten.
+
+Properties that make this the right shape:
+
+- Costs nothing normally; it only fires where the result today is already nil.
+- Cannot create a false match, because it only resolves what is already broken.
+- Self-healing: the reconciler already has this shape
+  (`reconcile-spell-selection-keys` auto-rebinds unambiguous orphans and reports
+  `:rewrote`), so a rebind can be persisted on the next save.
+- It inverts the ordering problem. With the shim in place the derivation change
+  orphans nothing, so the shim is the prerequisite for the trim rather than the
+  trim needing a migration.
+
+Two constraints on it:
+
+- **Normalise exactly what the derivation trims, no more.** Ignoring all dashes
+  would make `:fire-bolt` and `:firebolt` equivalent and match content that was
+  never related.
+- **It is permanent, not transitional.** A character nobody opens again is never
+  re-saved, so its old key never syncs. Build it as a compatibility layer that
+  stays, not a bridge that gets removed.
+
+Where it goes is not yet established. Matching is exact key equality in several
+places -- `get-modifiers` (entity.cljc:583) filters `selection-options` directly,
+while `make-template-option-map` (entity.cljc:606, single caller at 626) builds a
+`[path.. key]` map. Aliasing the map alone would not cover the filter. Trace every
+consumer of a stored `::entity/key` before claiming a single seam.
+
+`warlock_test.cljc` is the ready-made test: `:dark-elf-drow-` must resolve to the
+Drow subrace and give CHA 16 both before and after the derivation changes.
