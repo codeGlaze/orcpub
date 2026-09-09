@@ -57,6 +57,7 @@
                                       class->local-store
                                       plugins->local-store
                                       disable-overlay->local-store
+                                      dev-mode->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
                                       cookie-banner-pending?
@@ -151,6 +152,9 @@
 (def class->local-store-interceptor (after class->local-store))
 
 (def plugins->local-store-interceptor (after plugins->local-store))
+
+(def dev-mode->local-store-interceptor
+  (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
 
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
@@ -277,6 +281,7 @@
   (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::e5/whats-new-seen)
+  (inject-cofx ::e5/dev-mode)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -289,6 +294,7 @@
               ::e5/disable-overlay
               ::e5/health-dismissed
               ::e5/whats-new-seen
+              ::e5/dev-mode
               ::combat/tracker-item]} _]
    {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
                                   (cookie-banner-pending?))
@@ -300,6 +306,7 @@
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
+            (some? dev-mode) (assoc :dev-mode? dev-mode)
             ;; The release panel opens itself once per release, on the boot that
             ;; first sees a new id. Reading the stamp here (not at render) keeps it
             ;; to one showing per browser rather than one per page view.
@@ -4870,6 +4877,15 @@
 
 ;; ── Disable hierarchy: the two LOCAL-OVERLAY levels ─────────────────────────
 ;; source + item disable live in the plugin data (toggle-plugin / -item above).
+;; Reveals the footer's diagnostic tools. A per-device preference like the
+;; overlay flags below, persisted so it survives the refresh someone does while
+;; trying to get their content out.
+(reg-event-db
+ ::e5/toggle-dev-mode
+ [dev-mode->local-store-interceptor]
+ (fn [db _]
+   (update db :dev-mode? not)))
+
 ;; global + section are a per-device VIEW preference kept in :disable-overlay,
 ;; never written into the .orcbrew data — so they cost no format/spec change and
 ;; don't travel with an export. `plugin-vals` ORs all four when filtering.

@@ -1101,40 +1101,47 @@
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
-      [:div.t-a-r
-       ;; The safety valve: dumps the library as it actually is, skipping the
-       ;; export gate, so a user whose content the validation refuses can still
-       ;; get it out. Stays reachable in production for exactly that reason —
-       ;; guarding it to dev would remove the out when it is most needed.
-       [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
-         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download-alt]]
-       [:div.orange.pointer.underline
-        {:on-click #(swap! expanded? not)
-         :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class (when @expanded? "white")}]]
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (str {:browser (user-agent/browser)
-                        :browser-version (user-agent/browser-version)
-                        :device-type (user-agent/device-type)
-                        :platform (user-agent/platform)
-                        :platform-version (user-agent/platform-version)
-                        :character (char/to-strict @(subscribe [:character]))})}])
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (clj->json {:browser (user-agent/browser)
-                              :browser-version (user-agent/browser-version)
-                              :device-type (user-agent/device-type)
-                              :platform (user-agent/platform)
-                              :platform-version (user-agent/platform-version)
-                              :character (char/to-strict @(subscribe [:character]))})}])
-       ])))
+      (let [dev? @(subscribe [::e5/dev-mode?])]
+        [:div.t-a-r
+         ;; The switch is always visible and named. The tools behind it are for
+         ;; getting content out when the app is misbehaving, so hiding the way to
+         ;; reach them would defeat the point — what the toggle removes is two
+         ;; unlabelled icons sitting in the footer of every page.
+         [:div.dev-mode-row
+          [:span.dev-mode-switch
+           {:class (when dev? "on")
+            :role "switch"
+            :aria-checked (str (boolean dev?))
+            :tabIndex 0
+            :title "Show diagnostic tools for getting your content out"
+            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+          [:span.dev-mode-label
+           {:on-click (make-event-handler ::e5/toggle-dev-mode)}
+           "Developer mode"]]
+         (when dev?
+           [:div.dev-mode-tools
+            [:span.dev-mode-tool
+             {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+              :title "Downloads every source exactly as stored, skipping the export checks. Large libraries take a while — click once and wait."}
+             [:i.fa.fa-cloud-download-alt.m-r-5]
+             "Dump library"]
+            [:span.dev-mode-tool
+             {:on-click #(swap! expanded? not)
+              :title "Browser and build details, for a bug report"}
+             [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
+             "Debug info"]])
+         ;; One box, not the two identical ones that were here: the same map was
+         ;; rendered twice, once with str and once with clj->json.
+         (when (and dev? @expanded?)
+           [:textarea.m-t-5
+            {:read-only true
+             :style debug-data-style
+             :value (clj->json {:browser (user-agent/browser)
+                                :browser-version (user-agent/browser-version)
+                                :device-type (user-agent/device-type)
+                                :platform (user-agent/platform)
+                                :platform-version (user-agent/platform-version)
+                                :character (char/to-strict @(subscribe [:character]))})}])]))))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
   [:div.white.f-s-32.flex.align-items-c

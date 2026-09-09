@@ -2151,6 +2151,65 @@
     ;; search used to sit on a line of its own under the buttons, edge to edge. The
     ;; side padding keeps it off the panel wall, and the flex-basis is what makes it
     ;; take a line of its own on a phone rather than squeezing to nothing.
+    ;; Developer mode: a named switch in the footer, replacing two unlabelled
+    ;; orange icons. The switch stays visible at all times — the tools behind it
+    ;; are for getting content out when the app is misbehaving, so the way to
+    ;; reach them cannot itself be hidden.
+    [:.dev-mode-row
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :gap "8px"
+      :margin-top "10px"}]
+
+    [:.dev-mode-switch
+     {:position :relative
+      :display :inline-block
+      :width "34px"
+      :height "18px"
+      :flex-shrink 0
+      :border-radius "9px"
+      :background-color "rgba(255,255,255,0.16)"
+      :cursor :pointer
+      :transition "background-color 0.16s ease"}
+     [:&:after
+      {:content "''"
+       :position :absolute
+       :top "3px"
+       :left "3px"
+       :width "12px"
+       :height "12px"
+       :border-radius "50%"
+       :background-color "#fff"
+       :transition "transform 0.16s ease"}]
+     [:&.on
+      {:background-color orange}
+      [:&:after {:transform "translateX(16px)"}]]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "3px"}]]
+
+    [:.dev-mode-label
+     {:font-size "12px"
+      :color "rgba(255,255,255,0.55)"
+      :cursor :pointer}]
+
+    [:.dev-mode-tools
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :flex-wrap :wrap
+      :gap "16px"
+      :margin-top "8px"}]
+
+    [:.dev-mode-tool
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :color orange
+      :cursor :pointer}
+     [:&:hover {:text-decoration :underline}]]
+
     [:.mc-source-toolbar
      {:display :flex
       :align-items :center

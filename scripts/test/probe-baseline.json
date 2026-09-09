@@ -4,6 +4,10 @@
     "checks": 16,
     "seconds": 120
   },
+  "builder_card_export_e2e.js": {
+    "checks": 8,
+    "seconds": 110
+  },
   "character_image_capture_e2e.js": {
     "checks": 31,
     "seconds": 126
