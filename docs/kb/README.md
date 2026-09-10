@@ -91,7 +91,9 @@ wrong, and why.
   character's custom magic items, weapons and armor apply on a shared sheet opened by a
   different session. Extends the homebrew-embed share feature.
 - **[plan-companions-and-wild-shape.md](plan-companions-and-wild-shape.md)** -- *not built.*
-  Fall-update research into pets, summons and Wild Shape. The druid flow -- prepare a short
+  Fall-update research into pets, summons and Wild Shape. Opens with the domain map --
+  seven kinds of peripheral creature (bonded, conjured, raised, bound, people, property,
+  transformation) and what the app has for each. The druid flow -- prepare a short
   list of forms, pick one, view merged stats, print them as cards -- lands almost entirely on
   machinery the app already has (prepared spells, `filter-monsters`, two existing PDF card
   families). Blocked on one type fix: monsters store CR as a number, the character stores it
