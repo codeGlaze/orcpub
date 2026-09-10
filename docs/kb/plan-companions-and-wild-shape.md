@@ -78,7 +78,7 @@ wildshape: {
 `sign(@subclasses.moon.levels)` is worth stealing: Moon's AC floor applies only with Moon
 levels, as arithmetic rather than a branch.
 
-## Slices
+## Slices: the Wild Shape half
 
 1. **CR as one comparable type.** Characterize `?wild-shape-cr` first, then change it.
 2. **CR + speed dimensions on `filter-monsters`.** Reused by everything below.
@@ -90,6 +90,30 @@ levels, as arithmetic rather than a branch.
 
 Steps 1-2 are also the summoning substrate: Foundry's summon profiles are the same query
 (CR + types + sizes), so Find Familiar, Find Steed and the Summon spells inherit them.
+
+## Slices: the companion half
+
+Separate sequence, and it starts later: steps 1-2 above build the beast query these depend
+on. The order is forced by the SRD boundary — Beast Master arrives as plugin data, so the
+declaration hook comes before anything that consumes it.
+
+1. **A plugin subclass can declare that it grants a companion.** Plugin subclasses already
+   reach the builder as data — `::classes5e/plugin-subclasses-map` is threaded into every
+   `*-option` fn (`spell_subs.cljs:1088`). The hook is a key on that map, read where the
+   subclass is expanded. **Nothing else on this list can start before it**, and it is the only
+   step with no existing machinery to copy.
+2. **A character can reference a creature.** `character.cljc` references none today. One
+   reference plus a source (SRD monster, homebrew monster, or a constraint to resolve).
+3. **Parameterisation**, in Foundry's two pieces: `bonuses` as formulas over the owner, and
+   `match` flags for what the companion inherits. Covers taxonomy rows 2-5 in one mechanism;
+   `?proficiency-bonus` already exists to feed it.
+4. **A companion view** in `details-tabs`, rendering the existing monster stat block with the
+   computed values applied.
+5. **Companion cards**, once beast cards (Wild Shape step 5) establish the creature card.
+
+**Deliberately deferred: sidekicks.** A sidekick gains class levels, making it a character-lite
+rather than a parameterised monster. It needs the builder, not this. Building rows 1-6 first
+and sidekicks never is a reasonable end state.
 
 ## Companions are a second system
 
