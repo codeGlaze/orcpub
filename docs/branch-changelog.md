@@ -1,3 +1,50 @@
+# Branch changelog — `consolidate/notifications-and-exports`
+
+## Why this branch exists
+
+Six branches were cut over one day for what is three pieces of work, and one of
+them — the hiccup-rendering fix — existed only on a branch that never went back
+to integration, so the break it fixed stayed live for nine hours. This branch is
+the single place that work lives now, plus the developer-mode toggle and the
+export coverage added after the merge.
+
+## Highlights
+
+Homebrew can now be rescued from a broken app. The boot shell carries a download
+control that the app removes once it has actually rendered, so a missing bundle,
+a failed init or a component that throws all leave it standing — and the error
+screen puts it back. It reads storage at the moment you click it, not at page
+load, so work done during the session is in the file.
+
+## Added
+
+- **Homebrew rescue in the boot shell** — downloads what is stored when the app
+  itself cannot. Present by default and removed on a clean render, so nothing has
+  to detect the failure (`46b6f807`, `7bd0d7bc`).
+- **Developer mode** — a named switch in the footer reveals "Dump library" and
+  "Debug info", off by default and remembered per device. Replaces two unlabelled
+  icons that sat on every page (`c1dad978`).
+- **Export coverage for the save banner's link** — a source holding one item from
+  before the session and one saved seconds ago must export with both, and the file
+  must re-import into a clean store (`c1dad978`, `cb40740e`).
+
+## Fixed
+
+- **Banners render markup again** — every message built from hiccup had been
+  rendering as its own source text since `e13d2b2f`, which removed every control
+  inside one, including the save banner's export link (`68c9873e`).
+- **Per-source export runs the same checks as Export All** — the same source no
+  longer produces two different files depending on which button you press
+  (`f7b259fe`).
+- **The size a rescue reports** — anything under a kilobyte read as "0 KB", which
+  looks like there is nothing to save (`7ccc9d3a`).
+
+## Changed
+
+- **The footer's raw library dump is named and explained** — it stays reachable in
+  production, because it is the way out when validation is what is broken
+  (`17658bb5`, `c1dad978`).
+
 # Branch changelog — `test/overlay-probe-user-menu-and-modals`
 
 ## Why this branch exists
