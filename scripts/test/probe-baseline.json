@@ -63,5 +63,9 @@
   "whats_new_e2e.js": {
     "checks": 18,
     "seconds": 30
+  },
+  "character_heal_e2e.js": {
+    "checks": 13,
+    "seconds": 25
   }
 }
