@@ -10,29 +10,33 @@ a stale branch cites lines that have moved.
 
 *Updated 2026-09-10. Update at every milestone — nothing else here carries live state.*
 
-### Release → branch line
+### The tree
 
-Releases are tags, not branches, so the mapping is not visible from the branch names. It is
-recorded here because it is the thing every session has to be told otherwise.
+```
+integration          ← hotfixes; mints the Summer Patch tag, then quiet
+   └── refactor/      working parent for the big refactor. Pulls integration in,
+        │             holds merges from its leaves.
+        ├── leaves    content-extensibility, data-extraction, garden-inline-styles,
+        │             views-extraction, banner-parts-and-design
+        └── agents/develop   (this branch)
+```
 
-| Release | Fed by | State |
-| --- | --- | --- |
-| Summer Patch | `integration` | Merged, in CHANGELOG, untagged |
-| **Fall Update** | **the `refactor/` line and its leaves** | In progress |
+Releases are tags, not branches, so no branch name says which release it serves.
+**Summer Patch** ships from `integration` once the last hotfixes land — nothing tagged yet.
+**After that tag, everything is Fall Update: the refactor tree.**
 
-`refactor/` is NOT a release family — it runs from 2026-02 and already spans the Summer
-Patch. Do not rename it after a release; the next one inherits the branches.
-`refactor/content-extensibility` is the live leaf and carries the orcbrew v1/v2 format
-versioning. No release has been tagged yet.
+`refactor/` is not a release family — it predates the Summer Patch. Don't rename it after a
+release; the next one inherits the branches.
 
 ### Fall Update leaves
 
 - **Companions, summons and Wild Shape** —
   [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
-  Researched, unbuilt. Branches off `refactor/content-extensibility`, which rewrites the same
-  files. Blocked on: CR is a string on the character and a number on the monster; and nothing
-  lets content declare that a feature grants a creature.
-- No other leaf is planned or started.
+  Researched, unbuilt. Belongs under `refactor/content-extensibility`, which is the live leaf,
+  carries the orcbrew v1/v2 format versioning, and rewrites the same files. Blocked on: CR is
+  a string on the character and a number on the monster; and nothing lets content declare that
+  a feature grants a creature.
+- No other leaf planned or started.
 
 ## The loop
 
