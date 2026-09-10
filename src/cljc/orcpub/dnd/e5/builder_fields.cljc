@@ -99,7 +99,17 @@
       :short-label "Shield"
       :options [{:value nil   :title "Both"}
                 {:value true  :title "Only while wielding a shield" :short-title "Only while wielding"}
-                {:value false :title "Only while NOT wielding a shield" :short-title "Not wielding"}]}]))
+                {:value false :title "Only while NOT wielding a shield" :short-title "Not wielding"}]}
+     ;; The first weapon-aware requirement an author can reach. It was unauthorable until
+     ;; mod5e/ac-bonus assembled the wielded weapons into the contributor's context, which is why
+     ;; the Dual Wielder feat had to be hand-written. Registering a requirement and exposing it are
+     ;; still separate steps (weapons.cljc documents the rule) — this one is exposed because
+     ;; published content wants it.
+     {:key [:props :ac-bonus :dual-wielding?] :type :enum :label "Weapon requirement" :when has-bonus?
+      :short-label "Weapons"
+      :options [{:value nil   :title "Both"}
+                {:value true  :title "Only while wielding two weapons" :short-title "Two weapons"}
+                {:value false :title "Only while NOT wielding two weapons" :short-title "Not two"}]}]))
 
 (defn- weapon-tag-field
   "One three-state weapon tag as an :enum field. Shown only once a bonus has been entered, since a

@@ -11,6 +11,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.dnd.e5.template-base :as tb]
             [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.modifiers :as mods]
             [orcpub.entity-spec :as es]))
@@ -53,3 +54,39 @@
   (testing "structural: it must land in ?ac-bonus-fns, which is summed onto the winning
             calculation, and never back in the ?unarmored-ac-bonus channel"
     (is (= :ac-bonus-fns (:orcpub.modifiers/key bracers)))))
+
+;; ── The requirements registry, through a built character ───────────────────────────
+;; The registry is unit-tested at the predicate level elsewhere. These prove the whole path:
+;; authored :props -> make-feat-modifiers -> mod5e/ac-bonus -> ?ac-bonus-fns -> the AC on the sheet.
+;; Without this, "authorable" only meant the data compiled, not that a number moved.
+
+(def ^:private sword {:name "Shortsword"})
+
+(defn- wielding [main off]
+  (into [] (remove nil?)
+        [(mods/modifier ?orcpub.dnd.e5.character/main-hand-weapon main)
+         (mods/modifier ?orcpub.dnd.e5.character/off-hand-weapon  off)]))
+
+(deftest authored-dual-wielding-bonus-moves-the-ac-on-a-built-character
+  (testing "{:ac-bonus {:bonus 1 :dual-wielding? true}} — unauthorable before the registry, because
+            a contributor is called (f armor shield) and could never see the weapons"
+    (let [bonus (opt5e/ac-bonus-modifiers {:bonus 1 :dual-wielding? true})]
+      (is (= 13 (ac (concat (wielding sword sword) bonus) nil nil))
+          "both hands full: 10 + Dex(2) + 1")
+      (is (= 12 (ac (concat (wielding sword nil) bonus) nil nil))
+          "one weapon: the requirement fails, no bonus")
+      (is (= 12 (ac (concat (wielding nil nil) bonus) nil nil))
+          "empty handed: no bonus"))))
+
+(deftest the-deprecated-prop-key-still-moves-the-same-ac
+  (testing "DEPRECATION SHIM: :two-weapon-ac-1 compiled to the hand-written dual-wield-ac-mod and
+            now compiles through the registry. Same key, same number on the sheet (D9)."
+    (let [via-prop (#'opt5e/make-feat-modifiers :two-weapon-ac-1 true nil)]
+      (is (= 13 (ac (concat (wielding sword sword) via-prop) nil nil)))
+      (is (= 12 (ac (concat (wielding sword nil) via-prop) nil nil))))))
+
+(deftest robe-of-the-archmagi-still-grants-five-while-unarmored
+  (testing "converted from a hand-written (if (nil? armor) 5 0) to {:armored? false}"
+    (let [robe (opt5e/ac-bonus-modifiers {:bonus 5 :armored? false})]
+      (is (= 17 (ac robe nil nil))          "unarmored: 10 + Dex(2) + 5")
+      (is (= 13 (ac robe leather nil))      "armored: 11 + Dex(2), robe excluded"))))

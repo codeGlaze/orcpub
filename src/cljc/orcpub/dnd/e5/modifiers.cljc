@@ -605,27 +605,22 @@
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
-(defmacro ac-bonus-fn
-  "The PRIMITIVE: an arbitrary `(fn [armor shield] -> N)` appended to ?ac-bonus-fns.
+;; DEPRECATED 2026-09-08 — superseded by `ac-bonus` below. Zero live callers: the three magic-item
+;; bonuses were converted, and the five remaining call sites are all inside #_-commented UA blocks
+;; that never compile. Struck rather than deleted only because those blocks reference it.
+;; Remove after 2026-12-08. See docs/kb/backfill-ledger.md.
+#_(defmacro ac-bonus-fn [bonus-fn]
+    `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
-  Kept, and not superseded by ac-bonus-meeting below. A bonus whose VALUE is computed from the
-  character cannot be written as (spec, n) — e.g. `(if (and (nil? shield) (nil? armor))
-  (?ability-bonuses char5e/con) 0)`. That is what this arity is for.
+(defmacro ac-bonus
+  "`n` added to whichever AC calculation wins, while `spec`'s requirements hold.
+  `(mod5e/ac-bonus {} 1)` is unconditional; `(mod5e/ac-bonus {:armored? false} 5)` is the Robe of
+  the Archmagi; `(mod5e/ac-bonus {:dual-wielding? true} 1)` is the Dual Wielder feat.
 
-  Reach for `ac-bonus-meeting` when the bonus is a fixed number gated on stated requirements, which
-  is most of them; reach for this when the number itself depends on the build."
-  [bonus-fn]
-  `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
-
-(defmacro ac-bonus-meeting
-  "A flat AC bonus of `n`, applied only while `spec`'s requirements hold — the DECLARATIVE form over
-  the same channel as ac-bonus-fn above, for the common case where the number is fixed and only the
-  condition varies.
-
-  The point of the macro is WHERE the context is assembled. A contributor is called as
+  The macro exists for WHERE it assembles the context. A contributor is invoked as
   `(f armor shield)` and sees nothing else, so a plain fn could never test the wielded weapons —
-  which is why the Dual Wielder feat's +1 AC was hand-written rather than authored. Splicing the
-  ?-refs here puts main-hand/off-hand inside the contributor's own body, so the predicates in
+  which is exactly why the Dual Wielder feat's +1 was hand-written rather than authored. Splicing
+  the ?-refs here puts main-hand/off-hand inside the contributor's own body, so the predicates in
   `requirements` stay ordinary runtime fns and the channel contract is untouched.
 
   Adding a fact means adding it to this map AND to the registry — the two halves of one change."

@@ -104,7 +104,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, job, ledger, legacy, naive, outright, parity, re-pointed, retained, struck, sweep
+**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, delete, deleted, deprecated, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -606,7 +606,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, one-handed, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
+**topics:** archery, attack, damage, dueling, end, fighting, great, interception, one-handed, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -781,7 +781,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** 2026-09-08, about, accessor, asks, bonuses, contributors, curation, dual, effect, fact, gates, macro, prereq, registry, requirement, requirements, sense, trigger
+**topics:** 2026-09-08, about, accessor, archmagi, asks, bonuses, contributors, dual, effect, fact, gates, macro, prereq, registry, requirement, requirements, robe, trigger
 
 - Why: the same fact is hand-written in three places today
 - The shape
@@ -799,7 +799,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bucket, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)

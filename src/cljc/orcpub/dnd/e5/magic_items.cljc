@@ -1629,7 +1629,7 @@ Once the stone has canceled 50 levels of spells, it burns out and turns dull gra
     (ioun-stone "Protection"
                 :rare
                 "You gain a +1 bonus to AC while this dusty rose prism orbits your head."
-                (mod5e/ac-bonus-meeting {} 1))
+                (mod5e/ac-bonus {} 1))
     (ioun-stone "Regeneration"
                 :legendary
                 "You regain 15 hit points at the end of each hour this pearly white spindle orbits your head, provided that you have at least 1 hit point.")
@@ -2258,7 +2258,7 @@ While you wear the robe, you can use an action to enter the Astral Plane along w
      ::modifiers [(mod5e/spell-save-dc-bonus 2)
                  (mod5e/spell-attack-modifier-bonus 2)
                  (mod5e/saving-throw-advantage ["Spells and other magical effects"])
-                 (mod5e/ac-bonus-meeting {:armored? false} 5)]
+                 (mod5e/ac-bonus {:armored? false} 5)]
      ::description "This elegant garment is made from exquisite cloth of white, gray, or black and adorned with silvery runes. The robe’s color corresponds to the alignment for which the item was created. A white robe was made for good, gray for neutral, and black for evil. You can’t attune to a robe of the archmagi that doesn’t correspond to your alignment.
 You gain these benefits while wearing the robe:
 • If you aren’t wearing armor, your base Armor Class is 15 + your Dexterity modifier.
@@ -2516,7 +2516,7 @@ The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last
      ::rarity :very-rare
 
      ::attunement [:sorcerer, :warlock, :wizard]
-     ::modifiers [(mod5e/ac-bonus-meeting {} 2)
+     ::modifiers [(mod5e/ac-bonus {} 2)
                   (mod5e/spell-attack-modifier-bonus 2)
                   (mod5e/saving-throw-bonuses 2)]
      ::description "This staff can be wielded as a magic quarterstaff that grants a +2 bonus to attack and damage rolls made with it. While holding it, you gain a +2 bonus to Armor Class, saving throws, and spell attack rolls.

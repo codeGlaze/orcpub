@@ -1432,7 +1432,7 @@
 
 ;; DEPRECATED 2026-09-08 — superseded by {:ac-bonus {:bonus 1 :dual-wielding? true}}, which the
 ;; requirements registry makes expressible. This was hand-written precisely because the declarative
-;; predicate could not see the wielded weapons; mod5e/ac-bonus-meeting assembles them now. The
+;; predicate could not see the wielded weapons; mod5e/ac-bonus assembles them now. The
 ;; :two-weapon-ac-1 prop key is retained forever and compiles to the general form.
 ;; Behaviour pinned by ac_reconciliation_test SECTION 4. Remove after 2026-12-08. See backfill-ledger.
 #_(def dual-wield-ac-mod
@@ -3767,7 +3767,7 @@
   (let [n (or bonus ac-bonus 0)]
     ;; ac-bonus-meeting, not ac-bonus-fn: the macro assembles a context carrying the wielded
     ;; weapons, so a bonus can require :dual-wielding? / :one-handed? as well as armor and shield.
-    [(modifiers/ac-bonus-meeting spec n)]))
+    [(modifiers/ac-bonus spec n)]))
 
 ;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
 ;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),

@@ -138,7 +138,11 @@ never changed. **Adding a fact to the context is one line in that map plus one r
 - `mod5e/ac-bonus-meeting` — the context-assembling macro; `ac-bonus-modifiers` uses it.
 - `opt5e/ac-applies?` delegates to `meets-all?`; the AC-only condition table is gone.
 - Legacy `:armor?` / `:shield?` read forever (D9); the form writes `:armored?` / `:shielded?`.
-- `:dual-wielding?` and `:one-handed?` are authorable — the first weapon-aware requirements.
+- `:dual-wielding?` and `:one-handed?` are authorable — the first weapon-aware requirements — and
+  `:dual-wielding?` is offered by the form.
+- **Proven through a built character**, not just at the predicate: `bracers_ac_test` asserts the
+  authored prop, the deprecated `:two-weapon-ac-1` key, and the converted Robe of the Archmagi each
+  move the AC on the sheet (13/12/12 wielding, 17/13 robed). Compiling was never the claim.
 
 **A regression the characterization sweep caught, worth keeping:** the first legacy-alias lookup used
 `some`, which skips falsey values, so `{:shield? false}` read as *absent* rather than *only-when-not*
@@ -152,19 +156,25 @@ three-state vocabulary; absent and false must stay distinguishable, hence `conta
 for exactly this. Three magic-item bonuses (two ioun stones, Robe of the Archmagi's `(if (nil? armor)
 5 0)` → `{:armored? false}`) are declarative now too.
 
-**One thing audited and found NOT to be duplication.** `ac-bonus-fn` and `ac-bonus-meeting` look like
-two mechanisms on one channel (D29), and were reported as such. They are not: a bonus whose VALUE is
-computed from the character — `(if (and (nil? shield) (nil? armor)) (?ability-bonuses char5e/con) 0)`
-— cannot be written as `(spec, n)`. `ac-bonus-fn` is the primitive; `ac-bonus-meeting` is the
-declarative constructor for the common fixed-number case. Both kept, and the docstrings say which to
-reach for. *The count of callers in that audit was also wrong — the glob missed `templates/`.*
+**One mechanism, after two wrong calls.** `ac-bonus-fn` and the new macro were first reported as
+duplication (D29), then defended as primitive-plus-constructor on the strength of a computed-value
+case — `(if (and (nil? shield) (nil? armor)) (?ability-bonuses char5e/con) 0)`. That case is in
+`#_`-commented UA code. **`ac-bonus-fn` has zero live callers**: the three magic-item bonuses were
+converted, and all five remaining sites are inside `#_` blocks that never compile. So the first call
+was right, the defense was built on dead code, and there is now one macro — `mod5e/ac-bonus [spec n]`,
+struck predecessor in the ledger. The caller count in the original audit was also wrong: the glob
+missed `templates/`.
+
+**`ac-bonus-meeting` was a bad name** and is gone; `mod5e/ac-bonus` matches the `:ac-bonus` prop it
+compiles.
 
 ## Still to do
 
 1. The damage/attack channels need the same macro treatment to reach the registry — today only AC
    bonuses do. That is the second consumer that proves the registry rather than assuming it.
-2. Expose the requirements in `ac-bonus-fields` so an author can pick them (curation, not automatic).
-   Until then `:dual-wielding?` is reachable from authored data but not from the form.
+2. ✅ **Exposed in the form** — `ac-bonus-fields` carries a "Weapon requirement" dropdown, so an
+   author picks `:dual-wielding?` in the builder rather than only in hand-written EDN. Registering
+   and exposing stay separate steps; this one is exposed because published content wants it.
 3. `:toggle` and `:text` entries when a real case wants them. The gates are declared in the
    vocabulary and have no entries; a test asserts that plainly rather than propping up empty
    structure.

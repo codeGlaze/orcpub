@@ -28,7 +28,7 @@
    ## The context
 
    Assembled by the macro that builds the contributor, because that is where the ?-attributes
-   resolve (see mod5e/ac-bonus-fn). A predicate only ever sees what the ctx carries; adding a fact
+   resolve (see mod5e/ac-bonus). A predicate only ever sees what the ctx carries; adding a fact
    means adding it there too."
   #?(:clj (:refer-clojure :exclude [])))
 

@@ -76,7 +76,7 @@
   (feat-class :hb-ac- [(mod5e/ac-formula (fn [armor _shield] (if armor 0 19)))]))
 ;; A flat +1 that should land on whichever calculation wins.
 (def hb-bonus-class
-  (feat-class :hb-bonus- [(mod5e/ac-bonus-fn (fn [_armor _shield] 1))]))
+  (feat-class :hb-bonus- [(mod5e/ac-bonus {} 1)]))
 
 ;; Step 3: authored AC written as :props data, compiled by make-feat-modifiers. These go
 ;; through plugin-modifiers exactly as a homebrew race/class/feat's :props would.
@@ -91,7 +91,7 @@
 ;; A Ring/Cloak of Protection: CHARACTER magic, +1 to AC however it is calculated. Emitted the way
 ;; deferred-magic-item-fn emits it — a ?ac-bonus-fns entry. It used to write a ?magical-ac-bonus
 ;; scalar that lived inside the base, which is why a winning calculation used to lose it.
-(def ring-class (feat-class :ring- [(mod5e/ac-bonus-fn (fn [_ _] 1))]))
+(def ring-class (feat-class :ring- [(mod5e/ac-bonus {} 1)]))
 ;; construct-style: plating that only helps while the shield is deployed. Nothing in SRD does this;
 ;; the vocabulary must express it regardless — homebrew flexibility is the point.
 (def p-shieldonly (props-class :p-shonly- {:ac {:ac 16 :abilities [] :shield? true}}))
