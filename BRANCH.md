@@ -10,14 +10,29 @@ a stale branch cites lines that have moved.
 
 *Updated 2026-09-10. Update at every milestone — nothing else here carries live state.*
 
-- **Fall Update = the `refactor/` line and its leaves.** `refactor/content-extensibility` is
-  the live one and carries the orcbrew v1/v2 format versioning.
-- **One leaf planned:** companions, summons and Wild Shape —
+### Release → branch line
+
+Releases are tags, not branches, so the mapping is not visible from the branch names. It is
+recorded here because it is the thing every session has to be told otherwise.
+
+| Release | Fed by | State |
+| --- | --- | --- |
+| Summer Patch | `integration` | Merged, in CHANGELOG, untagged |
+| **Fall Update** | **the `refactor/` line and its leaves** | In progress |
+
+`refactor/` is NOT a release family — it runs from 2026-02 and already spans the Summer
+Patch. Do not rename it after a release; the next one inherits the branches.
+`refactor/content-extensibility` is the live leaf and carries the orcbrew v1/v2 format
+versioning. No release has been tagged yet.
+
+### Fall Update leaves
+
+- **Companions, summons and Wild Shape** —
   [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
   Researched, unbuilt. Branches off `refactor/content-extensibility`, which rewrites the same
   files. Blocked on: CR is a string on the character and a number on the monster; and nothing
   lets content declare that a feature grants a creature.
-- Summer Patch is merged to `integration` and out of scope here.
+- No other leaf is planned or started.
 
 ## The loop
 
