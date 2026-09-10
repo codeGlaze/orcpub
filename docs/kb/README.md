@@ -84,6 +84,10 @@ wrong, and why.
 
 ### Plans
 
+- **[plan-npc-statblock-customizer.md](plan-npc-statblock-customizer.md)** -- *not built.*
+  A DM tool: change an NPC's ability scores and have AC, HP, attacks, save DCs and skills
+  recompute. The monster builder exists but derives nothing -- `monsters.cljc` has one
+  function. The hard part is that CR drives proficiency bonus and the edits move CR.
 - **[duplicate-key-durability-roadmap.md](duplicate-key-durability-roadmap.md)** -- *not built.*
   Why duplicate keys keep coming back and the plan to stop them. Extends
   `RECONCILIATION-LOG.md` phase 3 and `name-to-kw-audit.md` section 6.
