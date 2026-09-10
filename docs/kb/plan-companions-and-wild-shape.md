@@ -24,7 +24,7 @@ the player has**. They are orthogonal — a familiar and a Beast Master companio
 | **B. Conjured** | 1-8, player trades count against CR | concentration | Conjure Animals / Woodland Beings / Fey / Elemental / Minor Elementals — all live |
 | **C. Raised** | many, cumulative | persistent, re-asserted | Animate Dead, Create Undead — live |
 | **D. Bound / NPC** | one | task- or time-scoped | Planar Ally, Planar Binding, Simulacrum, Awaken — live |
-| **E. People** | one to a few | persistent, can gain levels | Noble's Retainers live as prose; Knight's `#_`; sidekicks, hirelings, bastion staff absent |
+| **E. People** | one to a few | persistent, can gain levels | Nothing live. Noble's and Knight's Retainers both `#_` discarded; sidekicks, hirelings, bastion staff absent |
 | **F. Property** | any | owned | Vehicle proficiencies wired; `vehicles` holds one Cart |
 | **G. Transformation** | n/a — it is you | encounter | Wild Shape live, Polymorph live |
 
@@ -34,16 +34,19 @@ doc and the buckets do not change it.
 
 ### What this reveals
 
-**The app ships 14 creature-granting spells and models none of them as creatures.** Every
+**The app ships 13 creature-granting spells and models none of them as creatures.** Every
 one is spell text. The feature's surface was never "companions" — that is bucket A of seven.
 
-**Retainers repeat the `?wild-shape-cr` mistake exactly** (`template.cljc:706`):
+**The discarded Retainers traits show the same mistake as `?wild-shape-cr`**
+(`template.cljc:706`, inside a `#_` opening at 689):
 
 ```clojure
 {:name "Retainers" :summary "You have 3 commoner retainers"}
 ```
 
-A count and a creature type, written as a sentence. Same failure, same fix.
+A count and a creature type written as a sentence. Not shipping — every background except
+Acolyte is `#_` discarded as non-SRD — so it is a worked example of how the author
+approached it, not a live defect. Bucket E has nothing live at all.
 
 **Count is a formula, not a number.** Conjure Animals gives 1 x CR2 *or* 2 x CR1 *or*
 4 x CR1/2 *or* 8 x CR1/4 — the player trades quantity against power at cast time. Any
@@ -340,10 +343,14 @@ overstated, and the second was wrong:
 **2026-09-10 (later).** The domain was never mapped, only the implementation. The plan
 classified how a creature's stats are computed and treated that as the taxonomy, so
 "companions" looked like the feature when it is one of seven kinds. Adds the domain map.
-Found while enumerating: the app ships 14 creature-granting spells modelled as text, and
-the Noble's Retainers trait repeats the `?wild-shape-cr` mistake — a count and a creature
-type written as a sentence. Vehicles, background retainers and bastion followers are on the
-list now, the last as a shape rather than a modelled thing.
+Found while enumerating: the app ships 13 creature-granting spells modelled as text.
+Vehicles, background retainers and bastion followers are on the list now, the last as a
+shape rather than a modelled thing.
+
+Corrected same day: the map first called the Noble's Retainers trait live. It is `#_`
+discarded, like every background except Acolyte. I had used plain `grep` — the exact
+mistake `scripts/clj-grep.py` exists to prevent, on a doc that tells others to use it.
+Re-checked every other row of the map with the tool; the rest held.
 
 **2026-09-10.** Two more corrections, both from checking rather than assuming:
 

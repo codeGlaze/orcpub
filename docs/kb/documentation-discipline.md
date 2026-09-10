@@ -28,7 +28,10 @@ Two rules that catch most of it:
   the same week.
 - **`#_` is not a comment, it discards the next form.** A grep hit inside one looks live.
   `classes.cljc` carries 160 discarded hits for `:name "` against 346 live. Use
-  `scripts/clj-grep.py`, which separates them.
+  `scripts/clj-grep.py`, which separates them. **Never write "live" or "discarded" in a doc
+  without running it** — reading nearby lines is not enough, because the `#_` that kills a
+  form can open dozens of lines above it. The Noble's Retainers trait was called live in the
+  companions plan on exactly that error, by the agent who had written the tool that hour.
 
 ## Update in place
 
