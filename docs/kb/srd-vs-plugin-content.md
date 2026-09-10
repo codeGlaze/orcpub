@@ -18,6 +18,18 @@ and any feature that checks "is this content available?"
 | Backgrounds | Acolyte only | `spell_subs.cljs:538` — `(cons acolyte-bg plugin-backgrounds)` |
 | Feats | Grappler only | All other feats from plugins |
 
+## Finding discarded content
+
+`#_` discards the next form, so a plain grep hit inside one is indistinguishable from live
+code. `classes.cljc` alone carries 160 such hits for `:name "`. Use:
+
+```
+scripts/clj-grep.py 'Beast Master' src/cljc/orcpub/dnd/e5/classes.cljc
+```
+
+It reports LIVE and DISCARDED separately and names the line the discard opens on. `--live`
+and `--dead` narrow it to one section as `path:line:text` for piping.
+
 ## What Comes From Plugins
 
 All non-SRD PHB content: Battle Master, Totem Warrior, College of Valor,
