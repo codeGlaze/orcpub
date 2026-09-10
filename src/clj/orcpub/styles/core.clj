@@ -747,7 +747,7 @@
     ;; look like the ring is giving off a little light, not like a selected field.
     {:position :relative
      :border-color :transparent
-     :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
+     :box-shadow "0 0 14px rgba(240, 161, 0, 0.13)"}
     [:&:before
      {:content "''"
       :position :absolute
