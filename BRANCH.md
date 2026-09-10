@@ -1,61 +1,45 @@
 # Branch Context: agents/develop
 
-## Purpose
+Agent config, onboarding docs and the knowledge base. `.claude/` is tracked here because the
+code branches gitignore it — this is the only place the hooks and skills can be versioned.
 
-Home for agent configuration, onboarding docs and the knowledge base. `.claude/` is tracked
-here on purpose — the code branches ignore it as local tool state, so the hooks and skills
-have nowhere else to be version-controlled.
+Carries integration's code, merged in periodically. Deliberate: KB docs cite `file:line`, and
+a stale branch cites lines that have moved.
 
-Carries integration's code as well, merged in rather than forked from. That is deliberate:
-KB docs cite `file:line`, and a branch five months behind cites lines that have moved.
+## Current state
 
-## Current State
+*Updated 2026-09-10. Update at every milestone — nothing else here carries live state.*
 
-*Updated 2026-09-10. Update this section at every milestone — it is the only file that
-carries live state.*
+- **Fall Update = the `refactor/` line and its leaves.** `refactor/content-extensibility` is
+  the live one and carries the orcbrew v1/v2 format versioning.
+- **One leaf planned:** companions, summons and Wild Shape —
+  [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
+  Researched, unbuilt. Branches off `refactor/content-extensibility`, which rewrites the same
+  files. Blocked on: CR is a string on the character and a number on the monster; and nothing
+  lets content declare that a feature grants a creature.
+- Summer Patch is merged to `integration` and out of scope here.
 
-- **Merged `integration` 2026-09-10** after five months of drift (550 behind, 131 ahead).
-  `src/`, `test/` and `project.clj` are byte-identical to integration; the 131 commits here
-  touch no application code.
-- **The Fall Update is the `refactor/` line and its leaves.** `refactor/content-extensibility`
-  is the live one (2026-09-04) and carries the orcbrew v1/v2 format versioning.
-- **One leaf is planned: companions, summons and Wild Shape.** Research complete, nothing
-  built. See [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
-  It branches off `refactor/content-extensibility`, not `integration` — that branch rewrites
-  the same files. Two blockers: CR is a string on the character and a number on the monster;
-  and no hook exists for content to declare that a feature grants a creature.
-- Summer Patch work is merged to `integration` and out of scope here.
+## The loop
 
-## Reinforcement loop
+Stops research being lost. **Run `scripts/setup-hooks.sh` first — `core.hooksPath` is unset on
+a fresh clone, and none of this fires without it.**
 
-The mechanism that stops research being lost. It only works when armed:
+| Piece | What it does |
+| --- | --- |
+| `scripts/check-docs.sh` | Dangling links, orphaned KB docs, the develop superset. Runs from `pre-commit` |
+| `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration |
+| `.claude/hooks/kb-doc-reminder.sh` | On push: code changed, no docs? Nudge. Register in `.claude/settings.json` |
+| `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop. Register under `Stop` |
+| `docs/kb/README.md` | The index. An unlinked KB doc is invisible; `check-docs` fails the commit |
 
-| Piece | What it does | Arm it |
-| --- | --- | --- |
-| `scripts/check-docs.sh` | Dangling links, orphaned KB docs, the develop superset | Runs from `pre-commit` |
-| `.githooks/pre-commit` | Blocks a `docs/` commit that fails the above | **`scripts/setup-hooks.sh`, once per clone** |
-| `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration | same |
-| `.claude/hooks/kb-doc-reminder.sh` | On `git push`: code changed, no docs? Nudge | `.claude/settings.json` |
-| `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop, while the work is still in hand | register under `Stop` |
-| `docs/kb/README.md` | The index. A KB doc not linked from an index is invisible | check-docs enforces it |
+## Rules
 
-**`core.hooksPath` is not set by cloning.** On 2026-09-10 it was unset here, so every commit
-for the whole session bypassed `check-docs.sh`, and two plan docs had gone orphaned unnoticed.
-Run `scripts/setup-hooks.sh` first, in every clone, or none of the rest of this fires.
-
-## Workflow
-
-- Branch-specific context belongs here, not in AGENTS.md.
-- KB docs go in `docs/kb/` and **must** be linked from `docs/kb/README.md` or they orphan.
-- Merge `integration` in periodically. Keep this branch's `.gitignore` exception for
-  `.claude/`; taking integration's version wholesale would stop the hooks being tracked.
+- Findings go in `docs/kb/`, linked from its README.
+- Keep the `.gitignore` exception for `.claude/` when merging integration in.
 - Doc-touching PRs target this branch.
 
-## Related Docs
+## Related
 
-- [`docs/kb/documentation-discipline.md`](docs/kb/documentation-discipline.md) — what earns a
-  doc, updating in place, recording reversals
-- [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) — the three-tier structure and KB conventions
-- [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — multi-branch workflow design
-- [`SETUP.md`](SETUP.md) — devcontainer, MCP, attribution hooks
-- [`CODEBASE.md`](CODEBASE.md) — codebase overview
+- [`docs/kb/documentation-discipline.md`](docs/kb/documentation-discipline.md) — what earns a doc, reversals, verification
+- [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) — three-tier structure, KB conventions
+- [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) · [`SETUP.md`](SETUP.md) · [`CODEBASE.md`](CODEBASE.md)
