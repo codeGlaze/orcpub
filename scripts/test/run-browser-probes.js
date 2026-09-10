@@ -54,6 +54,7 @@ const BASELINE = path.join(__dirname, 'probe-baseline.json');
 // needsPack: imports a homebrew library and asserts against its content.
 const PROBES = [
   { file: 'character_image_capture_e2e.js',    needs: 'server' },
+  { file: 'character_heal_e2e.js',            needs: 'server' },
   { file: 'class_handlers_functional_e2e.js',  needs: 'server', needsPack: true },
   { file: 'equipment_add_functional_e2e.js',   needs: 'server', needsPack: true },
   { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },

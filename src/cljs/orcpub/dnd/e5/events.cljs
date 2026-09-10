@@ -106,6 +106,8 @@
 ;; Forward declaration — defined below :update-value-field (line ~1226).
 ;; Used in :save-character to auto-generate names for unnamed characters.
 (declare generate-random-name)
+;; Used by :initialize-db, defined with the other character events further down.
+(declare set-character)
 
 (defn check-and-throw
   "throw an exception if db doesn't match the spec"
@@ -313,7 +315,13 @@
             (and (whats-new/unseen? whats-new-seen)
                  (not (cookie-banner-pending?)))
             (assoc :whats-new-open? true)
-            local-store-character (assoc :character local-store-character)
+            ;; Through set-character, not a bare assoc. Restoring the builder's
+            ;; in-progress character here used to skip the reconcilers entirely,
+            ;; so a reload left a key that an import conflict had renamed pointing
+            ;; at nothing -- the same character that healed when opened from the
+            ;; list stayed broken when the page was refreshed. Plugins are already
+            ;; threaded in above, which is what the former-key index reads.
+            local-store-character (set-character [:set-character local-store-character])
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
             ;; Restore in-progress builder WIP (all builders) across refresh.
@@ -1727,12 +1735,13 @@
 (reg-event-fx
  :set-character
  [db-char->local-store]
+ ;; Records a heal but does not announce it. Every way a saved character reaches
+ ;; the builder dispatches [:route ...] beside this, and :route queues a
+ ;; [:hide-message] that runs after anything queued here, so a toast raised from
+ ;; this event was cleared before it ever painted. :route announces it instead,
+ ;; after its own clear -- see there.
  (fn [{:keys [db]} event]
-   (let [db' (set-character db event)
-         rewrote (get-in db' [:character-healed :rewrote])]
-     (cond-> {:db db'}
-       ;; Only on an actual repair. A clean load stays silent.
-       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+   {:db (set-character db event)}))
 
 (def character-values-path
   [::entity/values])
@@ -2111,7 +2120,20 @@
            ;; so view-once content (homebrew + custom items) never lingers across characters.
            char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
-           event (update :dispatch-n conj event)))))))
+           event (update :dispatch-n conj event)
+           ;; A character that healed on its way here -- opened from the list, or
+           ;; restored at boot -- is announced now, AFTER the [:hide-message] above.
+           ;; dispatch-n is FIFO, so this is the one place a heal toast cannot be
+           ;; cleared by the navigation that delivered it. Builder only: "save the
+           ;; character to keep the fix" means nothing on any other page. Marked
+           ;; announced so later navigation does not repeat it; the next
+           ;; :set-character replaces the whole map anyway.
+           (and (= (or handler new-route) routes/dnd-e5-char-builder-route)
+                (seq (get-in db [:character-healed :rewrote]))
+                (not (get-in db [:character-healed :announced?])))
+           (-> (update :dispatch-n conj
+                       [:show-message (healed-message (get-in db [:character-healed :rewrote])) 8000])
+               (assoc-in [:db :character-healed :announced?] true))))))))
 
 (reg-event-db
  :set-user-data

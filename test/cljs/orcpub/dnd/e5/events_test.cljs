@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.route-map :as routes]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]))
 
@@ -819,3 +820,59 @@
          "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
   (is (re-find #"^Reconnected 2 references"
                (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
+
+;; ---------------------------------------------------------------------------
+;; A heal is announced by :route, and a reload heals too
+;;
+;; Both found in a real browser by test/browser/character_heal_e2e.js, not by
+;; these tests: a toast raised from :set-character was cleared by the [:hide-message]
+;; the accompanying [:route ...] queues, and :initialize-db restored the builder's
+;; stored character with a bare assoc that never reached the reconcilers.
+;; ---------------------------------------------------------------------------
+
+(def ^:private stored-plugins
+  ;; :option-pack is required here, unlike renamed-plugins above: this one goes
+  ;; through the ::e5/plugins cofx, which quarantines a race that fails the spec.
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"
+                         :option-pack "Pak"}}}})
+
+(deftest initialize-db-heals-a-character-restored-from-storage
+  (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    (.setItem js/localStorage "plugins" (pr-str stored-plugins))
+    (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
+    (try
+      (reset! app-db {})
+      (rf/dispatch-sync [:initialize-db])
+      (testing "the restored character is rewritten to the live item"
+        (is (= :half-elf-ua
+               (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
+      (testing "and the repair is recorded, so the save button can ask for it"
+        (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+               (get-in @app-db [:character-healed :rewrote]))))
+      (finally
+        (.removeItem js/localStorage "character")
+        (.removeItem js/localStorage "plugins")))))
+
+(deftest routing-to-the-builder-announces-a-heal-once
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (not (get-in @app-db [:character-healed :announced?]))
+      ":set-character records the heal without announcing it")
+  (rf/dispatch-sync [:route routes/dnd-e5-char-builder-route {:skip-path? true}])
+  (is (true? (get-in @app-db [:character-healed :announced?]))
+      "reaching the builder announces it")
+  (testing "the repair itself is untouched by announcing it"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest routing-elsewhere-does-not-announce-a-heal
+  ;; "Save the character to keep the fix" is meaningless off the builder.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (rf/dispatch-sync [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}])
+  (is (not (get-in @app-db [:character-healed :announced?]))))
