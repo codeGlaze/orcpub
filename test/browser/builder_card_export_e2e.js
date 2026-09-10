@@ -8,6 +8,7 @@
 // fallback when this link refuses.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
+const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/builder-card-export';
@@ -88,6 +89,39 @@ function check(name, pass, detail) {
   check('the file is the source, not its printed source code',
         !/^\s*\[:/.test(text) && text.includes(SRC), text.slice(0, 60));
   console.log('   file: ' + dl.suggestedFilename() + ' ' + text.length + 'B');
+
+  // --- the file has to parse back ------------------------------------------
+  //  Contents matching is not the claim that matters; re-importable is. Checked
+  //  in a CLEAN store so nothing already present can make it look successful.
+  {
+    const fresh = await browser.newContext({ acceptDownloads: true });
+    await suppressCookieBanner(fresh);
+    await fresh.addInitScript(() => { try { localStorage.setItem('whats-new-seen','"summer-patch-2026"'); } catch (e) {} });
+    const fp = await fresh.newPage();
+    await fp.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
+    await fp.waitForSelector('text=/My Content|MY CONTENT/i', { timeout: 180000 });
+    await importPack(fp, file).catch(() => {});
+    await fp.waitForTimeout(2500);
+    const back = await fp.evaluate(() => { try { return localStorage.getItem('plugins') || ''; } catch (e) { return ''; } });
+    check('the file re-imports into a clean store',
+          /Old Faithful/.test(back) && /Brand New Bolt/.test(back),
+          back ? back.slice(0, 80) : '(nothing stored)');
+    check('and the source keeps its name', back.includes(SRC),
+          (back.match(/"[^"]+" \{/g) || []).join(' '));
+    await fp.screenshot({ path: path.join(OUT, '5-reimported.png') });
+    await fresh.close();
+  }
+
+  // --- what the file does NOT carry ----------------------------------------
+  //  A per-source export drops the {"Source" {...}} wrapper the store uses, so
+  //  the source name survives only inside each item's :option-pack. When items
+  //  agree, import reconstructs it (the check above). When they disagree, the
+  //  name comes from the FILENAME instead — rename the file, rename the source.
+  //  Pinned as CURRENT BEHAVIOUR, not as desirable: if the export is ever
+  //  wrapped like the raw dump is, this check fails and should be deleted.
+  check('the file itself names its source nowhere but inside its items',
+        !text.trimStart().startsWith('{"'),
+        text.trimStart().slice(0, 40));
 
   // --- developer mode -------------------------------------------------------
   await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
