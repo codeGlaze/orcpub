@@ -19,12 +19,18 @@
    this by requiring orcpub.dnd.e5.events, which has side effects
    (reg-event-db, reg-event-fx calls at load time)."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+            [cljs.reader :as reader]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.selections :as selections5e]
+            [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.feats :as feats5e]
+            [orcpub.dnd.e5.db :as db]
+            [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]))
@@ -138,17 +144,19 @@
 
 (deftest save-character-rejects-missing-abilities
   (testing "with cached template but no ability scores → error dispatch"
-    ;; Minimal character with no abilities
-    (let [template {} ;; empty template → entity/build returns bare character
+    ;; REGRESSION GUARD that caught a REAL crash (not a stale test): an empty
+    ;; (non-nil) template reached entity/build and threw a null-fn `.call`. The
+    ;; autosave guard only skipped a NIL template; it now skips nil OR empty
+    ;; (both mean "not ready"). The handler must return the no-op {} skip, not
+    ;; throw. If this errors again, the guard regressed — fix the CODE.
+    (let [template {} ;; degenerate/not-yet-ready template
           character {:orcpub.entity/options {}}]
       (reset! app-db {::char5e/character-map {42 character}
                       ::autosave-fx/cached-template template})
-      ;; This will try to build the character and check abilities.
-      ;; With an empty template, built-character won't have :base-abilities,
-      ;; so the ability check fails → dispatches error message.
-      ;; We can't intercept the :dispatch effect, but we can verify it
-      ;; doesn't crash and the handler runs to completion.
-      (rf/dispatch-sync [::char5e/save-character "42"]))))
+      (rf/dispatch-sync [::char5e/save-character "42"])
+      ;; no crash, and nothing was sent (no :loading set) — autosave skipped
+      (is (nil? (:loading @app-db))
+          "empty template → autosave safely skips this cycle"))))
 
 ;; ---------------------------------------------------------------------------
 ;; :save-character  (reg-event-fx)
@@ -188,3 +196,559 @@
     (reset! app-db {:user {:name "test"}})
     (rf/dispatch-sync [:verify-user-session])
     (is true "Handler completed without exception")))
+
+;; ---------------------------------------------------------------------------
+;; Emergency raw export
+;; ---------------------------------------------------------------------------
+
+(def ^:private sample-plugins
+  {"Pack A" {:orcpub.dnd.e5/classes {:artificer {:option-pack "Pack A"}}}
+   "Pack B" {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"}}}})
+
+(deftest emergency-export-named-plugin
+  (testing "a known plugin-name dumps just that source under its own filename"
+    (is (= ["Pack A.orcbrew" (get sample-plugins "Pack A")]
+           (events/select-emergency-export sample-plugins "Pack A")))))
+
+(deftest emergency-export-whole-library
+  (testing "nil / unknown plugin-name dumps the entire library"
+    (is (= ["orcpub-EMERGENCY-backup.orcbrew" sample-plugins]
+           (events/select-emergency-export sample-plugins nil)))
+    (is (= ["orcpub-EMERGENCY-backup.orcbrew" sample-plugins]
+           (events/select-emergency-export sample-plugins "Nonexistent")))))
+
+(deftest emergency-export-never-validates
+  (testing "even structurally-invalid plugins are returned verbatim (no gate)"
+    (let [broken {"Bad" {:orcpub.dnd.e5/classes {:x {:no-option-pack true}}}}]
+      (is (= ["Bad.orcbrew" (get broken "Bad")]
+             (events/select-emergency-export broken "Bad")))
+      (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
+             (events/select-emergency-export broken nil))))))
+
+;; ---------------------------------------------------------------------------
+;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
+;; ---------------------------------------------------------------------------
+
+(def ^:private sample-content
+  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
+
+(deftest serialize-orcbrew-compact-roundtrips
+  (testing "compact output is readable EDN that round-trips to the same data"
+    (let [s (events/serialize-orcbrew sample-content)]
+      (is (string? s))
+      (is (= sample-content (reader/read-string s))))))
+
+(deftest serialize-orcbrew-pretty-differs-but-same-data
+  (testing "pretty-print is multi-line and larger, but the same data round-trips"
+    (let [compact (events/serialize-orcbrew sample-content)
+          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
+      (is (not= compact pretty))
+      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
+      (is (= sample-content (reader/read-string pretty))))))
+
+;; ---------------------------------------------------------------------------
+;; spec-field-problems — nested-element diagnosability
+;;
+;; Coverage is watertight (every homebrew spec rejects a name that derives an
+;; invalid keyword — proven in clj keyword-audit-test). These tests cover the
+;; OTHER half: that a NESTED failure (a bad option name inside a selection) is
+;; reported with a human LOCATION ("Option 2"), not a generic top-level "Name".
+;; ---------------------------------------------------------------------------
+
+(deftest spec-field-problems-top-level-bad-name
+  (testing "a digit-leading class name is flagged as :name :invalid, no location"
+    (let [item {:name "9 Lives Sorcerer" :key :9-lives-sorcerer :option-pack "Pack"}
+          expl (s/explain-data ::classes5e/homebrew-class item)
+          probs (events/spec-field-problems expl item)
+          name-prob (first (filter #(= :name (:field %)) probs))]
+      (is (some? name-prob))
+      (is (= :invalid (:status name-prob)))
+      (is (re-find #"start with a letter" (:reason name-prob)))
+      (is (nil? (:location name-prob)) "top-level field has no nested location"))))
+
+(deftest spec-field-problems-locates-bad-option
+  (testing "a bad name on the 2nd selection option carries :location \"Option 2\""
+    (let [item {:name "Valid Selection" :key :valid-selection :option-pack "Pack"
+                :options [{:name "Good Option"}
+                          {:name "9 Lives"}]}
+          expl (s/explain-data ::selections5e/homebrew-selection item)
+          probs (events/spec-field-problems expl item)
+          opt-prob (first (filter :location probs))]
+      (is (some? opt-prob) "a located problem should be produced")
+      (is (= "Option 2" (:location opt-prob)))
+      (is (= :name (:field opt-prob)))
+      (is (= :invalid (:status opt-prob))))))
+
+(deftest builder-error-hiccup-renders-location
+  (testing "the rendered banner names the specific option"
+    (let [problems [{:field :name :status :invalid
+                     :reason "must start with a letter" :location "Option 2"}]
+          hiccup (events/builder-error-hiccup "Selection" problems)
+          flat (pr-str hiccup)]
+      (is (re-find #"Option 2 Name" flat))
+      (is (re-find #"must start with a letter" flat)))))
+
+(deftest builder-error-hiccup-batches-top-level-missing
+  (testing "top-level missing fields still batch onto one 'Please fill in' line"
+    (let [problems [{:field :name :status :missing}
+                    {:field :option-pack :status :missing}]
+          flat (pr-str (events/builder-error-hiccup "Class" problems))]
+      (is (re-find #"Please fill in" flat))
+      (is (re-find #"Option Source Name" flat)))))
+
+;; ---------------------------------------------------------------------------
+;; ::e5/repair-quarantined-source — persist-to-library repair engine
+;;
+;; Reuses the inline-edit transform + the re-key primitive and PERSISTS:
+;; a repaired source lands in :plugins and leaves quarantine, atomically. Unlike
+;; the export auto-fix, which only rewrote the exported file.
+;; ---------------------------------------------------------------------------
+
+(def ^:private quarantined-bugged
+  ;; A class trapped under an invalid key (digit-leading name = the keyword trap).
+  {"Bugged Pack" {:orcpub.dnd.e5/classes
+                  {:9-lives {:name "9 Lives" :key :9-lives :option-pack "Bugged Pack"}}}})
+
+(deftest repair-quarantined-source-lands-and-clears
+  (testing "a fixed source is re-keyed, persisted to :plugins, and removed from quarantine"
+    (.clear js/window.localStorage)
+    (db/set-rejected-plugins quarantined-bugged)
+    (reset! app-db {:plugins {"Existing" {:orcpub.dnd.e5/spells
+                                          {:zap {:name "Zap" :key :zap :option-pack "Existing"}}}}})
+    ;; correct the name → repair re-derives the key (:9-lives → :nine-lives) and validates
+    (rf/dispatch-sync [::e5/repair-quarantined-source "Bugged Pack"
+                       {["Bugged Pack" :orcpub.dnd.e5/classes :9-lives :name] "Nine Lives"}])
+    (let [plugins (:plugins @app-db)
+          cls (get-in plugins ["Bugged Pack" :orcpub.dnd.e5/classes])]
+      (is (contains? plugins "Bugged Pack") "repaired source landed in :plugins")
+      (is (contains? plugins "Existing") "existing sources untouched")
+      (is (= [:nine-lives] (keys cls)) "item re-keyed to the corrected name")
+      (is (= "Nine Lives" (:name (cls :nine-lives))))
+      (is (s/valid? :orcpub.dnd.e5/plugin (get plugins "Bugged Pack"))
+          "the restored source is now spec-valid")
+      (is (nil? (get (db/get-rejected-plugins) "Bugged Pack"))
+          "removed from quarantine"))
+    (.clear js/window.localStorage)))
+
+(deftest repair-quarantined-source-rejects-still-invalid
+  (testing "if the fix doesn't make it valid, nothing is persisted and it stays quarantined"
+    (.clear js/window.localStorage)
+    (db/set-rejected-plugins quarantined-bugged)
+    (reset! app-db {:plugins {}})
+    ;; no edit → name stays "9 Lives" → derived key :9-lives still invalid
+    (rf/dispatch-sync [::e5/repair-quarantined-source "Bugged Pack" {}])
+    (is (empty? (:plugins @app-db)) "not persisted")
+    (is (contains? (db/get-rejected-plugins) "Bugged Pack") "still quarantined for another attempt")
+    (.clear js/window.localStorage)))
+
+(deftest repair-quarantined-source-missing-is-noop
+  (testing "repairing a name that isn't quarantined doesn't touch :plugins"
+    (.clear js/window.localStorage)
+    (db/set-rejected-plugins quarantined-bugged)
+    (reset! app-db {:plugins {}})
+    (rf/dispatch-sync [::e5/repair-quarantined-source "Nonexistent" {}])
+    (is (empty? (:plugins @app-db)))
+    (is (contains? (db/get-rejected-plugins) "Bugged Pack") "quarantine unchanged")
+    (.clear js/window.localStorage)))
+
+;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
+;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
+;; (nil instead of false)" corruption by driving the REAL toggle event handlers in
+;; the REAL cljs runtime.
+;;
+;; FINDINGS (reproduced here):
+;; 1. Leaf flag toggles are nil-clean but leave FALSE-CRUFT: toggling a skill on
+;;    then off leaves `:athletics false` (never removed) — it exports forever.
+;; 2. The "nil instead of false" is a PARENT-PATH collapse: a boolean toggle whose
+;;    path lands on a MAP applies `(not map)` = false, nuking the whole map. Then
+;;    every per-key READ under that node returns nil (`(get false :k)` = nil) and
+;;    the next child toggle does `(assoc false …)` which THROWS in cljs.
+;;
+;; STATUS: FIXED — content-prop toggles use common/toggle-flag (not bare `not`),
+;; which refuses to collapse a map; these assert the fixed behavior. The false-cruft
+;; is a SEPARATE issue (export cleanup); leaf-toggle-hammer-no-nil still documents it.
+;; Legacy data already collapsed to `false` self-heals on the next child toggle.
+
+(defn deep-nil?
+  "True if any map value or collection element anywhere in x is nil."
+  [x]
+  (cond
+    (map? x) (boolean (or (some nil? (vals x)) (some deep-nil? (vals x))))
+    (coll? x) (boolean (or (some nil? x) (some deep-nil? x)))
+    :else false))
+
+(def ^:private skill-keys
+  [:athletics :stealth :perception :arcana :insight :persuasion :survival :medicine])
+
+;; deterministic pseudo-random index sequence (no Math/random; reproducible)
+(defn- idx-seq [seed n m]
+  (loop [s seed acc []]
+    (if (= (count acc) n)
+      acc
+      (let [s' (mod (+ (* s 48271) 7) 2147483647)]
+        (recur s' (conj acc (mod s' m)))))))
+
+(deftest leaf-toggle-hammer-no-nil
+  (testing "hammering real skill-prof toggles in varied order never leaves a nil"
+    (reset! app-db {::feats5e/builder-item {:name "Stress" :props {}}})
+    (doseq [i (idx-seq 12345 600 (count skill-keys))]
+      (rf/dispatch-sync [::feats5e/toggle-feat-map-prop :skill-prof (nth skill-keys i)]))
+    (let [item (::feats5e/builder-item @app-db)]
+      (is (not (deep-nil? item)) (str "stray nil after leaf hammering: " (pr-str item)))
+      ;; false-cruft IS present and expected (the separate cleanliness issue):
+      ;; some skills are `false`, not removed.
+      (is (some false? (vals (get-in item [:props :skill-prof])))
+          "documents the false-cruft: toggled-off skills are left as false"))))
+
+(deftest parent-path-toggle-preserves-map
+  (testing "FIXED: a flag toggle whose path lands on a MAP leaves it untouched"
+    (reset! app-db {::feats5e/builder-item {:name "Probe" :props {:skill-prof {:athletics true}}}})
+    ;; toggle-feat-prop on :skill-prof now uses common/toggle-flag, which refuses
+    ;; to collapse a collection — the skill map survives instead of becoming false.
+    (rf/dispatch-sync [::feats5e/toggle-feat-prop :skill-prof])
+    (is (= {:athletics true} (get-in @app-db [::feats5e/builder-item :props :skill-prof]))
+        "the map is preserved (no collapse to false, no data loss)")))
+
+(deftest parent-path-toggle-no-nil-on-read
+  (testing "FIXED: the per-key read still returns its real value, not nil"
+    (reset! app-db {::feats5e/builder-item {:name "Probe" :props {:skill-prof {:athletics true}}}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-prop :skill-prof])
+    (is (= true (get-in @app-db [::feats5e/builder-item :props :skill-prof :athletics]))
+        "the 'nil instead of false' symptom is gone — the value is intact")))
+
+(deftest legacy-collapsed-parent-self-heals-on-toggle
+  (testing "FIXED + SELF-HEALING: legacy data already collapsed to `false` no
+            longer crashes — toggling a child heals the stray false into a fresh
+            map and applies the toggle (old skills are gone, but it's usable again)."
+    (reset! app-db {::feats5e/builder-item {:name "Probe" :props {:skill-prof false}}})
+    (let [threw? (try
+                   (rf/dispatch-sync [::feats5e/toggle-feat-map-prop :skill-prof :stealth])
+                   false
+                   (catch :default _ true))]
+      (is (not threw?) "no crash — the collapsed false was healed, not assoc'd into")
+      (is (= {:stealth true}
+             (get-in @app-db [::feats5e/builder-item :props :skill-prof]))
+          "healed to a map and the toggle took effect"))))
+
+;; ---------------------------------------------------------------------------
+;; incoming-sources — the multi-plugin wrap decision
+;; ---------------------------------------------------------------------------
+;; REGRESSION: import used to decide "multi-plugin?" by spec VALIDITY, so a
+;; multi-plugin (a MegaPak of many sub-sources) with even one imperfect sub-source
+;; was misjudged single and WRAPPED under the import name — double-nesting it into
+;; a {string {string plugin}} shape ::plugin can never load, quarantining the WHOLE
+;; pak. Detection must be STRUCTURAL (shape), with per-source validity enforced
+;; downstream by salvage-plugins. These lock that.
+
+(deftest incoming-sources-keeps-multi-plugin-flat
+  (testing "a multi-plugin stays flat (keyed by its own sub-source names), even
+            when a sub-source is imperfect — NOT wrapped under the import name"
+    (let [multi {"UA - Feats" {:orcpub.dnd.e5/feats
+                               {:brave {:option-pack "UA - Feats" :name "Brave"}}}
+                 ;; imperfect sub-source (feat missing :option-pack) must not flip
+                 ;; detection to single-plugin and trigger a wrap
+                 "UA - Bad"   {:orcpub.dnd.e5/feats
+                               {:oops {:name "Oops"}}}}]
+      (is (= multi (events/incoming-sources "MegaPak" multi))
+          "returned as-is, not wrapped under \"MegaPak\"")
+      (is (every? string? (keys (events/incoming-sources "MegaPak" multi)))
+          "top-level keys remain the sub-source names (no nesting)"))))
+
+(deftest incoming-sources-wraps-single-plugin
+  (testing "a single plugin wraps under the source its items DECLARE (:option-pack),
+            falling back to the import (filename) name only when they don't agree —
+            so a browser-numbered re-import lands in its real source, not a duplicate"
+    ;; items agree on :option-pack -> that is the source, even though the filename
+    ;; ('My Pack') differs. This is what prevents the 'Name 1' duplicate.
+    (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
+      (is (= {"P" single} (events/incoming-sources "My Pack" single))))
+    ;; no usable :option-pack on the items -> fall back to the import name
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
+
+;; ---------------------------------------------------------------------------
+;; drop-skipped-imports — REGRESSION: "Skip this one" must actually skip.
+;; The bug was that a :skip decision was a no-op, so the colliding item still
+;; imported enabled — the exact nondeterministic twin the modal promised to avoid.
+;; ---------------------------------------------------------------------------
+
+(deftest drop-skipped-imports-removes-the-skipped-external-item
+  (testing "an external conflict marked :skip is dropped from incoming; its
+            non-conflicting sibling survives"
+    (let [incoming   {"NewPack" {:orcpub.dnd.e5/spells
+                                 {:fireball  {:name "Fireball"  :option-pack "NewPack"}
+                                  :frostbite {:name "Frostbite" :option-pack "NewPack"}}}}
+          conflicts  [{:id "external-0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "NewPack"}]
+          decisions  {"external-0" {:action :skip}}
+          result     (events/drop-skipped-imports incoming conflicts decisions "NewPack")]
+      (is (nil? (get-in result ["NewPack" :orcpub.dnd.e5/spells :fireball]))
+          "the skipped item is gone")
+      (is (some? (get-in result ["NewPack" :orcpub.dnd.e5/spells :frostbite]))
+          "the sibling still imports"))))
+
+(deftest drop-skipped-imports-prunes-a-fully-skipped-source
+  (testing "skipping the only item collapses the empty content-type and source
+            so it can't import as a shell"
+    (let [incoming  {"Solo" {:orcpub.dnd.e5/spells
+                             {:fireball {:name "Fireball" :option-pack "Solo"}}}}
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "Solo"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "Solo")]
+      (is (= {} result) "nothing left to import"))))
+
+(deftest drop-skipped-imports-single-plugin-falls-back-to-import-name
+  (testing "when import-source is nil on the target (single-plugin wrap), the
+            source key falls back to import-name — matching incoming-sources"
+    (let [incoming  {"My Pack" {:orcpub.dnd.e5/spells
+                               {:fireball {:name "Fireball"}}}}
+          ;; single-plugin external conflicts still carry the import-source
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "My Pack"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "My Pack")]
+      (is (= {} result)))))
+
+(deftest drop-skipped-imports-leaves-non-skip-and-internal-alone
+  (testing "non-:skip decisions and internal conflicts (no import-source) are
+            never removed"
+    (let [incoming  {"P" {:orcpub.dnd.e5/spells {:fireball {:name "Fireball"}}}}
+          ;; keep-both decision — must not drop
+          keep-both (events/drop-skipped-imports
+                     incoming
+                     [{:id "e0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "P"}]
+                     {"e0" {:action :keep-both}} "P")
+          ;; internal conflict marked :skip — no import-source, so left as-is
+          internal  (events/drop-skipped-imports
+                     incoming
+                     [{:id "i0" :type :internal :key :fireball
+                       :content-type :orcpub.dnd.e5/spells}]
+                     {"i0" {:action :skip}} "P")]
+      (is (= incoming keep-both) "keep-both leaves the item")
+      (is (= incoming internal) "internal skip is a no-op (nothing to defer to)"))))
+
+;; ---------------------------------------------------------------------------
+;; :route — REGRESSION: an unmatched URL makes match-route return nil, so
+;; [:route nil ...] gets dispatched. The handler used to compute path-for on the
+;; nil route and throw an ex-info; it must now no-op and leave the route intact.
+;; ---------------------------------------------------------------------------
+
+(deftest route-nil-is-a-no-op-not-a-crash
+  (testing "[:route nil ...] preserves the current route and throws nothing"
+    (reset! app-db {:route :some-existing-route})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= :some-existing-route (:route @app-db))
+        "current route kept — no clobber, no exception at path-for")))
+
+;; ---------------------------------------------------------------------------
+;; Single-source re-import must use the CONTENT's source, not the filename.
+;; A single-source export writes BARE content (no embedded source name); the
+;; browser numbers repeat downloads ("Name (1).orcbrew"); import derives the
+;; source from the filename -> a duplicate "Name 1" bucket. The items still
+;; carry the true source in :option-pack, so we should recover it from there.
+;; ---------------------------------------------------------------------------
+
+(deftest single-source-reimport-uses-content-source-not-filename
+  (testing "a filename-numbered re-import of a single-source export must NOT spawn a duplicate bucket"
+    (let [source "Default Option Source"
+          spell  {:name "Fireball" :key :fireball :level 3 :school "evocation" :option-pack source}
+          ;; what export-plugin writes to .orcbrew: BARE single-plugin, no source wrapper
+          exported-single {:orcpub.dnd.e5/spells {:fireball spell}}
+          ;; the library we're importing back into
+          existing {source {:orcpub.dnd.e5/spells {:fireball spell}}}
+          ;; browser saved the 2nd download as "Default Option Source 1.orcbrew"
+          filename-name "Default Option Source 1"
+          incoming (events/incoming-sources filename-name exported-single)
+          merged   (e5/merge-all-plugins existing incoming)]
+      (is (= [source] (vec (keys merged)))
+          (str "expected ONE bucket; got " (pr-str (vec (keys merged)))
+               " — filename-numbered re-import spawned a duplicate source")))))
+
+(deftest strip-dedup-suffix-cases
+  (testing "trailing OS/browser dedup markers are stripped; real names survive"
+    (is (= "Pack" (events/strip-dedup-suffix "Pack (1)")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack 2")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack - Copy")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack copy 3")))
+    ;; a real name ending in a number with NO space before it survives
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2")))
+    ;; strips only the dedup marker, keeps the meaningful "v2"
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2 (1)")))
+    (is (= "My Cool Pack" (events/strip-dedup-suffix "My Cool Pack")))
+    (is (= "2" (events/strip-dedup-suffix "2")))))
+
+(deftest incoming-sources-strips-dedup-suffix-in-fallback
+  (testing "a numbered single-source file with NO :option-pack lands in the base
+            source (dedup suffix stripped), not a numbered duplicate"
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]   ; no :option-pack
+      (is (= {"Default Option Source" single}
+             (events/incoming-sources "Default Option Source (1)" single))))))
+
+(deftest source-name-mismatch-cases
+  (testing "prompt only on a meaningful filename-vs-content-source disagreement"
+    (let [data {:orcpub.dnd.e5/feats {:brave {:option-pack "Bob's Homebrew" :name "Brave"}}}]
+      ;; meaningful mismatch -> prompt payload
+      (is (= {:filename-name "Cool Stuff" :content-name "Bob's Homebrew"}
+             (events/source-name-mismatch "Cool Stuff" data)))
+      ;; filename equals content source (case/space-insensitive) -> no prompt
+      (is (nil? (events/source-name-mismatch "  bob's homebrew " data)))
+      ;; filename is only a browser dedup variant -> no prompt
+      (is (nil? (events/source-name-mismatch "Bob's Homebrew (1)" data)))
+      ;; generic / intentless filenames -> no prompt
+      (is (nil? (events/source-name-mismatch "orcbrew" data)))
+      (is (nil? (events/source-name-mismatch "download" data)))
+      (is (nil? (events/source-name-mismatch "42" data))))
+    ;; content declares no source -> nothing to disagree with -> no prompt
+    (let [data {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (nil? (events/source-name-mismatch "Whatever" data))))))
+
+;; ---------------------------------------------------------------------------
+;; Starting-equipment setter (class builder)
+;; ---------------------------------------------------------------------------
+
+(deftest set-equipment-writes-and-cleans-keys
+  (testing "fixed-grant map is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {:javelin 4}])
+    (is (= {:javelin 4} (get-in @app-db [::classes5e/builder-item :weapons]))))
+  (testing "choice vector is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapon-choices
+                       [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]])
+    (is (= [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]
+           (get-in @app-db [::classes5e/builder-item :weapon-choices]))))
+  (testing "an empty value drops the key entirely (no blank export)"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq :weapons {:javelin 4}}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
+    (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
+        ":weapons removed when emptied")))
+
+;; ── Save-time key collision ──────────────────────────────────────────────────
+;; `save-collision` is a pure function over the plugins map, so it is tested
+;; directly rather than by dispatching a save.
+
+(def ^:private ct :orcpub.dnd.e5/classes)
+
+(def ^:private plugins-fixture
+  {"My Stuff"  {ct {:artificer {:key :artificer :name "Artificer"}}}
+   "Someone's" {ct {:druid {:key :druid :name "Druid"}}}})
+
+(deftest save-collision-allows-saving-over-yourself
+  (testing "an edit returning to its own slot is not a collision"
+    ;; The occupant IS this item, which is what an ordinary edit looks like.
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                     {:key :artificer :name "Artificer"})))))
+
+(deftest save-collision-blocks-replacing-a-different-item
+  (testing "landing on a key held by something else in the same source"
+    ;; Renaming "Artie" to "Artificer" would silently discard the real one.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:key :artie :name "Artificer"})]
+      (is (= :overwrite (:kind c)))
+      (is (= "Artificer" (:name c)))
+      (is (= "My Stuff" (:source c)))))
+
+  (testing "a NEW item, with no key of its own, onto an occupied key"
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:name "Artificer"})]
+      (is (= :overwrite (:kind c))))))
+
+(deftest save-collision-reports-another-source
+  (testing "the same key in a different source is reported as :cross"
+    ;; Both kinds stop the save. They are distinguished so the message can say what
+    ;; is at stake -- losing an entry, versus creating a pair where only one can be
+    ;; switched on -- not because one of them is allowed through.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :druid
+                                   {:name "Druid"})]
+      (is (= :cross (:kind c)))
+      (is (= "Someone's" (:source c))))))
+
+(deftest save-collision-is-silent-on-a-free-key
+  (testing "nothing there, in any source"
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :ranger
+                                     {:name "Ranger"})))))
+
+;; ── Renaming moves the entry, it does not copy it ────────────────────────────
+
+(deftest save-into-plugins-moves-a-renamed-item
+  (testing "the entry under the old key is gone"
+    ;; assoc-in alone left it behind: one item became two, the stale copy holding
+    ;; the previous data and still answering to the key characters had stored.
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer" :former-key :artificer-2}
+                  :artificer-2)
+          group (get-in result ["Pak" ct])]
+      (is (= [:artificer] (keys group)))
+      (is (= :artificer-2 (:former-key (:artificer group))))))
+
+  (testing "an ordinary save writes in place and removes nothing"
+    (let [plugins {"Pak" {ct {:artificer {:key :artificer :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer Revised"} nil)]
+      (is (= [:artificer] (keys (get-in result ["Pak" ct]))))
+      (is (= "Artificer Revised" (get-in result ["Pak" ct :artificer :name])))))
+
+  (testing "a sibling in the same source is untouched"
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}
+                              :druid {:key :druid :name "Druid"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer"} :artificer-2)]
+      (is (= #{:artificer :druid} (set (keys (get-in result ["Pak" ct]))))))))
+
+;; ---------------------------------------------------------------------------
+;; :set-character reports what it healed
+;;
+;; The reconcilers always returned a :rewrote list and set-character always threw
+;; it away, so an automatic repair was invisible -- and because the repair lives
+;; in memory until the character is saved, invisible meant routinely lost.
+;; ---------------------------------------------------------------------------
+
+(def ^:private renamed-plugins
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"}}}})
+
+(deftest set-character-flags-a-repair-so-the-save-button-can-ask-for-it
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (testing "the stored key is repaired"
+    (is (= :half-elf-ua
+           (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
+  (testing "and the repair is recorded rather than discarded"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest set-character-stays-quiet-when-nothing-needed-fixing
+  ;; A clean load must not glint the save button, or the cue means nothing.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-ua}}}])
+  (is (nil? (:character-healed @app-db))))
+
+(deftest the-heal-flag-clears-itself-once-the-character-is-saved
+  ;; What makes this self-resetting rather than a banner someone has to dismiss:
+  ;; saving re-dispatches :set-character over the SAVED character, whose keys are
+  ;; now current, so the reconcilers find nothing and the flag drops on its own.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (some? (:character-healed @app-db)) "flagged on the broken load")
+  (let [healed (:character @app-db)]
+    ;; stands in for the post-save re-dispatch in ::char5e/save-character
+    (rf/dispatch-sync [:set-character healed])
+    (is (nil? (:character-healed @app-db))
+        "second pass over the repaired character clears the prompt")))
+
+(deftest healed-message-counts-what-moved
+  (is (= (events/healed-message [{:from :a :to :b}])
+         "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
+  (is (re-find #"^Reconnected 2 references"
+               (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))

@@ -1,5 +1,7 @@
 (ns orcpub.character-builder
   (:require [goog.dom :as gdom]
+            [orcpub.image-capture :as image-capture]
+            [orcpub.image-url :as image-url]
             [goog.string :as gs]
             [goog.labs.userAgent.device :as device]
             [cljs.pprint :as pprint]
@@ -162,16 +164,39 @@
           (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
       (::t/prereqs option)))))
 
+;; ---------------------------------------------------------------------------
+;; DO NOT wrap the handler factories below in cljs.core/memoize.
+;;
+;; memoize stores its cache in a PersistentArrayMap and looks it up with `get`,
+;; which LINEAR-SCANS comparing argument lists with `=`. Any argument holding a
+;; large structure therefore gets deep-compared on every single call -- and that
+;; comparison walks lazy seqs, realising them.
+;;
+;; set-class, delete-class and add-class all took options-map (every class in the
+;; library). Each lookup deep-compared ~141 class options and forced their lazy
+;; 20-level :options seqs: 2820 level-option calls, ~1 s blocked, 46 MB, in ONE
+;; synchronous render. Fixing one of the three changed nothing; all three had to go.
+;;
+;; Measured: Class-tab switch 1125 ms -> 100 ms (dev), 654 ms -> 92 ms (prod).
+;; The cached values are three-line closures.
+;;
+;; If a handler factory is ever hot enough to need caching, key it on something
+;; small (an index, a keyword) -- never on options, a character, a template or a
+;; content map.
+;; ---------------------------------------------------------------------------
+
 (defn set-class-fn [i options-map]
   (fn [e] (let [new-key (keyword (.. e -target -value))]
             (dispatch [:set-class new-key i options-map]))))
 
-(def set-class (memoize set-class-fn))
+;; DO NOT MEMOIZE. See the block comment above set-class-fn.
+(def set-class set-class-fn)
 
-(def make-options-map
-  (memoize
-   (fn [options]
-     (zipmap (map ::t/key options) options))))
+(defn make-options-map
+  "DO NOT MEMOIZE -- the key would be the options seq. See set-class-fn. The work is a
+   zipmap over ~141 items; the cache lookup would cost far more."
+  [options]
+  (zipmap (map ::t/key options) options))
 
 (defn set-class-level-fn [i]
   (fn [e]
@@ -184,22 +209,31 @@
 (defn delete-class-fn [key i options-map]
   (fn [_] (dispatch [:delete-class key i options-map])))
 
-(def delete-class (memoize delete-class-fn))
+;; DO NOT MEMOIZE -- keyed on options-map, every class in the library. See set-class-fn.
+(def delete-class delete-class-fn)
 
 (defn filter-classes-fn [key unselected-classes-set]
   #(or (= key (::t/key %))
        (unselected-classes-set (::t/key %))))
 
-(def filter-classes (memoize filter-classes-fn))
+;; DO NOT MEMOIZE -- caches a one-line predicate behind a deep-comparing lookup.
+;; See set-class-fn.
+(def filter-classes filter-classes-fn)
 
 (def levels-selection #(when (= :levels (::t/key %)) %))
+
+(defn class-option-display-name [name plugin-source show-suffix?]
+  (if (and show-suffix? plugin-source)
+    (str name " (" plugin-source ")")
+    name))
 
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
     (fn [i key selected-class options unselected-classes-set built-char]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
-            path [:class-levels key]]
+            path [:class-levels key]
+            show-suffix? @(subscribe [::subs5e/show-class-source-suffix])]
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
@@ -208,13 +242,14 @@
             :on-change (set-class i options-map)}
            (doall
             (map
-             (fn [{:keys [::t/key ::t/name] :as option}]
+             (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
                (let [failed-prereqs (when (pos? i) (prereq-failures option built-char))]
                  ^{:key key}
                  [:option.builder-dropdown-item
                   {:value key
                    :disabled (seq failed-prereqs)}
-                  (str name (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
+                  (str (class-option-display-name name plugin-source show-suffix?)
+                       (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
              (sort-by
               ::t/name
               (filter
@@ -240,7 +275,7 @@
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (when @expanded?
-           [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
+           [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
 (def select-template-key #(select-keys % [::t/key]))
 
@@ -251,7 +286,7 @@
                     s))
                 (::t/selections option))]
     (assoc
-     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options])
+     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options ::t/plugin-source])
      ::t/selections
      [{::t/key (::t/key levels)
        ::t/options (map select-template-key (::t/options levels))}])))
@@ -264,12 +299,14 @@
     (let [first-unselected (::t/key (first remaining-classes))]
       (dispatch [:add-class first-unselected]))))
 
-(def add-class (memoize add-class-fn))
+;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
+(def add-class add-class-fn)
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
         built-char @(subscribe [:built-character])
         selected-classes @(subscribe [::char5e/levels])
+        show-suffix? @(subscribe [::subs5e/show-class-source-suffix])
         unselected-classes (remove
                             (set (keys selected-classes))
                             (map ::t/key options))
@@ -281,6 +318,9 @@
                               (entity/meets-prereqs? option built-char)))
                            options)]
     [:div
+     [:div.m-b-5
+      {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
+      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed
@@ -355,18 +395,252 @@
    :key (or key id)})
 
 ;;; selection creator for character builder
+#_ ;; DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets the top layer,
+   ;; light dismiss, Escape and focus management from popover="auto" instead of the z-index
+   ;; 40/41, backdrop div and keydown listener below. It has no behaviour the combobox lacks,
+   ;; and its full-width mobile overlay was the thing that made it wrong. Unreferenced.
+   ;; Remove once the combobox has shipped without complaint.
+(defn inventory-picker
+  "Compact 'Add item' control: a button that opens a small search overlay, shows a short
+   list of matches, and closes on pick.
+
+   Replaces both the native <select> (unsearchable; 1037 <option> elements across the tab)
+   and the inline option-menu grid (searchable but rendered ~700 checkboxes inline, which
+   blows the page out and is miserable on a phone). Nothing renders until it is opened, and
+   only one popover is open at a time, so the tab costs seven buttons at rest.
+
+   Open state is a local r/atom, not app-db: it is transient UI state that nothing else
+   reads, and keeping it local avoids a re-frame round trip per keystroke."
+  []
+  (let [open? (r/atom false)
+        query (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items   (common/aloof-sort-by
+                     :name
+                     (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                     (map name-and-key))
+                               options))
+            q       (s/lower-case (s/trim @query))
+            matches (if (s/blank? q)
+                      items
+                      (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            ;; Only ever build a screenful. Search is the way to reach the rest.
+            shown   (take 12 matches)
+            close!  (fn [] (reset! open? false) (reset! query ""))]
+        [:div.inv-picker
+         [:button.inv-picker-btn
+          {:on-click #(swap! open? not)}
+          [:i.fa.fa-plus.m-r-5]
+          (str "Add" (when (seq items) (str " (" (count items) ")")))]
+         (when @open?
+           [:div
+            ;; backdrop closes on any outside click without a document-level listener
+            [:div.inv-picker-backdrop {:on-click close!}]
+            [:div.inv-picker-pop
+             [:input.inv-picker-search
+              {:auto-focus true
+               :value @query
+               :placeholder "Search…"
+               :on-change #(reset! query (.. % -target -value))
+               :on-key-down #(when (= 27 (.-keyCode %)) (close!))}]
+             (if (empty? matches)
+               [:div.inv-picker-empty (str "Nothing matches “" @query "”")]
+               [:div.inv-picker-list
+                (doall
+                 (for [{item-key :key item-name :name} shown]
+                   ^{:key item-key}
+                   [:div.inv-picker-row
+                    {:on-click (fn []
+                                 (dispatch [:add-inventory-item key item-key])
+                                 (close!))}
+                    item-name]))])
+             (when (> (count matches) (count shown))
+               [:div.inv-picker-more
+                (str (count matches) " matches — keep typing to narrow")])]])]))))
+
+(defn inventory-datalist
+  "Native filtering dropdown: a text input whose suggestions come from a <datalist>.
+
+   The browser renders and filters the list itself, so <option> elements here are a DATA
+   SOURCE -- never laid out or painted -- which is why 306 of them cost roughly what the
+   native <select> cost. No overlay, no backdrop, no z-index, no custom list rendering.
+
+   The input is themed; the DROPDOWN is drawn by the browser and is not styleable. That is
+   the whole trade against inventory-picker below."
+  []
+  (let [value (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items    (common/aloof-sort-by
+                      :name
+                      (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                      (map name-and-key))
+                                options))
+            by-name  (into {} (map (juxt :name :key)) items)
+            list-id  (str "inv-list-" (clojure.core/name key))]
+        [:div.inv-datalist
+         [:input.inv-datalist-input
+          {:list list-id
+           :value @value
+           :placeholder (str "Add an item… (" (count items) ")")
+           :on-change (fn [e]
+                        (let [v (.. e -target -value)]
+                          ;; A pick from the list arrives as a complete, exact name; typing
+                          ;; arrives partial. Only dispatch on an exact hit, then clear.
+                          (if-let [item-key (by-name v)]
+                            (do (dispatch [:add-inventory-item key item-key])
+                                (reset! value ""))
+                            (reset! value v))))}]
+         [:datalist {:id list-id}
+          (doall
+           (for [{item-name :name item-key :key} items]
+             ^{:key item-key}
+             [:option {:value item-name}]))]]))))
+
+(defn- show-popover! [id]
+  ;; showPopover throws if it is already open, and the attribute is unsupported on old
+  ;; engines -- both are non-fatal, so the control degrades to a plain filtered list.
+  (when-let [el (.getElementById js/document id)]
+    (try (when-not (.matches el ":popover-open") (.showPopover el))
+         (catch :default _ nil))))
+
+(defn- hide-popover! [id]
+  (when-let [el (.getElementById js/document id)]
+    (try (when (.matches el ":popover-open") (.hidePopover el))
+         (catch :default _ nil))))
+
+(defn highlight-match
+  "Bold the part of the name the query matched. Standard combobox affordance: it shows WHY a
+   row is in the list, which matters when a substring match lands mid-word.
+
+   `q` must already be lower-cased -- the caller lower-cases once per render rather than once
+   per row. Plain substring search, not a regex, so `+1` and `(` are literals. Returns the
+   name unchanged when there is no match, so callers can render the result directly."
+  [item-name q]
+  (let [nm (str item-name)
+        i  (when-not (s/blank? q) (s/index-of (s/lower-case nm) q))]
+    (if-not i
+      item-name
+      (let [end (+ i (count q))]
+        [:span
+         (subs nm 0 i)
+         [:span.inv-combo-hit (subs nm i end)]
+         (subs nm end)]))))
+
+(defn- scroll-active-into-view! [pop-id]
+  ;; Runs after the re-render that moved the highlight, hence the rAF.
+  (js/requestAnimationFrame
+   (fn []
+     (some-> (.getElementById js/document pop-id)
+             (.querySelector ".inv-combo-row.active")
+             (.scrollIntoView #js {:block "nearest"})))))
+
+(defn inventory-combobox
+  "Filter-and-pick dropdown built on the native Popover API.
+
+   The list lives in a `popover=\"auto\"` element, so the browser gives us the top layer
+   (no z-index), light dismiss (no backdrop element) and Escape handling for free -- all of
+   which the earlier hand-rolled popover implemented by hand, worse. CSS anchor positioning
+   pins it under its input; where that is unsupported the popover still opens, just centred.
+
+   Every match renders, so the list can be BROWSED by scrolling or with the arrow keys, not
+   only searched. An earlier version capped it at 12 rows with a `keep typing` footer, which
+   left 294 of 306 magic weapons unreachable unless you already knew the name. Opening the
+   306-item section measured 0 ms at 4x CPU throttle, so the cap bought nothing.
+
+   Rows mount only while the popover is open. A closed popover still keeps its children in
+   the DOM, so rendering them all the time cost 2578 nodes -- the whole advantage over a
+   native select. Open state is set directly by the handlers that open and close it, and a
+   `beforetoggle` listener catches the two closes the browser performs on its own, light
+   dismiss and Escape."
+  []
+  (let [query     (r/atom "")
+        active    (r/atom -1)
+        open?     (r/atom false)
+        on-toggle (fn [e] (reset! open? (= "open" (.-newState e))))
+        el*       (atom nil)
+        ;; Defined once per instance, not per render: a fresh closure each render would make
+        ;; React tear down and re-attach, adding a listener every time.
+        ref-fn    (fn [el]
+                    (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
+                    (reset! el* el)
+                    (when el (.addEventListener el "beforetoggle" on-toggle)))]
+    (fn [key options selected-keys]
+      (let [items    (vec (common/aloof-sort-by
+                           :name
+                           (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                           (map name-and-key))
+                                     options)))
+            kname    (clojure.core/name key)
+            pop-id   (str "inv-pop-" kname)
+            anchor   (str "--inv-anchor-" kname)
+            q        (s/lower-case (s/trim @query))
+            matches  (if (s/blank? q)
+                       items
+                       (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            n        (count matches)
+            pick!    (fn [item-key]
+                       (dispatch [:add-inventory-item key item-key])
+                       (reset! query "")
+                       (reset! active -1)
+                       (reset! open? false)
+                       (hide-popover! pop-id))
+            open!    (fn [] (reset! open? true) (show-popover! pop-id))
+            move!    (fn [e delta]
+                       (.preventDefault e)
+                       (open!)
+                       (swap! active #(-> (+ % delta) (max 0) (min (dec n))))
+                       (scroll-active-into-view! pop-id))]
+        [:div.inv-combo
+         [:input.inv-combo-input
+          {:style {:anchor-name anchor}
+           :value @query
+           :placeholder (str "Filter or browse… (" (count items) ")")
+           ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
+           ;; that same pointer sequence as an outside click and shuts the popover again.
+           ;; Measured -- opening on focus left popoverOpen=0 after a click.
+           :on-click #(open!)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move! e 1)
+                            "ArrowUp"   (move! e -1)
+                            "Enter"     (when-let [it (nth matches @active nil)]
+                                          (.preventDefault e)
+                                          (pick! (:key it)))
+                            nil))
+           :on-change (fn [e]
+                        (reset! query (.. e -target -value))
+                        ;; The old highlight points into the old result list.
+                        (reset! active -1)
+                        (open!))}]
+         [:div.inv-combo-pop
+          {:id pop-id
+           :popover "auto"
+           :ref ref-fn
+           :style {:position-anchor anchor}}
+          (cond
+            (not @open?) nil
+            (zero? n)    [:div.inv-combo-empty (str "Nothing matches \u201c" @query "\u201d")]
+            :else
+            [:div.inv-combo-list
+             (doall
+              (map-indexed
+               (fn [i {item-name :name item-key :key}]
+                 ^{:key item-key}
+                 [:div.inv-combo-row
+                  {:class (when (= i @active) "active")
+                   :on-click #(pick! item-key)}
+                  (highlight-match item-name q)])
+               matches))])
+          (when (pos? n)
+            [:div.inv-combo-hint
+             [:span (str n (if (= 1 n) " item" " items"))]
+             [:span.inv-combo-keys "\u2191\u2193 browse \u00b7 \u21b5 add \u00b7 esc close"]])]]))))
+
 (defn inventory-adder [key options selected-keys]
-  [comps/selection-adder
-   (common/aloof-sort-by
-    :name
-    (sequence
-     (comp
-      (remove
-       (inventory-option-selected? selected-keys))
-      (map
-       name-and-key))
-     options))
-   (add-inventory-item key)])
+  ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
+  ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
+  ;; inventory-picker above is deprecated, not an alternative.
+  [inventory-combobox key options selected-keys])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))
@@ -506,7 +780,7 @@
           (when help
             [show-info-button expanded?])]
          (when (and help @expanded?)
-           [help-section help])
+           [help-section (views-aux/realize-help help)])
          (when (and content selected?)
            content)
          (when explanation-text
@@ -556,10 +830,19 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
+                                   ;; Stays a THUNK all the way to the expanded? gate. This
+                                   ;; wrapper is rebuilt on every render of every visible
+                                   ;; option card, so forcing here would pay for a peek
+                                   ;; nobody opened once per card per render - worse than
+                                   ;; building it once at template time, which is what the
+                                   ;; deferral was meant to avoid. option-selector-base
+                                   ;; forces it only inside (when @expanded? ...).
                                    (when (or help has-named-mods?)
-                                        [:div
-                                         (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class (when has-named-mods? "m-t-5")} help]])
+                                     (fn []
+                                       [:div
+                                        (when has-named-mods? [:div.i modifiers-str])
+                                        [:div {:class (when has-named-mods? "m-t-5")}
+                                         (views-aux/realize-help help)]]))
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -1768,16 +2051,201 @@
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
 
-(defn image-error-fn [event-key image-url]
-  (dispatch [event-key image-url]))
+(defn image-error-fn
+  "Returns the on-error handler.
+
+   It has to RETURN one rather than dispatch when called: this runs at render
+   time, so a bare dispatch marked every fresh URL failed before the browser had
+   tried it. The builder flashed a load failure at pictures that were
+   perfectly fine, and only the subsequent load took the mark back."
+  [event-key image-url]
+  (fn [_] (dispatch [event-key image-url])))
 
 (def image-error (memoize image-error-fn))
 
-(defn image-loaded []
-  (dispatch [:loaded-image]))
+(defn image-load-fn
+  "Clears the failed flag and asks for the picture's bytes.
 
-(defn faction-image-loaded []
-  (dispatch [:loaded-faction-image]))
+   The flag is NOT read here. Capturing it would build a handler that can never
+   take the mark back, since at build time it is still clear. The event itself is
+   a no-op when there is nothing to clear.
+
+   The read starts from the load, not from the export click: the export submits a
+   form into a new tab synchronously, and an await in between spends the user
+   activation that keeps the tab from being blocked. It also must not start any
+   earlier -- a read asks for the same URL with crossOrigin set, and on a host
+   that allows no read that request failing ahead of this one takes the thumbnail
+   down with it."
+  [event-key url]
+  (fn []
+    (dispatch [event-key])
+    (dispatch [::char5e/capture-image url])))
+
+(def image-load (memoize image-load-fn))
+
+(defn image-paste-fn
+  "Takes a picture pasted into the field and reads it locally.
+
+   This is the route out for a host that allows nobody to read its pictures: the
+   clipboard carries the DECODED image, put there by the browser's own \"Copy
+   image\", so nothing about the host's rules applies to it. Two clicks, and no
+   download-and-upload round trip.
+
+   Keyed by the URL on the character, so the paste stands in for exactly the
+   picture that could not be read."
+  [url]
+  (fn [e]
+    (let [files (some-> e .-clipboardData .-files)]
+      (when (and files (pos? (.-length files)))
+        (when-let [file (aget files 0)]
+          (.preventDefault e)
+          (image-capture/capture-file
+           file
+           #(dispatch [::char5e/image-captured url %])))))))
+
+(def image-paste (memoize image-paste-fn))
+
+(def ^:private image-failure-notes
+  "One short sentence per reason the server gave. This is the whole message: a
+   picture that cannot be had is one problem however it failed."
+  {:blocked-address "That address can't be fetched."
+   :not-found       "The host has nothing at that address."
+   :redirect        "That link redirects instead of being the picture."
+   :not-an-image    "That isn't a PNG or JPEG."
+   :unreachable     "That host couldn't be reached."
+   :refused         "The host won't serve it to us."
+   :too-large       "That picture is over 2 MB."
+   :too-many-pixels "That picture is over 2000x2000."
+   :timeout         "The host took too long to answer."
+   :host-error      "The host had an error of its own."
+   :rate-limited    "The host is asking us to slow down -- try again shortly."
+   :unknown         "That picture couldn't be fetched."})
+
+(defn image-field-notice
+  "The one thing worth saying about this picture, and at most one thing to do
+   about it.
+
+   ONLY ONE of these ever shows, ordered by how far it gets someone:
+
+     1. a correction we can make mechanically, offered beside the fault
+     2. what the address itself gives away, which needs no request
+     3. what the server found when it tried
+     4. that it simply did not load
+
+   The other ways in wait behind the disclosure. Advice is held back until typing
+   stops -- the field commits on every keystroke, so it would otherwise object to
+   `htt` on the way to `https://` -- while a load failure is not, being already an
+   answer about the address as typed."
+  [_url _failed? _state _reach _set-fn]
+  (let [settled (r/atom nil)
+        timer (atom nil)
+        seen (atom ::unseen)
+        open? (r/atom false)
+        note (r/atom nil)
+        ;; The http -> https upgrade, checked in the browser before it is made.
+        https-tried (atom nil)
+        https-state (r/atom nil)
+        upgraded-to (r/atom nil)]
+    (fn [url failed? state reach set-fn]
+      (when (not= url @seen)
+        (reset! seen url)
+        (reset! open? false)
+        ;; Drop the old advice the moment the address changes. Left up for the
+        ;; debounce it is not merely stale: its correction is clickable, and it
+        ;; corrects the PREVIOUS address.
+        (reset! settled nil)
+        (when-not (= url @upgraded-to)
+          (reset! https-state nil)
+          (reset! upgraded-to nil))
+        (some-> @timer js/clearTimeout)
+        (reset! timer (js/setTimeout #(reset! settled url) 900)))
+      (let [{:keys [level message fix]} (image-url/advise @settled)
+            unreachable (when (= :unavailable state) (get image-failure-notes reach))
+            ;; The branch is named here and read below. Re-deriving it from the
+            ;; text it produced tests a variable that has since been rebound.
+            upgrade-note (when (and @upgraded-to (= url @upgraded-to))
+                           (str "Changed http to https -- this page can only "
+                                "display pictures over https."))
+            [mode shown-level shown-text]
+            (cond
+              upgrade-note [:upgraded :note upgrade-note]
+              ;; Known not to be served over https, so there is nothing to offer.
+              (and message (= :no @https-state))
+              [:no-https :error
+               (str "This page can only display pictures over https, and this "
+                    "host does not seem to offer it.")]
+              message     [:advice level message]
+              unreachable [:unreachable
+                           (if (= :rate-limited reach) :warning :error)
+                           unreachable]
+              failed?     [:failed :error "That picture didn't load."]
+              :else       [nil nil nil])]
+        ;; An http picture cannot be displayed by this page at all -- the CSP allows
+        ;; images over https only -- so it is broken rather than suspect. The https
+        ;; address is checked with a plain <img> load (no server, and the request
+        ;; the thumbnail was about to make) and swapped in only once it loads: an
+        ;; unverified rewrite that fails leaves someone debugging an address they
+        ;; never typed.
+        (when (and fix
+                   (string? @settled)
+                   (s/starts-with? @settled "http://")
+                   (not= @https-tried @settled))
+          (reset! https-tried @settled)
+          (reset! https-state :checking)
+          (image-capture/displays?
+           fix
+           (fn [ok?]
+             (if ok?
+               (do (reset! upgraded-to fix)
+                   (reset! https-state :ok)
+                   (set-fn fix))
+               (reset! https-state :no)))))
+        (cond
+          (= :pending state)
+          [:div.f-s-12.m-t-5 "Reading image..."]
+
+          mode
+          [:div
+           [:div {:class (str "field-notice " (case shown-level
+                                                :error "is-error"
+                                                :warning "is-warning"
+                                                "is-note"))}
+            [:span.field-notice-what shown-text]
+            (cond
+              ;; While the https one is being tried there is nothing to offer yet,
+              ;; and once it is tried the answer is applied or explained.
+              (and (= :advice mode) fix (nil? @https-state))
+              [:button.field-notice-action {:on-click #(set-fn fix)} (str "Use " fix)]
+
+              (= :unreachable mode)
+              [:button.field-notice-action {:on-click #(swap! open? not)}
+               (if @open? "Hide the other ways" "Supply it yourself")]
+
+              :else nil)]
+           (when (and (= :unreachable mode) @open?)
+             [:div.field-remedy
+              [:span "Right-click the picture, choose Copy image, then:"]
+              [:button.form-button.p-5
+               {:on-click
+                (fn [_]
+                  (reset! note "Reading the copied image...")
+                  (image-capture/capture-clipboard
+                   (fn [payload]
+                     (reset! note (when-not payload
+                                    "No picture on the clipboard. Copy one first."))
+                     (dispatch [::char5e/image-captured url payload]))))}
+               "Use copied image"]
+              [:span "or choose a file:"]
+              [:input {:type "file"
+                       :accept "image/png,image/jpeg"
+                       :on-change (fn [e]
+                                    (when-let [file (some-> e .-target .-files (aget 0))]
+                                      (image-capture/capture-file
+                                       file
+                                       #(dispatch [::char5e/image-captured url %]))))}]
+              (when @note [:span @note])])]
+
+          :else nil)))))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -1785,7 +2253,9 @@
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
-        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])]
+        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -1843,12 +2313,13 @@
       (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (when image-url-failed image-loaded)}])
+                      :on-load (image-load :loaded-image image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       [image-field-notice image-url image-url-failed
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -1856,13 +2327,14 @@
       (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (when faction-image-url-failed
-                                 faction-image-loaded)}])
+                      :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       (when faction-image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       [image-field-notice faction-image-url faction-image-url-failed
+        (get image-bytes faction-image-url) (get server-reach faction-image-url)
+        set-faction-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))
@@ -1890,6 +2362,7 @@
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
@@ -1905,6 +2378,7 @@
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
+       ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))
 
 (defn builder-columns []
@@ -1973,11 +2447,25 @@
                      [:div.f-s-12.m-t-5.main-text-color
                       [:span "Likely from source: "]
                       [:span.i inferred-source]])
+                   ;; The suggestions were already computed and shown as prose,
+                   ;; which told someone what would fix this and gave them no way
+                   ;; to do it. They are the choice now: picking one rebinds the
+                   ;; character's stored key to that content.
+                   ;;
+                   ;; This is the end of the resolution ladder. The automatic
+                   ;; rungs rebind only when the answer is unambiguous and decline
+                   ;; otherwise; declining is only honest if there is somewhere to
+                   ;; ask, and this is it.
                    (when (seq suggestions)
                      [:div.m-t-5
-                      [:span.f-s-12.main-text-color "Similar available: "]
-                      [:span.f-s-12.main-text-color
-                       (s/join ", " (map #(or (:name %) (str ":" (name (:key %)))) suggestions))]])])
+                      [:div.f-s-12.main-text-color.m-b-5 "Use instead:"]
+                      [:div.chip-row
+                       (for [{s-key :key s-name :name} suggestions]
+                         ^{:key (str s-key)}
+                         [:button.form-button.f-s-12
+                          {:title (str "Point this character at :" (name s-key))
+                           :on-click #(dispatch [::char5e/relink-content key s-key])}
+                          (or s-name (str ":" (name s-key)))])]])])
                 (:items report))]])])))))
 
 #_(defn al-legality []
@@ -2149,6 +2637,10 @@
                   "Save New Character")
          :icon "save"
          :style (when character-changed? unsaved-button-style)
+         ;; A reconciler repaired a stored key on load. That repair only exists in
+         ;; memory, so the button keeps glinting until the character is saved --
+         ;; a toast alone is gone in eight seconds and takes the fix with it.
+         :class-name (when @(subscribe [:character-healed]) "save-healed")
          :on-click #(save-character built-char)}
         (when (:db/id character)
           {:title "View"

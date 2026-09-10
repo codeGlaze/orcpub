@@ -7,6 +7,7 @@
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -111,8 +112,19 @@
         query-string js/window.location.search
         query-map (query-map query-string)]
     [:div
-     [view (assoc route-params :query query-map)]
-     [conflict-views/import-log-overlay]]))
+     ;; App-root error boundary (goal #1: never black-screen). Any throw in any
+     ;; page is caught here as a last resort; finer boundaries below catch closer
+     ;; and give better messages first. Keyed by route so navigating clears it.
+     ^{:key handler}
+     [views/error-boundary
+      (fn [error stack retry] [views/app-error-fallback error stack retry])
+      [view (assoc route-params :query query-map)]]
+     [conflict-views/import-log-overlay]
+     ;; Mounted at the root, not in the page shell: the splash page is the first
+     ;; thing a visitor sees and it has no shell. Skipped for an embedded sheet
+     ;; (?frame=true), which is someone else's page rather than ours.
+     (when-not (= "true" (get query-map "frame"))
+       [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (dispatch-sync [:verify-user-session])

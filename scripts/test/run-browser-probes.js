@@ -1,0 +1,250 @@
+#!/usr/bin/env node
+// Runs every ASSERTING browser probe and exits non-zero if any fails.
+//
+// Why this exists: the browser probes under test/browser/ carry real assertions, but
+// neither `lein test` nor the CLJS runner invokes them, so "both suites green" says
+// nothing about them. equipment_add_functional_e2e.js sat failing three assertions and
+// exiting 1 for several commits because nothing ran it, and screenshots_e2e.js went stale
+// the same way but had guarded lookups, so it silently stopped taking shots instead.
+//
+// A probe that targets a control by class name goes stale the moment that control is
+// swapped. This is the thing that notices.
+//
+// Only probes that ASSERT are listed. The measurement probes (tab_switch_freeze,
+// freeze_cpu_profile, combobox_scroll, select_option_census, ...) report numbers rather
+// than pass/fail and are run by hand; adding them here would turn timing noise into
+// build failures.
+//
+// Usage:
+//   lein fig:build && lein e2e-server        # in another shell
+//   node scripts/test/run-browser-probes.js
+//
+//   ORCBREW_PACK=/path/to/pack.orcbrew  runs the two probes that need imported homebrew
+//   JOBS=3                              run N probes at once (default 1)
+//   ONLY=equipment,sticky                substring filter
+
+const { spawn } = require('child_process');
+const fs = require('fs'), path = require('path');
+const http = require('http');
+
+const ROOT = path.resolve(__dirname, '../..');
+const SERVER = 'http://localhost:8890';
+// A total-runtime limit cannot tell slow from stuck: character_image_capture legitimately
+// runs 393s, so any limit short enough to catch a hang quickly would kill it every run.
+// SILENCE is the signal that separates them. Measured max gap between its outputs is 79s,
+// so 180s is ~2.3x headroom over the worst legitimate pause in the slowest probe.
+const SILENCE_TIMEOUT_MS = +(process.env.PROBE_SILENCE_S || 180) * 1000;
+// Backstop for a probe that keeps printing but never finishes. Sized per probe from its
+// measured runtime, so a 2-second probe is not given ten minutes to hang in.
+const MIN_TOTAL_MS = 180 * 1000;
+const totalBudget = seconds => +process.env.PROBE_BUDGET_S * 1000 || Math.max(MIN_TOTAL_MS, (seconds || 0) * 2000);
+const HEARTBEAT_MS = +(process.env.PROBE_HEARTBEAT_S || 30) * 1000;
+const BASELINE = path.join(__dirname, 'probe-baseline.json');
+
+// These probes do NOT all want the same world, and running them as though they did is
+// wrong in both directions:
+//
+//   needs: 'server'      drives the real app at :8890 (`lein e2e-server`)
+//   needs: 'standalone'  serves resources/public from its own throwaway http server and
+//                        expects NO usable backend -- it treats connection-refused as
+//                        benign noise
+//   needs: 'busy-server' drives :8890 but only passes under `lein e2e-server-busy`, the
+//                        profile that holds every export slot so the busy page appears
+//
+// needsPack: imports a homebrew library and asserts against its content.
+const PROBES = [
+  { file: 'character_image_capture_e2e.js',    needs: 'server' },
+  { file: 'class_handlers_functional_e2e.js',  needs: 'server', needsPack: true },
+  { file: 'equipment_add_functional_e2e.js',   needs: 'server', needsPack: true },
+  { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },
+  { file: 'header_menus_e2e.js',               needs: 'server' },
+  { file: 'overlay_reachability_e2e.js',       needs: 'server' },
+  { file: 'notification_flows_e2e.js',         needs: 'standalone' },
+  { file: 'notifications_acceptance_e2e.js',   needs: 'standalone' },
+  { file: 'spell_help_laziness_e2e.js',        needs: 'server' },
+  { file: 'spell_layout_pdf_e2e.js',           needs: 'server' },
+  { file: 'starting_equipment_browser_e2e.js', needs: 'standalone' },
+  { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
+  { file: 'sticky_header_e2e.js',              needs: 'server' },
+  { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
+];
+
+const get = url => new Promise(res => {
+  const r = http.get(url, x => { x.resume(); res(x.statusCode); });
+  r.on('error', () => res(0));
+  r.setTimeout(4000, () => { r.destroy(); res(0); });
+});
+
+function run(probe, pack, budgetMs) {
+  return new Promise(resolve => {
+    const args = [path.join('test/browser', probe.file)];
+    if (probe.needsPack) args.push(pack);
+    const t0 = Date.now();
+    // Overlay suppression is DEFAULT-ON, injected here rather than left to each probe to
+    // remember. `suppress: false` opts a probe out -- for one whose point is that an
+    // overlay fires.
+    const preload = path.join(ROOT, 'test/browser/lib/suppress-overlays-preload.js');
+    const env = { ...process.env,
+                  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${preload}`.trim() };
+    if (probe.suppress === false) env.PROBE_SUPPRESS = '0';
+    const p = spawn('node', args, { cwd: ROOT, env });
+    let out = '', lastAt = Date.now(), timedOut = false;
+    const note = d => { out += d; lastAt = Date.now(); };
+    p.stdout.on('data', note);
+    p.stderr.on('data', note);
+
+    // A stuck probe used to look exactly like a slow one until the whole run ended. Say so
+    // while it is happening, and say how long it has been SILENT -- a probe still printing
+    // is working, one quiet for minutes is where it is stuck.
+    const beat = setInterval(() => {
+      const quiet = ((Date.now() - lastAt) / 1000).toFixed(0);
+      const last = out.trim().split('\n').pop() || '(no output yet)';
+      console.log(`      … ${probe.file} running ${((Date.now() - t0) / 1000).toFixed(0)}s` +
+                  `, silent ${quiet}s — last: ${last.slice(0, 70)}`);
+    }, HEARTBEAT_MS);
+
+    // Two independent kills. Silence catches a wedged probe in minutes whatever its normal
+    // runtime; the total budget catches one that chatters forever.
+    let killedBy = null;
+    const silence = setInterval(() => {
+      if (Date.now() - lastAt >= SILENCE_TIMEOUT_MS) {
+        killedBy = `silent for ${(SILENCE_TIMEOUT_MS / 1000)}s`;
+        timedOut = true; p.kill('SIGKILL');
+      }
+    }, 5000);
+    const timer = setTimeout(() => {
+      killedBy = `over its ${(budgetMs / 1000).toFixed(0)}s budget`;
+      timedOut = true; p.kill('SIGKILL');
+    }, budgetMs);
+    p.on('close', code => {
+      clearTimeout(timer); clearInterval(beat); clearInterval(silence);
+      probe._killedBy = killedBy;
+      const secs = ((Date.now() - t0) / 1000).toFixed(0);
+      const fails = (out.match(/^\s*FAIL/gm) || []).length;
+      const passes = (out.match(/^\s*PASS/gm) || []).length;
+      resolve({ probe, code, out, secs, fails, passes, timedOut });
+    });
+  });
+}
+
+(async () => {
+  if (!fs.existsSync(path.join(ROOT, 'resources/public/js/compiled/orcpub.js'))) {
+    console.error('No dev build — run `lein fig:build` first.');
+    process.exit(2);
+  }
+  // Wait for the server here, bounded, rather than leaving callers to hand-roll
+  // `until curl ...; do sleep; done`. An unbounded loop like that has no timeout, prints
+  // nothing, and sits forever if the server never comes up -- it burned 22 minutes once,
+  // and it defeats this runner's own no-server handling by never letting it start.
+  const waitS = +(process.env.SERVER_WAIT_S || 90);
+  let serverUp = await get(SERVER) !== 0;
+  if (!serverUp && waitS > 0) {
+    process.stdout.write(`waiting up to ${waitS}s for ${SERVER}`);
+    const until = Date.now() + waitS * 1000;
+    while (!serverUp && Date.now() < until) {
+      await new Promise(r => setTimeout(r, 3000));
+      process.stdout.write('.');
+      serverUp = await get(SERVER) !== 0;
+    }
+    console.log(serverUp ? ' up' : ` giving up after ${waitS}s`);
+  }
+  const pack = process.env.ORCBREW_PACK;
+  const only = (process.env.ONLY || '').split(',').filter(Boolean);
+  // 3 by default, measured: 421s wall against 976s sequential, 2.3x, with every probe
+  // reporting the same check counts. The concern was that the `server` probes share one
+  // in-memory Datomic and might see each other's saved characters; they do not. Wall time
+  // equals the longest probe (420s), so more workers buy nothing until that one is faster.
+  const jobs = Math.max(1, parseInt(process.env.JOBS || '3', 10));
+
+  let queue = PROBES.filter(p => !only.length || only.some(o => p.file.includes(o)));
+  const skipped = [];
+  const skip = (p, why) => { skipped.push({ ...p, why }); };
+  queue = queue.filter(p => {
+    if (p.needs === 'server' && !serverUp) { skip(p, `no server at ${SERVER} — run \`lein e2e-server\``); return false; }
+    // Not merely unnecessary: this profile is the whole point of the probe, and against the
+    // ordinary server the busy page never appears and every check fails.
+    if (p.needs === 'busy-server' && !process.env.BUSY_SERVER) { skip(p, 'needs `lein e2e-server-busy` + BUSY_SERVER=1'); return false; }
+    // The two server profiles are NOT interchangeable, and running the wrong probes against
+    // the busy one produces a real-looking failure: pdf-concurrency=1 sends every export to
+    // the busy page, so character_image_capture fails 1 of 31 for no reason of its own.
+    if (p.needs === 'server' && process.env.BUSY_SERVER) { skip(p, 'BUSY_SERVER is set; this needs the ordinary `lein e2e-server`'); return false; }
+    if (p.needsPack && !pack) { skip(p, 'needs ORCBREW_PACK'); return false; }
+    return true;
+  });
+
+  if (!serverUp) {
+    console.log(`note: nothing listening at ${SERVER}, so only the standalone probes will run.`);
+    console.log('      (Do NOT run other lein commands while e2e-server boots: it rewrites');
+    console.log('       .lein-env, and the server comes up against the wrong database.)\n');
+  }
+
+  // An untimed click swallowed by .catch() waits playwright's full 30s default and then
+  // discards the failure. Two probes carried it: 270s of one and 120s of another, invisible,
+  // because every assertion still passed. Cheap to grep for, so grep for it.
+  const offenders = [];
+  for (const f of fs.readdirSync(path.join(ROOT, 'test/browser')).filter(f => f.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(ROOT, 'test/browser', f), 'utf8');
+    src.split('\n').forEach((l, i) => {
+      if (/\.click\(\s*\)\s*\.catch/.test(l) && !l.trim().startsWith('//')) offenders.push(`${f}:${i + 1}`);
+    });
+  }
+  if (offenders.length) {
+    console.log('WARNING: untimed .click().catch() — each miss costs a 30s default timeout,');
+    console.log('         silently. Use clickIfVisible(), or pass { timeout }.');
+    for (const o of offenders) console.log(`         ${o}`);
+    console.log('');
+  }
+
+  const baseline = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
+  const observed = {};
+  console.log(`running ${queue.length} probe(s), ${jobs} at a time\n`);
+  const results = [];
+  const workers = Array.from({ length: jobs }, async () => {
+    for (;;) {
+      const probe = queue.shift();
+      if (!probe) return;
+      const want = baseline[probe.file] || {};
+      const r = await run(probe, pack, totalBudget(want.seconds));
+      // Assertions that quietly stop running are the failure mode this whole runner exists
+      // for: a control renamed out from under an `if (await x.count())` guard takes its
+      // checks with it and the probe still exits 0.
+      const ran = r.passes + r.fails;
+      r.shortfall = (want.checks && r.code === 0 && ran < want.checks) ? want.checks : 0;
+      results.push(r);
+      observed[probe.file] = { checks: ran, seconds: +r.secs };
+
+      const tag = r.timedOut ? 'STUCK' : (r.code !== 0 || r.shortfall) ? 'FAIL' : 'PASS';
+      console.log(`${tag}  ${probe.file}  (${ran} checks, ${r.fails} failing, ${r.secs}s)`);
+      if (r.timedOut) {
+        console.log(`      killed at ${r.secs}s — ${probe._killedBy}. Last output before it stopped:`);
+        console.log(r.out.trim().split('\n').slice(-4).map(l => '        ' + l.trim()).join('\n') || '        (none)');
+      } else if (r.shortfall) {
+        console.log(`      ran ${ran} assertions, expected ${want.checks} — checks have gone missing,`);
+        console.log('      probably a guarded block whose control was renamed. See probe-baseline.json.');
+      }
+      if (r.code !== 0 && !r.timedOut) console.log(r.out.split('\n').filter(l => /FAIL|Error|error:/.test(l)).slice(0, 12).map(l => '      ' + l.trim()).join('\n'));
+    }
+  });
+  await Promise.all(workers);
+
+  // A probe that could not run is reported loudly. Silence is how the last one hid.
+  for (const p of skipped) console.log(`SKIP  ${p.file}  (${p.why})`);
+
+  if (process.env.UPDATE_BASELINE) {
+    const merged = { ...baseline, ...observed };
+    fs.writeFileSync(BASELINE, JSON.stringify(merged, null, 2) + '\n');
+    console.log('\nbaseline updated for: ' + Object.keys(observed).join(', '));
+  }
+
+  const failed = results.filter(r => r.code !== 0 || r.shortfall || r.timedOut);
+  console.log(`\n${results.length - failed.length}/${results.length} probes passed` +
+              (skipped.length ? `, ${skipped.length} skipped` : ''));
+  if (failed.length) {
+    console.log('failed: ' + failed.map(r => r.probe.file).join(', '));
+    process.exit(1);
+  }
+  if (skipped.length && process.env.STRICT) {
+    console.log('STRICT: skipped probes count as failures');
+    process.exit(1);
+  }
+})();
