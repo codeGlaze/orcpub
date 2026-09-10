@@ -13,12 +13,16 @@ a stale branch cites lines that have moved.
 ### The tree
 
 ```
-integration          ← hotfixes; mints the Summer Patch tag, then quiet
+integration          hotfixes; mints the Summer Patch tag, then quiet
    └── refactor/      working parent for the big refactor. Pulls integration in,
-        │             holds merges from its leaves.
-        ├── leaves    content-extensibility, data-extraction, garden-inline-styles,
-        │             views-extraction, banner-parts-and-design
-        └── agents/develop   (this branch)
+        └── leaves    holds merges from its leaves: content-extensibility,
+                      data-extraction, garden-inline-styles, views-extraction,
+                      banner-parts-and-design
+
+agents/develop       a silo, off to the side. An ancestor of develop, not a leaf of
+                     anything. Pulls stable changes in; ships nothing back. Its job is
+                     to hold the agentic tooling and docs that carry flow across
+                     conversations.
 ```
 
 Releases are tags, not branches, so no branch name says which release it serves.
