@@ -5,11 +5,14 @@ says what may go *inside* them: the exact shape and keyword domain each field ac
 which of those the builder UI has no editor for. Every row is read from the consuming code
 (file:line) and, where marked VERIFIED IN APP, driven through the running builder.
 
-Companion docs, not duplicated here. They live in this same `docs/kb/` directory on
-`refactor/content-extensibility`, which carries the rest of the knowledge base; until that
-line and this one meet, the links below resolve only there:
-- `starting-equipment.md` — the equipment keys in full, with round-trip tests.
-- `declarative-grant-vocabulary.md` — a *proposed* future authoring vocabulary. Design, not format.
+The starting-equipment keys are not duplicated here. The code that reads them is on this
+branch — `starting_equipment_ledger.cljc` for the compact delta form,
+`options.cljc:2583` for `:equipment-selections`, with round-trip coverage in
+`starting_equipment_ledger_test.clj` and `starting_equipment_test.clj`. The prose walkthrough
+of that feature is `docs/kb/starting-equipment.md`, which lives on
+`refactor/content-extensibility` along with the rest of the knowledge base — `docs/kb/` does
+not exist on integration or develop, so that link and `declarative-grant-vocabulary.md`
+(a *proposed* future vocabulary — design, not format) resolve only there.
 
 In this repository on any branch: `docs/ORCBREW_FILE_VALIDATION.md` for what import rejects
 and how it repairs, and `docs/ORCBREW-AUTHORING.md` for the same ground written for a human

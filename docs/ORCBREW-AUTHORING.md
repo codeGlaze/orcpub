@@ -108,7 +108,9 @@ These are read by the app and preserved through export, but have no editor:
 - **`:props` on a class or subclass.** Consumed at `spell_subs.cljs:610,646`. The feat and
   race builders write `:props`; the class builders do not, though the class consumes it.
 - **`:equipment-selections`** — the rich "(a) chain mail, or (b) leather and a longbow and 20
-  arrows" form, with bundled `:grants` and nested `:choose`. See `docs/kb/starting-equipment.md` (on `refactor/content-extensibility`).
+  arrows" form, with bundled `:grants` and nested `:choose`. Consumed by
+  `class-equipment-selections` (`options.cljc:2583`); the shape is commented in full just
+  above it.
 - **`:starting-equipment {:base <srd-class> …}`** — the compact delta form written by export
   when a class was filled from an SRD base, expanded again on import.
 - **A custom `:spell-list`** on a class that also wants cantrips: the list is a set per level,
