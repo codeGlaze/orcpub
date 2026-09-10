@@ -231,7 +231,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
+**topics:** artificer, builders, cfg, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, reaction, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -597,7 +597,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, tick, watch-list, whitelist
+**topics:** backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, styles, tick, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -689,7 +689,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, confused, constraints, enforcement, icon, legal, mug, overridable, override, per-item, per-selection, selection, suppressed, switch, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, per-selection, selection, suppressed, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -785,13 +785,15 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** 2026-09-08, about, accessor, archmagi, asks, bonuses, contributors, dual, effect, fact, gates, macro, prereq, registry, requirement, requirements, robe, trigger
+**topics:** accessor, acquisition, asks, bonuses, context, contributors, distinguishable, dual, effect, explanation, fact, gates, macro, prereq, registry, requirement, trigger, wants
 
+- An entry
+- Three-state, and unknown keys are ignored
+- Why entries hold predicates, not condition forms
+- Adding a requirement
+- Scope today
+- Not to be confused with prereqs
 - Why: the same fact is hand-written in three places today
-- The shape
-- The three gates
-- Why :text entries still earn their place
-- Curation, not exposure
 - The naming, and what lost
 - Kinship with prereqs — same shape, different gate
 - The blocker that was not one
@@ -823,7 +825,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, constraint, everyone, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, constraint, everyone, feat, feats, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -836,7 +838,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, function, play-state, player, positioning, roll, rolling, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, computes, condition, deferred, entity, equipped, flag, play-state, player, positioning, roll, rolling, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -892,7 +894,7 @@ _starting-equipment · starting equipment_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, crashes, debt, diagnosis, errors, failing, failures, figwheel, harness, pre-existing, run, spec, suite, theater, unresolved, unrun
+**topics:** 2016, assertions, cljs, crashes, debt, diagnosis, errors, failures, figwheel, harness, pre-existing, run, spec, suite, suites, theater, unresolved, unrun
 
 - 0. Current measured state — 2026-09-05, feature/fighting-style-authoring
 - 1. What runs where (the gate reality)
@@ -920,7 +922,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, cosmetic, deals, flags, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, truthiness, two-handed, versatile, weapon, weapons
+**topics:** boolean, cosmetic, deals, flags, lack, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

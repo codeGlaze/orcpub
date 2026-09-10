@@ -1,12 +1,120 @@
-# The requirements registry — DESIGN, not built
+# Requirements — the facts content asks about
 
-**Status: BUILT 2026-09-08** — registry, `meets-all?`, `mod5e/ac-bonus-meeting`, and
-`:dual-wielding?` / `:one-handed?` authorable. `:toggle` and `:text` gates are declared and
-enforced by tests but have no entries yet. One place naming the facts about a character that content
-asks about — *while wielding two weapons*, *while wearing no armor*, *when you hit with a melee
-attack* — so any effect can reference one instead of each feature re-deriving it by hand.
+`src/cljc/orcpub/dnd/e5/requirements.cljc`
 
-Decided 2026-09-08 across a design conversation; this is the record so it is not re-derived.
+A named fact about a character that an effect can gate on: *while wielding two weapons*, *while
+wearing no armor*. One entry per fact, in one place, so a feat, a fighting style and a class feature
+all ask the same question the same way instead of each re-deriving it.
+
+```clojure
+(mod5e/ac-bonus {:dual-wielding? true} 1)     ; the Dual Wielder feat
+(mod5e/ac-bonus {:armored? false}     5)      ; Robe of the Archmagi
+```
+
+Authors reach it as data — `{:props {:ac-bonus {:bonus 1 :dual-wielding? true}}}` in an `.orcbrew`,
+or the "Weapon requirement" dropdown in the builder.
+
+## An entry
+
+```clojure
+:dual-wielding? {:gate :build
+                 :text "while wielding two weapons"
+                 :pred (fn [{:keys [main-hand off-hand]}]
+                         (and (some? main-hand) (some? off-hand)))}
+```
+
+| key | |
+|---|---|
+| `:gate` | `:build` — derivable from the sheet; the engine runs `:pred`.<br>`:toggle` — the player asserts it (the `equipped?`/deferred pattern); real math while on.<br>`:text` — a **trigger**: a moment in play. Carries **no** `:pred`. |
+| `:text` | the phrasing that reaches the sheet and the PDF. Every entry has one — `:props` compiles to mechanics only, so without this a mechanic prints nowhere. |
+| `:pred` | a function of a context map. `:build` and `:toggle` only. |
+
+A trigger having no `:pred` is structural, not a convention: there is nothing to call, so nothing can
+accidentally claim to compute a moment. (`builder-form-schemas.md` §4 on why triggers are not
+computable here.)
+
+## Three-state, and unknown keys are ignored
+
+| authored | means |
+|---|---|
+| `true` | only while it holds |
+| `false` | only while it does **not** |
+| absent | either way |
+
+`meets-all?` iterates **the registry**, not the author's map. Two things follow: a key this build
+does not know is ignored rather than failing — so a pack authored against a newer build still applies
+what this one understands — and non-requirement keys like `:bonus` need no special case.
+
+`false` is a real value here, so absent and false must stay distinguishable. Test with `contains?`,
+never truthiness. (A first cut resolved a legacy alias with `some`, which skips falsey values;
+`{:shield? false}` read as absent and a Monk kept Unarmored Defense while holding a shield.)
+
+## Why entries hold predicates, not condition forms
+
+The modifier system has its own condition slot, and a hand-written modifier uses it:
+
+```clojure
+(mods/vec-mod ?ac-bonus-fns (fn [_ _] 1) nil nil
+              [(and ?main-hand-weapon ?off-hand-weapon)])    ; ← a condition FORM
+```
+
+That looks like the natural thing for a registry to hold. It cannot be, because `es/conditions` is a
+macro that captures those forms at compile time:
+
+```clojure
+(defmacro conditions [conds] (mapv (fn [cond] `(condition ~cond)) conds))
+```
+
+A form captured at compile time cannot be selected from a map at runtime. So a registry of condition
+forms is unbuildable without changing the macro layer.
+
+What works instead: **the macro assembles a plain-data context, and the registry holds ordinary
+functions over it.** `mod5e/ac-bonus` splices the `?`-refs into the body it generates —
+
+```clojure
+{:armor armor :shield shield
+ :main-hand ?…/main-hand-weapon
+ :off-hand  ?…/off-hand-weapon}
+```
+
+— and every `:pred` is a plain fn of that map. Nothing in `requirements.cljc` is macro-aware, which
+is also why it can be a dependency leaf.
+
+The general rule behind this is in `built-character-representation.md` ("the other half — writing"):
+`?attr` is rewritten at compile time, so only code a macro *expands* can read one.
+
+## Adding a requirement
+
+1. **One entry** in `requirements.cljc`.
+2. **If the predicate needs a fact the context does not carry**, add it to the map in the macro that
+   builds the contributor — `mod5e/ac-bonus` today. Two edits, deliberately: the context and the
+   registry are the two halves of one change.
+3. **Exposing it in a builder is separate and optional.** The engine supports every entry; a form
+   offers a curated subset — the rule `weapons.cljc` documents for weapon tags. `ac-bonus-fields`
+   carries the dropdown for `:dual-wielding?` because published content wants it.
+
+A form implying arithmetic offers `:build`/`:toggle` entries; a form printing a trigger offers
+`:text`. Same registry, different filter.
+
+## Scope today
+
+Four `:build` entries — `:armored?`, `:shielded?`, `:dual-wielding?`, `:one-handed?` — read by AC
+bonuses and AC calculations. `:toggle` and `:text` are declared in the vocabulary and have no
+entries yet; the damage and attack channels do not reach the registry yet.
+
+Legacy `:armor?` / `:shield?` are read forever (D9); the form writes the canonical names.
+
+## Not to be confused with prereqs
+
+A **prereq** gates acquisition — may you take this option at all, checked when choosing, with an
+explanation for why it is greyed out (`option-prereq`). A **requirement** gates application — does
+the effect apply right now. A feat can have either, both, or neither.
+
+---
+
+# Design record
+
+Everything below is how the above was arrived at. Read it before proposing a change to the shape.
 
 ## Why: the same fact is hand-written in three places today
 
@@ -24,57 +132,6 @@ Plus `template_base.cljc` threads `off-hand?` through the damage pipeline as a p
 So this is not "a condition on an AC bonus." It is a **named fact about the character that unrelated
 content asks about**, which is what a registry is for. `opt5e/ac-conditions` (2 entries, built
 2026-09-08) is one *consumer* of that idea, not its home.
-
-## The shape
-
-```clojure
-(def requirements
-  {:dual-wielding? {:gate :build  :text "while wielding two weapons"
-                    :pred (fn [c] (and (main-hand c) (off-hand c)))}
-   :one-handed?    {:gate :build  :text "while wielding a weapon in one hand and no other"
-                    :pred (fn [c] (and (main-hand c) (not (off-hand c))))}
-   :unarmored?     {:gate :build  :text "while wearing no armor"
-                    :pred (fn [c] (nil? (armor c)))}
-   :raging?        {:gate :toggle :text "while raging"}
-   :on-hit-melee   {:gate :text   :text "when you hit with a melee weapon attack"}})
-
-(defn meets? [c k] …)          ; the accessor: (meets? character :dual-wielding?)
-```
-
-Read by AC bonuses, damage bonuses, attack bonuses, trait applicability, and the "scenario"
-dropdown in a template.
-
-### The three gates
-
-| gate | what it is | who decides | computes? |
-|---|---|---|---|
-| `:build` | a fact derivable from the sheet | the engine | yes, always |
-| `:toggle` | a fact the player asserts about now | the player, via the `equipped?`/deferred pattern | yes, while on |
-| `:text` | a **moment in play** — a **trigger** | nobody | **no** |
-
-This is `runtime-toggles-and-conditional-modifiers.md`'s own three-way split, made data. **The
-absence of `:pred` is what makes a trigger a trigger** — structural, so nothing can accidentally
-claim to compute a moment. `builder-form-schemas.md` §4 stands: no trigger DSL, no combat simulator.
-
-### Why `:text` entries still earn their place
-
-1. **They write the sentence.** `:props` emits mechanics only — the sheet and the **PDF** get the
-   author's hand-typed prose, which can drift or be skipped. A registry entry supplies the phrasing.
-2. **A picklist instead of free prose** — homebrew reads like the rulebook and like other homebrew.
-3. **It keeps the door open.** An author who picks `:on-hit-melee` stored a KEY; one who typed
-   "whenever you land a hit" stored a string. If the app ever tracks combat, keyed content becomes
-   computable for free — the string never can. Same argument as D10.
-
-A gate is also **upgradable per entry**: `:flanking?` is `:text` today because nothing tracks
-positioning; if that changed, one entry flips to `:build` and every referencing item starts
-computing, with no re-authoring.
-
-### Curation, not exposure
-
-`weapons.cljc` already documents the rule — *"The predicate supports every weapon flag; the form
-exposes the ones…"*. Registering a requirement and offering it in a builder are separate, optional
-steps. A form saying "+[N] AC while [X]" filters to `:build`/`:toggle`; one saying
-"**Reaction:** [trigger] — [effect]" offers `:text`.
 
 ## The naming, and what lost
 
