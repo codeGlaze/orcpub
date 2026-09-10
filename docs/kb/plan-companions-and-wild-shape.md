@@ -78,6 +78,58 @@ wildshape: {
 `sign(@subclasses.moon.levels)` is worth stealing: Moon's AC floor applies only with Moon
 levels, as arithmetic rather than a branch.
 
+## What gets printed, and what gets a view
+
+The output shape is decided by **whether the creature persists**, not by which class
+granted it. A Wild Shape form lasts an encounter and reverts; nothing carries over, so it
+wants a reference card. A companion survives between sessions and accumulates state —
+damage, conditions, sometimes levels — so it wants a sheet with somewhere to write.
+
+| Kind | Output | Why |
+| --- | --- | --- |
+| Wild Shape form | Card, 2.5 x 3.5in | Prepared in a short list, referenced mid-encounter, discarded on revert |
+| Familiar / steed / summon | Card | Statblock is fixed; nothing accumulates |
+| Beast Master, Primal Companion, Steel Defender | Sheet | Persists, takes damage, gains conditions |
+| Sidekick | Character sheet | Gains class levels — deferred, it is not a parameterised monster |
+
+`draw-grid` (`pdf.clj:2300`) derives the layout from `box-width`/`box-height` against
+8.5 x 11, so a larger companion card is a parameter change, not new machinery.
+
+### The card
+
+A monster carries 18 fields; a card cannot hold them all legibly at 2.5 x 3.5in. Rank by
+what gets read at the table mid-turn:
+
+1. **Attacks** — to-hit, damage, reach. The most-read thing on the card by a wide margin.
+2. **AC and HP.**
+3. **Speed**, including the fly/swim that made the form worth picking.
+4. **Physical abilities** (STR/DEX/CON). Mental stays the druid's, so printing WIS/INT/CHA
+   on a Wild Shape card is wrong as well as wasteful — it invites using the beast's.
+5. **Senses**, only when non-trivial (darkvision, keen smell).
+6. **Traits**, only the ones that change play (Pack Tactics, Keen Hearing).
+
+Cut: alignment, type, CR, and any trait that is flavour. CR is a *filter* input, not a
+play-time value — it belongs in the picker, not on the card.
+
+**HP needs a write-in box, not the charge track.** `draw-charge-track!` draws up to 12
+circles and is right for a wand's charges; beast HP runs 1 to 40+. Wild Shape HP is also
+the number that ends the form, so it is the one field guaranteed to be written on. A
+ruled box, as the charge track already falls back to past its cap.
+
+### The digital view
+
+`details-tabs` (`views.cljs:3782`) is a `{name -> {:icon :view}}` map, so a tab costs a map
+entry. One tab for prepared forms, one for companions — not one per creature.
+
+The per-form view renders the existing monster stat block with the merge applied
+(beast physical, druid mental and proficiencies), so it is the same renderer with
+different input, not a second stat block implementation.
+
+**Open decision: does the digital view track HP, or only print?** Tracking means the
+character entity holds per-form state, which is a bigger change than anything else in the
+Wild Shape sequence. Printing only is much cheaper and matches how the card is used. Left
+open deliberately — it wants a call before slice 4.
+
 ## Slices: the Wild Shape half
 
 1. **CR as one comparable type.** Characterize `?wild-shape-cr` first, then change it.
@@ -201,6 +253,9 @@ codebase reaches for.
 
 ## Open questions
 
+- **Does the digital view track HP, or only print?** Tracking puts per-form state on the
+  character entity — the largest change in the Wild Shape sequence. Printing only is cheap
+  and matches how the card is used at a table. Needs a call before slice 4.
 - **What does a companion look like as plugin data?** Beast Master arrives via orcbrew, so
   the feature needs a way for plugin content to declare "this subclass grants a companion
   of kind X". No such hook exists. This is the companion half's equivalent of the CR type
