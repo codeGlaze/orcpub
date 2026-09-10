@@ -57,6 +57,7 @@
                                       class->local-store
                                       plugins->local-store
                                       disable-overlay->local-store
+                                      dev-mode->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
                                       cookie-banner-pending?
@@ -151,6 +152,9 @@
 (def class->local-store-interceptor (after class->local-store))
 
 (def plugins->local-store-interceptor (after plugins->local-store))
+
+(def dev-mode->local-store-interceptor
+  (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
 
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
@@ -277,6 +281,7 @@
   (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::e5/whats-new-seen)
+  (inject-cofx ::e5/dev-mode)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -289,6 +294,7 @@
               ::e5/disable-overlay
               ::e5/health-dismissed
               ::e5/whats-new-seen
+              ::e5/dev-mode
               ::combat/tracker-item]} _]
    {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
                                   (cookie-banner-pending?))
@@ -300,6 +306,7 @@
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
+            (some? dev-mode) (assoc :dev-mode? dev-mode)
             ;; The release panel opens itself once per release, on the boot that
             ;; first sees a new id. Reading the stamp here (not at render) keeps it
             ;; to one showing per browser rather than one per page view.
@@ -449,7 +456,11 @@
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)]
-     {:dispatch-n [[:show-message "Your character has been saved."]
+     {:dispatch-n [[:show-message
+                    (if-let [char-name (not-empty
+                                        (get-in character [::entity/values ::char5e/character-name]))]
+                      (str "Saved “" char-name "”")
+                      "Your character has been saved.")]
                    [:set-character character]
                    [::char5e/set-character id character]]})))
 
@@ -589,7 +600,9 @@
                          (mapv #(if (= item-id (:db/id %)) strict-item %) existing-items)
                          (conj (vec existing-items) strict-item))]
      {:db (assoc db ::mi/custom-items updated-items)
-      :dispatch-n [[:show-message "Your item has been saved."]
+      :dispatch-n [[:show-message (if-let [item-name (not-empty (::mi/name item))]
+                                    (str "Saved “" item-name "”")
+                                    "Your item has been saved.")]
                    [::mi/set-item item]]})))
 
 (reg-event-fx
@@ -721,11 +734,16 @@
     2 [(nth items 0) " and " (nth items 1)]
     (vec (concat (interpose ", " (butlast items)) [", and " (last items)]))))
 
-(defn builder-error-hiccup
-  "A clear, multi-line save-validation message: the empty fields on one line
-   (bold, 'and'-joined) and each invalid field with its reason on its own line,
-   so even a hurried reader sees the distinct problems. When `save-anyway-event`
-   is given, also offers a remediating escape hatch so imperfect work isn't trapped."
+(defn builder-error-message
+  "A save-validation failure as {:title :details}: the first problem in the
+   headline, the rest of them and the escape hatch beneath it.
+
+   It used to open with a \"Spell:\" line — a label for the builder you are
+   standing in, spending the reader's first line on something they already know.
+   Empty top-level fields batch into one 'and'-joined line; a field inside a
+   nested option gets its own line, because its location is what makes it
+   findable. When `save-anyway-event` is given the banner also offers the escape
+   hatch, so imperfect work is never trapped."
   [type-name problems & [save-anyway-event]]
   (let [located? :location
         ;; bold field label, prefixed with its nested location when known
@@ -733,29 +751,27 @@
         labelled (fn [{:keys [field location]}]
                    (let [lbl (field-label field)]
                      [:span.f-w-b (if location (str location " " lbl) lbl)]))
-        ;; top-level missing fields batch onto one "Please fill in ..." line;
-        ;; located ones each get their own line so the location is unambiguous.
         missing      (filter #(= :missing (:status %)) problems)
         flat-missing (remove located? missing)
         located-missing (filter located? missing)
         invalid      (filter #(= :invalid (:status %)) problems)
         missing-line (when (seq flat-missing)
-                       (into [:div.m-t-5 "Please fill in "]
+                       (into [:span "Please fill in "]
                              (conj (and-join (mapv labelled flat-missing)) ".")))
         located-missing-lines (for [p located-missing]
-                                [:div.m-t-5 "Please fill in " (labelled p) "."])
+                                [:span "Please fill in " (labelled p) "."])
         invalid-lines (for [p invalid]
-                        [:div.m-t-5 (labelled p) " " (:reason p) "."])]
-    (into [:div [:span.f-w-b (str type-name ":")]]
-          (cond-> []
-            missing-line (conj missing-line)
-            true (into located-missing-lines)
-            true (into invalid-lines)
-            save-anyway-event
-            (conj [:div.m-t-10
-                   [:span.pointer.underline.f-w-b
-                    {:on-click #(dispatch [save-anyway-event])}
-                    "Save anyway with placeholders"]])))))
+                        [:span (labelled p) " " (:reason p) "."])
+        lines (cond-> []
+                missing-line (conj missing-line)
+                true (into located-missing-lines)
+                true (into invalid-lines))]
+    {:title (first lines)
+     :details (cond-> (vec (rest lines))
+                save-anyway-event
+                (conj [:span.pointer.underline.f-w-b
+                       {:on-click #(dispatch [save-anyway-event])}
+                       "Save anyway with placeholders"]))}))
 
 (def ^:private builder-error-ttl
   "How long the homebrew save-validation banner stays up (ms). Long enough to
@@ -829,7 +845,7 @@
     (if (seq problems)
       {:dispatch-n [[:set-builder-field-errors (into {} (map (juxt :field :status) problems))]
                     [:show-error-message
-                     (builder-error-hiccup type-name problems save-anyway-event)
+                     (builder-error-message type-name problems save-anyway-event)
                      builder-error-ttl]]}
       {:dispatch-n [[:set-builder-field-errors {}]
                     [:show-error-message fallback-message builder-error-ttl]]})))
@@ -900,12 +916,24 @@
                {:dispatch-n [[::e5/set-plugins new-plugins]
                              [:set-builder-field-errors {}]
                              [:show-warning-message
-                              [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                               [:span.text-shadow
-                                (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
-                               [:span.pointer.underline.black
-                                {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
-                                "here"]]
+                              ;; Headline carries the point — it is saved, and only
+                              ;; here. The caveat and the way out sit under it. It
+                              ;; used to be one 200-character sentence that opened
+                              ;; with IMPORTANT! and buried the export link at the
+                              ;; end, which is a thing people scroll past.
+                              {:title (str type-name " saved — in this browser only")
+                               :details [[:span
+                                          "Clearing browser data loses it. "
+                                          [:span.pointer.underline
+                                           ;; stop the click: the banner closes on
+                                           ;; any click that reaches it, so exporting
+                                           ;; used to pull the card out from under
+                                           ;; the reader mid-action.
+                                           {:on-click (fn [e]
+                                                        (.stopPropagation e)
+                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                           "Export this source"]
+                                          " to keep a copy."]]}
                               60000]]})
   (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
 
@@ -1037,12 +1065,15 @@
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
-                        [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                         [:span.text-shadow
-                          "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
-                         [:span.pointer.underline.black
-                          {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
-                          "here"]]
+                        {:title "Selection saved — in this browser only"
+                         :details [[:span
+                                    "Clearing browser data loses it. "
+                                    [:span.pointer.underline
+                                     {:on-click (fn [e]
+                                                  (.stopPropagation e)
+                                                  (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                     "Export this source"]
+                                    " to keep a copy."]]}
                         60000]]})))))
 
 ;; Selection is a standalone handler (for its option-name checks), so it doesn't
@@ -4455,37 +4486,67 @@
      (str "Export warnings for \"" plugin-name "\":\n  "
           (s/join "\n  " (map str (:warnings validation)))))))
 
+(defn correct-single-plugin
+  "Run the shared import/export correction gate over one source: the same
+   `correct-library` pass `::e5/export-all-plugins` runs, narrowed to one entry,
+   so a per-source file and an all-sources file agree on the same content.
+   Cross-source key conflicts are dropped — there is only one source here.
+   Returns {:plugin <corrected> :changes [...]}."
+  [plugin-name plugin]
+  (let [{corrected :data changes :changes} (orcbrew-val/correct-library {plugin-name plugin})]
+    {:plugin (get corrected plugin-name plugin)
+     :changes changes}))
+
 (defn- validate-and-show-modal-or-export
-  "Shared validation logic for both export-plugin and export-plugin-pretty-print.
-   Validates the plugin, then either shows the modal (missing fields), exports
-   directly (valid), or shows an error (spec failure)."
-  [plugin-name plugin {:keys [pretty-print?]}]
-  (let [validation (orcbrew-val/validate-before-export plugin)]
+  "Shared export path for one source, used by export-plugin and
+   export-plugin-pretty-print. Runs the same correction gate Export All runs
+   (text normalization, semantic cleaning, option dedup) so a per-source file
+   and an all-sources file agree on the same content, then either shows the
+   fill-in modal (missing fields), writes the file (valid), or shows an error
+   (spec failure). Corrections are persisted back so a second export finds
+   nothing left to fix."
+  [db plugin-name plugin {:keys [pretty-print?]}]
+  (let [{corrected :plugin cleanup-changes :changes}
+        (correct-single-plugin plugin-name plugin)
+        library (:plugins db)
+        ;; Only write back a source the store actually holds: export-plugin is
+        ;; also called with a just-built plugin that never reached storage.
+        persist (when (and (not= plugin corrected) (contains? library plugin-name))
+                  [[::e5/set-plugins (assoc library plugin-name corrected)]])
+        validation (orcbrew-val/validate-before-export corrected)]
+
+    (when (seq cleanup-changes)
+      (js/console.log "Export cleanup:" (clj->js cleanup-changes)))
+
     (cond
       (:has-missing-required-fields validation)
       (do
         (js/console.warn
          (str "Export: missing required fields in \"" plugin-name "\":\n"
               (orcbrew-val/format-export-validation-for-log validation)))
-        {:dispatch [:show-export-warning-modal
-                    {:mode :single
-                     :plugins [{:name plugin-name
-                                :plugin plugin
-                                :issues (:missing-fields-issues validation)}]
-                     :warnings (:warnings validation)
-                     :pretty-print? pretty-print?}]})
+        {:dispatch-n
+         (vec (concat persist
+                      [[:show-export-warning-modal
+                        {:mode :single
+                         :plugins [{:name plugin-name
+                                    :plugin corrected
+                                    :issues (:missing-fields-issues validation)}]
+                         :warnings (:warnings validation)
+                         :pretty-print? pretty-print?}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
         (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks plugin)
+                            (orcbrew-val/strip-export-blanks corrected)
                             :pretty-print? pretty-print?)
-        (if (seq (:warnings validation))
-          {:dispatch [:show-warning-message
-                      (str "Plugin '" plugin-name "' exported with warnings. Check console for details.")]}
-          {}))
+        {:dispatch-n
+         (vec (concat persist
+                      (when (seq (:warnings validation))
+                        [[:show-warning-message
+                          {:title (str "Exported “" plugin-name "” with warnings")
+                           :details ["The file downloaded. The console has the details."]}]])))})
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -4493,19 +4554,22 @@
       (do
         (js/console.error (str "Export validation failed for \"" plugin-name "\":\n"
                                (orcbrew-val/format-export-validation-for-log validation)))
-        {:dispatch [:show-error-message
-                    [:div
-                     [:div (str "Cannot export '" plugin-name
-                                "' - contains invalid data. Check console for details.")]
-                     [:div.m-t-5
-                      [:span.pointer.underline.f-w-b
-                       {:on-click #(dispatch [::e5/emergency-export-raw plugin-name])}
-                       "Download raw backup instead"]]]]}))))
+        {:dispatch-n
+         (vec (concat persist
+                      [[:show-error-message
+                        {:title (str "Can’t export “" plugin-name "” — it contains invalid data")
+                         :details [[:span "The console has the details. "
+                                    [:span.pointer.underline
+                                     {:on-click (fn [e]
+                                                  (.stopPropagation e)
+                                                  (dispatch [::e5/emergency-export-raw plugin-name]))}
+                                     "Download a raw backup"]
+                                    " to get the content out meanwhile."]]}]]))}))))
 
 (reg-event-fx
  ::e5/export-plugin
- (fn [_ [_ name plugin]]
-   (validate-and-show-modal-or-export name plugin {})))
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {})))
 
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
@@ -4744,38 +4808,27 @@
          {:dispatch-n (vec (concat persist
                                    (when (seq cleanup-changes)
                                      [[:show-warning-message
-                                       (str "✅ Exported all-content.orcbrew\n\n"
-                                            "Cleaned " (count cleanup-changes)
-                                            " item(s) on the way out.")]])))})))))
+                                       {:title "Exported all-content.orcbrew"
+                                        :details [(str "Cleaned " (count cleanup-changes)
+                                                       " item(s) on the way out.")]}]])))})))))
 
-
-(defn clj->json
-  [ds]
-  (.stringify js/JSON (clj->js ds) nil 2))
-
-(reg-event-fx
- ::e5/save-to-json
- (fn [_ [_ name plugin]]
-   (let [blob (js/Blob.
-               (clj->js [(clj->json (map-plugin-classes sel/collapse-class plugin))])
-               (clj->js {:type "application/json;charset=utf-8"}))]
-     (js/saveAs blob (str name ".json"))
-     {})))
 
 (reg-event-fx
  ::e5/export-plugin-pretty-print
- (fn [_ [_ name plugin]]
-   (validate-and-show-modal-or-export name plugin {:pretty-print? true})))
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:pretty-print? true})))
 
-;; Export all homebrew plugins as pretty-printed .orcbrew file.
+;; The debug hatch: the whole library, pretty-printed, with NO validation — the
+;; deliberate exception to "every export runs the gate", for reading the store
+;; as it actually is when a validated export would have corrected it first.
+;; Dev-only: views/debug-data renders its control behind goog/DEBUG.
+;; Goes through save-orcbrew-blob! like every other download; only the gate is
+;; skipped, not the shared serialization.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
-   (let [blob (js/Blob.
-               (clj->js [(with-out-str (pprint/pprint (map-plugin-classes sel/collapse-class (:plugins db))))])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob "all-content.orcbrew")
-     {})))
+   (save-orcbrew-blob! "all-content.orcbrew" (:plugins db) :pretty-print? true)
+   {}))
 
 (reg-event-fx
  ::e5/delete-plugin
@@ -4824,6 +4877,15 @@
 
 ;; ── Disable hierarchy: the two LOCAL-OVERLAY levels ─────────────────────────
 ;; source + item disable live in the plugin data (toggle-plugin / -item above).
+;; Reveals the footer's diagnostic tools. A per-device preference like the
+;; overlay flags below, persisted so it survives the refresh someone does while
+;; trying to get their content out.
+(reg-event-db
+ ::e5/toggle-dev-mode
+ [dev-mode->local-store-interceptor]
+ (fn [db _]
+   (update db :dev-mode? not)))
+
 ;; global + section are a per-device VIEW preference kept in :disable-overlay,
 ;; never written into the .orcbrew data — so they cost no format/spec change and
 ;; don't travel with an export. `plugin-vals` ORs all four when filtering.
@@ -5224,7 +5286,7 @@
      :dispatch-n (remove nil?
                    [(when merged
                       [::e5/store-plugins merged
-                       (when-not message [:show-warning-message user-message])])
+                       (when-not message [:show-message user-message])])
                     (when message [:show-warning-message message])
                     import-log])}))
 

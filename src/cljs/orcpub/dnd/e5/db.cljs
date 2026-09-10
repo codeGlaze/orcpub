@@ -65,6 +65,11 @@
 ;; heads-up, not account state, so a stamp that never arrives (private browsing,
 ;; storage off) costs one extra showing rather than an error.
 (def local-storage-whats-new-key "whats-new-seen")
+;; Developer mode: reveals the footer's diagnostic tools, including the raw
+;; library dump that skips the export gate. Per-device and off by default — the
+;; switch itself stays visible and labelled so the tools are one click away when
+;; validation is the thing that's broken.
+(def local-storage-dev-mode-key "dev-mode")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -298,6 +303,10 @@
                                      (or js/document.cookie "")))]
     (not (or suppressed? consented?))))
 
+(defn dev-mode->local-store [on?]
+  (when js/window.localStorage
+    (set-item local-storage-dev-mode-key (str (boolean on?)))))
+
 (defn whats-new-seen->local-store [release-id]
   (when js/window.localStorage
     ;; pr-str, not str: the slot is read back with read-string, and a bare id would
@@ -422,6 +431,13 @@
  ::e5/health-dismissed
  local-storage-health-dismissed-key
  ::health-dismissed)
+
+;; Whether the footer's diagnostic tools are revealed on this device.
+(spec/def ::dev-mode boolean?)
+(reg-local-store-cofx
+ ::e5/dev-mode
+ local-storage-dev-mode-key
+ ::dev-mode)
 
 ;; Which release the What's New panel last showed on this device.
 (spec/def ::whats-new-seen string?)

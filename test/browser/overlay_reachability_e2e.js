@@ -29,10 +29,16 @@
 //   3. imported homebrew — the import conflict modal (raised for real by importing
 //      the same pack twice) and the delete confirmation. Uses ORCBREW_PACK when the
 //      runner passes one, else the checked-in fixture, so it never silently skips.
+//      It also walks the library's delete-all guard — three steps, none of them a
+//      modal (the quiet Delete… button, the .mc-liftpop it unfurls, the
+//      .mc-confirmbar underneath) — and cancels at the last one, then asserts the
+//      stored library is untouched.
 //      Still uncovered here, and named in the output rather than left implied: the
-//      item-level delete confirmation (needs an item selected), and the
-//      export-warning and source-name-choice modals (need content with missing
-//      fields, and a file whose name disagrees with the source it declares).
+//      ITEM-level delete confirmation (deletion-modal-with, on the item builder
+//      page, keyed by a saved item's :db/id — so it needs a signed-in session),
+//      and the export-warning and source-name-choice modals (need content with
+//      missing fields, and a file whose name disagrees with the source it
+//      declares).
 //
 // Prerequisites:
 //   lein fig:build && lein garden once && lein e2e-server
@@ -326,23 +332,39 @@ const TEST_PASSWORD = process.env.ORCPUB_TEST_PASSWORD;
       skip('import conflict modal', 'a second import of the same pack raised no conflict');
     }
 
-    // The delete guard: it is markup on the page, hidden until asked for, so the
-    // audit has to wait for the container to lose its `hidden` class.
-    // The library's delete control is labelled "DELETE…", not "delete".
-    const del = page.locator('button, .form-button, .link-button').filter({ hasText: /^delete/i }).first();
-    if (await del.count().catch(() => 0)) {
-      await del.click({ timeout: 3000 }).catch(() => {});
-      const shown = await page.waitForSelector('.modal-container:not(.hidden) .modal', { timeout: 5000 })
+    // The library's delete-all guard: three steps, none of them a modal, and the
+    // most consequential control in My Content. Audited step by step and CANCELLED
+    // at the last one — a probe must never be one stray click from wiping a library.
+    const plugins = () => page.evaluate(() => {
+      try { return (localStorage.getItem('plugins') || '').length; } catch (e) { return -1; }
+    });
+    const before = await plugins();
+
+    if (await click(page, page.locator('.mc-guard.b-delete'), 4000)) {
+      const unfurled = await page.waitForSelector('.mc-liftpop', { timeout: 4000 })
         .then(() => true).catch(() => false);
-      if (shown) {
-        await auditState(page, 'delete confirmation open', '.modal-container:not(.hidden) .modal');
+      if (unfurled) {
+        await auditState(page, 'delete guard unfurled', '.mc-liftpop');
         await page.screenshot({ path: path.join(OUT, '5-delete-guard.png') });
-      } else {
-        // The library toolbar's DELETE… is a staged guard, not the item-level
-        // confirmation this looks for; that one needs an item selected first.
-        skip('delete confirmation', 'the library DELETE… is a staged flow, not the item modal');
-      }
-    } else skip('delete confirmation', 'no delete control on this page');
+
+        if (await click(page, page.locator('.mc-liftpop .mc-del'), 4000)) {
+          const asked = await page.waitForSelector('.mc-confirmbar', { timeout: 4000 })
+            .then(() => true).catch(() => false);
+          if (asked) {
+            await auditState(page, 'delete confirmation bar', '.mc-confirmbar');
+            await page.screenshot({ path: path.join(OUT, '6-delete-confirmbar.png') });
+            // Cancel, never the red one.
+            await click(page, page.locator('.mc-confirmbar .link-button')
+                          .filter({ hasText: /cancel/i }), 4000);
+            await page.waitForTimeout(500);
+          } else skip('delete confirmation bar', 'the second step opened no confirmation');
+        } else skip('delete confirmation bar', 'the unfurled Delete all sources did not click');
+      } else skip('delete guard unfurled', 'the Delete… guard did not unfurl');
+    } else skip('delete guard unfurled', 'no Delete… guard on this page');
+
+    check('the library survived the delete guard', (await plugins()) === before,
+          `stored library went from ${before} to ${await plugins()} chars`);
+
     await ctx.close();
   };
 

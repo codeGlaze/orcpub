@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             ;; Side effect: registers all event handlers
@@ -198,6 +199,59 @@
     (is true "Handler completed without exception")))
 
 ;; ---------------------------------------------------------------------------
+;; Per-source export runs the same correction gate as Export All
+;;
+;; The cleanups below are what the two paths used to disagree on. Text
+;; normalization is NOT among them: builder saves and import both normalize on
+;; the way in, so it cannot tell the paths apart. A blank :option-pack, a nil
+;; value and duplicately-named selection options can — nothing on the builder
+;; save path touches those, so before this they survived a per-source export and
+;; were cleaned by Export All.
+;; ---------------------------------------------------------------------------
+
+(def ^:private uncleaned-source
+  {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "" :name "Witch's Bolt" :level nil}}
+   :orcpub.dnd.e5/classes
+   {:artificer {:option-pack "Pack A"
+                :name "Artificer"
+                :selections {:specialism
+                             {:name "Specialism"
+                              :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
+
+(deftest single-source-export-fills-blank-option-pack
+  (testing "a blank :option-pack is given the default source, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= orcbrew-val/default-option-source
+             (get-in plugin [:orcpub.dnd.e5/spells :witchbolt :option-pack]))))))
+
+(deftest single-source-export-strips-nils
+  (testing "nil values are dropped rather than written into the file"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (not (contains? (get-in plugin [:orcpub.dnd.e5/spells :witchbolt]) :level))))))
+
+(deftest single-source-export-dedups-selection-options
+  (testing "duplicately-named selection options collapse, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= 1 (count (get-in plugin [:orcpub.dnd.e5/classes :artificer
+                                      :selections :specialism :options])))))))
+
+(deftest single-source-export-matches-whole-library-export
+  (testing "one source exported alone equals that source inside an all-sources export"
+    (let [library {"Pack A" uncleaned-source
+                   "Pack B" {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"}}}}
+          all (:data (orcbrew-val/correct-library library))]
+      (is (= (get all "Pack A")
+             (:plugin (events/correct-single-plugin "Pack A" uncleaned-source)))))))
+
+(deftest single-source-export-reports-what-it-changed
+  (testing "clean content reports no changes, dirty content reports some"
+    (is (empty? (:changes (events/correct-single-plugin
+                           "Pack B"
+                           {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"
+                                                              :name "Fireball"}}}))))
+    (is (seq (:changes (events/correct-single-plugin "Pack A" uncleaned-source))))))
+
+;; ---------------------------------------------------------------------------
 ;; Emergency raw export
 ;; ---------------------------------------------------------------------------
 
@@ -279,22 +333,35 @@
       (is (= :name (:field opt-prob)))
       (is (= :invalid (:status opt-prob))))))
 
-(deftest builder-error-hiccup-renders-location
-  (testing "the rendered banner names the specific option"
-    (let [problems [{:field :name :status :invalid
-                     :reason "must start with a letter" :location "Option 2"}]
-          hiccup (events/builder-error-hiccup "Selection" problems)
-          flat (pr-str hiccup)]
-      (is (re-find #"Option 2 Name" flat))
-      (is (re-find #"must start with a letter" flat)))))
+(deftest builder-error-message-renders-location
+  (testing "a field inside a nested option carries its location, so it can be found"
+    (let [problems [{:field :name :status :missing :location "Option 2"}]
+          {:keys [title details]} (events/builder-error-message "Selection" problems)]
+      (is (re-find #"Option 2 Name" (pr-str title)))
+      (is (empty? details)))))
 
-(deftest builder-error-hiccup-batches-top-level-missing
-  (testing "top-level missing fields still batch onto one 'Please fill in' line"
+(deftest builder-error-message-batches-top-level-missing
+  (testing "empty top-level fields batch into the headline, one line not three"
     (let [problems [{:field :name :status :missing}
                     {:field :option-pack :status :missing}]
-          flat (pr-str (events/builder-error-hiccup "Class" problems))]
+          {:keys [title details]} (events/builder-error-message "Class" problems)
+          flat (pr-str title)]
       (is (re-find #"Please fill in" flat))
-      (is (re-find #"Option Source Name" flat)))))
+      (is (re-find #"Name" flat))
+      (is (re-find #"Option Source Name" flat))
+      (is (empty? details)))))
+
+(deftest builder-error-message-leads-with-the-problem
+  (testing "no builder-name label line: the headline is the problem itself"
+    (let [{:keys [title]} (events/builder-error-message
+                           "Spell" [{:field :name :status :missing}])]
+      (is (not (re-find #"Spell:" (pr-str title))))))
+  (testing "the escape hatch is a detail under it, not the headline"
+    (let [{:keys [title details]} (events/builder-error-message
+                                   "Spell" [{:field :name :status :missing}]
+                                   :some/save-anyway)]
+      (is (re-find #"Please fill in" (pr-str title)))
+      (is (re-find #"Save anyway with placeholders" (pr-str details))))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::e5/repair-quarantined-source — persist-to-library repair engine

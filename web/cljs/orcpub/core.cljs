@@ -106,6 +106,18 @@
       [k v])
     (re-seq #"((\w+)=(\w+))+" query-str))))
 
+(defn boot-ok
+  "Tells the boot-shell rescue control that the view rendered. Mounted inside the
+   app-root error boundary rather than called after `rdc/render`, for two reasons:
+   React 18 commits asynchronously, so returning from `render` proves nothing; and
+   a child that throws never mounts, so the control correctly stays put."
+  []
+  (r/create-class
+   {:component-did-mount (fn [_]
+                           (when-let [ok (aget js/window "orcpubBootOk")]
+                             (ok)))
+    :reagent-render (fn [] nil)}))
+
 (defn main-view []
   (let [{:keys [handler route-params] :as route} @(subscribe [:route])
         view (pages (or handler route))
@@ -118,7 +130,9 @@
      ^{:key handler}
      [views/error-boundary
       (fn [error stack retry] [views/app-error-fallback error stack retry])
-      [view (assoc route-params :query query-map)]]
+      [:<>
+       [view (assoc route-params :query query-map)]
+       [boot-ok]]]
      [conflict-views/import-log-overlay]
      ;; Mounted at the root, not in the page shell: the splash page is the first
      ;; thing a visitor sees and it has no shell. Skipped for an embedded sheet

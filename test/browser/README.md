@@ -248,7 +248,9 @@ re-frame events. Routing via the app's own router is fine for navigation.
   contexts: anonymous chrome, a signed-in lane that logs in for real when
   `ORCPUB_TEST_USER`/`ORCPUB_TEST_PASSWORD` are set, and one that imports the fixture pack
   twice — the second time under a renamed source, so its keys collide and the import
-  conflict modal opens for real. What is still uncovered is printed as SKIP lines.
+  conflict modal opens for real, and walks the library's three-step delete guard,
+  cancelling at the last step and asserting the stored library is untouched. What is
+  still uncovered is printed as SKIP lines.
 - `header_menus_e2e.js` — every item in every header dropdown is HITTABLE, not merely
   visible: `elementFromPoint` at each item's centre has to land in the flyout. Visibility
   passes while a dropdown renders under the sticky button row, which is exactly the state

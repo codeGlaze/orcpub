@@ -42,6 +42,12 @@
  (fn [db _]
    (get db :plugins)))
 
+;; Whether the footer's diagnostic tools are revealed on this device.
+(reg-sub
+ ::e5/dev-mode?
+ (fn [db _]
+   (boolean (:dev-mode? db))))
+
 ;; ---------------------------------------------------------------------------
 ;; Memoized library-health detectors.
 ;;
