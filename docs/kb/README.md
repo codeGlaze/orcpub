@@ -88,8 +88,8 @@ wrong, and why.
   list of forms, pick one, view merged stats, print them as cards -- lands almost entirely on
   machinery the app already has (prepared spells, `filter-monsters`, two existing PDF card
   families). Blocked on one type fix: monsters store CR as a number, the character stores it
-  as a string. Carries a revision log; the first draft argued the feature was the wrong shape
-  and was wrong about that.
+  as a string. Wild Shape is SRD and ships in base content; Beast Master and Circle of the Moon
+  are `#_` discarded as non-SRD, so companions must be plugin-driven. Carries a revision log.
 
 ## Operations
 

@@ -2,8 +2,7 @@
 
 *Fall update research. Nothing here is built. Written 2026-09-08 from the codebase, D&D
 Beyond's docs, and the Foundry VTT dnd5e source; line references are against `integration` at
-432cf375. Revised 2026-09-08 — see [Revisions](#revisions); the first draft talked itself out
-of a feature that is mostly already here.*
+432cf375. Revised 2026-09-08 and 2026-09-10 — see [Revisions](#revisions).*
 
 Players of rangers, druids, warlocks and artificers have nowhere to put the creature their
 class gives them.
@@ -46,9 +45,10 @@ Two smaller gaps, both cheap:
 
 ### Circle of the Moon
 
-Moon is **commented out** (`#_`, `classes.cljc:976`) with no explanation, so Moon druids are
-missing from the app. Its dead code writes a different type to `?wild-shape-cr` than the live
-code does:
+Moon is **`#_` discarded** (`classes.cljc:976`) as non-SRD content — see [the SRD
+boundary](#the-srd-boundary-decides-where-this-ships) below — so Moon druids reach the app
+only through a plugin. Its discarded code writes a different type to `?wild-shape-cr` than the
+live code does:
 
 ```clojure
 ;; base druid, live:   (mod5e/level-val (?class-level :druid) {1 "1/4" 4 "1/2" 8 "1"})
@@ -56,8 +56,9 @@ code does:
 ```
 
 An integer, which is the type the monster data already uses. **The live code is the one out
-of step, not the dead code.** Fix the type, then uncomment Moon on top of it. Keep the prose
-as a separate derived value — the Wild Shape action summary still needs a sentence.
+of step, not the discarded code.** Fix the type first; whoever ships Moon as plugin content
+inherits the fix. Keep the prose as a separate derived value — the Wild Shape action summary
+still needs a sentence.
 
 ## Merging druid onto beast
 
@@ -84,7 +85,8 @@ levels, as arithmetic rather than a branch.
 3. **Prepared forms on the character**, following the prepared-spells shape.
 4. **Picker + per-form view** in the sheet.
 5. **Beast cards** in the PDF, reusing the card frame.
-6. **Uncomment Circle of the Moon** — safe once 1 lands.
+6. **Moon's CR rule** — safe once 1 lands, but it ships as plugin content, not base (see the
+   SRD boundary), so this is a plugin-data question rather than an uncomment.
 
 Steps 1-2 are also the summoning substrate: Foundry's summon profiles are the same query
 (CR + types + sizes), so Find Familiar, Find Steed and the Summon spells inherit them.
@@ -146,10 +148,39 @@ A homebrew companion needs no new homebrew type — it is a homebrew monster
 (`::monsters/homebrew-monster`, own builder page) that the character references. The missing
 link is that nothing in `character.cljc` references a creature at all.
 
+## The SRD boundary decides where this ships
+
+**27 subclasses in `classes.cljc` are `#_` discarded.** Exactly one per class survives, and the
+survivors are precisely the SRD 5.1 list: Berserker, Lore, Life, Land, Champion, Open Hand,
+Devotion, Hunter, Thief, Draconic, Fiend, Evocation. Already documented in
+[srd-vs-plugin-content.md](srd-vs-plugin-content.md) — "non-SRD are `#_` discarded".
+
+The discards are a licensing line, not unfinished work, and the line cuts straight through this
+feature:
+
+| Piece | Status | Ships where |
+| --- | --- | --- |
+| Wild Shape | SRD, base druid feature | Base content |
+| Find Familiar, Find Steed | SRD spells | Base content |
+| Pact of the Chain | SRD, live | Base content |
+| **Circle of the Moon** | non-SRD, `#_` | Plugin |
+| **Beast Master** | non-SRD, `#_` | Plugin |
+| Drakewarden, Battle Smith, sidekicks | not in the repo at all | Plugin |
+
+**The Wild Shape filter is safe to build in base content. The companion feature is not.** Its
+two flagship cases both arrive as plugin data, so it has to be plugin-driven from the first
+commit rather than retrofitted — there is no version of this that hardcodes Beast Master.
+
+The discarded Beast Master (`classes.cljc:1942`) is worth reading anyway: it holds a selection
+over 41 named beasts, which is a companion picker already written once, in the shape this
+codebase reaches for.
+
 ## Open questions
 
-- **Why is Circle of the Moon commented out?** No comment at the `#_`. May be incomplete
-  rather than deliberately disabled — check before assuming either.
+- **What does a companion look like as plugin data?** Beast Master arrives via orcbrew, so
+  the feature needs a way for plugin content to declare "this subclass grants a companion
+  of kind X". No such hook exists. This is the companion half's equivalent of the CR type
+  fix — the thing everything else waits on.
 - **2024 rules.** Beast Master and Wild Shape both changed. Confirm which edition the data
   shape targets before building.
 - **The 5etools schema was not obtained** — GitHub returns 403 through this sandbox's proxy.
@@ -169,3 +200,12 @@ overstated, and the second was wrong:
   families off shared machinery.
 - The draft named the commented-out Moon code as the type trap. Backwards: Moon's integer
   matches the monster data, and the live string does not.
+
+**2026-09-10.** Two more corrections, both from checking rather than assuming:
+
+- "Why is Circle of the Moon commented out?" was listed as an open question. It was already
+  answered in this same KB directory: non-SRD subclasses are `#_` discarded, 27 of them, and
+  Moon is one of them. Licensing, not incompleteness. Grep the KB before asking a question.
+- That answer moves the companion half out of base content. Beast Master is discarded on the
+  same grounds, so companions are plugin-driven or they do not ship. Wild Shape is unaffected:
+  it is a base druid feature and stays in SRD content.
