@@ -113,6 +113,20 @@ git -c user.name="codeGlaze" -c user.email="github@codeglaze.com" commit -m "...
 - Branch names are descriptive (`feat/<what>` / `fix/<what>`) — no tool-generated
   prefixes, no auto-generated gibberish.
 
+## Grepping Clojure
+
+`#_` discards the next form, so a grep hit inside one is indistinguishable from live code.
+`classes.cljc` carries 160 discarded hits for `:name "` against 346 live ones — a third of
+what grep shows in that file never compiles. Non-SRD subclasses are discarded that way,
+one subclass per class kept.
+
+```
+scripts/clj-grep.py 'Beast Master' src/cljc/orcpub/dnd/e5/classes.cljc
+```
+
+Reports LIVE and DISCARDED separately and names the line each discard opens on. `--live` /
+`--dead` narrow to one section as `path:line:text` for piping; `-i` for case-insensitive.
+
 ## Push
 
 ```
