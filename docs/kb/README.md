@@ -7,6 +7,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | Document | Purpose |
 |----------|---------|
 | [character-image-routes.md](character-image-routes.md) | How a character portrait reaches the sheet: CORS vs hotlink blocking measured against real hosts, two withdrawn conclusions, what the browser cannot be made to do, and how to reach the real internet from a browser test here |
+| [documentation-discipline.md](documentation-discipline.md) | What earns a KB doc; verify don't remember; update in place; record reversals; index it or it is invisible; arm the hooks |
 | [code-comment-style.md](code-comment-style.md) | House comment style: tech-manual not journal; docstrings for the what, inline why only for constraints; no jargon/markers/KB-links; relating scattered code |
 | [pedestal-csp-history.md](pedestal-csp-history.md) | Full CSP research: Pedestal 0.5.1→0.7.0 timeline, why nonces not static hashes, corrections to UPGRADE_PLAN.md |
 | [dev-tooling-decisions.md](dev-tooling-decisions.md) | user.clj consolidation plan, dev-setup.sh decision, config.clj SSOT rationale, port/CI corrections |
@@ -83,6 +84,12 @@ wrong, and why.
 
 ### Plans
 
+- **[duplicate-key-durability-roadmap.md](duplicate-key-durability-roadmap.md)** -- *not built.*
+  Why duplicate keys keep coming back and the plan to stop them. Extends
+  `RECONCILIATION-LOG.md` phase 3 and `name-to-kw-audit.md` section 6.
+- **[share-custom-items-plan.md](share-custom-items-plan.md)** -- *not built.* Making a
+  character's custom magic items, weapons and armor apply on a shared sheet opened by a
+  different session. Extends the homebrew-embed share feature.
 - **[plan-companions-and-wild-shape.md](plan-companions-and-wild-shape.md)** -- *not built.*
   Fall-update research into pets, summons and Wild Shape. The druid flow -- prepare a short
   list of forms, pick one, view merged stats, print them as cards -- lands almost entirely on
