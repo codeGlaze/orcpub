@@ -199,6 +199,86 @@ character entity holds per-form state, which is a bigger change than anything el
 Wild Shape sequence. Printing only is much cheaper and matches how the card is used. Left
 open deliberately — it wants a call before slice 4.
 
+## Homebrew: buckets A and B
+
+Both buckets need the same thing from homebrew — a way for authored content to say "this
+grants a creature" — and the answer is cheaper than expected, because the specs are already
+open.
+
+### The specs permit it today
+
+```clojure
+;; classes.cljc:24
+(spec/def ::homebrew-subclass (spec/keys :req-un [::name ::key ::class ::option-pack]))
+;; monsters.cljc:15
+(spec/def ::homebrew-monster  (spec/keys :req-un [::name ::key ::option-pack ::hit-points]))
+```
+
+`spec/keys` validates the required keys and **permits every other key**. So a `:companion`
+or `:summons` key on a homebrew subclass or spell is additive: existing packs keep
+validating, old clients ignore what they do not understand, and nothing needs a migration.
+Add the key to the spec afterwards for validation, not for acceptance.
+
+`content_specs.cljc` maps each content type to its spec and is described in-file as the
+single source consumed by `reg-save-homebrew` and a `save ⊆ load` drift test. Adding or
+extending a type has a defined, tested procedure rather than an ad-hoc one.
+
+### A: bonded — a key on the granting feature
+
+The grant belongs on whatever hands you the creature (subclass, class, feat, invocation),
+not on the creature. Foundry's shape transfers directly: a profile is **either** a named
+creature **or** a constraint.
+
+```clojure
+:companion {:profile  {:monster-key :wolf}          ; or: {:cr 1 :types #{:beast} :sizes #{:medium}}
+            :bonuses  {:hp "5 + 5 * @ranger-level"} ; formulas over the owner
+            :match    #{:proficiency :saves}}       ; inherit-as-flags
+```
+
+`:bonuses` and `:match` are what make one key cover the taxonomy's rows 2-5 without a forked
+statblock per subclass.
+
+### B: conjured — count is a table, not a number
+
+Conjure Animals is a trade the player makes at cast time, so the homebrew shape is the same
+list the spell text is:
+
+```clojure
+:summons {:options [{:count 1 :cr 2} {:count 2 :cr 1}
+                    {:count 4 :cr 1/2} {:count 8 :cr 1/4}]
+          :types   #{:beast}
+          :chooser :dm}    ; RAW for 2014 conjures; :player for Tasha's-style summons
+```
+
+`:chooser` is not decoration. RAW the DM picks the creatures for 2014 conjures, so the
+builder must be able to defer rather than offer a picker — and the same key records that
+Tasha's summons do not defer.
+
+### The real risk is reference integrity, not schema
+
+Both shapes reference a monster by `:key`, across option-packs. That is this repo's known
+sore spot:
+
+- **Duplicate and unstable keys** already have a roadmap of their own
+  ([duplicate-key-durability-roadmap.md](duplicate-key-durability-roadmap.md)). A companion
+  reference makes key stability load-bearing rather than cosmetic.
+- **A dangling reference** — pack removed, monster renamed — is exactly what content
+  reconciliation exists for (`content_reconciliation.cljs:253`,
+  `generate-missing-content-report`; the reconciler heals unambiguous orphans at load).
+  A companion reference is the same class of thing as a spell selection pointing at content
+  that is gone, so it should join that machinery rather than grow its own.
+
+**Decide before building:** does a companion reference a monster, or embed a copy? A
+reference stays in sync and can dangle; a copy cannot dangle and cannot be corrected. The
+repo's existing reconciliation argues for a reference, but it is a real trade and it is not
+yet decided.
+
+### What is not yet checked
+
+Whether `homebrew-spell`'s spec is as open as the others — it is
+`(spec/and ::spell ...)` rather than a bare `spec/keys`, so bucket B may need more than an
+additive key. Verify before assuming B is as cheap as A.
+
 ## Slices: the Wild Shape half
 
 1. **CR as one comparable type.** Characterize `?wild-shape-cr` first, then change it.
@@ -325,6 +405,11 @@ codebase reaches for.
 
 ## Open questions
 
+- **Does a companion reference a monster, or embed a copy?** A reference stays in sync and
+  can dangle; a copy cannot dangle and cannot be corrected. The repo's reconciliation
+  machinery argues for a reference. Not decided.
+- **Is `homebrew-spell`'s spec open the way the others are?** It is `(spec/and ::spell ...)`,
+  not a bare `spec/keys`, so bucket B's additive key may not be free. Check before assuming.
 - **Does the digital view track HP, or only print?** Tracking puts per-form state on the
   character entity — the largest change in the Wild Shape sequence. Printing only is cheap
   and matches how the card is used at a table. Needs a call before slice 4.

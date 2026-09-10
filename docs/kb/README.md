@@ -98,7 +98,8 @@ wrong, and why.
   machinery the app already has (prepared spells, `filter-monsters`, two existing PDF card
   families). Blocked on one type fix: monsters store CR as a number, the character stores it
   as a string. Covers what gets printed per kind (card vs sheet, decided by whether the
-  creature persists) and what gets a digital view. Wild Shape is SRD and ships in base content; Beast Master and Circle of the Moon
+  creature persists), what gets a digital view, and how homebrew declares a companion or a
+  summon (the specs are open `spec/keys`, so the key is additive). Wild Shape is SRD and ships in base content; Beast Master and Circle of the Moon
   are `#_` discarded as non-SRD, so companions must be plugin-driven. Two slice sequences,
   Wild Shape and companions, the second depending on the first. Carries a revision log.
 
