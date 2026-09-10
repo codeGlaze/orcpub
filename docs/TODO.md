@@ -343,3 +343,46 @@ per class, which of its features fall outside the data vocabulary and what each 
 
 Worth capturing even though the refactor will change things: a baseline you did not record is
 one you cannot regress against.
+
+## Map the UI for e2e work, and give the map assertions
+
+**Status:** Not started. The knowledge-base half belongs in `agents/`; the assertion half is
+test code. They are one item because neither survives alone.
+
+There are 34 browser e2e files, two shared modules in `test/browser/lib/`, and 27 files that
+hand-roll their own locators. Writing a new probe means rediscovering the same handful of
+facts about the DOM, and getting one wrong is quiet.
+
+The hazard is not that a selector is hard to find. It is that **a failed interaction is
+indistinguishable from a failed feature.** A click that matches an inert element times out,
+gets swallowed by a `.catch`, and the probe then reports — confidently, with a screenshot —
+that the app does not do the thing. Every wrong reading during the orcbrew format work was
+this, not a real defect:
+
+- `text=COMBAT` matched something inert; four "different" sheet tabs screenshotted the same
+  panel and read as "no modifiers apply".
+- The sheet's tab labels are lowercase in the DOM. `uppercase` is CSS, so a case-sensitive
+  text match finds nothing.
+- `spells` matches both the builder's page tab and the sheet's tab, and `.first()` takes the
+  wrong one.
+- An `<option>` cannot be clicked — it has no size. Native pickers need `selectOption`.
+- A subclass left unselected means its level-modifiers correctly never run, which looks
+  exactly like a subclass whose modifiers are broken.
+
+So the deliverable is two-sided:
+
+- **Page objects in `test/browser/lib/`**, growing the `orcbrew-import.js` pattern — a
+  `sheet.js` for tab switching and panel extraction, a `class-builder.js` for picking class,
+  level and subclass. Selectors live in code, where a rename fails a test instead of quietly
+  stale-ing a paragraph. The helpers must **throw** rather than swallow: that is the fix for
+  the false-negative problem and matters more than the selectors do.
+- **A KB document for the reasoning that survives renames** — why a native picker resists
+  clicking, where the builder and sheet namespaces collide, and the discipline of proving an
+  interaction landed before reading the result. It cites the lib for anything concrete rather
+  than repeating it.
+
+`select_option_census_e2e.js` is the precedent for a third, cheap piece: an audit script that
+enumerates the UI and reports, so part of the map regenerates instead of decaying.
+
+Retrofitting all 27 files is not the ask. Build the lib, use it for new probes, migrate the
+rest when they are touched anyway.
