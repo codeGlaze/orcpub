@@ -111,3 +111,9 @@ cljsjs/
 
 # Local devcontainer setup (superseded by dotfiles)
 .devcontainer/local-setup.sh
+
+# Scratch: probes, spikes, screenshots and generated orcbrew packs. Referenced by the KB
+# docs but never committed -- the packs are clones of an uploaded megapack that must stay
+# out of the repo and its history.
+/dev-scratch/
+package-lock.json
