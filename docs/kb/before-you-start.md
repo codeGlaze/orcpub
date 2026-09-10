@@ -27,6 +27,11 @@ the commit**. That is the whole point of it being a decision.
 
 ## Judgement calls — no test can catch these
 
+- **Writing a modifier that needs a value off the character** — read the WRITING half of
+  `built-character-representation.md` first. `?attr` is not a variable; it is rewritten at compile
+  time by a macro, so a plain fn you hand to something can never read one. If a generated body needs
+  a character value, the generator must be a macro that splices the `?`-ref in. This is what decided
+  whether "+1 AC while wielding two weapons" was expressible at all.
 - **Adding a tag, flag or condition to an authored vocabulary** (a weapon tag, an AC condition) —
   read `authoring-vocabulary.md` first. These are deliberate lookup tables, not ceremony: they
   absorb storage names that cannot be derived, and they are three-state with unknown tags ignored so

@@ -47,7 +47,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | [starting-equipment.md](starting-equipment.md) | Starting-equipment data shape, consumption, the class-builder UI, and the base+delta export encoding (`collapse-class`/`expand-class`). | High |
 | [custom-content-lifecycle.md](custom-content-lifecycle.md) | The three custom-content mechanisms (inline custom, full builders, server-backed magic items) and the false-flagged reconciliation. | High |
 | [content-tiers-and-key-resolution.md](content-tiers-and-key-resolution.md) · [key-collision-behavior.md](key-collision-behavior.md) · [library-management-and-conflicts.md](library-management-and-conflicts.md) · [keyword-trap-name-repair.md](keyword-trap-name-repair.md) · [orcbrew-format-versioning.md](orcbrew-format-versioning.md) · [demo-content-tier.md](demo-content-tier.md) | Content library, key resolution, import/export conflicts, format versioning, and the demo tier. | High |
-| [built-character-representation.md](built-character-representation.md) | **Load-bearing gotcha:** the built/computed character is a map of deferred `:entity-fn?` values (read via `entity-val`), NOT a flat map — don't `spec/keys` it. | High — code |
+| [built-character-representation.md](built-character-representation.md) | Two halves of the entity-spec engine: READING a built character (deferred `:entity-fn?` values, `entity-val`, why it has no flat spec) and WRITING against it (`?attr` refs are rewritten at compile time, so only a MACRO can splice one into generated code — the rule that decides what is expressible, and why the Dual Wielder feat was hand-written for years). | High — code |
 
 ### Start here for any task
 | Document | Topic |

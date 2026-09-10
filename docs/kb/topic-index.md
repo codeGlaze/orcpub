@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, contract, equipped, hand-written, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
+**topics:** ago, agree, author, equipped, hand-written, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
 
 - The syntax first
 - Why the map can't be derived
@@ -199,7 +199,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, background, builders, creatures, feat, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -243,11 +243,15 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** abilities, blew, character-validation, computed, deferred, derived, fields, findable, flat, iterate, null, plain, realized, returns, session, spec, test-suite-state, values
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
 
 - One-liner
 - How it actually works (verified)
 - What this means for you
+- The other half — WRITING against it, and why it needs a MACRO
+- ?attr is not a variable — it is rewritten at compile time
+- The consequence: a plain fn cannot read ?attrs
+- The rules that follow
 - Where it bit us (this session)
 - Anchored in code
 
@@ -293,7 +297,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, captures, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, html, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -308,7 +312,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, selection
+**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, selection, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -621,7 +625,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** blocks, browser, csp, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, ships, subset, subsets, trip
+**topics:** blocks, browser, csp, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, ships, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -653,7 +657,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, session, step, steps, strike, template, widgets
+**topics:** acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, sentence, session, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -719,7 +723,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -819,7 +823,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressible, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, constraint, everyone, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
