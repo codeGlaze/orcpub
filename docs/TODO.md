@@ -1,5 +1,20 @@
 # TODO — Tracked Issues
 
+The shared roadmap. It is long-lived and cross-branch on purpose: an item usually
+outlives the branch that noticed it, and gets done on a different one. Per-branch notes
+belong in `docs/branch-changelog.md`, which is copied from a template at the start of a
+branch and folded into `CHANGELOG.md` at merge.
+
+Two rules keep it readable:
+
+- **Every section opens with a `**Status:**` line**, and that line names the branch when
+  one owns the item — `Open`, `Not started`, `Being built on <branch>`, `Shipped on
+  <branch>`. This is how you tell whose item it is.
+- **Items leave.** When a shipped item's release is folded into `CHANGELOG.md`, its
+  section comes out of this file in the same pass. If part of it is still undecided, cut
+  the section down to that part and set the Status back to `Open` — do not leave the
+  shipped narrative behind, and do not delete open questions along with it.
+
 ## Datomic transactor crashes — investigate Postgres migration
 
 **Status:** Unverified — no recurrence observed since the report; re-measure before
@@ -141,62 +156,20 @@ so upstream updates never clobber their edits).
   branches converge (NOT a cheap early crib — it's coupled to that branch's
   theme-token infrastructure).
 
-## Route character images through the browser instead of fetching them server-side
+## Character images — what the browser-side route did not settle
 
-**Status:** Shipped on `feature/browser-side-character-images`
-**Severity:** was Medium — a broken feature for users
-**Reported:** 2026-09-04 · **Built:** 2026-09-05
+**Status:** Open — the feature shipped on `feature/browser-side-character-images` and is
+folded into `CHANGELOG.md`; these three questions were left behind by it.
 **Runbook:** [docs/CHARACTER-IMAGE-FETCH.md](CHARACTER-IMAGE-FETCH.md)
 
-### What was built
-
-The browser reads the picture and the export carries the bytes; the server's fetch
-is now the fallback for a picture the browser was refused. `orcpub.image-capture`
-reads it off a canvas, scales it to what the sheet prints, and hands base64 to the
-export spec; `pdf/decode-image-bytes` applies the same 128 KB and 2000×2000
-ceilings on arrival and reads the format from the bytes rather than from the mime
-type. When no read is allowed, the builder says so and offers an upload.
-
-Only the canvas route exists, not the `fetch` one the original plan had: the app's
-CSP is `connect-src 'self'`, so `fetch` to an image host is blocked and an attempt
-would log a CSP violation on every export. `img-src` allows `https:`, which is what
-makes the canvas route work. Widening `connect-src` to arbitrary hosts was the
-larger cost.
-
-### The measurement, taken
-
-Sixteen common portrait hosts, 2026-09-05. Nine let the browser read: Imgur,
-Discord, Fandom, Wikimedia, ArtStation, DeviantArt, `lh3.googleusercontent.com`,
-Tumblr, `raw.githubusercontent.com`. Seven do not: Pinterest, D&D Beyond, postimg,
-imgbb, Flickr, Dropbox, `i.redd.it`. See the runbook for the table.
-
-The two groups are largely complementary rather than overlapping — most of the
-second group allows hotlinking, so the server fetches those. Pinterest and D&D
-Beyond refuse both and are upload-or-nothing.
-
-### What it does not settle
-
-- **A refused host logs a CORS error in the console.** Unavoidable: any attempt to
-  read a cross-origin image without the header logs one, and not trying is what
-  the feature exists to stop doing.
-- **The server fetch still earns its keep** — step 5 of the original plan. It now
-  runs as the second tier rather than the default, but it is still there. Decide
-  separately whether to keep it.
-- **Measured, and the blocker was ours.** With a browser able to reach real hosts
-  and real URLs in hand: Pinterest serves this server a 200 and 393 KB of JPEG,
-  Wikimedia 224 KB. Neither ever blocked us. Both were refused by our own 128 KB
-  ceiling, which was applied to the DOWNLOAD as well as to the document. Split in
-  two — 2 MB down, 128 KB into the PDF, with fitting in between — a Pinterest
-  portrait now reaches the sheet with nothing asked of the user.
-
-  Two earlier conclusions here were drawn from invented URLs that returned S3
-  `AccessDenied`, and both were wrong: "Pinterest and D&D Beyond refuse the
-  server", and "header tuning does not help". Withdrawn. Nothing has been shown to
-  block this server at all.
-
-  `/image-probe` logs the host whenever it answers false, so the genuinely
-  unreachable set is measured from real traffic rather than guessed. Watch it: if
-  it stays empty, the paste and upload routes are dead weight.
+- **Whether the server fetch still earns its keep.** It now runs as the second tier
+  rather than the default. Keeping it is a separate decision, not yet made.
+- **Whether the paste and upload routes are dead weight.** `/image-probe` logs the host
+  whenever it answers false, so the genuinely unreachable set is measured from real
+  traffic rather than guessed. If that log stays empty, both routes can go.
+- **A refused host logs a CORS error in the console.** Unavoidable — reading any
+  cross-origin image without the header logs one, and not trying is what the feature
+  exists to stop doing. Recorded so it is not re-investigated as a defect.
 
 ## PDF export follow-ups
 
@@ -275,6 +248,8 @@ past the breakpoint and widen a phone-emulated one.
 
 
 ## Window the combobox row list, and reach the 969-option monster picker
+
+**Status:** Open — deferred deliberately; see the closing note on when to pick it up.
 
 Two related follow-ups from the Equipment combobox. Neither is urgent; both are
 recorded so the measurements behind them are not re-derived.

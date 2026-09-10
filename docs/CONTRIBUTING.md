@@ -87,6 +87,28 @@ Automation:
   (`.githooks/pre-push`) that mirrors both CI checks — a fail-fast reminder before the push
   leaves your machine. It only reminds; the fold stays a deliberate manual step.
 
+## The roadmap — one shared file, and items leave it
+
+`docs/TODO.md` is the shared roadmap. Unlike the branch changelog it is **long-lived and
+cross-branch on purpose**: an item usually outlives the branch that noticed it and gets
+built on a different one, so a per-branch roadmap file would be the wrong home for it on
+day one.
+
+Two rules, both enforced by reading rather than by a script:
+
+- **Every section opens with a `**Status:**` line**, naming the branch when one owns the
+  item — `Open`, `Not started`, `Being built on <branch>`, `Shipped on <branch>`. That
+  line is how a reader tells whose item it is; the file has no other attribution.
+- **Items leave.** When you fold a branch changelog into a release, take that work's
+  roadmap section out of `docs/TODO.md` in the same pass. If part of it is still
+  undecided, cut the section down to that part and set the Status back to `Open`. Do not
+  leave a shipped narrative sitting there as a to-do, and do not delete open questions
+  along with the shipped ones.
+
+The second rule is the one that gets skipped. Before this was written down the file had
+run 22 commits without a single section ever being removed, and it was carrying finished
+work presented as pending.
+
 ## Authorship — required, no exceptions
 
 Every commit must be authored **and** committed as `codeGlaze <github@codeglaze.com>`.
