@@ -3,6 +3,17 @@
 Drop-in hooks for agents working on this repo. Copy what you want into your own setup — nothing
 here is applied automatically to your machine.
 
+## `kb-audit-reminder.sh`
+
+The same nudge at a different moment: a **Stop** hook rather than a `git push` one, so the gap
+surfaces while the work is still in hand instead of at the push.
+
+Looks at ONE window — the uncommitted tree while it is dirty, otherwise the last commit.
+Unioning the two was tried first and is wrong: a docs-only commit at HEAD then silences every
+later code change, which is the exact case the reminder exists for.
+
+Register it under `Stop` rather than `PreToolUse`. Needs `git`, but no `jq`.
+
 ## `kb-doc-reminder.sh`
 
 Fires on `git push`. Inspects the commits the push would send; if they changed `src/` or `test/`
