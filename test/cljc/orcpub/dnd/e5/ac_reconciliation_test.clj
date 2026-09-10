@@ -22,6 +22,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.armor-class :as ac]
+            [orcpub.dnd.e5.requirements :as reqs]
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
@@ -643,4 +644,29 @@
 ;; ===========================================================================
 ;; If :lizardfolk-ac / :tortle-ac / a ?-channel is deprecated in favor of a new form,
 ;; an assertion here proves the OLD public form still yields the correct AC via the shim.
-;; (empty until a public var is actually deprecated)
+
+(deftest two-weapon-ac-1-still-yields-the-same-ac-through-the-requirements-registry
+  (testing "DEPRECATION SHIM (2026-09-08). :two-weapon-ac-1 was compiled by the hand-written
+            dual-wield-ac-mod, because the declarative predicate could not see the wielded weapons.
+            It now compiles to {:ac-bonus {:bonus 1 :dual-wielding? true}} through the requirements
+            registry. The PROP KEY is retained forever (D9); what changed is only what it expands
+            to, and this proves the expansion is equivalent.
+
+            Asserted at the level the change actually happened — the contributor's own predicate —
+            because the modifier both forms produce is the same vec-mod on the same channel."
+    (let [;; the condition dual-wield-ac-mod implemented, verbatim
+          hand-written (fn [{:keys [main-hand off-hand]}]
+                         (and (some? main-hand) (some? off-hand)))
+          ;; what the prop key expands to now
+          authored     {:bonus 1 :dual-wielding? true}
+          sword        {:name "Shortsword"}]
+      (doseq [main-hand [nil sword]
+              off-hand  [nil sword]
+              armor     [nil {:name "Plate"}]
+              shield    [nil {:name "Shield"}]]
+        (let [ctx {:armor armor :shield shield :main-hand main-hand :off-hand off-hand}]
+          (is (= (boolean (hand-written ctx)) (reqs/meets-all? authored ctx))
+              (str "diverged: main=" (some? main-hand) " off=" (some? off-hand)
+                   " armor=" (some? armor) " shield=" (some? shield)))))))
+  (testing "and the prop key still produces exactly one contributor, as before"
+    (is (= 1 (count (#'orcpub.dnd.e5.options/make-feat-modifiers :two-weapon-ac-1 true nil))))))

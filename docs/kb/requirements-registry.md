@@ -145,11 +145,26 @@ never changed. **Adding a fact to the context is one line in that map plus one r
 and a Monk kept Unarmored Defense while holding a shield. `false` is a meaningful value in a
 three-state vocabulary; absent and false must stay distinguishable, hence `contains?`.
 
+## The registry now REPLACES something (2026-09-08)
+
+`:two-weapon-ac-1` compiles to `{:ac-bonus {:bonus 1 :dual-wielding? true}}`; `dual-wield-ac-mod` is
+`#_`-struck per D34, pinned by `ac_reconciliation_test` SECTION 4 — the slot that file had reserved
+for exactly this. Three magic-item bonuses (two ioun stones, Robe of the Archmagi's `(if (nil? armor)
+5 0)` → `{:armored? false}`) are declarative now too.
+
+**One thing audited and found NOT to be duplication.** `ac-bonus-fn` and `ac-bonus-meeting` look like
+two mechanisms on one channel (D29), and were reported as such. They are not: a bonus whose VALUE is
+computed from the character — `(if (and (nil? shield) (nil? armor)) (?ability-bonuses char5e/con) 0)`
+— cannot be written as `(spec, n)`. `ac-bonus-fn` is the primitive; `ac-bonus-meeting` is the
+declarative constructor for the common fixed-number case. Both kept, and the docstrings say which to
+reach for. *The count of callers in that audit was also wrong — the glob missed `templates/`.*
+
 ## Still to do
 
-1. Express `:two-weapon-ac-1` as `{:ac-bonus {:bonus 1 :dual-wielding? true}}` and Dueling's damage
-   bonus as `:one-handed?`; characterization-test against the hand-written versions; deprecate D34.
-2. The damage/attack channels need the same macro treatment to reach the registry — today only AC
+1. The damage/attack channels need the same macro treatment to reach the registry — today only AC
    bonuses do. That is the second consumer that proves the registry rather than assuming it.
-3. Expose the requirements in `ac-bonus-fields` so an author can pick them (curation, not automatic).
-4. `:toggle` and `:text` entries when a real case wants them.
+2. Expose the requirements in `ac-bonus-fields` so an author can pick them (curation, not automatic).
+   Until then `:dual-wielding?` is reachable from authored data but not from the form.
+3. `:toggle` and `:text` entries when a real case wants them. The gates are declared in the
+   vocabulary and have no entries; a test asserts that plainly rather than propping up empty
+   structure.

@@ -25,6 +25,7 @@ capability **requires** logging the paths it now subsumes.
 | Function (file) | Superseded by | Deprecated on | Remove after | Pinning test | Status |
 |---|---|---|---|---|---|
 | `?natural-ac-bonus` (template_base) | `mod5e/ac-formula` calculations; adapted by a seeded `?ac-fns` entry | 2026-09-04 | after `integration`'s `bracers_ac_test` stops writing it | `ac_reconciliation_test` parity sweep | **Shimmed** (kept declared; nothing in-repo writes it) |
+| `dual-wield-ac-mod` (options) | `{:ac-bonus {:bonus 1 :dual-wielding? true}}` via the requirements registry | 2026-09-08 | 2026-12-08 | `ac_reconciliation_test` SECTION 4 | **Struck** (`#_`); the `:two-weapon-ac-1` prop key is retained forever (D9) |
 | `:lizardfolk-ac` / `:tortle-ac` props (options) | the universal `{:ac …}` + `{:armor-gives-no-ac}` shape | 2026-09-04 | never — kept as prop keys (D9) | parity sweep 0; `tortle-decomposes-…` | **Re-pointed**, keys retained |
 | `?unarmored-ac-bonus`, `?unarmored-with-shield-ac-bonus`, `?armored-ac-bonus`, `?magical-ac-bonus`, `?ac-bonus`, `?unarmored-defense` | `?ac-fns` / `?ac-bonus-fns` | 2026-09-04 | — | parity sweep 0; full suite | **Deleted outright — a D34 EXCEPTION**, see note |
 | `mod5e/natural-ac-bonus`, `mod5e/unarmored-defense` (constructors) | `mod5e/ac-formula` | 2026-09-04 | — | — | **Deleted outright** — zero callers, no `:props` key reached them |

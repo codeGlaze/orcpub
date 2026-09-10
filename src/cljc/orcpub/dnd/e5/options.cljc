@@ -1430,7 +1430,12 @@
                {:name "Martial"
                 :key :martial}))}))
 
-(def dual-wield-ac-mod
+;; DEPRECATED 2026-09-08 — superseded by {:ac-bonus {:bonus 1 :dual-wielding? true}}, which the
+;; requirements registry makes expressible. This was hand-written precisely because the declarative
+;; predicate could not see the wielded weapons; mod5e/ac-bonus-meeting assembles them now. The
+;; :two-weapon-ac-1 prop key is retained forever and compiles to the general form.
+;; Behaviour pinned by ac_reconciliation_test SECTION 4. Remove after 2026-12-08. See backfill-ledger.
+#_(def dual-wield-ac-mod
   (mods/vec-mod ?ac-bonus-fns
                 (fn [_ _] 1)
                 nil
@@ -3775,7 +3780,9 @@
       :initiative [(modifiers/initiative v)]
       :ac (ac-calculation-modifiers v)
       :ac-bonus (ac-bonus-modifiers v)
-      :two-weapon-ac-1 [dual-wield-ac-mod]
+      ;; Kept as a prop key (D9) and now compiled to the general form, like :medium-armor-max-dex-3
+      ;; before it: +1 AC required to be dual wielding, which the requirements registry can state.
+      :two-weapon-ac-1 (ac-bonus-modifiers {:bonus 1 :dual-wielding? true})
       :two-weapon-any-one-handed [dual-wield-weapon-mod]
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]
       :passive-investigation-5 [(modifiers/passive-investigation 5)]

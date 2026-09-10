@@ -104,7 +104,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, grant, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, job, ledger, legacy, naive, outright, parity, re-pointed, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -231,7 +231,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, non-srd, piece, pool, profs, scaling, tool
+**topics:** artificer, builders, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -308,7 +308,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, section, selection
+**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, selection
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -653,7 +653,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** 2026-09-08, acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, session, step, steps, strike, template, widgets
+**topics:** acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, session, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -781,7 +781,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** 2026-09-08, about, accessor, asks, bonuses, contributors, curation, damage, dual, effect, fact, gates, macro, prereq, requirement, requirements, sense, trigger
+**topics:** 2026-09-08, about, accessor, asks, bonuses, contributors, curation, dual, effect, fact, gates, macro, prereq, registry, requirement, requirements, sense, trigger
 
 - Why: the same fact is hand-written in three places today
 - The shape
@@ -792,6 +792,7 @@ _requirements-registry · requirements registry_
 - Kinship with prereqs — same shape, different gate
 - The blocker that was not one
 - What landed
+- The registry now REPLACES something (2026-09-08)
 - Still to do
 
 ## roadmap.md

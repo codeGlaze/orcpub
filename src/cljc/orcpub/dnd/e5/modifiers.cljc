@@ -605,11 +605,22 @@
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
-(defmacro ac-bonus-fn [bonus-fn]
+(defmacro ac-bonus-fn
+  "The PRIMITIVE: an arbitrary `(fn [armor shield] -> N)` appended to ?ac-bonus-fns.
+
+  Kept, and not superseded by ac-bonus-meeting below. A bonus whose VALUE is computed from the
+  character cannot be written as (spec, n) — e.g. `(if (and (nil? shield) (nil? armor))
+  (?ability-bonuses char5e/con) 0)`. That is what this arity is for.
+
+  Reach for `ac-bonus-meeting` when the bonus is a fixed number gated on stated requirements, which
+  is most of them; reach for this when the number itself depends on the build."
+  [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
 (defmacro ac-bonus-meeting
-  "A flat AC bonus of `n`, applied only while `spec`'s requirements hold.
+  "A flat AC bonus of `n`, applied only while `spec`'s requirements hold — the DECLARATIVE form over
+  the same channel as ac-bonus-fn above, for the common case where the number is fixed and only the
+  condition varies.
 
   The point of the macro is WHERE the context is assembled. A contributor is called as
   `(f armor shield)` and sees nothing else, so a plain fn could never test the wielded weapons —

@@ -65,10 +65,3 @@
                   (nil? pred)                       ; :text gates never block computation
                   (= (boolean want) (boolean (pred ctx))))))
           requirements))
-
-(defn offerable
-  "Registry entries a form may offer, filtered by gate. A form that implies math offers
-   #{:build :toggle}; one that prints a trigger offers #{:text}. Registering a requirement and
-   exposing it in a builder are separate steps — the rule weapons.cljc already documents."
-  [gates]
-  (into {} (filter (fn [[_ {:keys [gate]}]] (contains? gates gate))) requirements))

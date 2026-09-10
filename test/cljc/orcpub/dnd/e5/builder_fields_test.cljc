@@ -205,5 +205,6 @@
       (if (= :text gate)
         (is (nil? pred) (str k " is a trigger and must carry no :pred"))
         (is (fn? pred)  (str k " gate " gate " must carry a :pred")))))
-  (testing "offerable filters by gate — a form implying math never offers a trigger"
-    (is (every? #(not= :text (:gate %)) (vals (reqs/offerable #{:build :toggle}))))))
+  (testing "every entry today is a :build gate — :toggle and :text are declared in the vocabulary
+            but have no entries, so nothing here is speculative structure with a test propping it up"
+    (is (= #{:build} (set (map :gate (vals reqs/requirements)))))))
