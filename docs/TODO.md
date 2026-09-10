@@ -324,3 +324,22 @@ The blocker is not size but semantics: `inventory-combobox` is an *add to a list
 control (it dispatches, clears the query and closes), while `monster-selector` picks
 a *single current value* that must stay displayed. Generalising means parameterising
 the selected-value display and the on-pick behaviour.
+
+## Map the SRD classes as they currently are
+
+**Status:** Not started. Sequenced after the orcbrew format documentation.
+
+The refactor line is reworking classes from twelve silos into something extensible and
+overridable. Before that lands it is worth writing down the shape the SRD classes have
+*today* — the overlaps and the inconsistencies both — for two reasons: it is the behavioural
+baseline the refactor gets checked against, and it is the only way to answer "which SRD class
+features have no data equivalent a homebrew class could use".
+
+`docs/kb/orcbrew-value-vocabulary.md` gives the homebrew half of that comparison: the twelve
+`:level-modifiers` types and the `:props` vocabulary are the entire set of things a class can
+express as data. The SRD classes express far more than that as code — `classes.cljc` is full
+of hand-built selections and modifier functions with no declarative twin. The map should say,
+per class, which of its features fall outside the data vocabulary and what each would need.
+
+Worth capturing even though the refactor will change things: a baseline you did not record is
+one you cannot regress against.

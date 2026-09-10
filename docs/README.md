@@ -11,6 +11,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
 
 **For Developers:**
+- [✍️ Writing an .orcbrew by hand](ORCBREW-AUTHORING.md) - The format as the code reads it: the two grant vocabularies, the namespaced-keyword rule, what the builders won't write, and a verified example pack
 - [🌿 Contributing & Workflow](CONTRIBUTING.md) - Branching, releases, changelog fold, commit & PR conventions
 - [ClojureScript Type Tolerance](clojurescript-type-tolerance.md) - What cljs silently tolerates vs. what crashes (and why); the string-op crash pattern behind render black screens
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
