@@ -17,10 +17,13 @@ carries live state.*
 - **Merged `integration` 2026-09-10** after five months of drift (550 behind, 131 ahead).
   `src/`, `test/` and `project.clj` are byte-identical to integration; the 131 commits here
   touch no application code.
-- **Active plan: the Fall Update** — companions, summons and Wild Shape. Research complete,
-  nothing built. See [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
-  Two blockers, one per half: CR is stored as a string on the character and a number on the
-  monster; and no hook exists for plugin content to declare that a subclass grants a companion.
+- **The Fall Update is the `refactor/` line and its leaves.** `refactor/content-extensibility`
+  is the live one (2026-09-04) and carries the orcbrew v1/v2 format versioning.
+- **One leaf is planned: companions, summons and Wild Shape.** Research complete, nothing
+  built. See [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
+  It branches off `refactor/content-extensibility`, not `integration` — that branch rewrites
+  the same files. Two blockers: CR is a string on the character and a number on the monster;
+  and no hook exists for content to declare that a feature grants a creature.
 - Summer Patch work is merged to `integration` and out of scope here.
 
 ## Reinforcement loop

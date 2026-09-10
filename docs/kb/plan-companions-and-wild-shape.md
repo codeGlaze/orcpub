@@ -1,6 +1,7 @@
 # Plan: companions, summons and Wild Shape
 
-*Fall update research. Nothing here is built. Written 2026-09-08 from the codebase, D&D
+*One leaf of the Fall Update, which is the `refactor/` line and its leaves — not the whole
+of it. Nothing here is built. Written 2026-09-08 from the codebase, D&D
 Beyond's docs, and the Foundry VTT dnd5e source; line references are against `integration` at
 432cf375. Revised 2026-09-08 and 2026-09-10 — see [Revisions](#revisions).*
 
@@ -205,7 +206,47 @@ Both buckets need the same thing from homebrew — a way for authored content to
 grants a creature" — and the answer is cheaper than expected, because the specs are already
 open.
 
-### The specs permit it today
+### Base branch and dependency
+
+**This leaf depends on `refactor/content-extensibility`**, which is live (last touched
+2026-09-04) and changes the exact files this work needs: `spell_subs.cljs` (+242 — where
+`filter-monsters` lives), `events.cljs` (+265), `orcbrew_validation.cljs` (+80),
+`template.cljc`, `entity.cljc`. Building this off `integration` would collide with it.
+
+That branch also carries `docs/kb/orcbrew-format-versioning.md`, which exists on **no other
+branch** — not integration, not here. Read it before designing anything that touches
+homebrew content shape.
+
+### The specs permit it — but permitting is not the model
+
+The specs are open `spec/keys`, so an unknown key validates. **That does not make a
+`:companion` key backward compatible**, and treating it as such would defeat a mechanism
+this repo already built.
+
+`refactor/content-extensibility` versions orcbrew content by *compatibility class*:
+
+```clojure
+;; v1 = fully backward compatible, ships plain, never gated
+;; v2 = contains a non-backward-compatible feature, wrapped:
+#:orcbrew{:format-version 2 :requires [...] :content <plugin map>}
+```
+
+`detect-incompatible-features` classifies from content — currently `:grant`,
+`:save-proficiencies`, the vector `:ability-increase` spread, `::e5/draconic-ancestries`.
+The envelope's keyword keys make an old build **fail to load rather than silently
+mis-load**.
+
+A companion grant is squarely in that class. An old build that ignored the key would drop
+the companion silently, which is the exact failure the envelope prevents. So:
+
+**`:companion` and `:summons` must be added to `detect-incompatible-features`**, marking any
+pack that uses them v2. Additive to the *spec*, deliberately not additive to the *format*.
+
+Note also that `:grant` already exists as a generic mechanism (`{:grant {:from
+:fighting-styles :choose 1}}`). A companion grant may belong as an extension of it rather
+than a new key — worth checking before inventing a parallel shape.
+
+### The spec shapes
 
 ```clojure
 ;; classes.cljc:24
@@ -436,6 +477,22 @@ overstated, and the second was wrong:
   families off shared machinery.
 - The draft named the commented-out Moon code as the type trap. Backwards: Moon's integer
   matches the monster data, and the live string does not.
+
+**2026-09-10 (latest).** Two scope errors, both mine:
+
+- The doc called itself "the Fall Update". It is **one leaf** of it — the Fall Update is the
+  `refactor/` line and its leaves. Corrected throughout.
+- It treated the companion homebrew key as backward compatible because the specs are open
+  `spec/keys`. Wrong for this repo's model. `refactor/content-extensibility` versions orcbrew
+  content by compatibility class, and the v2 envelope exists precisely so an old build
+  **bounces off** content it cannot handle instead of silently mis-loading it. A companion
+  grant silently dropped is that failure. `:companion` and `:summons` belong in
+  `detect-incompatible-features`.
+
+Also found: this leaf's base is `refactor/content-extensibility`, not `integration` — that
+branch is live and rewrites `spell_subs.cljs`, `events.cljs` and `orcbrew_validation.cljs`,
+which slices 2 and the homebrew hook all touch. And `docs/kb/orcbrew-format-versioning.md`
+exists only on that branch, on neither `integration` nor here.
 
 **2026-09-10 (later).** The domain was never mapped, only the implementation. The plan
 classified how a creature's stats are computed and treated that as the taxonomy, so
