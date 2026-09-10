@@ -25,7 +25,7 @@ the player has**. They are orthogonal — a familiar and a Beast Master companio
 | **C. Raised** | many, cumulative | persistent, re-asserted | Animate Dead, Create Undead — live |
 | **D. Bound / NPC** | one | task- or time-scoped | Planar Ally, Planar Binding, Simulacrum, Awaken — live |
 | **E. People** | one to a few | persistent, can gain levels | Nothing live. Noble's and Knight's Retainers both `#_` discarded; sidekicks, hirelings, bastion staff absent |
-| **F. Property** | any | owned | Vehicle proficiencies wired; `vehicles` holds one Cart |
+| **F. Property** | any | owned | Mundane mounts, vehicles, holdings, strongholds, bastions. Vehicle proficiencies wired; `vehicles` holds one Cart; holdings and bastions absent entirely |
 | **G. Transformation** | n/a — it is you | encounter | Wild Shape live, Polymorph live |
 
 **G is not an "other" and must not share their storage.** Becoming a creature replaces your
@@ -63,10 +63,22 @@ A and B carry nearly all the value and **share one mechanism**: a constrained cr
 (CR bound + type + size). That is the same query the Wild Shape filter needs, so building it
 once serves Wild Shape, Find Familiar, Find Steed, Beast Master and all five Conjure spells.
 
-C, D and E are long tail. F is a different thing wearing a similar hat — a vehicle has no
-statblock, initiative or actions, and belongs with equipment rather than here. Bastion and
-stronghold followers (2024) are held on the list as a shape, unmodelled and out of scope
-until A and B exist.
+C, D and E are long tail.
+
+**F splits, and the split matters.** A mount or vehicle has no statblock, initiative or
+actions — it is equipment that moves, and belongs nearer the inventory than here. A holding,
+stronghold or bastion is not that. It has its own persistent state (facilities, orders,
+downtime turns) and it *generates bucket E people* — staff, retainers, garrison. So it is
+property that produces creatures, which makes it a container for other buckets rather than a
+leaf.
+
+Nothing of either kind is modelled: vehicle proficiencies are wired into the decision tree
+and `vehicles` holds a single Cart; holdings and bastions are absent from the codebase
+entirely (checked — every apparent hit is Divine Domain or Bag of Holding).
+
+Both stay on the list as shapes, out of scope until A and B exist. Recorded now because a
+bastion is easy to mistake for a bigger cart, and the follower-generating relationship is
+the thing that would be expensive to retrofit.
 
 ## The druid flow, and what it maps onto
 
