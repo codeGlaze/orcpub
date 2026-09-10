@@ -1,0 +1,41 @@
+# Guard: docs/TODO.md must stay readable as a roadmap. See docs/CONTRIBUTING.md.
+#
+# Two jobs, split the same way changelog-guard splits its own: the pruning check
+# is a post-merge backstop and only makes sense on the branches a release fold
+# lands on, while the form check is feedback and also runs on pull_request, where
+# the author can still act on it.
+#
+# An item marked "Shipped on <branch>" is legitimate on the branch that shipped
+# it, right up until the fold — which is why only the push job passes --strict.
+
+name: Roadmap guard
+
+on:
+  push:
+    branches: [integration, develop, main]
+  pull_request:
+    paths: ["docs/TODO.md", "scripts/lint-todo.py", ".github/workflows/roadmap-guard.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  roadmap-pruned:
+    name: Roadmap pruned
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No setup step: ubuntu-latest ships python3, and the linter imports nothing
+      # outside the standard library on purpose, so this stays a checkout and a run.
+      - name: A shipped roadmap item must not survive the fold
+        run: scripts/lint-todo.py --strict
+
+  roadmap-form:
+    name: Roadmap section form
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every section carries a Status from the vocabulary
+        run: scripts/lint-todo.py

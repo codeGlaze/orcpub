@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # pre-push guard (reminder, not an auto-fold): refuse to push a commit that still
-# carries docs/branch-changelog.md onto integration / develop / main. Mirrors
-# .github/workflows/changelog-guard.yml so a forgotten fold is caught locally
-# instead of on CI. The fold itself stays a deliberate manual step:
+# carries docs/branch-changelog.md onto integration / develop / main, or that
+# leaves a shipped item sitting in docs/TODO.md. Mirrors changelog-guard.yml and
+# roadmap-guard.yml so a forgotten fold or an unpruned roadmap is caught locally
+# instead of on CI. Both stay deliberate manual steps:
 #   scripts/fold-branch-changelog.sh "<release>"    (then commit, then push)
+#   ... and take that work's section out of docs/TODO.md in the same pass.
 #
 # Activate once per clone:  scripts/setup-hooks.sh   (or: git config core.hooksPath .githooks)
 
@@ -20,6 +22,7 @@ while read -r _local_ref local_sha remote_ref _remote_sha; do
   case "$remote_ref" in
     refs/heads/integration|refs/heads/develop|refs/heads/main)
       guarded=1
+      guarded_sha="$local_sha"          # the commit actually bound for a guarded branch
       if git cat-file -e "${local_sha}:docs/branch-changelog.md" 2>/dev/null; then
         target="${remote_ref#refs/heads/}"
         echo "" >&2
@@ -51,6 +54,30 @@ if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-changelog.py ] && command -v p
     echo "" >&2
     status=1
   fi
+fi
+
+# The roadmap's own fold-time rule: a section still marked "Shipped on ..." is
+# finished work presented as pending. Checked against the COMMIT being pushed,
+# not the working tree, so uncommitted edits neither hide a problem nor invent
+# one -- the same thing the branch-changelog check above does with cat-file.
+if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-todo.py ] && command -v python3 >/dev/null 2>&1; then
+  pushed_todo="$(mktemp)"
+  if git show "${guarded_sha}:docs/TODO.md" > "$pushed_todo" 2>/dev/null; then
+    if ! scripts/lint-todo.py --strict "$pushed_todo" >/dev/null 2>&1; then
+      echo "" >&2
+      echo "  pre-push blocked: docs/TODO.md still carries work that has shipped." >&2
+      echo "" >&2
+      scripts/lint-todo.py --strict "$pushed_todo" 2>&1 \
+        | sed -E "s#$pushed_todo#docs/TODO.md#g; s/^::error [^:]*::/    /; s/^/  /" >&2
+      echo "" >&2
+      echo "  Take the section out, or cut it down to what it left undecided and set" >&2
+      echo "  Status back to Open. Rules: docs/CONTRIBUTING.md" >&2
+      echo "  (To bypass once: git push --no-verify.)" >&2
+      echo "" >&2
+      status=1
+    fi
+  fi
+  rm -f "$pushed_todo"
 fi
 
 exit $status
