@@ -70,6 +70,71 @@ content reconciliation). But SRD-vs-SRD is different — users expect **both** t
   SRD content as "builtin" and excludes it from missing-content warnings. With
   two SRD versions, "builtin" needs a more nuanced definition.
 
+## Addendum 2026-09-11 — versioning granularity (UNVALIDATED THEORY)
+
+> **Status: exploratory. Not a decision, not validated, no code written.**
+> Produced in a side conversation about the companions leaf, by an agent that was not
+> working the 2024 integration. Another agent owns that work and may have better
+> information. Treat everything below as a hypothesis to test or discard — the four
+> approaches above are still the live options.
+
+### The case that constrains it
+
+The owner's example: someone plays the **2024 druid** but their table uses the **2014 Wild
+Shape CR rule**. Mixing inside a single feature, not between entries.
+
+If that has to work, it rules out three of the four approaches above. Separate data files,
+2024-as-a-plugin and overlay-with-precedence all pick a winner per *entry*; none can say
+"this class from here, that one rule from there." Only version-tagging survives — and it has
+to tag something smaller than an entry.
+
+### What the engine already does
+
+`apply-options` (`entity.cljc:663`) sorts every modifier by `::mods/order` before a
+dependency-ordered application:
+
+```clojure
+modifiers (sort-by ::mods/order (collect-modifiers-2 raw-entity options template))
+```
+
+And `modifier` (`entity_spec.cljc:95`) replaces rather than combines —
+`(update entity k (fn [_] new-value))`. Last writer wins, deterministically.
+
+So an explicit precedence field and a last-wins rule both exist. **This may be a filter over
+an existing pipeline rather than new architecture.** That is the part most worth testing.
+
+### The trap: filter, don't reorder
+
+`modifier` replaces, but `cum-sum-mod`, `vec-mod` and `set-mod` **accumulate**, and all four
+are in live use in `classes.cljc`. Keep both editions' modifiers and merely reorder them, and
+every accumulating modifier double-counts — two editions of the same bonus stacking silently.
+
+Dropping the unpicked edition's modifiers *before* the pipeline is the only operation that is
+safe across all four types.
+
+### Granularity for the UI
+
+Nobody toggles hundreds of modifiers. But classes are already shaped as named features owning
+modifier lists (`:levels {N {:modifiers [...]}}`), so the natural control is one per feature —
+"Wild Shape: 2014 | 2024" — flipping the small set beneath it. That grouping exists; it does
+not need inventing.
+
+### Consequence to decide deliberately
+
+Mixing will produce incoherent characters — 2024 moves subclass choice to level 3, so pairing
+it with a 2014 subclass feature at 2 leaves a hole. Letting that happen is probably right
+("the world is a crazy place"), but the sheet should be able to **show what is mixed**, so a
+DM sees the seams instead of finding them mid-session. Cheap to design in now, awkward later.
+
+### What would validate or kill this
+
+- Does `::mods/order` actually carry meaningful values, or is it mostly nil? Only its use at
+  the sort site was checked.
+- Can a modifier be traced back to the feature that produced it, at build time? The UI
+  grouping depends on it.
+- Do the 2024 changes stay within the existing modifier vocabulary, or introduce shapes the
+  macros cannot express? That is the "structural changes" question above, unanswered.
+
 ## Related Files
 
 - `src/cljc/orcpub/dnd/e5/*_data.cljc` — SRD data (Tier 1 extraction)
