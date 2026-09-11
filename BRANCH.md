@@ -46,17 +46,21 @@ release; the next one inherits the branches.
   shares the copy-on-adopt statblock shape and the same 2014-vs-2024 decision.
 - No other leaf planned or started.
 
-## The loop
+## Agent tooling
 
-Stops research being lost. **Run `scripts/setup-hooks.sh` first — `core.hooksPath` is unset on
-a fresh clone, and none of this fires without it.**
+Everything this branch exists to hold. **Run `scripts/setup-hooks.sh` first — `core.hooksPath`
+is unset on a fresh clone, and nothing enforcing below fires without it.**
 
 | Piece | What it does |
 | --- | --- |
+| `START-HERE.md` | Entry point. Prompt a new session with *"read START-HERE.md on agents/develop and follow it"* |
+| `scripts/agent-setup.sh` | Pulls this branch's tooling into any code branch's working tree (gitignored there, so it cannot reach a PR), arms the hooks, prints where the KB is. `--check` verifies only |
+| `scripts/clj-grep.py` | Greps Clojure with `#_` discards separated from live code. `classes.cljc` has 160 discarded `:name "` hits against 346 live — plain grep reports both as real. Also on `integration` |
 | `scripts/check-docs.sh` | Dangling links, orphaned KB docs, the develop superset. Runs from `pre-commit` |
 | `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration |
 | `.claude/hooks/kb-doc-reminder.sh` | On push: code changed, no docs? Nudge. Register in `.claude/settings.json` |
 | `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop. Register under `Stop` |
+| `.claude/skills/git-branch/` | Branch-creation conventions |
 | `docs/kb/README.md` | The index. An unlinked KB doc is invisible; `check-docs` fails the commit |
 
 ## Rules
