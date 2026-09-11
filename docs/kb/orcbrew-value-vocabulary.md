@@ -136,7 +136,8 @@ The spell list is either borrowed or custom:
   (`events.cljs:3737` `toggle-class-spell-list`).
 
 Subclass slot-based spellcasting is gated to `#{:fighter :rogue :warlock :cleric :paladin}`
-(`views.cljs:7012`); see `decision-vocabulary.md`.
+(`views.cljs:7012`). The reasoning behind that gate is in `decision-vocabulary.md`, which
+lives on `refactor/content-extensibility` with the rest of the knowledge base.
 
 
 ## Verified end to end

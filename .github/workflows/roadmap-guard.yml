@@ -14,7 +14,13 @@ on:
   push:
     branches: [integration, develop, main]
   pull_request:
-    paths: ["docs/TODO.md", "scripts/lint-todo.py", ".github/workflows/roadmap-guard.yml"]
+    paths:
+      - "docs/**"
+      - "CLAUDE.md"
+      - "test/browser/README.md"
+      - "scripts/lint-todo.py"
+      - "scripts/lint-doc-links.py"
+      - ".github/workflows/roadmap-guard.yml"
   workflow_dispatch:
 
 permissions:
@@ -39,3 +45,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Every section carries a Status from the vocabulary
         run: scripts/lint-todo.py
+
+  doc-references:
+    name: Documents cited actually exist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No document cites a file that is not here
+        run: scripts/lint-doc-links.py
