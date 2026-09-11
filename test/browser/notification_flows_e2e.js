@@ -91,19 +91,19 @@ const check = (name, ok, detail='') => { results.push({ok}); console.log(`${ok?'
     await d('[:orcpub.dnd.e5/import-plugin "Bad Import" "{:oops (unbalanced"]');
     await page.waitForTimeout(500);
     check('import malformed → error message', (await dbAt('[:message-shown?]')) === 'true' && (await dbAt('[:message-type]')) === ':error');
-    check('  error banner renders red (notifications/message)', /bg-red/.test(await banner() || ''));
+    check('  error banner renders red (notifications/message)', /tone-error/.test(await banner() || ''));
 
     // Import valid content — real import flow → message.
     await d('[:hide-message]'); await page.waitForTimeout(100);
     await d('[:orcpub.dnd.e5/import-plugin "Good Import" "{\\"Good Import\\" {:orcpub.dnd.e5/classes {:e2e-imp {:name \\"E2E Imp\\" :key :e2e-imp :option-pack \\"Good Import\\" :hit-die 8}}}}"]');
     await page.waitForTimeout(500);
     check('import valid → message shown', (await dbAt('[:message-shown?]')) === 'true');
-    check('  banner renders (notifications/message)', /bg-(orange|green)/.test(await banner() || ''));
+    check('  banner renders (notifications/message)', /tone-(warning|success)/.test(await banner() || ''));
 
     // Direct success message → green (third severity).
     await d('[:hide-message]'); await page.waitForTimeout(100);
     await d('[:show-message "Saved."]'); await page.waitForTimeout(200);
-    check('success message renders green', /bg-green/.test(await banner() || ''));
+    check('success message renders green', /tone-success/.test(await banner() || ''));
     await page.evaluate(() => { const el = document.querySelector('.message'); if (el) el.parentElement.click(); });
     await page.waitForTimeout(200);
     check('clicking the banner closes it', (await dbAt('[:message-shown?]')) === 'false');

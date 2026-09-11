@@ -1101,36 +1101,47 @@
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
-      [:div.t-a-r
-       [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
-         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download-alt]]
-       [:div.orange.pointer.underline
-        {:on-click #(swap! expanded? not)
-         :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class (when @expanded? "white")}]]
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (str {:browser (user-agent/browser)
-                        :browser-version (user-agent/browser-version)
-                        :device-type (user-agent/device-type)
-                        :platform (user-agent/platform)
-                        :platform-version (user-agent/platform-version)
-                        :character (char/to-strict @(subscribe [:character]))})}])
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (clj->json {:browser (user-agent/browser)
-                              :browser-version (user-agent/browser-version)
-                              :device-type (user-agent/device-type)
-                              :platform (user-agent/platform)
-                              :platform-version (user-agent/platform-version)
-                              :character (char/to-strict @(subscribe [:character]))})}])
-       ])))
+      (let [dev? @(subscribe [::e5/dev-mode?])]
+        [:div.t-a-r
+         ;; The switch is always visible and named. The tools behind it are for
+         ;; getting content out when the app is misbehaving, so hiding the way to
+         ;; reach them would defeat the point — what the toggle removes is two
+         ;; unlabelled icons sitting in the footer of every page.
+         [:div.dev-mode-row
+          [:span.dev-mode-switch
+           {:class (when dev? "on")
+            :role "switch"
+            :aria-checked (str (boolean dev?))
+            :tabIndex 0
+            :title "Show diagnostic tools for getting your content out"
+            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+          [:span.dev-mode-label
+           {:on-click (make-event-handler ::e5/toggle-dev-mode)}
+           "Developer mode"]]
+         (when dev?
+           [:div.dev-mode-tools
+            [:span.dev-mode-tool
+             {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+              :title "Downloads every source exactly as stored, skipping the export checks. Large libraries take a while — click once and wait."}
+             [:i.fa.fa-cloud-download-alt.m-r-5]
+             "Dump library"]
+            [:span.dev-mode-tool
+             {:on-click #(swap! expanded? not)
+              :title "Browser and build details, for a bug report"}
+             [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
+             "Debug info"]])
+         ;; One box, not the two identical ones that were here: the same map was
+         ;; rendered twice, once with str and once with clj->json.
+         (when (and dev? @expanded?)
+           [:textarea.m-t-5
+            {:read-only true
+             :style debug-data-style
+             :value (clj->json {:browser (user-agent/browser)
+                                :browser-version (user-agent/browser-version)
+                                :device-type (user-agent/device-type)
+                                :platform (user-agent/platform)
+                                :platform-version (user-agent/platform-version)
+                                :character (char/to-strict @(subscribe [:character]))})}])]))))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
   [:div.white.f-s-32.flex.align-items-c
@@ -3977,6 +3988,11 @@
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
   [_error _stack _retry]
+  ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
+  ;; took it away, then this page threw. Getting homebrew out matters most in
+  ;; exactly the state where the app has stopped being able to export it.
+  (when-let [rescue (aget js/window "orcpubBootRescue")]
+    (rescue))
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
@@ -8749,29 +8765,30 @@
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-              "export"]
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/delete-plugin name)}
-              "delete"]]
-            ;; One toolbar filters every category below: a name search and a
-            ;; show-disabled toggle whose (N) is the source's disabled count, so
-            ;; disabled content (which will grow once duplicate-key resolution
-            ;; disables a colliding side) stays discoverable, not buried.
-            (when has-content?
-              [:div.flex.align-items-c.flex-wrap.m-b-10
-               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+            ;; One row for the whole source: the search that filters every category
+            ;; below, the show-disabled toggle whose (N) is this source's disabled
+            ;; count, and the source's own actions. It wraps on a narrow screen —
+            ;; search first, then the toggle and the buttons.
+            [:div.mc-source-toolbar
+             (when has-content?
+               [:input.input.h-40.p-l-10.f-s-14.mc-source-search
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}]
+                 :on-change #(reset! search (.. % -target -value))}])
+             (when has-content?
                (let [dn (source-disabled-count plugin)]
-                 [:div.flex.align-items-c.pointer.f-s-14
+                 [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [comps/checkbox show? false]
-                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
+             [:div.flex.align-items-c.uppercase.mc-source-actions
+              [:button.form-button
+               {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+               "export"]
+              [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/delete-plugin name)}
+               "delete"]]]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
@@ -9349,7 +9366,14 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
+                      ;; NOT "Save to Browser Storage", which is what every other
+                      ;; builder's button says and does. A magic item is saved to
+                      ;; the database like a character is: ::mi/save-item posts to
+                      ;; /dnd/5e/items with an auth header, so the label was
+                      ;; promising local storage while requiring an account, and a
+                      ;; logged-out click landed on the login page having said
+                      ;; nothing about needing one.
+                      {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]

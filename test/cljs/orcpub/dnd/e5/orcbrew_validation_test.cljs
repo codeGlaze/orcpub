@@ -275,44 +275,50 @@
 
 (deftest test-format-import-result-success
   (testing "Formatting successful import result"
-    (let [result {:success true :imported-count 5}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"✅" message))
-      (is (re-find #"successful" message)))))
+    (let [{:keys [title details]} (orcbrew-val/format-import-result {:success true :imported-count 5})]
+      (is (= "Import successful" title))
+      (is (some #(re-find #"5 items" %) details))
+      (testing "no newlines inside a line — the banner renders each line itself"
+        (is (every? #(not (re-find #"\n" %)) (cons title details)))))))
 
 (deftest test-format-import-result-with-warnings
   (testing "Formatting import result with warnings"
-    (let [result {:success true
-                  :had-errors true
-                  :imported-count 2
-                  :skipped-count 1}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"warning" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success true
+                                             :had-errors true
+                                             :imported-count 2
+                                             :skipped-count 1})]
+      (is (re-find #"warning" title))
+      (is (some #(re-find #"Skipped 1" %) details)))))
 
 (deftest test-format-import-result-parse-error
   (testing "Formatting parse error result"
-    (let [result {:success false
-                  :parse-error true
-                  :error "Unexpected token"
-                  :line 5
-                  :hint "Check brackets"}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Could not read" message))
-      (is (re-find #"Line: 5" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false
+                                             :parse-error true
+                                             :error "Unexpected token"
+                                             :line 5
+                                             :hint "Check brackets"})]
+      (is (= "Could not read file" title))
+      (is (some #(re-find #"Line: 5" %) details))
+      (is (some #(re-find #"Check brackets" %) details)))))
 
 (deftest test-format-import-result-validation-error
   (testing "Formatting validation error result"
-    (let [result {:success false
-                  :errors ["Error 1" "Error 2"]}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Invalid" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false :errors ["Error 1" "Error 2"]})]
+      (is (= "Invalid orcbrew file" title))
+      (is (= ["Error 1" "Error 2"] (take 2 details))))))
+
+(deftest test-key-conflicts-are-lines-not-a-paragraph
+  (testing "Each conflict is its own line, so nothing depends on newline rendering"
+    (let [details (orcbrew-val/format-key-conflict-details
+                   {:key-warnings [{:type :internal-duplicate :message "dup :fireball"}
+                                   {:type :external-duplicate :message "clashes with :shield"}]})]
+      (is (some #(re-find #"dup :fireball" %) details))
+      (is (some #(re-find #"clashes with :shield" %) details))
+      (is (every? #(not (re-find #"\n" %)) details)))))
+
 ;; ============================================================================
 ;; Data-Level Cleaning Tests
 ;; ============================================================================

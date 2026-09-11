@@ -42,7 +42,7 @@ Homebrew import / export / salvage
 Homebrew resilience & repair
 - **Per-entry salvage** — one bad entry no longer quarantines its whole source; valid items stay, broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
 - **Entry-level repair panel** in My Content — editable Name + Option-source per set-aside entry, Fix & Restore, and Discard (`d34007ff`, `c037de78`).
-- **Export runs the same checks as import** — duplicates/cleanups caught on the way out; raw/pretty export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
+- **Export runs the same checks as import** — duplicates/cleanups caught on the way out, on every export: one source or the whole library, plain or pretty-printed. The unchecked hatches stay: the footer safety valve, emergency raw export, per-builder draft export, quarantined-source export, and "export as-is" (`9df1b4ae`, `c037de78`).
 - **Resilient homebrew loading** with a My Content repair panel (`eedffc08`).
 - **Builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix (`eac350d0`, `e3c9a9ee`).
 - **"Show homebrew source on class names" toggle** (`8f94a94c`).

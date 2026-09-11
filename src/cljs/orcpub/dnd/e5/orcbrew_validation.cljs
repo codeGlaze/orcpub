@@ -2164,66 +2164,66 @@
 ;; User-Friendly Error Messages
 ;; ============================================================================
 
-(defn format-key-conflict-section
-  "Formats key conflicts into a section for display."
-  [{:keys [key-conflicts key-warnings]}]
+(defn format-key-conflict-details
+  "Key conflicts as display LINES, one per idea — not a paragraph with newlines
+   inside it. The banner renders each line itself, so structure survives HTML."
+  [{:keys [key-warnings]}]
   (when (seq key-warnings)
     (let [internal (filter #(= :internal-duplicate (:type %)) key-warnings)
           external (filter #(= :external-duplicate (:type %)) key-warnings)]
-      (str "\n\n⚠️ Key Conflicts Detected:\n"
-           (when (seq internal)
-             (str "\nWithin this file:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) internal))))
-           (when (seq external)
-             (str "\nWith existing content:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) external))))
-           "\n\nDuplicate keys can cause unexpected behavior. "
-           "Consider renaming one of the conflicting items."))))
+      (concat
+       (when (seq internal)
+         (cons "Key conflicts within this file:"
+               (map #(str "• " (:message %)) internal)))
+       (when (seq external)
+         (cons "Key conflicts with existing content:"
+               (map #(str "• " (:message %)) external)))
+       ["Duplicate keys can cause unexpected behavior. Consider renaming one of the conflicting items."]))))
 
 (defn format-import-result
-  "Formats validation result into a user-friendly message."
+  "What an import result should say, as {:title :details} — a headline and its
+   supporting lines. The caller decides tone and whether to offer an action; this
+   only decides the words.
+
+   Structured rather than one string with blank lines in it: the banner renders
+   HTML, where newlines collapse to spaces and run the sentences together."
   [result]
-  (let [key-conflict-section (format-key-conflict-section result)]
+  (let [conflicts (format-key-conflict-details result)]
     (cond
       ;; Parse error
       (:parse-error result)
-      (str "⚠️ Could not read file\n\n"
-           "Error: " (:error result) "\n"
-           (when (:line result)
-             (str "Line: " (:line result) "\n"))
-           "\n" (:hint result)
-           "\n\nThe file may be corrupted or incomplete. "
-           "Try exporting a fresh copy if you have the original source.")
+      {:title "Could not read file"
+       :details (concat [(str "Error: " (:error result))]
+                        (when (:line result) [(str "Line: " (:line result))])
+                        (when (:hint result) [(:hint result)])
+                        ["The file may be corrupted or incomplete. Try exporting a fresh copy if you have the original source."])}
 
       ;; Validation error (strict mode)
       (and (not (:success result)) (:errors result))
-      (str "⚠️ Invalid orcbrew file\n\n"
-           (str/join "\n\n" (:errors result))
-           "\n\nTo recover data from this file, you can:"
-           "\n1. Try progressive import (imports valid items, skips invalid ones)"
-           "\n2. Check the browser console for detailed validation errors"
-           "\n3. Export a fresh copy if you have the original source")
+      {:title "Invalid orcbrew file"
+       :details (concat (:errors result)
+                        ["To recover data from this file, you can:"
+                         "1. Try progressive import (imports valid items, skips invalid ones)"
+                         "2. Check the browser console for detailed validation errors"
+                         "3. Export a fresh copy if you have the original source"])}
 
       ;; Progressive import with some items skipped
       (:had-errors result)
-      (str "⚠️ Import completed with warnings\n\n"
-           "Imported: " (:imported-count result) " valid items\n"
-           "Skipped: " (:skipped-count result) " invalid items\n\n"
-           "Invalid items were skipped. Check the browser console for details."
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title "Import completed with warnings"
+       :details (concat [(str "Imported " (:imported-count result) " valid items")
+                         (str "Skipped " (:skipped-count result) " invalid items")
+                         "Invalid items were skipped. Check the browser console for details."]
+                        conflicts)}
 
       ;; Successful import (but may have key conflicts)
       (:success result)
-      (str (if (seq (:key-warnings result))
-             "⚠️ Import successful with warnings"
-             "✅ Import successful")
-           "\n\n"
-           (when (:imported-count result)
-             (str "Imported " (:imported-count result) " items"))
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title (if (seq (:key-warnings result))
+                "Import successful, with warnings"
+                "Import successful")
+       :details (concat (when (:imported-count result)
+                          [(str "Imported " (:imported-count result) " items")])
+                        conflicts)}
 
       ;; Unknown result
       :else
-      "❌ Unknown import result")))
+      {:title "Unknown import result"})))

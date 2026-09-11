@@ -2,30 +2,73 @@
   "Shared notification view components: the transient message banner, the reusable callout box,
    and the contextual banners built on it. Producers dispatch :show-*-message (events.cljs); the
    app-header mount reads :message-shown?/:message/:message-type and renders `message`. Severity
-   styling is in styles/core.clj (.message + .bg-red/.bg-orange/.bg-green for the banner,
+   styling is in styles/core.clj (.message + .tone-error/.tone-warning/.tone-success for the banner,
    .bg-warning for the callout)."
   (:require [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]))
 
+(defn- as-parts
+  "Normalise whatever a producer handed us into {:title :details}.
+
+   The structured map is the shape to use. A plain string is the LEGACY shape:
+   messages used to be one string with blank lines standing in for structure, and
+   HTML collapses those, which ran the sentences together with no punctuation
+   between them. Splitting happens here, at the edge, rather than being papered
+   over in CSS — and it goes away as producers move to the map.
+
+   HICCUP passes through untouched. Some messages are markup, not text — the
+   builders' \"please fill in X\" carries a bolded field name and a clickable
+   \"Save anyway with placeholders\" — and running (str) over a vector prints the
+   markup at the reader instead of rendering it."
+  [message-text]
+  (cond
+    (map? message-text) message-text
+    (vector? message-text) {:body message-text}
+    :else
+    (let [lines (->> (s/split (str message-text) #"\n")
+                     (map s/trim)
+                     (remove s/blank?))]
+      {:title (first lines) :details (rest lines)})))
+
+(defn- tone-icon [message-type]
+  (case message-type
+    :error "fa-times-circle"
+    :warning "fa-exclamation-triangle"
+    "fa-check-circle"))
+
 (defn message
-  "Transient banner: colored by message-type (:error/:warning else success), click anywhere
-   to close via close-handler."
+  "Transient banner. `message-text` is {:title :details} — or a plain string,
+   which `as-parts` splits (see there).
+
+   It says what happened and nothing else. An import banner briefly carried an
+   \"Export a backup\" button, which on My Content sat directly above the page's
+   own Export All: a message telling you to use a control that is already on
+   screen is noise, not help."
   [message-type message-text close-handler]
-  [:div.pointer.f-w-b
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    ;; The messages are written with blank lines between their parts, which the
-    ;; banner renders (white-space: pre-line) so the sentences do not run together.
-    ;; One break per part rather than two: on a phone the doubled gaps make a
-    ;; three-part message twice as tall as it needs to be.
-    [:span (s/replace (str message-text) #"\n{2,}" "\n")]
-    [:i.fa.fa-times]]])
+  (let [{:keys [title details body]} (as-parts message-text)]
+    [:div.pointer
+     {:on-click close-handler}
+     [:div.message
+      {:class (case message-type
+                :error "tone-error"
+                :warning "tone-warning"
+                "tone-success")}
+      [:i.fa.message-icon {:class (tone-icon message-type)}]
+      [:div.message-body
+       (if body
+         body
+         [:<>
+          [:div.message-title title]
+          ;; keyed by position: a detail line may be hiccup, which is no key at all
+          (map-indexed (fn [i line]
+                         ^{:key i}
+                         [:div.message-detail line])
+                       details)])]
+      [:i.fa.fa-times.message-close
+       {:title "Dismiss"
+        :aria-label "Dismiss"}]]]))
 
 (defn callout
   "Persistent contextual notice: a box with an optional fa icon class, body content
@@ -56,14 +99,18 @@
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
+   ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
+   ;; the form, never reaches what it returns, and React logs a missing-key warning
+   ;; for every action in the seq.
    (for [{:keys [label on-click href target icon]} actions]
-     ^{:key label}
      (let [body (if icon
                   [:span [:i.m-r-5 {:class icon}] label]
                   label)]
-       (if href
-         [:a.form-button {:href href :target (or target "_blank")} body]
-         [:button.form-button {:on-click on-click} body])))])
+       (with-meta
+         (if href
+           [:a.form-button {:href href :target (or target "_blank")} body]
+           [:button.form-button {:on-click on-click} body])
+         {:key label})))])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content
