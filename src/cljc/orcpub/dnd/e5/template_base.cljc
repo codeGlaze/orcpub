@@ -52,7 +52,11 @@
     ?armor-dex-bonus (fn [armor]
                        (ac/armor-dex-bonus (?ability-bonuses ::char5e/dex) ?armor-dex-caps armor))
     ?shield-ac-bonus (fn [shield] (ac/shield-bonus shield))
-    ?dual-wield-weapon? weapon5e/light-melee-weapon?
+    ;; What counts as dual-wieldable, as DATA — a vector of tag specs, ANY of which qualifies.
+    ;; Was a predicate FN (weapon5e/light-melee-weapon?): no homebrew could author one, nothing
+    ;; could print it, and a second source would have silently replaced the first.
+    ;; The 2014 base rule: "a light melee weapon that you're holding in one hand".
+    ?dual-wield-weapon-specs [{:light? true :melee? true}]
     ;; "You can't wear armor" (a tortle's shell, a construct chassis). A RESTRICTION, not an AC
     ;; rule: worn armor simply contributes nothing, so the character is treated as unarmored no
     ;; matter what is equipped. Deliberately not a cap on AC — ?ac-fns is a max and can raise a

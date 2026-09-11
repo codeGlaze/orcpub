@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** ago, agree, author, equipped, hand-written, ignored, iterating, older, places, predicate, says, table, tag, tags, two-branch, unknown, vocabulary, weapon
+**topics:** agree, crossbow, dual, equipped, ignored, iterating, melee, obvious, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -98,6 +98,7 @@ _authoring-vocabulary · authoring vocabulary_
 - What the values are, and why they differ
 - When to build one of these (and when not)
 - Growing one
+- A predicate is not the same as a spec — prefer the spec
 - Where these live
 
 ## backfill-ledger.md
@@ -131,7 +132,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** assets, beside, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -243,7 +244,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
+**topics:** -ref, accessor, body, character-validation, computed, contains, decides, deferred, entity, flat, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
 
 - One-liner
 - How it actually works (verified)
@@ -271,7 +272,7 @@ _character-validation · character validation_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, features, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -580,7 +581,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, creator, feat, five, gaps, grant, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, control, creator, feat, five, gaps, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -610,7 +611,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, damage, dueling, end, fighting, great, interception, one-handed, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
+**topics:** archery, attack, blindsight, damage, dueling, end, fighting, great, interception, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -785,7 +786,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** accessor, acquisition, asks, bonuses, context, contributors, distinguishable, dual, effect, explanation, fact, gates, macro, prereq, registry, requirement, trigger, wants
+**topics:** accessor, acquisition, asks, bonuses, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, trigger, wants
 
 - An entry
 - Three-state, and unknown keys are ignored

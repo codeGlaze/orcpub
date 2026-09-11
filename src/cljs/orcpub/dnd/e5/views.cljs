@@ -3559,7 +3559,8 @@
           main-hand-weapon-kw @(subscribe [::char/main-hand-weapon id])
           main-hand-weapon (all-weapons-map main-hand-weapon-kw)
           off-hand-weapon-kw @(subscribe [::char/off-hand-weapon id])
-          dual-wield-weapon? @(subscribe [::char/dual-wield-weapon-fn id])]
+          dw-specs @(subscribe [::char/dual-wield-weapon-specs id])
+          dual-wield-weapon? #(weapon/matches-any? dw-specs %)]
       [:div.flex.flex-wrap
        [equipped-section-dropdown
         "Main Hand Weapon"

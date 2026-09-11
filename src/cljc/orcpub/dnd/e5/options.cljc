@@ -1456,7 +1456,12 @@
                             ::weapons/melee?)))]))
 
 (def dual-wield-weapon-mod
-  (mods/modifier ?dual-wield-weapon? weapons/one-handed-weapon?))
+  ;; "even when the one-handed melee weapons you are wielding aren't light" — vec-mod ADDS a way to
+  ;; qualify rather than replacing the rule, so this composes with Crossbow Expert and with homebrew.
+  ;; NOTE :melee? true. The predecessor was weapons/one-handed-weapon?, i.e. only (not two-handed?),
+  ;; which dropped the melee half of the feat's own text and let a hand crossbow qualify off it.
+  ;; Visible as a spec; invisible inside a fn.
+  (mods/vec-mod ?dual-wield-weapon-specs {:melee? true :two-handed? false}))
 
 (def medium-armor-master-max-bonus
   (modifiers/armor-dex-cap :medium 3))
@@ -3783,6 +3788,11 @@
       ;; Kept as a prop key (D9) and now compiled to the general form, like :medium-armor-max-dex-3
       ;; before it: +1 AC required to be dual wielding, which the requirements registry can state.
       :two-weapon-ac-1 (ac-bonus-modifiers {:bonus 1 :dual-wielding? true})
+      ;; One more way for a weapon to qualify for the off hand — the authorable half of what the
+      ;; Dual Wielder feat does in code. {:two-handed? true :melee? true} is the two-greatswords
+      ;; feat; {:light? true :ranged? true} is Crossbow Expert's hand crossbow. Composes: every
+      ;; source's spec is tried and any match qualifies.
+      :dual-wield-weapons [(mods/vec-mod ?dual-wield-weapon-specs v)]
       :two-weapon-any-one-handed [dual-wield-weapon-mod]
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]
       :passive-investigation-5 [(modifiers/passive-investigation 5)]

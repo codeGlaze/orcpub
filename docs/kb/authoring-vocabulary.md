@@ -127,11 +127,60 @@ So `:dual-wield?` needs the **context to widen first** — one change to `reconc
 ~7 contributors — and then it is one entry in `ac-conditions` plus one optional field. The table is
 not what is blocking it; the contract is.
 
+## A predicate is not the same as a spec — prefer the spec
+
+A related shape, and the one to reach for. `?dual-wield-weapon?` used to be an entity attribute
+whose **value was a function** — `weapon5e/light-melee-weapon?` by default, replaced by the Dual
+Wielder feat with `weapons/one-handed-weapon?`. It is now a vector of tag specs:
+
+```clojure
+?dual-wield-weapon-specs [{:light? true :melee? true}]                       ; the base rule
+(mods/vec-mod ?dual-wield-weapon-specs {:melee? true :two-handed? false})    ; the feat ADDS a way
+(weapons/matches-any? specs weapon)                                          ; any spec qualifies
+```
+
+Four things the fn form could not do, all of them things this project is buying:
+
+| | fn | spec |
+|---|---|---|
+| a homebrew feat can grant it | ✗ code only | ✓ `{:props {:dual-wield-weapons {…}}}` |
+| it can be printed on a sheet or in the PDF | ✗ | ✓ |
+| two sources both add to it | ✗ **last wins, silently** | ✓ `vec-mod` conjoins |
+| divergence from the rules text is visible | ✗ | ✓ — see below |
+
+That last one is not theoretical. The feat's text is *"even when the **one-handed melee** weapons
+you are wielding aren't light"*, and its implementation was `one-handed-weapon?`, which is only
+`(not two-handed?)`. **It dropped the melee half**, letting a hand crossbow qualify off a melee
+feat. Buried in a fn for years; obvious the moment it sits beside the rule as `{:two-handed? false}`
+with no `:melee?`.
+
+**The fn form is strictly more expressive** — it could test "damage die ≤ d6", which boolean tags
+cannot. That expressiveness was unused: both shipped values were plain conjunctions of flags. Paying
+authorability for a capability nothing uses is the trade to avoid.
+
+**Cost of extending, measured** (the question that settles whether a spec is enough):
+
+| to allow | cost |
+|---|---|
+| another boolean property — ranged, thrown, versatile… | **free**, one more spec |
+| a specific weapon by key | ~3 lines; `matches?` is flags-only today |
+| a named family ("crossbows") | needs a grouping the weapon data does not have |
+
+Worked examples across two editions: the 2014 base rule, both Dual Wielder versions, Crossbow
+Expert's hand crossbow (`{:light? true :ranged? true}` — uniquely the hand crossbow in SRD), and a
+homebrew two-greatswords feat (`{:two-handed? true :melee? true}`) are all tier one.
+
+⚠️ **Fails open.** `matches?` ends in `:else true`, so an unrecognised tag is ignored and a spec
+carrying a typo matches **every** weapon. That tolerance is deliberate (old content keeps working)
+but it means mistakes are permissive. `dual_wield_specs_test` asserts every tag in a shipped spec is
+in `tag->flag`; do the same for any new spec vocabulary.
+
 ## Where these live
 
 - `weapons/tag->flag` — 13 weapon tags. Serves `:attack-bonus` and `:damage-bonus`.
 - `opt5e/ac-conditions` — 2 AC conditions. Serves `:ac` and `:ac-bonus`.
 - `content_types.cljc`, `grant_pools.cljc` — the same principle at content scale: one entry, many
   layers generated from it.
-- `requirements-registry.md` — DESIGN. The same shape for "while wielding two weapons" / "when you
-  hit", which today is hand-written in three features across two effect channels.
+- `requirements-registry.md` — the same shape for character-state facts ("while wielding two
+  weapons"), read by AC bonuses.
+- `?dual-wield-weapon-specs` (template_base) — tag specs rather than a predicate; see above.

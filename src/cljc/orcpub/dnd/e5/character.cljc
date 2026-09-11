@@ -735,8 +735,11 @@
 (defn al-illegal-reasons [built-char]
   (get-prop built-char :al-illegal-reasons))
 
-(defn dual-wield-weapon-fn [built-char]
-  (get-prop built-char :dual-wield-weapon?))
+(defn dual-wield-weapon-specs
+  "Every tag spec that qualifies a weapon for the off hand. Data, not a predicate — so it can be
+   authored, printed, and added to by more than one source."
+  [built-char]
+  (get-prop built-char :dual-wield-weapon-specs))
 
 ;; dead — zero callers (pdf_spec.cljc computes armor class inline)
 #_(defn max-armor-class [unarmored-armor-class

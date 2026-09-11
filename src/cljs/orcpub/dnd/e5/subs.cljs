@@ -766,7 +766,7 @@
    ::char5e/best-weapon-damage-modifier-fn char5e/best-weapon-damage-modifier-fn
    ::char5e/total-levels char5e/total-levels
    ::char5e/class-level-fn char5e/class-level-fn
-   ::char5e/dual-wield-weapon-fn char5e/dual-wield-weapon-fn
+   ::char5e/dual-wield-weapon-specs char5e/dual-wield-weapon-specs
    ::char5e/option-sources char5e/option-sources
    ::char5e/public? char5e/public?
    ::char5e/used-resources char5e/used-resources

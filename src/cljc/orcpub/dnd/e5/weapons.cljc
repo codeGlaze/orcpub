@@ -470,3 +470,15 @@
               (tag->flag tag) (= (boolean want) (boolean (get weapon (tag->flag tag))))
               :else true))
           tags))
+
+(defn matches-any?
+  "Does `weapon` satisfy ANY of `specs`? The composing form of `matches?`: each spec is one way to
+  qualify, so two sources can each add a way without clobbering the other.
+
+  That is what lets the Dual Wielder feat AND Crossbow Expert both apply — one adds
+  {:melee? true :two-handed? false}, the other {:light? true :ranged? true}, and a character with
+  both can wield either. A single predicate would have had the second silently replace the first.
+
+  Empty or nil specs qualify NOTHING: a character with no way to dual wield cannot."
+  [specs weapon]
+  (boolean (some #(matches? % weapon) specs)))
