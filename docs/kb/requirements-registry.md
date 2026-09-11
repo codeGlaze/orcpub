@@ -102,7 +102,9 @@ Four `:build` entries — `:armored?`, `:shielded?`, `:dual-wielding?`, `:one-ha
 bonuses and AC calculations. `:toggle` and `:text` are declared in the vocabulary and have no
 entries yet; the damage and attack channels do not reach the registry yet.
 
-Legacy `:armor?` / `:shield?` are read forever (D9); the form writes the canonical names.
+The registry uses the spellings `:ac-bonus` has shipped with — `:armor?`, `:shield?`. Renaming
+them would have read marginally better beside `:dual-wielding?` and cost a permanent alias on
+released data for nothing, so they keep their names (D9). There is no alias layer.
 
 ## Not to be confused with prereqs
 
@@ -194,7 +196,7 @@ never changed. **Adding a fact to the context is one line in that map plus one r
 - `requirements.cljc` — pure leaf, four `:build` entries, `meets-all?`, `offerable`.
 - `mod5e/ac-bonus-meeting` — the context-assembling macro; `ac-bonus-modifiers` uses it.
 - `opt5e/ac-applies?` delegates to `meets-all?`; the AC-only condition table is gone.
-- Legacy `:armor?` / `:shield?` read forever (D9); the form writes `:armored?` / `:shielded?`.
+- The registry uses the shipped spellings `:armor?` / `:shield?` — no rename, so no alias layer.
 - `:dual-wielding?` and `:one-handed?` are authorable — the first weapon-aware requirements — and
   `:dual-wielding?` is offered by the form.
 - **Proven through a built character**, not just at the predicate: `bracers_ac_test` asserts the

@@ -86,7 +86,7 @@
       (is (= 12 (ac (concat (wielding sword nil) via-prop) nil nil))))))
 
 (deftest robe-of-the-archmagi-still-grants-five-while-unarmored
-  (testing "converted from a hand-written (if (nil? armor) 5 0) to {:armored? false}"
-    (let [robe (opt5e/ac-bonus-modifiers {:bonus 5 :armored? false})]
+  (testing "converted from a hand-written (if (nil? armor) 5 0) to {:armor? false}"
+    (let [robe (opt5e/ac-bonus-modifiers {:bonus 5 :armor? false})]
       (is (= 17 (ac robe nil nil))          "unarmored: 10 + Dex(2) + 5")
       (is (= 13 (ac robe leather nil))      "armored: 11 + Dex(2), robe excluded"))))

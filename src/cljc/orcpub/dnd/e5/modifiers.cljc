@@ -614,7 +614,7 @@
 
 (defmacro ac-bonus
   "`n` added to whichever AC calculation wins, while `spec`'s requirements hold.
-  `(mod5e/ac-bonus {} 1)` is unconditional; `(mod5e/ac-bonus {:armored? false} 5)` is the Robe of
+  `(mod5e/ac-bonus {} 1)` is unconditional; `(mod5e/ac-bonus {:armor? false} 5)` is the Robe of
   the Archmagi; `(mod5e/ac-bonus {:dual-wielding? true} 1)` is the Dual Wielder feat.
 
   The macro exists for WHERE it assembles the context. A contributor is invoked as

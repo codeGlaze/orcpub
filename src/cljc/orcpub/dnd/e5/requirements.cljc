@@ -33,34 +33,29 @@
   #?(:clj (:refer-clojure :exclude [])))
 
 (def requirements
-  {:armored?       {:gate :build :text "while wearing armor"
+  ;; :armor? / :shield? are the spellings :ac-bonus and :ac have SHIPPED with. Renaming them to
+  ;; :armored? / :shielded? would have read marginally better beside :dual-wielding? and would have
+  ;; cost a permanent alias on released data for nothing — so they keep their names (D9).
+  {:armor?         {:gate :build :text "while wearing armor"
                     :pred (fn [{:keys [armor]}] (some? armor))}
-   :shielded?      {:gate :build :text "while wielding a shield"
+   :shield?        {:gate :build :text "while wielding a shield"
                     :pred (fn [{:keys [shield]}] (some? shield))}
    :dual-wielding? {:gate :build :text "while wielding two weapons"
                     :pred (fn [{:keys [main-hand off-hand]}] (and (some? main-hand) (some? off-hand)))}
    :one-handed?    {:gate :build :text "while wielding a weapon in one hand and no other"
                     :pred (fn [{:keys [main-hand off-hand]}] (and (some? main-hand) (nil? off-hand)))}})
 
-;; The two legacy spellings the :ac-bonus / :ac vocabulary shipped with. They mean exactly
-;; :armored? / :shielded? and are read forever (D9); the FORM writes the canonical names.
-(def ^:private canonical->legacy {:armored? :armor? :shielded? :shield?})
-
 (defn meets-all?
   "Do every requirement this spec names hold in `ctx`? Iterating the registry (not the spec) is what
    makes an unknown key inert rather than fatal.
 
-   NOTE the `contains?` rather than a truthiness check: `false` is a MEANINGFUL value here — it is
-   the only-when-NOT state — so absent and false must stay distinguishable. A first cut resolved
-   the legacy alias with `some`, which skips falsey values, so `{:shield? false}` read as absent and
-   a Monk kept Unarmored Defense while holding a shield. The AC characterization sweep caught it."
+   NOTE `contains?` rather than a truthiness check: `false` is a MEANINGFUL value — it is the
+   only-when-NOT state — so absent and false must stay distinguishable. An earlier version used
+   `some`, which skips falsey values, so `{:shield? false}` read as absent and a Monk kept Unarmored
+   Defense while holding a shield. The AC characterization sweep caught it."
   [spec ctx]
   (every? (fn [[k {:keys [pred]}]]
-            (let [legacy (canonical->legacy k)
-                  want   (cond
-                           (contains? spec k)                   (get spec k)
-                           (and legacy (contains? spec legacy)) (get spec legacy)
-                           :else                                nil)]
+            (let [want (when (contains? spec k) (get spec k))]
               (or (nil? want)
                   (nil? pred)                       ; :text gates never block computation
                   (= (boolean want) (boolean (pred ctx))))))
