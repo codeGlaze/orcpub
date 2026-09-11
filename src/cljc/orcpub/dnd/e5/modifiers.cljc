@@ -613,17 +613,12 @@
     `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
 (defmacro ac-bonus
-  "`n` added to whichever AC calculation wins, while `spec`'s requirements hold.
-  `(mod5e/ac-bonus {} 1)` is unconditional; `(mod5e/ac-bonus {:armor? false} 5)` is the Robe of
-  the Archmagi; `(mod5e/ac-bonus {:dual-wielding? true} 1)` is the Dual Wielder feat.
+  "`n` added to the winning AC calculation while `spec`'s requirements hold.
+   `(ac-bonus {} 1)` · `(ac-bonus {:armor? false} 5)` · `(ac-bonus {:dual-wielding? true} 1)`
 
-  The macro exists for WHERE it assembles the context. A contributor is invoked as
-  `(f armor shield)` and sees nothing else, so a plain fn could never test the wielded weapons —
-  which is exactly why the Dual Wielder feat's +1 was hand-written rather than authored. Splicing
-  the ?-refs here puts main-hand/off-hand inside the contributor's own body, so the predicates in
-  `requirements` stay ordinary runtime fns and the channel contract is untouched.
-
-  Adding a fact means adding it to this map AND to the registry — the two halves of one change."
+   A macro because it splices ?-refs into the contributor body — a contributor is called
+   `(f armor shield)` and a plain fn could not see the wielded weapons. Adding a fact to the
+   context here also needs an entry in `requirements`."
   [spec n]
   `(mods/vec-mod ~'?ac-bonus-fns
                  (fn [armor# shield#]

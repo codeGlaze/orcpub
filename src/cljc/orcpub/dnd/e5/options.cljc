@@ -3728,18 +3728,10 @@
    :int ::character/int :wis ::character/wis :cha ::character/cha})
 
 (defn- ac-applies?
-  "Do this spec's requirements hold for the equipped armor and shield? Delegates to the shared
-  registry (`orcpub.dnd.e5.requirements`) — the same facts a damage bonus or a trait reads.
+  "Do `spec`'s requirements hold for the equipped armor and shield? Delegates to `requirements`.
 
-  Only armor and shield reach here, because a CALCULATION is invoked as `(f armor shield)`. A bonus
-  can test more: `mod5e/ac-bonus-meeting` assembles a richer context at the contributor's own
-  definition site, which is how :dual-wielding? became authorable.
-
-  Worth keeping in mind what a requirement means for a calculation: `:shielded? false` disqualifies
-  the whole calculation while a shield is held rather than merely skipping the shield's bonus — a
-  Monk holding a shield loses Unarmored Defense entirely (14, not 15). `:shielded? true` expresses
-  the opposite, which a construct-style homebrew feature wants. No built-in content uses that today;
-  the vocabulary supports it because homebrew flexibility is the point, not because SRD needs it."
+   GOTCHA: for a CALCULATION, `:shield? false` disqualifies the whole calculation rather than
+   skipping the shield's bonus — a Monk holding a shield loses Unarmored Defense entirely."
   [spec armor shield]
   (reqs/meets-all? spec {:armor armor :shield shield}))
 
@@ -3760,14 +3752,10 @@
         0)))])
 
 (defn ac-bonus-modifiers
-  "Compile an authored flat bonus — {:bonus N :armor? b :shield? b} — into ?ac-bonus-fns. Bonuses
-  are summed onto whichever calculation wins, so a bonus is never lost to a calculation that beats
-  the base.
+  "Compile `{:bonus N <requirements>}` into ?ac-bonus-fns.
 
-  The value key is :bonus, matching :attack-bonus and :damage-bonus. It was originally :ac-bonus,
-  which repeated the prop name — {:ac-bonus {:ac-bonus 1}} — and disagreed with the weapon props
-  added later. :ac-bonus is still read as an alias so anything authored against the earlier shape
-  keeps working."
+   GOTCHA: the value key is `:bonus`, matching :attack-bonus/:damage-bonus. `:ac-bonus` is read as
+   a legacy alias but the form must write `:bonus`."
   [{:keys [bonus ac-bonus] :as spec}]
   (let [n (or bonus ac-bonus 0)]
     ;; ac-bonus-meeting, not ac-bonus-fn: the macro assembles a context carrying the wielded
@@ -3943,19 +3931,11 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "GENERIC cross-bucket grant. Compiles ONE entry of a content item's `:grants` vector,
-   `{:pool <pool-key> …}`, against a `grantable-pools`
-   registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
-     {:pool p}                 -> ALL entries (count N, default 1)
-     {:pool p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
-     {:pool p :key :k}         -> NOT here: fixed grants compile to modifiers in compile-grants
-     (custom entry)            -> the pool already includes homebrew entries, so {:pool p} grants them too
-   Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass.
+  "Compiles ONE choice entry of `:grants` — `{:pool p :count n :filter #{…}}` — against a
+   `grantable-pools` registry, into a selection-cfg carrying the pool's `:tags`.
 
-   :pool and :count deliberately, not :from and :choose. Both are already taken by the
-   starting-equipment vocabulary for other things: there :from addresses a weapon category and
-   :choose holds a vector of sub-choices, while :profs uses :choose for a count. Reusing either
-   would put two unrelated registries behind one keyword."
+   :key entries are FIXED and compile to modifiers in `compile-grants`, not here.
+   :pool/:count, never :from/:choose — both are taken by the starting-equipment vocabulary."
   [{:keys [pool count key] flt :filter} grantable-pools]
   ;; CHOICE only. A :key grant is fixed and compiles to modifiers in compile-grants (D4) — it
   ;; never becomes a one-option selection here. One mechanism per job (D29).
@@ -3978,14 +3958,9 @@
         :options opts}))))
 
 (defn compile-grants
-  "Every entry of a content item's `:grants` → {:modifiers […] :selections […]} — the shape
-   compile-ability-grants returns, so a silo merges both the same way.
-     {:pool p :key k}             FIXED. The creator chose; nothing to pick. Emits the entry's own
-                                  modifiers and any sub-selections it carries — no one-option
-                                  dropdown, no stored pick. Direction doc line 72 / D4.
-     {:pool p :count n :filter …} CHOICE. One selection-cfg via grant-selection.
-   An entry naming an unregistered pool, or a :key not in its pool, contributes nothing — never
-   an error (the direction doc's graceful rule)."
+  "`:grants` -> `{:modifiers [...] :selections [...]}`, the shape compile-ability-grants returns.
+   `{:pool p :key k}` is fixed and emits the entry's modifiers; `{:pool p :count n}` is a choice.
+   Unregistered pool or unknown key contributes nothing."
   [grants grantable-pools]
   (reduce
    (fn [acc {:keys [pool key] :as g}]

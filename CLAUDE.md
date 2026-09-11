@@ -30,6 +30,11 @@
 - **The rules index is the status table at the top of `content-extensibility-decisions.md`** — one
   line per D-number. Check a design against it before proposing; do not re-derive from the history
   below it.
+- **Docstrings are SPEC, not prose.** What it does, its args, what it returns — and at most a
+  one-or-two-line GOTCHA where a reader would otherwise write a bug. **No history, no rationale, no
+  worked examples, no "this used to be…".** That belongs in `docs/kb/`, linked by name. A docstring
+  over ~6 lines is almost certainly carrying something that is not spec. Comments follow the same
+  rule: say what the code does and why it is surprising, not how it got here.
 - **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
   `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
   Corrections section — never overwrite.

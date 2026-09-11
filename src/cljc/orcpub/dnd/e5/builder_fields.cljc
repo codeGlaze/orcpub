@@ -181,13 +181,8 @@
                  :fields damage-bonus-fields}]}])
 
 (defn grant-rows
-  "The `:rows` node for GRANTS — one row per entry of the item's `:grants` vector, each
-  `{:pool p :count n :filter #{…}}` (the player chooses) or `{:pool p :key k}` (the creator chose).
-
-  Names NO pool. The add-bar lists every registered pool whose `:offerable-by` includes `silo`, so
-  registering a pool puts it on this form with no schema edit (content-extensibility-direction.md,
-  \"register once, grantable everywhere\"). `:as :vector` — rows are the elements at `:at`, ordered,
-  duplicates allowed (two language grants); `effect-rows` is map-keyed and unchanged."
+  "The `:rows` node for `:grants` — one row per entry, `:as :vector`. Names no pool: the add-bar
+   is every registered pool whose `:offerable-by` includes `silo`."
   [silo]
   [{:rows      :grants
     :as        :vector
