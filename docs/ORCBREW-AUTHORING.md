@@ -239,3 +239,66 @@ slots of 4/3/2, and both traits under Features.
 The one line that produces nothing visible is the `:saving-throw-advantage` modifier, and that
 is a property of the app rather than of the file: the value is computed onto the character and
 no view, subscription or PDF path reads it. See `docs/kb/orcbrew-value-vocabulary.md`.
+
+## 7. Writing tools against the format
+
+Everything above is enough to write a brew by hand. Writing a *program* against the format —
+an editor linter, an alternative builder, a converter — needs one more thing said plainly:
+
+**Nothing in the app validates the shape of a brew.** There are three layers of checking and
+none of them is a schema.
+
+| Layer | Where | What it actually does |
+|---|---|---|
+| Import | `orcbrew_validation.cljs` `required-fields` | Fills a missing `:name` with a placeholder. Spells additionally need a numeric `:level` and a `:school`; subclasses and subraces need their parent ref. That is the whole list. |
+| Save | `content_specs.cljc` `save-specs` | Presence of `:name`, `:key`, `:option-pack` — per type, and only presence. |
+| Load | `content_specs.cljc` `load-item-spec` | An `:option-pack` string on the item. Separately, the key each item is filed *under* in its silo map must start with a letter (`::e5/homebrew-items`) — that is the map key, not the item's own `:key` field. |
+
+So a class whose every `:level-modifiers` entry is misspelled imports clean, saves clean,
+loads clean, and grants nothing. **That gap is the reason to write a linter**, and it is also
+why you cannot derive one from the specs.
+
+### Do not build on the spec registry
+
+`spec/def ::homebrew-class` and its siblings look like the schema and are not. They are
+`:req-un` *presence* contracts, and there are no value specs registered for `:level-modifiers`,
+`:profs`, `:spellcasting`, `:traits` or `:equipment-selections` — so `spec/keys` has nothing to
+check even when those keys are present.
+
+The looseness is deliberate, not an oversight. `content_specs.cljc` keeps save strict and load
+loose, with a generative test (`content_specs_test.clj`) proving `save ⊆ load`, so that
+tightening a builder's save spec can never quarantine content a user already had. Read that
+namespace's docstring before proposing any change to it: the permissiveness is load-bearing.
+
+What this means for you is simply that the specs answer "is this item storable", not "is this
+item correct". Build against the consuming code instead — the tables in
+`docs/kb/orcbrew-value-vocabulary.md` cite it line by line.
+
+### The closed sets
+
+A linter's real work is checking keywords against the enumerations the app resolves against.
+These are the ones a brew can reference:
+
+| Set | Count | Defined in |
+|---|---|---|
+| Damage types | 12 | `options.cljc` `damage-types` |
+| Conditions | 15 | `options.cljc` `conditions` |
+| Abilities | 6 | `options.cljc` `abilities` — namespaced keys |
+| Skills | 19 | `skills.cljc` |
+| Weapons | 40 | `weapons.cljc`, plus `:simple` / `:martial` as class pseudo-keys |
+| Armor | 14 | `armor.cljc`, plus `:light` / `:medium` / `:heavy` / `:shields` as proficiency keys |
+| Equipment | 50 | `equipment.cljc` |
+| Tools | — | `equipment.cljc` `tools`, a concat of instruments, artisan's tools, misc, gaming sets and vehicles |
+| Spell schools | 7 | `spells.cljc` `schools` — **strings**, not keywords |
+
+Spell schools are the one place the format uses a string where everything around it uses a
+keyword. `:school "abjuration"` is correct; `:school :abjuration` is not.
+
+### What is not documented yet
+
+This file covers six of the thirteen content types the app accepts. **Races, subraces,
+monsters, encounters, selections, invocations and boons** have no equivalent write-up — their
+keys have to be read out of `options.cljc` and the matching builder. Races are the significant
+gap: they are commonly homebrewed and they carry their own grant vocabulary (`:props`,
+`:spells`) rather than the class one.
+
