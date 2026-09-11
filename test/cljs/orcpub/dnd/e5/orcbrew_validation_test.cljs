@@ -275,44 +275,50 @@
 
 (deftest test-format-import-result-success
   (testing "Formatting successful import result"
-    (let [result {:success true :imported-count 5}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"✅" message))
-      (is (re-find #"successful" message)))))
+    (let [{:keys [title details]} (orcbrew-val/format-import-result {:success true :imported-count 5})]
+      (is (= "Import successful" title))
+      (is (some #(re-find #"5 items" %) details))
+      (testing "no newlines inside a line — the banner renders each line itself"
+        (is (every? #(not (re-find #"\n" %)) (cons title details)))))))
 
 (deftest test-format-import-result-with-warnings
   (testing "Formatting import result with warnings"
-    (let [result {:success true
-                  :had-errors true
-                  :imported-count 2
-                  :skipped-count 1}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"warning" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success true
+                                             :had-errors true
+                                             :imported-count 2
+                                             :skipped-count 1})]
+      (is (re-find #"warning" title))
+      (is (some #(re-find #"Skipped 1" %) details)))))
 
 (deftest test-format-import-result-parse-error
   (testing "Formatting parse error result"
-    (let [result {:success false
-                  :parse-error true
-                  :error "Unexpected token"
-                  :line 5
-                  :hint "Check brackets"}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Could not read" message))
-      (is (re-find #"Line: 5" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false
+                                             :parse-error true
+                                             :error "Unexpected token"
+                                             :line 5
+                                             :hint "Check brackets"})]
+      (is (= "Could not read file" title))
+      (is (some #(re-find #"Line: 5" %) details))
+      (is (some #(re-find #"Check brackets" %) details)))))
 
 (deftest test-format-import-result-validation-error
   (testing "Formatting validation error result"
-    (let [result {:success false
-                  :errors ["Error 1" "Error 2"]}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Invalid" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false :errors ["Error 1" "Error 2"]})]
+      (is (= "Invalid orcbrew file" title))
+      (is (= ["Error 1" "Error 2"] (take 2 details))))))
+
+(deftest test-key-conflicts-are-lines-not-a-paragraph
+  (testing "Each conflict is its own line, so nothing depends on newline rendering"
+    (let [details (orcbrew-val/format-key-conflict-details
+                   {:key-warnings [{:type :internal-duplicate :message "dup :fireball"}
+                                   {:type :external-duplicate :message "clashes with :shield"}]})]
+      (is (some #(re-find #"dup :fireball" %) details))
+      (is (some #(re-find #"clashes with :shield" %) details))
+      (is (every? #(not (re-find #"\n" %)) details)))))
+
 ;; ============================================================================
 ;; Data-Level Cleaning Tests
 ;; ============================================================================
@@ -452,14 +458,57 @@
 ;; Key Renaming Tests
 ;; ============================================================================
 
-(deftest test-generate-new-key
-  (testing "Generating new key with source suffix"
-    (is (= :artificer-kibbles-tasty
-           (orcbrew-val/generate-new-key :artificer "Kibbles' Tasty")))
-    (is (= :wizard-my-homebrew
-           (orcbrew-val/generate-new-key :wizard "My Homebrew")))
-    (is (= :monk-test-123
-           (orcbrew-val/generate-new-key :monk "Test 123")))))
+(deftest test-generate-new-identity-derives-key-from-the-tagged-name
+  (testing "the suggestion carries a name, and the key follows from it"
+    (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"))))
+  (testing "re-deriving the key from the suggested name reproduces it -- this is
+            what generate-new-key could not do, and why resolved conflicts used to
+            come back the first time someone saved the item in the editor"
+    (doseq [[nm src] [["Artificer" "Kibbles Tasty"]
+                      ["Fireball" "Tasha's Cauldron of Everything"]
+                      ["Bag of Holding" "Unearthed Arcana"]]]
+      (let [{:keys [name key]} (orcbrew-val/generate-new-identity nm src)]
+        (is (= key (common/name-to-kw name)) (str nm " / " src)))))
+  (testing "a taken key pushes the counter inside the parentheses"
+    (is (= {:name "Artificer (KsTy 2)" :key :artificer-ksty-2}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"
+                                              #{:artificer-ksty})))))
+
+(deftest test-rename-key-in-plugin-moves-the-name-with-the-key
+  (testing "given a new name, the item's :name changes too -- key and name must
+            move together or the stored item violates key = name-to-kw(name) the
+            moment it lands, and the next save derives the old key back"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-ksty
+                  "Artificer (KsTy)")
+          item (get-in result [:orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= :artificer-ksty (:key item)))
+      (is (= :artificer (:former-key item)) "still rebindable for characters")
+      (is (= (:key item) (common/name-to-kw (:name item)))
+          "the invariant holds on the stored item")))
+
+  (testing "without a new name the item's name is left alone (old callers)"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-test)]
+      (is (= "Artificer" (get-in result [:orcpub.dnd.e5/classes :artificer-test :name]))))))
+
+(deftest test-apply-key-renames-threads-the-new-name
+  (testing ":to-name rides the rename record through the batch applier"
+    (let [data {"KT" {:orcpub.dnd.e5/classes
+                      {:artificer {:option-pack "KT" :name "Artificer"}}}}
+          result (orcbrew-val/apply-key-renames
+                  data
+                  [{:source "KT" :content-type :orcpub.dnd.e5/classes
+                    :from :artificer :to :artificer-ksty :to-name "Artificer (KsTy)"}])
+          item (get-in result ["KT" :orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= (:key item) (common/name-to-kw (:name item)))))))
 
 (deftest test-rename-key-in-plugin
   (testing "Renaming a key in a plugin"
@@ -1388,7 +1437,12 @@
         new-key (:to (first renamed))]
     (is (= 1 (count renamed)) "clash forced a rename")
     (is (= "Ice" (get-in plugins ["B" ::e5/spells :ice :name])) "B's original ice untouched")
-    (is (= "Frost" (get-in plugins ["B" ::e5/spells new-key :name])) "moved item kept under a fresh key")))
+    ;; The relocated item is disambiguated by NAME and keyed from it. Keeping the
+    ;; name "Frost" against a minted key would revert on its next save in the
+    ;; builder and clash in B all over again.
+    (is (= "Frost (B)" (get-in plugins ["B" ::e5/spells new-key :name])))
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name])))
+        "key is derivable from the name it was placed under")))
 
 (deftest relocate-copy-mints-fresh-key-and-keeps-original
   (let [{:keys [plugins placed renamed]}
@@ -1398,7 +1452,11 @@
     (is (= 1 (count renamed)) "copy always renames")
     (is (some? (get-in plugins ["A" ::e5/spells :fireball])) "original stays in A")
     (is (not= :fireball new-key) "copy got a distinct key")
-    (is (= "Fireball" (get-in plugins ["B" ::e5/spells new-key :name])))))
+    (is (= "Fireball (B)" (get-in plugins ["B" ::e5/spells new-key :name]))
+        "the copy is visibly distinguished, not just distinctly keyed")
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name]))))
+    (is (= "Fireball" (get-in plugins ["A" ::e5/spells :fireball :name]))
+        "the original's name is untouched")))
 
 (deftest relocate-move-to-own-source-is-noop
   (let [{:keys [plugins placed renamed]}

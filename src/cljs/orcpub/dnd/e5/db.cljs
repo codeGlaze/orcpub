@@ -67,6 +67,15 @@
 ;; preference like the disable overlay, kept in its own slot and never in plugin
 ;; data. The demo pack itself always reloads from the bundled file on boot.
 (def local-storage-demo-hidden-key "demo-hidden")
+;; Which release the What's New panel last showed here. Per-device: the panel is a
+;; heads-up, not account state, so a stamp that never arrives (private browsing,
+;; storage off) costs one extra showing rather than an error.
+(def local-storage-whats-new-key "whats-new-seen")
+;; Developer mode: reveals the footer's diagnostic tools, including the raw
+;; library dump that skips the export gate. Per-device and off by default — the
+;; switch itself stays visible and labelled so the tools are one click away when
+;; validation is the thing that's broken.
+(def local-storage-dev-mode-key "dev-mode")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -300,6 +309,28 @@
 (defn demo-hidden->local-store [hidden?]
   (when js/window.localStorage
     (set-item local-storage-demo-hidden-key (str (boolean hidden?)))))
+(defn cookie-banner-pending?
+  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
+   It shows unless its consent cookie is set or the localStorage opt-out is on.
+   Two overlays at once on a first visit is one too many, so the release panel
+   waits a visit rather than stacking on top of it."
+  []
+  (let [suppressed? (try
+                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
+                      (catch js/Object _ false))
+        consented? (boolean (re-find #"flatsome_cookie_notice"
+                                     (or js/document.cookie "")))]
+    (not (or suppressed? consented?))))
+
+(defn dev-mode->local-store [on?]
+  (when js/window.localStorage
+    (set-item local-storage-dev-mode-key (str (boolean on?)))))
+
+(defn whats-new-seen->local-store [release-id]
+  (when js/window.localStorage
+    ;; pr-str, not str: the slot is read back with read-string, and a bare id would
+    ;; come back as a symbol and fail the string spec.
+    (set-item local-storage-whats-new-key (pr-str release-id))))
 
 (def tab-path [:builder :character :tab])
 
@@ -426,6 +457,19 @@
  ::e5/demo-hidden
  local-storage-demo-hidden-key
  ::demo-hidden)
+;; Whether the footer's diagnostic tools are revealed on this device.
+(spec/def ::dev-mode boolean?)
+(reg-local-store-cofx
+ ::e5/dev-mode
+ local-storage-dev-mode-key
+ ::dev-mode)
+
+;; Which release the What's New panel last showed on this device.
+(spec/def ::whats-new-seen string?)
+(reg-local-store-cofx
+ ::e5/whats-new-seen
+ local-storage-whats-new-key
+ ::whats-new-seen)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this

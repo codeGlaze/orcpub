@@ -1548,8 +1548,7 @@
    these can mutually exclude — leaving both enabled yields an unpredictable
    winner, so duplicate-key resolution turns the loser off (deterministic).
    For the other (pool/list) types a duplicate merely shows twice, harmlessly.
-   Canonical home; the conflict modal and events both read it from here.
-   See docs/kb/key-collision-behavior.md."
+   Canonical home; the conflict modal and events both read it from here."
   #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
     :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
 
@@ -2034,24 +2033,20 @@
   {:orcpub.dnd.e5/subclasses {:class :orcpub.dnd.e5/classes}    ; :class field references a class key
    :orcpub.dnd.e5/subraces {:race :orcpub.dnd.e5/races}})       ; :race field references a race key
 
-(defn generate-new-key
-  "Generate a new key by appending source identifier.
-   E.g., :artificer + 'Kibbles Tasty' → :artificer-kibbles-tasty
-   Uses common/name-to-kw pattern for consistent slugification."
-  [original-key source-name]
-  (let [source-slug (name (common/name-to-kw source-name))]
-    (keyword (str (name original-key) "-" source-slug))))
+(defn generate-new-identity
+  "The {:name :key} an item takes when its source disambiguates it -- \"Artificer\"
+   from \"Kibbles Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}.
 
-(defn- unique-key
-  "A key not already present in `existing-map`, starting from `base` and appending
-   -2, -3, … only if needed. Keeps generated keys distinct when several items land
-   in the same target in one pass."
-  [base existing-map]
-  (if-not (contains? existing-map base)
-    base
-    (loop [n 2]
-      (let [k (keyword (str (name base) "-" n))]
-        (if (contains? existing-map k) (recur (inc n)) k)))))
+   The key comes from the tagged NAME, so re-deriving it reproduces it. That is the
+   whole reason this exists: the visible name carries the disambiguation, and the
+   key just follows from it. It replaced a generate-new-key that minted a key on
+   its own, which reverted on the item's next save and brought the conflict back.
+
+   `taken?` (optional) is a predicate on a candidate key; when it reports a clash
+   the counter goes inside the parentheses -- \"Artificer (KsTy 2)\" -- so the
+   tie-break stays in the name and round-trips like the rest."
+  ([item-name source-name] (common/disambiguated item-name source-name))
+  ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
 (defn relocate-content
   "Move or copy selected homebrew items to a target source. `selections` is a seq
@@ -2061,12 +2056,15 @@
    Single vs bulk is just the length of `selections` — one mechanism for both.
 
    Policy — predictable and clobber-free:
-   • MOVE relocates the item with its key preserved, UNLESS the target already
-     holds that key (then it gets a fresh unique key so nothing is overwritten).
+   • MOVE relocates the item with its key AND name preserved, UNLESS the target
+     already holds that key — then it is disambiguated by the target's
+     abbreviation (\"Artificer\" -> \"Artificer (KsTy)\") and the key derived from
+     that name, so nothing is overwritten and the key survives a later save.
      Moving an item to the source it already lives in is a no-op.
-   • COPY always mints a fresh unique key — a copy is a new, independent variant,
-     which also avoids creating a nondeterministic same-key twin of the original.
-   The placed item's :key and :option-pack are retagged to its new home. Selections
+   • COPY always disambiguates — a copy is a new, independent variant, which also
+     avoids creating a nondeterministic same-key twin of the original.
+   The placed item's :key and :option-pack are retagged to its new home, and its
+   :name carries the disambiguation whenever the key was not kept as-is. Selections
    are applied in order against the accumulating result, so keys minted earlier in
    the batch are accounted for when uniquifying later ones."
   [plugins selections target op]
@@ -2079,10 +2077,19 @@
            (and (not copy?) (= src target))  (update acc :placed inc) ; already home
            :else
            (let [target-map (get-in plugins [target ct])
-                 new-key    (if (or copy? (contains? target-map k))
-                              (unique-key (generate-new-key k target) target-map)
-                              k)
-                 new-item   (assoc item :key new-key :option-pack target)
+                 ;; A relocation that has to rename disambiguates by NAME and
+                 ;; derives the key from it, exactly as an import conflict does.
+                 ;; Minting a key alone (what this used to do) leaves the item
+                 ;; called "Artificer" while keyed :artificer-kt, so the next save
+                 ;; in the builder re-derives :artificer and the item collides in
+                 ;; its new home all over again.
+                 ident      (when (or copy? (contains? target-map k))
+                              (generate-new-identity (or (:name item) (common/kw-to-name k))
+                                                     target
+                                                     #(contains? target-map %)))
+                 new-key    (if ident (:key ident) k)
+                 new-item   (cond-> (assoc item :key new-key :option-pack target)
+                              ident (assoc :name (:name ident)))
                  p1         (assoc-in plugins [target ct new-key] new-item)
                  p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
@@ -2116,11 +2123,15 @@
    - content-type: which content type contains the key (e.g., :orcpub.dnd.e5/classes)
    - old-key: the current key to rename
    - new-key: the new key to use
+   - new-name: (optional) the item's new display name, when the rename is a
+     disambiguation that renamed the item too. Omitted, only the key moves.
 
    Returns the updated plugin with:
    1. The item moved to the new key
-   2. All internal references updated (e.g., subclasses pointing to renamed class)"
-  [plugin content-type old-key new-key]
+   2. Its :name replaced when new-name is given
+   3. All internal references updated (e.g., subclasses pointing to renamed class)"
+  ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
+  ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
     ;; Only rename when the item actually exists. A redundant rename (e.g. a key
     ;; that is BOTH an internal conflict — same key across import sources — and an
@@ -2131,9 +2142,25 @@
       (let [;; Step 1: Rename the key in its content group. Update the item's OWN
             ;; :key field too — the content subs (map-by-key) key by :key, so a
             ;; stale :key would re-collide at read time and undo the rename.
+            ;; Record where this item came from. A character that selected it under
+            ;; the old key can be rebound on load (content-reconciliation/
+            ;; former-key-index), so resolving an import conflict stops silently
+            ;; unbinding everyone who already used the content.
+            ;;
+            ;; One key, not a history: the common case is a single disambiguation
+            ;; at import, a bounded field is defensible travelling in an .orcbrew,
+            ;; and anything a chain loses is caught by the relink UI. Renaming
+            ;; A -> B -> C remembers B.
+            ;; The name moves with the key when the caller supplies one. Key and
+            ;; name have to change together or the invariant they were computed
+            ;; under (key = name-to-kw of name) is broken the moment it is stored,
+            ;; and the next save in the editor derives the OLD key back.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key (assoc item :key new-key)))
+                              (assoc new-key (cond-> (assoc item
+                                                            :key new-key
+                                                            :former-key old-key)
+                                               new-name (assoc :name new-name))))
 
             ;; Step 2: Find content types that reference this type
             referencing-types (keep (fn [[ct refs]]
@@ -2154,7 +2181,7 @@
         updated-plugin)
       ;; old-key already gone — a no-op, not a nil-clobber.
       plugin)
-    plugin))
+    plugin)))
 
 (defn rename-key-in-plugins
   "Rename a key within a multi-plugin structure.
@@ -2165,29 +2192,33 @@
    - content-type: which content type (e.g., :orcpub.dnd.e5/classes)
    - old-key: current key
    - new-key: new key
+   - new-name: (optional) the item's new display name
 
    Returns updated plugins map."
-  [plugins source-name content-type old-key new-key]
-  (if-let [plugin (get plugins source-name)]
-    (assoc plugins source-name
-           (rename-key-in-plugin plugin content-type old-key new-key))
-    plugins))
+  ([plugins source-name content-type old-key new-key]
+   (rename-key-in-plugins plugins source-name content-type old-key new-key nil))
+  ([plugins source-name content-type old-key new-key new-name]
+   (if-let [plugin (get plugins source-name)]
+     (assoc plugins source-name
+            (rename-key-in-plugin plugin content-type old-key new-key new-name))
+     plugins)))
 
 (defn apply-key-renames
   "Apply a batch of key renames to import data.
 
    Parameters:
    - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :from :to}
+   - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
+     is optional and renames the item's display name alongside its key.
 
    Returns updated data with all renames applied."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce
-     (fn [d {:keys [source content-type from to]}]
+     (fn [d {:keys [source content-type from to to-name]}]
        (if is-multi
-         (rename-key-in-plugins d source content-type from to)
-         (rename-key-in-plugin d content-type from to)))
+         (rename-key-in-plugins d source content-type from to to-name)
+         (rename-key-in-plugin d content-type from to to-name)))
      data
      renames)))
 
@@ -2195,66 +2226,66 @@
 ;; User-Friendly Error Messages
 ;; ============================================================================
 
-(defn format-key-conflict-section
-  "Formats key conflicts into a section for display."
-  [{:keys [key-conflicts key-warnings]}]
+(defn format-key-conflict-details
+  "Key conflicts as display LINES, one per idea — not a paragraph with newlines
+   inside it. The banner renders each line itself, so structure survives HTML."
+  [{:keys [key-warnings]}]
   (when (seq key-warnings)
     (let [internal (filter #(= :internal-duplicate (:type %)) key-warnings)
           external (filter #(= :external-duplicate (:type %)) key-warnings)]
-      (str "\n\n⚠️ Key Conflicts Detected:\n"
-           (when (seq internal)
-             (str "\nWithin this file:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) internal))))
-           (when (seq external)
-             (str "\nWith existing content:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) external))))
-           "\n\nDuplicate keys can cause unexpected behavior. "
-           "Consider renaming one of the conflicting items."))))
+      (concat
+       (when (seq internal)
+         (cons "Key conflicts within this file:"
+               (map #(str "• " (:message %)) internal)))
+       (when (seq external)
+         (cons "Key conflicts with existing content:"
+               (map #(str "• " (:message %)) external)))
+       ["Duplicate keys can cause unexpected behavior. Consider renaming one of the conflicting items."]))))
 
 (defn format-import-result
-  "Formats validation result into a user-friendly message."
+  "What an import result should say, as {:title :details} — a headline and its
+   supporting lines. The caller decides tone and whether to offer an action; this
+   only decides the words.
+
+   Structured rather than one string with blank lines in it: the banner renders
+   HTML, where newlines collapse to spaces and run the sentences together."
   [result]
-  (let [key-conflict-section (format-key-conflict-section result)]
+  (let [conflicts (format-key-conflict-details result)]
     (cond
       ;; Parse error
       (:parse-error result)
-      (str "⚠️ Could not read file\n\n"
-           "Error: " (:error result) "\n"
-           (when (:line result)
-             (str "Line: " (:line result) "\n"))
-           "\n" (:hint result)
-           "\n\nThe file may be corrupted or incomplete. "
-           "Try exporting a fresh copy if you have the original source.")
+      {:title "Could not read file"
+       :details (concat [(str "Error: " (:error result))]
+                        (when (:line result) [(str "Line: " (:line result))])
+                        (when (:hint result) [(:hint result)])
+                        ["The file may be corrupted or incomplete. Try exporting a fresh copy if you have the original source."])}
 
       ;; Validation error (strict mode)
       (and (not (:success result)) (:errors result))
-      (str "⚠️ Invalid orcbrew file\n\n"
-           (str/join "\n\n" (:errors result))
-           "\n\nTo recover data from this file, you can:"
-           "\n1. Try progressive import (imports valid items, skips invalid ones)"
-           "\n2. Check the browser console for detailed validation errors"
-           "\n3. Export a fresh copy if you have the original source")
+      {:title "Invalid orcbrew file"
+       :details (concat (:errors result)
+                        ["To recover data from this file, you can:"
+                         "1. Try progressive import (imports valid items, skips invalid ones)"
+                         "2. Check the browser console for detailed validation errors"
+                         "3. Export a fresh copy if you have the original source"])}
 
       ;; Progressive import with some items skipped
       (:had-errors result)
-      (str "⚠️ Import completed with warnings\n\n"
-           "Imported: " (:imported-count result) " valid items\n"
-           "Skipped: " (:skipped-count result) " invalid items\n\n"
-           "Invalid items were skipped. Check the browser console for details."
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title "Import completed with warnings"
+       :details (concat [(str "Imported " (:imported-count result) " valid items")
+                         (str "Skipped " (:skipped-count result) " invalid items")
+                         "Invalid items were skipped. Check the browser console for details."]
+                        conflicts)}
 
       ;; Successful import (but may have key conflicts)
       (:success result)
-      (str (if (seq (:key-warnings result))
-             "⚠️ Import successful with warnings"
-             "✅ Import successful")
-           "\n\n"
-           (when (:imported-count result)
-             (str "Imported " (:imported-count result) " items"))
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title (if (seq (:key-warnings result))
+                "Import successful, with warnings"
+                "Import successful")
+       :details (concat (when (:imported-count result)
+                          [(str "Imported " (:imported-count result) " items")])
+                        conflicts)}
 
       ;; Unknown result
       :else
-      "❌ Unknown import result")))
+      {:title "Unknown import result"})))

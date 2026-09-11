@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.page-map :as page-map]
             [cljs-http.client :as http]
@@ -102,6 +103,18 @@
       [k v])
     (re-seq #"((\w+)=(\w+))+" query-str))))
 
+(defn boot-ok
+  "Tells the boot-shell rescue control that the view rendered. Mounted inside the
+   app-root error boundary rather than called after `rdc/render`, for two reasons:
+   React 18 commits asynchronously, so returning from `render` proves nothing; and
+   a child that throws never mounts, so the control correctly stays put."
+  []
+  (r/create-class
+   {:component-did-mount (fn [_]
+                           (when-let [ok (aget js/window "orcpubBootOk")]
+                             (ok)))
+    :reagent-render (fn [] nil)}))
+
 (defn main-view []
   (let [{:keys [handler route-params] :as route} @(subscribe [:route])
         view (pages (or handler route))
@@ -114,8 +127,15 @@
      ^{:key handler}
      [views/error-boundary
       (fn [error stack retry] [views/app-error-fallback error stack retry])
-      [view (assoc route-params :query query-map)]]
-     [conflict-views/import-log-overlay]]))
+      [:<>
+       [view (assoc route-params :query query-map)]
+       [boot-ok]]]
+     [conflict-views/import-log-overlay]
+     ;; Mounted at the root, not in the page shell: the splash page is the first
+     ;; thing a visitor sees and it has no shell. Skipped for an embedded sheet
+     ;; (?frame=true), which is someone else's page rather than ours.
+     (when-not (= "true" (get query-map "frame"))
+       [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (dispatch-sync [:verify-user-session])

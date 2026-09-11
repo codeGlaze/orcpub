@@ -2,37 +2,115 @@
   "Shared notification view components: the transient message banner, the reusable callout box,
    and the contextual banners built on it. Producers dispatch :show-*-message (events.cljs); the
    app-header mount reads :message-shown?/:message/:message-type and renders `message`. Severity
-   styling is in styles/core.clj (.message + .bg-red/.bg-orange/.bg-green for the banner,
+   styling is in styles/core.clj (.message + .tone-error/.tone-warning/.tone-success for the banner,
    .bg-warning for the callout)."
   (:require [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]))
 
+(defn- as-parts
+  "Normalise whatever a producer handed us into {:title :details}.
+
+   The structured map is the shape to use. A plain string is the LEGACY shape:
+   messages used to be one string with blank lines standing in for structure, and
+   HTML collapses those, which ran the sentences together with no punctuation
+   between them. Splitting happens here, at the edge, rather than being papered
+   over in CSS — and it goes away as producers move to the map.
+
+   HICCUP passes through untouched. Some messages are markup, not text — the
+   builders' \"please fill in X\" carries a bolded field name and a clickable
+   \"Save anyway with placeholders\" — and running (str) over a vector prints the
+   markup at the reader instead of rendering it."
+  [message-text]
+  (cond
+    (map? message-text) message-text
+    (vector? message-text) {:body message-text}
+    :else
+    (let [lines (->> (s/split (str message-text) #"\n")
+                     (map s/trim)
+                     (remove s/blank?))]
+      {:title (first lines) :details (rest lines)})))
+
+(defn- tone-icon [message-type]
+  (case message-type
+    :error "fa-times-circle"
+    :warning "fa-exclamation-triangle"
+    "fa-check-circle"))
+
 (defn message
-  "Transient banner: colored by message-type (:error/:warning else success), click anywhere
-   to close via close-handler."
+  "Transient banner. `message-text` is {:title :details} — or a plain string,
+   which `as-parts` splits (see there).
+
+   It says what happened and nothing else. An import banner briefly carried an
+   \"Export a backup\" button, which on My Content sat directly above the page's
+   own Export All: a message telling you to use a control that is already on
+   screen is noise, not help."
   [message-type message-text close-handler]
-  [:div.pointer.f-w-b
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
+  (let [{:keys [title details body]} (as-parts message-text)]
+    [:div.pointer
+     {:on-click close-handler}
+     [:div.message
+      {:class (case message-type
+                :error "tone-error"
+                :warning "tone-warning"
+                "tone-success")}
+      [:i.fa.message-icon {:class (tone-icon message-type)}]
+      [:div.message-body
+       (if body
+         body
+         [:<>
+          [:div.message-title title]
+          ;; keyed by position: a detail line may be hiccup, which is no key at all
+          (map-indexed (fn [i line]
+                         ^{:key i}
+                         [:div.message-detail line])
+                       details)])]
+      [:i.fa.fa-times.message-close
+       {:title "Dismiss"
+        :aria-label "Dismiss"}]]]))
 
 (defn callout
-  "Persistent contextual notice: a warning-box (.bg-warning) with an optional fa icon class,
-   body content (a string or hiccup — multi-line is fine), and optional action buttons (each
-   {:label :on-click})."
-  [{:keys [icon text actions]}]
-  [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
+  "Persistent contextual notice: a box with an optional fa icon class, body content
+   (a string or hiccup — multi-line is fine), and optional actions.
+
+   `accent` draws a rail down the leading edge for a notice that wants an identity
+   without being tinted like a severity. It names a shade rather than carrying one:
+   :brand is the app's accent. Add further options in styles/core.clj.
+
+   `tone` picks the box: :warning (default) is the severity-coloured one, :note is
+   the neutral one for a callout that informs rather than warns, so an offer or an
+   explanation is not dressed as a problem.
+
+   Each action is {:label ...} plus either :on-click for a button, or :href (with
+   optional :target) for a link. A link renders with the same button styling, so a
+   call to action sits flush with the buttons beside it instead of trailing off as
+   a bare anchor. An action may also carry :icon, which is a COMPLETE set of icon
+   classes -- \"fab fa-patreon\" as readily as \"fa fa-download\" -- so an action can
+   name where it goes. The callout's own :icon above is prefixed with .fa for it,
+   which is why that one cannot reach the brand icons."
+  [{:keys [icon text actions tone accent]}]
+  [:div.p-10.m-b-10.flex.align-items-c
+   {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
+             ;; A rail on the leading edge, the same device .health-rail uses, so a
+             ;; callout can carry an identity without a severity colour filling the
+             ;; box. Named, not a colour: the shades live in styles/core.clj.
+             (= accent :brand) (conj "callout-accent-brand"))
+    :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
-   (for [{:keys [label on-click]} actions]
-     ^{:key label} [:button.form-button {:on-click on-click} label])])
+   ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
+   ;; the form, never reaches what it returns, and React logs a missing-key warning
+   ;; for every action in the seq.
+   (for [{:keys [label on-click href target icon]} actions]
+     (let [body (if icon
+                  [:span [:i.m-r-5 {:class icon}] label]
+                  label)]
+       (with-meta
+         (if href
+           [:a.form-button {:href href :target (or target "_blank")} body]
+           [:button.form-button {:on-click on-click} body])
+         {:key label})))])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content

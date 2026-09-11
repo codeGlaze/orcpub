@@ -45,6 +45,12 @@
  (fn [db _]
    (get db :plugins)))
 
+;; Whether the footer's diagnostic tools are revealed on this device.
+(reg-sub
+ ::e5/dev-mode?
+ (fn [db _]
+   (boolean (:dev-mode? db))))
+
 ;; ---------------------------------------------------------------------------
 ;; Memoized library-health detectors.
 ;;
@@ -201,6 +207,11 @@
  ::e5/health-dismissed
  (fn [db _]
    (get db :health-dismissed)))
+
+(reg-sub
+ ::e5/whats-new-open?
+ (fn [db _]
+   (boolean (:whats-new-open? db))))
 
 (reg-sub
  ::e5/global-disabled?

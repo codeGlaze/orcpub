@@ -4,7 +4,7 @@
    export transform (strip-export-blanks), the .orcbrew text (pr-str), the real
    import processor (validate-import), and consumption (class-option). Several
    configs: fixed-only, choices with pseudo-keys, mixed multi-group, multi-item."
-  (:require [cljs.test :refer-macros [deftest testing is]]
+  (:require [cljs.test :refer-macros [deftest is]]
             [clojure.walk :as walk]
             [orcpub.dnd.e5.orcbrew-validation :as val]
             [orcpub.dnd.e5.options :as opt]
@@ -34,8 +34,9 @@
     (walk/postwalk (fn [n] (when (pred n) (swap! found conj n)) n) x)
     @found))
 
-(defn- granted-quantities [class-map]
+(defn- granted-quantities
   "item-key -> qty for every class-starting-equipment entry class-option emits."
+  [class-map]
   (let [built (opt/class-option {} {} {} {} weapons/weapons-map class-map)]
     (into {}
           (map (juxt :orcpub.entity/key
@@ -73,11 +74,11 @@
 
 (deftest fixed-only-round-trips
   (let [imported (check-roundtrip {:weapons {:javelin 4}
-                                   :equipment {:spellbook 1 :explorers-pack 1}})]
-    (let [q (granted-quantities imported)]
-      (is (= 4 (get q :javelin)))
-      (is (= 1 (get q :spellbook)))
-      (is (= 1 (get q :explorers-pack))))))
+                                   :equipment {:spellbook 1 :explorers-pack 1}})
+        q (granted-quantities imported)]
+    (is (= 4 (get q :javelin)))
+    (is (= 1 (get q :spellbook)))
+    (is (= 1 (get q :explorers-pack)))))
 
 (deftest choices-with-pseudo-keys-round-trip
   (let [imported (check-roundtrip

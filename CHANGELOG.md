@@ -11,7 +11,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-The **My Content** homebrew library is now manageable — see, organize, disable, move, and de-conflict your content, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
+You can now move and copy homebrew between sources, turn content off without deleting it, and see in one place what needs fixing, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
 
 ### Fixed
 
@@ -42,7 +42,7 @@ Homebrew import / export / salvage
 Homebrew resilience & repair
 - **Per-entry salvage** — one bad entry no longer quarantines its whole source; valid items stay, broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
 - **Entry-level repair panel** in My Content — editable Name + Option-source per set-aside entry, Fix & Restore, and Discard (`d34007ff`, `c037de78`).
-- **Export runs the same checks as import** — duplicates/cleanups caught on the way out; raw/pretty export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
+- **Export runs the same checks as import** — duplicates/cleanups caught on the way out, on every export: one source or the whole library, plain or pretty-printed. The unchecked hatches stay: the footer safety valve, emergency raw export, per-builder draft export, quarantined-source export, and "export as-is" (`9df1b4ae`, `c037de78`).
 - **Resilient homebrew loading** with a My Content repair panel (`eedffc08`).
 - **Builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix (`eac350d0`, `e3c9a9ee`).
 - **"Show homebrew source on class names" toggle** (`8f94a94c`).
@@ -68,9 +68,14 @@ Support
 ### Homebrew library management (My Content)
 
 **Added**
-- **Move / copy content between sources** — one select-mode mechanism for single or bulk; clobber-free key policy (move keeps the key unless taken; copy always mints a fresh one) (`903f44cb`).
+- **Move / copy content between sources** — one select-mode mechanism for single or bulk,
+  with a clobber-free key policy: a move keeps the key unless it is taken, a copy always
+  mints a fresh one (`903f44cb`).
 - **Four-level disable hierarchy** — global / source / section / item, checked as an OR. The two new levels (global "all homebrew" + per-section) live in a local overlay store, so they're a per-device view preference that never mutates `.orcbrew` data or travels with an export (`95426d8c`).
-- **Passive library health-status card** — surfaces unresolved key conflicts, missing-required-fields, and export blockers; one line per problem *type* with a count. Warning-yellow for attention, red for broken; always-on on the My Content hub, dismissable-and-remembered elsewhere (`b58fe80b`, `79982e03`, `d0338049`, `e5372fed`, `e7040f4a`).
+- **Passive library health-status card** — one line per problem type with a count, covering
+  unresolved key conflicts, missing required fields, and export blockers. Warning-yellow for
+  attention, red for broken. Always on in the My Content hub, dismissable and remembered
+  elsewhere (`b58fe80b`, `79982e03`, `d0338049`, `e5372fed`, `e7040f4a`).
 - **Opinionated, summary-first import** — safe defaults resolve conflicts up front with a one-click Import; the full per-conflict panel becomes "Review" (`e90466c1`).
 - **Richer duplicate-key resolution** — severity split with honest labeling for the collapse-risk types, "keep both, turn one off" for a deterministic winner, rename the *existing* item, and an internal keeper-picker (`87512e47`, `052e6e55`, `0c30a022`, `862d9b26`).
 - **Mutual-exclusion legibility** — per-row twin notes, a library banner, disabled-content badges colored by reason, and swap-on-enable keeping ≤1 enabled twin (`8543d8f6`, `d94973a6`).
@@ -103,28 +108,19 @@ Support
 
 **Highlights**
 
-Homebrew classes can now define their **starting equipment** from the builder UI — the
-**full SRD form**, not just the easy half. Fixed items, plus choice groups where each
-option can grant a **bundle** of items and/or a **nested weapon sub-choice**, so
-"(a) chain mail, or (b) leather + a longbow + 20 arrows" and "a martial weapon and a
-shield" are all buildable without hand-editing `.orcbrew`. It applies on the character
-sheet and round-trips through save, export, and import.
-
-You can also **start from an SRD class**: the builder fills in that class's equipment for
-you to tweak, taken from the live class definition rather than a hand-copied table. If you
-only change a few things, the exported file stores **just those changes** against the base
-class instead of a full copy.
+Homebrew classes can define their starting equipment from the builder UI, in the full SRD
+form: fixed items, choice groups, bundles, and nested weapon sub-choices. It applies on the
+character sheet and round-trips through save, export, and import. You can also start from an
+SRD class and change only what you want, and the export stores just those changes against
+the base class.
 
 **Added**
 
 - **Starting Equipment section in the class builder** — a homebrew class can grant fixed
-  items (`:weapons`/`:armor`/`:equipment`) and rich choice groups. Each choice option is a
-  label + one-or-more item grants (from the real weapon/armor/equipment vocabulary) + an
-  optional "any simple/martial weapon" sub-choice — i.e. the full SRD equipment form
-  (bundles and nested picks), via a serializable `:equipment-selections` shape that
-  `class-option` compiles to the same structure the SRD classes use. Applies with no new
-  engine path, round-trips through save/export/import, and imported legacy simple choices
-  convert to the editable form in one click (`a4f13086`, `5a5f65a8`).
+  items and choice groups, including bundles and nested weapon picks, so the full SRD
+  equipment form is buildable without hand-editing `.orcbrew`. It round-trips through save,
+  export and import, and legacy simple choices convert to the editable form in one click
+  (`a4f13086`, `5a5f65a8`).
 - **"Start from an SRD class"** — a dropdown fills the builder with any SRD class's starting
   equipment. It's read from the live class (by applying the class's own modifier functions),
   so it always matches what the class actually grants. All 12 classes (`2470e1d2`, `3fc5585d`).
@@ -153,6 +149,716 @@ class instead of a full copy.
   hand-rolled boxes (`4621b4c2`, `25f5d9a1`).
 - **`lein e2e-server`** boots the full app (Pedestal + in-memory Datomic, no transactor) on
   :8890 for browser tests (`47c413b0`).
+
+### feature/one-template-per-style
+
+**Highlights**
+
+Character sheets are generated from one template per style, and a multiclass
+caster's spells can be packed one class to a column so a party of four casters
+prints on one page instead of four — with a Warlock's Pact Magic kept as its own
+pool. Spell rows mark concentration, casting time and costly materials; magic
+item cards print alongside spell cards; and every page carries the site name.
+
+**Added**
+
+- `pdf/sheet-masters` names the file each style grows from and where that style's
+  artwork carries its attribution, and `pdf/grow-spell-sections!` reshapes an
+  opened master to the number of spellcasting sections a character needs
+  (`a78aaaf`).
+
+**Fixed**
+
+- A character with more casting classes than its template held got the features
+  and traits page wedged between its spell pages: generated pages were appended
+  to the end of the document rather than placed after the last spell page. The
+  eight-class fixture shipped as spell pages 3–8, features at 9, then spell pages
+  10 and 11 (`de9a746`).
+- Spells vanished off printed sheets because three templates numbered their spell-row fields
+  with gaps: **Glyph of Warding** was dropped from every wizard's style 1 and 3 sheet, and
+  style 4 lost **Continual Flame** and **Darkness** mid-list. Style 1's PREPARED ticks
+  carried the same numbering, so a prepared spell printed unticked.
+  `dev/fix_spell_row_fields.clj` renumbers them.
+- Style 3 printed an empty HIT DICE box on every sheet — the box is drawn, the
+  `hd` field was never there. Style 4's second-page name box was likewise always
+  empty: it calls the field `character-name-p2` where the export writes
+  `character-name-2`. `dev/fix_missing_char_fields.clj` adds the one and renames
+  the other.
+- `spell-packing/sheet-geometry` claimed capacity the templates did not have —
+  13 rows at style 4's level 2 where only 11 could be filled — and undercounted
+  its level 1 at 12 where it holds 13. It is the field count now, with a test
+  tying it to the templates.
+- Styles 3 and 4 threw `StackOverflowError` for any character with two or more casting
+  classes, so those sheets could not be exported at all. Clones are now inserted with
+  `insertAfter`, avoiding the whole-object-graph cycle check that exhausted the stack.
+  Styles 1 and 2 were never affected, which is why this survived.
+
+**Changed**
+
+- The 28 templates are now 8: for each style, one to grow from and one with no
+  spell page for a character who casts nothing. 44.3 MB to 9.7 MB.
+- Style 4 grows from a one-spell-page master like every other style: its licence footer
+  turned out not to be baked into the artwork, so the marked page alone yields clones that
+  all carry the footer. The retired file leaves `resources/` 4.5 MB lighter, and the
+  surviving page renders byte-identically.
+- That page's footer block is four operators rather than six: `0 i` sets flatness
+  tolerance, which applies to path curves and not to glyph fills, and `/GS2 gs`
+  is the page default, differing from GS0 only in stroke adjustment.
+- Style 4's structure tree is removed along with the page it referenced, taking the file
+  from 2622 objects to 1301. The cost is style 4's accessibility tagging — styles 1 and 2
+  keep theirs, style 3 never had any — and restoring it means writing the pruner properly.
+- Exports are smaller at every caster count above one, by 49 KB to 671 KB
+  depending on style, and a character with no spellcasting gets a file the same
+  size as before.
+- Generating a sheet repeats less work: form values are looked up once instead of twice,
+  prose fields are measured only when they hold something, and a cloned spell page no longer
+  re-reads its source per clone. A six-caster sheet allocates 162 MB rather than 607, and a
+  character who casts nothing no longer scans the pages for spell sections at all.
+
+**Added (spell row annotations)**
+
+- A spell row can carry its concentration, casting-time and costly-material marks
+  beside the name, behind `print-spell-annotations?`. Of 319 spells concentration
+  touches 126, a costly material 52, a bonus action 14 and a reaction 4.
+- FIXED columns, not appended to the name. A `C` among letters is the same visual
+  class as the letters — single capital, same weight — so finding it is a serial
+  search and the eye has to read every row; a column turns that into one vertical
+  sweep. More spacing does not fix a serial search, alignment does.
+- Drawn, not written into fields: 11 bytes a row against 671 as form fields
+  (6.6 KB against 389 KB over 594 rows), on a branch whose point was smaller files.
+- The rows are narrowed by the reserved zone BEFORE the values are written, so a
+  long name shrinks to clear the columns rather than running under them. Verified:
+  the longest real spell names fit the narrowed row on all four styles.
+- Ritual is deliberately not marked — its `R` would sit beside the `RE` of
+  reaction, and plain V S M is on nearly every spell, so it is the widest to print
+  and the least worth reading.
+
+**Added (packing, server half)**
+
+- The export accepts `:spell-relabels`, the small instruction list the browser
+  sends alongside the field map when it has packed a character's spells into
+  boxes other than their own numeral. The server applies `relabel-spell-level!`
+  and `reuse-cantrips-box!` per instruction and needs nothing else — it never has
+  to know what a spell level is.
+- Bounds-checked, because it comes from the client and reaches field names and a
+  drawn label: section must name a page the document actually grew, box must be
+  one of the ten, and label a single digit or nil. Malformed instructions are
+  refused and counted rather than thrown on, so a client sending something this
+  server does not understand cannot cost the character their sheet. The list is
+  capped at ten boxes a section.
+- `relabel-instructions` counted sections from ZERO off `map-indexed`, while
+  every field name carries a 1-based suffix — so the instructions named a section
+  no template has.
+
+- `pdf_spec` split a character's spells by a hardcoded copy of style 1's row
+  counts, whatever style was being exported: a style 4 sheet was handed 8 cantrips
+  for a box with 7 fields and lost one, and 12 first-level spells for a box that
+  holds 13. It reads `spell-packing/sheet-geometry` now, so the counts have one
+  home and a test ties them to the templates.
+
+- `spell-packing/packed-fields` turns a packing into the field map the export
+  writes: each class holds its own contiguous run of boxes in one column, so
+  **four short lists fit one page** where today they take four. Rendered proof in
+  `target/packed-demo.pdf`.
+- This is also what separates a Warlock's Pact Magic. Every level box carries its
+  own `spell-slots` field, so a class holding its own column carries its own slot
+  counts — Warlock 2, Sorcerer 4/3, Paladin 4/3, Bard 4 on one page. Grouping by
+  ability, as today, merges a Warlock and a Sorcerer into one CHA section and
+  writes every box the character-wide total.
+- A pact caster is given the first column outright: cantrips in box 0, the one
+  level it casts at in box 1 — renumbered as the character levels rather than
+  taking a new box — spilling into box 2 only because a level 20 Warlock knows 15
+  spells against box 1's 12 rows. That is both simpler than fitting it like any
+  other class and what keeps its slot pool off the classes beside it.
+- Each spell column is headed with the class that holds it, so a party of casters can be
+  told apart at a glance. A class with no cantrips is headed in its first level box
+  instead of going unnamed, and headings are only placed on bars with no slot inputs the
+  player writes in.
+- The compartments are read off the live fields rather than written down, so they
+  follow the artwork: 51.9–91.1 and 103–195.8 on style 1. A style with no
+  `slots-expended` field (2 and 4) has the wide one taken from the spell row's
+  right edge instead. Box 0 has no slots fields at all and borrows level 1's.
+- A name too long even at the 6pt floor is shortened with an ellipsis rather than printing
+  through the divider — at 6pt "Eldritch Knight" still measures 43pt against a level box's
+  35.
+
+- Each class's spellcasting ability, save DC and attack bonus print above its column's bar,
+  bold and near-black, so they read at a glance mid-turn. A sheet section carries one such
+  triple, so on a packed page holding several classes it is left empty, and filled only
+  where a page holds a single class.
+- Packing runs on all four styles. The printed level numeral is covered with a
+  white rectangle cut to that style's measured digit box (`pdf/numeral-boxes`,
+  from `dev/scan_numerals.clj`) rather than a hexagon traced off style 1, which
+  works everywhere because the paper around every numeral is white (`a8752173`).
+
+**Added (packing, builder half)**
+
+- `pdf_spec/packing-classes` regroups `spells-known` — which is keyed by LEVEL —
+  into the per-class lists the packer takes. That regrouping is the point: the
+  shipped layout groups by `:ability`, which is why a Warlock and a Sorcerer share
+  one CHA section.
+- **Pact Magic is separated in the character model.** A Warlock/Sorcerer's pact slots were
+  added to the shared ones and printed as a single inflated number — on the normal sheet,
+  not only when packed. Shared and pact slots are kept apart now, with their sum still
+  available to everything that reads it.
+- A pact caster's whole list is reported at its highest pact slot level, because
+  that is how a Warlock casts — which is what lets it hold one box however high it
+  climbs.
+- `:spell-layout` picks `:packed` or `:per-class`; the default is computed from
+  the build — packed only when there is more than one casting class AND the style's
+  numerals can be relabelled. A single caster already reads down its own page.
+- The export accepts `:spell-headings` alongside `:spell-relabels`, bounds-checked
+  the same way.
+
+**Added (guards)**
+
+- A full character is written to every style and the values `write-fields!` could
+  not place must match `pdf/unsupported-fields` exactly. That report had always
+  been returned and never checked, which is how the losses above shipped. Exact
+  equality, so a stale declaration fails too once its template gains the field.
+- Every indexed field family must run 1..n with no gap, and no two fields in a
+  master may share a name.
+- `pdf/unsupported-fields` records what a style genuinely cannot print. Style 4
+  is the Cthulhu Mythos sheet and carries "Conditions and Insanities" where the
+  others carry inspiration, so inspiration is all that is left in it.
+
+- Style 4 has no allies or backstory box, so both values are written into its general Notes
+  box under headings rather than dropped. That box is smaller than the two it replaces, so a
+  long backstory shrinks to fit and a very long one clips. An empty section prints no
+  heading.
+
+**Added (cards)**
+
+- Spell and magic item card backs carry `dungeonmastersvault.com`, centred at the foot of
+  every card. Backs were chosen over fronts because a blank back has room where a front is
+  filled to the edge by spell text. Text carried over from a front is laid out clear of the
+  stamp.
+
+- Character sheets carry the same line along the foot of every page, at a
+  position measured per style off RENDERED pages (`dev/scan_site_line.clj`) and
+  held by a test. A page that prints its own line is skipped rather than stamped
+  over, and the skip is per PAGE, not per style: style 4 prints the line on its
+  spell pages only, and its other pages are stamped like any other.
+- Each stamped page gets its own appended content stream. Cloned spell pages
+  share the master's stream, so writing into it would have printed the line once
+  per clone on every one of them.
+
+- An export's two images are fetched concurrently, before either is drawn. Each
+  allows 10s to connect, 10s on the socket and a 20s transfer deadline, and the
+  fetch happens holding an export slot — so drawn one after the other, two slow
+  images occupied a slot for up to 80s. Started together they cost one image's
+  worst case rather than two.
+- The route no longer calls `safe-image-url?` before fetching. `safe-image-bytes`
+  validates on its own, and ITS resolved addresses are the ones the connection is
+  pinned to, so the earlier call only resolved the host a second time. The cheap
+  scheme regex stays: it refuses `file://` and `ftp://` with no lookup at all.
+
+**Added (capacity)**
+
+- `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY` and
+  `ORCPUB_PDF_QUEUE_TIMEOUT_MS` let the operator size the export stack for the
+  host. Sheet generation is bounded separately from the HTTP pool, so a rush of
+  exports no longer competes with logins and saves for the same workers, and an
+  export that cannot get a slot is answered 503 with a measured `Retry-After`
+  rather than held open until the browser gives up.
+- `docs/PDF-EXPORT-CAPACITY.md` documents what an export costs, what the numbers
+  mean, and how to size the settings, with the measurements behind them.
+- A turned-away export gets a busy page that retries itself, counting down a
+  measured interval with jitter and carrying the original request forward, then
+  hands over to a button after `ORCPUB_PDF_MAX_RETRIES` attempts. The export is a
+  form POST into a new tab, so this needed no change to the builder and none to
+  how a finished sheet arrives. The page carries the site header, logo and
+  stylesheets, as the privacy and terms pages do.
+- `lein e2e-server-busy` runs the e2e server with an export queue small enough to
+  reach by hand, for seeing the busy page on a dev machine.
+
+**Added (magic item cards)**
+
+- Magic item cards, opt-in from the builder alongside spell cards. Each card
+  carries the item's name, kind and rarity, an attunement badge in the header and
+  the clause at the foot, a charge track when the description names a number of
+  charges, and rarity-graded cornerwork. Descriptions that overrun continue on the
+  back. `dev/measure_item_card.clj` prints the clear space between every pair of
+  stacked elements on a worst-case card, so the spacing is measured rather than
+  eyeballed.
+
+**Changed (cards)**
+
+- Card icons are drawn from SVG paths instead of 32px rasters, so a 600 DPI printer is no
+  longer asked for about 150 device pixels from a 32 pixel source. Each icon is embedded
+  once per document and referenced where drawn: +7% on card pages, byte-identical on a sheet
+  with no cards. The `-bw` duplicates are gone, since colour is applied at the draw site,
+  and `resources/public/image/ATTRIBUTION.md` credits the icon authors, which nothing did
+  before.
+- Card fonts and the image embedder are built once per document by the export
+  handler rather than once inside each card function. Both are per-document, so a
+  sheet printing spell cards AND item cards carried two complete copies of
+  Vollkorn and two of the card-back mark — 35% of the file on card pages.
+
+**Fixed (hardening)**
+
+- The work one request can buy is bounded at the request itself.
+  `routes/bound-request` drops a `spellcasting-class-N` name past the ceiling and
+  truncates every collection before any part of the export sees the body, so a
+  feature added later that reads a list is bounded without being wired up.
+  Unclamped, `spellcasting-class-9999` ran 310 seconds from a few dozen bytes and
+  died out of memory.
+- `safe-image-url?` refuses the private addresses `InetAddress` has no predicate
+  for: `fc00::/7` (what private IPv6 actually uses — `isSiteLocalAddress` knows
+  only the deprecated `fec0::/10`), the NAT64 and 6to4 wrappers that carry an IPv4
+  address inside an IPv6 one, `100.64.0.0/10`, and `0.0.0.0/8` and `240.0.0.0/4`.
+  Tests pin both directions, including that public addresses inside those same
+  wrappers stay fetchable.
+- An image transfer is bounded in TIME as well as bytes. `setReadTimeout` bounds
+  each read, so a server dribbling a byte before each timeout held a connection —
+  and an export slot — indefinitely: measured, 40 bytes over 12.0 seconds with no
+  timeout firing.
+
+**Added (tests)**
+
+- `svg_path_test` covers each path command and then parses every SVG in
+  `resources/` as a net. That caught the extractor matching only double-quoted
+  attributes when the whole `black/` set uses single quotes — 148 icons that would
+  have rendered blank.
+- `card_export_test` counts what a saved document actually contains, stripping
+  PDFBox's per-subset prefix, so two copies of one face cannot pass as two fonts.
+- `pdf_image_fetch_test` drives the fetch transport against a real HTTP server:
+  the byte cap against a body with no declared length, the refusal to follow a
+  redirect, the transfer deadline against a trickling server, and what the pixel
+  budget does with a page served as a 200.
+
+**Fixed (hardening, cont.)**
+
+- The image fetch resolves a host once and connects to that same answer, closing a window
+  where DNS an attacker controls could answer public for the safety check and private for
+  the connection. Hostname and certificate verification are unchanged, and the pin is
+  skipped behind an egress proxy, where the client connects to the proxy instead.
+
+**Added (packing, every style)**
+
+- Column headings survive the annotation columns: each spell row records its
+  pre-reservation right edge, which the bar of a style with no `slots-expended`
+  field reads instead of the narrowed row — an 83pt compartment had read 27pt and
+  printed "Warlock" as "Warl…" (`a8752173`).
+- The CANTRIPS word printed into a box-0 bar is covered by a band measured per
+  style (`pdf/cantrips-word-patch`, `dev/scan_cantrips_word.clj`); one band
+  either left style 3's word showing or painted through style 4's rules
+  (`a8752173`).
+- The per-class ability, DC and attack sit on a backing strip, so they read over
+  the scrollwork styles 3 and 4 print above the bar (`a8752173`).
+- `dev/stress_packing.clj` runs seven caster shapes on every style and fails on
+  a spell that goes missing without being reported (`3b87a48a`, `50d122fc`).
+
+**Fixed (packing)**
+
+- A packing that could not hold a class dropped it in silence — a Wizard 20
+  beside a Cleric and a Druid printed without the Cleric, 33 spells gone.
+  `spell-packing/unplaced` reports what a packing could not place, `pdf_spec`
+  falls back to a page per class when anything is, and the builder does not
+  offer a layout that cannot hold the character (`3b87a48a`).
+- A no-cantrips class leading a free column started at box 0, which the export
+  redrew as a level box from style 1's measurements: on style 3 the numeral
+  missed the ring, and on every style the class name was clipped by the input
+  drawn over it. Box 0 holds cantrips only; the server refuses a label on it
+  (`50d122fc`).
+
+**Added (builder)**
+
+- A **Spell Sheet Layout** choice in the PDF options — Automatic, one column per
+  class, one page per class — shown to a multiclass caster on a style that can
+  be packed, with a line saying what the current setting prints. An untouched
+  control sends nil so the computed default stays live (`642796c7`).
+- The PDF options are grouped — Character Sheet, Cards, Appearance — and every
+  option carries a `?` that opens a line saying what it does. Click rather than
+  hover, for phones (`9d3a22ef`).
+- `test/browser/spell_layout_pdf_e2e.js` builds a Warlock 5 / Sorcerer 5 through
+  the real builder and exports every style under both layouts against the running
+  server (`642796c7`).
+
+**Fixed (builder)**
+
+- The Appearance group followed spell cards alone, so printing only magic item
+  cards lost black & white and the card-back logo, both of which apply to them
+  (`9d3a22ef`).
+
+**Changed (page shell)**
+
+- One sticky header instead of a fixed copy above an inline one. Every header
+  control existed twice in the DOM — twice in the tab order, and the whole PDF
+  options panel with it. `.app` clips overflow with `overflow-x: clip` now, which
+  trims the same overflow without becoming the scroll container that stopped the
+  header sticking (`6cd529ee`).
+- `test/browser/sticky_header_e2e.js` drives the phone case as a real device
+  descriptor: the app picks its layout off the user agent, so a narrow desktop
+  viewport renders the desktop tree into a phone width (`4ffc02a7`).
+
+**Changed (tooling)**
+
+- `scripts/test/run-cljs-tests.js` runs the compiled ClojureScript test build in
+  headless Chromium; `lein fig:test` only compiles it. The packer and annotation
+  tests are in the ClojureScript runner, since both run in the browser.
+- Lint is clean: 30 warnings to 0 (`28fd620d`).
+
+
+### perf/homebrew-builder-loop
+
+**Fixed**
+
+- **The character builder no longer freezes when you switch between Race and Class with a
+  large homebrew library.** Three internal caches were keyed on the whole class list, so
+  every lookup rebuilt every class's 20 levels. A Class-tab switch went from 1125 ms to 100
+  ms in development and 654 ms to 92 ms in production, and the page holds about 48 MB less
+  (`c90016ac`, `4b67b3f7`).
+- **A character change now rebuilds the character once, not twice.** The builder's preview
+  pane subscribed with a stray argument, which created a second, independent debounced
+  builder over the same character; both ran on every edit (`7eb968db`, `dc667154`).
+- **Spell details are built when you open a spell, not when a list of spells is drawn.**
+  Listing 41 spells built 41 full descriptions nobody had asked to read (`ebe708f9`,
+  `2747553e`).
+
+**Changed**
+
+- **Modifier ordering is linear rather than quadratic**, so character rebuilds get cheaper as
+  a character grows: 23.0 ms → 3.0 ms on the JVM and 25.2 ms → 4.9 ms in the browser, with
+  output order proven identical in both runtimes across 808 generated graphs (`8785b16a`).
+
+**Added**
+
+- **A browser probe suite for the builder's performance** — longest-task-per-interaction
+  under CPU throttling, class-body cost, builds-per-click, CPU profiling by inclusive time,
+  and the localStorage measurements. `test/browser/README.md` lists what each answers
+  (`d08a792b`, `30bb6355`, `0986cf44`).
+- **A functional test for the class handlers** — set-class, set-class-level, add-class and
+  delete-class driven for real against app-db. Neither test suite clicks anything, so these
+  had no coverage (`0634c5ce`, `1bac07c6`).
+- **`docs/kb`** — an indexed knowledge base: the freeze investigation and its root cause, a
+  scan of every `memoize` site with the risky ones traced, the localStorage measurements and
+  a parked chunked-storage plan, and the verification lessons this cost (`2bb966d8`,
+  `0634c5ce`).
+
+
+### feature/browser-side-character-images
+
+**Highlights**
+
+A character's portrait now reaches the sheet from hosts that used to refuse it, including
+Pinterest and D&D Beyond: the browser reads the picture, and where it is refused the server
+fetches it instead, with nothing asked of the user. When an address cannot work, one line
+under the field says why and offers at most one thing to do about it. A picture can also be
+pasted or copied straight in.
+
+**Added**
+
+- `orcpub.image-capture` reads a character's picture in the browser: a
+  CORS-attributed `<img>` drawn to a canvas, scaled to the size the sheet prints
+  and encoded until it fits the 128 KB ceiling. Only the canvas route exists —
+  the app's CSP is `connect-src 'self'`, so `fetch` to an image host is blocked
+  and attempting it would log a violation on every export, while `img-src` allows
+  `https:`.
+- `pdf/decode-image-bytes` takes those bytes on the server. The same 128 KB and
+  2000×2000 ceilings as `safe-image-bytes`, checked against the ENCODED length
+  first so an oversized image never becomes a byte array, and the format read from
+  the bytes rather than from the mime type the client claimed.
+- The export spec carries `:image-data` and `:faction-image-data`; when they are
+  present `/character.pdf` does not fetch at all.
+- `POST /image-probe`, which the builder asks as soon as a browser read fails:
+  can THIS server fetch THAT picture? The bytes are kept for ten minutes, so the
+  export that follows costs the host no second request, and a negative answer is
+  remembered too. It answers a boolean and never the picture — the endpoint needs
+  no login, and returning fetched bytes would make it a general-purpose proxy —
+  and every address rule that guards the export guards it.
+- A "Use copied image" button beside the field, so the last resort is one click
+  rather than an instruction. It reads a picture the VIEWER has copied; it cannot
+  do the copying, because a page-initiated copy of a cross-origin image puts its
+  markup on the clipboard and not its pixels -- the same rule that taints the
+  canvas, and the reason extensions can do this and pages cannot.
+- Paste, for a host that lets nobody read its pictures. The clipboard carries the
+  DECODED image -- the browser's own "Copy image" put it there -- so none of the
+  host's rules reach it. Two clicks, and no download-and-upload round trip. This
+  is the answer for Pinterest and anything else that refuses page and server
+  alike.
+- An upload under the Image URL field for a host that allows no read. It runs the
+  same ceilings, and falls back to the image loader when `createImageBitmap`
+  refuses a file the loader renders — it is the stricter decoder of the two.
+- `test/browser/character_image_capture_e2e.js` drives both routes through the
+  real app. The server refuses loopback addresses, so an image reaching a PDF from
+  the test origin can only have arrived as bytes the browser read.
+
+**Added**
+
+- `orcpub.image-url/advise` reads the address alone and catches most real mistakes before
+  any request is made: a page's address pasted instead of the picture's, a login wall, a
+  missing or non-web scheme, a stray space, and `http://`, which this page's CSP will not
+  display whatever the host does. Dropbox and Google Drive links are offered a correction to
+  take or leave. Advice, never enforcement.
+
+**Changed**
+
+- http is upgraded to https automatically, once the https address is known to load. The
+  check costs no request that was not about to be made anyway; the field changes only after
+  it succeeds and says why, and a host that serves no https is told instead, with its
+  address left exactly as typed.
+- **One line under a field, never four blocks.** A single unreachable picture could raise a
+  scheme warning, a suggested correction, a fetch failure and a panel of controls at once.
+  Only the most actionable now shows, and the other ways in wait behind one disclosure.
+- Controls live outside notices. A notice says what is wrong; a red panel holding
+  a button, a sentence and a file picker is a control surface wearing an error's
+  colours, and both halves get harder to read. A correction is now a question --
+  "Did you mean https://...?" -- under its notice, and supplying a picture by
+  hand is its own labelled block.
+- Field notices are a component rather than a red line. `.field-notice` carries a
+  severity accent, a panel ground and two parts with two jobs: the fault in the
+  severity colour, and the instruction -- the only part anyone acts on -- brighter
+  and heavier beneath it. Run together in one colour and one weight, the vaguer
+  half reads first and the useful half is skipped.
+- **`.red` was unreadable on the app's own background.** `#9a031e` sits at about
+  9:1 on white and about 2:1 on near-black, less than half the readable minimum,
+  and the app is dark by default. The dark theme now takes a lighter red and the
+  light theme keeps the deep one; the same colour cannot serve both. This reaches
+  every use of `.red`, not just these fields.
+- Inline rather than a hover tooltip, deliberately: these notices carry buttons,
+  and `.tooltiptext` disappears when the pointer moves toward it, is fixed at
+  130px, and is absent on mobile.
+
+
+- The builder says nothing about pasting or uploading until both routes are known to be
+  shut. Most hosts that refuse the browser serve the server perfectly well, so speaking up
+  earlier asked people to supply a picture that was about to arrive: of sixteen common
+  portrait hosts, nine let the browser read, and most of the rest allow the server.
+- Exporting is held while a picture is still being read, so the browser's bytes
+  win that race instead of falling through to the server. `capture` carries a
+  deadline, so a read always ends and the hold is bounded.
+- An oversized picture gives up size before quality, down to what the sheet can actually
+  show — the portrait box is 945px on its long edge at 300dpi. A picture already smaller
+  than that is never scaled, only re-compressed. A 5.8 MB noise PNG leaves the browser at 92
+  KB and full quality, where spending quality first produced 37 KB and a worse picture.
+
+
+- Pictures are read when the thumbnail loads and when the export panel mounts,
+  never on the export click: the export is a synchronous form submit into a new
+  tab, and an await in between spends the user activation that keeps that tab from
+  being blocked. Bytes are held in app-db keyed by URL, outside the character
+  entity — that entity is what gets persisted, and localStorage has a ceiling.
+- `docs/CHARACTER-IMAGE-FETCH.md` leads with the browser path; the server fetch is
+  documented as the fallback it now is.
+
+**Changed**
+
+- `/image-probe` answers a reason rather than a boolean, so the builder can say what is
+  worth fixing: the link, the picture, or simply waiting. Telling someone to copy a picture
+  when they have mistyped a link is not help. The server never sends a sentence, and every
+  address refusal collapses to one code, so the endpoint cannot be read as a map of what
+  this network can reach.
+
+**Fixed**
+
+- **A picture the host served happily was refused for weight.** One 128 KB limit capped
+  both what the server would download and what could go into the PDF, so a 393 KB
+  Pinterest portrait was dropped although nothing had blocked it. The two limits are now
+  separate — 2 MB down, 128 KB into the document — and a heavy picture is scaled and
+  re-encoded to fit.
+
+
+- The builder flashed "Image failed to load" at pictures that were fine.
+  `image-error` dispatched when it was CALLED, at render time, rather than
+  returning a handler -- so every fresh URL was marked failed before the browser
+  had tried it, and only the load took the mark back.
+
+- A picture whose host allows no read stopped displaying in the builder: the optimistic
+  "failed" mark set when the thumbnail renders was never withdrawn, because the load handler
+  had captured the flag while it was still clear. The clear no longer reads the flag, so an
+  ordinary load does not count as an edit.
+
+**Removed**
+
+- `create-monsters-pdf`, which was private with zero callers, and the
+  `draw-text-from-top` helper, `HELVETICA_OBLIQUE` font and
+  `orcpub.dnd.e5.monsters` require that it was the only user of.
+
+### feat/whats-new-panel
+
+**Highlights**
+
+The site now says what changed. New release highlights open once per browser and
+then stay one click away in the footer, so a release is something people notice
+rather than something they'd have to go read the changelog to find.
+
+**Added**
+
+- **What's New panel** — the current release's highlights open on the first visit
+  after it ships, and the footer link and version line reopen them any time.
+  Closing it stamps the release, so it stays shut until the next one (`ee3e4d8b`).
+- **`orcpub.whats-new`** — the release entries and the id that gates the panel, in
+  one cljc file the panel and the tests both read (`ee3e4d8b`).
+- **Twelve Summer Patch highlights under three headings** — library, characters,
+  printing — covering the builder freeze, the spell rows that never printed, the
+  two styles that could not export a multiclass caster, and the packed multiclass
+  layout, alongside the homebrew and portrait work (`9e3017d3`).
+
+### feat/option-picker
+
+**Highlights**
+
+Equipment items are picked from a filtering dropdown instead of a 1037-option native select.
+Type to narrow it, scroll the whole list, or walk it with the arrow keys.
+
+**Added**
+
+- Equipment inventory sections use a filtering dropdown: type to narrow, click or press Enter
+  to add (`95d38f67`).
+- Arrow keys walk the list and scroll the highlight into view, so it can be used without the
+  mouse (`ba52a219`).
+- The matched text is highlighted, which shows why a row matched when the match lands
+  mid-word — filtering by `+1` marks the suffix, not the name (`4082bc20`).
+- The dropdown shows how many items it holds and what the keys do (`4082bc20`).
+- `scripts/test/run-browser-probes.js` runs every asserting browser probe and fails the run
+  if any fails. Neither test suite invokes `test/browser/`, so nothing was checking them
+  (`89d49918`, `6e60959f`).
+
+**Fixed**
+
+- An item with no name no longer throws while filtering (`78deb2ad`).
+- The dropdown lines up with its input and flips above it rather than running off the bottom
+  of the screen (`95d38f67`).
+- Two browser probes had been left pointed at a control that no longer existed: one was
+  failing unnoticed, the other had quietly stopped taking screenshots (`d51aa979`).
+
+**Changed**
+
+- The Equipment dropdown no longer caps what it shows. The previous 12-row cap left 294 of
+  306 magic weapons unreachable unless you already knew the name (`ba52a219`).
+- The dropdown menu was flat; it now has depth, a themed scrollbar, a highlight bar and a
+  short open animation that respects reduced-motion (`78deb2ad`).
+- Removed the growable option-menu namespaces lifted from `redesign/growable-option-menus`.
+  Nothing referenced them, and they carry theming, layout modes and page structure — a
+  site-wide redesign, not a picker (`233d032e`).
+- A probe that stops asserting, or sits silent for 180s, now fails instead of passing
+  (`7369cc33`, `ee0b3781`).
+
+### fix/header-flyout-under-sticky-toolbar
+
+**Fixed**
+
+- **Header dropdowns are clickable again** — Characters, Spells, Monsters, Items,
+  Encounters and My Content all rendered under the button row, which swallowed
+  the click on most of their items (`9eb3ac81`).
+
+### fix/tall-flyout-and-held-release
+
+**Fixed**
+
+- **Tall header menus stay on screen** — an opening flyout is capped to the room
+  below it and scrolls, so every item in My Content is reachable on a short
+  window instead of running off the bottom (`2573f976`).
+- **The What's New panel opens when the cookie notice is dismissed** — it no
+  longer waits for a reload the visitor never makes (`2573f976`).
+
+### fix/release-panel-hold-ceiling
+
+**Fixed**
+
+- **An ignored cookie notice no longer hides the release panel** — the hold has a
+  ten-second ceiling, after which the panel shows anyway with the notice left
+  where it was, behind it.
+
+### test/overlay-reachability
+
+**Added**
+
+- `test/browser/overlay_reachability_e2e.js` — hit-tests every control an overlay
+  shows (header chrome, Orcacle, the PDF options panel, the release panel) and
+  fails if one is covered or off the window inside a floating layer. `SELFTEST=1`
+  proves it can fail; a state that audits nothing fails as a stale selector, so it
+  cannot quietly stop asserting. Overlays needing a login, an import or saved
+  content are listed as skips rather than left unmentioned.
+
+### hotfix/my-content-dropdown-and-probe-cost
+
+**Fixed**
+
+- **The "+ add content…" dropdown in My Content is readable and matches the app** —
+  its option list follows the theme instead of opening as a white box with
+  invisible entries, and the control takes the same border and text as every other
+  dropdown. `color-scheme` is set on `select` for both themes, so any unclassed
+  dropdown is covered too (`61ddd603`).
+
+**Changed**
+
+- **The release-panel probe runs in 30 seconds instead of 124** — same 18 checks.
+  Cases that did not need their own app boot are folded together, and the two
+  independent stories (the ordinary one, and the cookie notice) run in parallel
+  contexts, so the wall clock is the longer lane rather than the sum (`61ddd603`).
+
+### hotfix/boot-config-report
+
+**Added**
+
+- The server says it started and what it is configured with, on every start. Every setting
+  the app reads is listed with its value and where that value came from — `SET` from the
+  environment or `DEFAULT` — grouped by runtime, database, security, email, content and
+  capacity, plus a count of the 21 `APP_*` branding variables (`a80b5aec`, `c2754d28`).
+- A value that was supplied and rejected is called out by name beneath the table, since its
+  row shows the default that is running rather than the value you asked for (`e65dfda6`).
+- A setting whose absence breaks the site says **why and how to fix it**, in the boot banner,
+  the startup warning and the `500` a caller receives — the same text in all three, so
+  nobody has to work the remedy out from the symptom (`2c425afa`).
+
+**Fixed**
+
+- The database password is no longer printed at startup. It was in four places, not one: the
+  startup line and three `ex-info` maps, which reach logs and error reporters just as
+  readily. Credentials are blanked in both shapes they arrive in — a `password=`-style query
+  parameter and `user:pass@host` userinfo — while the host, port, database and user still
+  show (`24aa9971`).
+- `SIGNATURE` missing now fails clearly everywhere. `create-token`, `unsubscribe-token` and
+  `unsubscribe` read the environment straight into `jwt/sign`, failing deep inside the
+  library with nothing an operator could act on (`2c425afa`).
+- `EMAIL_SERVER_URL` missing is reported as breaking, because it is: the verification email
+  is sent inside the signup transaction, so unconfigured mail does not skip an email — every
+  registration fails with "please try again", and password reset fails too (`e66eeef8`).
+- `DATOMIC_URL` unset defaults to a local development transactor, and the failure read
+  "cannot connect to localhost:4334", naming the symptom rather than the cause. It now says
+  the development default is in use (`e66eeef8`).
+- `ENVIRONMENT.md` was missing `ORCPUB_PDF_MAX_CASTER_SECTIONS`, `ORCPUB_PDF_MAX_CARDS`,
+  `EMAIL_SERVER_URL`, `EMAIL_SERVER_PORT` and `EMAIL_ACCESS_KEY`, despite being the variable
+  reference (`e66eeef8`, `c2754d28`).
+
+**Changed**
+
+- Secrets report presence only — `SIGNATURE`, `DATOMIC_PASSWORD`, `EMAIL_ACCESS_KEY` and
+  `EMAIL_SECRET_KEY` show `set` or `NOT SET`, never a value, dropped before printing rather
+  than at print time (`c2754d28`).
+- `ORCPUB_PDF_MAX_CARDS` defaults to `198` rather than `200`. Nine cards to a sheet, so 200
+  was 22 sheets plus two cards stranded on a twenty-third (`ac886c74`).
+- `ORCPUB_HTTP_MAX_THREADS` reports the pool size read back off the running server when it is
+  unset, rather than a formula copied from Pedestal that would drift (`cf7d8cdd`).
+
+### test/overlay-probe-user-menu-and-modals
+
+**Added**
+
+- The overlay probe drives the **import conflict modal** — the fixture pack is
+  imported twice, the second time with its source renamed so all 180 keys collide,
+  which is the conflict a user hits when two packs overlap (`26f8c602`).
+- A **signed-in lane** that logs in through the real form when `ORCPUB_TEST_USER`
+  and `ORCPUB_TEST_PASSWORD` are set, and audits the user menu (`26f8c602`).
+
+**Fixed**
+
+- **The import helper targets the labels that exist**, most specific first, so a
+  rename fails loudly instead of quietly matching something else (`950ab526`).
+- **The cookie-banner fallback is scoped to the banner**, so it can no longer
+  close the release panel and record that as consent (`950ab526`, `031daf73`).
+
+### fix/message-banner-spacing
+
+**Fixed**
+
+- **Message banners keep their line breaks**, so a multi-part message reads as
+  separate lines instead of sentences run together with no punctuation (`2e13d2b2`).
+- **The banner has room to breathe** — padding above it as well as below, a gap
+  between the text and the close icon, and the icon aligned to the first line
+  rather than halfway down a three-line message (`2e13d2b2`).
 
 ## [breaking/2026-stack-modernization]
 

@@ -31,6 +31,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             ;; Side effect: registers all event handlers
@@ -230,6 +231,59 @@
     (rf/dispatch-sync [::class5e/set-boon-prop :name "Renamed Boon"])
     (is (= "Renamed Boon" (:name (::class5e/boon-builder-item @app-db)))
         "set-boon-prop assoc's a single key onto the current item")))
+;; Per-source export runs the same correction gate as Export All
+;;
+;; The cleanups below are what the two paths used to disagree on. Text
+;; normalization is NOT among them: builder saves and import both normalize on
+;; the way in, so it cannot tell the paths apart. A blank :option-pack, a nil
+;; value and duplicately-named selection options can — nothing on the builder
+;; save path touches those, so before this they survived a per-source export and
+;; were cleaned by Export All.
+;; ---------------------------------------------------------------------------
+
+(def ^:private uncleaned-source
+  {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "" :name "Witch's Bolt" :level nil}}
+   :orcpub.dnd.e5/classes
+   {:artificer {:option-pack "Pack A"
+                :name "Artificer"
+                :selections {:specialism
+                             {:name "Specialism"
+                              :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
+
+(deftest single-source-export-fills-blank-option-pack
+  (testing "a blank :option-pack is given the default source, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= orcbrew-val/default-option-source
+             (get-in plugin [:orcpub.dnd.e5/spells :witchbolt :option-pack]))))))
+
+(deftest single-source-export-strips-nils
+  (testing "nil values are dropped rather than written into the file"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (not (contains? (get-in plugin [:orcpub.dnd.e5/spells :witchbolt]) :level))))))
+
+(deftest single-source-export-dedups-selection-options
+  (testing "duplicately-named selection options collapse, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= 1 (count (get-in plugin [:orcpub.dnd.e5/classes :artificer
+                                      :selections :specialism :options])))))))
+
+(deftest single-source-export-matches-whole-library-export
+  (testing "one source exported alone equals that source inside an all-sources export"
+    (let [library {"Pack A" uncleaned-source
+                   "Pack B" {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"}}}}
+          all (:data (orcbrew-val/correct-library library))]
+      (is (= (get all "Pack A")
+             (:plugin (events/correct-single-plugin "Pack A" uncleaned-source)))))))
+
+(deftest single-source-export-reports-what-it-changed
+  (testing "clean content reports no changes, dirty content reports some"
+    (is (empty? (:changes (events/correct-single-plugin
+                           "Pack B"
+                           {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"
+                                                              :name "Fireball"}}}))))
+    (is (seq (:changes (events/correct-single-plugin "Pack A" uncleaned-source))))))
+
+;; ---------------------------------------------------------------------------
 ;; Emergency raw export
 ;; ---------------------------------------------------------------------------
 
@@ -293,22 +347,35 @@
       (is (= :name (:field opt-prob)))
       (is (= :invalid (:status opt-prob))))))
 
-(deftest builder-error-hiccup-renders-location
-  (testing "the rendered banner names the specific option"
-    (let [problems [{:field :name :status :invalid
-                     :reason "must start with a letter" :location "Option 2"}]
-          hiccup (events/builder-error-hiccup "Selection" problems)
-          flat (pr-str hiccup)]
-      (is (re-find #"Option 2 Name" flat))
-      (is (re-find #"must start with a letter" flat)))))
+(deftest builder-error-message-renders-location
+  (testing "a field inside a nested option carries its location, so it can be found"
+    (let [problems [{:field :name :status :missing :location "Option 2"}]
+          {:keys [title details]} (events/builder-error-message "Selection" problems)]
+      (is (re-find #"Option 2 Name" (pr-str title)))
+      (is (empty? details)))))
 
-(deftest builder-error-hiccup-batches-top-level-missing
-  (testing "top-level missing fields still batch onto one 'Please fill in' line"
+(deftest builder-error-message-batches-top-level-missing
+  (testing "empty top-level fields batch into the headline, one line not three"
     (let [problems [{:field :name :status :missing}
                     {:field :option-pack :status :missing}]
-          flat (pr-str (events/builder-error-hiccup "Class" problems))]
+          {:keys [title details]} (events/builder-error-message "Class" problems)
+          flat (pr-str title)]
       (is (re-find #"Please fill in" flat))
-      (is (re-find #"Option Source Name" flat)))))
+      (is (re-find #"Name" flat))
+      (is (re-find #"Option Source Name" flat))
+      (is (empty? details)))))
+
+(deftest builder-error-message-leads-with-the-problem
+  (testing "no builder-name label line: the headline is the problem itself"
+    (let [{:keys [title]} (events/builder-error-message
+                           "Spell" [{:field :name :status :missing}])]
+      (is (not (re-find #"Spell:" (pr-str title))))))
+  (testing "the escape hatch is a detail under it, not the headline"
+    (let [{:keys [title details]} (events/builder-error-message
+                                   "Spell" [{:field :name :status :missing}]
+                                   :some/save-anyway)]
+      (is (re-find #"Please fill in" (pr-str title)))
+      (is (re-find #"Save anyway with placeholders" (pr-str details))))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::e5/repair-quarantined-source — persist-to-library repair engine
@@ -638,3 +705,131 @@
     (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
     (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
         ":weapons removed when emptied")))
+
+;; ── Save-time key collision ──────────────────────────────────────────────────
+;; `save-collision` is a pure function over the plugins map, so it is tested
+;; directly rather than by dispatching a save.
+
+(def ^:private ct :orcpub.dnd.e5/classes)
+
+(def ^:private plugins-fixture
+  {"My Stuff"  {ct {:artificer {:key :artificer :name "Artificer"}}}
+   "Someone's" {ct {:druid {:key :druid :name "Druid"}}}})
+
+(deftest save-collision-allows-saving-over-yourself
+  (testing "an edit returning to its own slot is not a collision"
+    ;; The occupant IS this item, which is what an ordinary edit looks like.
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                     {:key :artificer :name "Artificer"})))))
+
+(deftest save-collision-blocks-replacing-a-different-item
+  (testing "landing on a key held by something else in the same source"
+    ;; Renaming "Artie" to "Artificer" would silently discard the real one.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:key :artie :name "Artificer"})]
+      (is (= :overwrite (:kind c)))
+      (is (= "Artificer" (:name c)))
+      (is (= "My Stuff" (:source c)))))
+
+  (testing "a NEW item, with no key of its own, onto an occupied key"
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:name "Artificer"})]
+      (is (= :overwrite (:kind c))))))
+
+(deftest save-collision-reports-another-source
+  (testing "the same key in a different source is reported as :cross"
+    ;; Both kinds stop the save. They are distinguished so the message can say what
+    ;; is at stake -- losing an entry, versus creating a pair where only one can be
+    ;; switched on -- not because one of them is allowed through.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :druid
+                                   {:name "Druid"})]
+      (is (= :cross (:kind c)))
+      (is (= "Someone's" (:source c))))))
+
+(deftest save-collision-is-silent-on-a-free-key
+  (testing "nothing there, in any source"
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :ranger
+                                     {:name "Ranger"})))))
+
+;; ── Renaming moves the entry, it does not copy it ────────────────────────────
+
+(deftest save-into-plugins-moves-a-renamed-item
+  (testing "the entry under the old key is gone"
+    ;; assoc-in alone left it behind: one item became two, the stale copy holding
+    ;; the previous data and still answering to the key characters had stored.
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer" :former-key :artificer-2}
+                  :artificer-2)
+          group (get-in result ["Pak" ct])]
+      (is (= [:artificer] (keys group)))
+      (is (= :artificer-2 (:former-key (:artificer group))))))
+
+  (testing "an ordinary save writes in place and removes nothing"
+    (let [plugins {"Pak" {ct {:artificer {:key :artificer :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer Revised"} nil)]
+      (is (= [:artificer] (keys (get-in result ["Pak" ct]))))
+      (is (= "Artificer Revised" (get-in result ["Pak" ct :artificer :name])))))
+
+  (testing "a sibling in the same source is untouched"
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}
+                              :druid {:key :druid :name "Druid"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer"} :artificer-2)]
+      (is (= #{:artificer :druid} (set (keys (get-in result ["Pak" ct]))))))))
+
+;; ---------------------------------------------------------------------------
+;; :set-character reports what it healed
+;;
+;; The reconcilers always returned a :rewrote list and set-character always threw
+;; it away, so an automatic repair was invisible -- and because the repair lives
+;; in memory until the character is saved, invisible meant routinely lost.
+;; ---------------------------------------------------------------------------
+
+(def ^:private renamed-plugins
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"}}}})
+
+(deftest set-character-flags-a-repair-so-the-save-button-can-ask-for-it
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (testing "the stored key is repaired"
+    (is (= :half-elf-ua
+           (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
+  (testing "and the repair is recorded rather than discarded"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest set-character-stays-quiet-when-nothing-needed-fixing
+  ;; A clean load must not glint the save button, or the cue means nothing.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-ua}}}])
+  (is (nil? (:character-healed @app-db))))
+
+(deftest the-heal-flag-clears-itself-once-the-character-is-saved
+  ;; What makes this self-resetting rather than a banner someone has to dismiss:
+  ;; saving re-dispatches :set-character over the SAVED character, whose keys are
+  ;; now current, so the reconcilers find nothing and the flag drops on its own.
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (some? (:character-healed @app-db)) "flagged on the broken load")
+  (let [healed (:character @app-db)]
+    ;; stands in for the post-save re-dispatch in ::char5e/save-character
+    (rf/dispatch-sync [:set-character healed])
+    (is (nil? (:character-healed @app-db))
+        "second pass over the repaired character clears the prompt")))
+
+(deftest healed-message-counts-what-moved
+  (is (= (events/healed-message [{:from :a :to :b}])
+         "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
+  (is (re-find #"^Reconnected 2 references"
+               (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))

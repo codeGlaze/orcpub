@@ -7,6 +7,7 @@
             [orcpub.components :as comps]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
+            [orcpub.dnd.e5.spell-packing :as packing]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -43,6 +44,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -267,6 +269,24 @@
 
 (def route-handler (memoize route-fn))
 
+(defn- fit-flyout!
+  "Cap an opening flyout at the room left below it, and let it scroll.
+
+   The menu is absolutely positioned under its tab, so its height has nothing to
+   do with the window's: My Content is eleven rows and ran off the bottom of a
+   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
+   pointer away to use the page scrollbar closes it. Measured in a frame, after
+   :hover has applied and the menu has a box to measure."
+  [e]
+  (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
+    (js/requestAnimationFrame
+     (fn []
+       (let [top (.-top (.getBoundingClientRect flyout))
+             room (- (.-innerHeight js/window) top 12)]
+         (when (pos? top)
+           (set! (.. flyout -style -maxHeight) (str (max 160 (js/Math.floor room)) "px"))
+           (set! (.. flyout -style -overflowY) "auto")))))))
+
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
     [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
@@ -283,7 +303,9 @@
               :class (str (if disabled "disabled" "pointer")
                           " "
                           (when (not mobile?) " w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -320,15 +342,18 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (if active active-style)
+              :style (when active active-style)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (if (not mobile?) "w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+                               (when-not mobile? "w-110"))}
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
-      {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      {:class-name (when-not active
+                     (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-      (if (not mobile?)
+      (when-not mobile?
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
@@ -1065,7 +1090,9 @@
      (when @(subscribe [::char/options-shown?])
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
-       [:div.p-b-10.p-r-10.p-l-10.white
+       ;; p-t-10 as well as p-b: without it the banner sits flush against whatever
+       ;; is above it, which on a phone means jammed under the page title.
+       [:div.p-t-10.p-b-10.p-r-10.p-l-10.white
         [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
@@ -1080,36 +1107,47 @@
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
-      [:div.t-a-r
-       [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
-         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download-alt]]
-       [:div.orange.pointer.underline
-        {:on-click #(swap! expanded? not)
-         :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class (when @expanded? "white")}]]
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (str {:browser (user-agent/browser)
-                        :browser-version (user-agent/browser-version)
-                        :device-type (user-agent/device-type)
-                        :platform (user-agent/platform)
-                        :platform-version (user-agent/platform-version)
-                        :character (char/to-strict @(subscribe [:character]))})}])
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (clj->json {:browser (user-agent/browser)
-                              :browser-version (user-agent/browser-version)
-                              :device-type (user-agent/device-type)
-                              :platform (user-agent/platform)
-                              :platform-version (user-agent/platform-version)
-                              :character (char/to-strict @(subscribe [:character]))})}])
-       ])))
+      (let [dev? @(subscribe [::e5/dev-mode?])]
+        [:div.t-a-r
+         ;; The switch is always visible and named. The tools behind it are for
+         ;; getting content out when the app is misbehaving, so hiding the way to
+         ;; reach them would defeat the point — what the toggle removes is two
+         ;; unlabelled icons sitting in the footer of every page.
+         [:div.dev-mode-row
+          [:span.dev-mode-switch
+           {:class (when dev? "on")
+            :role "switch"
+            :aria-checked (str (boolean dev?))
+            :tabIndex 0
+            :title "Show diagnostic tools for getting your content out"
+            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+          [:span.dev-mode-label
+           {:on-click (make-event-handler ::e5/toggle-dev-mode)}
+           "Developer mode"]]
+         (when dev?
+           [:div.dev-mode-tools
+            [:span.dev-mode-tool
+             {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+              :title "Downloads every source exactly as stored, skipping the export checks. Large libraries take a while — click once and wait."}
+             [:i.fa.fa-cloud-download-alt.m-r-5]
+             "Dump library"]
+            [:span.dev-mode-tool
+             {:on-click #(swap! expanded? not)
+              :title "Browser and build details, for a bug report"}
+             [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
+             "Debug info"]])
+         ;; One box, not the two identical ones that were here: the same map was
+         ;; rendered twice, once with str and once with clj->json.
+         (when (and dev? @expanded?)
+           [:textarea.m-t-5
+            {:read-only true
+             :style debug-data-style
+             :value (clj->json {:browser (user-agent/browser)
+                                :browser-version (user-agent/browser-version)
+                                :device-type (user-agent/device-type)
+                                :platform (user-agent/platform)
+                                :platform-version (user-agent/platform-version)
+                                :character (char/to-strict @(subscribe [:character]))})}])]))))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
   [:div.white.f-s-32.flex.align-items-c
@@ -1505,20 +1543,13 @@
 (declare library-health-status)
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
-  ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
-  ;; for the scroll handler, which runs as a DOM event listener outside
-  ;; Reagent's reactive context. Synced from the render fn below.
-  (let [orcacle-open?* (atom false)
-        on-scroll (fn [e]
-                    (when-not @orcacle-open?*
-                      (let [app-header (js/document.getElementById "app-header")
-                            header-height (.-offsetHeight app-header)
-                            scroll-top (.-scrollTop (.-documentElement (.-target e)))
-                            sticky-header (js/document.getElementById "sticky-header")]
-                        (if (>= scroll-top header-height)
-                          (set! (.-display (.-style sticky-header)) "block")
-                          (set! (.-display (.-style sticky-header)) "none")))))]
-    
+  ;; Whether the header has reached the top of the viewport. position: sticky
+  ;; does the sticking, but CSS cannot say "is currently stuck", and the bar only
+  ;; wears its background and shadow once it is -- so a zero-height sentinel above
+  ;; the header is watched, and this follows it.
+  (let [stuck? (r/atom false)
+        observer (atom nil)]
+
     (r/create-class
      {:component-did-mount (fn [comp]
                              ;; Read directly from app-db — lifecycle methods are
@@ -1531,12 +1562,20 @@
                                  :username  (:username user-data)
                                  :email     (:email user-data)}))
                              (when-not frame?
-                               (js/window.addEventListener "scroll" on-scroll))
+                               (when-let [sentinel (js/document.getElementById "header-sentinel")]
+                                 (let [obs (js/IntersectionObserver.
+                                            (fn [entries]
+                                              (reset! stuck?
+                                                      (not (.-isIntersecting (aget entries 0)))))
+                                            #js {:threshold 0})]
+                                   (.observe obs sentinel)
+                                   (reset! observer obs))))
                              (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
-                                (when-not frame?
-                                  (js/window.removeEventListener "scroll" on-scroll)))
+                                (when-let [obs @observer]
+                                  (.disconnect obs)
+                                  (reset! observer nil)))
       :reagent-render
       (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
@@ -1544,7 +1583,6 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
             :on-scroll (when-not frame?
@@ -1561,11 +1599,18 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame?]]
              [:div
-              [:div#sticky-header.sticky-header.w-100-p.posn-fixed
-               [:div.flex.justify-cont-c
-                [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]              
+              ;; One header, sticky, rather than a fixed copy of it above an
+              ;; inline one. Two copies meant every control in the header --
+              ;; every button, and the whole PDF options panel that opens inside
+              ;; it -- existed twice in the DOM, twice in the tab order, and with
+              ;; its own component-local state in each.
+              ;;
+              ;; Not sticky inside a frame, which has no app header to scroll
+              ;; past, or behind the Orcacle panel, which covers the page.
+              [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
+               {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
+                            (when @stuck? "stuck"))}
                [:div.content hdr]]
 
               ;; Support banner (integrations-gated)
@@ -1608,7 +1653,8 @@
                      [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
+                   [whats-new-view/footer-link]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
                    (for [{:keys [label href]} splash/legal-footer-links]
@@ -1621,7 +1667,9 @@
                      branding/copyright-holder)]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                  [:p.pointer.underline
+                   {:on-click #(dispatch [::e5/open-whats-new])}
+                   "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -2913,7 +2961,17 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [built-char @(subscribe [:built-character id])
+  (let [;; The builder renders character-display with an explicit nil id, so this
+        ;; was [:built-character nil] -- a different query vector from the
+        ;; builder's own [:built-character], hence a second debounced-build-sub
+        ;; over the same character (2 builds per click). Collapse only that case.
+        ;; The non-nil path is left exactly as it was: [:built-character id]
+        ;; ignores id and returns the builder's character, which looks wrong on a
+        ;; character page, but ::char/built-character id fetches over HTTP, so
+        ;; changing it needs its own verification.
+        built-char @(subscribe (if id
+                                 [:built-character id]
+                                 [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
         race @(subscribe [::char/race id])
@@ -3959,6 +4017,11 @@
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
   [_error _stack _retry]
+  ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
+  ;; took it away, then this page threw. Getting homebrew out matters most in
+  ;; exactly the state where the app has stopped being able to export it.
+  (when-let [rescue (aget js/window "orcpubBootRescue")]
+    (rescue))
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
@@ -4130,6 +4193,47 @@
    (comps/checkbox selected? false)
    [:span.m-l-5.f-s-14 label]])
 
+(defn with-help
+  "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
+
+   Appended rather than wrapped, because the row is a flex line: a help span
+   holding its own text would put the explanation beside the label instead of
+   under it. Click rather than hover -- the builder is used on phones, where a
+   hover tooltip never opens -- with `title` for a mouse that rests on it anyway."
+  [row help]
+  (let [open? (r/atom false)]
+    (fn [row help]
+      [:div
+       (conj row
+             [:span.option-help.pointer.m-l-5
+              {:title help
+               :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+              "?"])
+       (when @open?
+         [:div.option-help-text help])])))
+
+(defn option-checkbox
+  "One PDF option: its checkbox, and a ? holding `help`.
+
+   The ? sits outside the clickable label so reading the explanation does not
+   toggle the option."
+  [label selected? on-click help]
+  [:div.m-b-5
+   [with-help
+    [:div.flex.align-items-c
+     [:div.pointer {:on-click on-click}
+      [labeled-checkbox label selected?]]]
+    help]])
+
+(defn option-group
+  "A titled group of options. The panel carries three -- what goes on the sheet,
+   what cards follow it, and how either is inked -- because a flat list put the
+   known/prepared choice, a sheet setting, in the middle of the card ones."
+  [title & children]
+  (into [:div.m-b-16
+         [:div.option-group-title title]]
+        children))
+
 (defn export-pdf-fn [built-char
                      id
                      plugin-data
@@ -4142,7 +4246,9 @@
                      print-card-back-logo?
                      card-back-logo-faded?
                      print-bw?
-                     bw-faded?]
+                     bw-faded?
+                     print-magic-item-cards?
+                     spell-layout]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4155,7 +4261,9 @@
                                 :print-card-back-logo? print-card-back-logo?
                                 :card-back-logo-faded? card-back-logo-faded?
                                 :print-bw? print-bw?
-                                :bw-faded? bw-faded?})]
+                                :bw-faded? bw-faded?
+                                :print-magic-item-cards? print-magic-item-cards?
+                                :spell-layout spell-layout})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4180,9 +4288,30 @@
      :pointer-events "none"}))
 
 
+(defn capture-images
+  "Reads the character's pictures in the browser when this mounts, so their bytes
+   are in hand before the export button is clicked. Renders nothing.
+
+   Kept off the click handler on purpose: the export is a synchronous form submit
+   into a new tab, and any await between the click and .submit() spends the
+   transient user activation that keeps that tab from being blocked. Each request
+   is idempotent, so re-rendering costs one read per URL and no more.
+
+   `urls` comes through the argv rather than a subscription so that a URL edited
+   while this is mounted is picked up by the update."
+  [_urls]
+  (let [ask (fn [this]
+              (doseq [url (second (r/argv this))
+                      :when (seq url)]
+                (dispatch [::char/capture-image url])))]
+    (r/create-class
+     {:component-did-mount ask
+      :reagent-render (fn [_] nil)})))
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
+        print-magic-item-cards? @(subscribe [::char/print-magic-item-cards?])
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
@@ -4191,103 +4320,163 @@
         card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
+        spell-layout @(subscribe [::char/spell-layout])
+        ;; Read off built-char, not [::char/image-url id]: a character still being
+        ;; built has no id yet, and the id-keyed subscription answers nil for it.
+        ;; This is the same accessor pdf-spec uses to put the URL in the export.
+        image-url (char/image-url built-char)
+        faction-image-url (char/faction-image-url built-char)
+        image-bytes @(subscribe [::char/image-bytes])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes image-bytes}
         has-spells? (seq (char/spells-known built-char))
-        print-button-enabled (if (or (= print-character-sheet-style? nil)
-                                     (= (str print-character-sheet-style?) "NaN"))
-                               false true)
+        ;; Only a multiclass caster on a style that can be renumbered has a
+        ;; choice to make, so the control is not shown to anyone else.
+        casting-classes (when has-spells?
+                          (pdf-spec/casting-classes built-char
+                                                    (:spells-map plugin-data)))
+        packable? (and (> (count casting-classes) 1)
+                       (packing/packing-supported? print-character-sheet-style?)
+                       ;; Not offered when the columns cannot hold the character.
+                       ;; A Wizard 20 beside a Cleric leaves no column a Cleric
+                       ;; fits, and packing anyway would print without it.
+                       (packing/fits? print-character-sheet-style?
+                                      (packing/packing-shape casting-classes)))
+        ;; Exporting mid-read would send the address and let the server fetch what
+        ;; the browser was already holding. A read ends either way -- capture has
+        ;; its own deadline -- so this waits at most that long.
+        reading-pictures? (boolean (some #(= :pending (get image-bytes %))
+                                         (remove nil? [image-url faction-image-url])))
+        print-button-enabled (and (not reading-pictures?)
+                                  (not (or (nil? print-character-sheet-style?)
+                                           (= (str print-character-sheet-style?) "NaN"))))
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
+      [capture-images [image-url faction-image-url]]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
-      [:div.m-b-2
-       [:div.flex.m-b-10
-        [:div.m-t-5
-         [labeled-dropdown
-          "Select Character sheet"
-          {:items (into [{:title "Select" :value " "}]
-                        (integrations/sheet-styles @(subscribe [:user-tier])))
-           :value print-character-sheet-style?
-           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+
+      ;; Grouped by what a setting changes: the sheet, the cards behind it, then
+      ;; how either is inked. The card options used to be split by the known /
+      ;; prepared choice, which is a sheet setting.
+      [option-group "Character Sheet"
+       [:div.m-b-10
+        [labeled-dropdown
+         "Sheet style"
+         {:items (into [{:title "Select" :value " "}]
+                       (integrations/sheet-styles @(subscribe [:user-tier])))
+          :value print-character-sheet-style?
+          :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
        [integrations/pdf-options-slot @(subscribe [:user-tier])]
-       [:div.flex
-        [:div
-         {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
-         [labeled-checkbox
-          "Print Abilities Large (and Bonuses Small)"
-          print-large-abilities?]]]]
-      (when has-spells?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-print)}
-           [labeled-checkbox
-            "Print Spell Cards"
-            print-spell-cards?]]]])
-      (when print-spell-cards?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-by-dc-mod)}
-           [labeled-checkbox
-            "Print Spell DC and MOD"
-            print-spell-card-dc-mod?]]]])
-      (when has-spells?
-        [:div.m-b-10
+       [option-checkbox
+        "Print Abilities Large (and Bonuses Small)"
+        print-large-abilities?
+        (make-event-handler ::char/toggle-large-abilities-print)
+        (str "The sheet prints the ability score big and its modifier small. "
+             "Tick this to swap them, so the number you roll with is the one "
+             "you can read across the table.")]
+       (when has-spells?
          [:div.m-b-10
-          [:span.f-w-b "Spells Printed"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Known"
-            (not print-prepared-spells?)]]
-          [:div.m-l-20
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Prepared"
-            print-prepared-spells?]]]])
-      ;; Appearance group — cosmetic/output options, set apart from the data
-      ;; options above (layout B). Only meaningful when spell cards are printed.
-      (when print-spell-cards?
-        [:div.m-b-10
-         [:div.m-b-5 [:span.f-w-b "Appearance"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-bw)}
-           [labeled-checkbox
-            "Printer-friendly (black & white)"
-            print-bw?]]]
+          [with-help
+           [:div.flex.align-items-c.m-b-5
+            [:span.f-w-b "Spells Printed"]]
+           (str "Which spells go on the sheet and the cards. Known is every "
+                "spell the character has; Prepared is only the ones marked "
+                "prepared today, which is what a Cleric or a Wizard casts from.")]
+          [:div.flex
+           [:div.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Known" (not print-prepared-spells?)]]
+           [:div.m-l-20.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Prepared" print-prepared-spells?]]]])
+       (when packable?
+         [:div.m-b-10
+          [:div.w-250
+           [labeled-dropdown
+            "Spell Sheet Layout"
+            {:items [{:title "Automatic" :value ""}
+                     {:title "One column per class" :value "packed"}
+                     {:title "One page per class" :value "per-class"}]
+             :value (if spell-layout (name spell-layout) "")
+             :on-change (make-arg-event-handler ::char/set-spell-layout
+                                                #(when-not (s/blank? %) (keyword %)))}]]
+          ;; What the current setting will actually print, always on: this one is
+          ;; the state of the build rather than a fixed explanation, so it is not
+          ;; behind a ?. Set like the ? lines so the two read as one kind of note.
+          [:div.option-note
+           (if (= :per-class spell-layout)
+             (str (count casting-classes) " spell pages, one per class")
+             (str "One page, a column each for "
+                  (s/join ", " (map :class casting-classes))))]])]
+
+      [option-group "Cards"
+       (when has-spells?
+         [option-checkbox
+          "Print Spell Cards"
+          print-spell-cards?
+          (make-event-handler ::char/toggle-spell-cards-print)
+          (str "Adds a page of cut-out cards, one per spell, with its range, "
+               "duration and description. Printed after the sheet.")])
+       (when print-spell-cards?
+         [:div.m-l-20
+          [option-checkbox
+           "Print Spell DC and MOD"
+           print-spell-card-dc-mod?
+           (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
+           (str "Prints this character's save DC and attack bonus on each card, "
+                "so the numbers are on the card being held rather than back on "
+                "the sheet.")]])
+       [option-checkbox
+        "Print Magic Item Cards"
+        print-magic-item-cards?
+        (make-event-handler ::char/toggle-magic-item-cards-print)
+        (str "The same cards for the magic items the character carries, "
+             "attunement and charges included.")]]
+
+      ;; Both card kinds are inked the same way, so this group follows either --
+      ;; gating it on spell cards alone hid it from anyone printing only items.
+      (when (or print-spell-cards? print-magic-item-cards?)
+        [option-group "Appearance"
+         [option-checkbox
+          "Printer-friendly (black & white)"
+          print-bw?
+          (make-event-handler ::char/toggle-print-bw)
+          (str "Drops the colour from the cards so they cost less to print and "
+               "stay legible on a mono printer.")]
          ;; Under B&W: default is solid-black icons with white-halo labels;
          ;; opt into faded grayscale icons for a softer look.
          (when print-bw?
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-bw-faded)}
-              [labeled-checkbox
-               "Faded grayscale icons (else solid black)"
-               bw-faded?]]]])
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
-           [labeled-checkbox
-            "Print logo on card backs"
-            print-card-back-logo?]]]
+            [option-checkbox
+             "Faded grayscale icons (else solid black)"
+             bw-faded?
+             (make-event-handler ::char/toggle-bw-faded)
+             (str "Sets the card icons as pale grey behind the text instead of "
+                  "solid black beside it.")]])
+         [option-checkbox
+          "Print logo on card backs"
+          print-card-back-logo?
+          (make-event-handler ::char/toggle-print-card-back-logo)
+          (str "Puts a logo on the reverse of every card, so a printed sheet cut "
+               "up and shuffled still has a back.")]
          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
          (when (and print-card-back-logo? (not print-bw?))
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-card-back-logo-faded)}
-              [labeled-checkbox
-               "Faded color (else solid black)"
-               card-back-logo-faded?]]]])])
+            [option-checkbox
+             "Faded color (else solid black)"
+             card-back-logo-faded?
+             (make-event-handler ::char/toggle-card-back-logo-faded)
+             (str "Prints the back logo as a pale colour wash rather than in "
+                  "solid black.")]])])
+
+      (when reading-pictures?
+        [:div.f-s-12.m-b-5 "Reading the character's picture..."])
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -4302,7 +4491,9 @@
                                       print-card-back-logo?
                                       card-back-logo-faded?
                                       print-bw?
-                                      bw-faded?)}
+                                      bw-faded?
+                                      print-magic-item-cards?
+                                      spell-layout)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -4364,7 +4555,7 @@
           ;; report below is the fallback.
           (when (and (seq branding/support-email) @(subscribe [:username]))
             (let [status @(subscribe [::char/character-report-status id])]
-              [:div.m-b-15
+              [:div.m-b-16
                [:button.form-button.m-b-5
                 {:disabled (= status :sending)
                  :on-click #(dispatch [:report-character-problem id error raw])}
@@ -6266,7 +6457,7 @@
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
 ;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;; opt5e/class-option with no extra wiring:
 ;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
 ;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
 ;;                    [{:name .. :options {item-key qty}}]
@@ -6502,8 +6693,8 @@
          :actions [{:label "Detach (save full copy)"
                     :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
-     (doall (for [cat starting-equipment-categories]
-              ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
+     (doall (for [category starting-equipment-categories]
+              ^{:key (:fixed category)} [fixed-equipment-block class category]))
      [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
      (when legacy?
        [notifications/callout
@@ -8996,7 +9187,7 @@
    for them; it lists exactly the types the source is currently missing."
   [source-name missing-specs]
   [:div.p-t-10
-   [:select.m-l-5.p-5
+   [:select.m-l-5.p-5.builder-option-dropdown.w-auto
     {:value ""
      :on-change (fn [e]
                   (let [v (.. e -target -value)
@@ -9004,11 +9195,11 @@
                     (set! (.. e -target -value) "")
                     (when spec
                       (dispatch [(:add-event spec) source-name]))))}
-    [:option {:value ""} "+ add content…"]
+    [:option.builder-dropdown-item {:value ""} "+ add content…"]
     (doall
      (for [{:keys [type-name type-key]} missing-specs]
        ^{:key type-name}
-       [:option {:value (name type-key)} (str "add " type-name)]))]])
+       [:option.builder-dropdown-item {:value (name type-key)} (str "add " type-name)]))]])
 
 (defn source-disabled-count
   "Total disabled items across every content type in one source — the number shown
@@ -9118,29 +9309,30 @@
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-              "export"]
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/delete-plugin name)}
-              "delete"]]
-            ;; One toolbar filters every category below: a name search and a
-            ;; show-disabled toggle whose (N) is the source's disabled count, so
-            ;; disabled content (which will grow once duplicate-key resolution
-            ;; disables a colliding side) stays discoverable, not buried.
-            (when has-content?
-              [:div.flex.align-items-c.flex-wrap.m-b-10
-               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+            ;; One row for the whole source: the search that filters every category
+            ;; below, the show-disabled toggle whose (N) is this source's disabled
+            ;; count, and the source's own actions. It wraps on a narrow screen —
+            ;; search first, then the toggle and the buttons.
+            [:div.mc-source-toolbar
+             (when has-content?
+               [:input.input.h-40.p-l-10.f-s-14.mc-source-search
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}]
+                 :on-change #(reset! search (.. % -target -value))}])
+             (when has-content?
                (let [dn (source-disabled-count plugin)]
-                 [:div.flex.align-items-c.pointer.f-s-14
+                 [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [comps/checkbox show? false]
-                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
+             [:div.flex.align-items-c.uppercase.mc-source-actions
+              [:button.form-button
+               {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+               "export"]
+              [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/delete-plugin name)}
+               "delete"]]]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
@@ -9740,7 +9932,14 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
+                      ;; NOT "Save to Browser Storage", which is what every other
+                      ;; builder's button says and does. A magic item is saved to
+                      ;; the database like a character is: ::mi/save-item posts to
+                      ;; /dnd/5e/items with an auth header, so the label was
+                      ;; promising local storage while requiring an account, and a
+                      ;; logged-out click landed on the login page having said
+                      ;; nothing about needing one.
+                      {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
@@ -9818,7 +10017,8 @@
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes @(subscribe [::char/image-bytes])}
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         current-folder-id (get char-folder-map id)]
