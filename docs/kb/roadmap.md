@@ -186,6 +186,19 @@ then merge `develop` in, since the shared files here have diverged for the feat 
   not, so a pack from elsewhere carrying a typo'd tag still fails open silently. Same helper, other
   seam.
 
+- 🔴 **BRING THIS BRANCH CURRENT WITH `integration` BEFORE ANY MORE UI WORK** (2026-09-11). Three
+  stale-foundation mistakes in one session, each caught by the user rather than by me:
+  a source's search bar was already moved onto the button row (`fix/my-content-source-toolbar`,
+  `6b90a07c`); a notification system exists (`views/notifications.cljs`, with `message` for
+  transient banners and **`callout` for persistent contextual notices**) and was not used; and
+  **`builder-notes` does not exist on integration at all** — it was replaced by that system, so the
+  unrecognised-tag surface is wired into a deleted mechanism.
+  Domain work is mostly safe — `requirements.cljc`, `grant_pools.cljc`, `weapons.cljc`,
+  `modifiers.cljc` and `builder_fields.cljc` are untouched by integration. The exposure is
+  `views.cljs`/`events.cljs`/`subs.cljs`/`orcbrew_validation.cljs`. **Redo the tag surface as a
+  `notifications/callout` after merging**, which also fixes its prominence: measured at 1300x16px
+  partway down the feat builder, present but not noticeable.
+
 ## Tracks — Phase 2 (the expansion, layered on Phase 1)
 - **A. Cross-silo grants** = the Phase-1 pool/grant track. **Not new work** — defer to `direction.md`/
   `decisions.md`. The live decision is D17 (open pools behind existing selections, no generic wrapper).

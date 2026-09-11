@@ -119,8 +119,24 @@ const ORCBREW = `{"${PACK}"
     check('the FORM flags it, where the person who can fix it is looking',
           /unrecognised tag/i.test(form), form.slice(0, 300));
     check('  naming the tag on the form too', /:armour\?/.test(form));
+    // Two shots: the whole page, and the advisory on its own — a 12px italic line is easy to miss
+    // in a full-page capture of a form this long, and "it is in there somewhere" is not proof.
+    const note = page.locator('#app').getByText(/Fix before saving/i).first();
+    const box = await note.boundingBox();
+    // Not just "the DOM has it" — a 12px line at y=407 passed that and was unreadable in practice.
+    check('it is on screen with a real box', !!box && box.height > 0, JSON.stringify(box));
+    // KNOWN GAP, not asserted: at ~16px partway down a long form this is still easy to miss. The
+    // fix is not more CSS here — builder-notes is SUPERSEDED (it does not exist on integration;
+    // views/notifications.cljs replaced it). Redo as a notifications/callout once this branch is
+    // current. See roadmap.md.
+    if (box && box.height < 24) console.log(`   [gap] advisory is only ${box.height}px tall at y=${box.y}`);
+    check('and it reads as something to fix, not as background guidance',
+          /fix before saving/i.test(await page.locator('#app').innerText()));
+    await page.locator('#app').locator('div', { hasText: /Fix before saving/i }).last()
+              .screenshot({ path: path.join(SHOTS, 'unknown-tag-advisory.jpg'), type: 'jpeg', quality: 92 });
     await page.screenshot({ path: path.join(SHOTS, 'unknown-tag-warning.jpg'),
                             fullPage: true, type: 'jpeg', quality: 75 });
+    console.log('   [where] advisory box =', JSON.stringify(box));
     console.log('\n--- console warning, verbatim ---\n' + detail + '\n');
   } catch (e) {
     check('ran to completion', false, e.message);

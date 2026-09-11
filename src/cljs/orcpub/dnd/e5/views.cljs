@@ -9668,7 +9668,10 @@
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
      [:div
-      [builder-notes tag-notes {:severity :advisory}]
+      ;; :error, not :advisory — bold "Fix before saving:" rather than a 12px italic line. Measured:
+      ;; the advisory rendered 1300x12px at y=407 of a long form, which is present but not visible.
+      ;; :error is styling and wording only; it does not block saving.
+      [builder-notes tag-notes {:severity :error}]
       [builder]]]))
 
 (defn combat-tracker-page []
