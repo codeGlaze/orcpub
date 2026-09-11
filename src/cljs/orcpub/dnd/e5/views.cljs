@@ -9646,7 +9646,14 @@
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered
   ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  (let [export-draft-event (events/draft-event-for save-event)]
+  ;; The unrecognised-tag advisory rides the same derivation: builder-drafts already maps the save
+  ;; event to the builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  ;; It belongs on the page, not in simple-content-builder, because the builders that most need it
+  ;; are the ones not yet converted to a field schema.
+  (let [export-draft-event (events/draft-event-for save-event)
+        [item-sub] (get events/builder-drafts save-event)
+        item       (when item-sub @(subscribe [item-sub]))
+        tag-notes  (when item (bf/unknown-tag-problems item))]
     [content-page
      (or title (str item-title " Builder"))
      [{:title (str "New " item-title)
@@ -9660,7 +9667,9 @@
       {:title "Export draft"
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
-     [builder]]))
+     [:div
+      [builder-notes tag-notes {:severity :advisory}]
+      [builder]]]))
 
 (defn combat-tracker-page []
   [content-page

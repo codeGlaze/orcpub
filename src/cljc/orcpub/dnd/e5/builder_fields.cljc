@@ -16,7 +16,31 @@
   (:require #?(:clj  [clojure.spec.alpha :as spec])
             #?(:cljs [cljs.spec.alpha :as spec])
             [clojure.string :as str]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.weapons :as weapons5e]
+            [orcpub.dnd.e5.requirements :as reqs]))
+
+(def ^:private tag-bearing-props
+  "Prop -> the keys of its value map that are its OWN, not condition tags."
+  {:ac-bonus     #{:bonus :ac-bonus}
+   :attack-bonus #{:bonus}
+   :damage-bonus #{:bonus}})
+
+(defn unknown-tag-problems
+  "Human-readable problems for condition tags in `item`'s :props that no vocabulary recognises.
+
+   GOTCHA: this is the only guard. weapons/matches? and requirements/meets-all? both IGNORE an
+   unrecognised tag, so a typo fails OPEN — the effect applies with no condition rather than
+   erroring, and nothing at runtime can tell a typo from a tag a newer build knows."
+  [item]
+  (let [known (into (set (keys weapons5e/tag->flag)) (keys reqs/requirements))]
+    (for [[prop own] tag-bearing-props
+          :let [v (get-in item [:props prop])]
+          :when (map? v)
+          tag (keys v)
+          :when (not (or (contains? own tag) (contains? known tag)))]
+      (str prop " has an unrecognised tag " tag
+           " — it is IGNORED, so this applies with no condition. Check the spelling."))))
 
 (defn field-value-pred
   "Predicate a field's STORED value must satisfy WHEN PRESENT. :enum → the set of its option

@@ -10,8 +10,6 @@
             [orcpub.dnd.e5.builder-fields :as bf]
             [orcpub.dnd.e5.field-schemas :as field-schemas]
             [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
-            [orcpub.dnd.e5.weapons :as weapons5e]
-            [orcpub.dnd.e5.requirements :as reqs]
             [orcpub.common :as common]))
 
 ;; Forward declarations for functions used before definition
@@ -948,31 +946,15 @@
 ;; Pre-Export Validation
 ;; ============================================================================
 
-(def ^:private tag-bearing-props
-  "Props whose value map carries condition tags alongside its own keys."
-  {:ac-bonus     #{:bonus :ac-bonus}
-   :attack-bonus #{:bonus}
-   :damage-bonus #{:bonus}})
-
 (defn unknown-tag-warnings
-  "Tags in an item's :props that no vocabulary recognises.
-
-   GOTCHA: this is the only guard. weapons/matches? and requirements/meets-all? both IGNORE an
-   unrecognised tag, so a typo fails OPEN — the effect applies unconditionally instead of erroring."
+  "Export-side wrapper over bf/unknown-tag-problems, naming the item each problem is on."
   [plugin-data]
-  (let [known (into (set (keys weapons5e/tag->flag)) (keys reqs/requirements))]
-    (for [[content-key items] plugin-data
-          :when (and (qualified-keyword? content-key) (map? items))
-          [item-key item] items
-          :when (map? item)
-          [prop-key own] tag-bearing-props
-          :let [v (get-in item [:props prop-key])]
-          :when (map? v)
-          tag (keys v)
-          :when (not (or (contains? own tag) (contains? known tag)))]
-      (str "Item " (name content-key) "/" (name item-key) " :props " prop-key
-           " has unrecognised tag " tag " — it will be IGNORED, so the effect applies with no"
-           " condition. Check the spelling."))))
+  (for [[content-key items] plugin-data
+        :when (and (qualified-keyword? content-key) (map? items))
+        [item-key item] items
+        :when (map? item)
+        problem (bf/unknown-tag-problems item)]
+    (str "Item " (name content-key) "/" (name item-key) " :props " problem)))
 
 (defn validate-before-export
   "Validates plugin data before export to catch bugs early.

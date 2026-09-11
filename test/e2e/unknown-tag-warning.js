@@ -6,8 +6,8 @@
 // condition at all rather than erroring. Nothing at runtime can tell a typo from a future tag, so
 // the guard has to be at authoring time.
 //
-// Drives the real app: import a pack carrying the typo, export it, and assert the warning reaches
-// BOTH surfaces — the console detail and the on-screen toast.
+// Drives the real app: import a pack carrying the typo, then check the two places it must surface —
+// ON THE BUILDER FORM, where the person who can fix it is looking, and at export.
 //
 // Prereqs:  lein fig:build && lein e2e-server
 // Run:      node test/e2e/unknown-tag-warning.js
@@ -79,6 +79,46 @@ const ORCBREW = `{"${PACK}"
     check('and the screen says so too (not console-only)',
           /exported with warnings/i.test(body), body.slice(0, 200));
 
+    // ── the surface that actually helps: the builder form, on the item ────────
+    // Reached the way a person reaches it — My Content, expand down to the item, click its edit
+    // button. The builder page has no list of its own.
+    await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'load' });
+    await page.waitForTimeout(1500);
+    await dismissCookieBar(page);
+    // source -> type section -> the item's own edit button. IDEMPOTENT: a row shows "expand" when
+    // closed and "collapse" when open, and the export step above already opened the source — so
+    // clicking "expand" unconditionally would close it again.
+    const openRow = async (hasText) => {
+      const row = page.locator('#app .item-list-item').filter({ hasText }).first();
+      if (await row.locator('text=expand').count()) {
+        await row.locator('text=expand').first().click();
+        await page.waitForTimeout(700);
+      }
+    };
+    await openRow(PACK);
+    await openRow(/\d+ Feat/);
+    // Individual items are not .item-list-item — that class is the SOURCE container, and it holds
+    // both feats, so any locator filtered on it clicks whichever edit button comes first. Find the
+    // INNERMOST element carrying the item's name that also owns an edit button.
+    const opened = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('#app div')].filter(e =>
+        /Typo Feat/.test(e.textContent || '') &&
+        [...e.querySelectorAll('button')].some(b => b.textContent.trim() === 'edit'));
+      const innermost = rows[rows.length - 1];                 // deepest match owns just this item
+      if (!innermost) return false;
+      const b = [...innermost.querySelectorAll('button')].find(x => x.textContent.trim() === 'edit');
+      if (!b) return false;
+      b.click();
+      return true;
+    });
+    check('opened the typo feat in the builder (My Content -> edit)', opened);
+    await page.waitForTimeout(1600);
+    const form = await page.locator('#app').innerText();
+    check('  and it is the TYPO feat that is loaded, not its neighbour',
+          /typo-feat/.test(await dbAt(page, '[:orcpub.dnd.e5.feats/builder-item]')));
+    check('the FORM flags it, where the person who can fix it is looking',
+          /unrecognised tag/i.test(form), form.slice(0, 300));
+    check('  naming the tag on the form too', /:armour\?/.test(form));
     await page.screenshot({ path: path.join(SHOTS, 'unknown-tag-warning.jpg'),
                             fullPage: true, type: 'jpeg', quality: 75 });
     console.log('\n--- console warning, verbatim ---\n' + detail + '\n');
