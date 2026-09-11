@@ -276,39 +276,25 @@
     :else                 #{(ns-ability pool)}))
 
 (defn pool-entry?
-  "Is `e` a well-formed [amount/count pool …] entry — a vector with a NUMERIC first element and a pool
-   that resolve-pool can handle (keyword or collection)? Junk (non-vectors, a missing/non-numeric
-   amount, a nil/number pool) is skipped by the compilers so ONE malformed entry in a homebrew pak
-   can't crash the whole race/background list at the sub's fan-out (resolve-pool on nil would NPE).
-   The entry is un-compilable, not meaningful data — the authoring form is where a creator sees bad
-   input; here the job is fan-out crash-safety.
-   FOLLOW-UP (harden → surface, guardrail 6): runtime skips silently (correct for a sub's fan-out), but
-   the AUTHORING form should report 'N entries ignored as malformed' (save-coverage-notes is the home).
-   Tracked in docs/kb/data-safety-layers.md."
+  "Is `e` a well-formed [amount pool] entry — a vector with a numeric amount and a pool resolve-pool
+   can handle? Junk is skipped so one malformed entry in a homebrew pak cannot crash a whole
+   race/background list at the sub's fan-out.
+
+   GOTCHA: skipping is SILENT at runtime, by design. Surfacing it belongs in the authoring form;
+   see docs/kb/data-safety-layers.md."
   [e]
   (and (vector? e)
        (number? (first e))
        (let [p (second e)] (or (keyword? p) (coll? p)))))
 
 (defn compile-ability-increases
-  "Compile a :ability-increases spread (list of [amount pool] pairs) -> {:modifiers :selections}.
-   Single-stat pools are FIXED (race-ability modifiers, applied always); multi-stat pools are
-   FLOATING — the player assigns each amount to a distinct ability. All floating slots live in ONE
-   :asi selection that carries the full spread on ::t/spread, so the assign-from-bag widget can show
-   the fixed labels, offer each slot its own pool, and enforce one-ability-per-spread. The slot
-   options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
-   empty -> {} (a race without :ability-increases is unchanged).
+  "Compile an :ability-increases spread ([amount pool] pairs) -> {:modifiers :selections}.
+   Single-stat pools are fixed; multi-stat pools are floating slots in ONE :asi selection carrying
+   the spread on ::t/spread. A trailing :save on an increment also grants that ability's save.
+   Additive: nil/empty -> {}. Format: docs/kb/ability-increase-spreads.md.
 
-   SAVE RIDER (opt-in): an increment may carry a trailing :save — [amount pool :save] — meaning 'also
-   grant proficiency in the save for this increment's ability'. Fixed: an unconditional save on that
-   stat; floating: the save rides the CHOSEN option (each slot option also grants its own save). This
-   reuses modifiers/saving-throws; default (no :save) is bump-only. For saves unrelated to a bump (a
-   different stat, or no bump at all), use the standalone :save-proficiencies field instead.
-
-   ATTRIBUTION: a FIXED increment is applied via `:fixed-modifier` (default `race-ability`, the RACE
-   column of the ability breakdown). NON-racial silos MUST pass a neutral modifier (see
-   compile-ability-grants :attribution) so a background/subclass/feat fixed +N doesn't masquerade as a
-   RACIAL increase. See docs/kb/ability-increase-spreads.md."
+   GOTCHA: :fixed-modifier decides which column of the ability breakdown a fixed increment lands in.
+   Non-racial silos MUST pass a neutral one, or their +N is shown as racial."
   [spread & [{:keys [fixed-modifier] :or {fixed-modifier modifiers/race-ability}}]]
   (let [;; skip non-pair entries: the races sub maps this over EVERY homebrew race, so one malformed
         ;; entry must not break the whole list. nil/no field -> no increments (additive).
@@ -364,13 +350,9 @@
       [amount pool :save])))
 
 (defn compile-save-proficiencies
-  "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, INDEPENDENT of
-   any ability bump (the separate save tool — for saves on a different stat than a bump, or with no
-   bump at all). Single-stat pool -> a fixed save proficiency; multi-stat pool -> 'choose <count>
-   distinct saves from the pool' (one selection per entry, options keyed save-<idx>-<ability>, each
-   granting modifiers/saving-throws). Same terse [count pool] shape as the ASI spread — here the number
-   is HOW MANY saves, not a bonus. Cross-entry duplicates collapse harmlessly (saving-throws is a set).
-   Additive: nil/empty -> {}. See docs/kb/ability-increase-spreads.md."
+  "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, independent
+   of any ability bump. Single-stat pool -> a fixed save; multi-stat -> choose `count` distinct
+   saves from it. Additive: nil/empty -> {}. Format: docs/kb/ability-increase-spreads.md."
   [save-spread]
   (let [entries   (map-indexed
                    (fn [idx [n pool]]
@@ -406,13 +388,11 @@
   [(modifiers/ability ability-kw amount)])
 
 (defn compile-ability-grants
-  "The single hook a silo calls to turn a content entry's ability/save DATA into mechanics: merges the
-   ASI spread (:ability-increases, incl. the :save rider) and the standalone save tool
-   (:save-proficiencies) -> {:modifiers :selections}. Additive (an entry with neither is unchanged).
-   Used by plugin-races/subraces/backgrounds/subclasses and feat-option-from-cfg.
+  "The single hook a silo calls to turn an entry's ability/save data into mechanics: merges the ASI
+   spread and the standalone :save-proficiencies -> {:modifiers :selections}. Additive.
 
-   :attribution controls where a FIXED increment lands in the ability breakdown — :race (default) |
-   :subrace | :general. NON-racial silos MUST pass :general, or their fixed ASI is shown as racial."
+   GOTCHA: :attribution (:race default | :subrace | :general) decides which breakdown column a
+   fixed increment lands in. Non-racial silos MUST pass :general."
   [{:keys [ability-increases save-proficiencies]} & [{:keys [attribution] :or {attribution :race}}]]
   (let [fixed-modifier (case attribution
                          :subrace modifiers/subrace-ability

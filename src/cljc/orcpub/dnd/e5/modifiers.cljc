@@ -594,14 +594,8 @@
   (mods/vec-mod ?ac-bonus-fns (fn [armor _shield] (if armor bonus 0))))
 
 (defn unarmored-ac-bonus
-  "A flat bonus that applies only while wearing no armor and using no shield — Bracers of Defense.
-  A BONUS, so it stacks onto whichever calculation wins.
-
-  It used to write the ?unarmored-ac-bonus scalar, where the \"no shield\" half was expressed by not
-  also writing ?unarmored-with-shield-ac-bonus. That put a flat bonus into a channel that also
-  carries Barbarian's and Monk's ability modifiers — which compete as calculations and are subject
-  to the tie-break against ?natural-ac-bonus. A natural-armor character therefore lost the bonus
-  entirely (15 instead of 17). Now it goes to ?ac-bonus-fns and states both clauses directly."
+  "A flat bonus applying only while wearing no armor and using no shield — Bracers of Defense.
+  A bonus, so it sums onto whichever calculation wins. See docs/kb/armor-class-refactor.md."
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
@@ -632,13 +626,11 @@
                      0))))
 
 (defmacro ac-formula
-  "Register a whole 'your AC = ...' calculation: unarmored defense, natural armor, a Barkskin-style
-  floor, or homebrew. `formula-fn` is (fn [armor shield] -> number); return 0 when the calculation
-  does not apply (e.g. it needs no armor and armor is worn, or it forbids shields and one is held).
+  "Register a whole AC calculation — unarmored defense, natural armor, homebrew. `formula-fn` is
+  (fn [armor shield] -> number); return 0 when it does not apply.
 
-  ?armor-class-with-armor takes the MAX of the worn-armor value and every formula registered here,
-  so calculations compete and the best one wins — they never stack. Flat +N effects belong in
-  ac-bonus-fn instead: those are summed onto whichever calculation won."
+  GOTCHA: calculations COMPETE (max) and never stack. A flat +N belongs in ac-bonus, which sums
+  onto whichever calculation won."
   [formula-fn]
   `(mods/vec-mod ~'?ac-fns ~formula-fn))
 
@@ -649,15 +641,10 @@
   (mods/modifier ?armor-dex-caps (ac5e/raise-dex-cap ?armor-dex-caps armor-type cap)))
 
 (defn armor-gives-no-ac
-  "Worn armor contributes nothing to AC — the character is treated as unarmored for AC purposes
-  whatever they equip. Composes with ac-formula's max instead of imposing a ceiling on it.
+  "Worn armor contributes nothing to AC; the character is treated as unarmored for AC purposes.
 
-  Named for exactly what it does. It is NOT \"you can't wear armor\": it does not stop anything
-  being equipped, and everything else derived from worn armor still applies — notably
-  ?armor-stealth-disadvantage?, so a character with this flag still takes plate's stealth
-  disadvantage while getting none of its AC. The real restriction is unbuilt; see the roadmap.
-
-  An author who just wants a high flat natural AC uses ac-formula alone and skips this."
+  GOTCHA: this is NOT a rules restriction on wearing armor. Nothing stops it being equipped and
+  everything else derived from it still applies — notably ?armor-stealth-disadvantage?."
   []
   (mods/modifier ?armor-ac-suppressed? true))
 

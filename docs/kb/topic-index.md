@@ -244,7 +244,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, contains, decides, deferred, entity, flat, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, ordinary, plain, predicates, realized, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -702,7 +702,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** appear, built-in, coexist, combines, copy, duplicate, membership, override, plugin, predictable, reduces, rename, same-key, spell, unique, winner, wins, within
+**topics:** appear, built-in, coexist, combines, copy, duplicate, last-wins, membership, override, plugin, predictable, reduces, same-key, spell, unique, winner, wins, within
 
 - TL;DR
 - The map (VERIFIED)
@@ -786,7 +786,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** accessor, acquisition, asks, bonuses, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, trigger, wants
+**topics:** acquisition, alias, asks, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, spellings, trigger, wants
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -806,7 +806,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bucket, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)

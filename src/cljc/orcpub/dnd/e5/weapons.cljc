@@ -438,28 +438,22 @@
   (not two-handed?))
 
 (def tag->flag
-  "Authored tag -> the weapon field it tests. The tags are the authoring vocabulary and the fields
-  are storage; keeping the map explicit means renaming one never silently breaks the other.
+  "Authored tag -> the weapon field it tests. Explicit, not derived: three of the fields are spelled
+  without the question mark. See docs/kb/authoring-vocabulary.md.
 
-  :melee? and :ranged? are BOTH real fields, not aliases — every weapon carries exactly one of them
-  (pinned by weapons-declare-exactly-one-of-melee-or-ranged). Prefer the positive tag: {:ranged?
-  true} says what it means, and a homebrew weapon that declares neither flag correctly fails it,
-  where {:melee? false} would wrongly match."
+  GOTCHA: :melee? and :ranged? are both real fields, not aliases. Prefer the positive tag — a
+  homebrew weapon declaring neither correctly fails {:ranged? true}, where {:melee? false} matches."
   {:melee? ::melee?       :ranged? ::ranged?     :thrown? ::thrown
    :finesse? ::finesse?   :light? ::light?       :heavy? ::heavy?
    :two-handed? ::two-handed? :versatile? ::versatile :reach? ::reach
    :loading? ::loading?   :ammunition? ::ammunition? :special? ::special?})
 
 (defn matches?
-  "Does `weapon` satisfy every tag in `tags`? THREE-state, matching the AC vocabulary's
-  :armor?/:shield?:
-      true    only weapons that have it
-      false   only weapons that do NOT
-      absent  either way
+  "Does `weapon` satisfy every tag in `tags`? Three-state: true = only weapons with it,
+  false = only without, absent = either way.
 
-  So {:melee? false} is 'ranged' — the data models only ::melee?, and inventing a :ranged? alias
-  would be two ways to say one thing. Unknown tags are ignored rather than silently failing the
-  match, so old content with a tag this build does not know still applies its bonus."
+  GOTCHA: an unrecognised tag is IGNORED, not failed — this fails OPEN, so a typo matches every
+  weapon. Forward-compat for content from newer builds; guard specs with a test."
   [tags weapon]
   (every? (fn [[tag want]]
             (cond

@@ -171,6 +171,21 @@ then merge `develop` in, since the shared files here have diverged for the feat 
   ride the shared `:props` vocabulary. "Boon" is unavailable (real rules construct + `homebrew-boon`
   already ships). `rules-override-layer.md`.
 
+- **Investigate the `entity-spec` `?attr` system** (added 2026-09-11). The build/compute engine is a
+  bespoke macro DSL predating modern Clojure practice: `?foo` is rewritten to `(entity-val e :foo)`
+  at compile time (`entity_spec.cljc:26`). It is load-bearing everywhere and it **decides what is
+  expressible** — only code a macro expands can read a character value, which is why the Dual
+  Wielder feat was hand-written for years and why two design calls this session were wrong before
+  the constraint was understood (`built-character-representation.md`, the WRITING half).
+  Deliverable is an analysis, not a rewrite: what it does, what modern Clojure would use instead
+  (an explicit dependency-ordered derivation graph), what breaks if it changes, and whether anything
+  cheaper buys most of the value. **Do not pre-judge the outcome** — "it works and is understood" is
+  not sufficient on a branch whose premise is rewriting for efficiency and forward maintenance.
+- **Warn on unrecognised tags at IMPORT** (added 2026-09-11). `validate-before-export` now warns
+  (`unknown-tag-warnings`), which catches an author's own typo at the source. The import side does
+  not, so a pack from elsewhere carrying a typo'd tag still fails open silently. Same helper, other
+  seam.
+
 ## Tracks — Phase 2 (the expansion, layered on Phase 1)
 - **A. Cross-silo grants** = the Phase-1 pool/grant track. **Not new work** — defer to `direction.md`/
   `decisions.md`. The live decision is D17 (open pools behind existing selections, no generic wrapper).

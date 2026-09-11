@@ -153,16 +153,11 @@
   (weapon-bonus-fields :damage-bonus "Damage Bonus"))
 
 (defn effect-rows
-  "The `:rows` node for authored MECHANICS. Instead of every field of every effect stacked flat, an
-  author adds the effects the content actually has, and each arrives as a titled group carrying its
-  own tags — so \"Melee\" under *Attack Bonus* can only mean one thing.
+  "The `:rows` node for authored mechanics: one titled row per effect the content actually has.
 
-  `:at` is the subtree a row occupies; presence in the data is what makes a row appear, so nothing
-  new is stored and an item authored by the flat form renders unchanged (D9). The kinds' fields are
-  the SAME shared fragments the flat form used, unedited.
-
-  Removing a row clears its subtree immediately — no confirm. The undo is retyping one number, and
-  a modal on every ✕ costs more than the mistake does."
+  `:at` is the subtree a row occupies and presence in the data is what makes a row appear, so
+  nothing extra is stored and an item authored by the older flat form renders unchanged (D9).
+  Removing a row clears its subtree with no confirm."
   []
   [{:rows      :effects
     :title     "Effects"
@@ -212,16 +207,12 @@
           schema))
 
 (defn fields->spec
-  "Build a save-validation spec (a predicate) from a field schema. The universal
-   name/key/option-pack are required (unchanged from the prior hand-written specs); every other
-   field is OPTIONAL unless :required?. A present value must satisfy its type predicate. :key may
-   be a nested path, so nested sub-maps (e.g. :breath-weapon) validate without registering a
-   spec per key.
+  "Build a save-validation predicate from a field schema. name/key/option-pack are required; every
+   other field is optional unless :required?. A present value must satisfy its type predicate.
+   :key may be a nested path.
 
-   ⚠️ HIGH-PRIORITY TODO — CONDITIONAL-REQUIRED (:required-when) IS NOT ENFORCED YET. A field
-   that is required only given another field's value (e.g. line-width is required when shape =
-   line, but meaningless for a cone) is currently treated as plain optional. This is a known gap;
-   see docs/kb/content-extensibility-direction.md PINS. DO NOT let it get lost."
+   GOTCHA: :required-when (required only given another field's value) is NOT enforced — such a
+   field is treated as plain optional. High-priority PIN in content-extensibility-direction.md."
   [fields]
   (let [checks (mapv (fn [{:keys [key required?] :as f}]
                        (let [path (if (sequential? key) key [key])

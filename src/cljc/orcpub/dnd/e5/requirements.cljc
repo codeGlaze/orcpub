@@ -22,14 +22,14 @@
                     :pred (fn [{:keys [main-hand off-hand]}] (and (some? main-hand) (nil? off-hand)))}})
 
 (defn meets-all?
-  "Do `spec`'s requirements hold in `ctx`? Iterates the registry, so unknown keys are ignored.
+  "Do `spec`'s requirements hold in `ctx`? Keys that name no requirement are ignored.
 
-   GOTCHA: tests `contains?`, not truthiness — `false` means only-when-NOT and must stay
-   distinct from absent."
+   GOTCHA: tests `contains?`, not truthiness — `false` means only-when-NOT and must stay distinct
+   from absent."
   [spec ctx]
-  (every? (fn [[k {:keys [pred]}]]
-            (let [want (when (contains? spec k) (get spec k))]
-              (or (nil? want)
-                  (nil? pred)                       ; :text gates never block computation
+  (every? (fn [[k want]]
+            (let [{:keys [pred]} (requirements k)]
+              (or (nil? pred)        ; not a requirement (:bonus), unknown, or a :text trigger
+                  (nil? want)
                   (= (boolean want) (boolean (pred ctx))))))
-          requirements))
+          spec))
