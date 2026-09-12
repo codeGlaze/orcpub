@@ -24,6 +24,10 @@
     "checks": 9,
     "seconds": 41
   },
+  "fixes_persist_e2e.js": {
+    "checks": 33,
+    "seconds": 34
+  },
   "header_menus_e2e.js": {
     "checks": 30,
     "seconds": 50
