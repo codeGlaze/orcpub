@@ -84,6 +84,10 @@ wrong, and why.
 
 ### Plans
 
+- **[extras-definitions.md](extras-definitions.md)** -- *not built.* What each kind of Extra
+  needs to function. One creature record with capabilities toggled rather than a type per kind,
+  because pets get promoted to sidekicks and a type system would force delete-and-recreate.
+  Copy-on-adopt rather than live reference. Settles where per-creature state can live.
 - **[plan-npc-statblock-customizer.md](plan-npc-statblock-customizer.md)** -- *not built.*
   A DM tool: change an NPC's ability scores and have AC, HP, attacks, save DCs and skills
   recompute. The monster builder exists but derives nothing -- `monsters.cljc` has one

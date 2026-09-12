@@ -14,6 +14,10 @@ is wiring, plus one type fix that has to land first.**
 
 ## The domain map: seven kinds
 
+*What each kind needs to function is [extras-definitions.md](extras-definitions.md) — read it
+before designing anything downstream; several sections here are provisional against it.*
+
+
 Written 2026-09-10, and it is the layer that was missing. The taxonomy further down
 classifies **how a creature's numbers are computed**; this classifies **what kind of thing
 the player has**. They are orthogonal — a familiar and a Beast Master companion are both
