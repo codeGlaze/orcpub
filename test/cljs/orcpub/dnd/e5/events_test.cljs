@@ -953,3 +953,22 @@
     (is (re-matches #"[a-z][a-z0-9-]*" (name k))
         "it was saved as :9-lives, which the next load sets aside")
     (is (= k (:key item)))))
+
+(deftest a-rename-chosen-for-an-existing-item-is-stored-even-when-nothing-imports
+  ;; The incoming copy has no source, so the store sets it aside and merges nothing;
+  ;; the rename chosen for the existing copy used to go with it.
+  (try
+    (reset! app-db
+            {:plugins {"Pack A" {::e5/spells {:bolt {:key :bolt :option-pack "Pack A" :name "Bolt"
+                                                     :level 1 :school "evocation"}}}}
+             :conflict-resolution
+             {:active? true :mode :import :import-name "Pack B"
+              :import-data {"Pack B" {::e5/spells {:bolt {:key :bolt :name "Bolt" :level 1 :school "evocation"}}}}
+              :conflicts [{:id "external-0" :type :external :key :bolt :content-type ::e5/spells
+                           :import-source "Pack B" :import-name "Bolt"
+                           :existing-source "Pack A" :existing-name "Bolt"}]
+              :decisions {"external-0" {:action :rename-existing :new-key :bolt-a :new-name "Bolt A"}}}})
+    (let [stored (stored-by (dispatched-by [:apply-conflict-resolutions]))]
+      (is (contains? (get-in stored ["Pack A" ::e5/spells]) :bolt-a)))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))
