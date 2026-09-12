@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.portrait :as portrait]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -146,7 +147,13 @@
           (.then (fn [png-b64]
                    (aset field "value"
                          (str (cond-> spec
-                                png-b64 (assoc :portrait-png png-b64))))
+                                png-b64
+                                (assoc :portrait-png png-b64
+                                       ;; the server has the baked pixels but
+                                       ;; not the layer selection, so the
+                                       ;; credit has to travel with them
+                                       :portrait-credit
+                                       (portrait-assets5e/credit-line portrait)))))
                    (.submit (.getElementById js/document "download-form"))))))))
 
 (defn download-form [built-char]

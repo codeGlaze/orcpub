@@ -598,6 +598,18 @@
      page behind it show through. Dark in both themes, like the frame. */
   background: radial-gradient(circle at 50% 35%, #202939, #131924 60%, #0f141c);
 }
+.pl-thumb-credit {
+  width: 100px;
+  margin-top: 5px;
+  font: 500 9px/1.25 'Open Sans', system-ui, sans-serif;
+  color: #8b95a5;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.app.light-theme .pl-thumb-credit { color: #6a6a6a; }
 .pl-thumb-empty-label {
   font: 600 10px/1 'Open Sans', system-ui, sans-serif;
   color: #8b95a5; letter-spacing: 0.08em;
@@ -864,15 +876,21 @@
 (defn thumbnail
   "The summary thumbnail. A composed portrait wins over a pasted image-url;
    with neither, an empty frame stands in so the pencil has somewhere to sit.
-   `editable?` is builder-only -- elsewhere there is no drawer to open."
+   `editable?` is builder-only -- elsewhere there is no drawer to open.
+
+   A composed portrait carries its artists' names under it. This is the one
+   surface a reader lands on, so it is where the credit does the most good."
   [portrait-data image-url editable?]
   (let [box {:position "relative" :width "100px" :height "125px" :flex-shrink 0}]
     (cond
       (seq (:layers portrait-data))
-      [:div.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:style box}
-       [composite portrait-data
-        {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]
-       (when editable? [edit-overlay])]
+      [:div.m-r-20.m-t-10.m-b-10
+       [:div.image-character-thumbnail {:style box}
+        [composite portrait-data
+         {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]
+        (when editable? [edit-overlay])]
+       (when-let [credit (pa/credit-line portrait-data)]
+         [:div.pl-thumb-credit {:title credit} credit])]
 
       image-url
       (if editable?

@@ -99,6 +99,11 @@ function check(label, ok, detail) {
   const b64 = (decoded.match(/:portrait-png\s+"([A-Za-z0-9+/=]+)"/) || [])[1] || '';
   check('baked PNG is a non-trivial payload', b64.length > 1000, `${b64.length} b64 chars`);
 
+  // The server gets baked pixels, not the layer selection, so the artists'
+  // names have to travel with them or the printed sheet credits nobody.
+  const credit = (decoded.match(/:portrait-credit\s+"([^"]*)"/) || [])[1];
+  check('request carried the artist credit', !!credit && /^Art: \S/.test(credit), credit);
+
   // --- and the server produced a PDF that embeds it --------------------
   // Chrome renders a PDF navigation in its own viewer, so response.body()
   // yields the viewer's HTML shell rather than the file. Replay the exact
