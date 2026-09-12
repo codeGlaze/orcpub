@@ -81,6 +81,14 @@ relative expression — a translucent overlay, `var(--accent)` — over a litera
 3. Check the overlap map (`builder-form-schemas.md` §5b): does this builder **reuse** the vocabulary
    or **extend** it? That, not form length, predicts the cost.
 
+### Before passing a data map as a Reagent component's first argument
+
+Reagent takes a component's React key from `(:key props)` when the first argument is a **map**. The
+builder forms pass the item being edited — so the moment that item carries `:key` (it does, after a
+save or when opened for editing), every field in the list renders under the item's key and React
+sees a list of identical keys. Give the list explicit `^{:key …}` metadata instead of relying on
+what the props map happens to hold.
+
 ### Before believing a CSS change worked
 
 `lein garden once` **can fail while everything downstream stays green** — `fig:build` succeeds, the

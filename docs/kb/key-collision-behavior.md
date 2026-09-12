@@ -39,6 +39,21 @@ this: a `{::t/key :fighter}` plugin option placed before a built-in `:fighter` y
 containing the **plugin** one; distinct keys both survive; a plain `concat` (the pool/list shape) keeps
 **both** same-key entries.
 
+## The builder's own save gate (2026-09-12)
+
+`save-collision` (`events.cljs`) runs before every homebrew save and blocks two cases: `:overwrite`
+(the key in THIS source already holds a different item) and `:cross` (another source holds it). It
+tells "an edit returning to its own slot" from "a name landing on somebody else's" by comparing the
+key it is about to write with `:key` on the item open in the builder.
+
+**Therefore the builder item must carry its key after a save.** It did not: saving stamped `:key`
+into the copy written to `:plugins` and left the builder's copy bare, so pressing Save twice on one
+item reported *"already uses the name … Saving would replace it"* against itself. Fixed by returning
+the stamped item in `:db` and persisting it to the builder's WIP slot (`::persist-builder-wip`, keyed
+off `db/builder-wip-stores` so the refresh-restored copy carries it too). Pinned by
+`test/e2e/spell-builder.js` (save → add a field → save again) and `test/e2e/feat-grants.js`
+(save → remove a grant row → save again).
+
 ## Notes / boundaries
 - **The import conflict-handling is recent, and its EDGE CASES are explicitly OUT OF SCOPE for this
   branch.** Significant time has already been spent circling them (partial-conflict resolution, how

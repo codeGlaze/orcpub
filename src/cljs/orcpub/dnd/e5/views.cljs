@@ -8076,7 +8076,13 @@
      ;; it covers is worse than no heading.
      (when (seq extra-fields)
        (into [:div.w-100-p]
+             ;; EXPLICIT keys, everywhere in this render. Reagent takes a component's React key
+             ;; from the :key of its FIRST ARGUMENT when that argument is a map — and the first
+             ;; argument here is the item being edited, which carries :key once it has been saved
+             ;; or opened for editing. Without a key of its own every field in a section then
+             ;; renders under the item's key, and React sees a list of identical keys.
              (map (fn [[section fields]]
+                    ^{:key (str section)}
                     [:div
                      ;; A carded section must NOT also be w-100-p: width:100% plus the card's 22px
                      ;; padding overflows its container, which pushed the Material Component and
@@ -8092,35 +8098,43 @@
                         [:span.opt-section-title section]])
                      (into [:div.flex.flex-wrap.bf-flow]
                            ;; a field spec (map) renders declaratively; raw hiccup passes through
-                           (map (fn [f]
-                                  (cond
-                                    (= :description (:slot f))
-                                    [:div.bf-break
-                                     [textarea-field
-                                      {:value (get item :description)
-                                       :on-change #(dispatch [set-prop :description %])}]]
-                                    ;; a heading-only marker contributes its title and no control.
-                                    ;; It MUST list every synthetic node kind it is not, or it
-                                    ;; swallows them: {:bools-inline [...]} is a map with no :type
-                                    ;; and matched here, and the three component checkboxes silently
-                                    ;; disappeared from the form.
-                                    (and (map? f) (not (:type f)) (not (:rows f))
-                                         (not (:bools f)) (not (:bools-inline f)))
-                                    nil
-                                    (and (:rows f) (= :vector (:as f)))
-                                                 [:div.bf-break [vector-rows-node item set-prop f]]
-                                    (:rows f)    [:div.bf-break [rows-node item set-prop f]]
-                                    (:bools-inline f)   ;; the toggles ARE the row: one line, hugging
-                                    (into [:div.bf-bool-row]
-                                          (map #(vector render-builder-field item set-prop %)
-                                               (:bools-inline f)))
-                                    (:bools f)   ;; a run of toggles sharing a row: one stacked column
-                                    (into [:div.bf-bool-stack]
-                                          (map #(vector render-builder-field item set-prop %)
-                                               (:bools f)))
-                                    (map? f)     [render-builder-field item set-prop f]
-                                    :else        [:div.bf-break f]))
-                                (group-toggles fields)))])
+                           (map-indexed
+                            ;; keyed by the field's own path (unique within a form), index only
+                            ;; as a fallback for raw hiccup
+                            (fn [i f]
+                              (when-let [el (cond
+                                              (= :description (:slot f))
+                                              [:div.bf-break
+                                               [textarea-field
+                                                {:value (get item :description)
+                                                 :on-change #(dispatch [set-prop :description %])}]]
+                                              ;; a heading-only marker contributes its title and no
+                                              ;; control. It MUST list every synthetic node kind it
+                                              ;; is not, or it swallows them: {:bools-inline [...]}
+                                              ;; is a map with no :type and matched here, and the
+                                              ;; three component checkboxes silently disappeared
+                                              ;; from the form.
+                                              (and (map? f) (not (:type f)) (not (:rows f))
+                                                   (not (:bools f)) (not (:bools-inline f)))
+                                              nil
+                                              (and (:rows f) (= :vector (:as f)))
+                                              [:div.bf-break [vector-rows-node item set-prop f]]
+                                              (:rows f)
+                                              [:div.bf-break [rows-node item set-prop f]]
+                                              (:bools-inline f)   ;; the toggles ARE the row: one line, hugging
+                                              (into [:div.bf-bool-row]
+                                                    (map (fn [b] ^{:key (str (:key b))}
+                                                           [render-builder-field item set-prop b])
+                                                         (:bools-inline f)))
+                                              (:bools f)   ;; a run of toggles sharing a row: one stacked column
+                                              (into [:div.bf-bool-stack]
+                                                    (map (fn [b] ^{:key (str (:key b))}
+                                                           [render-builder-field item set-prop b])
+                                                         (:bools f)))
+                                              (map? f)     [render-builder-field item set-prop f]
+                                              :else        [:div.bf-break f])]
+                                (with-meta el {:key (str (or (:key f) (:slot f) i))})))
+                            (group-toggles fields)))])
                   (field-sections extra-fields))))
      [builder-notes problems {:severity :error}]]))
 

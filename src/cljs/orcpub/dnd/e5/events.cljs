@@ -268,6 +268,18 @@
 (def subclass-interceptors [(path ::class5e/subclass-builder-item)
                             subclass->local-store-interceptor])
 
+(def ^:private builder-wip-store-key
+  "app-db builder-item key -> its localStorage draft slot, from the content-type registry."
+  (into {} (map (juxt :builder-item :local-storage-key)) ct/content-types))
+
+(reg-fx
+ ::persist-builder-wip
+ ;; The per-builder ->local-store interceptors only fire on edit events, so a write
+ ;; the SAVE makes to the builder item (the :key stamp) would be lost on refresh.
+ (fn [[item-key item]]
+   (when-let [store-key (builder-wip-store-key item-key)]
+     (set-item store-key (str item)))))
+
 (def plugins-interceptors [(path :plugins)
                            plugins->local-store-interceptor])
 
@@ -932,7 +944,13 @@
              (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
                                                   item-with-key
                                                   (when renamed? (:key item)))]
-               {:dispatch-n [[::e5/set-plugins new-plugins]
+               ;; Stamp the key back onto the item still open in the builder: `save-collision`
+               ;; reads it to tell an edit returning to its own slot from a name landing on
+               ;; somebody else's, so without this a second save of the same item is refused as
+               ;; an overwrite of itself.
+               {:db (assoc db item-key item-with-key)
+                ::persist-builder-wip [item-key item-with-key]
+                :dispatch-n [[::e5/set-plugins new-plugins]
                              [:set-builder-field-errors {}]
                              [:show-warning-message
                               ;; Headline carries the point — it is saved, and only
