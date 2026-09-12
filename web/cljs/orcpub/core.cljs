@@ -25,11 +25,23 @@
                     (s/starts-with? js/window.location.href "http://localhost"))))
   (set! js/window.location.protocol "https"))
 
-(dispatch-sync [:initialize-db])
+(defn- boot-step
+  "Run one startup step; if it throws, log it and carry on. An uncaught throw here
+   stops the rest of this namespace, so the app is never mounted and the page stays
+   on the server's loading spinner, outside every error boundary. A stored homebrew
+   race with a text key did exactly that. What still fails once the app is drawing
+   is caught by the app-root boundary."
+  [label f]
+  (try
+    (f)
+    (catch :default e
+      (js/console.error (str "Startup step failed (" label "); continuing so the app still loads:") e))))
+
+(boot-step "initialize-db" #(dispatch-sync [:initialize-db]))
 
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
-(autosave-fx/init-template-cache!)
+(boot-step "template cache" autosave-fx/init-template-cache!)
 
 (def pages
   {nil views-2/splash-page
@@ -141,7 +153,7 @@
        [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
-(dispatch-sync [:verify-user-session])
+(boot-step "verify-user-session" #(dispatch-sync [:verify-user-session]))
 
 ;; React 18 createRoot API (Reagent 2.0)
 (defonce root (rdc/create-root (js/document.getElementById "app")))

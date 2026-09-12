@@ -50,7 +50,7 @@
                          (assoc spell :edit-event [::spells/edit-spell spell]))
                        (mapcat (comp vals ::e5/spells) plugin-vals))
         all-spells (into
-                    (sorted-set-by (fn [x y] (compare (:key x) (:key y))))
+                    (sorted-set-by (fn [x y] (common/safe-compare (:key x) (:key y))))
                     (concat
                      (reverse plugin-spells)
                      spells/spells))]

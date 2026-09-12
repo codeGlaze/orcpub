@@ -1060,7 +1060,7 @@
    (group-by :class plugin-subclasses)))
 
 (defn compare-keys [x y]
-  (compare (:key x) (:key y)))
+  (common/safe-compare (:key x) (:key y)))
 
 (reg-sub
  ::races5e/races
@@ -1138,7 +1138,7 @@
                                plugin-classes)]
      (vec
       (into
-       (sorted-set-by #(compare (::t/key %1) (::t/key %2)))
+       (sorted-set-by #(common/safe-compare (::t/key %1) (::t/key %2)))
        (concat (reverse plugin-class-options) base-classes))))))
 
 (reg-sub

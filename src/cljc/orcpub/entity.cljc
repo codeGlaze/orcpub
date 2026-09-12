@@ -482,7 +482,7 @@
        ::t/max (when (every? ::t/max selections) (apply + (map ::t/max selections)))
        ::t/options (into
                     (sorted-set-by
-                     #(compare (::t/key %) (::t/key %2)))
+                     #(common/safe-compare (::t/key %) (::t/key %2)))
                     (apply concat (map selection-options selections)))))))
 
 (defn combine-selections [selections]

@@ -440,3 +440,11 @@
   ;; Degrade to today's behaviour rather than inventing "Artificer ()".
   (is (= {:name "Artificer" :key :artificer}
          (common/disambiguated "Artificer" "!!!"))))
+
+(deftest safe-compare-orders-mixed-types-without-throwing
+  (is (= [:a :b] (sort common/safe-compare [:b :a])) "same types compare as usual")
+  (is (every? #(integer? (common/safe-compare (first %) (second %)))
+              [[:dwarf "text"] ["text" :dwarf] [42 :kw] [nil "x"] [[1 2] {}] [{} [1 2]]])
+      "a keyword against text threw, and a stored race with a text key stopped startup")
+  (is (= [nil 42 :kw "text" [1 2]] (sort common/safe-compare ["text" [1 2] :kw nil 42]))))
+
