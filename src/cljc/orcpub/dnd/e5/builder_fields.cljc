@@ -20,28 +20,6 @@
             [orcpub.dnd.e5.weapons :as weapons5e]
             [orcpub.dnd.e5.requirements :as reqs]))
 
-(def ^:private tag-bearing-props
-  "Prop -> the keys of its value map that are its OWN, not condition tags."
-  {:ac-bonus     #{:bonus :ac-bonus}
-   :attack-bonus #{:bonus}
-   :damage-bonus #{:bonus}})
-
-(defn unknown-tag-problems
-  "Human-readable problems for condition tags in `item`'s :props that no vocabulary recognises.
-
-   GOTCHA: this is the only guard. weapons/matches? and requirements/meets-all? both IGNORE an
-   unrecognised tag, so a typo fails OPEN — the effect applies with no condition rather than
-   erroring, and nothing at runtime can tell a typo from a tag a newer build knows."
-  [item]
-  (let [known (into (set (keys weapons5e/tag->flag)) (keys reqs/requirements))]
-    (for [[prop own] tag-bearing-props
-          :let [v (get-in item [:props prop])]
-          :when (map? v)
-          tag (keys v)
-          :when (not (or (contains? own tag) (contains? known tag)))]
-      (str prop " has an unrecognised tag " tag
-           " — it is IGNORED, so this applies with no condition. Check the spelling."))))
-
 (defn field-value-pred
   "Predicate a field's STORED value must satisfy WHEN PRESENT. :enum → the set of its option
    values, so a value that isn't one of the declared options (e.g. a damage type outside the
@@ -288,3 +266,42 @@
                             :enum   (:value (first options))
                             :number 0
                             "")}])))
+
+;; ── Authoring-time guard for unrecognised tags ────────────────────────────────────
+;; At the end of the file because it derives from the field fragments above rather than
+;; restating which props carry tags — the fact lives in one place, the schemas.
+
+(def ^:private legacy-value-keys
+  "Value keys a prop has shipped with that are NOT declared fields. :ac-bonus's value key was once
+   :ac-bonus before it became :bonus; ac-bonus-modifiers still reads it (D9)."
+  {:ac-bonus #{:ac-bonus}})
+
+(defn- declared-prop-keys
+  "prop -> the keys its shared field fragment declares. DERIVED, so adding a field to a fragment
+   cannot drift from what counts as a legitimate key."
+  [fragments]
+  (reduce (fn [m {:keys [key]}]
+            (let [[root prop k] key]
+              (cond-> m (and (= :props root) prop k) (update prop (fnil conj #{}) k))))
+          {}
+          (mapcat flatten-fields fragments)))
+
+(defn unknown-tag-problems
+  "Human-readable problems for keys in `item`'s :props that no vocabulary recognises.
+
+   GOTCHA: this is the only guard. weapons/matches? and requirements/meets-all? both IGNORE an
+   unrecognised tag, so a typo fails OPEN — the effect applies with no condition rather than
+   erroring, and nothing at runtime can tell a typo from a tag a newer build knows."
+  ([item] (unknown-tag-problems item [ac-bonus-fields attack-bonus-fields damage-bonus-fields]))
+  ([item fragments]
+   (let [known    (into (set (keys weapons5e/tag->flag)) (keys reqs/requirements))
+         declared (declared-prop-keys fragments)]
+     (for [[prop own] declared
+           :let [v (get-in item [:props prop])]
+           :when (map? v)
+           tag (keys v)
+           :when (not (or (contains? own tag)
+                          (contains? known tag)
+                          (contains? (get legacy-value-keys prop #{}) tag)))]
+       (str prop " has an unrecognised tag " tag
+            " — it is IGNORED, so this applies with no condition. Check the spelling.")))))

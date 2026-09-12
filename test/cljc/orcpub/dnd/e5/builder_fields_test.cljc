@@ -208,3 +208,22 @@
   (testing "every entry today is a :build gate — :toggle and :text are declared in the vocabulary
             but have no entries, so nothing here is speculative structure with a test propping it up"
     (is (= #{:build} (set (map :gate (vals reqs/requirements)))))))
+
+(deftest unknown-tag-problems-derives-from-the-fragments-not-a-second-list
+  (testing "what counts as a legitimate key comes from the field fragments themselves, so adding a
+            field cannot drift from the guard. A hand-maintained list of prop keys would be a second
+            statement of a fact the schemas already carry."
+    (let [frag [{:key [:props :made-up :bonus]   :type :number :label "Bonus"}
+                {:key [:props :made-up :whimsy?] :type :enum   :label "Whimsy"
+                 :options [{:value nil :title "Both"} {:value true :title "Yes"}]}]]
+      (is (empty? (bf/unknown-tag-problems {:props {:made-up {:bonus 1 :whimsy? true}}} [frag]))
+          "a key the fragment declares is legitimate with no extra registration")
+      (is (= 1 (count (bf/unknown-tag-problems {:props {:made-up {:bonus 1 :wimsy? true}}} [frag])))
+          "and a typo of it is not")))
+  (testing "the shipped fragments: a real tag, a requirement, and the legacy value key all pass"
+    (doseq [[label item] [["weapon tag"      {:props {:damage-bonus {:bonus 2 :thrown? true}}}]
+                          ["requirement"     {:props {:ac-bonus {:bonus 1 :dual-wielding? true}}}]
+                          ["legacy value key" {:props {:ac-bonus {:ac-bonus 1}}}]]]
+      (is (empty? (bf/unknown-tag-problems item)) label))
+    (is (seq (bf/unknown-tag-problems {:props {:ac-bonus {:bonus 2 :armour? true}}}))
+        "and a typo is caught")))
