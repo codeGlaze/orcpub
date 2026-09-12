@@ -8,7 +8,19 @@
    drives the diagnostics — blank-feature-name? — is tested directly."
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.dnd.e5.views :as views]
-            [orcpub.dnd.e5.views.notifications :as notifications]))
+            [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
+
+(deftest a-nameless-item-reads-as-its-placeholder
+  (is (= {:title "Unnamed Spell" :subtitle ":no-name"}
+         (conflict-resolution/item-heading :orcpub.dnd.e5/spells nil :no-name))
+      "the dialog showed a bare :no-name")
+  (is (= "Unnamed Monster"
+         (:title (conflict-resolution/item-heading :orcpub.dnd.e5/monsters "  " :x))))
+  (is (= {:title "Unnamed Item" :subtitle nil}
+         (conflict-resolution/item-heading :some/new-type nil nil)))
+  (is (= {:title "Fire Bolt"}
+         (conflict-resolution/item-heading :orcpub.dnd.e5/spells "Fire Bolt" :fire-bolt))))
 
 (deftest blank-feature-name?-test
   (testing "nil names are blank"
