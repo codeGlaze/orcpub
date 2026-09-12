@@ -10,6 +10,7 @@
 // Run: lein e2e-server, then
 //   node test/browser/storage_shape_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 const PACK = process.argv[2];
@@ -26,7 +27,7 @@ const dump = (page) => page.evaluate(() => {
 });
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
   await suppressOverlays(ctx);
   const page = await ctx.newPage();

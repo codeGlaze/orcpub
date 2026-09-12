@@ -14,8 +14,8 @@
 // Prerequisites: lein fig:build, lein garden once, lein e2e-server, npm install playwright.
 // Run: node test/browser/builder_churn_e2e.js <pack.orcbrew>
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 const INSTRUMENT = `
 window.__lt = []; window.__paint = [];

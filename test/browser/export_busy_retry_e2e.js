@@ -20,7 +20,7 @@
 //            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
 //            preload, which is why this file also calls suppressOverlays itself.
 const { chromium } = require('playwright');
-
+const { findChrome } = require('./lib/find-chrome');
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is
@@ -80,7 +80,7 @@ function saturate(until) {
 
 (async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium'
+    executablePath: findChrome()
   });
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 1100 } });
   const page = await ctx.newPage();

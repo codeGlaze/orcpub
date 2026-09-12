@@ -7,6 +7,7 @@
 // Also covers the developer-mode toggle, because the raw dump behind it is the
 // fallback when this link refuses.
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
 const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
 
@@ -34,7 +35,7 @@ function check(name, pass, detail) {
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
   // Seed ONCE. addInitScript runs on every document, so an unconditional write
   // re-seeds on reload and silently discards whatever the session saved — which

@@ -20,6 +20,7 @@
 //            save-clears-the-cue half is covered by events_test, not here.
 // Runs in:   ~20s.
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/character-heal';
@@ -73,7 +74,7 @@ const saveButton = page => page.evaluate(() => {
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
+  const browser = await chromium.launch({ executablePath: findChrome() });
 
   // ── OPEN ────────────────────────────────────────────────────────────────────
   const a = await context(browser);

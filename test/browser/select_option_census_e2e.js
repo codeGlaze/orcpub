@@ -7,14 +7,8 @@
 // Run: node test/browser/select_option_census_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-  return path.join(b, d, 'chrome-linux', 'chrome');
-}
 
 const ROUTES = [
   ['character-builder',  '/pages/dnd/5e/character-builder'],
