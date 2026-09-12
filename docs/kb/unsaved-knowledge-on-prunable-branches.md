@@ -104,13 +104,21 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
 
 ## Recommendations
 
-1. **Restore `datomic-crash-analysis.md`** to `agents/develop` from any of the 30 branches. It is the
-   only item here that was already decided — the relocation commit intended it.
+1. ~~**Restore `datomic-crash-analysis.md`**~~ — **done.** Copied to
+   [`rescued/datomic-crash-analysis.md`](rescued/datomic-crash-analysis.md) from `042fd072^`, the
+   state immediately before deletion; the same blob (`7b21c5cea9`) is on all 30 branches. It still
+   needs a read against the current tree before it is promoted out of `rescued/` — it is from
+   2026-02 and `upgrade/datomic-pro` exists.
 2. **Fix `check-docs.sh` §3 before the next prune.** Comparing against `origin/develop` is a no-op
    for `docs/kb/`. Compare against the union of KB-carrying branches, or at minimum against
    `feature/grant-rows`, which currently holds the most. Without this, the next branch to accumulate
    docs repeats the problem silently.
-3. **Lift the nine, then delete.** Ordering matters: four of them
+3. **The copy is done; the promotion is not.** All nine — plus the three judgement calls — now
+   sit verbatim in [`rescued/`](rescued/README.md) with their source ref, tip and blob recorded, so
+   the branches can be deleted without losing them. That is deliberately only half the job: a
+   rescued file is an archival snapshot, not an accepted KB doc, and promoting one means verifying
+   it against the current tree and rewriting it. **Deleting the branches is now safe; the reading
+   still has to happen.** Ordering mattered because four of them
    (`key-vs-name-separation.md`, `feature-tab-black-screen.md`, `unblock-features-tab.html`,
    `single-colon-keyword.md`) sit on branches the triage called the *cheapest* deletions, because
    their code had already landed. Their prose had not.
@@ -144,3 +152,9 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
   `feature/grant-rows` and `feature/fighting-style-authoring` names all three and is the better doc.
   The corpus is superseded, not salvage. **The error was searching three branches and reporting as
   if it were all of them** — the same class of mistake the triage doc warned about for code.
+- **2026-09-12 — the nine are copied, not lifted.** `docs/kb/rescued/` now holds all nine plus the
+  three judgement calls, verbatim, each banner-stamped with its source ref/tip/blob. Recommendations
+  1 and 3 are updated in place to say what is actually done. `check-docs.sh` gained a one-case
+  exemption: `docs/kb/rescued/` is skipped by the dangling-link check, because verbatim snapshots
+  link to their own branch's tree by design. The orphan check still applies to them, so a rescued
+  doc cannot sit unlisted.

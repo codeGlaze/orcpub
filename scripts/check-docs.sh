@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Docs organization check for agents/develop. Enforces docs/DOC-CONVENTIONS.md:
 #   1. No dangling relative *.md links in docs/ (targets resolve to a real file).
+#      Exempt: docs/kb/rescued/ — verbatim branch snapshots, links point at branch state.
 #   2. No orphaned KB docs — every docs/kb/*.md is referenced from at least one
 #      other tracked doc (any index: docs/kb/README.md OR docs/README.md, etc.).
 #   3. Superset invariant — every doc under docs/ that exists on origin/develop
@@ -13,7 +14,12 @@ status=0
 mapfile -t DOCS < <(git ls-files 'docs/**/*.md' 'docs/*.md')
 
 echo "== 1. dangling relative markdown links =="
+# docs/kb/rescued/ is exempt: it holds verbatim snapshots of docs taken off branches
+# before deletion, and their links point at that branch's tree on purpose. Checking them
+# here would either fail forever or pressure someone into editing an archive. The orphan
+# check below still applies, so a rescued doc must still be listed in its manifest.
 for f in "${DOCS[@]}"; do
+  case "$f" in docs/kb/rescued/*) continue;; esac
   dir="$(dirname "$f")"
   grep -oE '\]\(([^)#]+\.md)(#[^)]*)?\)' "$f" 2>/dev/null \
     | sed -E 's/\]\(([^)#]+\.md).*/\1/' | while IFS= read -r target; do
