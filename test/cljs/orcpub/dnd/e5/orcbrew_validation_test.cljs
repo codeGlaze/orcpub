@@ -283,13 +283,21 @@
 
 (deftest test-format-import-result-with-warnings
   (testing "Formatting import result with warnings"
-    (let [{:keys [title details]}
-          (orcbrew-val/format-import-result {:success true
-                                             :had-errors true
-                                             :imported-count 2
-                                             :skipped-count 1})]
+    (let [result {:success true :had-errors true :imported-count 2 :skipped-count 1}
+          {:keys [title details]} (orcbrew-val/format-import-result result)]
       (is (re-find #"warning" title))
-      (is (some #(re-find #"Skipped 1" %) details)))))
+      (is (= :warning (orcbrew-val/import-notice-type result))
+          "a partial import used to show the green success card")
+      (is (= [:done :skipped] (map :mark details)))
+      (is (= "Imported 2 items" (:text (first details))))
+      (is (re-find #"^Skipped 1 item that" (:text (second details)))
+          "it said \"1 invalid items\""))))
+
+(deftest a-clean-import-keeps-the-success-tone
+  (is (= :success (orcbrew-val/import-notice-type {:success true :imported-count 2})))
+  (is (= :warning (orcbrew-val/import-notice-type
+                   {:success true :imported-count 2
+                    :key-warnings [{:type :external-duplicate :message "x"}]}))))
 
 (deftest test-format-import-result-parse-error
   (testing "Formatting parse error result"

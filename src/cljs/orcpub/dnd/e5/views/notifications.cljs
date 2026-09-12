@@ -38,6 +38,22 @@
     :warning "fa-exclamation-triangle"
     "fa-check-circle"))
 
+(defn- mark-icon [mark]
+  (case mark
+    :skipped "fa-exclamation-triangle mark-skipped"
+    :repaired "fa-wrench mark-repaired"
+    "fa-check mark-done"))
+
+(defn- detail-line
+  "A detail line is text, hiccup, or {:mark :text} -- a line marked good or bad
+   by a coloured icon, which keeps the text itself readable on a tinted box."
+  [line]
+  (if (map? line)
+    [:div.message-detail
+     [:i.fa.message-mark {:class (mark-icon (:mark line))}]
+     (:text line)]
+    [:div.message-detail line]))
+
 (defn message
   "Transient banner. `message-text` is {:title :details} — or a plain string,
    which `as-parts` splits (see there).
@@ -64,7 +80,7 @@
           ;; keyed by position: a detail line may be hiccup, which is no key at all
           (map-indexed (fn [i line]
                          ^{:key i}
-                         [:div.message-detail line])
+                         [detail-line line])
                        details)])]
       [:i.fa.fa-times.message-close
        {:title "Dismiss"
