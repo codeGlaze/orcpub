@@ -321,12 +321,16 @@
   [content-type items]
   (reduce-kv
    (fn [acc item-key item]
-     (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
-       (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
-         {:items (assoc (:items acc) item-key item)
-          :changes (conj (:changes acc) {:key item-key :changes changes})}
-         {:items (assoc (:items acc) item-key item)
-          :changes (:changes acc)})))
+     (if-not (map? item)
+       ;; Not an entry, so no fields to fill. Validation skips it and the import log
+       ;; lists it; assoc'ing into it crashed the whole import.
+       (assoc-in acc [:items item-key] item)
+       (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
+         (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
+           {:items (assoc (:items acc) item-key item)
+            :changes (conj (:changes acc) {:key item-key :changes changes})}
+           {:items (assoc (:items acc) item-key item)
+            :changes (:changes acc)}))))
    {:items {} :changes []}
    items))
 
