@@ -58,6 +58,33 @@ Built-in class spellcasting config (`classes.cljc`):
 :modifiers [(mod/modifier ?pact-magic? true)]
 ```
 
+### Custom spell list (homebrew only)
+
+The built-in classes above all draw on an SRD list. A homebrew class has two choices,
+and they use different keys:
+
+```clojure
+:spellcasting {:spell-list-kw :ranger}          ; borrow an SRD class's list
+:spellcasting {:spell-list {1 #{:wardens-mark}  ; a list of its own
+                            2 #{:other-spell}}}
+```
+
+`:spell-list` is a **set of spell keys per spell level**, written that way by
+`toggle-class-spell-list` (`events.cljs:3737`). Verified in the running app: a
+`:level-factor 2` class with `:spell-list {1 #{:wardens-mark}}` produced half-caster slots
+of 4/3/2 at level 9 and the spell on the sheet at DC 12.
+
+The key is overloaded in a way worth knowing before reading that code: `class-option` passes
+`(or (:spell-list spellcasting) kw)` as the `:class-key` the list is registered under
+(`options.cljc:2736`), so with a custom list the class-key *is* the list map. It then works by
+being consistent with itself — `spellcasting-template` registers under that same value.
+
+**Unknown: the same path with cantrips.** `spell-selection-key` builds its identity with
+`(name class-key)` (`options.cljc:514`), which a map cannot satisfy. The verified run above
+had `:cantrips?` unset and hit no failure, so either that call is not reached on this path or
+something upstream substitutes a keyword. Not traced. Anyone enabling `:cantrips? true`
+alongside a custom `:spell-list` should expect to find out, and record the answer here.
+
 ### Known modes
 
 | Mode | Behavior | Used by |
@@ -209,3 +236,10 @@ Proposed items (design sketch, not final):
 - #561 — Schedule 5 Spellcaster Progression
 - #440 — Spell points (DMG variant, future)
 - #636 — Homebrew class spell list assignment broken
+
+## Revisions
+
+- Added the custom `:spell-list` shape. The doc previously showed only built-in classes,
+  all of which use an SRD list, so the set-per-level form a homebrew class needs was absent
+  and the `:spell-list` / `:spell-list-kw` distinction was not stated. Flagged the
+  `(name class-key)` hazard when a custom list is combined with cantrips.
