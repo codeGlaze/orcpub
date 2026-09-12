@@ -175,6 +175,11 @@ comes with a check that fails without it.
 
 ## Fixed
 
+- **Bad stored homebrew no longer stops the app from starting** — a race whose key
+  was text left every page on the loading spinner. A failed startup step no longer
+  stops the app mounting, and sorting keys no longer breaks on mixed types
+  (`e9548269`).
+
 - **A character is repaired on refresh too, and stays repaired** — the repair is
   saved back to the builder's draft, so it happens once instead of on every load,
   and its notice shows after the page navigates instead of being cleared by it
