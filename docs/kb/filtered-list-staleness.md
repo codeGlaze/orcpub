@@ -45,9 +45,36 @@ The `:<- [::char5e/sorted-items]` signal is **declared but only used as the fall
 
 Both are consumed by the list views — `views.cljs:10212` (items) and `:10137` (spells).
 
-**The three-character threshold matters for reproduction.** Below three characters the event stores
-`sorted` unfiltered, so the staleness is present but invisible while the list is short. Type three
-or more characters, then change the underlying content, to see it.
+## The precondition — this is why it is not constantly obvious
+
+`::char5e/filtered-items` is **absent from `db` until the user types in the filter box**. Until
+then the `or` falls through and the subscription returns the live `::char5e/sorted-items`. The
+staleness begins at the **first keystroke in the filter box** and persists for the rest of the
+session, because nothing ever removes the key — `dissoc` is never called on it anywhere in
+`src/cljs/`.
+
+So a user who never touches the filter never sees the bug, and a user who types once sees a list
+frozen from that moment. Below three characters the event stores `sorted` *unfiltered*, so even
+typing and deleting a single character freezes the full list.
+
+## Why it is shaped this way — do not "fix" it back
+
+The snapshot-in-`db` shape is deliberate. The comment above both events says so:
+
+```clojure
+;; Filter spell list by name. Computes sorted spells from db directly
+;; (avoids subscribe outside reactive context).
+```
+
+Calling `subscribe` inside an event handler is the antipattern
+[re-frame-subscribe-refactor.md](re-frame-subscribe-refactor.md) exists to stamp out, so computing
+from `db` directly in the handler was the right move for *that* problem. The mistake is what happened
+next: having computed the value in the handler, it was stored and then read back as if it were
+derived state.
+
+**Computing in the subscription does not reintroduce the subscribe-outside-reactive-context bug.**
+A `reg-sub` computation function runs in reactive context by construction; the rule being avoided is
+about calling `subscribe` from an *event handler*. That is why the fix below is safe.
 
 ## Why it is easy to miss in review
 

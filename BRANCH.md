@@ -47,6 +47,19 @@ release; the next one inherits the branches.
   shares the copy-on-adopt statblock shape.
 - No other leaf planned or started.
 
+### Deferred to the refactor — known, not yet owned
+
+- **Multi-tab character contamination** —
+  [`docs/kb/multi-tab-character-contamination.md`](docs/kb/multi-tab-character-contamination.md).
+  The character draft is cached under one localStorage key with no id (`db.cljs:34`), so two builder
+  tabs share a slot and a reload rehydrates whichever saved last. `::char5e/notes` carries
+  `:db/noHistory`, so what it overwrites is unrecoverable. **Deliberately parked** during the Summer
+  Patch bugfix run: the fix is a storage-shape change (key drafts by character id, tie the restore
+  to the id in the URL) and there was no good answer for it under time pressure. It wants doing when
+  the storage shape is already being moved, i.e. in `refactor/`, not as a hotfix. Investigation and
+  five pinning tests sit on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`) — 16 commits ahead
+  of a 2026-04-09 base.
+
 ## Agent tooling
 
 Everything this branch exists to hold. **Run `scripts/setup-hooks.sh` first — `core.hooksPath`

@@ -16,6 +16,15 @@ Three paths, different mechanisms:
 - Currently includes: `{:dev-mode "true", :signature "dev-secret-do-not-use-in-production"}`
 - Real env vars override `.lein-env` values
 
+### 2b. `profiles.clj` (local overrides, gitignored)
+- Leiningen reads `profiles.clj` at the project root and merges it over `project.clj`'s profiles,
+  so an `:env` map there overrides the `:dev` defaults above without editing a tracked file
+- **It is gitignored** (`.gitignore:35`), so it will never show up in a repo-wide grep — absence of
+  hits is not evidence it is unused
+- Commit `ccbdacba` (2026-01-15) documented it as *the* primary local-dev mechanism. That framing is
+  out of date — the three paths above are how the app actually loads config today — but the file
+  still works and is still the right place for a developer's own secrets
+
 ### 3. Docker / production
 - `.env` file read by docker-compose
 - Real env vars take precedence

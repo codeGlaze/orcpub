@@ -70,11 +70,18 @@ defence in depth, but it is not what causes the reported symptom and would not f
 `::char5e/notes` carries `:db/noHistory true`, so overwritten notes are **not recoverable from
 Datomic history**. Data lost this way is lost.
 
-## The shape of a fix
+## The shape of a fix — and why it is parked
 
 Key the draft by character id rather than using a single slot, and tie the restore to the id in the
-URL, so a tab only ever rehydrates the character it is actually showing. Not implemented; the
-investigation that established the above stopped at the diagnosis.
+URL, so a tab only ever rehydrates the character it is actually showing.
+
+**This was deliberately deferred, not overlooked.** It is a storage-shape change competing for
+attention with the Summer Patch bugfix run, and there was no good answer for it under that pressure.
+It is now registered in `BRANCH.md` as a `refactor/`-time investigation: the right moment is when the
+storage shape is already being moved, not as a hotfix on top of the current one.
+
+Anyone picking it up should decide the migration question first — existing single-slot drafts have no
+id to key by, so the first load after the change either discards them or has to guess.
 
 ## Provenance
 
