@@ -25,17 +25,42 @@ pre{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:
 h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px}
 table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600}
+.presets{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px}
+.preset{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 12px;font-size:12px;cursor:default}
+.preset:hover{border-color:var(--accent)}
+.add{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;padding:0;cursor:default}
+.drop{color:var(--muted);font-size:12px}
+
+.state{color:var(--muted);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;margin:0 0 5px}
+.note{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:5px;padding:10px 12px;margin:14px 0;background:rgba(255,255,255,.025);font-size:12.5px;color:var(--text)}
 </style></head><body><div class="wrap">
 <h1>Natural Armor — one effect row, two tiers</h1>
+<div class="note"><b>Read the three boxes below as ONE row in three states</b>, not three boxes on
+screen. An author adding Natural Armor gets a single row. A second row appears only for the genuine
+"whichever is better" case, where two calculations compete and the max wins.</div>
 <p class="sub">The template is the shape these share. The differences between published races are knob values, not separate templates — except where a race adds a second <em>fact</em>, which gets its own control rather than being folded into the number.</p>
 
 <div class="cols"><div>
 
+<div class="presets">
+ <span class="lbl">Start from</span>
+ <button class="preset">Lizardfolk — 13 + Dex</button>
+ <button class="preset">Tortle — 17, shell replaces armor</button>
+ <button class="preset">Unarmored Defense — 10 + Dex + Con</button>
+ <button class="preset">Blank row</button>
+</div>
+<p class="hint" style="margin-top:-8px">A preset FILLS the row and then gets out of the way — every field stays editable and the stored
+<code>:props</code> are the same either way. It does not watch the number and fire on its own: 13 means
+lizardfolk in one race and a flat shell in another, so a form that rewrites fields the author did not
+touch is a form the author stops trusting.</p>
+
+<div class="state">State 1 — the common case (lizardfolk)</div>
 <div class="row"><header><b>Natural Armor</b><span class="x">✕</span></header>
  <div class="body">
   <div class="line">
    <span class="lbl">Your AC is</span><input class="num" value="13">
    <span class="lbl">+</span><span class="sel">Dexterity</span>
+   <button class="add">+ ability</button>
   </div>
   <div class="line">
    <button class="chip">Worn armor gives no AC</button>
@@ -48,6 +73,21 @@ th{color:var(--muted);font-weight:600}
  </div>
 </div>
 
+<div class="state">State 2 — same row, a second rider added</div>
+<div class="row"><header><b>Natural Armor</b><span class="x">✕</span></header>
+ <div class="body">
+  <div class="line">
+   <span class="lbl">Your AC is</span><input class="num" value="10">
+   <span class="lbl">+</span><span class="sel">Dexterity</span>
+   <span class="lbl">+</span><span class="sel">Constitution</span><span class="drop">✕</span>
+   <button class="add">+ ability</button>
+  </div>
+  <div class="hint">The riders SUM, and there is no cap on how many: <code>:abilities</code> is a vector.
+   “Whichever is better” is NOT a rider — it is two rows, because calculations compete by max.</div>
+ </div>
+</div>
+
+<div class="state">State 3 — same row, toggle on and Advanced expanded (tortle)</div>
 <div class="row"><header><b>Natural Armor</b><span class="x">✕</span></header>
  <div class="body">
   <div class="line">
@@ -76,6 +116,9 @@ th{color:var(--muted);font-weight:600}
 {<span class="k">:props</span> {<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">17</span> <span class="k">:abilities</span> []}
          <span class="k">:armor-gives-no-ac</span> <span class="n">true</span>}}
 
+<span class="c">;; two riders — they sum (barbarian shape)</span>
+{<span class="k">:props</span> {<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">10</span> <span class="k">:abilities</span> [<span class="k">:dex</span> <span class="k">:con</span>]}}}
+
 <span class="c">;; the advanced fields, when used</span>
 {<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">10</span> <span class="k">:abilities</span> [<span class="k">:dex</span> <span class="k">:wis</span>]
       <span class="k">:armor?</span> <span class="n">false</span> <span class="k">:shield?</span> <span class="n">false</span>}}   <span class="c">; monk</span></pre>
@@ -90,8 +133,27 @@ th{color:var(--muted);font-weight:600}
 <tr><td>Monk / Barbarian</td><td>10</td><td>Dex + Wis / Con</td><td>—<br><span class="hint">uses the advanced conditions instead</span></td></tr>
 </table>
 
+<h3>Shields</h3>
+<div class="note">A shield is never authored here, and never a rider. Calculations COMPETE (<code>?ac-fns</code>
+takes the max); the shield's bonus and magic bonuses are summed onto whichever one wins. So a tortle
+keeps the shield bonus on top of 17 without the form saying anything about shields.<br><br>
+The one time a shield is the author's business is <em>disqualification</em>: the advanced tier's
+<b>Shield: only while NOT wielding</b> drops the whole calculation while one is held — that is Unarmored
+Defense, not a skipped +2. Storage is <code>:shield? false</code>, and <b>absent is not the same as
+false</b>: absent means "does not care".</div>
+
 <h3>Why the toggle is separate</h3>
 <p class="hint">“Your AC is 17” and “your shell replaces armor” are two different facts. The old <code>:tortle-ac</code> prop welded them together, which is why a tortle could not be given armor-wearing homebrew without losing the AC too. The AC refactor split them; this form keeps them split.</p>
+
+<h3>Presets: picked, not sprung</h3>
+<p class="hint">Two ways were on the table: values that apply themselves when the AC number hits a
+known figure (overridable), or templates the author picks. Picked wins. A form that edits fields the
+author did not touch cannot be trusted afterwards, one number does not identify one race (13 + Dex
+and a flat 13 are different races), and a preset that fires on a value has to decide what to do when
+the author then changes it back. Picked templates cost one click, carry the <em>sentence</em> a
+number alone does not, and are the same template tier already decided for the feat widgets
+(<code>builder-disposition-audit.md</code> §REFRAMING) — a template is a parameter sheet over the
+same <code>:props</code>, never a second storage shape.</p>
 
 <h3>What the advanced tier is for</h3>
 <p class="hint">Three fields, collapsed by default via <code>optional-builder-section</code> — it opens automatically when the data already has them and exports nothing if untouched. The common case stays two knobs and a toggle; the whole formula is one click away.</p>

@@ -131,5 +131,16 @@ fn in a channel that calls `(f armor shield)`. Inside `#_` so it never compiles,
 if that block were re-enabled. Also worth checking whether the early UA warforged was tortle-shaped
 (base AC + Con, no worn armour) rather than the flat +1 the repo has — if so it is another data
 point for the natural-armor template, see `assets/natural-armor-mockup.html`.
+
 ☐ `"Passive Investigation +5"` in the Custom Feat list grants passive **perception**. One word, but
 it changes the sheet of any saved character that picked it — needs a decision, not a quiet fix.
+
+**Natural-armor form, settled 2026-09-12** (in the mockup): riders are ONE control repeated —
+`:abilities` is a vector that sums, so `base + Dex + Con` is "+ ability" pressed twice, not a new
+shape; "whichever is better" is two rows, because calculations compete by max. Shields are never
+authored in the row: the shield bonus is summed onto whichever calculation wins, so the only
+shield control is the advanced tier's DISQUALIFIER (`:shield? false`, Unarmored Defense). Presets
+are **picked templates, not values that fire when the AC number matches** — a form that rewrites
+fields the author did not touch is untrustworthy, and one number does not identify one race. A
+template is a parameter sheet over the same `:props` (the template tier,
+`builder-disposition-audit.md` §REFRAMING).
