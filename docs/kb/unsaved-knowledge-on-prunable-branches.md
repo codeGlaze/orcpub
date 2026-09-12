@@ -105,7 +105,7 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
 ## Recommendations
 
 1. ~~**Restore `datomic-crash-analysis.md`**~~ — **done.** Copied to
-   [`rescued/datomic-crash-analysis.md`](rescued/datomic-crash-analysis.md) from `042fd072^`, the
+   [`datomic-crash-analysis.md`](datomic-crash-analysis.md) from `042fd072^`, the
    state immediately before deletion; the same blob (`7b21c5cea9`) is on all 30 branches. It still
    needs a read against the current tree before it is promoted out of `rescued/` — it is from
    2026-02 and `upgrade/datomic-pro` exists.
@@ -113,12 +113,14 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
    for `docs/kb/`. Compare against the union of KB-carrying branches, or at minimum against
    `feature/grant-rows`, which currently holds the most. Without this, the next branch to accumulate
    docs repeats the problem silently.
-3. **The copy is done; the promotion is not.** All nine — plus the three judgement calls — now
-   sit verbatim in [`rescued/`](rescued/README.md) with their source ref, tip and blob recorded, so
-   the branches can be deleted without losing them. That is deliberately only half the job: a
-   rescued file is an archival snapshot, not an accepted KB doc, and promoting one means verifying
-   it against the current tree and rewriting it. **Deleting the branches is now safe; the reading
-   still has to happen.** Ordering mattered because four of them
+3. ~~**The copy is done; the promotion is not.**~~ — **the reading is done too, for nine of the
+   twelve** (2026-09-12, against `integration` `36766010`). Three were promoted, one was lifted in
+   part, and five were dropped once checked — see [`rescued/README.md`](rescued/README.md) for the
+   per-file reasons. **Two of the five drops were docs this report had ranked "promote whole"**: the
+   single-colon investigation, because `http_safe.cljs`'s ns docstring and `common.cljc:16`/`:65`
+   already carry it better than the doc did, and both halves of its fix shipped; and
+   `key-vs-name-separation.md`, whose one unique claim turned out to be false. Three remain in the
+   holding pen. Ordering mattered because four of them
    (`key-vs-name-separation.md`, `feature-tab-black-screen.md`, `unblock-features-tab.html`,
    `single-colon-keyword.md`) sit on branches the triage called the *cheapest* deletions, because
    their code had already landed. Their prose had not.
@@ -158,3 +160,14 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
   exemption: `docs/kb/rescued/` is skipped by the dangling-link check, because verbatim snapshots
   link to their own branch's tree by design. The orphan check still applies to them, so a rescued
   doc cannot sit unlisted.
+- **2026-09-12 — two "promote whole" verdicts did not survive contact with the code.** This report
+  ranked `single-colon-keyword.md` and `key-vs-name-separation.md` as findings absent from every KB,
+  on the strength of a full-text search that found no KB doc mentioning `sanitize-edn-colons` or the
+  `:key`/`:name` rule. Both searches were correct and both conclusions were wrong, for the same
+  reason: **the KB was the wrong place to look.** The empty-keyword knowledge lives in the ns
+  docstring of `http_safe.cljs` and in the comments at `common.cljc:47-65`; the key/name rule lives
+  in `name-to-kw-audit.md` under different wording, with all four "unique" leak sites already
+  inventoried. Searching the KB for a phrase establishes that the phrase is absent, not that the
+  knowledge is. The offsetting result: `filtered-list-staleness.md` and
+  `multi-tab-character-contamination.md` are live defects confirmed in the current tree, which the
+  same pass would have missed if it had stopped at the rescue.

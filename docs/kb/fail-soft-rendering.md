@@ -143,6 +143,45 @@ So the dev-throw belongs in `feature-name`, not in the generic fold — putting 
   **cached** (once per affected character). May briefly hang on first load of a
   complex broken character.
 
+## Diagnosing a new occurrence
+
+The layered boundaries below stop a bad feature blanking the page, but they do not tell you *which*
+map is bad. This is how the Hunter/Evasion case was actually found, in an environment with no cljs
+build — recovered from `claude/character-black-screen-feature-i8lvk3` (`9869d07a`), which is
+otherwise superseded by this doc.
+
+**Catch the offending map.** The crash goes through the comparator, so wrap it. Paste on a fresh
+load, *before* clicking the tab, in the owner's logged-in session if the content is custom:
+
+```js
+const _sort = Array.prototype.sort;
+Array.prototype.sort = function (cmp) {
+  if (typeof cmp !== 'function') return _sort.call(this, cmp);
+  return _sort.call(this, function (a, b) {
+    try { return cmp(a, b); }
+    catch (e) { console.warn('THREW ON:', a, b); return 0; }
+  });
+};
+```
+
+**Read the cljs values from JS.** A `PersistentArrayMap` exposes `.arr` (flat key/value pairs) and
+`.cnt`; a keyword exposes `.fqn`. Walk `.arr` two at a time to print a map that would otherwise
+render as `[object Object]`.
+
+**Find when it was introduced.** This repo is a shallow clone, so `git blame` on the current path
+dead-ends at a re-import commit. Pickaxe the exact text across all objects and sort by date
+instead:
+
+```bash
+git log --all --oneline --format='%h %ad %s' --date=short -S "<unique string>"
+```
+
+then `git show <oldest> -- <file>` to confirm. That is how the defect was traced to `30e9c71`
+(2020-05-09, upstream), which predates this fork — and why it looked random and ancient.
+
+**The character EDN is not in localStorage.** It is fetched from `GET /dnd/5e/characters/<id>` and
+held in the in-memory re-frame app-db, so a storage dump will not show you the bad data.
+
 ## Landing (done)
 
 Landed clean on `feature/fix-black-screen-of-death` (cut off `develop`), 12

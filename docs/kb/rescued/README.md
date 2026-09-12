@@ -1,75 +1,54 @@
-# Rescued docs — knowledge pulled off branches before they are deleted
+# Rescued docs — the holding pen
 
-Every file here was copied **verbatim** from a branch that is dead, merged, or slated for pruning,
-because it existed on no other branch in the repo. Each carries a banner naming its source ref, tip
-and blob, so the copy can be checked against the original for as long as the branch survives:
+Docs copied verbatim off branches that are dead, merged, or slated for pruning, because they existed
+on no other branch. Each carries a banner naming its source ref, tip and blob, so the copy stays
+checkable against the original for as long as the branch survives:
 
 ```bash
 diff <(tail -n +8 docs/kb/rescued/<file>.md) <(git show <source-ref>:<source-path>)
 ```
 
-## What this directory is not
+**These are not KB docs.** They are snapshots of branch state, with stale status lines and
+`file:line` references against their own branch. They live here until someone reads them against the
+current tree and either promotes the content or deletes the file. Treat anything here as a lead, not
+a fact.
 
-**These are not KB docs.** A KB doc is current, verified, and maintained in place
-([documentation-discipline.md](../documentation-discipline.md)). These are snapshots of branch state
-written by sessions that had a working tree we no longer have. They carry stale status lines
-("not yet merged", "awaiting e2e verification"), `file:line` references against their own branch,
-and links to files that do not exist here.
+`scripts/check-docs.sh` skips this directory in its dangling-link check — the links point at branch
+state on purpose. The orphan check still applies, so every file stays listed below.
 
-They are here so the knowledge is not lost when the branches go — **not** because they have been
-accepted into the knowledge base. Promoting one means reading it, verifying its claims against the
-current tree, rewriting it as a KB doc, indexing it in [../README.md](../README.md), and deleting
-the copy here. Until then, treat anything in this directory as a lead, not a fact.
+## Still here
 
-Because the content is archival, `scripts/check-docs.sh` skips this directory in its dangling-link
-check — the links point at branch state on purpose. The orphan check still applies, so every file
-below stays listed.
+| file | lines | from | why it is still waiting |
+|---|---|---|---|
+| [half-caster-prepared-spells-handoff.md](half-caster-prepared-spells-handoff.md) | 519 | `claude/half-caster-prepared-spells-Jo0ai` `ed5e13da` | **The constraint is confirmed live.** `options.cljc:3113` still gates prepared casting on `(:prepares-spells? spellcasting)`, and the class builder hardcodes `:known-mode :schedule` with no control for it (`views.cljs:6786`) — so a homebrew half-caster that prepares (a Paladin analogue) still cannot be authored. [homebrew-class-spellcasting.md](../homebrew-class-spellcasting.md) documents the constraint; nothing documents the intent to lift it. Needs distilling into a plan doc by someone who will own the work — 519 lines of session handoff is not a plan |
+| [ui-ux-evaluation.md](ui-ux-evaluation.md) | 178 | `claude/ui-ux-evaluation-Kngfm` `36354fcc` | A 2026-04 survey measuring `styles/core.clj` at ~1600 lines. `refactor/garden-inline-styles` and `redesign/growable-option-menus` have reworked that surface since. The measurements are stale; whether the *observations* still hold is a design judgement, not a code check |
+| [ui-ux-plan.md](ui-ux-plan.md) | 273 | `claude/ui-ux-evaluation-Kngfm` `36354fcc` | The plan built on that survey. Same caveat. Keep only if the plan is still wanted |
 
-## Manifest
+## Processed — 2026-09-12
 
-Triage detail and the evidence for each verdict:
+Nine of the original twelve were read against `integration` `36766010` and resolved.
+
+### Promoted
+
+| was | now |
+|---|---|
+| `datomic-crash-analysis.md` | [../datomic-crash-analysis.md](../datomic-crash-analysis.md) — restored to the KB with a provenance and currency header. Analysed on Datomic Free; the tree pins Pro `1.0.7482` (`project.clj:82`) but `docker-compose.yaml:52` still defaults to `datomic:dev://` (H2-backed), so the `writeConcurrency`/heartbeat findings still apply. Correctly speculation-flagged already |
+| `custom-items-investigation.md` | [../filtered-list-staleness.md](../filtered-list-staleness.md) — **the bug is live.** `events.cljs:3004-3007` stores a filter result computed from the item list as it was at that keystroke; `subs.cljs:1053-1058` reads that stored value and short-circuits past its own `::char5e/sorted-items` signal. Rewritten as a KB doc; the 1,074-line branch log was raw material |
+| `character-notes-merge-investigation.md` | [../multi-tab-character-contamination.md](../multi-tab-character-contamination.md) — **the defect is live.** `db.cljs:34` keys the character draft as `"character"` with no id; two tabs share the slot. `schema.clj:182-185` and `:234-237` still hold exactly as the original claimed |
+| `feature-tab-black-screen.md` §6 | [../fail-soft-rendering.md](../fail-soft-rendering.md) § *Diagnosing a new occurrence* — the comparator-wrapping technique, reading cljs values from JS, and pickaxing a shallow clone. §1–§5 duplicated that doc and were dropped with the file |
+
+### Dropped, with the reason
+
+| file | why |
+|---|---|
+| `single-colon-keyword.md` | **Both halves of the fix shipped and the code documents it better than the doc did.** Prevention: `common.cljc:65` emits `unnamed-<hash>` for a name that reduces to `""`. Self-heal: `sanitize-edn-colons`, `common.cljc:16`. And `http_safe.cljs`'s ns docstring explains the whole detonation path — why `read-string` inside cljs-http's go-loop throws upstream of the caller's `<!`, so a `try` around the take cannot catch it. Nothing durable was left to lift |
+| `key-vs-name-separation.md` | Fully covered by [../name-to-kw-audit.md](../name-to-kw-audit.md) (all four "leak sites" are already inventoried at `:158`, `:160`, `:170` and §7.1–7.2, and `:457` states the rule) and [../spell-selection-source-fix.md](../spell-selection-source-fix.md). Its one genuinely unique claim — that the reconciler returns `{:rewrote […] :parked […]}` — **is false**: `content_reconciliation.cljs` returns only `:rewrote`, and [../duplicate-key-durability-roadmap.md](../duplicate-key-durability-roadmap.md) already carries a section titled "`:parked` never existed" |
+| `configuration-pattern.md` | **Contradicted by the KB.** It says `profiles.clj` is the primary local-dev mechanism for env vars; [../env-and-auth.md](../env-and-auth.md) documents the real path — `lein repl` reads `.lein-env`, generated by `lein-environ` from `project.clj`'s `:dev` profile `:env` map. `profiles.clj` appears nowhere in the repo |
+| `unblock-features-tab.html` | The bookmarklet unblocked a user stuck behind the black screen *before a fix deployed*. The fix deployed — `render-guard` (`views.cljs:1872`), `error-boundary` (`:3948`), `character-health-warning` (`:4034`) are all live on `integration`. An obsolete workaround |
+| `export-unification-handoff.md` | Its bug 1 was already fixed on the branch before that work started. Its bug 2 — asymmetric validation across four parallel export paths — is resolved structurally: every export now goes through one `save-orcbrew-blob!` → `serialize-orcbrew` (`events.cljs:4413-4431`), and the one remaining unvalidated path is deliberate and documented in place as a WIP rescue hatch |
+
+## What was never rescued
+
+Superseded corpora (~13,000 lines) that lose to KB docs which already exist, and the 53 KB docs on
+live non-`claude` branches that `agents/develop` lacks. See
 [../unsaved-knowledge-on-prunable-branches.md](../unsaved-knowledge-on-prunable-branches.md).
-
-### Promote — a finding, verified on its branch, absent from every KB
-
-| file | lines | from | what it holds |
-|---|---|---|---|
-| [datomic-crash-analysis.md](datomic-crash-analysis.md) | 204 | `042fd072^` (pre-deletion state; identical blob on 30 branches) | Deleted by the 2026-07-04 commit that said the KB "belongs on the `agents/develop` silo". It never arrived. Restoring it is the one item here that was already decided |
-| [single-colon-keyword.md](single-colon-keyword.md) | 196 | `claude/fix-single-colon-keyword` `bab40288` | `name-to-kw-aux` returns the empty keyword for `""`/apostrophe-only names; one bare `:` makes the whole EDN read throw and the page die. REPL-verified, affected character identified. **The fix shipped** — `sanitize-edn-colons`, `common.cljc:16` on `integration` — **and no KB doc mentions it.** Code whose reasoning was never written down |
-| [character-notes-merge-investigation.md](character-notes-merge-investigation.md) | 230 | `claude/fix-character-notes-merge-4YNzf` `702fffc7` | Multi-tab contamination of the floating `:character` slot: a reload restores it from `localStorage["character"]`, which holds whichever character was saved last *across tabs*, so edits land on the wrong entity. Explains a real data-loss report. "multi-tab" appears in no KB doc |
-| [custom-items-investigation.md](custom-items-investigation.md) | 1074 | `claude/fix-custom-items-disappearing-DW8rb` `509431f2` | Root cause for Orcpub#669 — `filtered-items`/`filtered-spells` were not reactive. Five ranked patches with commit-level provenance. "filtered-items" appears in no KB doc |
-| [export-unification-handoff.md](export-unification-handoff.md) | 142 | `claude/fix-brave-export-bug-2Tt7j` `3a1f5bfb` | The "Brave export bug" was browser-agnostic: a stringification regression at `events.cljs:560`/`:675`. Records the wrong turn (browser-specific) that someone will otherwise re-take |
-
-### Promote in part — most of it duplicates an existing KB doc
-
-| file | lines | from | lift only |
-|---|---|---|---|
-| [feature-tab-black-screen.md](feature-tab-black-screen.md) | 286 | `claude/character-black-screen-feature-i8lvk3` `9869d07a` | **§6 only.** §1–§5 duplicate [../fail-soft-rendering.md](../fail-soft-rendering.md). §6 is a reusable diagnostic playbook: monkeypatch `Array.prototype.sort` to capture the throwing comparator's operands, decode cljs maps from JS (`.arr`/`.cnt`, keyword `.fqn`), pickaxe a shallow clone when blame dead-ends at a re-import |
-| [key-vs-name-separation.md](key-vs-name-separation.md) | 87 | `claude/fix-cantrips-selection-bug-CSwVv` `edf9655b` | The stated rule (`:key` is identity, `:name` is display), the four-site leak table, and the design call that parked orphans are re-derived per load rather than persisted. The case study and the benign-vs-leak heuristic already live in [../spell-selection-source-fix.md](../spell-selection-source-fix.md) and [../name-to-kw-audit.md](../name-to-kw-audit.md) |
-| [half-caster-prepared-spells-handoff.md](half-caster-prepared-spells-handoff.md) | 519 | `claude/half-caster-prepared-spells-Jo0ai` `ed5e13da` | The plan, as a plan doc. [../homebrew-class-spellcasting.md](../homebrew-class-spellcasting.md) documents the constraint (`:prepares-spells?` is hardcoded per `known-mode`); nothing documents the intent to lift it. Its own header says the source plan lived in session scratch and is already gone |
-
-### Keep pending a decision — not findings
-
-| file | lines | from | why it is here anyway |
-|---|---|---|---|
-| [unblock-features-tab.html](unblock-features-tab.html) | 45 | `claude/character-black-screen-feature-i8lvk3` `9869d07a` | Not prose — a drag-to-install bookmarklet that lets a stuck user open their Features tab before a fix deploys. Promote to `docs/tools/` or drop deliberately |
-| [configuration-pattern.md](configuration-pattern.md) | 153 | `claude/cloud-drive-integration-SC31k` `07f086c6` | Says `profiles.clj` is the primary local-dev env-var mechanism and warns against wrapper namespaces around `environ/env`. `profiles.clj` appears in no KB doc, but [../env-and-auth.md](../env-and-auth.md) and [../dev-tooling-decisions.md](../dev-tooling-decisions.md) cover the surrounding ground |
-| [ui-ux-evaluation.md](ui-ux-evaluation.md) | 178 | `claude/ui-ux-evaluation-Kngfm` `36354fcc` | A 2026-04 survey describing `styles/core.clj` at ~1600 lines. `refactor/garden-inline-styles` and `redesign/growable-option-menus` have since reworked that surface, so the measurements are stale |
-| [ui-ux-plan.md](ui-ux-plan.md) | 273 | `claude/ui-ux-evaluation-Kngfm` `36354fcc` | The plan built on that survey. Same staleness caveat |
-
-## Rescued, deliberately, without judging the content
-
-The last four are here because rescuing is reversible and deleting a branch is not. They were copied
-on that basis alone, not because they were found to be worth keeping. If a read says otherwise,
-delete the file — that is the intended outcome for at least some of them.
-
-## What is NOT here
-
-- **Superseded corpora.** ~6,944 lines of fighting-style analysis
-  (`claude/explore-fighting-styles-K56lQ`) and 6,115 lines of class-creation design
-  (`claude/upgrade-class-creation-zYV46`) lose to KB docs that already exist and are better sourced —
-  `fighting-style-vocabulary-gap.md` and `class-feature-catalogue.md` respectively.
-- **The 53 KB docs on non-`claude` branches** that `agents/develop` lacks. Those branches are live,
-  not prunable, so nothing is at risk today. That gap is a separate decision — see the triage doc.
-- **Anything duplicated elsewhere.** 180 of the 217 doc files across the `claude/*` branches are
-  byte-identical to a copy on another branch.

@@ -1,11 +1,16 @@
-> **Rescued verbatim** from `042fd072^` @ `f40dbfd9` — `docs/kb/datomic-crash-analysis.md` (blob `7b21c5cea9`).
-> Preserved before branch deletion; **not verified against the current tree**. Its
-> status lines, `file:line` refs and links describe that branch, not `agents/develop`.
-> Provenance and triage: [README.md](README.md).
-
----
-
 # Datomic Transactor Crash Analysis
+
+> **Provenance.** Written 2026-02-26 on `dmv/hotfix-integrations`, from transactor logs that no
+> longer exist in the repo. Removed from the main line on 2026-07-04 by `042fd072` ("move the KB off
+> the main line") without being copied to `agents/develop`; recovered 2026-09-12 from `042fd072^`
+> (blob `7b21c5cea9`, identical on all 30 branches that still carry it).
+>
+> **Currency, checked 2026-09-12 against `integration` `36766010`.** The analysis was done against
+> Datomic **Free**; `project.clj:82` now pins `com.datomic/peer "1.0.7482"` (Pro). The findings below
+> are about **H2 storage behaviour**, and `docker-compose.yaml:52` still defaults to
+> `datomic:dev://`, which is H2-backed — so the `writeConcurrency`/heartbeat reasoning still applies
+> to a default deployment. The transactor properties it discusses are set on the deployed
+> transactor; **no file in this repo defines them**, so nothing here can be checked against the tree.
 
 **Analyzed:** 2026-02-26  
 **Artifacts:** `logs/datomic.1.log` (64,695 lines, Feb 24), `logs/datomic.2.log` (Feb 25), `logs/datomic.3.log` (Feb 26 from 00:00)  
