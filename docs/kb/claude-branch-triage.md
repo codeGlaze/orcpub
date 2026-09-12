@@ -146,7 +146,7 @@ nothing; the work still needs a decision on its own branch.
 
 | branch | tip | date | what is unique | new defs |
 |---|---|---|---|---|
-| `claude/character-portrait-generator-hOutO` | `63eddd2f` | 2026-09-06 | Layered SVG portrait compositor: `portrait.cljs` (888), `portrait_assets.cljc` (343), `portrait_render.clj` (157), 6 test files. Distinct from `feature/browser-side-character-images`, which fetches and captures an existing image rather than generating one | 108/0 |
+| `claude/character-portrait-generator-hOutO` **(ACTIVE — not a pruning candidate; tip moved to `54507402` on 2026-09-12)** | `63eddd2f` | 2026-09-06 | Layered SVG portrait compositor: `portrait.cljs` (888), `portrait_assets.cljc` (343), `portrait_render.clj` (157), 6 test files. Distinct from `feature/browser-side-character-images`, which fetches and captures an existing image rather than generating one | 108/0 |
 | `claude/cloud-drive-integration-SC31k` | `07f086c6` | 2026-01-15 | Google Drive sync: OAuth PKCE (`generate-code-challenge`, `exchange-code-for-token`), file browser, 4 files under `src/cljs/orcpub/cloud/`. No tests | 41/0 |
 | `claude/docker-setup-errors-0ntths` | `ba54c17b` | 2026-08-06 | Site-injected homebrew: `read-site-homebrew`, `load-site-plugins`, content-hash cache versioning (`sha1-hex`, `version-changes-with-content`), plus `config_test.clj` | 23/0 |
 | `claude/fix-custom-items-disappearing-DW8rb` | `509431f2` | 2026-04-14 | `api_subs.cljs`: `reg-api-sub`/`reg-filtered-sub` abstraction plus 401/500 handling, and `equipment_subs_test.cljs`. Both paths unique | 20/0 |
@@ -184,7 +184,12 @@ Agent tooling and CI config, superseded by `agents/develop`, or off-topic. None 
 | `claude/add-color-themes-gyRhI` | `9e13293b` | 2026-01-22 | **Judgement call, not a content finding.** 16 new defs, 0 elsewhere: a Nord theme system (`themes.clj`, 739 lines; `colors.clj`). Genuinely unique and genuinely unlanded, at a base 8 months stale, against a `styles/core.clj` that has moved a long way. Discard unless the theme is still wanted, in which case treat it as a rewrite brief rather than a merge |
 | `claude/half-caster-prepared-spells-Jo0ai` | `ed5e13da` | 2026-06-01 | `docs/kb/web-handoff.md` (519 lines), not on `agents/develop`. A session handoff, not a finding — see below |
 | `claude/ui-ux-evaluation-Kngfm` | `36354fcc` | 2026-04-26 | `docs/kb/ui-ux-evaluation.md`, `ui-ux-plan.md`, `docs/plans/ui-ux-evaluation-plan.md`, none on `agents/develop`. Read before discarding |
-| `claude/explore-fighting-styles-K56lQ` | `d53e36dd` | 2026-01-13 | Design superseded: its props-based `fighting_styles.cljc` (26 lines) is replaced by the content-type + grant-pool architecture on `feature/fighting-style-authoring` (`docs/kb/fighting-style-authoring.md`). **But** ~8,000 lines under `docs/analysis/` catalogue the official TCE and homebrew TGS2 fighting styles with mechanical analysis, and no KB doc on any branch mentions Blind Fighting, Superior Technique or Unarmed Fighting. Lift the catalogue if the class-selection half of that feature is still being built |
+| `claude/explore-fighting-styles-K56lQ` | `d53e36dd` | 2026-01-13 | Design superseded: its props-based `fighting_styles.cljc` (26 lines) is replaced by the content-type + grant-pool architecture on `feature/fighting-style-authoring` (`docs/kb/fighting-style-authoring.md`). The ~8,000 lines under `docs/analysis/` are **also superseded**: `docs/kb/fighting-style-vocabulary-gap.md` on `feature/grant-rows` and `feature/fighting-style-authoring` measures 14 distinct published styles against the engine hooks each needs, and is shorter and better sourced. Nothing to lift — see Revisions |
+
+**Several branches in every section above carry prose that exists nowhere else — see
+[unsaved-knowledge-on-prunable-branches.md](unsaved-knowledge-on-prunable-branches.md), which lists
+nine documents to lift before any deletion. Four of them sit on the branches this doc calls the
+cheapest deletions.**
 
 Three of these carry `docs/kb/` files that exist on no other branch
 (`web-handoff.md`, `ui-ux-evaluation.md`, `ui-ux-plan.md`). They are listed as discard because a
@@ -204,3 +209,21 @@ the branch goes.
 - **Which branch each squash-merge actually landed through.** `feature/fix-black-screen-of-death`
   and `feature/name-keyword-fix` are named as the vehicles because they are merged and carry the
   same symbols. It was not traced commit by commit, and it does not change the verdict.
+
+## Revisions
+
+- **2026-09-12 — the fighting-style analysis corpus is superseded, not salvage.** This doc said "no
+  KB doc on any branch mentions Blind Fighting, Superior Technique or Unarmed Fighting" and
+  recommended lifting the catalogue. That search covered three branches
+  (`agents/develop`, `refactor/content-extensibility`, `perf/entity-build`) and was reported as
+  though it covered all of them. `docs/kb/fighting-style-vocabulary-gap.md` on `feature/grant-rows`
+  and `feature/fighting-style-authoring` names all three styles and measures the whole set. The
+  repo's KB spans at least eight branches, not three.
+- **2026-09-12 — `claude/character-portrait-generator-hOutO` is active.** Recorded here at
+  `63eddd2f` / 2026-09-06 and listed for salvage; it moved to `54507402` on 2026-09-12 (+4 commits).
+  It is in flight and does not belong in a pruning conversation. Every other `claude/*` tip was
+  re-checked at the same time and none had moved.
+- **2026-09-12 — code-only was too narrow a question.** This doc judged branches by the definitions
+  they introduce. Applying the same content test to prose found nine documents that exist on no
+  other branch, four of them on branches called here the cheapest deletions. The verdicts stand for
+  code; they are not deletion instructions on their own.
