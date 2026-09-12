@@ -8,7 +8,8 @@
 // repair, and an export carries it. A fix that only lives in app-db looks correct on
 // screen and reverts on refresh, which is how "fixed" problems kept coming back.
 //
-// Paths: import cleanups; the loader's repairs and set-asides; a library stored as
+// Paths: import cleanups, an entry with no source included; the loader's repairs,
+// source names and set-asides; a library stored as
 // text; a stored value that is not a library; conflict renames; Auto-name & Restore
 // in the needs-attention panel; Export & Auto-Fix; Save anyway (spell and selection);
 // a character repaired on refresh.
@@ -113,12 +114,15 @@ const letterFirst = k => /^[a-z]/.test(k);
     await load(s);
     await dispatch(s, '[:orcpub.dnd.e5/import-plugin "Clean Pak"]',
       '{"Clean Pak" {:orcpub.dnd.e5/spells {:quoted {:key :quoted :option-pack "Clean Pak" :name "" '
-      + ':level 1 :school "evocation" :description "An “odd” one" :disabled? nil}}}}');
+      + ':level 1 :school "evocation" :description "An “odd” one" :disabled? nil} '
+      + ':nosrc {:key :nosrc :name "No Src" :level 1 :school "evocation"}}}}');
     await settle(s);
     const at = '["Clean Pak" :orcpub.dnd.e5/spells :quoted]';
     const saved = await storedAt(s, 'plugins', at);
     check('import: the filled-in name is saved', saved && !/:name ""/.test(saved) && /:name "/.test(saved), saved);
     check('import: straightened quotes are saved', saved && !/[“”]/.test(saved), saved);
+    check('import: an entry with no source is saved under the source it came in',
+          (await storedAt(s, 'plugins', '["Clean Pak" :orcpub.dnd.e5/spells :nosrc :option-pack]')) === '"Clean Pak"');
     await load(s, 'reload');
     const reloaded = (await dbAt(s, '[:plugins "Clean Pak" :orcpub.dnd.e5/spells :quoted]')) || '';
     check('import: both survive a reload', !/:name ""/.test(reloaded) && /:name "/.test(reloaded) && !/[“”]/.test(reloaded), reloaded);
@@ -132,17 +136,19 @@ const letterFirst = k => /^[a-z]/.test(k);
     const s = await session(browser, {
       plugins: '{"Mend Pak" {:orcpub.dnd.e5/spells [{:name "Bolt" :option-pack "Mend Pak" :level 1 :school "evocation"}] '
         + ':orcpub.dnd.e5/feats "" '
-        + ':orcpub.dnd.e5/backgrounds {:no-src {:key :no-src :name "No Src"} :sage {:key :sage :option-pack "Mend Pak" :name "Sage"}}}}',
+        + ':orcpub.dnd.e5/backgrounds {:no-src {:key :no-src :name "No Src"} :broken "not an entry" :sage {:key :sage :option-pack "Mend Pak" :name "Sage"}}}}',
     });
     await load(s);
     check('load: the list section loads as entries', (await dbAt(s, '[:plugins "Mend Pak" :orcpub.dnd.e5/spells]')).includes(':bolt'));
     const first = await stored(s, 'plugins');
-    check('load: the repair is saved', first && !/:orcpub.dnd.e5\/spells \[/.test(first) && !first.includes(':no-src'), first);
-    check('load: the entry without a source is set aside in storage',
-          ((await stored(s, 'plugins:rejected')) || '').includes(':no-src'));
+    check('load: the repair is saved', first && !/:orcpub.dnd.e5\/spells \[/.test(first) && !first.includes(':broken'), first);
+    check('load: the entry with no source gets its source name, saved',
+          (await storedAt(s, 'plugins', '["Mend Pak" :orcpub.dnd.e5/backgrounds :no-src :option-pack]')) === '"Mend Pak"');
+    check('load: the broken entry is set aside in storage',
+          ((await stored(s, 'plugins:rejected')) || '').includes(':broken'));
     await load(s, 'reload');
-    const again = s.console.filter(t => /Repaired .* damaged homebrew|Set aside newly-invalid/.test(t));
-    check('load: a reload has nothing left to repair or set aside', again.length === 0, again[0]);
+    const again = s.console.filter(t => /Repaired .* damaged homebrew|Set aside newly-invalid|Gave .* with no source/.test(t));
+    check('load: a reload has nothing left to repair, fill or set aside', again.length === 0, again[0]);
     check('load: and leaves the stored library as it was', (await stored(s, 'plugins')) === first);
     await s.ctx.close();
   }

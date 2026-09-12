@@ -44,9 +44,10 @@ const VIEWPORTS = [
   { width: 1280, height: 620 },
 ];
 
-// Two spells and one without a source: a partial import, which leaves a log.
+// Two spells and a broken entry (text where an entry should be): a partial import,
+// which leaves a log.
 const PARTIAL_PACK = '{:orcpub.dnd.e5/spells {:valid-spell {:option-pack "Header Menus Probe" :name "Valid Spell"} '
-  + ':invalid-spell {:name "No Option Pack"} :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
+  + ':invalid-spell "not an entry" :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
 
 const results = [];
 const check = (name, ok, detail = '') => {

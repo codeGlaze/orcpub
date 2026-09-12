@@ -1520,3 +1520,19 @@
 (deftest the-import-notice-names-the-repair
   (let [{:keys [details]} (orcbrew-val/format-import-result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}")))]
     (is (some #(re-find #"Repaired 1 damaged section" %) details))))
+
+(deftest import-gives-an-entry-with-no-source-the-source-it-sits-in
+  (let [import! #(orcbrew-val/validate-import % {:strategy :progressive :auto-clean true})]
+    (testing "single-source file: the source its other entries name"
+      (let [result (import! plugin-with-mixed-validity)]
+        (is (= 3 (:imported-count result)) "the entry with no source used to be skipped")
+        (is (= "Test" (get-in result [:data :orcpub.dnd.e5/spells :invalid-spell :option-pack])))))
+    (testing "multi-source file: the source it is filed under"
+      (is (= "Filed Pak"
+             (get-in (import! "{\"Filed Pak\" {:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}}")
+                     [:data "Filed Pak" :orcpub.dnd.e5/feats :tough :option-pack]))))
+    (testing "no source name anywhere: the default"
+      (is (= "Default Option Source"
+             (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
+                     [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
+

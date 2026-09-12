@@ -127,8 +127,8 @@ The system automatically fixes these common corruption patterns:
 | `disabled? nil` | `disabled? false` |
 | `nil nil,` | (removed) |
 | `:field-name nil` | (removed) |
-| `option-pack ""` | `option-pack "Default Option Source"` |
-| Empty plugin name `""` | `"Default Option Source"` |
+| No `:option-pack`, or `""` or `nil` | The name of the source the entry is filed under; in a single-source file, the one source the other entries name; otherwise `"Default Option Source"` |
+| Empty plugin name `""` | `"Unnamed Content"` (numbered when there are several) |
 
 **This happens automatically** - you don't need to do anything!
 

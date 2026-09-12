@@ -5191,16 +5191,7 @@
    repeat download, spawning a duplicate \"Name 1\" source on re-import. The items
    still carry the true source in :option-pack, so recover it from the DATA."
   [data]
-  (let [packs (distinct
-               (for [[_ items] data
-                     :when (map? items)
-                     [_ item] items
-                     :when (map? item)
-                     :let [p (:option-pack item)]
-                     :when (and (string? p) (not (s/blank? p)))]
-                 p))]
-    (when (= 1 (count packs))
-      (first packs))))
+  (e5/declared-source data))
 
 (def ^:private dedup-suffix-re
   ;; One trailing OS/browser file-dedup marker left on the NAME (extension already

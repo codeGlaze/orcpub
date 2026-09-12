@@ -606,3 +606,25 @@
     (is (string? (:library (e5/mend-library (pr-str {:orcpub.dnd.e5/feats {}}))))))
   (testing "text that does not read stays as it is"
     (is (= "nope {" (:library (e5/mend-library "nope {"))))))
+
+(deftest an-entry-with-no-source-takes-the-name-of-its-source
+  (let [lib {"My Pak" {:orcpub.dnd.e5/spells {:a {:key :a :option-pack "My Pak" :name "A"}
+                                              :b {:key :b :name "B"}
+                                              :c {:key :c :option-pack "" :name "C"}}}}
+        {:keys [library filled]} (e5/fill-library-sources lib)]
+    (is (= "My Pak" (get-in library ["My Pak" :orcpub.dnd.e5/spells :b :option-pack]))
+        "a missing field used to be skipped on import and set aside on load")
+    (is (= "My Pak" (get-in library ["My Pak" :orcpub.dnd.e5/spells :c :option-pack])))
+    (is (= #{:b :c} (set (map :key filled)))))
+  (testing "with no source name to take: what the entries share, else the default"
+    (is (= "Shared" (e5/source-for "" {:orcpub.dnd.e5/feats {:x {:option-pack "Shared"}}})))
+    (is (= e5/default-option-source (e5/source-for nil {:orcpub.dnd.e5/feats {:x {:name "X"}}})))
+    (is (= e5/default-option-source
+           (e5/source-for nil {:orcpub.dnd.e5/feats {:x {:option-pack "A"} :y {:option-pack "B"}}}))))
+  (testing "an entry that names a source keeps it"
+    (is (= "Other" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x {:option-pack "Other"}}} "Mine"))
+                           [:orcpub.dnd.e5/feats :x :option-pack]))))
+  (testing "entries that are not maps are left for the checks that set them aside"
+    (is (= "garbage" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x "garbage"}} "Mine"))
+                             [:orcpub.dnd.e5/feats :x])))))
+

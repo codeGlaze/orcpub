@@ -1153,7 +1153,7 @@
 ;; Fields where nil should be replaced with a default value. A source-less item
 ;; lands in the real built-in "Default Option Source" plugin (db.cljs) rather than
 ;; a phantom "Unnamed Content" one, so it's manageable content, not an orphan.
-(def default-option-source "Default Option Source")
+(def default-option-source e5/default-option-source)
 
 (def nil-replace-defaults
   {:disabled? false
@@ -1869,6 +1869,27 @@
       :empty-section      (str "Dropped " what in ", which was empty")
       (str "Repaired " (or what "a section") in))))
 
+(defn fill-import-sources
+  "Give each entry with no source one (e5/source-for) in freshly read import data, a
+   single source or a {source-name source} library. The July rule filled a blank or
+   nil :option-pack with the default but skipped an entry that left the field out.
+   Returns {:data d :changes [...]}, a :fixed-option-pack change per entry."
+  [data]
+  (let [{:keys [filled] :as result}
+        (if (is-multi-plugin? data)
+          (let [{l :library f :filled} (e5/fill-library-sources data)]
+            {:data l :filled f})
+          (let [to (e5/source-for nil data)
+                {p :plugin f :filled} (e5/fill-missing-sources data to)]
+            {:data p :filled (map #(assoc % :to to) f)}))]
+    {:data (:data result)
+     :changes (mapv (fn [{:keys [source section key to]}]
+                      {:type :fixed-option-pack
+                       :path (cond-> [] source (conj source) true (conj section key))
+                       :from nil
+                       :to to})
+                    filled)}))
+
 (defn validate-import
   "Main validation function for orcbrew file imports.
 
@@ -1939,7 +1960,11 @@
              :changes (into @string-changes repair-changes)}
 
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
-        (let [parsed-data mended
+        (let [;; Step 2.4: an entry with no source takes the name of the source it is
+              ;; filed under, or the one its sibling entries share, else the default.
+              {parsed-data :data source-changes :changes} (if auto-clean
+                                                            (fill-import-sources mended)
+                                                            {:data mended :changes []})
               normalized-data (if auto-clean
                                 (normalize-text-in-data parsed-data)
                                 parsed-data)
@@ -1963,6 +1988,7 @@
 
               all-changes (vec (concat @string-changes
                                        repair-changes
+                                       source-changes
                                        (when text-normalized?
                                          [{:type :text-normalization
                                            :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
