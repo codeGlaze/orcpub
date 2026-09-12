@@ -3,12 +3,13 @@
 
    The compositor stacks assets in fixed z-order (`layer-order` below,
    bottom → top). Every asset is `{:asset/id … :asset/url …}` — the
-   compositor renders <img src=url> per selected layer, absolute-positioned
-   in a common frame. For the MVP the placeholder pack ships inline SVG
-   data URIs so the feature is functional today; when the real illustrator
-   commits PNGs under resources/public/image/portraits/, add or replace
-   entries in `registry` with `{:asset/url \"/image/portraits/…\"}` — no
-   other change needed.
+   compositor renders each selected layer as a CSS mask tinted by the
+   character's colours, absolute-positioned in a common frame.
+
+   `asset-inventory` is the illustrator's real set: ten layers, twenty-eight
+   pieces, their own filenames. The files under
+   resources/public/image/portraits/ are currently silhouettes at the paths
+   the finished art will occupy; a production run overwrites them in place.
 
    Attribution reads directly off this registry: for a composed set of
    layers, look up each layer's asset by id, find the artist whose
@@ -49,103 +50,145 @@
    :mouth      "#c85c5c"
    :bangs      "#f5c46b"})
 
-;; ---------- placeholder SVG art (MVP) ----------
+;; ---------- the asset inventory ----------
 
-(defn- base64 [markup]
-  #?(:clj  (.encodeToString (java.util.Base64/getEncoder)
-                            (.getBytes ^String markup "UTF-8"))
-     :cljs (js/btoa markup)))
+(def asset-root
+  "Where the layer art is served from. Files are named exactly as the
+   illustrator named them, lower-cased."
+  "/image/portraits/")
 
-(defn- svg-uri
-  "Wrap raw SVG markup as a base64 data URI. Base64 keeps the URI safe
-   inside CSS `url(...)` — the compositor uses the asset as a `mask-image`,
-   and the raw-utf8 form trips CSS parsing on the `<` and quotes in the
-   markup. Works for <img src> too. (The placeholder markup is ASCII, so
-   js/btoa is safe.)"
-  [markup]
-  (str "data:image/svg+xml;base64," (base64 markup)))
+(def asset-inventory
+  "The illustrator's real inventory: ten layers, twenty-eight pieces, their
+   own filenames and counts.
 
-(defn- svg-shape
-  "Build an SVG placeholder shape at the compositor's common 400x500
-   viewBox, filled with the layer's category tint."
-  [layer-key path-d]
-  (svg-uri
-    (str "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'>"
-         "<path d='" path-d
-         "' fill='" (layer-colors layer-key)
-         "' stroke='" (layer-colors layer-key)
-         "' stroke-width='2' stroke-linejoin='round' opacity='0.9'/>"
-         "</svg>")))
+   The files currently on disk are SILHOUETTES -- the Loom's 48px alpha
+   shapes, un-squashed back to the source proportions and written to the paths
+   the finished art will occupy. Real shapes and real arrangement, no line
+   detail. Running scripts/build-portrait-assets.py over the originals
+   overwrites these same paths and nothing here changes."
+  {
+   :hair-bits
+   [{:asset/id :l0-hair-bits-pony-long
+     :asset/label "Pony long"
+     :asset/file  "l0_hair_bits_pony_long.png"}
+    {:asset/id :l0-hair-bits-pony-short
+     :asset/label "Pony short"
+     :asset/file  "l0_hair_bits_pony_short.png"}]
+   :hair-back
+   [{:asset/id :l1-hair-back-02
+     :asset/label "Hair back 02"
+     :asset/file  "l1_hair_back_02.png"}
+    {:asset/id :l1-hair-back-03
+     :asset/label "Hair back 03"
+     :asset/file  "l1_hair_back_03.png"}]
+   :head
+   [{:asset/id :l2-head-01
+     :asset/label "Head 01"
+     :asset/file  "l2_head_01.png"}
+    {:asset/id :l2-head-02
+     :asset/label "Head 02"
+     :asset/file  "l2_head_02.png"}
+    {:asset/id :l2-head-03
+     :asset/label "Head 03"
+     :asset/file  "l2_head_03.png"}]
+   :shirt
+   [{:asset/id :l3-shirt-01
+     :asset/label "Shirt 01"
+     :asset/file  "l3_shirt_01.png"}
+    {:asset/id :l3-shirt-02
+     :asset/label "Shirt 02"
+     :asset/file  "l3_shirt_02.png"}
+    {:asset/id :l3-shirt-03
+     :asset/label "Shirt 03"
+     :asset/file  "l3_shirt_03.png"}]
+   :hair-front
+   [{:asset/id :l4-hair-front-01
+     :asset/label "Hair front 01"
+     :asset/file  "l4_hair_front_01.png"}
+    {:asset/id :l4-hair-front-02
+     :asset/label "Hair front 02"
+     :asset/file  "l4_hair_front_02.png"}
+    {:asset/id :l4-hair-front-03
+     :asset/label "Hair front 03"
+     :asset/file  "l4_hair_front_03.png"}]
+   :ears
+   [{:asset/id :l5-ear-01
+     :asset/label "Ears 01"
+     :asset/file  "l5_ear_01.png"}
+    {:asset/id :l5-ear-02
+     :asset/label "Ears 02"
+     :asset/file  "l5_ear_02.png"}
+    {:asset/id :l5-ear-03
+     :asset/label "Ears 03"
+     :asset/file  "l5_ear_03.png"}]
+   :eyes
+   [{:asset/id :l6-eyes-01
+     :asset/label "Eyes 01"
+     :asset/file  "l6_eyes_01.png"}
+    {:asset/id :l6-eyes-02
+     :asset/label "Eyes 02"
+     :asset/file  "l6_eyes_02.png"}
+    {:asset/id :l6-eyes-03
+     :asset/label "Eyes 03"
+     :asset/file  "l6_eyes_03.png"}]
+   :nose
+   [{:asset/id :l7-nose-01
+     :asset/label "Nose 01"
+     :asset/file  "l7_nose_01.png"}
+    {:asset/id :l7-nose-02
+     :asset/label "Nose 02"
+     :asset/file  "l7_nose_02.png"}
+    {:asset/id :l7-nose-03
+     :asset/label "Nose 03"
+     :asset/file  "l7_nose_03.png"}]
+   :mouth
+   [{:asset/id :l8-mouth-01
+     :asset/label "Mouth 01"
+     :asset/file  "l8_mouth_01.png"}
+    {:asset/id :l8-mouth-02
+     :asset/label "Mouth 02"
+     :asset/file  "l8_mouth_02.png"}
+    {:asset/id :l8-mouth-03
+     :asset/label "Mouth 03"
+     :asset/file  "l8_mouth_03.png"}]
+   :bangs
+   [{:asset/id :l9-bangs-01
+     :asset/label "Bangs 01"
+     :asset/file  "l9_bangs_01.png"}
+    {:asset/id :l9-bangs-02
+     :asset/label "Bangs 02"
+     :asset/file  "l9_bangs_02.png"}
+    {:asset/id :l9-bangs-03
+     :asset/label "Bangs 03"
+     :asset/file  "l9_bangs_03.png"}]})
 
-;; Per-layer placeholder paths. Real art will drop into the same layer
-;; slots and stack in the same order — the shapes here just occupy the
-;; regions the real assets will occupy.
-(def ^:private placeholder-shapes
-  {:hair-bits  [{:id :hair-bits-fringe
-                 :label "Fringe"
-                 :d "M120,180 Q200,140 280,180 L280,192 Q200,150 120,192 Z"}]
-   :hair-back  [{:id :hair-back-full
-                 :label "Full"
-                 :d "M110,190 Q110,110 200,100 Q290,110 290,190 L306,340 L94,340 Z"}
-                {:id :hair-back-short
-                 :label "Short"
-                 :d "M120,190 Q120,120 200,110 Q280,120 280,190 L280,260 L120,260 Z"}]
-   :head       [{:id :head-oval
-                 :label "Oval"
-                 :d "M200,110 C260,110 285,155 285,205 C285,265 250,300 200,300 C150,300 115,265 115,205 C115,155 140,110 200,110 Z M175,290 L175,330 L225,330 L225,290 Z"}
-                {:id :head-round
-                 :label "Round"
-                 :d "M200,110 Q285,110 285,215 Q285,300 200,300 Q115,300 115,215 Q115,110 200,110 Z M175,290 L175,335 L225,335 L225,290 Z"}]
-   :shirt      [{:id :shirt-tunic
-                 :label "Tunic"
-                 :d "M130,362 Q100,430 76,500 L324,500 Q300,430 268,362 L235,352 L200,378 L165,352 Z"}
-                {:id :shirt-cloak
-                 :label "Cloak"
-                 :d "M120,360 Q80,410 60,500 L340,500 Q320,410 280,360 L240,340 L200,360 L160,340 Z"}]
-   :hair-front [{:id :hair-front-swept
-                 :label "Swept"
-                 :d "M118,190 Q108,150 128,124 L200,148 L272,124 Q292,150 282,192 L268,182 Q220,192 200,184 Q180,192 132,182 Z"}]
-   :ears       [{:id :ears-small
-                 :label "Small"
-                 :d "M105,220 Q95,235 102,258 Q112,266 122,258 L122,220 Z M295,220 Q305,235 298,258 Q288,266 278,258 L278,220 Z"}]
-   :eyes       [{:id :eyes-focused
-                 :label "Focused"
-                 :d "M154,196 Q172,182 190,196 M210,196 Q228,182 246,196 M170,200 L174,200 M226,200 L230,200"}
-                {:id :eyes-wide
-                 :label "Wide"
-                 :d "M154,200 Q172,188 190,200 Q172,212 154,200 Z M210,200 Q228,188 246,200 Q228,212 210,200 Z"}]
-   :nose       [{:id :nose-slim
-                 :label "Slim"
-                 :d "M198,214 L196,246 Q200,254 204,246 L202,214 Z"}]
-   :mouth      [{:id :mouth-small
-                 :label "Small"
-                 :d "M184,268 Q200,282 216,268"}]
-   :bangs      [{:id :bangs-side-swept
-                 :label "Side-swept"
-                 :d "M116,178 Q136,132 200,132 Q188,150 168,158 Q142,170 116,190 Z"}]})
+(defn- assets-for
+  [layer-key entries]
+  (mapv (fn [{:asset/keys [id label file]}]
+          {:asset/id    id
+           :asset/label label
+           :asset/url   (str asset-root (name layer-key) "/" file)
+           :asset/tags  #{layer-key}})
+        entries))
 
-(def placeholder-pack
-  {:artist/id      :placeholder-pack
-   :artist/name    "Placeholder Pack"
+(def house-pack
+  "The single contributing artist.
+
+   :artist/name is deliberately nil until the illustrator says how they want
+   to be credited. credit-line skips unnamed artists, so nothing invents a
+   byline for them in the meantime -- the sheet, the share card and the
+   summary simply show no credit until this is filled in."
+  {:artist/id      :house-pack
+   :artist/name    nil
    :artist/link    nil
-   :artist/license "CC0 — geometric MVP stand-ins"
-   :artist/layers
-   (reduce-kv
-     (fn [m layer-key shapes]
-       (assoc m layer-key
-              (mapv (fn [{:keys [id label d]}]
-                      {:asset/id    id
-                       :asset/label label
-                       :asset/url   (svg-shape layer-key d)
-                       :asset/tags  #{:placeholder layer-key}})
-                    shapes)))
-     {}
-     placeholder-shapes)})
+   :artist/license nil
+   :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
+                              {} asset-inventory)})
 
 (def registry
   "Contributing artists. Later entries layer on top of earlier ones —
    pickers show every artist's assets for a category, in registry order."
-  [placeholder-pack])
+  [house-pack])
 
 ;; ---------- lookup helpers ----------
 
@@ -195,17 +238,22 @@
   [layers-selection]
   (into [] (keep artist-info) (all-artists-for-layers layers-selection)))
 
-(defn credit-line
-  "One-line attribution for a composed portrait -- \"Art: Elowen Vex\".
+(defn format-credit
+  "The credit string for a list of artist names, or nil for none."
+  [names]
+  (when (seq names)
+    (str "Art: " (s/join ", " names))))
 
-   nil when nothing is composed or no named artist is on canvas, so every
-   caller can just `when-let` and skip the surface entirely. Shared by the
-   PDF export, the share card and the character summary so all three credit
-   the same people the same way."
+(defn credit-line
+  "One-line attribution for a composed portrait.
+
+   nil when nothing is composed, or when no artist on canvas has said how they
+   want to be credited -- an unnamed artist is skipped rather than given an
+   invented byline. Every caller can `when-let` and drop the surface entirely.
+   Shared by the PDF export, the share card and the character summary so all
+   three credit the same people the same way."
   [portrait]
-  (let [names (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))]
-    (when (seq names)
-      (str "Art: " (s/join ", " names)))))
+  (format-credit (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))))
 
 ;; ---------- pure helpers for seeded randomization ----------
 ;;

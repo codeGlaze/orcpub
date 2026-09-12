@@ -101,8 +101,21 @@ function check(label, ok, detail) {
 
   // The server gets baked pixels, not the layer selection, so the artists'
   // names have to travel with them or the printed sheet credits nobody.
+  //
+  // Whether there is a credit at all depends on the registry: an artist who
+  // has not said how they want to be credited is left unnamed rather than
+  // given an invented byline. So this asserts the two agree -- a name in the
+  // drawer must reach the POST, and an unnamed artist must not produce an
+  // empty "Art:" on the printed sheet.
+  // Compared against the summary's credit line, not the drawer's: the drawer
+  // is closed by the time the export runs, so reading it would make this
+  // check pass vacuously whatever the registry said.
   const credit = (decoded.match(/:portrait-credit\s+"([^"]*)"/) || [])[1];
-  check('request carried the artist credit', !!credit && /^Art: \S/.test(credit), credit);
+  const shown = await page.locator('.pl-thumb-credit').first().textContent()
+                  .catch(() => null);
+  check('the sheet is credited exactly like the summary',
+        shown ? credit === shown : !credit,
+        `summary=${JSON.stringify(shown)} posted=${JSON.stringify(credit)}`);
 
   // --- and the server produced a PDF that embeds it --------------------
   // Chrome renders a PDF navigation in its own viewer, so response.body()
