@@ -9,14 +9,16 @@
    No new dependency is needed. Vector assets reuse pdf/svg-path-ops -- the
    same `d`-attribute parser the card icons are drawn with -- and its
    [:move]/[:line]/[:curve]/[:close] output maps directly onto a Java2D
-   Path2D. Raster assets (what the real illustrator's art will be) are tinted
-   with AlphaComposite/SrcIn, which is the exact server-side equivalent of the
-   canvas 'source-in' trick the client uses.
+   Path2D. Raster assets -- the illustrator's own layer art, read off the
+   classpath under resources/public -- are tinted with AlphaComposite/SrcIn,
+   which is the exact server-side equivalent of the canvas 'source-in' trick
+   the client uses.
 
    Every failure degrades to 'no portrait' rather than throwing: a share card
    without a picture is a state the page already handles, and it must not cost
    the character their page."
-  (:require [clojure.string :as s]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as s]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
@@ -42,6 +44,29 @@
       (try
         {:mime mime :bytes (.decode (Base64/getDecoder) ^String b64)}
         (catch Exception _ nil)))))
+
+(defn asset-source
+  "Bytes for an asset URL, plus the mime that decides how to draw it.
+
+   The registry moved from inline data URIs to real files under
+   resources/public once the illustrator's inventory landed, so this resolves
+   both: a data URI is decoded in place, and a site-absolute path is read off
+   the classpath. Anything else -- an off-site URL especially -- returns nil,
+   because rendering a share card must never become a way to make the server
+   fetch arbitrary URLs."
+  [uri]
+  (or (parse-data-uri uri)
+      (when (and (string? uri) (s/starts-with? uri "/") (not (s/includes? uri "..")))
+        (when-let [res (io/resource (str "public" uri))]
+          (try
+            (with-open [in (io/input-stream res)
+                        out (ByteArrayOutputStream.)]
+              (io/copy in out)
+              {:mime (if (s/ends-with? (s/lower-case uri) ".svg")
+                       "image/svg+xml"
+                       "image/png")
+               :bytes (.toByteArray out)})
+            (catch Exception _ nil))))))
 
 (defn- svg-view-box
   "The [w h] a path's coordinates are expressed in, defaulting to the
@@ -132,7 +157,7 @@
              ;; One unreadable layer is skipped, not fatal -- the rest of the
              ;; portrait is still worth showing.
              (try
-               (let [{:keys [mime bytes]} (parse-data-uri (:asset/url asset))
+               (let [{:keys [mime bytes]} (asset-source (:asset/url asset))
                      color (hex->color (pa/tint-for portrait layer-key))]
                  (when (and mime bytes color)
                    (if (s/includes? mime "svg")

@@ -28,22 +28,25 @@
                                :asset/id  (:asset/id a)}])))
                  layer-keys)})
 
-(deftest credits-the-artists-on-canvas
-  (let [line (pa/credit-line (portrait-with [:head :shirt :eyes]))]
-    (is (some? line))
-    (is (re-find #"^Art: " line))
-    (doseq [{:keys [:artist/name]} (pa/artists-for-layers
-                                    (:layers (portrait-with [:head :shirt :eyes])))]
-      (is (re-find (re-pattern (java.util.regex.Pattern/quote name)) line)
-          (str name " is on canvas and must be named")))))
+(deftest formats-one-credit-for-the-artists-named
+  (is (= "Art: A Person" (pa/format-credit ["A Person"])))
+  (is (= "Art: A Person, B Person" (pa/format-credit ["A Person" "B Person"])))
+  (testing "one artist across many layers is one credit, not many"
+    (is (= 1 (count (re-seq #"Art:" (pa/format-credit ["A Person"])))))))
 
-(deftest names-each-artist-once
-  (testing "three layers from one artist is one credit, not three"
-    (let [line (pa/credit-line (portrait-with [:head :shirt :eyes]))]
-      (is (= 1 (count (re-seq #"Art:" line))))
-      (is (apply distinct? (map :artist/name
-                                (pa/artists-for-layers
-                                 (:layers (portrait-with [:head :shirt :eyes])))))))))
+(deftest an-unnamed-artist-gets-no-invented-byline
+  (testing "the illustrator has not yet said how they want to be credited, so
+            :artist/name is nil and every surface shows nothing rather than a
+            name nobody chose"
+    (is (nil? (pa/credit-line (portrait-with [:head :shirt :eyes])))))
+  (is (nil? (pa/format-credit nil)))
+  (is (nil? (pa/format-credit []))))
+
+(deftest artists-on-canvas-are-found-and-deduped
+  (testing "the lookup still works; only the name is missing"
+    (let [artists (pa/artists-for-layers (:layers (portrait-with [:head :shirt :eyes])))]
+      (is (= 1 (count artists)) "one artist, once, across three layers")
+      (is (= :house-pack (:artist/id (first artists)))))))
 
 (deftest nil-when-there-is-nothing-to-credit
   (is (nil? (pa/credit-line nil)))
@@ -57,8 +60,8 @@
 (deftest strips-what-the-pdf-font-cannot-encode
   (testing "PDFBox standard-14 is WinAnsi; an unencodable glyph throws on
             showText and would take the whole sheet down"
-    (is (= "Art: Elowen Vex" (routes/pdf-safe-text "Art: Elowen Vex")))
-    (is (= "Art: Elowen Vex" (routes/pdf-safe-text "Art: Elowen ☃ Vex"))
+    (is (= "Art: A Person" (routes/pdf-safe-text "Art: A Person")))
+    (is (= "Art: A Person" (routes/pdf-safe-text "Art: A ☃ Person"))
         "snowman dropped")
     (is (= "Art: Renee Dore" (routes/pdf-safe-text "Art: Renee Dore")))
     (is (= "Art: Renée Doré" (routes/pdf-safe-text "Art: Renée Doré"))
@@ -99,15 +102,15 @@
   (testing "styles 1-3 draw the portrait on page 1"
     (doseq [style [1 2 3]]
       (with-open [doc (blank-doc 3)]
-        (routes/draw-portrait-credit! doc style "Art: Elowen Vex")
-        (is (re-find #"Art: Elowen Vex" (text-of doc 1))
+        (routes/draw-portrait-credit! doc style "Art: A Person")
+        (is (re-find #"Art: A Person" (text-of doc 1))
             (str "style " style " credit missing from page 1"))
         (is (not (re-find #"Art:" (text-of doc 0)))
             (str "style " style " credit must not land on page 0")))))
   (testing "style 4 moves the portrait, and the credit follows it to page 0"
     (with-open [doc (blank-doc 3)]
-      (routes/draw-portrait-credit! doc 4 "Art: Elowen Vex")
-      (is (re-find #"Art: Elowen Vex" (text-of doc 0)))
+      (routes/draw-portrait-credit! doc 4 "Art: A Person")
+      (is (re-find #"Art: A Person" (text-of doc 0)))
       (is (not (re-find #"Art:" (text-of doc 1)))))))
 
 (deftest credit-is-centred-on-the-portrait-box
@@ -151,15 +154,21 @@
         tag (re-find #"<meta[^>]*og:description[^>]*>" html)]
     (second (some->> tag (re-find #"content=\"([^\"]*)\"")))))
 
-(deftest share-card-names-the-artists
-  (with-conn conn
-    (let [c (setup conn)
-          p (portrait-with [:head :shirt])
-          id (:db/id (save! c (character-with {::char5e/portrait (pr-str p)})))
-          desc (description-of c id)]
-      (is (some? desc))
-      (is (re-find #"Art:" desc)
-          (str "a shared link is where the art travels; got " desc)))))
+(deftest share-card-carries-whatever-credit-there-is
+  (testing "the card appends the credit-line verbatim, so it says exactly what
+            the registry says -- nothing today, the artist's name once they
+            have chosen one, and never a half-built 'Art:' with no names"
+    (with-conn conn
+      (let [c (setup conn)
+            p (portrait-with [:head :shirt])
+            id (:db/id (save! c (character-with {::char5e/portrait (pr-str p)})))
+            desc (str (description-of c id))]
+        (is (seq desc) "the card still has a description")
+        (is (= (boolean (pa/credit-line p))
+               (boolean (re-find #"Art:" desc)))
+            (str "card and registry disagree about the credit; got " desc))
+        (is (not (re-find #"Art:\s*(·|$)" desc))
+            "never an empty credit")))))
 
 (deftest share-card-stays-clean-without-a-portrait
   (with-conn conn

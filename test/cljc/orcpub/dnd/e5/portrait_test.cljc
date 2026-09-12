@@ -2,6 +2,7 @@
   "Pure-fn tests for the paper-doll compositor. Everything here runs on
    both JVM (via lein test) and cljs — no DOM, no re-frame."
   (:require [clojure.test :refer [deftest testing is]]
+            #?(:clj [clojure.java.io :as cio])
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.portrait-assets :as pa]))
@@ -18,18 +19,27 @@
     (is (= (set pa/layer-order) (set (keys pa/color-slots)))
         "every layer has a color-slot mapping (nil allowed)")))
 
-(deftest every-layer-has-at-least-one-placeholder-asset
+(deftest every-layer-has-at-least-one-asset
   (testing "the MVP feature is functional out of the box"
     (doseq [layer-key pa/layer-order]
       (is (pos? (pa/asset-count-for-layer layer-key))
-          (str "layer " layer-key " has no placeholder assets")))))
+          (str "layer " layer-key " has no assets")))))
 
-(deftest placeholder-asset-urls-are-base64-data-uris
-  (testing "safe inside CSS url() for mask-image as well as <img src>"
+(deftest asset-urls-point-into-the-portrait-tree
+  (doseq [layer-key pa/layer-order
+          asset (pa/assets-for-layer layer-key)]
+    (is (re-find (re-pattern (str "^/image/portraits/" (name layer-key) "/[a-z0-9_]+\\.png$"))
+                 (:asset/url asset))
+        (str (:asset/id asset) " is not served from its layer directory: "
+             (:asset/url asset)))))
+
+(deftest every-asset-file-is-actually-on-disk
+  (testing "a registry entry pointing at a missing file is an invisible layer"
     (doseq [layer-key pa/layer-order
             asset (pa/assets-for-layer layer-key)]
-      (is (re-find #"^data:image/svg\+xml;base64,[A-Za-z0-9+/=]+$" (:asset/url asset))
-          (str (:asset/id asset) " is not a base64 data URI")))))
+      (is (some? #?(:clj (cio/resource (str "public" (:asset/url asset)))
+                    :cljs :skipped))
+          (str "missing file for " (:asset/id asset) ": " (:asset/url asset))))))
 
 (deftest asset-by-id-round-trips
   (doseq [layer-key pa/layer-order
@@ -43,9 +53,9 @@
 
 (deftest artist-attribution-includes-only-selected
   (let [head-asset (first (pa/assets-for-layer :head))
-        selection {:head {:artist/id (:artist/id pa/placeholder-pack)
+        selection {:head {:artist/id (:artist/id pa/house-pack)
                           :asset/id  (:asset/id head-asset)}}]
-    (is (= [(:artist/id pa/placeholder-pack)]
+    (is (= [(:artist/id pa/house-pack)]
            (pa/all-artists-for-layers selection)))))
 
 (deftest artist-attribution-empty-when-nothing-selected
@@ -54,7 +64,7 @@
 
 (deftest artist-for-asset-finds-owner
   (let [head-asset (first (pa/assets-for-layer :head))]
-    (is (= (:artist/id pa/placeholder-pack)
+    (is (= (:artist/id pa/house-pack)
            (pa/artist-for-asset :head (:asset/id head-asset)))))
   (is (nil? (pa/artist-for-asset :head :no-such-asset))))
 
@@ -161,8 +171,8 @@
 ;; ---------- persistence (EDN string on the character) ----------
 
 (deftest portrait-round-trips-through-edn-string
-  (let [portrait {:layers {:head  {:artist/id :placeholder-pack :asset/id :head-oval}
-                           :bangs {:artist/id :placeholder-pack :asset/id :bangs-side-swept}}
+  (let [portrait {:layers {:head  {:artist/id :house-pack :asset/id :l2-head-01}
+                           :bangs {:artist/id :house-pack :asset/id :l9-bangs-01}}
                   :colors {:hair "#5c3a1e"}
                   :tweaks {:bangs {:shade 20}}}
         stored (pr-str portrait)]

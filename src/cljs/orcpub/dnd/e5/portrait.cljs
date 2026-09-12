@@ -767,20 +767,33 @@
      (when (= open-layer layer-key)
        [:div.pl-layer-panel [sub-row portrait layer-key]])]))
 
-(defn- attribution [layers]
-  (let [artist-ids (pa/all-artists-for-layers layers)]
+(defn- attribution
+  "Who drew what is on canvas.
+
+   An artist with no :artist/name is on canvas but has not said how they want
+   to be credited. Showing the label with an empty slot after it reads like a
+   rendering fault, and inventing something to put there is worse, so the
+   whole strip says so plainly instead."
+  [layers]
+  (let [infos (pa/artists-for-layers layers)
+        named (filter :artist/name infos)]
     [:div.pl-attribution
-     [:span.pl-attribution-label "Art by"]
-     (if (seq artist-ids)
-       (for [aid artist-ids
-             :let [info (pa/artist-info aid)]]
-         ^{:key aid}
-         [:span.pl-artist
-          [:span.pl-artist-swirl "§"]
-          (if (:artist/link info)
-            [:a {:href (:artist/link info) :target "_blank" :rel "noopener"}
-             (:artist/name info)]
-            [:span.pl-artist-name (:artist/name info)])])
+     (cond
+       (seq named)
+       [:<>
+        [:span.pl-attribution-label "Art by"]
+        (for [{:keys [:artist/id :artist/name :artist/link]} named]
+          ^{:key id}
+          [:span.pl-artist
+           [:span.pl-artist-swirl "\u00a7"]
+           (if link
+             [:a {:href link :target "_blank" :rel "noopener"} name]
+             [:span.pl-artist-name name])])]
+
+       (seq infos)
+       [:span.pl-attribution-empty "artist credit pending"]
+
+       :else
        [:span.pl-attribution-empty "no layers selected yet"])]))
 
 ;; ---------------- drawer ----------------
