@@ -8,6 +8,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 |----------|---------|
 | [character-image-routes.md](character-image-routes.md) | How a character portrait reaches the sheet: CORS vs hotlink blocking measured against real hosts, two withdrawn conclusions, what the browser cannot be made to do, and how to reach the real internet from a browser test here |
 | [documentation-discipline.md](documentation-discipline.md) | What earns a KB doc; verify don't remember; update in place; record reversals; index it or it is invisible; arm the hooks |
+| [claude-branch-triage.md](claude-branch-triage.md) | Which of the 37 `claude/*` auto-branches hold work that exists nowhere else: content-based verdicts (4 already squash-merged despite the ancestor check, 5 duplicated elsewhere, 16 unique, 12 disposable), the method that beats reachability, and the live Robe of the Archmagi AC bug it turned up |
 | [code-comment-style.md](code-comment-style.md) | House comment style: tech-manual not journal; docstrings for the what, inline why only for constraints; no jargon/markers/KB-links; relating scattered code |
 | [pedestal-csp-history.md](pedestal-csp-history.md) | Full CSP research: Pedestal 0.5.1→0.7.0 timeline, why nonces not static hashes, corrections to UPGRADE_PLAN.md |
 | [dev-tooling-decisions.md](dev-tooling-decisions.md) | user.clj consolidation plan, dev-setup.sh decision, config.clj SSOT rationale, port/CI corrections |
