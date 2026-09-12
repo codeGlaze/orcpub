@@ -204,6 +204,11 @@ comes with a check that fails without it.
   "9 Lives" was saved under a key the next load set aside (`0b71b8b0`).
 - **Renames chosen for existing items are kept when nothing incoming imports** —
   they were dropped along with the incoming entries (`01217a11`).
+- **An entry with no source takes the name of the source it sits in** — unless its
+  source field was there but blank, it was skipped on import or set aside on load.
+  Only an entry with no name to take goes to Default Option Source (`1f8fef2b`).
+- **An import with an entry that isn't a map no longer crashes** — the entry is
+  skipped and listed in the import log (`09c22e11`).
 
 ## Changed
 
