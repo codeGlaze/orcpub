@@ -12,6 +12,7 @@
    Requires a real localStorage — runs in the headless chromium cljs suite."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
             [re-frame.registrar :as registrar]
+            [cljs.reader :as reader]
             [orcpub.dnd.e5.db :as db]))
 
 (defn- clear-storage! []
@@ -142,3 +143,24 @@
     (let [before (.getItem js/window.localStorage db/local-storage-plugins-key)]
       (load-plugins!)
       (is (= before (.getItem js/window.localStorage db/local-storage-plugins-key))))))
+
+;; ---------------------------------------------------------------------------
+;; A stored library that reads but is not one is handled once, not every load
+;; ---------------------------------------------------------------------------
+
+(deftest a-stored-value-that-is-not-a-library-is-set-aside-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key "[:not :a :library]")
+  (is (nil? (load-plugins!)) "loads no homebrew")
+  (is (= "[:not :a :library]"
+         (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))
+      "a copy is kept for recovery")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-key))
+      "and the active slot is cleared; it used to be copied again on every load"))
+
+(deftest a-library-stored-as-text-loads-and-is-written-back
+  (let [lib {"Text Pak" {:orcpub.dnd.e5/feats {:tough {:option-pack "Text Pak" :key :tough :name "Tough"}}}}]
+    (.setItem js/window.localStorage db/local-storage-plugins-key (pr-str (pr-str lib)))
+    (is (= lib (load-plugins!)) "it used to load nothing")
+    (is (= lib (reader/read-string (.getItem js/window.localStorage db/local-storage-plugins-key)))
+        "stored as the library itself from now on")
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key))))))

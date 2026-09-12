@@ -121,26 +121,31 @@
    plugin))
 
 (defn mend-library
-  "`mend-plugin` over every source of a {source-name source} library, reading a source
-   stored as text back first. Returns {:library l :repairs [{:source :section :repair}]}.
-   Runs before salvage on load, so each repair is written back once."
+  "`mend-plugin` over every source of a {source-name source} library, reading back the
+   whole library, or a source, stored as text first. Text only counts as a library when
+   it reads as one: a map keyed by source names. Returns {:library l :repairs [{:source
+   :section :repair}]}. Runs before salvage on load, so each repair is written back once."
   [library]
-  (if-not (map? library)
-    {:library library :repairs []}
-    (reduce-kv
-     (fn [acc src plugin]
-       (let [from-text (when (string? plugin) (read-back plugin))
-             plugin (if (map? from-text) from-text plugin)]
-         (if (map? plugin)
-           (let [{p :plugin rs :repairs} (mend-plugin plugin)]
-             (-> acc
-                 (assoc-in [:library src] p)
-                 (update :repairs into
-                         (cond->> (map #(assoc % :source src) rs)
-                           (map? from-text) (cons {:source src :repair :source-from-text})))))
-           (assoc-in acc [:library src] plugin))))
-     {:library {} :repairs []}
-     library)))
+  (let [from-text (when (string? library) (read-back library))
+        whole? (and (map? from-text) (every? string? (keys from-text)))
+        library (if whole? from-text library)]
+    (if-not (map? library)
+      {:library library :repairs []}
+      (cond-> (reduce-kv
+               (fn [acc src plugin]
+                 (let [from-text (when (string? plugin) (read-back plugin))
+                       plugin (if (map? from-text) from-text plugin)]
+                   (if (map? plugin)
+                     (let [{p :plugin rs :repairs} (mend-plugin plugin)]
+                       (-> acc
+                           (assoc-in [:library src] p)
+                           (update :repairs into
+                                   (cond->> (map #(assoc % :source src) rs)
+                                     (map? from-text) (cons {:source src :repair :source-from-text})))))
+                     (assoc-in acc [:library src] plugin))))
+               {:library {} :repairs []}
+               library)
+        whole? (update :repairs #(into [{:repair :library-from-text}] %))))))
 
 (defn mend-import-data
   "Repair freshly read import data before anything else walks it: a whole file stored
