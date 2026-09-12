@@ -2001,6 +2001,15 @@
      {:color "rgba(255,255,255,0.5)"
       :margin-top "8px"}]
 
+    ;; A nameless item in the missing-fields dialog: placeholder title, key beneath.
+    [:.issue-item-heading
+     {:margin-bottom "4px"}]
+
+    [:.issue-item-key
+     {:font-family "monospace"
+      :font-size "12px"
+      :color "rgba(255,255,255,0.5)"}]
+
     ;; Conflict card — an unresolved conflict is an attention item, so its rail and
     ;; key carry the same warning-yellow used by the health card and library tint.
     [:.conflict-item
