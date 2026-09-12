@@ -552,11 +552,12 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, irreducible, learned, lessons, machine, push, reminder, scripts, session, stale
+**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, history, hook, learned, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
 - Structure: current truth first, audit trail last
+- Docstrings are SPEC, not prose
 - Claims must be proven, not asserted
 - The push reminder hook
 - Audit history
@@ -806,7 +807,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, 2026-09-11, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)

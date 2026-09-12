@@ -127,3 +127,8 @@ _*.js
 # Python bytecode from scripts/ (scripts/lint-changelog.py is run, not imported)
 __pycache__/
 *.pyc
+
+# Agent entry point. Copied in per environment, never committed here — it lives on
+# agents/develop, which is the one place the agent-facing docs are kept. Tracking it on a
+# code branch is how it drifts between branches and how integration ended up deleting it.
+/CLAUDE.md
