@@ -156,3 +156,57 @@ as an afterthought rather than part of that source's controls.
   disabled, then Export and Delete on one row, with side padding so nothing is
   flush against the panel. On a phone the search takes the row and the toggle and
   buttons wrap beneath it.
+
+# Branch changelog — `integration-local`
+
+## Why this branch exists
+
+Hotfixes found while testing PR #33 before the roll-up to gitea. Several repairs
+ran again on every load because nothing saved them, the save banner's export link
+had regressed, damaged homebrew loaded without a word and failed later at export,
+and a few notices and controls misreported or covered what they sat on. Each fix
+comes with a check that fails without it.
+
+## Added
+
+- **A check that every fix is saved** — a browser probe applies each repair through
+  the app, reloads and exports, so a fix that only lives on screen fails a test
+  instead of reverting on refresh (`dd2ff2b7`).
+
+## Fixed
+
+- **A character is repaired on refresh too, and stays repaired** — the repair is
+  saved back to the builder's draft, so it happens once instead of on every load,
+  and its notice shows after the page navigates instead of being cleared by it
+  (`76dd9497`, `ae6be67b`).
+- **Entries set aside on load leave the stored library** — they were set aside in
+  memory only and came back on the next refresh (`d3880ecb`).
+- **The save banner's export link exports the source as it is now** — it exported
+  the copy it remembered from when the banner appeared, dropping later edits
+  (`44e97206`).
+- **Damaged homebrew is repaired on import and on load** — a section stored as
+  text or as a list comes back with everything in it, and a file whose whole
+  content was stored as text imports instead of crashing. What nothing can read is
+  set aside with Export raw and Discard (`9ef8bfe5`, `a4c69f62`).
+- **A partial import shows as a warning** — it arrived in the green success card.
+  Each line is now marked imported, repaired or skipped, and counts read "1 item"
+  (`a89b2102`).
+- **A nameless item reads "Unnamed Spell" in the missing-fields dialog** — with its
+  key beneath, instead of a bare ":no-name" (`bd664a96`).
+- **The import-log button no longer covers header menus** — it stays off the page
+  while the log is empty and draws under an open menu (`e30e0061`).
+- **The save sparkle stays on the save button** — it drifted into the gap beside
+  it (`bcf713d6`).
+- **A library stored as text loads again** — it loaded nothing (`0b5c05be`).
+- **A stored value that isn't a library is handled once** — it was copied aside
+  again on every load (`0b5c05be`).
+- **Save anyway in the selection builder keeps the selection** — a name like
+  "9 Lives" was saved under a key the next load set aside (`0b71b8b0`).
+- **Renames chosen for existing items are kept when nothing incoming imports** —
+  they were dropped along with the incoming entries (`01217a11`).
+
+## Changed
+
+- **Browser probes share one way to find Chromium** — they find Playwright's
+  current install without setting four variables by hand, and the runner reports
+  a missing browser once as a skip (`b48d312c`).
