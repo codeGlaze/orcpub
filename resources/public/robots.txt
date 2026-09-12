@@ -2,6 +2,49 @@
 User-agent: *
 Disallow: /
 
+# ---------------------------------------------------------------------------
+# Link-preview crawlers, allowed on purpose.
+#
+# These are not indexers. They fetch a page only when a person has already
+# pasted its URL into a chat, and they read the og:/twitter: meta tags to draw
+# the card. The blanket Disallow above was silently breaking every shared
+# character link on Discord, Mastodon, Slack and X, all of which honour
+# robots.txt (Facebook's crawler ignores it, which is why those links worked).
+#
+# This widens nothing about who can *reach* a character page -- those are
+# already served unauthenticated by id. It only lets the preview be drawn.
+# ---------------------------------------------------------------------------
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: Mastodon
+Allow: /
+
+User-agent: SkypeUriPreview
+Allow: /
+
+User-agent: redditbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
 # Named AI / dataset crawlers. The blanket rule above already covers these
 # for any crawler that honours it; they are listed by product token because
 # several vendors only match their own name, and because an explicit entry
