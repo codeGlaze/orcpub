@@ -39,11 +39,12 @@ release; the next one inherits the branches.
   Researched, unbuilt. Belongs under `refactor/content-extensibility`, which is the live leaf,
   carries the orcbrew v1/v2 format versioning, and rewrites the same files. Blocked on: CR is
   a string on the character and a number on the monster; and nothing lets content declare that
-  a feature grants a creature.
+  a feature grants a creature. **Edition is not a blocker** — both rulesets ship and mix, so
+  both get built; only the default is open.
 - **NPC statblock customizer** —
   [`docs/kb/plan-npc-statblock-customizer.md`](docs/kb/plan-npc-statblock-customizer.md).
   DM-facing, not character-facing. Researched, unbuilt. Independent of the Extras leaf but
-  shares the copy-on-adopt statblock shape and the same 2014-vs-2024 decision.
+  shares the copy-on-adopt statblock shape.
 - No other leaf planned or started.
 
 ## Agent tooling

@@ -49,8 +49,9 @@ editing from there. Both want copy-on-adopt with the source recorded, not a live
 
 ## Open
 
-- **Which edition's statblock?** 2024 changed monster statblock layout and some derivations.
-  Same 2014-vs-2024 decision the Extras work is waiting on; answering once serves both.
+- **Which edition's statblock?** 2024 changed the layout and some derivations. Not a gate —
+  the site supports both and mixing between them, so both get implemented. Open only as to
+  which is default and how a table overrides it.
 - **Does CR recompute, or is it advisory?** Full CR derivation (defensive and offensive CR,
   averaged) is a substantial calculation with judgement calls in it. A first version could
   recompute everything downstream of PB but leave CR as a field the DM sets, flagging when

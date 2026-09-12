@@ -458,8 +458,12 @@ codebase reaches for.
   the feature needs a way for plugin content to declare "this subclass grants a companion
   of kind X". No such hook exists. This is the companion half's equivalent of the CR type
   fix — the thing everything else waits on.
-- **2024 rules.** Beast Master and Wild Shape both changed. Confirm which edition the data
-  shape targets before building.
+- **2024 rules — NOT a blocker, and the plan previously said it was.** The site supports both
+  editions *and* mixing between them, so both rules get implemented regardless. 2014 uses a CR
+  bound, so the CR work in slices 1-2 is required under any outcome; 2024's rule is an
+  additional implementation beside it, not instead of it. What is open is only which is the
+  default and how a table overrides it per rule — see
+  [srd-2024-integration.md](srd-2024-integration.md).
 - **The 5etools schema was not obtained** — GitHub returns 403 through this sandbox's proxy.
   Worth their `summonedBySpell` / `summonedByClass` field names if import compatibility
   matters.
