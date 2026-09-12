@@ -150,8 +150,28 @@ selected:
 The example pack itself is the closing section of `docs/ORCBREW-AUTHORING.md` on the code
 branch, written for a human audience.
 
+## Races
+
+Races use `:props`, not `:level-modifiers` — nothing gates a race grant by level. The widget
+level detail is already recorded: `builder-disposition-audit.md` on `feature/grant-rows`
+audits all 19 race widgets, what each writes and what reads it, measured 2026-09-07. Read
+that before touching the race builder; it is not repeated here.
+
+One thing it does not cover, because it audits what the builder writes rather than what the
+app accepts. A race can grant armor and weapon proficiency **two different ways**:
+
+```clojure
+:props {:armor-prof {:light true}}   ; what the builder writes
+:armor-proficiencies [:light]        ; top-level, consumed but never written by a widget
+```
+
+`race-option` destructures `:armor-proficiencies` and `:weapon-proficiencies` and passes them
+straight to `armor-prof-modifiers` / `weapon-prof-modifiers` (`options.cljc:2268`, body around
+`:2330`), reaching the same modifiers the `:props` route reaches through `plugin-modifiers`.
+Verified by reading the consumer, not driven in the app. `:icon` is likewise consumed and
+unwritten.
+
 ## What is not known
 
-Seven of the thirteen content types have no equivalent write-up: races, subraces, monsters,
-encounters, selections, invocations, boons. Races matter most — commonly homebrewed, and they
-carry `:props` and `:spells` rather than the class grant keys.
+Six of the thirteen content types have no write-up: subraces, monsters, encounters,
+selections, invocations, boons.
