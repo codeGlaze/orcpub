@@ -953,7 +953,7 @@
                                            ;; the reader mid-action.
                                            {:on-click (fn [e]
                                                         (.stopPropagation e)
-                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                                        (dispatch [::e5/export-plugin option-pack]))}
                                            "Export this source"]
                                           " to keep a copy."]]}
                               60000]]})
@@ -1093,7 +1093,7 @@
                                     [:span.pointer.underline
                                      {:on-click (fn [e]
                                                   (.stopPropagation e)
-                                                  (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                                  (dispatch [::e5/export-plugin option-pack]))}
                                      "Export this source"]
                                     " to keep a copy."]]}
                         60000]]})))))
@@ -4533,6 +4533,20 @@
     {:plugin (get corrected plugin-name plugin)
      :changes changes}))
 
+(defn export-source
+  "The copy of a source an export works from: what the library holds now, whenever
+   it holds that source; the copy handed in only when it does not.
+
+   The save banner's link used to hand in the copy from the moment of saving. Once
+   export began saving its cleanup back, clicking the link after any later change
+   wrote that old copy over the library -- a source turned off came back on, an item
+   added since disappeared. Reading the library here means a stale copy can be
+   neither exported nor saved back, whoever passes one in."
+  [library plugin-name handed]
+  (if (contains? library plugin-name)
+    (get library plugin-name)
+    handed))
+
 (defn- validate-and-show-modal-or-export
   "Shared export path for one source, used by export-plugin and
    export-plugin-pretty-print. Runs the same correction gate Export All runs
@@ -4541,12 +4555,13 @@
    fill-in modal (missing fields), writes the file (valid), or shows an error
    (spec failure). Corrections are persisted back so a second export finds
    nothing left to fix."
-  [db plugin-name plugin {:keys [pretty-print?]}]
-  (let [{corrected :plugin cleanup-changes :changes}
+  [db plugin-name handed {:keys [pretty-print?]}]
+  (let [library (:plugins db)
+        plugin (export-source library plugin-name handed)
+        {corrected :plugin cleanup-changes :changes}
         (correct-single-plugin plugin-name plugin)
-        library (:plugins db)
-        ;; Only write back a source the store actually holds: export-plugin is
-        ;; also called with a just-built plugin that never reached storage.
+        ;; `plugin` is the stored copy whenever the library holds this source, so
+        ;; saving the cleanup back can only update what is already there.
         persist (when (and (not= plugin corrected) (contains? library plugin-name))
                   [[::e5/set-plugins (assoc library plugin-name corrected)]])
         validation (orcbrew-val/validate-before-export corrected)]

@@ -219,6 +219,14 @@
                              {:name "Specialism"
                               :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
 
+(deftest export-works-from-the-stored-source-not-a-copy-handed-in
+  (let [stored {:orcpub.dnd.e5/spells {:a {:name "A"} :added-later {:name "Added Later"}} :disabled? true}
+        stale {:orcpub.dnd.e5/spells {:a {:name "A"}}}]
+    (is (= stored (events/export-source {"P" stored} "P" stale))
+        "a copy from before a change never wins over the library")
+    (testing "a source the library does not hold falls back to the copy handed in"
+      (is (= stale (events/export-source {} "P" stale))))))
+
 (deftest single-source-export-fills-blank-option-pack
   (testing "a blank :option-pack is given the default source, as on import"
     (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
