@@ -301,42 +301,23 @@
          [:div.f-s-16 "No issues found"]
          [:div.f-s-12 {:style {:margin-top "5px"}} "Import completed cleanly"]])]]))
 
-(defn import-log-button []
+(defn import-log-button
+  "Opens the import log. Absent while the log is empty, which is most of the time:
+   it had nothing to show, and it sat on every page over whatever was in that
+   corner. Stays while the panel is open, so the panel can be closed from it."
+  []
   (let [has-content? @(subscribe [:import-log-has-content?])
         shown? @(subscribe [:import-log-shown?])
         log @(subscribe [:import-log])
         total-count (+ (count (:changes log))
                        (count (:errors log))
                        (count (:skipped-items log)))]
-    [:div.flex.align-items-c.justify-cont-c.pointer
-     {:style {:position "fixed"
-              :bottom "20px"
-              :right "20px"
-              :width "40px"
-              :height "40px"
-              :border-radius "50%"
-              :background (cond
-                            shown? "#f0a100"
-                            has-content? "#2c3445"
-                            :else "#1a1e28")
-              :color (if has-content? "white" "rgba(255,255,255,0.25)")
-              :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"
-              :z-index 900
-              :opacity (if has-content? 1 0.6)
-              :transition "all 0.2s ease"}
-      :on-click #(dispatch [:toggle-import-log-panel])}
-     [:i.fa.fa-list-alt {:style {:font-size "14px"}}]
-     (when (pos? total-count)
-       [:div.flex.align-items-c.justify-cont-c
-        {:style {:position "absolute"
-                 :top "-4px"
-                 :right "-4px"
-                 :background "#d94b20"
-                 :color "white"
-                 :font-size "10px"
-                 :font-weight "bold"
-                 :min-width "16px"
-                 :height "16px"
-                 :border-radius "8px"
-                 :padding "0 4px"}}
-        total-count])]))
+    (when (or has-content? shown?)
+      [:div.import-log-button.flex.align-items-c.justify-cont-c.pointer
+       {:class (when shown? "open")
+        :title "Import log"
+        :on-click #(dispatch [:toggle-import-log-panel])}
+       [:i.fa.fa-list-alt]
+       (when (pos? total-count)
+         [:div.import-log-badge.flex.align-items-c.justify-cont-c
+          total-count])])))
