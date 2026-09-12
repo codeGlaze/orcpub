@@ -25,7 +25,7 @@
     "seconds": 41
   },
   "header_menus_e2e.js": {
-    "checks": 22,
+    "checks": 30,
     "seconds": 50
   },
   "notification_flows_e2e.js": {

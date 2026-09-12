@@ -2010,6 +2010,38 @@
       :font-size "12px"
       :color "rgba(255,255,255,0.5)"}]
 
+    ;; The z-index sits under an open header tab's 200, so a header menu long enough
+    ;; to reach this corner draws over the button; at 900 the button covered the
+    ;; menu's last item on a laptop screen. Still above the sticky button row (100).
+    ;; The log panel the button opens is at 950.
+    [:.import-log-button
+     {:position :fixed
+      :bottom "20px"
+      :right "20px"
+      :width "40px"
+      :height "40px"
+      :border-radius "50%"
+      :background "#2c3445"
+      :color :white
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"
+      :z-index 150
+      :transition "all 0.2s ease"}
+     [:&.open {:background orange}]
+     [:.fa {:font-size "14px"}]]
+
+    [:.import-log-badge
+     {:position :absolute
+      :top "-4px"
+      :right "-4px"
+      :background "#d94b20"
+      :color :white
+      :font-size "10px"
+      :font-weight :bold
+      :min-width "16px"
+      :height "16px"
+      :border-radius "8px"
+      :padding "0 4px"}]
+
     ;; Conflict card — an unresolved conflict is an attention item, so its rail and
     ;; key carry the same warning-yellow used by the health card and library tint.
     [:.conflict-item

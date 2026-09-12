@@ -15,6 +15,11 @@
 // menu, and the count of rows tested has to match the count in the DOM so a
 // skipped row cannot pass as a clean menu.
 //
+// The shortest window runs a second time with the import-log button showing. It
+// sits in the corner a tall menu reaches, and it used to draw over the menu's
+// last items; it is only on the page while there is an import log, so a first
+// pass alone cannot see it.
+//
 // Prerequisites:
 //   lein fig:build
 //   lein garden once
@@ -50,6 +55,10 @@ const VIEWPORTS = [
   { width: 1366, height: 720 },
   { width: 1280, height: 620 },
 ];
+
+// Two spells and one without a source: a partial import, which leaves a log.
+const PARTIAL_PACK = '{:orcpub.dnd.e5/spells {:valid-spell {:option-pack "Header Menus Probe" :name "Valid Spell"} '
+  + ':invalid-spell {:name "No Option Pack"} :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -164,6 +173,23 @@ const check = (name, ok, detail = '') => {
     await shortPage.waitForTimeout(1500);
     await testMenus(shortPage, `${vp.height}px`);
     await shortPage.screenshot({ path: path.join(OUT, `3-menus-at-${vp.height}.png`) });
+
+    if (vp === VIEWPORTS[VIEWPORTS.length - 1]) {
+      await shortPage.evaluate(([name, text]) => re_frame.core.dispatch_sync(
+        cljs.core.conj(cljs.core.conj(cljs.reader.read_string('[:orcpub.dnd.e5/import-plugin]'), name), text)),
+        ['Header Menus Probe', PARTIAL_PACK]);
+      await shortPage.waitForTimeout(600);
+      // the import opens the log panel and a notice; neither is what's under test
+      await shortPage.evaluate(() => {
+        re_frame.core.dispatch_sync(cljs.reader.read_string('[:close-import-log-panel]'));
+        re_frame.core.dispatch_sync(cljs.reader.read_string('[:hide-message]'));
+      });
+      await shortPage.waitForTimeout(300);
+      check(`${vp.height}px: the import-log button is on the page for the second pass`,
+            await shortPage.locator('.import-log-button').isVisible());
+      await testMenus(shortPage, `${vp.height}px with the import-log button`);
+      await shortPage.screenshot({ path: path.join(OUT, `4-menus-with-import-log-button.png`) });
+    }
     await short.close();
   }
   await browser.close();
