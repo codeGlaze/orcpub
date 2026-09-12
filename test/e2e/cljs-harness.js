@@ -4,7 +4,7 @@ const ROOT=path.resolve('target/test');
 function fc(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}}
 const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[0]);const f=path.join(ROOT,u==='/'?'runner-all.html':u);
  if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);return r.end();}
- r.writeHead(200,{'Content-Type':f.endsWith('.js')?'application/javascript':f.endsWith('.html')?'text/html':'application/octet-stream'});fs.createReadStream(f).pipe(r);});
+ r.writeHead(200,{'Content-Type':f.endsWith('.js')?'application/javascript; charset=utf-8':f.endsWith('.html')?'text/html; charset=utf-8':'application/octet-stream'});fs.createReadStream(f).pipe(r);});
 (async()=>{await new Promise(r=>srv.listen(0,r));const port=srv.address().port;
  const br=await chromium.launch({executablePath:fc()});const pg=await br.newPage();const out=[];
  pg.on('console',m=>out.push(m.text()));pg.on('pageerror',e=>out.push('PAGEERROR '+e));

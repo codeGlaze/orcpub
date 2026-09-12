@@ -20,6 +20,8 @@
             [orcpub.dnd.e5.draconic-ancestry-test]
             [orcpub.dnd.e5.dragonborn-ancestry-e2e-test]
             [orcpub.dnd.e5.simple-content-builder-test]
+            ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
+            [orcpub.dnd.e5.homebrew-save-lifecycle-test]
             [orcpub.dnd.e5.grant-vocabulary-cljs-test]
             [orcpub.dnd.e5.ability-increase-grant-cljs-test]
             [orcpub.dnd.e5.views-test]
@@ -45,6 +47,7 @@
              'orcpub.dnd.e5.draconic-ancestry-test
              'orcpub.dnd.e5.dragonborn-ancestry-e2e-test
              'orcpub.dnd.e5.simple-content-builder-test
+             'orcpub.dnd.e5.homebrew-save-lifecycle-test
              'orcpub.dnd.e5.grant-vocabulary-cljs-test
              'orcpub.dnd.e5.ability-increase-grant-cljs-test
              'orcpub.dnd.e5.views-test

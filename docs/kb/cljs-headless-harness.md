@@ -45,11 +45,25 @@ scratch three times in `/tmp` before being committed. Described below for when i
 `pageerror`, waits for `/Ran \d+ tests/`, and prints the console + body. Grep the output for
 `Ran .* tests`, `FAIL in`, `ERROR in`.
 
-## Known-good baseline (as of this branch)
-Full suite ≈ **150 tests, 10 failures, 2 errors**. The 2 errors are the dead
-`character_test.cljc` (retire per `character-validation.md`). After the import fixes, the
-import-validation failures are gone; remaining real failure is `user-stale-user` (subs auth
-guard — separate, not triaged).
+## Known-good baseline — 2026-09-12: **370 tests / 1742 assertions, 0 failures, 0 errors**
+
+(The earlier baseline on this page, "≈150 tests, 10 failures, 2 errors", was measured while the
+harness was mis-serving the build. See below — the failures were not real.)
+
+### Two things had the suite reporting nonsense, and neither was a test
+
+**The harness served JS without a charset.** A classic `<script>` with no `charset` on its
+Content-Type is decoded as windows-1252, so `orcpub/common.js`'s `#"[^a-z0-9À-ɏ]+"` arrived as
+`/[^a-z0-9Ã€-É]+/` — *"Invalid regular expression: Range out of order in character class"*. The
+whole `orcpub.common` namespace then failed to parse and every test touching it threw
+`Cannot read properties of undefined`: **271 distinct errors, no summary line, nothing wrong with
+the code.** `cljs-harness.js` now sends `; charset=utf-8`. If this page ever reports a mass of
+undefined-namespace errors again, check the Content-Type before believing any of them.
+
+**A JVM-only test in `test/cljc` stopped the test build compiling at all.**
+`builder_class_names_test.cljc` reads files with `clojure.java.io`; the cljs build compiles
+everything under `test/cljc`, so it failed with *"No such namespace: clojure.java.io"* and produced
+no JS. Moved to `test/clj`. A test that reaches for the filesystem belongs there, not in `cljc`.
 
 ## Gotchas worth remembering
 - **JVM-isms bite only here.** `(int char)` = code point on JVM, but `(int "é")` = 0 in cljs
