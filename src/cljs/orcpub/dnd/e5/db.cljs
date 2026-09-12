@@ -309,19 +309,6 @@
 (defn demo-hidden->local-store [hidden?]
   (when js/window.localStorage
     (set-item local-storage-demo-hidden-key (str (boolean hidden?)))))
-(defn cookie-banner-pending?
-  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
-   It shows unless its consent cookie is set or the localStorage opt-out is on.
-   Two overlays at once on a first visit is one too many, so the release panel
-   waits a visit rather than stacking on top of it."
-  []
-  (let [suppressed? (try
-                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
-                      (catch js/Object _ false))
-        consented? (boolean (re-find #"flatsome_cookie_notice"
-                                     (or js/document.cookie "")))]
-    (not (or suppressed? consented?))))
-
 (defn dev-mode->local-store [on?]
   (when js/window.localStorage
     (set-item local-storage-dev-mode-key (str (boolean on?)))))

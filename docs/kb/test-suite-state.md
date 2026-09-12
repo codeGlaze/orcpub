@@ -27,11 +27,14 @@ emptier than it is. They adopt `lib.js/findChrome` when touched.
 The merge brought in two things that broke e2e across the board. Both are fixed; neither was a
 test-only problem.
 
-**The What's New backdrop.** `.whats-new-backdrop` is fixed over the whole viewport and swallows
-every click. It does NOT open at load — `::e5/watch-cookie-notice` opens it ~450ms after the first
-click on the document — so dismissing it on arrival fixes nothing. `lib.js/dismissWhatsNew` stamps
-the seen-key (read at boot, from `whats_new.cljc` so it does not rot on the next release) and
-reloads once if the page booted unstamped.
+**The What's New backdrop.** `.whats-new-backdrop` is fixed over the viewport and swallows every
+click behind it. It used to be held back while the cookie notice was up and then opened ~450ms after
+the first click on the document — a popup that arrives seconds later, which is both bad for a reader
+and untestable by dismissing it on arrival. The hold is gone: the panel opens at launch and the
+backdrop STOPS ABOVE the cookie notice (measured, `views/whats_new.cljs`), so both are on screen and
+both are usable, and the panel grows into the space when the notice goes. For tests,
+`lib.js/dismissWhatsNew` stamps the seen-key (read at boot, from `whats_new.cljc` so it does not rot
+on the next release) and reloads once if the page booted unstamped.
 
 **Saving the same item twice was refused.** `save-collision` tells an edit returning to its own slot
 from a name landing on somebody else's by comparing `:key` on the item in the builder — and save

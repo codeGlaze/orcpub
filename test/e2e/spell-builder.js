@@ -29,6 +29,11 @@ const NAME = 'Tideward';
   const page = await browser.newPage({ viewport: { width: 1200, height: 1200 } });
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
+  // React key warnings are console.error, not page errors. The builder item carries :key once it
+  // has been saved (and when opened for editing), and the form renders it as a list of fields —
+  // so a key taken from the item instead of the field shows up here as duplicates.
+  const keyWarnings = [];
+  page.on('console', m => { if (/same key/.test(m.text())) keyWarnings.push(m.text().slice(0, 120)); });
 
   try {
     await page.goto(`${BASE}/pages/dnd/5e/spell-builder`, { waitUntil: 'networkidle' });
@@ -108,6 +113,8 @@ const NAME = 'Tideward';
     check('and the free-text casting time saves verbatim',
           /3 rounds and a wink/.test(saved2), saved2.slice(0, 240));
 
+    check('and the fields are keyed by field, not by the item they edit',
+          keyWarnings.length === 0, keyWarnings[0] || '');
     check('no uncaught JS errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   } catch (e) {
     check('ran to completion', false, e.message);

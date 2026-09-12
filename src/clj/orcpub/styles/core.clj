@@ -2608,7 +2608,10 @@
       :border-radius "6px"
       :width "100%"
       :max-width "620px"
-      :max-height "84vh"
+      ;; 100% is the backdrop's content box, which SHRINKS while the cookie notice is up (the
+      ;; backdrop stops above it) and grows back when it goes. 84vh alone would overflow into
+      ;; the notice on a short viewport.
+      :max-height "min(84vh, 100%)"
       :display :flex
       :flex-direction :column
       :overflow :hidden

@@ -16,6 +16,17 @@
 (defn- stop-propagation [e]
   (.stopPropagation e))
 
+(def ^:private cookie-notice-selector
+  "The cookie notice's BANNER (resources/public/js/cookies.js). Its wrapper div is an unstyled,
+   zero-height node in the normal flow; the banner inside it is the fixed bottom bar. The wrapper
+   is removed from the document when the notice is dismissed."
+  "#cookie-policy-popup .window")
+
+(defn- cookie-notice-height []
+  (if-let [el (js/document.querySelector cookie-notice-selector)]
+    (.-offsetHeight el)
+    0))
+
 (defn- release-body [{:keys [title subtitle] :as release}]
   [:div.whats-new-panel
    {:on-click stop-propagation}
@@ -51,17 +62,37 @@
      "Got it"]]])
 
 (defn panel
-  "Mount once in the app shell. Renders nothing until the panel is open."
+  "Mount once in the app shell. Renders nothing until the panel is open.
+
+   The backdrop STOPS ABOVE the cookie notice instead of covering it, so a first visit gets both
+   at once: the notice stays readable and clickable, and the panel takes the room that is left and
+   grows into the rest the moment the notice goes. The height is measured, not assumed — the notice
+   is a third-party banner whose height depends on how its text wraps."
   []
-  (let [on-key (fn [e] (when (= "Escape" (.-key e)) (close)))]
+  (let [on-key   (fn [e] (when (= "Escape" (.-key e)) (close)))
+        notice-h (r/atom 0)
+        measure! (fn [] (reset! notice-h (cookie-notice-height)))
+        observer (atom nil)]
     (r/create-class
-     {:component-did-mount    (fn [_] (js/document.addEventListener "keydown" on-key))
-      :component-will-unmount (fn [_] (js/document.removeEventListener "keydown" on-key))
+     {:component-did-mount
+      (fn [_]
+        (js/document.addEventListener "keydown" on-key)
+        (js/window.addEventListener "resize" measure!)
+        (measure!)
+        ;; The notice adds and removes ITSELF from body, so watch body rather than polling.
+        (reset! observer (doto (js/MutationObserver. measure!)
+                           (.observe js/document.body #js {:childList true}))))
+      :component-will-unmount
+      (fn [_]
+        (js/document.removeEventListener "keydown" on-key)
+        (js/window.removeEventListener "resize" measure!)
+        (some-> @observer (.disconnect)))
       :reagent-render
       (fn []
         (when @(subscribe [::e5/whats-new-open?])
           [:div.whats-new-backdrop
-           {:on-click close}
+           {:on-click close
+            :style (when (pos? @notice-h) {:bottom (str @notice-h "px")})}
            [release-body whats-new/current-release]]))})))
 
 (defn footer-link []

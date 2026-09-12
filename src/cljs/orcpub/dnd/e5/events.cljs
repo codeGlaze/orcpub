@@ -65,7 +65,6 @@
                                       health-dismissed->local-store
                                       demo-hidden->local-store
                                       whats-new-seen->local-store
-                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -170,44 +169,9 @@
 
 (def demo-hidden->local-store-interceptor
   (after (fn [db] (demo-hidden->local-store (:demo-hidden? db)))))
-(def ^:private hold-ceiling-ms
-  "How long the release panel waits on the cookie notice before showing anyway.
-   Long enough to let someone dismiss the notice first, short enough that ignoring
-   it costs them the panel for a few seconds rather than forever."
-  10000)
 
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
-
-(reg-fx
- ::e5/watch-cookie-notice
- ;; The release panel is held while the cookie notice is up so a first visit gets
- ;; one overlay, not two. The hold is BOUNDED in both directions, because a hold
- ;; with no bound is the same as never showing it:
- ;;
- ;;   * the notice only goes away on a click on its own button, so re-check after
- ;;     any click and release as soon as it has gone — waiting for a reload the
- ;;     visitor has no reason to perform means they never see the release;
- ;;   * a notice that is ignored rather than dismissed never goes away, and it
- ;;     comes back every visit, so release anyway after hold-ceiling-ms.
- ;;
- ;; Takes the flag, since an effect map entry runs its handler whatever the value.
- (fn [watch?]
-   (when watch?
-     (let [handler (atom nil)
-           done? (atom false)
-           release! (fn []
-                      (when-not @done?
-                        (reset! done? true)
-                        (when-let [h @handler]
-                          (js/document.removeEventListener "click" h true))
-                        (dispatch [::e5/release-whats-new])))]
-       (reset! handler
-               (fn [_]
-                 ;; after the notice's own fade-out, so the two don't cross
-                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
-       (js/document.addEventListener "click" @handler true)
-       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -321,9 +285,7 @@
               ::e5/whats-new-seen
               ::e5/dev-mode
               ::combat/tracker-item]} _]
-   {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                  (cookie-banner-pending?))
-    :db (if (seq db)
+   {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
@@ -334,10 +296,12 @@
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
             (some? dev-mode) (assoc :dev-mode? dev-mode)
             ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id. Reading the stamp here (not at render) keeps it
-            ;; to one showing per browser rather than one per page view.
-            (and (whats-new/unseen? whats-new-seen)
-                 (not (cookie-banner-pending?)))
+            ;; first sees a new id — at launch, not on a later trigger. Reading the
+            ;; stamp here (not at render) keeps it to one showing per browser rather
+            ;; than one per page view. It shares the screen with the cookie notice
+            ;; rather than queueing behind it: the panel measures the notice and
+            ;; stops above it (views/whats_new.cljs).
+            (whats-new/unseen? whats-new-seen)
             (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
@@ -4950,15 +4914,6 @@
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
-
-(reg-event-db
- ::e5/release-whats-new
- ;; The end of a hold, not a request to open: if the reader has meanwhile opened
- ;; and closed the panel from the footer, the release is stamped and there is
- ;; nothing left to show.
- (fn [db _]
-   (cond-> db
-     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
