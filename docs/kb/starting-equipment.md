@@ -98,9 +98,11 @@ Note: the entity keyword namespace is **`orcpub.entity`** (`:orcpub.entity/key`)
   automatically.
 - The class spec `::classes/homebrew-class` (`classes.cljc:21`) only *requires*
   `:name :key :option-pack` and permits arbitrary extra keys — so the equipment keys need
-  **no spec change** to save/load. (Note: `:option-pack` really is required on import — a
-  class without it is legitimately *skipped*; `reg-save-homebrew` supplies it from the
-  Option Source field. Surfaced by the round-trip test below.) Validation metadata (`orcbrew_validation.cljs:121`)
+  **no spec change** to save/load. (Note: `:option-pack` is required to load. Since
+  `1f8fef2b` an import fills a missing one with the name of the source the class sits
+  in, falling back to Default Option Source only when there is none; before that a
+  class without it was skipped, which the round-trip test below surfaced.
+  `reg-save-homebrew` supplies it from the Option Source field.) Validation metadata (`orcbrew_validation.cljs:121`)
   only knows `:name`. Optional hardening: validate that referenced item keys exist in
   `weapons-map`/`armor-map`/`equipment-map` (catch a `:longsord` typo), surfaced through
   the existing import/export validation.

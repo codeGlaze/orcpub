@@ -106,6 +106,32 @@ A UI change reviewed only through timing numbers is half-reviewed. Take the scre
 before asking anyone to look — this session shipped a visible control change and reported
 only milliseconds until the owner asked for pictures.
 
+## Which Chromium a probe launches
+
+*Verified 2026-09-12 against `integration-local` at `b48d312c`.*
+
+Every probe and the CLJS runner get it from `test/browser/lib/find-chrome.js`. The order:
+
+1. A path in `CHROME`, `CHROME_PATH`, `PLAYWRIGHT_CHROMIUM` or `E2E_CHROMIUM`. It can
+   point at the binary or at an install folder. A variable pointing at nothing is
+   named on stderr and skipped.
+2. The newest `chromium-<n>` under `PLAYWRIGHT_BROWSERS_PATH` or `/opt/pw-browsers`,
+   in either folder layout (`chrome-linux64` or `chrome-linux`).
+3. Otherwise, Playwright's own install.
+
+Before this, about a dozen copies looked only for `chrome-linux`, which Playwright
+1.57 names `chrome-linux64`. Outside the web sandbox those probes failed at launch
+unless four variables were set by hand.
+
+`run-browser-probes.js` resolves the browser once. If there is none, every probe
+is a SKIP with the fix named, not thirty identical launch failures. `STRICT=1`
+still fails the run.
+
+**Run `export_busy_retry` on its own.** With other probes running beside it, it
+failed 6 of 9: its 10-second load window can run out before its own export fires.
+Run alone it passed 9 of 9, twice:
+`BUSY_SERVER=1 JOBS=1 ONLY=export_busy node scripts/test/run-browser-probes.js`.
+
 ## More traps
 
 `docs/kb/verification-discipline.md` lists the probe defects that have produced confident
@@ -116,6 +142,7 @@ cap, self time on allocation-heavy code, and a model that was not the app.
 ## Related
 
 - [verification-discipline.md](verification-discipline.md)
+- [homebrew-fixes-persist.md](homebrew-fixes-persist.md)
 - [perf-homebrew-builder-loop.md](perf-homebrew-builder-loop.md)
 - [README.md](README.md)
 
