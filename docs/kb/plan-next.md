@@ -47,8 +47,12 @@ node and a test each.
 
 The compiler accepts these already; the form doesn't offer them.
 
-- **Natural Armor** — `[13] + [Constitution]`. Two knobs covers lizardfolk, tortle, warforged and
-  most homebrew in one row.
+- **Natural Armor** — `[N] + [ability ▾]`. The template is the shape these share; the differences
+  are knob values, not separate templates:
+  - lizardfolk is `{:ac 13 :abilities [:dex]}` — one row, as-is
+  - tortle is `{:ac 17 :abilities []}` **plus** `armor-gives-no-ac` — one row and a second control,
+    because "your shell IS your armour" is a separate fact from the number
+  - warforged's +1 is `:ac-bonus`, a different prop, and is not this template at all
 - **Armor Dex Cap** — `[Heavy ▾] armor allows up to [2] Dexterity`
 - **Speed / Initiative / Hit Points** — currently fixed checkbox ranges (5/10/15 ft, +1…+5); the
   compiler takes any number.
