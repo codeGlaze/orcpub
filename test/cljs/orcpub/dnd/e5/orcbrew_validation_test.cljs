@@ -1536,3 +1536,17 @@
              (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
                      [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
 
+(deftest import-mends-card-lists-and-keys-instead-of-crashing
+  (let [result (orcbrew-val/validate-import
+                "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
+                {:strategy :progressive :auto-clean true})]
+    (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
+    (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
+    (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
+    (is (some #(re-find #"Repaired 1 damaged entry" %)
+              (map #(if (map? %) (:text %) %) (:details (orcbrew-val/format-import-result result)))))))
+
+(deftest import-of-a-source-that-is-not-a-map-does-not-crash
+  (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]
+    (is (:success (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true})) text)))
+

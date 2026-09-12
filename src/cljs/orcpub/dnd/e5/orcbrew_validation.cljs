@@ -231,7 +231,7 @@
   [item]
   (if-let [traits (:traits item)]
     (if (vector? traits)
-      (let [results (map fill-missing-trait-fields traits)
+      (let [results (map #(if (map? %) (fill-missing-trait-fields %) [% []]) traits)
             updated-traits (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :traits updated-traits) total-changes])
@@ -269,7 +269,7 @@
   [item]
   (if-let [options (:options item)]
     (if (vector? options)
-      (let [results (map-indexed fill-missing-option-fields options)
+      (let [results (map-indexed (fn [i o] (if (map? o) (fill-missing-option-fields i o) [o []])) options)
             updated-options (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :options updated-options) total-changes])
@@ -362,7 +362,9 @@
       ;; Multi-plugin: fill each plugin separately
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin all-changes]} (fill-missing-in-plugin plugin)]
+                       (let [{:keys [plugin all-changes]} (if (map? plugin)
+                                                          (fill-missing-in-plugin plugin)
+                                                          {:plugin plugin :all-changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :all-changes (into (:all-changes acc)
                                              (map #(assoc % :plugin plugin-name) all-changes))}))
@@ -511,7 +513,9 @@
     (if is-multi
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin changes]} (dedup-options-in-plugin plugin)]
+                       (let [{:keys [plugin changes]} (if (map? plugin)
+                                                      (dedup-options-in-plugin plugin)
+                                                      {:plugin plugin :changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :changes (into (:changes acc)
                                          (map #(assoc % :plugin plugin-name) changes))}))
@@ -543,10 +547,10 @@
             :traits-needing-names [{:index N}...]}"
   [item content-type]
   (let [missing-fields (find-missing-fields item content-type)
-        trait-details (when-let [traits (:traits item)]
+        trait-details (when-let [traits (when (sequential? (:traits item)) (:traits item))]
                         (keep-indexed
                          (fn [idx trait]
-                           (when (seq (find-missing-trait-fields trait))
+                           (when (and (map? trait) (seq (find-missing-trait-fields trait)))
                              {:index idx :current-name (:name trait)}))
                          traits))
         traits-missing (count trait-details)]
@@ -1119,7 +1123,7 @@
       ;; Multi-plugin: aggregate counts from all inner plugins
       (let [total-items (reduce
                          (fn [total [_plugin-name inner-plugin]]
-                           (+ total (count-items-in-plugin inner-plugin)))
+                           (+ total (if (map? inner-plugin) (count-items-in-plugin inner-plugin) 0)))
                          0
                          plugin)]
         {:success true
@@ -1483,7 +1487,7 @@
   [plugins]
   (reduce
    (fn [acc [source-name plugin]]
-     (let [plugin-keys (collect-all-keys-from-plugin plugin source-name)]
+     (let [plugin-keys (when (map? plugin) (collect-all-keys-from-plugin plugin source-name))]
        (merge-with into acc plugin-keys)))
    {}
    plugins))
@@ -1858,15 +1862,28 @@
 
 (defn repair-description
   "Import-log wording for one e5/mend-import-data repair."
-  [{:keys [source section repair]}]
+  [{:keys [source section key field repair named dropped]}]
   (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
-        in (when source (str " in \"" source "\""))]
+        in (when source (str " in \"" source "\""))
+        entry (when (some? key)
+                (str (get content-type-singular section "Entry") " " (if (keyword? key) key (pr-str key))))
+        field-name (when field (name field))
+        plural (fn [n one many] (if (= 1 n) one many))]
     (case repair
       :file-from-text     "The file's content was stored as text; read it back"
       :source-from-text   (str "Source \"" source "\" was stored as text; read it back")
       :section-from-text  (str "Read " what in " back from text")
       :section-from-list  (str "Turned " what in " from a list back into entries")
       :empty-section      (str "Dropped " what in ", which was empty")
+      :key-restored       (str entry in ": its :key was not a keyword, so it now matches the key it is filed under")
+      :cards-mended       (str "Fixed the " field-name " of " entry in
+                               (let [parts (cond-> []
+                                             (pos? named) (conj (str named (plural named " text item kept as a named card"
+                                                                                   " text items kept as named cards")))
+                                             (pos? dropped) (conj (str "dropped " dropped (plural dropped " item that was not a card"
+                                                                                                     " items that were not cards"))))]
+                                 (when (seq parts) (str ": " (str/join ", " parts)))))
+      :cards-not-a-list   (str "Removed the " field-name " of " entry in ", which were not a list")
       (str "Repaired " (or what "a section") in))))
 
 (defn fill-import-sources
@@ -1952,7 +1969,8 @@
         ;; stored as text crashed the steps below.
         (let [{mended :data repairs :repairs} (e5/mend-import-data (:data parse-result))
               repair-changes (mapv (fn [r] {:type :repaired-section
-                                            :description (repair-description r)})
+                                            :description (repair-description r)
+                                            :entry (when (:key r) [(:source r) (:section r) (:key r)])})
                                    repairs)]
           (if-not (map? mended)
             {:success false
@@ -2243,9 +2261,14 @@
 (defn- repair-lines
   "One line for the import notice when mend repaired anything; the log has each repair."
   [result]
-  (let [n (count (filter #(= :repaired-section (:type %)) (:changes result)))]
-    (when (pos? n)
-      [(str "Repaired " n " damaged section" (when (not= 1 n) "s") " (details in the import log)")])))
+  (let [rs (filter #(= :repaired-section (:type %)) (:changes result))
+        n-entries (count (distinct (keep :entry rs)))
+        n-sections (count (remove :entry rs))
+        parts (cond-> []
+                (pos? n-sections) (conj (str n-sections " damaged section" (when (not= 1 n-sections) "s")))
+                (pos? n-entries) (conj (str n-entries " damaged entr" (if (= 1 n-entries) "y" "ies"))))]
+    (when (seq parts)
+      [(str "Repaired " (str/join " and " parts) " (details in the import log)")])))
 
 (defn import-notice-type
   "Tone for an import that went through: :warning when something was skipped or a

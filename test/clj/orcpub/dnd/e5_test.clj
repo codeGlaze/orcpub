@@ -628,3 +628,29 @@
     (is (= "garbage" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x "garbage"}} "Mine"))
                              [:orcpub.dnd.e5/feats :x])))))
 
+(deftest mend-cards-puts-a-card-list-back-together
+  (is (= {:value [{:name "A"}]} (e5/mend-cards [{:name "A"}])) "a sound list is left alone")
+  (is (= {:value [{:name "Darkvision"} {:name "B"}] :repair :cards-mended :named 1 :dropped 1}
+         (e5/mend-cards ["Darkvision" 42 {:name "B"}])))
+  (is (= [{:name "Solo"}] (:value (e5/mend-cards {:name "Solo"}))))
+  (is (= [{:name "Darkvision"}] (:value (e5/mend-cards "Darkvision"))))
+  (is (= {:remove? true :repair :cards-not-a-list} (e5/mend-cards 42)))
+  (is (= {:remove? true :repair :cards-not-a-list} (e5/mend-cards :kw))))
+
+(deftest mend-plugin-repairs-damaged-entries-and-says-which
+  (let [plugin {:orcpub.dnd.e5/races {:elfish {:key "text" :name "Elfish" :option-pack "P"
+                                               :traits [42 "Keen Senses"] :options 7}
+                                      :fine {:key :fine :name "Fine" :option-pack "P" :traits [{:name "T"}]}}
+                :orcpub.dnd.e5/selections {:pick {:key :pick :name "Pick" :option-pack "P" :options 7}}}
+        {p :plugin rs :repairs} (e5/mend-plugin plugin)]
+    (is (= :elfish (get-in p [:orcpub.dnd.e5/races :elfish :key])) "a text key stopped the app from starting")
+    (is (= [{:name "Keen Senses"}] (get-in p [:orcpub.dnd.e5/races :elfish :traits])))
+    (is (= 7 (get-in p [:orcpub.dnd.e5/races :elfish :options])) ":options is only a card list on a selection")
+    (is (= (get-in plugin [:orcpub.dnd.e5/races :fine]) (get-in p [:orcpub.dnd.e5/races :fine])) "a sound entry is untouched")
+    (is (not (contains? (get-in p [:orcpub.dnd.e5/selections :pick]) :options)))
+    (is (= #{[:elfish :key :key-restored] [:elfish :traits :cards-mended] [:pick :options :cards-not-a-list]}
+           (set (map (juxt :key :field :repair) rs)))))
+  (testing "a healthy source reports no repairs, so nothing is written back"
+    (is (= [] (:repairs (e5/mend-plugin {:orcpub.dnd.e5/races {:fine {:key :fine :name "Fine" :option-pack "P"
+                                                                     :traits [{:name "T"}]}}}))))))
+

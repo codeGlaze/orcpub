@@ -580,7 +580,7 @@
                           (pr-str (mapv (juxt :source :key) fills)))))
                   (when (seq repairs)
                     (js/console.warn
-                     (str "Repaired " (count repairs) " damaged homebrew section(s) on load: "
+                     (str "Repaired " (count repairs) " problem(s) in damaged homebrew on load: "
                           (pr-str repairs))))
                   (when (seq rejected)
                     (js/console.warn
