@@ -43,6 +43,10 @@ ability keyword where a namespaced one belongs imports cleanly and grants nothin
 - **Starting-equipment references pointed at another branch** as though the feature were
   unmerged. `starting_equipment_ledger.cljc` and its tests are on `integration`; the
   references now cite that code (`549ba9a4`).
+- **The SRD class-map roadmap item asked for work already done.** All 12 base classes are
+  catalogued on `feature/grant-rows` with their auto-features and odd cases, and the
+  author-parity comparison it needs has an established method there too. The item now points
+  at both and narrows itself to the one comparison left (`86d7b825`).
 - **The SRD class-map roadmap item could be counted wrong.** `#_` discards the next form and
   `classes.cljc` carries 160 discarded `:name` hits against 346 live, so the item now names
   `scripts/clj-grep.py` and both numbers (`01c7a565`).

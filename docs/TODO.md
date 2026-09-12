@@ -300,29 +300,38 @@ control (it dispatches, clears the query and closes), while `monster-selector` p
 a *single current value* that must stay displayed. Generalising means parameterising
 the selected-value display and the on-pick behaviour.
 
-## Map the SRD classes as they currently are
+## SRD class parity — what a homebrew class still cannot say
 
-**Status:** Not started. Sequenced after the orcbrew format documentation.
+**Status:** Open — the survey half is done and lives on `feature/grant-rows`; what remains is
+one comparison, and it belongs on that branch's line, not here.
 
-The refactor line is reworking classes from twelve silos into something extensible and
-overridable. Before that lands it is worth writing down the shape the SRD classes have
-*today* — the overlaps and the inconsistencies both — for two reasons: it is the behavioural
-baseline the refactor gets checked against, and it is the only way to answer "which SRD class
-features have no data equivalent a homebrew class could use".
+Most of what this item originally asked for already exists, written for the refactor rather
+than for authors. Read these before starting anything:
 
-Count with `scripts/clj-grep.py`, never `grep`. `#_` discards the next form, and
-`classes.cljc` carries 160 `:name "` hits inside discards against 346 live ones — a plain
-grep reports roughly a third of that file as live when it has never compiled. There are
-twelve live classes, warlock among them.
+- `class-feature-catalogue.md` — all 12 base classes, option-fn line, distinct auto-features,
+  and the odd cases. Monk and paladin are ~10-feature outliers; druid, sorcerer and wizard are
+  lean; warlock has almost no auto-granted features because its identity is selections and
+  pact magic. Marked VERIFIED against file:line.
+- `class-features-and-mechanization.md` — the structure and the `compile-feature` proof.
+- `srd-vs-plugin-content.md` (on `agents/develop`) — what is hardcoded SRD versus what arrives
+  from a plugin, across every silo.
 
-The value-vocabulary reference on `agents/develop` gives the homebrew half: the twelve
-`:level-modifiers` types and the `:props` vocabulary are the entire set of things a class can
-express as data. The SRD classes express far more than that as code — `classes.cljc` is full
-of hand-built selections and modifier functions with no declarative twin. The map should say,
-per class, which of its features fall outside the data vocabulary and what each would need.
+What none of them answers is the authoring question: **which of those feature shapes can a
+homebrew class express, and which have no data equivalent at all?** The catalogue is scoped to
+the migration and deliberately excludes spellcasting, choice-gated features and scaling.
 
-Worth capturing even though the refactor will change things: a baseline you did not record is
-one you cannot regress against.
+The method already exists too — `fighting-style-vocabulary-gap.md` runs exactly this comparison
+for 14 published fighting styles and finds 3 expressible, with the gap in the authored
+vocabulary rather than the engine. Applying that method to the catalogue's ~50–60 auto-features,
+against the twelve `:level-modifiers` types and the `:props` keys, is the remaining work.
+
+Expect the answer to be uncomfortable. Use-counts alone have at least four sources — a literal,
+a level schedule, an ability modifier, a formula of level — and the data vocabulary expresses
+none of them. Class-wide spendable pools (ki, sorcery points, lay on hands) have no
+representation either.
+
+**Where it goes:** `feature/grant-rows` owns the catalogue, the method and the pool/grant design,
+and moved as recently as 2026-09-12. Doing this on a code branch would duplicate work in flight.
 
 ## Map the UI for e2e work, and give the map assertions
 
