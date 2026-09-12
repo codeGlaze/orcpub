@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, controlFor, fillEffectBonus, dismissCookieBar, pickOption } = require('./lib');
+const { BASE, SHOTS, findChrome, controlFor, fillEffectBonus, dismissCookieBar, dismissWhatsNew, pickOption } = require('./lib');
 
 const LABEL = process.env.LABEL || 'current';
 
@@ -29,6 +29,7 @@ const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type:
   await page.goto(`${BASE}/pages/dnd/5e/fighting-style-builder`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1800);
   await dismissCookieBar(page);
+    await dismissWhatsNew(page);
 
   const count = async () => page.evaluate(() =>
     [...document.querySelectorAll('#app input, #app select, #app textarea, #app .select-menu-btn, #app .chip')]

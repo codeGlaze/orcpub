@@ -11,7 +11,44 @@ content-extensibility work. It surfaced while verifying that work; it is not cau
 
 ---
 
-## 0. Current measured state — 2026-09-05, `feature/fighting-style-authoring`
+## 0. Current measured state — 2026-09-12, `feature/grant-rows` (after the `integration` merge)
+
+| suite | how | result |
+|---|---|---|
+| JVM — the CI gate | `lein test` | **701 tests / 5343 assertions, 0 failures, 0 errors** |
+| CSS | `lein garden once` | exit 0 |
+| browser e2e | `lein e2e-server` + `node test/e2e/<name>.js` | `homebrew-grand-tour` 69/69, `spell-builder` 39/39, `fighting-style-builder` 29/29, `feat-grants` 27/27, `unknown-tag-warning` 15/15, `language-builder` 12/12, `imported-style-usable` 10/10, `builder-gallery` no drift |
+
+**12 of the 26 e2e scripts cannot launch a browser in this container** — they predate `lib.js` and
+call `chromium.launch()` with no `executablePath`, so Playwright looks for a bundled browser that is
+not installed. Pre-existing, unrelated to the merge, and the reason a "run everything" sweep looks
+emptier than it is. They adopt `lib.js/findChrome` when touched.
+
+The merge brought in two things that broke e2e across the board. Both are fixed; neither was a
+test-only problem.
+
+**The What's New backdrop.** `.whats-new-backdrop` is fixed over the whole viewport and swallows
+every click. It does NOT open at load — `::e5/watch-cookie-notice` opens it ~450ms after the first
+click on the document — so dismissing it on arrival fixes nothing. `lib.js/dismissWhatsNew` stamps
+the seen-key (read at boot, from `whats_new.cljc` so it does not rot on the next release) and
+reloads once if the page booted unstamped.
+
+**Saving the same item twice was refused.** `save-collision` tells an edit returning to its own slot
+from a name landing on somebody else's by comparing `:key` on the item in the builder — and save
+never stamped that key back onto it. So: author an item, save, fix a typo, save again → *"already
+uses the name … Saving would replace it"*, with no way forward but renaming. A live bug, not a test
+artifact; `reg-save-homebrew` now returns the stamped item in `:db` and persists it to the builder's
+WIP slot (`::persist-builder-wip`).
+
+**And what that stamp exposed.** Reagent reads a component's React key from `(:key props)` when the
+first argument is a map — and `simple-content-builder` passes the item being edited. With `:key` on
+it, every field in a section rendered under the same React key (`Encountered two children with the
+same key, :frost-wyrm`, caught by the grand tour's no-JS-errors check). Latent, not new: opening any
+saved item for editing does the same thing. The field lists now carry explicit `^{:key …}`.
+
+---
+
+## 0.1 Earlier measured state — 2026-09-05, `feature/fighting-style-authoring`
 
 Both suites run in this container. The numbers below are from one run each on that date; the
 sections after this one are the older investigation and are kept for the diagnosis they carry.

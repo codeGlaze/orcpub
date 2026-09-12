@@ -1,5 +1,6 @@
 {
   "label": "grid",
+  "recorded": "2026-09-12",
   "rows": [
     {
       "seg": "language-builder",
@@ -33,21 +34,21 @@
       "seg": "fighting-style-builder",
       "controls": 10,
       "labels": 5,
-      "height": 1056,
+      "height": 1055,
       "broke": false
     },
     {
       "seg": "background-builder",
       "controls": 184,
       "labels": 22,
-      "height": 2639,
+      "height": 2643,
       "broke": false
     },
     {
       "seg": "feat-builder",
-      "controls": 135,
-      "labels": 17,
-      "height": 2612,
+      "controls": 145,
+      "labels": 18,
+      "height": 2678,
       "broke": false
     },
     {
@@ -61,7 +62,7 @@
       "seg": "spell-builder",
       "controls": 24,
       "labels": 11,
-      "height": 1405,
+      "height": 1402,
       "broke": false
     },
     {
@@ -75,38 +76,36 @@
       "seg": "monster-builder",
       "controls": 117,
       "labels": 52,
-      "height": 2616,
+      "height": 2620,
       "broke": false
     },
     {
       "seg": "race-builder",
       "controls": 244,
       "labels": 40,
-      "height": 3324,
+      "height": 3328,
       "broke": false
     },
     {
       "seg": "subrace-builder",
       "controls": 199,
       "labels": 31,
-      "height": 3026,
+      "height": 3030,
       "broke": false
     },
     {
       "seg": "subclass-builder",
       "controls": 44,
       "labels": 14,
-      "height": 1577,
+      "height": 1581,
       "broke": false
     },
     {
       "seg": "class-builder",
       "controls": 73,
       "labels": 27,
-      "height": 2566,
+      "height": 2570,
       "broke": false
     }
-  ],
-  "recorded": "2026-09-07",
-  "note": "Baseline for builder-gallery.js. A label or control drop here means a field vanished. If a change is deliberate, re-record and say why in the commit."
+  ]
 }

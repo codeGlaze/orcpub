@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, dismissCookieBar, fillEffectBonus, dbAt } = require('./lib');
+const { BASE, SHOTS, findChrome, dismissCookieBar, dismissWhatsNew, fillEffectBonus, dbAt } = require('./lib');
 
 const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type: 'jpeg', quality: 72 });
 
@@ -46,6 +46,7 @@ const state = (page) => page.evaluate(() => {
   await page.goto(`${BASE}/pages/dnd/5e/fighting-style-builder`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1800);
   await dismissCookieBar(page);
+    await dismissWhatsNew(page);
   const bare = await state(page);
 
   for (const t of ['AC Bonus', 'Attack Bonus', 'Damage Bonus']) {

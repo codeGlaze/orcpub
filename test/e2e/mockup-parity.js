@@ -24,7 +24,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, findChrome, dismissCookieBar, fillEffectBonus, pickOption } = require('./lib');
+const { BASE, findChrome, dismissCookieBar, dismissWhatsNew, fillEffectBonus, pickOption } = require('./lib');
 
 const MOCKUP = path.resolve(__dirname, '../../docs/kb/assets/builder-form-mockup.html');
 
@@ -74,6 +74,7 @@ const styleOf = (page, sel, props) => page.evaluate(({ s, p }) => {
   await app.goto(`${BASE}/pages/dnd/5e/fighting-style-builder`, { waitUntil: 'networkidle' });
   await app.waitForTimeout(1800);
   await dismissCookieBar(app);
+    await dismissWhatsNew(app);
   // the app's rows only exist once added, and `.set` only once a tag carries a value
   for (const t of ['AC Bonus', 'Attack Bonus']) {
     await app.evaluate((title) => {

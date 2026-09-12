@@ -15,7 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, checker, dbAt, clickText, dismissCookieBar } = require('./lib');
+const { BASE, SHOTS, findChrome, checker, dbAt, clickText, dismissCookieBar, dismissWhatsNew } = require('./lib');
 
 const PACK = 'Typo Pack';
 
@@ -44,6 +44,7 @@ const ORCBREW = `{"${PACK}"
     await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'load' });
     await page.waitForTimeout(1500);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
 
     const input = await page.$('input[type=file]');
     check('found the import input', !!input);
@@ -76,8 +77,10 @@ const ORCBREW = `{"${PACK}"
     check('  while the CORRECT feat is not flagged', !/sound-feat/.test(detail), detail.slice(0, 220));
 
     const body = await page.locator('#app').innerText();
+    // The banner names the pack: “Exported “Typo Pack” with warnings” (curly quotes, 5s TTL).
+    const banner = (body.match(/Exported[^\n]*with warnings[^\n]*/i) || [''])[0];
     check('and the screen says so too (not console-only)',
-          /exported with warnings/i.test(body), body.slice(0, 200));
+          new RegExp(`Exported.*${PACK}.*with warnings`, 'i').test(body), banner || body.slice(0, 200));
 
     // ── the surface that actually helps: the builder form, on the item ────────
     // Reached the way a person reaches it — My Content, expand down to the item, click its edit
@@ -85,6 +88,7 @@ const ORCBREW = `{"${PACK}"
     await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'load' });
     await page.waitForTimeout(1500);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
     // source -> type section -> the item's own edit button. IDEMPOTENT: a row shows "expand" when
     // closed and "collapse" when open, and the export step above already opened the source — so
     // clicking "expand" unconditionally would close it again.

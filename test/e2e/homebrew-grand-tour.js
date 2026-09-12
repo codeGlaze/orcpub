@@ -16,7 +16,7 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        fillEffectBonus, dismissCookieBar, clickTab, pickFromAnySelect, pickOption } = require('./lib');
+        fillEffectBonus, dismissCookieBar, dismissWhatsNew, clickTab, pickFromAnySelect, pickOption } = require('./lib');
 
 const PACK = 'Grand Tour';
 const shot = (page, name) =>
@@ -29,6 +29,7 @@ async function openBuilder(page, seg) {
   await page.goto(`${BASE}/pages/dnd/5e/${seg}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1400);
   await dismissCookieBar(page);
+  await dismissWhatsNew(page);
 }
 
 async function head(page, name) {
@@ -128,6 +129,7 @@ const pageHas = async (page, rx) => rx.test(await page.locator('#app').innerText
     await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'load' });
     await page.waitForTimeout(1500);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
     await shot(page, '03-my-content.jpg');
     await page.locator('#app .item-list-item').filter({ hasText: PACK }).first()
               .locator('text=expand').first().click();
@@ -170,6 +172,7 @@ const pageHas = async (page, rx) => rx.test(await page.locator('#app').innerText
     await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2500);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
 
     // a Dragonborn Fighter reaches TWO of the imported types: the ancestry and the style.
     // The builder opens on the Race tab and seeds a default class.

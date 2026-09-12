@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, dismissCookieBar } = require('./lib');
+const { BASE, SHOTS, findChrome, dismissCookieBar, dismissWhatsNew } = require('./lib');
 
 // Every :route-seg in content_types.cljc that has a builder page.
 const BUILDERS = [
@@ -47,6 +47,7 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     await page.goto(`${BASE}/pages/dnd/5e/${seg}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
     // How many controls the form puts in front of an author, which is the number the comparison
     // is actually about.
     // input/select/textarea AND the glyph checkboxes. The app draws a toggle as an <i> with colour

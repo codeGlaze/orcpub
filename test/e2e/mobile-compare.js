@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, dismissCookieBar } = require('./lib');
+const { BASE, SHOTS, findChrome, dismissCookieBar, dismissWhatsNew } = require('./lib');
 
 // iPhone 12/13/14 CSS pixels — the narrow end of what people actually use.
 const VIEWPORT = { width: 390, height: 844 };
@@ -34,6 +34,7 @@ const BUILDERS = ONLY.length ? ONLY
     await page.goto(`${BASE}/pages/dnd/5e/${seg}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1600);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
     const m = await page.evaluate((vw) => {
       const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
       const app = document.querySelector('#app');

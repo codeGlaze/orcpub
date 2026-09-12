@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        dismissCookieBar, pickOption, chipIsOn } = require('./lib');
+        dismissCookieBar, dismissWhatsNew, pickOption, chipIsOn } = require('./lib');
 
 const SOURCE = 'Grant Pin';
 const NAME = 'Wyrmblooded';
@@ -44,6 +44,7 @@ const clickInRow = (page, rowTitle, chipText) => page.evaluate(({ t, c }) => {
     await page.goto(`${BASE}/pages/dnd/5e/feat-builder`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1800);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
 
     // the add-bar IS the registry: every pool offerable-by :feat, nothing else
     const bar = await page.evaluate(() =>

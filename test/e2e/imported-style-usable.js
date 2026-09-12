@@ -8,6 +8,7 @@
 // Prereqs:  lein fig:build && lein garden once && lein e2e-server
 const fs = require('fs'); const path = require('path'); const os = require('os');
 const { chromium } = require('playwright');
+const { dismissWhatsNew } = require('./lib');   // the release backdrop eats every click
 const BASE = process.env.E2E_BASE || 'http://localhost:8890';
 const SHOTS = path.resolve(__dirname, '../../target/e2e-shots');
 function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';
@@ -58,6 +59,7 @@ const acOnScreen = (page) => page.evaluate(() => {
     // import through the real file input
     await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil:'networkidle' });
     await page.waitForTimeout(2500);
+    await dismissWhatsNew(page);
     const fi = await page.$('input[type=file]');
     check('found the import file input', !!fi);
     await fi.setInputFiles(file);
@@ -69,6 +71,7 @@ const acOnScreen = (page) => page.evaluate(() => {
     // build a Fighter — fighting styles are a level-1 Fighter selection
     await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil:'networkidle' });
     await page.waitForTimeout(3500);
+    await dismissWhatsNew(page);
     await page.screenshot({ path: path.join(SHOTS,'usable-01-builder.png'), fullPage:true });
 
     // The builder opens on the RACE tab (and seeds a default class), so navigate to Class / Level

@@ -139,6 +139,53 @@ async function dismissCookieBar(page) {
   await page.waitForTimeout(400);
 }
 
+// The What's New panel is a fixed backdrop that covers the page on a first visit, so every click
+// after it lands on the backdrop and times out. It arrived with the integration merge.
+//
+// GOTCHA: it does not open at load — it opens ~450ms after the FIRST click on the document, so
+// removing the node on arrival fixes nothing. The only reliable suppression is the seen-stamp,
+// read from localStorage at boot, so a page that booted unstamped is reloaded once.
+const WHATS_NEW_KEY = 'whats-new-seen';
+
+// The stamp the app compares against, read from the source so this does not rot on the next
+// release. pr-str of a string is the JSON spelling: quotes included.
+function whatsNewStamp() {
+  try {
+    const src = fs.readFileSync(path.resolve(__dirname, '../../src/cljc/orcpub/whats_new.cljc'), 'utf8');
+    const m = src.match(/:id\s+"([^"]+)"/);
+    if (m) return JSON.stringify(m[1]);
+  } catch (_) {}
+  return '"seen"';
+}
+
+async function dismissWhatsNew(page) {
+  const stamp = whatsNewStamp();
+  const alreadyStamped = await page.evaluate(({ k, v }) => {
+    try {
+      const had = localStorage.getItem(k) === v;
+      localStorage.setItem(k, v);
+      return had;
+    } catch (e) { return true; }              // storage off: nothing to do, and nothing to reload for
+  }, { k: WHATS_NEW_KEY, v: stamp });
+  if (!alreadyStamped) {
+    await page.reload({ waitUntil: 'load' }); // the stamp is only read at boot
+    await dismissCookieBar(page);
+  }
+  await page.evaluate(() => {
+    const back = document.querySelector('.whats-new-backdrop');
+    if (!back) return;
+    const btn = back.querySelector('.whats-new-close');
+    if (btn) btn.click(); else back.remove();
+  });
+  await page.waitForTimeout(300);
+}
+
+// Everything a fresh page needs before it can be driven: cookie bar, then the release panel.
+async function readyPage(page) {
+  await dismissCookieBar(page);
+  await dismissWhatsNew(page);
+}
+
 // Click a character-builder TAB by its exact name. Distinct from clickText: a tab's label also
 // appears inside the panel it opens, and clickText's shortest-match would sometimes find that
 // instead. Anchored regex, visible elements only.
@@ -234,4 +281,4 @@ async function optionsOf(page, label) {
   return { shown, options: opts };
 }
 
-module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };
+module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, dismissWhatsNew, readyPage, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };

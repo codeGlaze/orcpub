@@ -13,7 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        dismissCookieBar, chipIsOn, chipClick, pickOption, optionsOf } = require('./lib');
+        dismissCookieBar, dismissWhatsNew, chipIsOn, chipClick, pickOption, optionsOf } = require('./lib');
 
 const SOURCE = 'Spell Pin';
 const NAME = 'Tideward';
@@ -34,6 +34,7 @@ const NAME = 'Tideward';
     await page.goto(`${BASE}/pages/dnd/5e/spell-builder`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1800);
     await dismissCookieBar(page);
+    await dismissWhatsNew(page);
 
     for (const label of ['Name', 'Option Source Name', 'Level', 'School',
                          'Casting Time', 'Range', 'Duration', 'Description']) {
