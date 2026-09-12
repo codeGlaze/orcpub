@@ -8,6 +8,8 @@
 // Prereqs: lein fig:build; cd test/e2e && npm i playwright && npx playwright install chromium
 // Run:     REPO=/abs/path/to/orcpub node test/e2e/background-asi.js   (exit 0 = pass)
 const { chromium } = require('playwright');
+// Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
+const { findChrome } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8862);
@@ -26,7 +28,7 @@ const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${o
 const scores=async pg=>await pg.evaluate(()=>{const n=[...document.querySelectorAll('.ability-score-name')].map(e=>e.textContent.trim().toUpperCase());const v=[...document.querySelectorAll('.ability-score')].map(e=>+e.textContent.trim());const m={};n.forEach((a,i)=>{if(/^(STR|DEX|CON|INT|WIS|CHA)$/.test(a)&&!(a in m))m[a]=v[i];});return m;});
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
-  const b=await chromium.launch();const pg=await b.newPage();
+  const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage();
   pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load',timeout:30000});

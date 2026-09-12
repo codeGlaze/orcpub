@@ -7,6 +7,8 @@
 //
 // Run: REPO=/abs/path/to/orcpub node test/e2e/multi-feat-floating.js   (exit 0 = pass)
 const { chromium } = require('playwright');
+// Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
+const { findChrome } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8888);
@@ -28,7 +30,7 @@ async function pickStrIn(pg, crumb){ const w=pg.locator('div',{has:pg.locator(`:
 async function addFeat(pg,name){ const box=pg.locator('#app div.b-orange',{hasText:name}).first(); await box.scrollIntoViewIfNeeded(); await box.click(); await pg.waitForTimeout(700); }
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
-  const b=await chromium.launch();const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
+  const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1400,height:2200});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load'}); await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);
   await pg.goto(`${U}/pages/dnd/5e/character-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);

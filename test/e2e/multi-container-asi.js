@@ -7,6 +7,8 @@
 //
 // Run: REPO=/abs/path/to/orcpub node test/e2e/multi-container-asi.js   (exit 0 = pass)
 const { chromium } = require('playwright');
+// Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
+const { findChrome } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8875);
@@ -22,13 +24,15 @@ const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{res
 const scores=async pg=>await pg.evaluate(()=>{const n=[...document.querySelectorAll('.ability-score-name')].map(e=>e.textContent.trim().toUpperCase());const v=[...document.querySelectorAll('.ability-score')].map(e=>+e.textContent.trim());const m={};n.forEach((a,i)=>{if(/^(STR|DEX|CON|INT|WIS|CHA)$/.test(a)&&!(a in m))m[a]=v[i];});return m;});
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
-  const b=await chromium.launch();const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
+  const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load'}); await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);
   await pg.goto(`${U}/pages/dnd/5e/character-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);
-  await pg.locator('#app span:visible',{hasText:'Tide'}).first().click(); await pg.waitForTimeout(800);     // race
+  // EXACT name: the app-shipped demo pack ships a "Demo: Tideborn" race, and a loose 'Tide'
+  // matcher picks that one instead of this fixture's.
+  await pg.locator('#app span:visible').filter({hasText:/^Tide$/}).first().click(); await pg.waitForTimeout(800);     // race
   await pg.locator('#app .f-s-10.m-b-2').filter({hasText:'Background'}).first().click(); await pg.waitForTimeout(800);
-  await pg.locator('#app span:visible',{hasText:'Sea-Marked'}).first().click(); await pg.waitForTimeout(800);
+  await pg.locator('#app span:visible').filter({hasText:/^Sea-Marked$/}).first().click(); await pg.waitForTimeout(800);
   await pg.locator('#app :text("Ability Scores / Feats")').first().click(); await pg.waitForTimeout(1500);
   const abil=(await pg.locator('#app').innerText()).replace(/\n+/g,' | ');
   check('race ASI widget attributed to the race', /Improvement:[^|]*Race - Tide/.test(abil));

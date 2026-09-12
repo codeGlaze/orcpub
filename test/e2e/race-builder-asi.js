@@ -16,6 +16,8 @@
 // Exit 0 = pass, non-zero = fail.
 
 const { chromium } = require('playwright');
+// Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
+const { findChrome } = require('./lib');
 const http = require('http'), fs = require('fs'), path = require('path');
 
 const REPO = process.env.REPO || path.resolve(__dirname, '../..');
@@ -41,7 +43,7 @@ const server = http.createServer((req, res) => {
 
 (async () => {
   await new Promise(r => server.listen(PORT, r));
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const pg = await browser.newPage();
   const errs = [];
   pg.on('pageerror', e => errs.push((e.message || e).toString().split('\n')[0]));
