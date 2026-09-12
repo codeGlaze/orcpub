@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -54,7 +54,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, ring, scalar, shield, sum, tie-break, unarmored, worn
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, ring, scalar, shield, sum, sweep, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, crossbow, dual, equipped, ignored, iterating, melee, obvious, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -116,7 +116,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, change, check, css, expression, finds, fires, green, layout, lesson, machine, page, past, pin, review, screenshot, stale, vanished
+**topics:** blind, check, css, expression, finds, fires, form, green, layout, lesson, machine, page, past, pin, review, screenshot, stale, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -272,7 +272,7 @@ _character-validation · character validation_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, features, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, extraction, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -412,7 +412,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -445,7 +445,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** cross-source, dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, variant, versioned, warn
+**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, user, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -536,7 +536,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, committed, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, recipe, tier, user, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -552,7 +552,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, history, hook, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, dotfiles, goes, history, hook, irreducible, learned, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -578,11 +578,23 @@ _dropdown-value-coercion · dropdown value coercion_
 - Numbers already have a typed input — number-field
 - Guard / convergence rule
 
+## edition-drift.md
+
+_edition-drift · edition drift_
+
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, property, stow, two-weapon, weapon, wielder
+
+- Two-weapon fighting, side by side
+- What each difference costs us
+- Two data traps found while checking
+- The general lesson
+- Provenance
+
 ## feat-builder-audit.md
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, five, gaps, hardcoded, hook, language, map-of-flags, modifiers, pool, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, five, gaps, hardcoded, hook, language, map-of-flags, modifiers, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -599,7 +611,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, styles, tick, watch-list, whitelist
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, tick, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -612,7 +624,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, end, fighting, great, interception, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
+**topics:** archery, attack, blindsight, damage, dueling, end, fighting, great, interception, prop, property, protection, style, styles, thrown, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -754,7 +766,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-next · plan next_
 
-**topics:** advanced, cap, capabilities, contributor, converting, damage, hygiene, integration, macro, move, per-widget, picked, requirements, roughly, row, tweakable, understood, wants
+**topics:** advanced, armour, cap, capabilities, contributor, converting, damage, hygiene, integration, macro, move, picked, requirements, roughly, row, understood, wants, warforged
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -769,7 +781,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, filter, irregularity, membership, pieces, pool, pools, registered, shaped, spells, styles, tested, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, grant, irregularity, membership, pieces, pool, pools, registered, shaped, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -822,7 +834,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -842,7 +854,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, feat, feats, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -939,7 +951,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, cosmetic, deals, flags, lack, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, cosmetic, deals, flags, handaxe, longsword, mapping, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

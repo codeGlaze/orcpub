@@ -126,5 +126,10 @@ exists; it is the other seam).
 notice that currently renders as a 12px line.
 ☐ `feat-weapon-proficiency` still writes `:improvised-weapons-prof`, which nothing reads. Wire it
 (`modifiers/weapon-proficiency :improvised` exists) or remove the control.
+☐ `(mod5e/ac-bonus-fn (fn [] 1))` in the UA warforged block (`ua_base.cljc:832`) is a **0-arity**
+fn in a channel that calls `(f armor shield)`. Inside `#_` so it never compiles, but it would throw
+if that block were re-enabled. Also worth checking whether the early UA warforged was tortle-shaped
+(base AC + Con, no worn armour) rather than the flat +1 the repo has — if so it is another data
+point for the natural-armor template, see `assets/natural-armor-mockup.html`.
 ☐ `"Passive Investigation +5"` in the Custom Feat list grants passive **perception**. One word, but
 it changes the sheet of any saved character that picked it — needs a decision, not a quiet fix.

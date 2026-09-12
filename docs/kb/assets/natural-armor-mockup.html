@@ -1,0 +1,98 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Natural Armor — effect row</title>
+<style>
+:root{--bg:#080a0d;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.14);--muted:#98a2b3;--text:#e6e9ee;--accent:#f0a100}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Open Sans",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 20px}
+h1{font-size:19px;margin:0 0 4px}.sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.row{border:1px solid var(--line);border-radius:6px;margin-bottom:14px;overflow:hidden;background:var(--panel)}
+.row header{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);padding:7px 11px;border-bottom:1px solid var(--line)}
+.row header b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.row header .x{color:var(--muted)}.body{padding:12px}
+.line{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.lbl{color:var(--muted);font-size:12px;font-weight:600}
+input,.sel{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:6px 9px;font:inherit}
+.num{width:66px;text-align:center;font-weight:700}
+.sel{display:inline-flex;gap:9px;align-items:center}.sel::after{content:"⌄";color:var(--muted)}
+.chip{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:999px;padding:4px 11px;font-size:12px}
+.chip.on{border-color:var(--accent);color:var(--accent)}
+.adv{margin-top:4px;border-top:1px dashed var(--line);padding-top:10px}
+.adv .t{color:var(--muted);font-size:12px;cursor:default;margin-bottom:9px}
+.hint{color:var(--muted);font-size:11.5px;margin-top:6px}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:7px;padding:13px;font:12.5px/1.55 ui-monospace,Menlo,monospace;color:#d7dde6;overflow:auto;margin:0 0 14px}
+.k{color:#9ecbff}.n{color:#f0a100}.c{color:#6b7684;font-style:italic}
+h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+</style></head><body><div class="wrap">
+<h1>Natural Armor — one effect row, two tiers</h1>
+<p class="sub">The template is the shape these share. The differences between published races are knob values, not separate templates — except where a race adds a second <em>fact</em>, which gets its own control rather than being folded into the number.</p>
+
+<div class="cols"><div>
+
+<div class="row"><header><b>Natural Armor</b><span class="x">✕</span></header>
+ <div class="body">
+  <div class="line">
+   <span class="lbl">Your AC is</span><input class="num" value="13">
+   <span class="lbl">+</span><span class="sel">Dexterity</span>
+  </div>
+  <div class="line">
+   <button class="chip">Worn armor gives no AC</button>
+   <span class="hint">Tick for a shell or plating that <em>replaces</em> armor rather than adding to it.</span>
+  </div>
+
+  <div class="adv">
+   <div class="t">▸ Advanced — when this applies</div>
+  </div>
+ </div>
+</div>
+
+<div class="row"><header><b>Natural Armor</b><span class="x">✕</span></header>
+ <div class="body">
+  <div class="line">
+   <span class="lbl">Your AC is</span><input class="num" value="17">
+   <span class="lbl">+</span><span class="sel">(no ability)</span>
+  </div>
+  <div class="line">
+   <button class="chip on">Worn armor gives no AC</button>
+  </div>
+  <div class="adv">
+   <div class="t">▾ Advanced — when this applies</div>
+   <div class="line">
+    <span class="lbl">Armor</span><span class="sel">Both</span>
+    <span class="lbl">Shield</span><span class="sel">Both</span>
+   </div>
+   <div class="hint">Leave both on “Both” unless the calculation should be disqualified outright — a Monk with <em>Shield: only while NOT wielding</em> loses Unarmored Defense entirely while holding one, rather than merely skipping the shield’s bonus.</div>
+  </div>
+ </div>
+</div>
+
+</div><div>
+<pre><span class="c">;; top row — lizardfolk</span>
+{<span class="k">:props</span> {<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">13</span> <span class="k">:abilities</span> [<span class="k">:dex</span>]}}}
+
+<span class="c">;; second row — tortle</span>
+{<span class="k">:props</span> {<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">17</span> <span class="k">:abilities</span> []}
+         <span class="k">:armor-gives-no-ac</span> <span class="n">true</span>}}
+
+<span class="c">;; the advanced fields, when used</span>
+{<span class="k">:ac</span> {<span class="k">:ac</span> <span class="n">10</span> <span class="k">:abilities</span> [<span class="k">:dex</span> <span class="k">:wis</span>]
+      <span class="k">:armor?</span> <span class="n">false</span> <span class="k">:shield?</span> <span class="n">false</span>}}   <span class="c">; monk</span></pre>
+
+<h3>Published races against the two knobs</h3>
+<table>
+<tr><th>race</th><th>AC</th><th>+ ability</th><th>armor gives no AC</th></tr>
+<tr><td>Lizardfolk</td><td>13</td><td>Dex</td><td>—</td></tr>
+<tr><td>Tortle</td><td>17</td><td>—</td><td>✔</td></tr>
+<tr><td>Warforged (early UA)<br><span class="hint">unverified from this repo</span></td><td>13?</td><td>Con?</td><td>✔?</td></tr>
+<tr><td>Warforged (published)</td><td colspan="3">not this template — a flat <code>:ac-bonus</code></td></tr>
+<tr><td>Monk / Barbarian</td><td>10</td><td>Dex + Wis / Con</td><td>—<br><span class="hint">uses the advanced conditions instead</span></td></tr>
+</table>
+
+<h3>Why the toggle is separate</h3>
+<p class="hint">“Your AC is 17” and “your shell replaces armor” are two different facts. The old <code>:tortle-ac</code> prop welded them together, which is why a tortle could not be given armor-wearing homebrew without losing the AC too. The AC refactor split them; this form keeps them split.</p>
+
+<h3>What the advanced tier is for</h3>
+<p class="hint">Three fields, collapsed by default via <code>optional-builder-section</code> — it opens automatically when the data already has them and exports nothing if untouched. The common case stays two knobs and a toggle; the whole formula is one click away.</p>
+</div></div></div></body></html>
