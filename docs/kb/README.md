@@ -45,6 +45,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [docker-setup-flow.md](docker-setup-flow.md) | run mode flow: block order, flag combos, helpers, generate_env(), error recovery, test infrastructure |
 | [docker-swarm-compat.md](docker-swarm-compat.md) | Compose Spec → Swarm v3 incompatibilities: depends_on, null fields, ports, jq pipeline |
 | [docker-security-decisions.md](docker-security-decisions.md) | Docker security decisions: non-root, sed escaping, chmod 600, .dockerignore, DATOMIC_URL validation |
+| [orcbrew-level-modifiers.md](orcbrew-level-modifiers.md) | The value vocabulary a homebrew item can use: the twelve `:level-modifiers` types and their `:value` domains, `:props` consumed on classes with no editor, the namespaced-ability-key rule, why none of the three validation layers checks shape, and `:saving-throw-advantage` computing into a dead end |
 | [homebrew-class-spellcasting.md](homebrew-class-spellcasting.md) | Homebrew class spellcasting: slot schedules, known-spells, prepared casters, integration risks |
 | [spell-selection-source-fix.md](spell-selection-source-fix.md) | Cantrip/spell-selection source-poisoning fix (`fix-cantrips-selection-bug` branch): feature changes, the select-keys toggle gap, reconciler plugin-scope, BOM non-issue, e2e-verified remediation |
 | [lein-uberjar-hang.md](lein-uberjar-hang.md) | lein compile hang: Datomic Peer non-daemon threads, timeout workaround, build profile fix |
