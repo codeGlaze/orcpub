@@ -18,7 +18,10 @@ const SRC = 'Long Lived Source';
 // half. Complete per docs/HOMEBREW_REQUIRED_FIELDS.md (name, key, option-pack,
 // level, school, spell-lists) so the export gate has no reason to stop — the
 // point of this case is what lands in the file, not whether the gate fires.
-const EXISTING = `{"${SRC}" {:orcpub.dnd.e5/spells {:old-faithful {:key :old-faithful :option-pack "${SRC}" :name "Old Faithful" :level 3 :school "evocation" :spell-lists {:wizard true}}}}}`;
+// Its description carries curly quotes on purpose: they are what the export cleanup
+// rewrites, so the copy the banner link carries has something to "fix", which is the
+// only condition under which the old link wrote that copy back over the library.
+const EXISTING = `{"${SRC}" {:orcpub.dnd.e5/spells {:old-faithful {:key :old-faithful :option-pack "${SRC}" :name "Old Faithful" :level 3 :school "evocation" :spell-lists {:wizard true} :description "An \u201cold\u201d favourite"}}}}`;
 
 // The same source with one incomplete entry, for the case that must NOT write a file.
 const WITH_A_GAP = `{"${SRC}" {:orcpub.dnd.e5/spells {:old-faithful {:key :old-faithful :option-pack "${SRC}" :name "Old Faithful" :level 3 :school "evocation" :spell-lists {:wizard true}} :half-done {:key :half-done :option-pack "${SRC}" :name "Half Done"}}}}`;
@@ -89,6 +92,39 @@ function check(name, pass, detail) {
   check('the file is the source, not its printed source code',
         !/^\s*\[:/.test(text) && text.includes(SRC), text.slice(0, 60));
   console.log('   file: ' + dl.suggestedFilename() + ' ' + text.length + 'B');
+
+  // --- a change made after saving survives the same link -------------------
+  //  The link used to carry the source as it was at the moment of saving. Once
+  //  export began saving its cleanup back, a click after any later change wrote
+  //  that old copy over the library -- but only when cleanup changed something in
+  //  that copy, which the curly quotes in EXISTING guarantee. So: turn the source
+  //  off, add an entry, click the link again, and require both changes to survive.
+  await page.evaluate(src => {
+    const C = cljs.core, rd = cljs.reader.read_string;
+    let lib = C.get(C.deref(re_frame.db.app_db), rd(':plugins'));
+    lib = C.assoc_in(lib, C.vector(src, rd(':orcpub.dnd.e5/spells'), rd(':added-later')),
+      rd(`{:key :added-later :option-pack "${src}" :name "Added Later" :level 1 :school "evocation" :spell-lists {:wizard true} :description "A \u201ccurly\u201d quote"}`));
+    lib = C.assoc_in(lib, C.vector(src, rd(':disabled?')), true);
+    re_frame.core.dispatch_sync(C.conj(rd('[:orcpub.dnd.e5/set-plugins]'), lib));
+  }, SRC);
+  await page.waitForTimeout(300);
+  const linkAgain = page.locator('.message .pointer.underline').first();
+  let text2 = '';
+  if (await linkAgain.count()) {
+    const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), linkAgain.click()]);
+    await dl2.saveAs(path.join(OUT, 'export-after-change.orcbrew'));
+    text2 = fs.readFileSync(path.join(OUT, 'export-after-change.orcbrew'), 'utf8');
+  }
+  await page.waitForTimeout(800);
+  const kept = await page.evaluate(src => {
+    const C = cljs.core, rd = cljs.reader.read_string, s = C.get(C.get(C.deref(re_frame.db.app_db), rd(':plugins')), src);
+    return { off: C.get(s, rd(':disabled?')) === true,
+             added: C.contains_QMARK_(C.get(s, rd(':orcpub.dnd.e5/spells')), rd(':added-later')) };
+  }, SRC);
+  check('a change made after saving survives clicking the link', kept.off && kept.added, JSON.stringify(kept));
+  check('and the file carries the change', /Added Later/.test(text2), text2 ? text2.length + 'B' : 'no second download');
+  // Put the source back on so the sections below see it as they always have.
+  await page.evaluate(src => re_frame.core.dispatch_sync(cljs.core.conj(cljs.core.conj(cljs.reader.read_string('[:orcpub.dnd.e5/toggle-plugin]')), src)), SRC);
 
   // --- the file has to parse back ------------------------------------------
   //  Contents matching is not the claim that matters; re-importable is. Checked
