@@ -177,3 +177,15 @@
     (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
         "so a second load changes nothing")))
 
+(deftest loading-repairs-a-damaged-entry-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            "{\"Bad Pak\" {:orcpub.dnd.e5/races {:x {:key \"text\" :option-pack \"Bad Pak\" :name \"X\" :traits 42}}}}")
+  (let [race (get-in (load-plugins!) ["Bad Pak" :orcpub.dnd.e5/races :x])]
+    (is (= :x (:key race)) "a text key stopped the app from starting")
+    (is (not (contains? race :traits))))
+  (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
+    (is (not (.includes stored "\"text\"")) "written back")
+    (load-plugins!)
+    (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
+        "so a second load changes nothing")))
+

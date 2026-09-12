@@ -258,7 +258,7 @@
                        :icon "fa-exclamation-triangle" :icon-color "#f0a100"
                        :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
                       {:types #{:repaired-section}
-                       :title-fn #(str "Repaired Sections (" (count %) ")")
+                       :title-fn #(str "Repairs (" (count %) ")")
                        :icon "fa-wrench" :icon-color "#8cc63f"
                        :bg-color "rgba(112, 168, 0, 0.1)" :border-color "#8cc63f"}
                       {:types #{:string-fix :text-normalization :renamed-plugin-key

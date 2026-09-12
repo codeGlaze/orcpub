@@ -171,8 +171,70 @@
                       {:damaged v})
     :else {:damaged v}))
 
+(defn mend-cards
+  "Put a :traits or :options value back into a list of cards (maps). Text in the list
+   becomes a card with that name and anything else in it is dropped; a lone card or a
+   lone name becomes a list of one; any other value is removed. Returns {:value v}
+   when nothing changed, {:value v :repair :cards-mended :named n :dropped n}, or
+   {:remove? true :repair :cards-not-a-list}."
+  [v]
+  (cond
+    (nil? v) {:value v}
+    (map? v) {:value [v] :repair :cards-mended :named 0 :dropped 0}
+    (source-name? v) {:value [{:name v}] :repair :cards-mended :named 1 :dropped 0}
+    (sequential? v)
+    (let [named (count (filter source-name? v))
+          cards (vec (keep #(cond (map? %) % (source-name? %) {:name %}) v))
+          dropped (- (count v) (count cards))]
+      (if (and (vector? v) (zero? named) (zero? dropped))
+        {:value v}
+        {:value cards :repair :cards-mended :named named :dropped dropped}))
+    :else {:remove? true :repair :cards-not-a-list}))
+
+(defn- entry-key? [k]
+  (and (keyword? k) (common/keyword-starts-with-letter? k)))
+
+(defn mend-entry
+  "Repair damage inside one entry, filed under `entry-key` in section `section-key`. A
+   :key that is not a letter-first keyword takes the key the entry is filed under;
+   :traits, and a selection's :options, go through mend-cards. A sound entry comes
+   back untouched. Returns {:entry e :repairs [{:field :repair ...}]}."
+  [section-key entry-key entry]
+  (if-not (map? entry)
+    {:entry entry :repairs []}
+    (let [restore-key? (and (contains? entry :key)
+                            (not (entry-key? (:key entry)))
+                            (entry-key? entry-key))
+          fields (cond-> [:traits] (= section-key ::selections) (conj :options))]
+      (reduce (fn [{e :entry :as acc} field]
+                (if-not (contains? e field)
+                  acc
+                  (let [{:keys [value repair remove?] :as r} (mend-cards (get e field))]
+                    (cond
+                      remove? (-> acc
+                                  (update :entry dissoc field)
+                                  (update :repairs conj {:field field :repair repair}))
+                      repair (-> acc
+                                 (assoc-in [:entry field] value)
+                                 (update :repairs conj (-> r (dissoc :value) (assoc :field field))))
+                      :else acc))))
+              {:entry (cond-> entry restore-key? (assoc :key entry-key))
+               :repairs (if restore-key? [{:field :key :repair :key-restored}] [])}
+              fields))))
+
+(defn- mend-entries [section-key section]
+  (reduce-kv (fn [acc entry-key entry]
+               (let [{e :entry rs :repairs} (mend-entry section-key entry-key entry)]
+                 (cond-> acc
+                   (seq rs) (-> (assoc-in [:section entry-key] e)
+                                (update :repairs into (map #(assoc % :key entry-key) rs))))))
+             {:section section :repairs []}
+             section))
+
 (defn mend-plugin
-  "`mend-section` over one source. Returns {:plugin p :repairs [{:section k :repair how}]}.
+  "`mend-section` over one source, then `mend-entry` over each section's entries.
+   Returns {:plugin p :repairs [{:section k :repair how}]}; an entry repair also names
+   its :key and :field. A healthy source has no repairs, so nothing is written back.
    A section nothing can be read from is left where it is, for salvage to set aside."
   [plugin]
   (reduce-kv
@@ -180,10 +242,15 @@
      (if-not (content-section? k)
        acc
        (let [{:keys [section repair dropped]} (mend-section v)]
-         (cond
-           dropped (-> acc (update :plugin dissoc k) (update :repairs conj {:section k :repair dropped}))
-           repair (-> acc (assoc-in [:plugin k] section) (update :repairs conj {:section k :repair repair}))
-           :else  acc))))
+         (if dropped
+           (-> acc (update :plugin dissoc k) (update :repairs conj {:section k :repair dropped}))
+           (let [{entries :section entry-repairs :repairs} (when (map? section)
+                                                              (mend-entries k section))]
+             (cond-> acc
+               repair (-> (assoc-in [:plugin k] section)
+                          (update :repairs conj {:section k :repair repair}))
+               (seq entry-repairs) (-> (assoc-in [:plugin k] entries)
+                                       (update :repairs into (map #(assoc % :section k) entry-repairs)))))))))
    {:plugin plugin :repairs []}
    plugin))
 
