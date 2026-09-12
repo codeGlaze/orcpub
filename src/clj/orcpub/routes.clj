@@ -1810,7 +1810,11 @@
       {:status 200
        :headers {"Content-Type" "image/png"
                  ;; Portraits change rarely and a crawler may refetch often.
-                 "Cache-Control" "public, max-age=300"}
+                 "Cache-Control" "public, max-age=300"
+                 ;; This is contributed artwork. The header is the per-response
+                 ;; twin of the page's `noai` meta -- a crawler that fetches the
+                 ;; PNG directly never parses the HTML that carries the meta.
+                 "X-Robots-Tag" "noai, noimageai"}
        :body (ByteArrayInputStream. png)}
       {:status 404 :body "no composed portrait"})))
 

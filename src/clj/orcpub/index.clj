@@ -53,6 +53,12 @@
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
+    ;; Opt out of generative-AI training and image reuse. This is the
+    ;; DeviantArt-originated convention: a `robots` meta carrying only the
+    ;; `noai`/`noimageai` tokens, which does NOT imply noindex. Voluntary --
+    ;; honoured by some crawlers, ignored by others -- so it sits alongside
+    ;; robots.txt and the art licence rather than replacing either.
+    [:meta {:name "robots" :content "noai, noimageai"}]
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
