@@ -61,6 +61,15 @@
      :another-valid {:option-pack \"Test\"
                      :name \"Another Valid\"}}}")
 
+(def plugin-with-an-unreadable-entry
+  "An entry that is text, not a map: nothing to mend, so a progressive import skips it."
+  "{:orcpub.dnd.e5/spells
+    {:valid-spell {:option-pack \"Test\"
+                   :name \"Valid Spell\"}
+     :invalid-spell \"not an entry\"
+     :another-valid {:option-pack \"Test\"
+                     :name \"Another Valid\"}}}")
+
 ;; ============================================================================
 ;; Parse Tests
 ;; ============================================================================
@@ -236,18 +245,19 @@
 
 (deftest test-full-import-workflow-progressive
   (testing "Complete import workflow with progressive strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
       (is (:had-errors result))
-      ;; Should have imported 2 valid items and skipped 1 invalid
+      ;; Should have imported 2 valid items and skipped 1 invalid. The invalid one
+      ;; used to crash the import instead.
       (is (= 2 (:imported-count result)))
       (is (= 1 (:skipped-count result))))))
 
 (deftest test-full-import-workflow-strict
   (testing "Complete import workflow with strict strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :strict
                                               :auto-clean true})]
       ;; Strict mode should fail because not all items are valid
