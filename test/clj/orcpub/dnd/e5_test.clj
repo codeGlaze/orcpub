@@ -509,3 +509,90 @@
                {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
   (testing "nil inputs never throw"
     (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
+
+;; ---------------------------------------------------------------------------
+;; Mending damaged sections, and setting aside what cannot be mended
+;; ---------------------------------------------------------------------------
+
+(def ^:private spell-a {:option-pack "P" :key :fire-bolt :name "Fire Bolt" :level 0 :school "evocation"})
+(def ^:private spell-b {:option-pack "P" :key :witch-bolt :name "Witch Bolt" :level 1 :school "evocation"})
+
+(deftest mend-section-recovers-the-shapes-damage-takes
+  (testing "a section stored as text"
+    (is (= {:section {:fire-bolt spell-a} :repair :section-from-text}
+           (e5/mend-section (pr-str {:fire-bolt spell-a})))))
+  (testing "a section stored as a list, keyed by each entry's own key"
+    (is (= {:section {:fire-bolt spell-a :witch-bolt spell-b} :repair :section-from-list}
+           (e5/mend-section [spell-a spell-b]))))
+  (testing "a list entry without a key gets the key its name derives"
+    (is (= :fire-bolt (-> (e5/mend-section [(dissoc spell-a :key)]) :section :fire-bolt :key))))
+  (testing "an empty section is dropped"
+    (doseq [v [nil [] "" "  " '()]]
+      (is (= {:dropped :empty-section} (e5/mend-section v)) (pr-str v))))
+  (testing "a good section and a true/false are left alone"
+    (is (= {:section {:fire-bolt spell-a}} (e5/mend-section {:fire-bolt spell-a})))
+    (is (= {:section true} (e5/mend-section true)))))
+
+(deftest mend-section-does-not-guess
+  (testing "text that does not read as entries"
+    (is (= {:damaged "corrupted"} (e5/mend-section "corrupted"))))
+  (testing "two list entries claiming one key -- keying them would lose one"
+    (is (contains? (e5/mend-section [spell-a spell-a]) :damaged)))
+  (testing "a list element that is not an entry"
+    (is (contains? (e5/mend-section [spell-a 42]) :damaged))))
+
+(deftest mend-plugin-reports-each-repair
+  (let [{p :plugin rs :repairs} (e5/mend-plugin {:orcpub.dnd.e5/spells (pr-str {:fire-bolt spell-a})
+                                                 :orcpub.dnd.e5/feats nil
+                                                 :disabled? false})]
+    (is (= {:fire-bolt spell-a} (:orcpub.dnd.e5/spells p)))
+    (is (not (contains? p :orcpub.dnd.e5/feats)))
+    (is (false? (:disabled? p)) "non-content keys are untouched")
+    (is (= #{{:section :orcpub.dnd.e5/spells :repair :section-from-text}
+             {:section :orcpub.dnd.e5/feats :repair :empty-section}}
+           (set rs)))))
+
+(deftest mend-library-reads-a-source-stored-as-text
+  (let [{l :library rs :repairs} (e5/mend-library {"P" (pr-str {:orcpub.dnd.e5/spells {:fire-bolt spell-a}})})]
+    (is (= {:fire-bolt spell-a} (get-in l ["P" :orcpub.dnd.e5/spells])))
+    (is (= [{:source "P" :repair :source-from-text}] rs))))
+
+(deftest mend-import-data-reads-a-whole-file-stored-as-text
+  (let [{d :data rs :repairs} (e5/mend-import-data (pr-str {:orcpub.dnd.e5/spells [spell-a]}))]
+    (is (= {:fire-bolt spell-a} (:orcpub.dnd.e5/spells d)))
+    (is (= [:file-from-text :section-from-list] (map :repair rs)))))
+
+(deftest a-mended-section-passes-the-load-check
+  (is (spec/valid? ::e5/plugin (:plugin (e5/mend-plugin {:orcpub.dnd.e5/spells [spell-a spell-b]})))))
+
+(deftest salvage-sets-aside-a-damaged-section-and-keeps-the-rest
+  (let [{:keys [kept rejected]}
+        (e5/salvage-plugin-items content-specs/valid-item-for-load?
+                                 {:disabled? true
+                                  :orcpub.dnd.e5/spells "corrupted"
+                                  :orcpub.dnd.e5/feats {:tough {:option-pack "P" :name "Tough"}}})]
+    (is (= "corrupted" (:orcpub.dnd.e5/spells rejected)))
+    (is (not (contains? kept :orcpub.dnd.e5/spells)) "kept, it loaded silently and broke export")
+    (is (true? (:disabled? kept)))
+    (is (= {:tough {:option-pack "P" :name "Tough"}} (:orcpub.dnd.e5/feats kept)))))
+
+(deftest salvage-sets-aside-a-whole-source-that-is-not-a-map
+  ;; dropped from both sides, the load write-back would erase it
+  (let [{:keys [kept rejected]}
+        (e5/salvage-library-items content-specs/valid-item-for-load?
+                                  {"Good" {:orcpub.dnd.e5/feats {:t {:option-pack "Good"}}}
+                                   "Bad" "not a source"})]
+    (is (= "not a source" (get rejected "Bad")))
+    (is (contains? kept "Good"))))
+
+(deftest set-aside-damage-survives-the-next-load
+  ;; merging set-aside data used to call merge on text, which throws while starting up
+  (is (= {"S" {:orcpub.dnd.e5/spells "junk two"} "W" "whole junk"}
+         (e5/reconcile-rejected-items {"S" {:orcpub.dnd.e5/spells "junk one"} "W" "whole junk"}
+                                      {"S" {:orcpub.dnd.e5/spells "junk two"}}
+                                      {}))))
+
+(deftest merge-plugins-is-unchanged-for-sections-that-are-maps
+  (is (= {:orcpub.dnd.e5/spells {:a 1 :b 2} :orcpub.dnd.e5/feats {:c 3}}
+         (e5/merge-plugins {:orcpub.dnd.e5/spells {:a 1}}
+                           {:orcpub.dnd.e5/spells {:b 2} :orcpub.dnd.e5/feats {:c 3}}))))

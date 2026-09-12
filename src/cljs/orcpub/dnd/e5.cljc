@@ -1,6 +1,8 @@
 (ns orcpub.dnd.e5
   (:require #?(:cljs [cljs.spec.alpha :as spec])
             #?(:clj [clojure.spec.alpha :as spec])
+            #?(:cljs [cljs.reader :as reader])
+            #?(:clj [clojure.edn :as edn])
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.languages :as languages]
             [orcpub.common :as common]))
@@ -45,6 +47,121 @@
     {:kept {} :rejected {}}))
 
 
+(defn content-section?
+  "A key naming a content type (`:orcpub.dnd.e5/spells`), as opposed to `:disabled?`."
+  [k]
+  (and (qualified-keyword? k) (= "orcpub.dnd.e5" (namespace k))))
+
+(defn damaged-section?
+  "A content section holding neither entries nor the true/false the format allows --
+   text, a list, a number. It cannot load as it is."
+  [k v]
+  (and (content-section? k) (not (map? v)) (not (boolean? v))))
+
+(defn- read-back
+  "Text read back as data, or nil when it does not read."
+  [s]
+  (try #?(:clj (edn/read-string s) :cljs (reader/read-string s))
+       (catch #?(:clj Exception :cljs :default) _ nil)))
+
+(defn- list->entries
+  "Entries stored as a list, keyed the way the library keys them: each entry's own
+   :key, or the key its :name derives. nil when any element is not an entry, has
+   neither, or repeats a key -- guessing there would invent or silently lose content."
+  [xs]
+  (reduce (fn [m item]
+            (let [k (when (map? item)
+                      (or (:key item)
+                          (when (string? (:name item)) (common/name-to-kw (:name item)))))]
+              (if (and (keyword? k) (not (contains? m k)))
+                (assoc m k (assoc item :key k))
+                (reduced nil))))
+          {}
+          xs))
+
+(defn mend-section
+  "Put a content section that still holds its data back in the shape the library uses.
+   Returns {:section v} unchanged, {:section v :repair how}, {:dropped how} for an empty
+   section, or {:damaged v} when nothing readable is left for code to recover.
+
+   These are the shapes real damage takes. Left alone, a section stored as text or as
+   a list imported as \"successful\", loaded silently, and made export refuse the source."
+  [v]
+  (cond
+    (or (map? v) (boolean? v)) {:section v}
+    (or (nil? v)
+        (and (coll? v) (empty? v))
+        (and (string? v) (re-matches #"\s*" v))) {:dropped :empty-section}
+    (string? v) (let [x (read-back v)]
+                  (cond
+                    (map? x) {:section x :repair :section-from-text}
+                    (and (sequential? x) (seq x)) (if-let [m (list->entries x)]
+                                                    {:section m :repair :section-from-text}
+                                                    {:damaged v})
+                    :else {:damaged v}))
+    (sequential? v) (if-let [m (list->entries v)]
+                      {:section m :repair :section-from-list}
+                      {:damaged v})
+    :else {:damaged v}))
+
+(defn mend-plugin
+  "`mend-section` over one source. Returns {:plugin p :repairs [{:section k :repair how}]}.
+   A section nothing can be read from is left where it is, for salvage to set aside."
+  [plugin]
+  (reduce-kv
+   (fn [acc k v]
+     (if-not (content-section? k)
+       acc
+       (let [{:keys [section repair dropped]} (mend-section v)]
+         (cond
+           dropped (-> acc (update :plugin dissoc k) (update :repairs conj {:section k :repair dropped}))
+           repair (-> acc (assoc-in [:plugin k] section) (update :repairs conj {:section k :repair repair}))
+           :else  acc))))
+   {:plugin plugin :repairs []}
+   plugin))
+
+(defn mend-library
+  "`mend-plugin` over every source of a {source-name source} library, reading a source
+   stored as text back first. Returns {:library l :repairs [{:source :section :repair}]}.
+   Runs before salvage on load, so each repair is written back once."
+  [library]
+  (if-not (map? library)
+    {:library library :repairs []}
+    (reduce-kv
+     (fn [acc src plugin]
+       (let [from-text (when (string? plugin) (read-back plugin))
+             plugin (if (map? from-text) from-text plugin)]
+         (if (map? plugin)
+           (let [{p :plugin rs :repairs} (mend-plugin plugin)]
+             (-> acc
+                 (assoc-in [:library src] p)
+                 (update :repairs into
+                         (cond->> (map #(assoc % :source src) rs)
+                           (map? from-text) (cons {:source src :repair :source-from-text})))))
+           (assoc-in acc [:library src] plugin))))
+     {:library {} :repairs []}
+     library)))
+
+(defn mend-import-data
+  "Repair freshly read import data before anything else walks it: a whole file stored
+   as text, then either a single source or a {source-name source} library.
+   Returns {:data d :repairs [...]}; `d` is not a map only when nothing could be read."
+  [data]
+  (let [from-text (when (string? data) (read-back data))
+        data (if (map? from-text) from-text data)
+        whole (when (map? from-text) [{:repair :file-from-text}])]
+    (cond
+      (not (map? data))
+      {:data data :repairs []}
+
+      (and (seq data) (every? string? (keys data)))
+      (let [{l :library rs :repairs} (mend-library data)]
+        {:data l :repairs (into (vec whole) rs)})
+
+      :else
+      (let [{p :plugin rs :repairs} (mend-plugin data)]
+        {:data p :repairs (into (vec whole) rs)}))))
+
 (defn salvage-plugin-items
   "Per-ENTRY salvage of ONE source. Walks each content group and splits its items
    by `valid-item?` (a fn of [content-type item-key item]) — valid items go to
@@ -60,13 +177,21 @@
   (if (map? plugin)
     (reduce-kv
      (fn [acc k v]
-       (if (and (qualified-keyword? k) (map? v))
+       (cond
+         (and (qualified-keyword? k) (map? v))
          (reduce-kv
           (fn [a ik iv]
             (assoc-in a [(if (valid-item? k ik iv) :kept :rejected) k ik] iv))
           acc
           v)
+         ;; A content section that is text, a list, a number cannot load. Kept, it
+         ;; loaded silently and made export refuse the whole source; set aside, the
+         ;; needs-attention panel can export or discard it. mend-section has already
+         ;; recovered whatever was readable before this runs.
+         (damaged-section? k v)
+         (assoc-in acc [:rejected k] v)
          ;; non-content-group entry (or boolean content group) — keep as-is
+         :else
          (assoc-in acc [:kept k] v)))
      {:kept {} :rejected {}}
      plugin)
@@ -81,10 +206,14 @@
   (if (map? plugins)
     (reduce-kv
      (fn [acc name plugin]
-       (let [{:keys [kept rejected]} (salvage-plugin-items valid-item? plugin)]
-         (cond-> acc
-           (seq kept)     (assoc-in [:kept name] kept)
-           (seq rejected) (assoc-in [:rejected name] rejected))))
+       (if-not (map? plugin)
+         ;; A whole source that is not a map cannot load. Set it aside as it is --
+         ;; dropped from both sides, a write-back of the library would erase it.
+         (assoc-in acc [:rejected name] plugin)
+         (let [{:keys [kept rejected]} (salvage-plugin-items valid-item? plugin)]
+           (cond-> acc
+             (seq kept)     (assoc-in [:kept name] kept)
+             (seq rejected) (assoc-in [:rejected name] rejected)))))
      {:kept {} :rejected {}}
      plugins)
     {:kept {} :rejected {}}))
@@ -167,11 +296,16 @@
     {:content-type ct :item-key k :name (:name item)}))
 
 
-(defn merge-plugins [plugin-1 plugin-2]
-  (merge-with
-   merge
-   plugin-1
-   plugin-2))
+(defn merge-plugins
+  "Merge two sources section by section. Where either side is not a map -- a damaged
+   section, or a damaged source, set aside on an earlier load -- the newer value wins:
+   `merge` on text throws, and this runs while the app is starting."
+  [plugin-1 plugin-2]
+  (if (and (map? plugin-1) (map? plugin-2))
+    (merge-with (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
+                plugin-1
+                plugin-2)
+    plugin-2))
 
 (defn merge-all-plugins [all-plugins-1 all-plugins-2]
   (merge-with
@@ -190,6 +324,8 @@
                                   (if (map? new-rejected) new-rejected {}))]
     (reduce-kv
      (fn [acc src plugin]
+       (if-not (map? plugin)
+         (assoc acc src plugin) ; a damaged source stays set aside as it is
        (let [kept-src (get kept src)
              cleaned (reduce-kv
                       (fn [p ct items]
@@ -202,7 +338,7 @@
                           (assoc p ct items)))
                       {}
                       plugin)]
-         (if (seq cleaned) (assoc acc src cleaned) acc)))
+         (if (seq cleaned) (assoc acc src cleaned) acc))))
      {}
      merged)))
 
