@@ -115,22 +115,68 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
+(defn contain-rect
+  "Where a `sw`x`sh` asset lands inside a `w`x`h` frame under CSS
+   `mask-size: contain` -- scaled to fit, centred, aspect kept.
+
+   The browser composites with `contain`; both rasterizers used to stretch to
+   the frame instead, so a shared portrait came out a different shape from the
+   one the drawer showed. With 8:11 art in a 4:5 frame that is a 10% widening
+   of every face."
+  [sw sh w h]
+  (if (or (zero? sw) (zero? sh))
+    [0 0 w h]
+    (let [scale (min (/ (double w) sw) (/ (double h) sh))
+          dw (Math/round (* sw scale))
+          dh (Math/round (* sh scale))]
+      [(Math/round (/ (- w dw) 2.0)) (Math/round (/ (- h dh) 2.0)) dw dh])))
+
 (defn- draw-raster-layer! [^Graphics2D g ^bytes data ^Color color w h]
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     ;; Tint through the source's alpha: draw it, then flood the colour with
     ;; SrcIn so it lands only where the asset is opaque. Server-side twin of
     ;; the canvas 'source-in' composite the client uses.
     (let [tinted (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
-          tg (.createGraphics tinted)]
+          tg (.createGraphics tinted)
+          [x y dw dh] (contain-rect (.getWidth src) (.getHeight src) w h)]
       (try
         (.setRenderingHint tg RenderingHints/KEY_INTERPOLATION
                            RenderingHints/VALUE_INTERPOLATION_BILINEAR)
-        (.drawImage tg src 0 0 w h nil)
+        (.drawImage tg src (int x) (int y) (int dw) (int dh) nil)
         (.setComposite tg AlphaComposite/SrcIn)
         (.setColor tg color)
         (.fillRect tg 0 0 w h)
         (finally (.dispose tg)))
       (.drawImage g tinted 0 0 nil))))
+
+(defn- draw-credit!
+  "Burn the artist credit into the picture itself.
+
+   The page and the sheet can both carry a credit beside the portrait, but the
+   composed image is what people actually pass around -- saved off a share
+   card, pulled out of a PDF -- and it arrives detached from either. A caption
+   in the pixels travels with it.
+
+   Dark fill under a white outline, because the background is unknowable: the
+   PNG is transparent, so it may land on a white page or a dark chat client,
+   and one of the two always reads. Not a watermark -- a crop removes it --
+   just a credit that survives being right-click-saved."
+  [^Graphics2D g text w h]
+  (let [size (max 9 (int (* h 0.026)))
+        font (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN size)
+        fm (.getFontMetrics g font)
+        tw (.stringWidth fm text)
+        x (int (/ (- w tw) 2))
+        y (int (- h (max 4 (* h 0.018))))
+        halo (max 1 (int (/ size 12)))]
+    (.setFont g font)
+    (.setColor g (Color. 255 255 255 220))
+    (doseq [dx [(- halo) 0 halo]
+            dy [(- halo) 0 halo]
+            :when (not (and (zero? dx) (zero? dy)))]
+      (.drawString g ^String text (int (+ x dx)) (int (+ y dy))))
+    (.setColor g (Color. 20 20 20 235))
+    (.drawString g ^String text x y)))
 
 ;; ---------- the portrait ----------
 
@@ -165,6 +211,11 @@
                      (draw-raster-layer! g bytes color w h))))
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
+           (try
+             (when-let [credit (pa/credit-line portrait)]
+               (draw-credit! g credit w h))
+             (catch Exception e
+               (println "portrait-render: credit skipped -" (.getMessage e))))
            (finally (.dispose g)))
          img)))))
 

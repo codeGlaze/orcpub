@@ -668,23 +668,6 @@
           s/trim
           (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
 
-(def ^:private credit-font pdf/HELVETICA_OBLIQUE)
-(def ^:private credit-size 6)
-
-(defn portrait-credit-origin
-  "Where the portrait credit goes: which page, and the top-left corner in
-   inches. Pure, so the placement can be checked without building a document.
-
-   Centred on the 2.35in portrait box. Left-aligning it put the line on the
-   frame ornament in style 4, and centring also keeps it clear of the
-   captions the templates print themselves."
-  [style text]
-  (let [style4? (= 4 style)]
-    {:page-index (if style4? 0 1)
-     :x (+ (if style4? 0.50 0.45)
-           (/ (- 2.35 (pdf/string-width text credit-font credit-size)) 2))
-     :y (if style4? 3.70 4.86)}))
-
 (defn stamp-document-info!
   "Set the exported sheet's own metadata.
 
@@ -692,10 +675,9 @@
    their info dictionary and claims to have been made by 'Adobe InDesign CS6
    (Macintosh)' with an empty Author -- which is simply untrue, and is what a
    digital-asset tool or a search index reads. Overwriting it costs nothing
-   and puts the art credit somewhere besides a line of drawn text.
+   and puts the art credit somewhere besides the picture.
 
-   This is provenance, not protection: metadata strips as easily as the
-   printed line does."
+   This is provenance, not protection: metadata strips in seconds."
   [doc {:keys [character-name credit]}]
   (try
     (let [info (.getDocumentInformation doc)]
@@ -708,44 +690,6 @@
         (.setKeywords info c)))
     (catch Exception e
       (println "pdf: could not stamp document info -" (.getMessage e)))))
-
-(defn draw-portrait-credit!
-  "One small line under the portrait box naming the artists.
-
-   Style 4 puts the portrait on page 0 at a different offset; every other
-   style shares page 1. y is measured from the top of the page, matching
-   draw-image-bytes!.
-
-   The line sits just above the template's own portrait caption, centred on
-   the same 2.35in box the image is drawn in. Those captions are the only
-   reliable landmark: every other spot on these sheets is taken, and the two
-   layouts disagree about where the box even is -- on styles 1-3 the caption
-   ('CHARACTER APPEARANCE', 4.99in) sits below the image, while on style 4
-   ('CHARACTER PORTRAIT', 3.81in) the box runs on past it into the ability
-   scores. So the offsets below are measured off the printed captions rather
-   than derived from the image rect, and a template change is what would move
-   them.
-
-   Because it can land on artwork, it is drawn with a white outline under a
-   grey fill, the way a caption over a photograph is set -- legible whether
-   the pixels beneath are pale skin or a dark cloak."
-  [doc style credit]
-  (when-let [text (pdf-safe-text credit)]
-    (try
-      (let [{:keys [page-index x y]} (portrait-credit-origin style text)
-            page (pdf/get-page doc page-index)
-            font credit-font
-            size credit-size
-            halo 0.006]
-        (with-open [cs (pdf/content-stream doc page)]
-          (doseq [dx [(- halo) 0 halo]
-                  dy [(- halo) 0 halo]
-                  :when (not (and (zero? dx) (zero? dy)))]
-            (pdf/draw-text-from-top cs text font size (+ x dx) (+ y dy) [1 1 1]))
-          (pdf/draw-text-from-top cs text font size x y [0.25 0.25 0.25])))
-      (catch Exception e
-        ;; never let attribution be the thing that fails an export
-        (println "pdf: portrait credit skipped -" (.getMessage e))))))
 
 (defn decode-portrait-png
   "Decode a base64 PNG posted with the export into {:data bytes :jpg? false},
@@ -1194,10 +1138,11 @@
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
-          ;; Contributed art gets its credit printed with it. Only for a
-          ;; composed portrait -- a pasted image-url has no artist we know of.
-          (when (and composed portrait-credit)
-            (draw-portrait-credit! doc print-character-sheet-style? portrait-credit)))
+          ;; The credit is baked into the composed PNG itself now (see
+          ;; portrait/draw-credit!), so there is nothing to print here: a
+          ;; second drawn line landed 0.12in under the first and said the
+          ;; same thing.
+          )
         (when-let [{:keys [data jpg?]} (some-> faction deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)

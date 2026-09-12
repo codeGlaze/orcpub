@@ -227,7 +227,16 @@
    in registry order — the shape the attribution surface renders."
   [layers-selection]
   (let [in-use? (into #{}
-                      (keep (fn [[_ {:keys [:artist/id]}]] id))
+                      ;; Resolve through the registry by asset id first, and
+                      ;; only then fall back to whatever artist the saved
+                      ;; portrait names. A portrait is client-supplied data
+                      ;; stored as EDN: trusting its :artist/id meant deleting
+                      ;; that one key detached the credit from art that is
+                      ;; plainly in the registry -- on the page, on the sheet,
+                      ;; and in the picture itself.
+                      (keep (fn [[layer-key sel]]
+                              (or (artist-for-asset layer-key (:asset/id sel))
+                                  (:artist/id sel))))
                       layers-selection)]
     (into []
           (comp (map :artist/id) (filter in-use?))

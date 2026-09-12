@@ -78,6 +78,41 @@
         (set! (.-onerror img) #(resolve nil))
         (set! (.-src img) url)))))
 
+(defn contain-rect
+  "Where a `sw`x`sh` asset lands in a `w`x`h` frame under `mask-size: contain`
+   -- scaled to fit, centred, aspect kept. Twin of portrait-render/contain-rect
+   so the baked picture matches what the drawer shows."
+  [sw sh w h]
+  (if (or (zero? sw) (zero? sh))
+    [0 0 w h]
+    (let [scale (min (/ w sw) (/ h sh))
+          dw (js/Math.round (* sw scale))
+          dh (js/Math.round (* sh scale))]
+      [(js/Math.round (/ (- w dw) 2)) (js/Math.round (/ (- h dh) 2)) dw dh])))
+
+(defn- draw-credit!
+  "Burn the artist credit into the baked picture.
+
+   The sheet and the page can each carry a credit beside the portrait, but the
+   composed image is what gets passed around -- saved off a share card, lifted
+   out of a PDF -- and it arrives detached from both. A caption in the pixels
+   travels with it. Dark fill under a white outline, because a transparent PNG
+   may land on a white page or a dark chat client and one of the two always
+   reads."
+  [ctx text w h]
+  (let [size (max 9 (js/Math.round (* h 0.026)))
+        halo (max 1 (js/Math.round (/ size 12)))
+        y (- h (max 4 (js/Math.round (* h 0.018))))]
+    (set! (.-font ctx) (str size "px system-ui, -apple-system, sans-serif"))
+    (set! (.-textAlign ctx) "center")
+    (set! (.-textBaseline ctx) "alphabetic")
+    (set! (.-lineWidth ctx) (* 2 halo))
+    (set! (.-lineJoin ctx) "round")
+    (set! (.-strokeStyle ctx) "rgba(255,255,255,0.86)")
+    (.strokeText ctx text (/ w 2) y)
+    (set! (.-fillStyle ctx) "rgba(20,20,20,0.92)")
+    (.fillText ctx text (/ w 2) y)))
+
 (defn rasterize
   "Bake `portrait` into a PNG. Resolves to base64 (no data: prefix), or nil
    when there is nothing to draw or the browser cannot do it."
@@ -106,12 +141,21 @@
                           :when img]
                     (.clearRect tctx 0 0 raster-width raster-height)
                     (set! (.-globalCompositeOperation tctx) "source-over")
-                    (.drawImage tctx img 0 0 raster-width raster-height)
+                    ;; Fit, do not stretch: the drawer composites with CSS
+                    ;; `mask-size: contain`, so filling the frame here would
+                    ;; hand the PDF a differently-shaped face from the one on
+                    ;; screen -- 10% wider, for 8:11 art in a 4:5 frame.
+                    (let [[x y dw dh] (contain-rect (.-naturalWidth img)
+                                                    (.-naturalHeight img)
+                                                    raster-width raster-height)]
+                      (.drawImage tctx img x y dw dh))
                     ;; paint the tint through the asset's alpha
                     (set! (.-globalCompositeOperation tctx) "source-in")
                     (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
                     (.fillRect tctx 0 0 raster-width raster-height)
                     (.drawImage ctx tmp 0 0))
+                  (when-let [credit (pa/credit-line portrait)]
+                    (draw-credit! ctx credit raster-width raster-height))
                   (some-> (.toDataURL canvas "image/png")
                           (s/split #",")
                           second))

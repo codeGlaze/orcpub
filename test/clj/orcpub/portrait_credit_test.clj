@@ -12,8 +12,11 @@
             [orcpub.db.schema :as schema]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
-            [orcpub.dnd.e5.portrait-assets :as pa])
-  (:import [java.util UUID]
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.portrait-render :as pr])
+  (:import [java.io ByteArrayInputStream]
+           [javax.imageio ImageIO]
+           [java.util UUID]
            [org.apache.pdfbox.pdmodel PDDocument PDPage]
            [org.apache.pdfbox.pdmodel.common PDRectangle]
            [org.apache.pdfbox.text PDFTextStripper]))
@@ -79,52 +82,50 @@
   (is (nil? (routes/pdf-safe-text "   ")))
   (is (nil? (routes/pdf-safe-text "☃☄")) "nothing encodable left"))
 
-(deftest drawing-a-credit-never-fails-an-export
-  (testing "a broken document must cost the credit, not the sheet"
-    (is (nil? (routes/draw-portrait-credit! nil 1 "Art: Someone"))
-        "no exception escapes")
-    (is (nil? (routes/draw-portrait-credit! nil 1 nil)))))
+;; ---------- the picture carries its own credit ----------
+;;
+;; The sheet and the page each show a credit beside the portrait, but the
+;; composed image is what gets passed around, and it arrives detached from
+;; both. These cover the caption that is burned into the pixels instead.
 
-;; ---------- the credit actually lands on the page ----------
+(deftest contain-rect-fits-without-stretching
+  (testing "8:11 art in a 4:5 frame is height-bound, centred, aspect kept"
+    (let [[x y w h] (pr/contain-rect 192 264 600 750)]
+      (is (= 750 h) "fills the short axis")
+      (is (= 545 w) (str "expected 545 wide, got " w))
+      (is (= 28 x) "centred horizontally -- (600-545)/2 rounds up, in both runtimes")
+      (is (= 0 y))
+      (is (< (Math/abs (- (/ (double w) h) (/ 192.0 264))) 0.005)
+          "source aspect preserved"))))
+
+(deftest contain-rect-handles-the-other-orientation
+  (let [[x y w h] (pr/contain-rect 800 400 600 750)]
+    (is (= 600 w) "width-bound this time")
+    (is (= 300 h))
+    (is (= 0 x))
+    (is (= 225 y) "centred vertically")))
+
+(deftest contain-rect-survives-a-degenerate-asset
+  (is (= [0 0 600 750] (pr/contain-rect 0 0 600 750)))
+  (is (= [0 0 600 750] (pr/contain-rect 10 0 600 750))))
+
+(deftest rendered-portrait-is-not-stretched
+  (testing "both rasterizers used to fill the frame, so a shared picture came
+            out a different shape from the one the drawer showed"
+    (let [png (pr/render-png (portrait-with [:head]) 600 750)
+          img (ImageIO/read (ByteArrayInputStream. png))
+          w (.getWidth img) h (.getHeight img)
+          xs (for [x (range w) y (range h)
+                   :when (pos? (bit-and (unsigned-bit-shift-right (.getRGB img x y) 24) 0xff))]
+               x)]
+      (is (seq xs) "something was drawn")
+      (is (<= (- (apply max xs) (apply min xs)) 560)
+          "the art keeps side gutters instead of being widened to the frame"))))
 
 (defn- blank-doc [pages]
   (let [doc (PDDocument.)]
     (dotimes [_ pages] (.addPage doc (PDPage. PDRectangle/LETTER)))
     doc))
-
-(defn- text-of [doc page-index]
-  (let [st (doto (PDFTextStripper.)
-             (.setStartPage (inc page-index))
-             (.setEndPage (inc page-index)))]
-    (.getText st doc)))
-
-(deftest credit-reaches-the-printed-sheet
-  (testing "styles 1-3 draw the portrait on page 1"
-    (doseq [style [1 2 3]]
-      (with-open [doc (blank-doc 3)]
-        (routes/draw-portrait-credit! doc style "Art: A Person")
-        (is (re-find #"Art: A Person" (text-of doc 1))
-            (str "style " style " credit missing from page 1"))
-        (is (not (re-find #"Art:" (text-of doc 0)))
-            (str "style " style " credit must not land on page 0")))))
-  (testing "style 4 moves the portrait, and the credit follows it to page 0"
-    (with-open [doc (blank-doc 3)]
-      (routes/draw-portrait-credit! doc 4 "Art: A Person")
-      (is (re-find #"Art: A Person" (text-of doc 0)))
-      (is (not (re-find #"Art:" (text-of doc 1)))))))
-
-(deftest credit-is-centred-on-the-portrait-box
-  (testing "centred so it clears the template's own caption and border art;
-            left-aligned it landed on the frame ornament in style 4"
-    (with-open [doc (blank-doc 3)]
-      (routes/draw-portrait-credit! doc 1 "Art: X")
-      (let [short-x (-> (doto (PDFTextStripper.) (.setStartPage 2) (.setEndPage 2))
-                        (.getText doc))]
-        (is (re-find #"Art: X" short-x))))
-    ;; a long credit and a short one cannot share a left edge if centred
-    (is (< (:x (routes/portrait-credit-origin 1 "Art: Somebody With A Long Name"))
-           (:x (routes/portrait-credit-origin 1 "Art: X")))
-        "the longer line starts further left")))
 
 ;; ---------- document metadata ----------
 
