@@ -107,6 +107,9 @@
       (is (= "image/png" (get-in resp [:headers "Content-Type"])))
       (is (re-find #"max-age" (get-in resp [:headers "Cache-Control"]))
           "cached -- a crawler may refetch often")
+      (is (= "noai, noimageai" (get-in resp [:headers "X-Robots-Tag"]))
+          "contributed art: a crawler fetching the PNG directly never sees the
+           page meta, so the opt-out has to ride the response too")
       (let [buf (byte-array 4)]
         (.read ^java.io.InputStream (:body resp) buf)
         (is (= [-119 80 78 71] (vec buf)) "body starts with the PNG magic number")))))
@@ -154,6 +157,21 @@
           og (og-image-of c id)]
       (is (= "https://example.com/pasted.png" og)
           "a character with no composed portrait keeps its pasted URL"))))
+
+(deftest share-card-declares-the-ai-opt-out
+  (testing "the noai/noimageai meta is the page-level twin of the PNG header;
+            it must not carry noindex, which would delist the whole site"
+    (with-conn conn
+      (let [c (setup conn)
+            id (:db/id (save! c (character-with {})))
+            html (:body (routes/character-page
+                         {:db (d/db c) :conn c :headers {"host" "example.test"}
+                          :uri "/" :path-params {:id id}}))
+            tag (re-find #"<meta[^>]*name=\"robots\"[^>]*>" html)]
+        (is (some? tag) "a robots meta is present")
+        (is (re-find #"noai" tag))
+        (is (re-find #"noimageai" tag))
+        (is (not (re-find #"noindex" tag)) "opting out of AI is not opting out of search")))))
 
 (deftest share-card-carries-the-character-name
   (testing "character-summary-for-id used to return only the ::se/summary
