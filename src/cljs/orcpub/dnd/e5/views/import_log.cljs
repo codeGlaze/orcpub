@@ -57,6 +57,10 @@
      [:span [:i.fa.fa-font.m-r-5 {:style {:color "#47eaf8"}}]
       (or description "Normalized Unicode characters to ASCII")]
 
+     ;; e5/mend-import-data: a section stored as text or as a list, read back
+     :repaired-section
+     [:span [:i.fa.fa-wrench.m-r-5] description]
+
      :filled-required-fields
      (let [details (:details change)]
        [:div
@@ -232,7 +236,7 @@
       (let [changes (:changes log)
             user-types #{:key-renamed :filled-required-fields :export-missing-fields
                          :string-fix :text-normalization :renamed-plugin-key
-                         :dedup-selection-options}
+                         :dedup-selection-options :repaired-section}
             sections [{:types #{:key-renamed}
                        :title-fn #(str "Key Renames (" (count %) ")")
                        :icon "fa-tag" :icon-color "#47eaf8"
@@ -253,6 +257,10 @@
                                        (str "Export Issues (" (count items) ")"))))
                        :icon "fa-exclamation-triangle" :icon-color "#f0a100"
                        :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
+                      {:types #{:repaired-section}
+                       :title-fn #(str "Repaired Sections (" (count %) ")")
+                       :icon "fa-wrench" :icon-color "#8cc63f"
+                       :bg-color "rgba(112, 168, 0, 0.1)" :border-color "#8cc63f"}
                       {:types #{:string-fix :text-normalization :renamed-plugin-key
                                 :dedup-selection-options}
                        :title-fn #(str "Data Cleanup (" (count %) ")")

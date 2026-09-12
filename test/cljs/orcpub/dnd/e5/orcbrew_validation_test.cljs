@@ -1459,3 +1459,46 @@
         idx (orcbrew-val/collision-twin-index plugins)]
     (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
         "both enabled → :conflict, not nil")))
+
+;; ============================================================================
+;; Import mends damaged sections instead of calling them imported
+;; ============================================================================
+
+(def ^:private one-spell
+  "{:option-pack \"P\" :key :fire-bolt :name \"Fire Bolt\" :level 0 :school \"evocation\"}")
+
+(defn- import-text [text]
+  (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true}))
+
+(deftest import-reads-a-section-stored-as-text-back
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells " (pr-str (str "{:fire-bolt " one-spell "}")) "}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (map? (get-in result [:data :orcpub.dnd.e5/spells])))
+    (is (some #(= :repaired-section (:type %)) (:changes result)))))
+
+(deftest import-turns-a-list-section-back-into-entries
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (contains? (get-in result [:data :orcpub.dnd.e5/spells]) :fire-bolt))))
+
+(deftest import-of-a-whole-file-stored-as-text-no-longer-crashes
+  ;; used to throw "No protocol method IMapEntry.-key defined for type string"
+  (let [result (import-text (pr-str (str "{:orcpub.dnd.e5/spells {:fire-bolt " one-spell "}}")))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))))
+
+(deftest import-drops-an-empty-section-without-counting-it
+  (let [result (import-text "{:orcpub.dnd.e5/spells nil :orcpub.dnd.e5/feats {:tough {:option-pack \"P\" :key :tough :name \"Tough\"}}}")]
+    (is (:success result))
+    (is (= 1 (:imported-count result)) "the feat, not the empty section")
+    (is (not (contains? (:data result) :orcpub.dnd.e5/spells)))))
+
+(deftest import-does-not-count-an-unreadable-section-as-imported
+  (is (= 0 (:imported-count (import-text "{:orcpub.dnd.e5/spells \"corrupted\"}")))
+      "it used to say Imported 1 items"))
+
+(deftest the-import-notice-names-the-repair
+  (let [{:keys [details]} (orcbrew-val/format-import-result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}")))]
+    (is (some #(re-find #"Repaired 1 damaged section" %) details))))

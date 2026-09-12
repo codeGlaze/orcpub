@@ -124,3 +124,21 @@
     (testing "storage refusing the set-aside copy leaves the library copy untouched"
       ;; a repeat on the next load, not a loss
       (is (= [db/local-storage-plugins-rejected-key] (run false))))))
+
+;; ---------------------------------------------------------------------------
+;; Loading mends a damaged section once, and writes the repair back
+;; ---------------------------------------------------------------------------
+
+(deftest loading-repairs-a-damaged-section-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            (str "{\"Text Pak\" {:orcpub.dnd.e5/spells "
+                 (pr-str "{:fire-bolt {:option-pack \"Text Pak\" :key :fire-bolt :name \"Fire Bolt\" :level 0 :school \"evocation\"}}")
+                 "}}"))
+  (is (contains? (get-in (load-plugins!) ["Text Pak" :orcpub.dnd.e5/spells]) :fire-bolt)
+      "the spell loads")
+  (testing "the repaired section is written back, no longer stored as text"
+    (is (not (.includes (.getItem js/window.localStorage db/local-storage-plugins-key) "\\\""))))
+  (testing "so a second load has nothing left to repair and writes nothing"
+    (let [before (.getItem js/window.localStorage db/local-storage-plugins-key)]
+      (load-plugins!)
+      (is (= before (.getItem js/window.localStorage db/local-storage-plugins-key))))))
