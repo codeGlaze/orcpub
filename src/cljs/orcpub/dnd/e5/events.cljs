@@ -1107,10 +1107,12 @@
    (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
+         ;; The name cleanup the other builders' save-anyway runs. Without it a name
+         ;; like "9 Lives" derived a key the next load set aside.
+         sanitized (orcbrew-val/sanitize-item-names filled-item "Selection")
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (common/name-to-kw (:name filled-item))
-         item-with-key (assoc filled-item :key key :option-pack src)
-         new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
+         item-with-key (assoc sanitized :option-pack src)
+         new-plugins (assoc-in (:plugins db) [src ::e5/selections (:key item-with-key)] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]
                    [:set-builder-field-errors {}]
                    [:show-warning-message
