@@ -872,7 +872,7 @@
              ;; quietly losing it.
              renamed? (and (:key item) (not= (:key item) key))
              item-with-key (cond-> (assoc normalized-item :key key)
-                             renamed? (assoc :former-key (:key item)))
+                             renamed? (content-recon/record-former-key (:key item)))
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
          (if-let [{:keys [kind source] twin-name :name}

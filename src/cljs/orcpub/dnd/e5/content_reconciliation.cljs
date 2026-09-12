@@ -397,6 +397,33 @@
 ;; per-content-type option builder. The character is right here, and :plugins are
 ;; already hydrated at :set-character.
 
+(def former-key-cap
+  "How many former keys an item carries. The rename history is a repair aid, not an archive."
+  4)
+
+(defn former-keys
+  "An item's former keys, oldest first. Reads the singular `:former-key` too — every item saved
+   before the plural existed has one."
+  [item]
+  (or (:former-keys item)
+      (some-> (:former-key item) vector)
+      []))
+
+(defn record-former-key
+  "Add `old-key` to `item`'s rename history, capped at `former-key-cap`.
+
+   GOTCHA: overflow is dropped from the MIDDLE. The first entry is the key the item was minted
+   under, and a character nobody has opened since then still points at it, so it is never evicted;
+   the middle links are the ones least likely to be anyone's stored key."
+  [item old-key]
+  (let [prior (former-keys item)
+        ks    (if (some #{old-key} prior) prior (conj (vec prior) old-key))]
+    (-> item
+        (dissoc :former-key)
+        (assoc :former-keys (if (<= (count ks) former-key-cap)
+                              ks
+                              (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
+
 (defn former-key-index
   "{former-key -> current-key} across every source and content type in `plugins`.
 
@@ -418,12 +445,15 @@
                     :when (map? content)
                     [k item] content
                     :when (map? item)]
-                {:key k :former (:former-key item)})
+                {:key k :formers (former-keys item)})
         live (into #{} (map :key) items)
-        claims (reduce (fn [acc {:keys [key former]}]
-                         (cond-> acc
-                           (and former (not= former key))
-                           (update former (fnil conj #{}) key)))
+        claims (reduce (fn [acc {:keys [key formers]}]
+                         (reduce (fn [acc former]
+                                   (cond-> acc
+                                     (not= former key)
+                                     (update former (fnil conj #{}) key)))
+                                 acc
+                                 formers))
                        {}
                        items)]
     (into {}

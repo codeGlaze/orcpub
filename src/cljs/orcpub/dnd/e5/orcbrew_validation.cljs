@@ -10,6 +10,8 @@
             [orcpub.dnd.e5.builder-fields :as bf]
             [orcpub.dnd.e5.field-schemas :as field-schemas]
             [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
+            ;; the rename history (:former-keys) is written here and read by the heal path
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.common :as common]))
 
 ;; Forward declarations for functions used before definition
@@ -2157,9 +2159,9 @@
             ;; and the next save in the editor derives the OLD key back.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key (cond-> (assoc item
-                                                            :key new-key
-                                                            :former-key old-key)
+                              (assoc new-key (cond-> (-> item
+                                                          (assoc :key new-key)
+                                                          (content-recon/record-former-key old-key))
                                                new-name (assoc :name new-name))))
 
             ;; Step 2: Find content types that reference this type

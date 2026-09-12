@@ -118,7 +118,7 @@
   (set-name! "Tidewall")
   (save!)
   (is (= #{:tidewall} (set (keys (stored)))) "no orphan under the old key")
-  (is (= :tideward (get-in (stored) [:tidewall :former-key])) "and the move is recorded"))
+  (is (= [:tideward] (get-in (stored) [:tidewall :former-keys])) "and the move is recorded"))
 
 (deftest a-character-on-the-old-key-heals-through-former-key
   (open! (draft "Tideward"))
@@ -132,10 +132,9 @@
     (is (= [{:from :tideward :to :tidewall}] rewrote))
     (is (= :tidewall (get-in character [:orcpub.entity/options :languages 0 :orcpub.entity/key])))))
 
-(deftest GAP-a-second-rename-strands-anyone-still-on-the-first-key
-  ;; :former-key is ONE slot, so a chain keeps only its last link. A→B→C heals B but abandons A.
-  ;; Closing this means :former-keys (plural, append) with the singular still read — until then
-  ;; this test says out loud what is lost.
+(deftest a-chain-of-renames-heals-from-every-link
+  ;; :former-keys, not :former-key: one slot kept only the last hop, so A->B->C healed B and
+  ;; stranded anyone still on A.
   (open! (draft "Alpha"))
   (save!)
   (set-name! "Beta")
@@ -144,8 +143,35 @@
   (save!)
   (let [index (reconcile/former-key-index (:plugins @app-db))]
     (is (= #{:gamma} (set (keys (stored)))))
-    (is (= {:beta :gamma} index) "only the last hop is in the index")
-    (is (nil? (get index :alpha)) "GAP: a character still on :alpha has nothing to follow")))
+    (is (= [:alpha :beta] (:former-keys (get (stored) :gamma))))
+    (is (= {:alpha :gamma :beta :gamma} index) "every former key points at the live one")))
+
+(deftest the-history-is-capped-and-the-original-key-is-never-dropped
+  ;; The mint is what a character nobody has opened since then still points at, so overflow comes
+  ;; out of the MIDDLE.
+  (open! (draft "One"))
+  (save!)
+  (doseq [n ["Two" "Three" "Four" "Five" "Six"]]
+    (set-name! n)
+    (save!))
+  (let [item (get (stored) :six)]
+    (is (= reconcile/former-key-cap (count (:former-keys item))))
+    (is (= :one (first (:former-keys item))) "the key it was minted under survives")
+    (is (= [:one :three :four :five] (:former-keys item)) "and the middle is what gave way")
+    (is (nil? (:former-key item)) "the singular is not written alongside the plural")))
+
+(deftest an-item-saved-under-the-old-singular-key-still-heals
+  ;; Everything already in a library carries :former-key. It keeps working, and picks up the
+  ;; plural the next time it is renamed.
+  (swap! app-db assoc :plugins {SRC {ct {:new-name {:key :new-name :name "New Name"
+                                                    :option-pack SRC :former-key :old-name}}}})
+  (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db))))
+  (open! (get-in @app-db [:plugins SRC ct :new-name]))
+  (set-name! "Newer Name")
+  (save!)
+  (let [item (get (stored) :newer-name)]
+    (is (= [:old-name :new-name] (:former-keys item)) "the old singular is carried into the list")
+    (is (nil? (:former-key item)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Landing on a key something else holds

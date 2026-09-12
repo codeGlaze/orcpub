@@ -487,7 +487,7 @@
           item (get-in result [:orcpub.dnd.e5/classes :artificer-ksty])]
       (is (= "Artificer (KsTy)" (:name item)))
       (is (= :artificer-ksty (:key item)))
-      (is (= :artificer (:former-key item)) "still rebindable for characters")
+      (is (= [:artificer] (:former-keys item)) "still rebindable for characters")
       (is (= (:key item) (common/name-to-kw (:name item)))
           "the invariant holds on the stored item")))
 

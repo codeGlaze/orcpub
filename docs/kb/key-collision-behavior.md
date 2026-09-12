@@ -54,6 +54,26 @@ off `db/builder-wip-stores` so the refresh-restored copy carries it too). Pinned
 `test/e2e/spell-builder.js` (save → add a field → save again) and `test/e2e/feat-grants.js`
 (save → remove a grant row → save again).
 
+## The rename history — `:former-keys` (2026-09-12)
+
+A key move is recorded on the item that moved, and `former-key-index` turns every record into
+`{former → current}` so a character's stored key is rewritten on load (once; it persists on the
+next save). Both writers use it: the builder's save and `rename-key-in-plugin` (import conflict
+resolution and the manual relink).
+
+It was **one slot** (`:former-key`), so a chain kept only its last link: A→B→C healed B and
+stranded anyone still on A. It is now a vector, oldest first, capped at
+`content-reconciliation/former-key-cap` (4):
+
+- **the first entry is never dropped** — it is the key the item was minted under, and a character
+  nobody has opened since then still points at it;
+- **overflow comes out of the middle**, the links least likely to be anyone's stored key;
+- **`:former-key` is still read** (`former-keys`) — every item already in a library has one — and
+  is folded into the vector the next time that item is renamed.
+
+The index's two exclusions are unchanged and do the rest: a former key claimed by more than one
+item is dropped, and so is one that is some item's live key.
+
 ## Notes / boundaries
 - **The import conflict-handling is recent, and its EDGE CASES are explicitly OUT OF SCOPE for this
   branch.** Significant time has already been spent circling them (partial-conflict resolution, how
