@@ -25,21 +25,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 
 const ROOT = path.resolve(__dirname, '../../resources/public');
 const MIME = { '.js':'application/javascript', '.css':'text/css', '.html':'text/html',
   '.json':'application/json', '.map':'application/json', '.svg':'image/svg+xml',
   '.png':'image/png', '.gif':'image/gif', '.woff':'font/woff', '.woff2':'font/woff2',
   '.ttf':'font/ttf', '.ico':'image/x-icon' };
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base).filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) { const p = path.join(base, dir, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined;
-}
 
 const HOST_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</title>
 <link rel="stylesheet" href="/css/compiled/styles.css">

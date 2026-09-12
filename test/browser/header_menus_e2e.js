@@ -30,23 +30,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { suppressCookieBanner } = require('./lib/orcbrew-import');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'header-menus-'));
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 // A tall desktop, the commonest laptop, and a short window. The bug only shows
 // itself below ~800px of height.

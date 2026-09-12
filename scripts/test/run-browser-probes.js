@@ -26,6 +26,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs'), path = require('path');
 const http = require('http');
+const { resolveBrowser } = require('../../test/browser/lib/find-chrome');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SERVER = 'http://localhost:8890';
@@ -151,6 +152,10 @@ function run(probe, pack, budgetMs) {
     }
     console.log(serverUp ? ' up' : ` giving up after ${waitS}s`);
   }
+  // Every probe launches Chromium. Without one they all fail the same way, which reads
+  // as thirty regressions; it is one missing install, so say that once and skip.
+  const browser = resolveBrowser();
+  console.log(browser ? `browser: ${browser}` : 'browser: none found');
   const pack = process.env.ORCBREW_PACK;
   const only = (process.env.ONLY || '').split(',').filter(Boolean);
   // 3 by default, measured: 421s wall against 976s sequential, 2.3x, with every probe
@@ -163,6 +168,7 @@ function run(probe, pack, budgetMs) {
   const skipped = [];
   const skip = (p, why) => { skipped.push({ ...p, why }); };
   queue = queue.filter(p => {
+    if (!browser) { skip(p, 'no Chromium — set CHROME to one, or run `npx playwright install chromium`'); return false; }
     if (p.needs === 'server' && !serverUp) { skip(p, `no server at ${SERVER} — run \`lein e2e-server\``); return false; }
     // Not merely unnecessary: this profile is the whole point of the probe, and against the
     // ordinary server the busy page never appears and every check fails.

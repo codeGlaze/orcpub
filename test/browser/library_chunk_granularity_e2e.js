@@ -12,10 +12,11 @@
 // Run: lein e2e-server, then
 //   node test/browser/library_chunk_granularity_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
   await suppressOverlays(ctx);
   const page = await ctx.newPage();

@@ -79,7 +79,7 @@ const { execFileSync } = require('child_process');
 const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
-
+const { findChrome } = require('./lib/find-chrome');
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is
@@ -99,19 +99,6 @@ const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const IMG_PORT = Number(process.env.ORCPUB_E2E_IMG_PORT || 8899);
 const IMG_ORIGIN = `https://127.0.0.1:${IMG_PORT}`;
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'image-capture-'));
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 const results = [];
 // PROBE_TIMING=1 prints the seconds spent reaching each check. This probe's runtime has
@@ -480,7 +467,6 @@ function httpOnlyOrigin(port) {
           imageDataIn(refused.spec) === null);
     check('the sheet prints without the picture', !hasImage(refused.file),
           'the server refuses loopback, so there is no second route to it');
-
 
     // ---- a read in flight holds the export ----------------------------------
     // Exporting mid-read would send the address and let the server fetch what the

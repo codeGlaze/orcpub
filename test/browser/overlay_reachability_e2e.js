@@ -48,6 +48,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { suppressCookieBanner, importPack } = require('./lib/orcbrew-import');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
@@ -58,19 +59,6 @@ const PACK = process.env.ORCBREW_PACK || path.join(__dirname, '..', 'fixtures', 
 const VIEWPORT = { width: 1366, height: 720 };
 const started = Date.now();
 const left = () => BUDGET_MS - (Date.now() - started);
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 const results = [];
 const check = (name, ok, detail = '') => {

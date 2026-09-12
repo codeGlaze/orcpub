@@ -25,7 +25,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium, devices } = require('playwright');
-
+const { findChrome } = require('./lib/find-chrome');
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is
@@ -43,19 +43,6 @@ async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'sticky-header-'));
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 const results = [];
 const check = (name, ok, detail = '') => {

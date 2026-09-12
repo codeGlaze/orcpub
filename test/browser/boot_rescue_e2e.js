@@ -8,6 +8,7 @@
 // and a visitor with no homebrew must never see it. Without those, a control
 // that is simply always on would pass everything above.
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
@@ -59,7 +60,7 @@ async function rescues(page, label) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ executablePath: findChrome() });
 
   // ---- 1. bundle never arrives (bad deploy / CDN failure) -----------------
   {
