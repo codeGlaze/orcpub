@@ -23,6 +23,7 @@
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -654,6 +655,74 @@
    headroom that still refuses a request body pretending to be a picture."
   (* 2 1024 1024))
 
+(defn pdf-safe-text
+  "PDFBox's standard-14 fonts are WinAnsi: a name with a character outside it
+   throws on showText and would take the whole sheet down. Drop what cannot be
+   encoded rather than lose the export, and keep the line short enough to fit
+   under the portrait box."
+  [s]
+  (some-> s
+          (s/replace #"[^\u0020-\u007e\u00a0-\u00ff]" "")
+          ;; dropping a character must not leave a gap where it was
+          (s/replace #"\s+" " ")
+          s/trim
+          (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
+
+(def ^:private credit-font pdf/HELVETICA_OBLIQUE)
+(def ^:private credit-size 6)
+
+(defn portrait-credit-origin
+  "Where the portrait credit goes: which page, and the top-left corner in
+   inches. Pure, so the placement can be checked without building a document.
+
+   Centred on the 2.35in portrait box. Left-aligning it put the line on the
+   frame ornament in style 4, and centring also keeps it clear of the
+   captions the templates print themselves."
+  [style text]
+  (let [style4? (= 4 style)]
+    {:page-index (if style4? 0 1)
+     :x (+ (if style4? 0.50 0.45)
+           (/ (- 2.35 (pdf/string-width text credit-font credit-size)) 2))
+     :y (if style4? 3.70 4.86)}))
+
+(defn draw-portrait-credit!
+  "One small line under the portrait box naming the artists.
+
+   Style 4 puts the portrait on page 0 at a different offset; every other
+   style shares page 1. y is measured from the top of the page, matching
+   draw-image-bytes!.
+
+   The line sits just above the template's own portrait caption, centred on
+   the same 2.35in box the image is drawn in. Those captions are the only
+   reliable landmark: every other spot on these sheets is taken, and the two
+   layouts disagree about where the box even is -- on styles 1-3 the caption
+   ('CHARACTER APPEARANCE', 4.99in) sits below the image, while on style 4
+   ('CHARACTER PORTRAIT', 3.81in) the box runs on past it into the ability
+   scores. So the offsets below are measured off the printed captions rather
+   than derived from the image rect, and a template change is what would move
+   them.
+
+   Because it can land on artwork, it is drawn with a white outline under a
+   grey fill, the way a caption over a photograph is set -- legible whether
+   the pixels beneath are pale skin or a dark cloak."
+  [doc style credit]
+  (when-let [text (pdf-safe-text credit)]
+    (try
+      (let [{:keys [page-index x y]} (portrait-credit-origin style text)
+            page (pdf/get-page doc page-index)
+            font credit-font
+            size credit-size
+            halo 0.006]
+        (with-open [cs (pdf/content-stream doc page)]
+          (doseq [dx [(- halo) 0 halo]
+                  dy [(- halo) 0 halo]
+                  :when (not (and (zero? dx) (zero? dy)))]
+            (pdf/draw-text-from-top cs text font size (+ x dx) (+ y dy) [1 1 1]))
+          (pdf/draw-text-from-top cs text font size x y [0.25 0.25 0.25])))
+      (catch Exception e
+        ;; never let attribution be the thing that fails an export
+        (println "pdf: portrait credit skipped -" (.getMessage e))))))
+
 (defn decode-portrait-png
   "Decode a base64 PNG posted with the export into {:data bytes :jpg? false},
    or nil.
@@ -950,7 +1019,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1100,7 +1169,11 @@
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15)))
+            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
+          ;; Contributed art gets its credit printed with it. Only for a
+          ;; composed portrait -- a pasted image-url has no artist we know of.
+          (when (and composed portrait-credit)
+            (draw-portrait-credit! doc print-character-sheet-style? portrait-credit)))
         (when-let [{:keys [data jpg?]} (some-> faction deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
@@ -1828,16 +1901,21 @@
         ;; A composed portrait wins over a pasted URL, the same precedence the
         ;; sheet, the summary and the PDF use. It is served as a real PNG
         ;; because crawlers will not render CSS masks -- or, mostly, SVG.
-        composed? (seq (:layers (char5e/parse-portrait portrait)))
+        parsed-portrait (char5e/parse-portrait portrait)
+        composed? (seq (:layers parsed-portrait))
         share-image (if composed?
                       (str "https://" host
                            (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
-                      image-url)]
+                      image-url)
+        ;; A shared link is where the art actually travels, so the card names
+        ;; the artists too -- the same line the sheet prints.
+        credit (when composed? (portrait-assets5e/credit-line parsed-portrait))]
     (index-page-response request
                          {:title character-name
                           :description (str (character-summary-description summary)
                                             ". "
-                                            description)
+                                            description
+                                            (when credit (str " · " credit)))
                           :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
 

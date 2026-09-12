@@ -190,6 +190,23 @@
           (comp (map :artist/id) (filter in-use?))
           registry)))
 
+(defn artists-for-layers
+  "Full artist maps for a portrait's layer selection, in registry order."
+  [layers-selection]
+  (into [] (keep artist-info) (all-artists-for-layers layers-selection)))
+
+(defn credit-line
+  "One-line attribution for a composed portrait -- \"Art: Elowen Vex\".
+
+   nil when nothing is composed or no named artist is on canvas, so every
+   caller can just `when-let` and skip the surface entirely. Shared by the
+   PDF export, the share card and the character summary so all three credit
+   the same people the same way."
+  [portrait]
+  (let [names (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))]
+    (when (seq names)
+      (str "Art: " (s/join ", " names)))))
+
 ;; ---------- pure helpers for seeded randomization ----------
 ;;
 ;; Lives here (cljc) rather than in portrait.cljs so JVM tests can reach it.
