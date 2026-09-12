@@ -152,7 +152,20 @@ branch, written for a human audience.
 
 ## Races
 
-Races use `:props`, not `:level-modifiers` — nothing gates a race grant by level. The widget
+Races use `:props`, not `:level-modifiers`. That does **not** mean a race grant cannot be
+level-gated — it means the gate lives elsewhere:
+
+- **`:traits`** carry a `:level`, and `trait-cfg` compares it against `?total-levels` when no
+  `:class-key` is present, which is the race case (`modifiers.cljc:283-291`). A race trait with
+  `:level 3` appears at character level 3.
+- **`:spells`** entries are `{:level N :value …}` (`events.cljs:6092`), so an innate racial
+  spell can arrive at a later level — the Tiefling and Drow pattern.
+
+What races lack is the `:level-modifiers` vector, not level gating. A proficiency or
+resistance from `:props` is unconditional; anything that should arrive later has to be a trait
+or a spell.
+
+The widget
 level detail is already recorded: `builder-disposition-audit.md` on `feature/grant-rows`
 audits all 19 race widgets, what each writes and what reads it, measured 2026-09-07. Read
 that before touching the race builder; it is not repeated here.
@@ -175,3 +188,11 @@ unwritten.
 
 Six of the thirteen content types have no write-up: subraces, monsters, encounters,
 selections, invocations, boons.
+
+## Revisions
+
+- **"Nothing gates a race grant by level" — wrong, removed.** Written from the absence of a
+  `:level-modifiers` key on races, without checking the other two paths. `:traits` are gated on
+  `?total-levels` via `trait-cfg`, and `:spells` entries carry their own `:level`. The claim
+  would have told a reader that level-scaling racial features are impossible here, when the SRD
+  itself relies on them.
