@@ -310,6 +310,11 @@ overridable. Before that lands it is worth writing down the shape the SRD classe
 baseline the refactor gets checked against, and it is the only way to answer "which SRD class
 features have no data equivalent a homebrew class could use".
 
+Count with `scripts/clj-grep.py`, never `grep`. `#_` discards the next form, and
+`classes.cljc` carries 160 `:name "` hits inside discards against 346 live ones — a plain
+grep reports roughly a third of that file as live when it has never compiled. There are
+twelve live classes, warlock among them.
+
 The value-vocabulary reference on `agents/develop` gives the homebrew half: the twelve
 `:level-modifiers` types and the `:props` vocabulary are the entire set of things a class can
 express as data. The SRD classes express far more than that as code — `classes.cljc` is full
