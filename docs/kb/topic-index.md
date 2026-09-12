@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, breakdown, con, fixed, floating, increment, mental, race, reader, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -116,7 +116,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, change, check, css, expression, finds, fires, form, green, lesson, machine, page, past, pin, review, screenshot, stale, vanished
+**topics:** blind, change, check, css, expression, finds, fires, green, layout, lesson, machine, page, past, pin, review, screenshot, stale, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -200,7 +200,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -334,7 +334,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, decision, factories, grant, hof, live, part, pool, readability, rejected
+**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -412,7 +412,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -476,7 +476,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -520,7 +520,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, churning, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, two-level, vocabulary
+**topics:** agreed, cantrips, cha, churning, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -582,7 +582,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, control, creator, feat, five, gaps, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, five, gaps, hardcoded, hook, language, map-of-flags, modifiers, pool, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -725,7 +725,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -750,11 +750,26 @@ _orcbrew-format-versioning · orcbrew format versioning_
 - Still open (besides the name)
 - Related
 
+## plan-next.md
+
+_plan-next · plan next_
+
+**topics:** advanced, cap, capabilities, contributor, converting, damage, hygiene, integration, macro, move, per-widget, picked, requirements, roughly, row, tweakable, understood, wants
+
+- 0. Standing, do these first
+- 1. Grants on the remaining four silos
+- 2. The mechanics the feat builder still can't author
+- 3. Damage and attack bonuses reach the requirements registry
+- 4. Convert the remaining builder forms
+- 5. entity-spec / ?attr — analysis, not a rewrite
+- 6. Vector rows, generalised
+- Also open, smaller
+
 ## pool-grant-map.md
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, filter, grant, irregularity, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector, wait
+**topics:** 2026-09-07, air, dependent, direction, discipline, filter, irregularity, membership, pieces, pool, pools, registered, shaped, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -807,7 +822,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -827,7 +842,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, constraint, everyone, feat, feats, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, everyone, feat, feats, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -852,7 +867,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -909,7 +924,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, miss, optimisation, session, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)

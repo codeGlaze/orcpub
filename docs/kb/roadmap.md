@@ -319,6 +319,10 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 - *(A `datomic-crash-analysis.md` used to be listed here; the file does not exist on this branch.)*
 
 ## Critical path
+
+> **The short working list is `plan-next.md`** — ordered, with sizes. This section is the
+> longer-range track view.
+
 > Conflict #1 (grant approach) is **RESOLVED (D29)** — one mechanism per job, open pools behind
 > existing selections, no generic wrapper. It no longer gates anything; grant work is unblocked.
 1. **A2** + Phase-1's grant-authoring UI lever — one complete cross-silo feature, exercising the full

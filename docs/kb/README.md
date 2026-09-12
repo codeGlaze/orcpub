@@ -12,6 +12,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 ### Plan & status
 | Document | Topic |
 |----------|-------|
+| [plan-next.md](plan-next.md) | **The working list.** What to build next, ordered, with what each item unblocks and roughly how big. One hard dependency; the rest can move. | Working list |
 | [roadmap.md](roadmap.md) | **START HERE — what this branch is.** The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
 
 ### Content-extensibility track (the pool/grant initiative)
