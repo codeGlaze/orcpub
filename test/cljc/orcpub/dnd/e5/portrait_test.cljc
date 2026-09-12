@@ -191,3 +191,23 @@
   (is (nil? (char5e/parse-portrait 42)) "non-string non-map")
   (is (= {:layers {}} (char5e/parse-portrait {:layers {}}))
       "already-parsed map passes through"))
+
+(deftest artist-is-resolved-from-the-asset-not-the-saved-claim
+  (testing "a stored portrait is client-supplied EDN; dropping :artist/id from
+            it must not detach the credit from art that is in the registry"
+    (let [asset (first (pa/assets-for-layer :head))
+          honest {:head {:artist/id (:artist/id pa/house-pack)
+                         :asset/id (:asset/id asset)}}
+          stripped {:head {:asset/id (:asset/id asset)}}]
+      (is (= (pa/all-artists-for-layers honest)
+             (pa/all-artists-for-layers stripped))
+          "same artists either way")
+      (is (seq (pa/all-artists-for-layers stripped))))))
+
+(deftest a-forged-artist-claim-does-not-win
+  (testing "naming somebody else in the saved portrait does not reassign the
+            work; the registry decides who drew an asset"
+    (let [asset (first (pa/assets-for-layer :head))
+          forged {:head {:artist/id :somebody-else
+                         :asset/id (:asset/id asset)}}]
+      (is (= [(:artist/id pa/house-pack)] (pa/all-artists-for-layers forged))))))
