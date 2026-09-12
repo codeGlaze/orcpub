@@ -856,6 +856,27 @@
         (.removeItem js/localStorage "character")
         (.removeItem js/localStorage "plugins")))))
 
+(deftest a-repaired-draft-is-saved-back-so-a-refresh-does-not-repair-it-again
+  ;; Found in a browser: three refreshes, three repairs of the same key, three toasts,
+  ;; and the stored draft still broken after all of them.
+  (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    (.setItem js/localStorage "plugins" (pr-str stored-plugins))
+    (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
+    (try
+      (reset! app-db {})
+      (rf/dispatch-sync [:initialize-db])
+      (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))
+          "the stored draft carries the repair")
+      (testing "so the next load has nothing left to repair"
+        (reset! app-db {})
+        (rf/dispatch-sync [:initialize-db])
+        (is (= :half-elf-ua
+               (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key])))
+        (is (nil? (:character-healed @app-db))))
+      (finally
+        (.removeItem js/localStorage "character")
+        (.removeItem js/localStorage "plugins")))))
+
 (deftest routing-to-the-builder-announces-a-heal-once
   (reset! app-db {:plugins renamed-plugins})
   (rf/dispatch-sync [:set-character

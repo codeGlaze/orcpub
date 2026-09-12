@@ -121,6 +121,15 @@
 
 (def db-char->local-store (after (fn [db] (character->local-store (:character db)))))
 
+;; :initialize-db restores the builder's draft and repairs it in memory; this puts the
+;; repaired draft back in browser storage. Without it the draft stayed broken there,
+;; so every refresh repaired the same keys again and announced it again. The saved
+;; character on the server is untouched -- keeping the fix there still takes Save.
+(reg-fx
+ ::persist-healed-character
+ (fn [character]
+   (character->local-store character)))
+
 (def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db)))))
 
 (def magic-item->local-store-interceptor (after magic-item->local-store))
@@ -298,35 +307,40 @@
               ::e5/whats-new-seen
               ::e5/dev-mode
               ::combat/tracker-item]} _]
-   {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                  (cookie-banner-pending?))
-    :db (if (seq db)
-          db
-          (cond-> default-value
-            plugins (assoc :plugins plugins)
-            (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
-            (seq disable-overlay) (assoc :disable-overlay disable-overlay)
-            (some? health-dismissed) (assoc :health-dismissed health-dismissed)
-            (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
-            (some? dev-mode) (assoc :dev-mode? dev-mode)
-            ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id. Reading the stamp here (not at render) keeps it
-            ;; to one showing per browser rather than one per page view.
-            (and (whats-new/unseen? whats-new-seen)
-                 (not (cookie-banner-pending?)))
-            (assoc :whats-new-open? true)
-            ;; Through set-character, not a bare assoc. Restoring the builder's
-            ;; in-progress character here used to skip the reconcilers entirely,
-            ;; so a reload left a key that an import conflict had renamed pointing
-            ;; at nothing -- the same character that healed when opened from the
-            ;; list stayed broken when the page was refreshed. Plugins are already
-            ;; threaded in above, which is what the former-key index reads.
-            local-store-character (set-character [:set-character local-store-character])
-            local-store-user (update :user-data merge local-store-user)
-            local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
-            ;; Restore in-progress builder WIP (all builders) across refresh.
-            (seq local-store-builder-items) (merge local-store-builder-items)
-            tracker-item (assoc ::combat/tracker-item tracker-item)))}))
+   (let [db' (if (seq db)
+               db
+               (cond-> default-value
+                 plugins (assoc :plugins plugins)
+                 (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
+                 (seq disable-overlay) (assoc :disable-overlay disable-overlay)
+                 (some? health-dismissed) (assoc :health-dismissed health-dismissed)
+                 (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
+                 (some? dev-mode) (assoc :dev-mode? dev-mode)
+                 ;; The release panel opens itself once per release, on the boot that
+                 ;; first sees a new id. Reading the stamp here (not at render) keeps it
+                 ;; to one showing per browser rather than one per page view.
+                 (and (whats-new/unseen? whats-new-seen)
+                      (not (cookie-banner-pending?)))
+                 (assoc :whats-new-open? true)
+                 ;; Through set-character, not a bare assoc. Restoring the builder's
+                 ;; in-progress character here used to skip the reconcilers entirely,
+                 ;; so a reload left a key that an import conflict had renamed pointing
+                 ;; at nothing -- the same character that healed when opened from the
+                 ;; list stayed broken when the page was refreshed. Plugins are already
+                 ;; threaded in above, which is what the former-key index reads.
+                 local-store-character (set-character [:set-character local-store-character])
+                 local-store-user (update :user-data merge local-store-user)
+                 local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
+                 ;; Restore in-progress builder WIP (all builders) across refresh.
+                 (seq local-store-builder-items) (merge local-store-builder-items)
+                 tracker-item (assoc ::combat/tracker-item tracker-item)))]
+     (cond-> {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
+                                            (cookie-banner-pending?))
+              :db db'}
+       ;; The restored draft was repaired on the way in. Save the repair back now,
+       ;; or the next refresh repairs and announces the same thing again.
+       (seq (get-in db' [:character-healed :rewrote]))
+       (assoc ::persist-healed-character (:character db'))))))
 
 (defn reset-character [_ _]
   (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option [] {} {} {} {})))
