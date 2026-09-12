@@ -11,6 +11,7 @@
 
    Requires a real localStorage — runs in the headless chromium cljs suite."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+            [re-frame.registrar :as registrar]
             [orcpub.dnd.e5.db :as db]))
 
 (defn- clear-storage! []
@@ -79,3 +80,47 @@
         (is (nil? (.getItem js/window.localStorage
                             (db/corrupt-slot-key db/local-storage-plugins-key)))
             "no :corrupt slot created on a clean read")))))
+
+;; ---------------------------------------------------------------------------
+;; Entries set aside on load leave the library copy
+;; ---------------------------------------------------------------------------
+
+(def ^:private mixed-library
+  (str "{\"Mixed Pak\" {:orcpub.dnd.e5/spells {"
+       ":good {:option-pack \"Mixed Pak\" :key :good :name \"Good\" :level 1 :school \"evocation\"} "
+       ":bad {:key :bad :name \"No Source\" :level 1}}}}"))
+
+(defn- load-plugins! []
+  (:orcpub.dnd.e5/plugins ((registrar/get-handler :cofx :orcpub.dnd.e5/plugins) {} nil)))
+
+(deftest set-aside-entries-leave-the-library-copy
+  ;; Found in a browser: an entry set aside on load stayed in the library copy as
+  ;; well, so every load set it aside again until some unrelated homebrew save
+  ;; happened to rewrite the library.
+  (.setItem js/window.localStorage db/local-storage-plugins-key mixed-library)
+  (let [spells (get-in (load-plugins!) ["Mixed Pak" :orcpub.dnd.e5/spells])]
+    (is (contains? spells :good))
+    (is (not (contains? spells :bad))))
+  (testing "the set-aside copy holds the entry"
+    (is (.includes (.getItem js/window.localStorage db/local-storage-plugins-rejected-key) ":bad")))
+  (testing "the library copy no longer does"
+    (is (not (.includes (.getItem js/window.localStorage db/local-storage-plugins-key) ":bad"))))
+  (testing "so a second load has nothing to set aside, and keeps what was set aside"
+    (is (contains? (get-in (load-plugins!) ["Mixed Pak" :orcpub.dnd.e5/spells]) :good))
+    (is (.includes (.getItem js/window.localStorage db/local-storage-plugins-rejected-key) ":bad"))))
+
+(deftest the-library-copy-is-rewritten-only-after-the-set-aside-copy-is-saved
+  (let [kept {"P" {:orcpub.dnd.e5/spells {:good {:name "Good"}}}}
+        rejected {"P" {:orcpub.dnd.e5/spells {:bad {:name "Bad"}}}}
+        run (fn [set-aside-write-works?]
+              (let [writes (atom [])]
+                (db/persist-set-aside!
+                 (fn [k v] (swap! writes conj k)
+                   (or set-aside-write-works? (not= k db/local-storage-plugins-rejected-key)))
+                 (fn [_]) kept rejected rejected)
+                @writes))]
+    (testing "set-aside copy first, then the library copy"
+      (is (= [db/local-storage-plugins-rejected-key db/local-storage-plugins-key] (run true))))
+    (testing "storage refusing the set-aside copy leaves the library copy untouched"
+      ;; a repeat on the next load, not a loss
+      (is (= [db/local-storage-plugins-rejected-key] (run false))))))

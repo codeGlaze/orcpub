@@ -498,6 +498,26 @@
       (set-item local-storage-plugins-rejected-key (str rejected))
       (.removeItem js/window.localStorage local-storage-plugins-rejected-key))))
 
+(defn persist-set-aside!
+  "Save what loading just set aside, then take it out of the library copy.
+
+   Both halves matter. Without the second, every load finds and sets aside the same
+   entries again until some unrelated homebrew save happens to rewrite the library.
+   The order is the safety: the library copy is rewritten only after the set-aside
+   copy is written, so a full storage leaves the entries where they were -- a
+   repeat on the next load rather than a loss.
+
+   `write!` is (fn [key value] -> true on success), `remove!` is (fn [key]); passed
+   in so the order can be tested without faking browser storage."
+  [write! remove! kept reconciled rejected]
+  (let [set-aside-saved? (if (seq reconciled)
+                           (write! local-storage-plugins-rejected-key (str reconciled))
+                           ;; self-clearing: no set-aside entries left → drop the key
+                           (do (remove! local-storage-plugins-rejected-key) true))]
+    (when (and (seq rejected) set-aside-saved?)
+      (write! local-storage-plugins-key (str kept)))
+    set-aside-saved?))
+
 ;; Resilient plugins loader. The old all-or-nothing version returned nil — dropping
 ;; the ENTIRE library — if any single source failed the ::e5/plugins spec. Instead,
 ;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
@@ -534,17 +554,15 @@
                                 (get-local-storage-item local-storage-plugins-rejected-key)
                                 rejected
                                 kept)]
-                (if (seq reconciled)
-                  (set-item local-storage-plugins-rejected-key (str reconciled))
-                  ;; self-clearing: no set-aside entries left → drop the key
-                  (when js/window.localStorage
-                    (.removeItem js/window.localStorage local-storage-plugins-rejected-key)))
+                (persist-set-aside! set-item
+                                    #(when js/window.localStorage (.removeItem js/window.localStorage %))
+                                    kept reconciled rejected)
                 (when (seq rejected)
-                  (js/console.warn
-                   (str "Set aside newly-invalid homebrew entries on load (kept the "
-                        "rest of each source). Preserved for repair in '"
-                        local-storage-plugins-rejected-key "': "
-                        (pr-str (vec (keys rejected))))))
+                    (js/console.warn
+                     (str "Set aside newly-invalid homebrew entries on load (kept the "
+                          "rest of each source). Preserved for repair in '"
+                          local-storage-plugins-rejected-key "': "
+                          (pr-str (vec (keys rejected))))))
                 kept))))))
 
 ;; Load the name-keyed quarantine map into app-db so the repair UI can
