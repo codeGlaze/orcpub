@@ -9003,10 +9003,15 @@
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
   [src-name plugin]
-  (let [entries (vec (for [[ct items] plugin
+  (let [entries (vec (for [[ct items] (when (map? plugin) plugin)
                            :when (and (qualified-keyword? ct) (map? items))
                            [ik item] items]
                        {:ct ct :ik ik :item item}))
+        ;; Set aside whole because nothing readable was left in them. There is no
+        ;; name to type for these, so only the export and discard below apply.
+        damaged (if (map? plugin)
+                  (vec (for [[ct v] plugin :when (e5/damaged-section? ct v)] ct))
+                  [::whole-source])
         edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
                                          [[[ct ik :name] (or (:name item) "")]
                                           [[ct ik :option-pack] (or (:option-pack item) "")]])
@@ -9015,6 +9020,15 @@
       (let [current @edits]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
+         (when (seq damaged)
+           [:div.f-s-12.m-t-5.m-b-5
+            (if (= [::whole-source] damaged)
+              "This whole source is damaged: it isn't stored as homebrew content, so it can't be repaired here. "
+              (str "Damaged: the " (s/join ", " (map name damaged))
+                   (if (= 1 (count damaged)) " section isn't" " sections aren't")
+                   " stored as a list of entries, so nothing in "
+                   (if (= 1 (count damaged)) "it" "them") " can be repaired here. "))
+            "Export raw keeps a copy of exactly what is stored; Discard removes it."])
          (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
@@ -9046,7 +9060,8 @@
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
                                 :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
-           [:div.f-s-12.m-t-5 "No entries to repair."])
+           (when (empty? damaged)
+             [:div.f-s-12.m-t-5 "No entries to repair."]))
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
                                       @edits))
@@ -9097,15 +9112,23 @@
   []
   (let [quarantined @(subscribe [::e5/quarantined-plugins])
         n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    :when (map? plugin)
                                     [ct items] plugin
                                     :when (and (qualified-keyword? ct) (map? items))]
-                                (count items)))]
+                                (count items)))
+        n-damaged (reduce + 0 (for [[_ plugin] quarantined]
+                                (if (map? plugin)
+                                  (count (filter (fn [[ct v]] (e5/damaged-section? ct v)) plugin))
+                                  1)))]
     (when (seq quarantined)
       [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+        (str (s/join " and " (cond-> []
+                               (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
+                               (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                           (when (not= 1 n-damaged) "s")))))
              " couldn't load — needs attention")]
        [:div.f-s-12
         "The rest of each source loaded fine. Fix these back in, or export/discard them."]

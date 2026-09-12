@@ -911,7 +911,10 @@
                      (fn [[k v]]
                        (if (map? v)
                          (validate-content-group k v)
-                         {:content-type k :valid-count 1 :invalid-count 0 :invalid-items []}))
+                         ;; not a group of entries (a true/false, or a damaged section that
+                         ;; mend could not read) -- counted as imported, it said "Imported 1
+                         ;; items" for a section that held nothing usable
+                         {:content-type k :valid-count 0 :invalid-count 0 :invalid-items []}))
                      content-groups)
         total-valid (reduce + 0 (map :valid-count validations))
         total-invalid (reduce + 0 (map :invalid-count validations))]
@@ -1849,6 +1852,19 @@
 ;; Main Validation Entry Point
 ;; ============================================================================
 
+(defn repair-description
+  "Import-log wording for one e5/mend-import-data repair."
+  [{:keys [source section repair]}]
+  (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
+        in (when source (str " in \"" source "\""))]
+    (case repair
+      :file-from-text     "The file's content was stored as text; read it back"
+      :source-from-text   (str "Source \"" source "\" was stored as text; read it back")
+      :section-from-text  (str "Read " what in " back from text")
+      :section-from-list  (str "Turned " what in " from a list back into entries")
+      :empty-section      (str "Dropped " what in ", which was empty")
+      (str "Repaired " (or what "a section") in))))
+
 (defn validate-import
   "Main validation function for orcbrew file imports.
 
@@ -1905,8 +1921,21 @@
 
     (if (:success parse-result)
 
+        ;; Step 2.25: put damaged sections back in shape before anything walks them.
+        ;; A section stored as text or as a list still holds its data; left alone it
+        ;; imported as "successful" and failed later at export, and a whole file
+        ;; stored as text crashed the steps below.
+        (let [{mended :data repairs :repairs} (e5/mend-import-data (:data parse-result))
+              repair-changes (mapv (fn [r] {:type :repaired-section
+                                            :description (repair-description r)})
+                                   repairs)]
+          (if-not (map? mended)
+            {:success false
+             :errors ["This file doesn't contain homebrew content that can be read."]
+             :changes (into @string-changes repair-changes)}
+
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
-        (let [parsed-data (:data parse-result)
+        (let [parsed-data mended
               normalized-data (if auto-clean
                                 (normalize-text-in-data parsed-data)
                                 parsed-data)
@@ -1929,6 +1958,7 @@
                              {:data (:data fill-result) :changes []})
 
               all-changes (vec (concat @string-changes
+                                       repair-changes
                                        (when text-normalized?
                                          [{:type :text-normalization
                                            :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
@@ -1951,7 +1981,7 @@
           (assoc validation-result
                  :changes all-changes
                  :key-conflicts key-conflicts
-                 :key-warnings key-warnings))
+                 :key-warnings key-warnings))))
 
         ;; Parse failed - return detailed error
         {:success false
@@ -2180,6 +2210,13 @@
                (map #(str "• " (:message %)) external)))
        ["Duplicate keys can cause unexpected behavior. Consider renaming one of the conflicting items."]))))
 
+(defn- repair-lines
+  "One line for the import notice when mend repaired anything; the log has each repair."
+  [result]
+  (let [n (count (filter #(= :repaired-section (:type %)) (:changes result)))]
+    (when (pos? n)
+      [(str "Repaired " n " damaged section" (when (not= 1 n) "s") " (details in the import log)")])))
+
 (defn format-import-result
   "What an import result should say, as {:title :details} — a headline and its
    supporting lines. The caller decides tone and whether to offer an action; this
@@ -2213,6 +2250,7 @@
        :details (concat [(str "Imported " (:imported-count result) " valid items")
                          (str "Skipped " (:skipped-count result) " invalid items")
                          "Invalid items were skipped. Check the browser console for details."]
+                        (repair-lines result)
                         conflicts)}
 
       ;; Successful import (but may have key conflicts)
@@ -2222,6 +2260,7 @@
                 "Import successful")
        :details (concat (when (:imported-count result)
                           [(str "Imported " (:imported-count result) " items")])
+                        (repair-lines result)
                         conflicts)}
 
       ;; Unknown result

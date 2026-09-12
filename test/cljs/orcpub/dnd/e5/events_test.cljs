@@ -905,3 +905,22 @@
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
   (rf/dispatch-sync [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}])
   (is (not (get-in @app-db [:character-healed :announced?]))))
+
+;; ---------------------------------------------------------------------------
+;; An unreadable section is set aside on import, and the notice counts it
+;; ---------------------------------------------------------------------------
+
+(deftest importing-a-damaged-section-sets-it-aside-and-says-so
+  (try
+    (let [{:keys [merged quarantine message]}
+          (events/store-imported-sources
+           {}
+           {"P" {:orcpub.dnd.e5/spells "corrupted"
+                 :orcpub.dnd.e5/feats {:tough {:option-pack "P" :key :tough :name "Tough"}}}})]
+      (is (contains? (get-in merged ["P" :orcpub.dnd.e5/feats]) :tough) "the rest imports")
+      (is (not (contains? (get merged "P") :orcpub.dnd.e5/spells)) "the damaged section stays out of the library")
+      (is (= "corrupted" (get-in quarantine ["P" :orcpub.dnd.e5/spells])) "and is set aside")
+      (is (re-find #"1 damaged section couldn't be loaded and was set aside" (str message))
+          "the notice used to say 0 entries"))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))

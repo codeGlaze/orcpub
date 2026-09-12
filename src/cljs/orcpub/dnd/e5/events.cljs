@@ -5295,9 +5295,21 @@
         ;; an item is never both live and quarantined (a fixed entry self-clears).
         quarantine (e5/reconcile-rejected-items (get-rejected-plugins) rejected live)
         n-items (reduce + 0 (for [[_ p] rejected
+                                  :when (map? p)
                                   [ct items] p
                                   :when (and (qualified-keyword? ct) (map? items))]
-                              (count items)))]
+                              (count items)))
+        ;; A damaged section is set aside whole (e5/salvage-plugin-items). Counted as
+        ;; entries it read "0 entries couldn't be loaded" while setting something aside.
+        n-damaged (reduce + 0 (for [[_ p] rejected]
+                                (if (map? p)
+                                  (count (filter (fn [[ct v]] (e5/damaged-section? ct v)) p))
+                                  1)))
+        n-set-aside (+ n-items n-damaged)
+        what (s/join " and " (cond-> []
+                               (pos? n-items) (conj (str n-items " entr" (if (= 1 n-items) "y" "ies")))
+                               (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                           (when (not= 1 n-damaged) "s")))))]
     (set-rejected-plugins quarantine)
     (doseq [[nm p] rejected]
       ;; Log the EXACT failing paths + predicates (not the giant value) so each
@@ -5314,10 +5326,10 @@
      :quarantine quarantine
      :any-rejected? (boolean (seq rejected))
      :message (when (seq rejected)
-                (str "Imported — but " n-items " entr" (if (= 1 n-items) "y" "ies")
-                     " couldn't be loaded and " (if (= 1 n-items) "was" "were")
+                (str "Imported — but " what
+                     " couldn't be loaded and " (if (= 1 n-set-aside) "was" "were")
                      " set aside in “My Content”. The rest imported fine; open it "
-                     "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
+                     "there to fix or discard " (if (= 1 n-set-aside) "it." "them.")))}))
 
 (defn store-single-import
   "Store a validated import (`incoming`, the flat {source plugin} shape) through the

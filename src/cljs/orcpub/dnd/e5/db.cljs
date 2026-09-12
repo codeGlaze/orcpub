@@ -509,12 +509,14 @@
 
    `write!` is (fn [key value] -> true on success), `remove!` is (fn [key]); passed
    in so the order can be tested without faking browser storage."
-  [write! remove! kept reconciled rejected]
+  [write! remove! kept reconciled rejected & [repaired?]]
   (let [set-aside-saved? (if (seq reconciled)
                            (write! local-storage-plugins-rejected-key (str reconciled))
                            ;; self-clearing: no set-aside entries left → drop the key
                            (do (remove! local-storage-plugins-rejected-key) true))]
-    (when (and (seq rejected) set-aside-saved?)
+    ;; `repaired?`: loading also mended damaged sections, which only stays fixed once
+    ;; the mended library is written back.
+    (when (and (or (seq rejected) repaired?) set-aside-saved?)
       (write! local-storage-plugins-key (str kept)))
     set-aside-saved?))
 
@@ -542,21 +544,28 @@
 
               ;; It's a map: salvage per source — keep the valid sources and
               ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
-              (let [{:keys [kept rejected]}
+              (let [;; Put damaged sections back in shape first (e5/mend-library). The
+                    ;; mended library is written back below, so each repair happens once.
+                    {mended :library repairs :repairs} (e5/mend-library stored)
+                    {:keys [kept rejected]}
                     ;; PER-ENTRY salvage: keep each source's valid items, set aside
                     ;; only its broken ones — so one bad entry can't drop a whole
                     ;; source. The item floor comes from the shared content-specs
                     ;; registry (save & load agree), not inline, so it can't drift.
                     ;; `stored` normally holds only valid items, so `rejected` is
                     ;; usually empty here — it's the defensive net if the floor tightens.
-                    (e5/salvage-library-items content-specs/valid-item-for-load? stored)
+                    (e5/salvage-library-items content-specs/valid-item-for-load? mended)
                     reconciled (e5/reconcile-rejected-items
                                 (get-local-storage-item local-storage-plugins-rejected-key)
                                 rejected
                                 kept)]
                 (persist-set-aside! set-item
                                     #(when js/window.localStorage (.removeItem js/window.localStorage %))
-                                    kept reconciled rejected)
+                                    kept reconciled rejected (seq repairs))
+                (when (seq repairs)
+                  (js/console.warn
+                   (str "Repaired " (count repairs) " damaged homebrew section(s) on load: "
+                        (pr-str repairs))))
                 (when (seq rejected)
                     (js/console.warn
                      (str "Set aside newly-invalid homebrew entries on load (kept the "
