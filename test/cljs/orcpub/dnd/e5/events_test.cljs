@@ -22,6 +22,7 @@
             [cljs.reader :as reader]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
+            [re-frame.registrar :as registrar]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -924,3 +925,31 @@
           "the notice used to say 0 entries"))
     (finally
       (.removeItem js/localStorage "plugins:rejected"))))
+
+;; ---------------------------------------------------------------------------
+;; Fixes that must reach storage: what these handlers hand to the store
+;; ---------------------------------------------------------------------------
+
+(defn- dispatched-by
+  "What a handler hands to :dispatch-n, captured instead of queued."
+  [event]
+  (let [original (registrar/get-handler :fx :dispatch-n)
+        captured (atom nil)]
+    (rf/reg-fx :dispatch-n #(reset! captured %))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (rf/reg-fx :dispatch-n original)))))
+
+(defn- stored-by [events]
+  (some (fn [[id plugins]] (when (#{::e5/set-plugins ::e5/store-plugins} id) plugins)) events))
+
+(deftest selection-save-anyway-stores-a-key-the-next-load-keeps
+  (reset! app-db {:plugins {}
+                  ::selections5e/builder-item {:name "9 Lives" :option-pack ""
+                                               :options [{:name "First"}]}})
+  (let [stored (stored-by (dispatched-by [::selections5e/save-selection-anyway]))
+        [[k item]] (seq (get-in stored ["Default Option Source" ::e5/selections]))]
+    (is (re-matches #"[a-z][a-z0-9-]*" (name k))
+        "it was saved as :9-lives, which the next load sets aside")
+    (is (= k (:key item)))))
