@@ -3,6 +3,22 @@
 You are on a code branch. It carries no `CLAUDE.md` and gitignores `.claude/`, so you
 have loaded no project instructions, no skills and no armed git hooks. Fix that first.
 
+## 0. Find out where you already are
+
+```bash
+git branch --show-current
+git log --oneline -3
+git ls-tree -r HEAD --name-only docs/kb/ | wc -l
+```
+
+**You may already be on the right branch, with a fuller KB than `agents/develop` has.** The
+refactor leaves carry their own `docs/kb/` — `perf/entity-build` has 42 docs, `agents/develop`
+has 68, and neither is a superset. A branch name can mislead: `perf/entity-build` is mostly AC
+engine work, not a finished perf spike.
+
+If the work belongs to a Fall Update leaf, it belongs on that leaf — not here. Check what your
+branch descends from (`git merge-base --is-ancestor`) before deciding where anything goes.
+
 ## 1. Run this
 
 ```bash
