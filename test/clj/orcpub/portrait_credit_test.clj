@@ -126,6 +126,42 @@
            (:x (routes/portrait-credit-origin 1 "Art: X")))
         "the longer line starts further left")))
 
+;; ---------- document metadata ----------
+
+(deftest stamps-honest-document-info
+  (testing "the templates are third-party InDesign files, so an untouched
+            export claims Adobe made it and names no one"
+    (with-open [doc (blank-doc 1)]
+      (let [info (.getDocumentInformation doc)]
+        (.setCreator info "Adobe InDesign CS6 (Macintosh)")
+        (.setProducer info "Master PDF Editor"))
+      (routes/stamp-document-info! doc {:character-name "Sharey"
+                                        :credit "Art: A Person"})
+      (let [info (.getDocumentInformation doc)]
+        (is (= "Sharey" (.getTitle info)))
+        (is (not= "Adobe InDesign CS6 (Macintosh)" (.getCreator info))
+            "the template's claim to authorship is overwritten")
+        (is (not= "Master PDF Editor" (.getProducer info)))
+        (is (= "Art: A Person" (.getSubject info))
+            "the credit lives in the metadata as well as on the page")
+        (is (= "Art: A Person" (.getKeywords info)))))))
+
+(deftest metadata-carries-no-credit-when-there-is-none
+  (with-open [doc (blank-doc 1)]
+    (routes/stamp-document-info! doc {:character-name "Sharey" :credit nil})
+    (let [info (.getDocumentInformation doc)]
+      (is (= "Sharey" (.getTitle info)))
+      (is (nil? (.getSubject info)) "no empty credit in the metadata"))))
+
+(deftest stamping-never-fails-an-export
+  (is (nil? (routes/stamp-document-info! nil {:character-name "x"}))))
+
+(deftest untitled-sheets-still-get-a-title
+  (with-open [doc (blank-doc 1)]
+    (routes/stamp-document-info! doc {:character-name "   " :credit nil})
+    (is (seq (.getTitle (.getDocumentInformation doc)))
+        "a blank name falls back rather than titling the file empty")))
+
 ;; ---------- the share card ----------
 
 (defmacro with-conn [conn-binding & body]

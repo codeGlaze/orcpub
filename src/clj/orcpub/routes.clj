@@ -685,6 +685,30 @@
            (/ (- 2.35 (pdf/string-width text credit-font credit-size)) 2))
      :y (if style4? 3.70 4.86)}))
 
+(defn stamp-document-info!
+  "Set the exported sheet's own metadata.
+
+   The templates are third-party InDesign files, so a fresh export inherits
+   their info dictionary and claims to have been made by 'Adobe InDesign CS6
+   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
+   digital-asset tool or a search index reads. Overwriting it costs nothing
+   and puts the art credit somewhere besides a line of drawn text.
+
+   This is provenance, not protection: metadata strips as easily as the
+   printed line does."
+  [doc {:keys [character-name credit]}]
+  (try
+    (let [info (.getDocumentInformation doc)]
+      (.setTitle info (or (some-> character-name s/trim not-empty)
+                          branding/default-page-title))
+      (.setCreator info branding/app-name)
+      (.setProducer info branding/app-name)
+      (when-let [c (pdf-safe-text credit)]
+        (.setSubject info c)
+        (.setKeywords info c)))
+    (catch Exception e
+      (println "pdf: could not stamp document info -" (.getMessage e)))))
+
 (defn draw-portrait-credit!
   "One small line under the portrait box naming the artists.
 
@@ -1180,6 +1204,8 @@
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
             4 nil)))
+      (stamp-document-info! doc {:character-name character-name
+                                 :credit (when portrait-png portrait-credit)})
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
