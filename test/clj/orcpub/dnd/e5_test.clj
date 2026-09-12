@@ -596,3 +596,13 @@
   (is (= {:orcpub.dnd.e5/spells {:a 1 :b 2} :orcpub.dnd.e5/feats {:c 3}}
          (e5/merge-plugins {:orcpub.dnd.e5/spells {:a 1}}
                            {:orcpub.dnd.e5/spells {:b 2} :orcpub.dnd.e5/feats {:c 3}}))))
+
+(deftest mend-library-reads-back-a-library-stored-as-text
+  (let [lib {"P" {:orcpub.dnd.e5/feats {:tough {:option-pack "P" :key :tough :name "Tough"}}}}
+        {:keys [library repairs]} (e5/mend-library (pr-str lib))]
+    (is (= lib library))
+    (is (= [{:repair :library-from-text}] repairs)))
+  (testing "text that reads as a single source is not taken for a library"
+    (is (string? (:library (e5/mend-library (pr-str {:orcpub.dnd.e5/feats {}}))))))
+  (testing "text that does not read stays as it is"
+    (is (= "nope {" (:library (e5/mend-library "nope {"))))))

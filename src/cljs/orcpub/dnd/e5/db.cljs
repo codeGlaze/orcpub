@@ -531,48 +531,55 @@
    (assoc cofx
           ::e5/plugins
           (when-let [stored (get-local-storage-item local-storage-plugins-key)]
-            (if (not (map? stored))
-              ;; Parsed but not a map: preserve raw in the :corrupt slot — NOT
-              ;; :rejected, a clean name-keyed map we must not clobber. Load nothing.
-              (do
-                (set-item (corrupt-slot-key local-storage-plugins-key) (str stored))
-                (js/console.warn
-                 (str "Stored plugins were not a map; preserved raw copy in '"
-                      (corrupt-slot-key local-storage-plugins-key)
-                      "'. Loaded no homebrew."))
-                nil)
-
-              ;; It's a map: salvage per source — keep the valid sources and
-              ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
-              (let [;; Put damaged sections back in shape first (e5/mend-library). The
-                    ;; mended library is written back below, so each repair happens once.
-                    {mended :library repairs :repairs} (e5/mend-library stored)
-                    {:keys [kept rejected]}
-                    ;; PER-ENTRY salvage: keep each source's valid items, set aside
-                    ;; only its broken ones — so one bad entry can't drop a whole
-                    ;; source. The item floor comes from the shared content-specs
-                    ;; registry (save & load agree), not inline, so it can't drift.
-                    ;; `stored` normally holds only valid items, so `rejected` is
-                    ;; usually empty here — it's the defensive net if the floor tightens.
-                    (e5/salvage-library-items content-specs/valid-item-for-load? mended)
-                    reconciled (e5/reconcile-rejected-items
-                                (get-local-storage-item local-storage-plugins-rejected-key)
-                                rejected
-                                kept)]
-                (persist-set-aside! set-item
-                                    #(when js/window.localStorage (.removeItem js/window.localStorage %))
-                                    kept reconciled rejected (seq repairs))
-                (when (seq repairs)
+            ;; Put damaged shapes back first (e5/mend-library), a library stored as
+            ;; text included. The mended library is written back below, so each
+            ;; repair happens once.
+            (let [{mended :library repairs :repairs} (e5/mend-library stored)]
+              (if (not (map? mended))
+                ;; Still not a library: preserve raw in the :corrupt slot — NOT
+                ;; :rejected, a clean name-keyed map we must not clobber — and load
+                ;; nothing. The active slot is cleared once the copy is saved; left in
+                ;; place, it was copied again on every load.
+                (let [saved? (set-item (corrupt-slot-key local-storage-plugins-key) (str stored))]
+                  (when saved?
+                    (.removeItem js/window.localStorage local-storage-plugins-key))
                   (js/console.warn
-                   (str "Repaired " (count repairs) " damaged homebrew section(s) on load: "
-                        (pr-str repairs))))
-                (when (seq rejected)
+                   (str "Stored plugins were not a map; preserved raw copy in '"
+                        (corrupt-slot-key local-storage-plugins-key) "'"
+                        (if saved?
+                          " and cleared the active slot"
+                          ", but that copy could not be saved, so the active slot was left")
+                        ". Loaded no homebrew."))
+                  nil)
+
+                ;; It's a map: salvage per source — keep the valid sources and
+                ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
+                (let [{:keys [kept rejected]}
+                      ;; PER-ENTRY salvage: keep each source's valid items, set aside
+                      ;; only its broken ones — so one bad entry can't drop a whole
+                      ;; source. The item floor comes from the shared content-specs
+                      ;; registry (save & load agree), not inline, so it can't drift.
+                      ;; `stored` normally holds only valid items, so `rejected` is
+                      ;; usually empty here — it's the defensive net if the floor tightens.
+                      (e5/salvage-library-items content-specs/valid-item-for-load? mended)
+                      reconciled (e5/reconcile-rejected-items
+                                  (get-local-storage-item local-storage-plugins-rejected-key)
+                                  rejected
+                                  kept)]
+                  (persist-set-aside! set-item
+                                      #(when js/window.localStorage (.removeItem js/window.localStorage %))
+                                      kept reconciled rejected (seq repairs))
+                  (when (seq repairs)
+                    (js/console.warn
+                     (str "Repaired " (count repairs) " damaged homebrew section(s) on load: "
+                          (pr-str repairs))))
+                  (when (seq rejected)
                     (js/console.warn
                      (str "Set aside newly-invalid homebrew entries on load (kept the "
                           "rest of each source). Preserved for repair in '"
                           local-storage-plugins-rejected-key "': "
                           (pr-str (vec (keys rejected))))))
-                kept))))))
+                  kept)))))))
 
 ;; Load the name-keyed quarantine map into app-db so the repair UI can
 ;; render reactively. Injected AFTER ::e5/plugins in :initialize-db, since that
