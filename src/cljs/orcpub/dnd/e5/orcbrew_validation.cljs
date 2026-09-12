@@ -2217,10 +2217,22 @@
     (when (pos? n)
       [(str "Repaired " n " damaged section" (when (not= 1 n) "s") " (details in the import log)")])))
 
+(defn import-notice-type
+  "Tone for an import that went through: :warning when something was skipped or a
+   key clashed, so a partial import no longer arrives dressed as a clean one."
+  [result]
+  (if (or (:had-errors result) (seq (:key-warnings result))) :warning :success))
+
+(defn- counted [n noun]
+  (str n " " noun (when (not= 1 n) "s")))
+
 (defn format-import-result
   "What an import result should say, as {:title :details} — a headline and its
    supporting lines. The caller decides tone and whether to offer an action; this
    only decides the words.
+
+   A partial import marks its lines {:mark :text}: what came in and what was
+   skipped read at a glance, with the colour on an icon rather than the text.
 
    Structured rather than one string with blank lines in it: the banner renders
    HTML, where newlines collapse to spaces and run the sentences together."
@@ -2247,10 +2259,12 @@
       ;; Progressive import with some items skipped
       (:had-errors result)
       {:title "Import completed with warnings"
-       :details (concat [(str "Imported " (:imported-count result) " valid items")
-                         (str "Skipped " (:skipped-count result) " invalid items")
-                         "Invalid items were skipped. Check the browser console for details."]
-                        (repair-lines result)
+       :details (concat [{:mark :done
+                          :text (str "Imported " (counted (:imported-count result) "item"))}
+                         {:mark :skipped
+                          :text (str "Skipped " (counted (:skipped-count result) "item")
+                                     " that couldn't be imported (the import log says why)")}]
+                        (map (fn [line] {:mark :repaired :text line}) (repair-lines result))
                         conflicts)}
 
       ;; Successful import (but may have key conflicts)

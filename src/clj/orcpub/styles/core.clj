@@ -695,6 +695,14 @@
    [:.tone-warning [:.message-icon {:color orange}]]
    [:.tone-error [:.message-icon {:color red-on-dark}]]
 
+   ;; Per-line marks on a partial import: imported, repaired, skipped.
+   [:.message-mark
+    {:width "16px"
+     :margin-right "6px"
+     :text-align :center}]
+   [:.message-mark.mark-done :.message-mark.mark-repaired {:color "#8cc63f"}]
+   [:.message-mark.mark-skipped {:color orange}]
+
    [:.message-body
     {:flex "1 1 auto"
      :min-width 0}]

@@ -5349,7 +5349,11 @@
      :dispatch-n (remove nil?
                    [(when merged
                       [::e5/store-plugins merged
-                       (when-not message [:show-message user-message])])
+                       (when-not message
+                         [(if (= :warning (orcbrew-val/import-notice-type result))
+                            :show-warning-message
+                            :show-message)
+                          user-message])])
                     (when message [:show-warning-message message])
                     import-log])}))
 
