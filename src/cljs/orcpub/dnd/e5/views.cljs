@@ -2411,7 +2411,7 @@
                                (toggle-spell-expanded! expanded-spells k)
                                prepare-spell-count
                                prepared-spell-count))))
-              (sort-by :key spells))))]]]))))
+              (sort-by :key common/safe-compare spells))))]]]))))
 
 (defn toggle-hide-unprepared-fn [hide-unprepared?]
   #(swap! hide-unprepared? not))

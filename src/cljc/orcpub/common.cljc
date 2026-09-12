@@ -574,6 +574,20 @@
 (defn aloof-sort-by [sorter coll]
   (sort-by (comp lower-case sorter) coll))
 
+;; `compare` throws across types -- a keyword against text, a number against a
+;; keyword -- and a homebrew key or name holds whatever type its file put there. Same
+;; types compare as usual; mixed types order by type, then by printed form.
+(defn- compare-rank [x]
+  (cond (nil? x) 0 (number? x) 1 (keyword? x) 2 (string? x) 3 (symbol? x) 4 :else 5))
+
+(defn safe-compare [x y]
+  (let [rx (compare-rank x)
+        ry (compare-rank y)]
+    (cond
+      (not= rx ry) (compare rx ry)
+      (< rx 5) (compare x y)
+      :else (compare (pr-str x) (pr-str y)))))
+
 ;; Display name with an obvious placeholder, not a blank: any unusable name ->
 ;; "[Unnamed feature]" (shown and sorted by), never a blank or a plausible-looking
 ;; coercion. Here a string IS expected, so a wrong-typed name is a real bug — dev

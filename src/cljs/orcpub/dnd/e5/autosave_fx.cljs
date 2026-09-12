@@ -73,7 +73,12 @@
   []
   (r/track!
     (fn []
-      (when-let [sub (subscribe [::char5e/template])]
-        (when-let [template @sub]
-          (dispatch [::cache-template template]))))))
+      ;; Building the template can throw on bad homebrew. Caught, the cache stays empty,
+      ;; which the save handler already allows for; uncaught, it stopped startup.
+      (try
+        (when-let [sub (subscribe [::char5e/template])]
+          (when-let [template @sub]
+            (dispatch [::cache-template template])))
+        (catch :default e
+          (js/console.error "Could not build the character template for the save cache:" e))))))
 
