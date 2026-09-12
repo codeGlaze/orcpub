@@ -5861,8 +5861,11 @@
         ;; the write actually stuck and nothing was set aside.
         (if (or export-mode? library-mode?)
           [::e5/set-plugins renamed-data]
-          (when merged
-            [::e5/store-plugins merged
+          ;; merged is nil when no incoming entry was kept, but renames and disables
+          ;; chosen for EXISTING items live in existing-base and still need storing.
+          (when-let [to-store (or merged
+                                  (when (not= existing-base (:plugins db)) existing-base))]
+            [::e5/store-plugins to-store
              (when-not message [:show-warning-message success-msg])]))
 
         (when library-mode?
