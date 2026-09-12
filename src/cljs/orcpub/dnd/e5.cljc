@@ -52,6 +52,73 @@
   [k]
   (and (qualified-keyword? k) (= "orcpub.dnd.e5" (namespace k))))
 
+(def default-option-source
+  "The built-in source that content with no source of its own goes to."
+  "Default Option Source")
+
+(defn- source-name? [x]
+  (and (string? x) (some? (re-find #"\S" x))))
+
+(defn declared-source
+  "The one source a plugin's entries name in :option-pack, or nil when they name none
+   or disagree."
+  [plugin]
+  (let [packs (distinct
+               (for [[k items] plugin
+                     :when (and (content-section? k) (map? items))
+                     [_ item] items
+                     :when (map? item)
+                     :let [p (:option-pack item)]
+                     :when (source-name? p)]
+                 p))]
+    (when (= 1 (count packs))
+      (first packs))))
+
+(defn source-for
+  "Where an entry with no source goes: the source it is filed under when that has a
+   name, else the one source its sibling entries name, else the default."
+  [source-key plugin]
+  (if (source-name? source-key)
+    source-key
+    (or (declared-source plugin) default-option-source)))
+
+(defn fill-missing-sources
+  "Give each entry with no usable :option-pack (absent, nil, blank, not text) the source
+   `source`. Returns {:plugin p :filled [{:section :key}]}."
+  [plugin source]
+  (reduce-kv
+   (fn [acc k items]
+     (if (and (content-section? k) (map? items))
+       (reduce-kv (fn [acc item-key item]
+                    (if (and (map? item) (not (source-name? (:option-pack item))))
+                      (-> acc
+                          (assoc-in [:plugin k item-key :option-pack] source)
+                          (update :filled conj {:section k :key item-key}))
+                      acc))
+                  acc
+                  items)
+       acc))
+   {:plugin plugin :filled []}
+   plugin))
+
+(defn fill-library-sources
+  "fill-missing-sources over a {source-name plugin} library, each source filling from
+   source-for. Returns {:library l :filled [{:source :section :key :to}]}."
+  [library]
+  (if-not (map? library)
+    {:library library :filled []}
+    (reduce-kv
+     (fn [acc src plugin]
+       (if (map? plugin)
+         (let [to (source-for src plugin)
+               {p :plugin filled :filled} (fill-missing-sources plugin to)]
+           (-> acc
+               (assoc-in [:library src] p)
+               (update :filled into (map #(assoc % :source src :to to) filled))))
+         (assoc-in acc [:library src] plugin)))
+     {:library {} :filled []}
+     library)))
+
 (defn damaged-section?
   "A content section holding neither entries nor the true/false the format allows --
    text, a list, a number. It cannot load as it is."

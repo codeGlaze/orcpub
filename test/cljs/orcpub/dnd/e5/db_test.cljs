@@ -89,7 +89,7 @@
 (def ^:private mixed-library
   (str "{\"Mixed Pak\" {:orcpub.dnd.e5/spells {"
        ":good {:option-pack \"Mixed Pak\" :key :good :name \"Good\" :level 1 :school \"evocation\"} "
-       ":bad {:key :bad :name \"No Source\" :level 1}}}}"))
+       ":bad \"not an entry\"}}}}"))
 
 (defn- load-plugins! []
   (:orcpub.dnd.e5/plugins ((registrar/get-handler :cofx :orcpub.dnd.e5/plugins) {} nil)))
@@ -164,3 +164,16 @@
     (is (= lib (reader/read-string (.getItem js/window.localStorage db/local-storage-plugins-key)))
         "stored as the library itself from now on")
     (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key))))))
+
+(deftest loading-gives-an-entry-with-no-source-its-source-name-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            "{\"Named Pak\" {:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}}")
+  (is (= "Named Pak" (get-in (load-plugins!) ["Named Pak" :orcpub.dnd.e5/feats :tough :option-pack]))
+      "it used to be set aside")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-rejected-key)))
+  (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
+    (is (.includes stored ":option-pack \"Named Pak\"") "written back")
+    (load-plugins!)
+    (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
+        "so a second load changes nothing")))
+

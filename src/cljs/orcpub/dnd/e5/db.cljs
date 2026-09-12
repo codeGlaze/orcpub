@@ -554,21 +554,30 @@
 
                 ;; It's a map: salvage per source — keep the valid sources and
                 ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
-                (let [{:keys [kept rejected]}
+                (let [;; An entry with no source takes the name of the source it is
+                      ;; stored under (e5/source-for); it used to be set aside. Written
+                      ;; back with the repairs below.
+                      {sourced :library fills :filled} (e5/fill-library-sources mended)
+                      {:keys [kept rejected]}
                       ;; PER-ENTRY salvage: keep each source's valid items, set aside
                       ;; only its broken ones — so one bad entry can't drop a whole
                       ;; source. The item floor comes from the shared content-specs
                       ;; registry (save & load agree), not inline, so it can't drift.
                       ;; `stored` normally holds only valid items, so `rejected` is
                       ;; usually empty here — it's the defensive net if the floor tightens.
-                      (e5/salvage-library-items content-specs/valid-item-for-load? mended)
+                      (e5/salvage-library-items content-specs/valid-item-for-load? sourced)
                       reconciled (e5/reconcile-rejected-items
                                   (get-local-storage-item local-storage-plugins-rejected-key)
                                   rejected
                                   kept)]
                   (persist-set-aside! set-item
                                       #(when js/window.localStorage (.removeItem js/window.localStorage %))
-                                      kept reconciled rejected (seq repairs))
+                                      kept reconciled rejected (or (seq repairs) (seq fills)))
+                  (when (seq fills)
+                    (js/console.warn
+                     (str "Gave " (count fills) " homebrew entr" (if (= 1 (count fills)) "y" "ies")
+                          " with no source the name of its source on load: "
+                          (pr-str (mapv (juxt :source :key) fills)))))
                   (when (seq repairs)
                     (js/console.warn
                      (str "Repaired " (count repairs) " damaged homebrew section(s) on load: "

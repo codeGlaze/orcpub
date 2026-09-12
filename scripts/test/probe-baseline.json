@@ -25,7 +25,7 @@
     "seconds": 41
   },
   "fixes_persist_e2e.js": {
-    "checks": 33,
+    "checks": 35,
     "seconds": 34
   },
   "header_menus_e2e.js": {
