@@ -127,3 +127,9 @@ _*.js
 # Python bytecode from scripts/ (scripts/lint-changelog.py is run, not imported)
 __pycache__/
 *.pyc
+
+# Dev-only agent instructions; tracked on agents/develop, gitignored on code branches.
+CLAUDE.md
+
+# The knowledge base lives on agents/develop; a copy here is for dev, never for merge.
+docs/kb/

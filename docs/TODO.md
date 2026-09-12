@@ -310,7 +310,7 @@ overridable. Before that lands it is worth writing down the shape the SRD classe
 baseline the refactor gets checked against, and it is the only way to answer "which SRD class
 features have no data equivalent a homebrew class could use".
 
-`docs/kb/orcbrew-value-vocabulary.md` gives the homebrew half of that comparison: the twelve
+The value-vocabulary reference on `agents/develop` gives the homebrew half: the twelve
 `:level-modifiers` types and the `:props` vocabulary are the entire set of things a class can
 express as data. The SRD classes express far more than that as code — `classes.cljc` is full
 of hand-built selections and modifier functions with no declarative twin. The map should say,
@@ -321,7 +321,7 @@ one you cannot regress against.
 
 ## Map the UI for e2e work, and give the map assertions
 
-**Status:** Not started. The knowledge-base half belongs in `agents/`; the assertion half is
+**Status:** Not started. The knowledge-base half belongs on the `agents/develop` branch; the assertion half is
 test code. They are one item because neither survives alone.
 
 There are 34 browser e2e files, two shared modules in `test/browser/lib/`, and 27 files that

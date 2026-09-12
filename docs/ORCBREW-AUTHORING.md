@@ -70,7 +70,8 @@ applies it as such. An unrecognised `:type` is worse: it is logged to the browse
 dropped, so the file imports cleanly and the feature simply never appears.
 
 The twelve types and their value domains are tabulated in
-`docs/kb/orcbrew-value-vocabulary.md`. The short version is that proficiencies and
+the value-vocabulary reference on the knowledge-base branch
+(`git show agents/develop:docs/kb/orcbrew-value-vocabulary.md`). The short version is that proficiencies and
 resistances take a single keyword, speeds and attack counts take an integer, and `:spell`
 takes a map of `{:level :key :ability}`.
 
@@ -238,7 +239,8 @@ slots of 4/3/2, and both traits under Features.
 
 The one line that produces nothing visible is the `:saving-throw-advantage` modifier, and that
 is a property of the app rather than of the file: the value is computed onto the character and
-no view, subscription or PDF path reads it. See `docs/kb/orcbrew-value-vocabulary.md`.
+no view, subscription or PDF path reads it. The value-vocabulary reference on
+`agents/develop` records the trace.
 
 ## 7. Writing tools against the format
 
@@ -272,7 +274,7 @@ namespace's docstring before proposing any change to it: the permissiveness is l
 
 What this means for you is simply that the specs answer "is this item storable", not "is this
 item correct". Build against the consuming code instead — the tables in
-`docs/kb/orcbrew-value-vocabulary.md` cite it line by line.
+the value-vocabulary reference on `agents/develop` cites it line by line.
 
 ### The closed sets
 
