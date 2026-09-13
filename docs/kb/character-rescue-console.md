@@ -88,6 +88,13 @@ nested ones ignored.
 repairs the text on the way out, so the reader never sees the bad token. Both matter: the app reads
 `.response`, and an earlier version hooking only `.responseText` did nothing at all.
 
+**Scope the heal to character URLs.** The repair rewrites a colon followed by a delimiter into
+`:unnamed-N`. Applied to every response, that is not a character repair — in JSON a colon followed
+by a delimiter describes every key, so `{"username":"bob"}` becomes `{"username":unnamed-1"bob"}`.
+Transit survives by luck, because its colons only ever appear inside strings, and the save path is
+transit — which is exactly why an unscoped shim can pass a full end-to-end save test and still be
+wrong. `arm()` wraps `.open()` to record the URL and heals only `/dnd/5e/characters/<id>`.
+
 It is per-tab and per-document. **A reload undoes it**, which is why the tool navigates in-app
 (`history.pushState` + a `popstate` event) instead of asking the user to click something that might
 reload. A real click on a character row was verified to keep the document alive and the patch armed.
@@ -119,6 +126,8 @@ emits minified internals — only the readable keyword names are kept.
 
 ## 4. Gotchas that cost real time
 
+- **Scope any response rewriting.** An unscoped healer corrupts JSON, and the flow you are
+  most likely to test (the save) is transit, so it will not catch you.
 - **A reload kills the patch.** Say so in every instruction; navigate in-app.
 - **Saving is gated.** A character missing ability scores cannot be saved, so SAVE silently does
   nothing and the repair does not stick. Fully-built characters are fine; the tool warns.
@@ -179,6 +188,11 @@ browser against a real local server, and confirmed on a real affected account (t
 characters found, backed up and opened).
 
 `scripts/recovery/emergency-console-fix.js` (`claude/fix-single-colon-keyword` `bab40288`) was the
-first-generation field patch — two hand-run options, repair-in-flight or delete. Superseded by
-`rescue-console.js`, and deliberately left on its branch rather than copied here: two similar
-scripts in one directory is a trap for whoever reaches for them next.
+first-generation field patch — two hand-run options, repair-in-flight or delete. `rescue-console.js`
+does strictly more, so the predecessor is left on its branch rather than copied here; two similar
+rescue scripts in one directory is a trap for whoever grabs one in a hurry.
+
+It was not, however, strictly worse. It scoped its XHR heal to character URLs and `rescue-console.js`
+did not, which is a correctness bug the newer script carried until v6 — read the old one before
+assuming the new one supersedes it on every axis. Also taken from it: walking the prototype chain for
+the getter descriptor, `confirm()` before a delete, and a cookie fallback for the auth token.
