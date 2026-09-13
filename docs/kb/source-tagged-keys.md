@@ -1,8 +1,8 @@
 # Should every minted key carry its source's abbreviation?
 
-**Status: DECIDED, not built.** Recorded 2026-09-13 because the question kept coming up in chat and was nowhere on
-this page. Nothing here is built. The *mechanism* is built and shipped; only the always-on policy is
-undecided.
+**Status: DECIDED 2026-09-13, not built.** Written down because the question kept coming up in chat
+and was nowhere in the KB. The *mechanism* ships already and runs only on collisions; what is
+decided and unbuilt is applying it to every mint.
 
 ## What exists today
 
