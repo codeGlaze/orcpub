@@ -45,6 +45,7 @@
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
@@ -3978,7 +3979,10 @@
         (if-let [e (.. this -state -error)]
           (fallback e
                     (.. this -state -componentStack)
-                    #(.setState this #js {:error nil :componentStack nil}))
+                    ;; Reagent re-renders on new props, not on React state alone, so
+                    ;; clearing the error has to force the redraw as well.
+                    #(.setState this #js {:error nil :componentStack nil}
+                                (fn [] (.forceUpdate this))))
           child)))}))
 
 (defn app-error-fallback
@@ -3987,12 +3991,17 @@
    can be any page): say something broke, reassure the data is safe, offer recovery,
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
-  [_error _stack _retry]
+  [_error _stack retry]
   ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
   ;; took it away, then this page threw. Getting homebrew out matters most in
   ;; exactly the state where the app has stopped being able to export it.
   (when-let [rescue (aget js/window "orcpubBootRescue")]
     (rescue))
+  ;; The page may have failed on homebrew that only breaks once it is drawn. Check every
+  ;; entry deeply; if any are set aside, try the page again.
+  (js/setTimeout #(when (seq (homebrew-check/check-and-set-aside! nil))
+                    (js/setTimeout retry 500))
+                 0)
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]

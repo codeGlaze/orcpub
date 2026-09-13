@@ -32,6 +32,10 @@
     "checks": 30,
     "seconds": 50
   },
+  "homebrew_safety_net_e2e.js": {
+    "checks": 16,
+    "seconds": 60
+  },
   "notification_flows_e2e.js": {
     "checks": 9,
     "seconds": 4

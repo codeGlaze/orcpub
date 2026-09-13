@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -300,27 +301,31 @@
  ::races5e/plugin-races
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [race]
-      (assoc race
-             :modifiers
-             (concat (opt5e/plugin-modifiers (:props race)
-                                             (:key race))
-                     (spell-modifiers race (:name race)))
-             :edit-event [::races5e/edit-race race]))
+      (guard/guard-entry
+       ::e5/races race
+       #(assoc %
+               :modifiers
+               (concat (opt5e/plugin-modifiers (:props %)
+                                               (:key %))
+                       (spell-modifiers % (:name %)))
+               :edit-event [::races5e/edit-race %])))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
  ::races5e/plugin-subraces
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [subrace]
-      (assoc subrace
-             :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
-                                                        (:key subrace))
-                                (spell-modifiers subrace (:name subrace)))
-             :edit-event [::races5e/edit-subrace subrace]))
+      (guard/guard-entry
+       ::e5/subraces subrace
+       #(assoc %
+               :modifiers (concat (opt5e/plugin-modifiers (:props %)
+                                                          (:key %))
+                                  (spell-modifiers % (:name %)))
+               :edit-event [::races5e/edit-subrace %])))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
@@ -613,7 +618,8 @@
                    :plugin-source source-name
                    :edit-event [::classes5e/edit-subclass subclass-with-key])))
         (catch js/Error e
-          (js/console.warn "Skipping malformed subclass:" subclass-key e)
+          (guard/report! {:content-type ::e5/subclasses :key subclass-key :source source-name
+                         :name (:name subclass) :error e})
           nil)))
     ;; Extract subclasses from each plugin with the map key
     (for [[source-name plugin-data] plugins-with-sources
@@ -647,7 +653,8 @@
                                                       class-key)
                    :levels levels)))
         (catch js/Error e
-          (js/console.warn "Skipping malformed class:" class-key e)
+          (guard/report! {:content-type ::e5/classes :key class-key :source source-name
+                         :name (:name class) :error e})
           nil)))
     ;; Extract classes from each plugin with their source name AND the map key
     ;; The map key (e.g., :artificer-kibbles-tasty) is the authoritative key
@@ -1133,7 +1140,9 @@
                                     weapons-map
                                     plugin-class)
                                    (catch js/Error e
-                                     (js/console.warn "Skipping plugin class due to error:" (:key plugin-class) e)
+                                     (guard/report! {:content-type ::e5/classes :key (:key plugin-class)
+                                                   :source (:plugin-source plugin-class)
+                                                   :name (:name plugin-class) :error e})
                                      nil)))
                                plugin-classes)]
      (vec
@@ -1384,14 +1393,18 @@
  :<- [::spells5e/plugin-spells]
  (fn [plugin-spells _]
    (reduce
-    (fn [lists {:keys [key level spell-lists]}]
-      (reduce-kv
-       (fn [l k v]
-         (if v
-           (update-in l [k level] conj key)
-           l))
-       lists
-       spell-lists))
+    (fn [lists {:keys [key level spell-lists] :as spell}]
+      (or (guard/guard-entry
+           ::e5/spells spell
+           (fn [_]
+             (reduce-kv
+              (fn [l k v]
+                (if v
+                  (update-in l [k level] conj key)
+                  l))
+              lists
+              spell-lists)))
+          lists))
     {}
     plugin-spells)))
 
@@ -1536,3 +1549,52 @@
    :<- [::classes5e/builder-item]
    (fn [class [_ prof-type prof-key]]
      (some? (get-in class [:profs prof-type prof-key]))))
+
+;; ============================================================================
+;; The deep homebrew check (orcpub.dnd.e5.homebrew-check): each homebrew entry, with the
+;; conversion the builder uses for it.
+;; ============================================================================
+
+(defn- homebrew-entry? [e]
+  (some? (or (:plugin-source e) (:option-pack e))))
+
+(guard/register-conversions!
+ {::e5/races
+  {:entries #(filter homebrew-entry? (% [::races5e/races]))
+   :convert (fn [sub]
+              (partial opt5e/race-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map])
+                       (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/backgrounds
+  {:entries #(filter homebrew-entry? (% [::bg5e/backgrounds]))
+   :convert (fn [sub]
+              (partial opt5e/background-option (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/feats
+  {:entries #(filter homebrew-entry? (% [::feats5e/feats]))
+   :convert (fn [sub]
+              (partial opt5e/feat-option-from-cfg (sub [::langs5e/language-map]) (sub [::spells5e/spells-map])
+                       (sub [::spells5e/spell-lists]) (sub [::mi5e/custom-and-standard-weapons])
+                       (common/map-by-key (sub [::races5e/races]))))}
+  ::e5/classes
+  {:entries #(% [::classes5e/plugin-classes])
+   :convert (fn [sub]
+              (partial opt5e/class-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                       (sub [::langs5e/language-map]) (sub [::mi5e/custom-and-standard-weapons-map])))}
+  ;; a subclass is built inside its class, with itself as that class's only plugin subclass
+  ::e5/subclasses
+  {:entries #(% [::classes5e/plugin-subclasses])
+   :convert (fn [sub]
+              (let [spell-lists (sub [::spells5e/spell-lists])
+                    spells-map (sub [::spells5e/spells-map])
+                    language-map (sub [::langs5e/language-map])
+                    weapons-map (sub [::mi5e/custom-and-standard-weapons-map])
+                    plugin-classes (sub [::classes5e/plugin-classes])
+                    invocations (sub [::classes5e/invocations])
+                    boons (sub [::classes5e/boons])]
+                (fn [{class-key :class :as subclass}]
+                  (let [only-this {class-key [subclass]}]
+                    (or (some #(when (= class-key (:key %))
+                                 (opt5e/class-option spell-lists spells-map only-this language-map weapons-map %))
+                              plugin-classes)
+                        (some #(when (= class-key (::t/key %)) %)
+                              (base-class-options spell-lists spells-map only-this language-map
+                                                  weapons-map invocations boons)))))))}})

@@ -189,3 +189,18 @@
     (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
         "so a second load changes nothing")))
 
+(deftest a-library-that-stops-startup-is-set-aside-intact
+  (.setItem js/window.localStorage db/local-storage-plugins-key "{\"P\" {}}")
+  (is (= "{\"P\" {}}" (db/set-aside-unloadable-library!)))
+  (is (= "{\"P\" {}}" (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))
+      "kept, byte for byte")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-key)))
+  (testing "put back when homebrew was not the cause"
+    (db/restore-set-aside-library! "{\"P\" {}}")
+    (is (= "{\"P\" {}}" (.getItem js/window.localStorage db/local-storage-plugins-key)))
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))))
+  (testing "a copy that cannot be saved leaves the library where it was"
+    (.setItem js/window.localStorage db/local-storage-plugins-key "{\"Q\" {}}")
+    (is (nil? (db/set-aside-unloadable-library! (constantly false) #(.removeItem js/window.localStorage %))))
+    (is (= "{\"Q\" {}}" (.getItem js/window.localStorage db/local-storage-plugins-key)))))
+

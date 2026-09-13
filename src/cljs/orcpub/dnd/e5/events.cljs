@@ -63,6 +63,8 @@
                                       cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
+                                      corrupt-slot-key
+                                      local-storage-plugins-key
                                       default-character
                                       default-spell
                                       default-monster
@@ -79,6 +81,7 @@
                                       default-class
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -550,11 +553,14 @@
 (def authorization-headers event-utils/auth-headers)
 (def url-for-route event-utils/url-for-route)
 
-;; Autosave handler — dispatched from autosave_fx.cljs throttle timer.
-;; Posts character + summary to server.
+;; How many times a save waits 250 ms for the template cache before saying so.
+(def save-template-retries 20)
+
+;; Autosave handler — dispatched from autosave_fx.cljs throttle timer, and by the
+;; character list's save button. Posts character + summary to server.
 (reg-event-fx
  ::char5e/save-character
- (fn [{:keys [db]} [_ id]]
+ (fn [{:keys [db]} [_ id attempt]]
    (let [character (get-in db [::char5e/character-map (js/parseInt id)] {})
          ;; Template is cached in app-db by autosave_fx's track! watcher.
          ;; Since built-template is a no-op (plugin merging commented out),
@@ -564,7 +570,16 @@
      ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
      ;; (Guarded by events-test save-character-rejects-missing-abilities.)
      (if-not (seq cached-template)
-       {} ;; template not cached yet — skip this cycle, next autosave will retry
+       ;; Not cached yet. The cache starts with the first save, not with the app, so ask
+       ;; for it and try again shortly; a save from the character list has no later
+       ;; autosave to fall back on.
+       (let [attempt (or attempt 0)]
+         (if (< attempt save-template-retries)
+           {::autosave-fx/ensure-template-cache true
+            :dispatch-later [{:ms 250 :dispatch [::char5e/save-character id (inc attempt)]}]}
+           {:dispatch [:show-warning-message
+                       (str "This character couldn't be saved because the character options "
+                            "didn't finish loading. Try again in a moment.")]}))
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
              built-character (entity/build character cached-template)
              summary (make-summary built-character)]
@@ -4322,9 +4337,15 @@
 (reg-event-fx
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
-   (let [ok? (plugins->local-store plugins)]
-     (cond-> {:db (assoc db :plugins plugins)}
-       (and ok? on-success) (assoc :dispatch on-success)))))
+   (let [ok? (plugins->local-store plugins)
+         changed (not-empty (set (for [[src p] plugins
+                                       :when (not (identical? p (get (:plugins db) src)))]
+                                   src)))]
+     (cond-> {:db (-> db (assoc :plugins plugins) (dissoc :homebrew-reported))}
+       (and ok? on-success) (assoc :dispatch on-success)
+       ;; check the sources this import changed for an entry that breaks the character
+       ;; options, now rather than the next time someone opens the builder
+       (and ok? changed) (assoc ::homebrew-check/check-builds changed)))))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -4388,7 +4409,10 @@
          (set-rejected-plugins new-rejected)
          {:db (-> db
                   (assoc :plugins live)
-                  (assoc :quarantined-plugins new-rejected))
+                  (assoc :quarantined-plugins new-rejected)
+                  (dissoc :homebrew-reported))
+          ;; a restored entry that still breaks the character options is set aside again
+          ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
           :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
                      (cond
                        (and (pos? n-fixed) (zero? n-left))
@@ -4459,10 +4483,13 @@
 
 (defn- save-orcbrew-blob!
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`."
-  [filename data & {:keys [pretty-print?]}]
-  (let [content (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
-                                   :pretty-print? pretty-print?)
+   effect; serialization lives in the pure `serialize-orcbrew`. With `:raw?`, `data`
+   is already text and is written as it is, for a library that could not be read."
+  [filename data & {:keys [pretty-print? raw?]}]
+  (let [content (if raw?
+                  data
+                  (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
+                                     :pretty-print? pretty-print?))
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -4653,6 +4680,114 @@
    (when-let [data (get-in db [:quarantined-plugins source-name])]
      (save-orcbrew-blob! (str source-name ".orcbrew") data))
    {}))
+
+;; ============================================================================
+;; A stored library that stopped startup
+;; ============================================================================
+
+(reg-event-fx
+ ::e5/download-unloadable-library
+ (fn [_ _]
+   (when-let [raw (some-> js/window.localStorage
+                          (.getItem (corrupt-slot-key local-storage-plugins-key)))]
+     (save-orcbrew-blob! "homebrew-that-could-not-load.orcbrew" raw :raw? true))
+   {}))
+
+;; Dispatched from core.cljs after loading the library threw and the app started
+;; without it. The library is kept, untouched, in the :corrupt slot.
+(reg-event-fx
+ ::e5/library-set-aside-at-startup
+ (fn [_ _]
+   {:dispatch [:show-error-message
+               {:title "Your homebrew couldn't be loaded"
+                :details ["The app started without it, so everything else works. Nothing was deleted; it is kept in this browser."
+                          [:span.pointer.underline.orange
+                           {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (dispatch [::e5/download-unloadable-library]))}
+                           "Download a copy"]]}]}))
+
+;; ============================================================================
+;; Homebrew that breaks the character options
+;; ============================================================================
+
+(defn- find-broken-entry
+  "Where a reported entry sits in the library, as [source entry]: the source the report
+   names, then the entry's own :option-pack, then any source holding that key."
+  [plugins {:keys [content-type key source option-pack]}]
+  (let [holds? (fn [src] (map? (get-in plugins [src content-type key])))
+        src (cond
+              (and source (holds? source)) source
+              (and option-pack (holds? option-pack)) option-pack
+              :else (some #(when (holds? %) %) (keys plugins)))]
+    (when src
+      [src (get-in plugins [src content-type key])])))
+
+(defn set-aside-broken-entries
+  "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
+   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
+   library (shared content, or already gone) moves nothing."
+  [plugins rejected reports]
+  (reduce (fn [acc {:keys [content-type key] :as report}]
+            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
+              (-> acc
+                  (update-in [:plugins src content-type] dissoc key)
+                  (assoc-in [:rejected src content-type key] entry)
+                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
+              acc))
+          {:plugins plugins :rejected (or rejected {}) :moved []}
+          reports))
+
+(defn- broken-homebrew-notice [moved]
+  (let [n (count moved)
+        label (fn [{:keys [source content-type key entry]}]
+                (str "“" (if (and (string? (:name entry)) (not (s/blank? (:name entry))))
+                                (:name entry)
+                                (str key))
+                     "” (" (s/lower-case (get orcbrew-val/content-type-singular content-type "entry"))
+                     ") in “" source "”"))]
+    {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
+     :details [(str (s/join ", " (map label (take 3 moved)))
+                    (when (> n 3) (str " and " (- n 3) " more"))
+                    " stopped the character options from loading, so "
+                    (if (= 1 n) "it was" "they were")
+                    " set aside. Everything else still works.")
+               [:span.pointer.underline.orange
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (dispatch [:route routes/dnd-e5-my-content-route]))}
+                "Fix or discard it in My Content"]]}))
+
+;; Conversions re-run whenever their inputs change, so one bad entry is reported many
+;; times; each is queued once, and the queue is handled together a moment later.
+(reg-event-fx
+ ::e5/homebrew-entry-broke
+ (fn [{:keys [db]} [_ report]]
+   (let [id [(:content-type report) (:key report) (or (:source report) (:option-pack report))]]
+     (if (contains? (:homebrew-reported db) id)
+       {}
+       (cond-> {:db (-> db
+                        (update :homebrew-reported (fnil conj #{}) id)
+                        (update :homebrew-broken (fnil conj []) report))}
+         (empty? (:homebrew-broken db))
+         (assoc :dispatch-later [{:ms 300 :dispatch [::e5/set-aside-broken-homebrew]}]))))))
+
+(reg-event-fx
+ ::e5/set-aside-broken-homebrew
+ (fn [{:keys [db]} [_ reports]]
+   (let [{:keys [plugins rejected moved]}
+         (set-aside-broken-entries (:plugins db) (get-rejected-plugins)
+                                   (concat reports (:homebrew-broken db)))
+         db (dissoc db :homebrew-broken)]
+     (if (empty? moved)
+       {:db db}
+       ;; The set-aside copy first, as the loader does: if storage refuses it, the library
+       ;; copy is left alone and the entry is set aside for this session only.
+       (do
+         (when (set-rejected-plugins rejected)
+           (plugins->local-store plugins))
+         {:db (assoc db :plugins plugins :quarantined-plugins rejected)
+          :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]})))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events

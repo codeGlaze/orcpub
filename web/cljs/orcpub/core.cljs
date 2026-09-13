@@ -3,7 +3,7 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.events :as events]
-            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
@@ -31,17 +31,28 @@
    on the server's loading spinner, outside every error boundary. A stored homebrew
    race with a text key did exactly that. What still fails once the app is drawing
    is caught by the app-root boundary."
-  [label f]
-  (try
-    (f)
-    (catch :default e
-      (js/console.error (str "Startup step failed (" label "); continuing so the app still loads:") e))))
+  ([label f] (boot-step label f nil))
+  ([label f recover]
+   (try
+     (f)
+     (catch :default e
+       (js/console.error (str "Startup step failed (" label "); continuing so the app still loads:") e)
+       (when recover (recover))))))
 
-(boot-step "initialize-db" #(dispatch-sync [:initialize-db]))
+(boot-step "initialize-db"
+           #(dispatch-sync [:initialize-db])
+           ;; Loading threw. Set the stored library aside intact, start without it, and
+           ;; say so; if startup fails without it too, homebrew was not the cause.
+           #(when-let [raw (db/set-aside-unloadable-library!)]
+              (try
+                (dispatch-sync [:initialize-db])
+                (dispatch [:orcpub.dnd.e5/library-set-aside-at-startup])
+                (catch :default e
+                  (db/restore-set-aside-library! raw)
+                  (js/console.error "Startup failed without homebrew as well:" e)))))
 
-;; Init template cache after all subscription handlers are registered.
-;; Must be called here (not self-initializing) so equipment-subs has loaded.
-(boot-step "template cache" autosave-fx/init-template-cache!)
+;; Startup reads homebrew and builds nothing from it. The character template autosave
+;; needs is built on the first save (autosave-fx/ensure-template-cache!).
 
 (def pages
   {nil views-2/splash-page
