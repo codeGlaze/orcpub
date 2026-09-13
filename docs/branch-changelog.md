@@ -182,6 +182,12 @@ ability, +1 to another) work across races, backgrounds, and subclasses the way o
   errors preserved in the import log. Fixed 3 tests that were red on summer-fixes itself (commit
   `54f4e87d` changed the fill default `"Unnamed Content"` → `"Default Option Source"` but left the
   assertions stale). Post-merge: JVM 361/2037, cljs 237/684, 0 failures; import round-trip E2E green.
+
+---
+
+<!-- A second branch's changelog arrived on this filename in a merge. Kept whole, below,
+     rather than interleaved: they describe different branches. -->
+
 # Branch changelog — `consolidate/notifications-and-exports`
 
 ## Why this branch exists
