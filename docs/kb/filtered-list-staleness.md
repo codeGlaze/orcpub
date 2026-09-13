@@ -147,6 +147,9 @@ resolution is not a build.
 
 ### What to actually test after merging
 
+Full stage-gated matrix, contingencies and partial-take options:
+[plan-669-merge-verification.md](plan-669-merge-verification.md). In short:
+
 1. The cljs suite via the figwheel test build, with `test_runner.cljs` carrying **both** sides'
    namespaces — that conflict is the one most likely to silently drop tests from the run.
 2. `equipment_subs_test.cljs`, the branch's own regression pin.
