@@ -85,3 +85,31 @@ helper so a change to the rule fails in one place.
 **The key control does not re-tag.** A key the author types is exactly what they typed — deleting
 the tag is how an SRD override is asked for, and a control that put one back would make that
 impossible.
+
+## Next: let a source carry its own abbreviation (proposed 2026-09-13)
+
+The derivation is a guess, and it is wrong for any source whose real-world tag nobody can derive —
+`source-abbreviation-overrides` is that admission, and it only holds sources shipped content uses.
+An author's own "Tidewater Curios" has no entry and never will, so `TrCs` is what their keys carry
+whether or not they would have written `TWC`.
+
+**Store it on the source.** A source is a map key in `:plugins` whose value already carries
+source-level data beside the content types (`:disabled?` is read there), so `:abbreviation` goes in
+the same place. `process-plugin-vals` keeps only map-valued entries when it collects content types,
+so a string there is ignored by the content path rather than mistaken for a content type.
+
+**Blank, with the derived value as the placeholder — not auto-filled.** Auto-filling stores a copy
+of a guess, and then: the rule improving (as it did for `UA - Heroes of Krynn`) does not reach the
+stored copies, and nothing distinguishes "the author chose this" from "the app guessed and wrote it
+down". Blank keeps one source of truth, and showing the derived value as placeholder text makes it
+visible without making it data. Same shape as the key row: the app's answer is on screen, and
+typing over it is the override.
+
+**Where the field lives is the open question.** My Content's source row is where sources are already
+managed (export, delete, enable, search) and where the abbreviation is source-level rather than
+item-level. The builder's Option Source Name field is where the name is typed, which argues for
+putting it beside that — but it would put source-level data in every item's form. My Content is the
+better home; it is also the larger change.
+
+Whichever it is: existing keys do not re-tag when the abbreviation changes (D9), so it takes effect
+for keys minted after it is set. That is worth saying in the field's own hint text.
