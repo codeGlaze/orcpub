@@ -126,6 +126,7 @@ described above.
 |---|---|
 | Merge compiles | **yes** |
 | Full cljs suite | **354 tests / 1699 assertions, 0 failures, 0 errors** |
+| P5 request-path differential | **identical trace** on `integration` and on the merge — see below |
 | P4's discarded subs | no build error, so nothing referenced them — confirms the static finding |
 
 ### The discrimination check — the part that matters
@@ -238,6 +239,53 @@ which carries more test namespaces; this tree is integration + the fix branch.
 | A4 loses the theme | The `dissoc` list changed | Must be `(dissoc user-data-map :user-data :token)` — nothing more |
 | Spinner sticks or never shows | The `:user` counter change meeting the `0`-is-truthy gotcha | Check `character_builder.cljs:2651`, which binds `loading` raw |
 | Something breaks and the cause is unclear | Five units landed together | Bisect **by unit, not by commit** — the table at the top maps units to commits |
+
+## P5 differential — run on both trees, traces identical
+
+**The question "does P2–P5 regress anything?" cannot be answered by a pass/fail test**, because a
+refactor is supposed to change nothing. It needs a differential: the same probe against
+`integration` and against the merge, comparing behaviour rather than asserting a value.
+
+`scripts/e2e/api-sub-loaders.js` logs in as the seeded user, visits the pages that mount all five
+migrated subs, and records every request to their endpoints — **name, method, whether it carried an
+Authorization header, and status**. Those four facts are exactly what `reg-api-sub` took over from
+the five hand-written call sites, so they are the surface a silent change would show on.
+
+Run 2026-09-13 on a real server with a real database, `lein fig:prod` build in both cases.
+
+```
+CONTROL  integration 36766010          MERGED  integration + the branch (P1–P5)
+  1x  characters GET auth=true 200       1x  characters GET auth=true 200
+  1x  folders    GET auth=true 200       1x  folders    GET auth=true 200
+  2x  items      GET auth=true 200       2x  items      GET auth=true 200
+  1x  parties    GET auth=true 200       1x  parties    GET auth=true 200
+  2x  user       GET auth=true 200       2x  user       GET auth=true 200
+```
+
+**Identical.** Same endpoints, same call counts, same auth headers, same statuses. The loading
+overlay settles in both — which is the observable check on P5 adding an increment/decrement pair to
+`:user` that did not exist before. No uncaught page errors in either.
+
+`SELFTEST=1` logs in with a wrong password: **zero requests fire**, which exercises the guard that
+P2 consolidated and P5 routes all five subs through. The main-path checks are known to be capable of
+failing — an early version of the probe matched SPA page routes as well as API paths and reported
+five FAILs plus a `parties GET auth=false`, which was the page load, not a call.
+
+### What this does and does not establish
+
+**Does:** the request path is unchanged — guard, headers, endpoint, method, call count, status, and
+the loading counter settling. That is the P5 surface with no automated coverage, and it is the same
+before and after.
+
+**Does not:**
+
+- **Response handling.** The seeded user owns no characters, parties, folders or items, so every
+  200 carried an empty body. The `:set-event` → db-population path is not exercised. A probe that
+  seeds content first would close this, and is the obvious next step.
+- **The 401 paths.** No expired-token scenario, so `user-sub-on-401`'s compound behaviour is covered
+  only by the unit test in `subs_test.cljs`, not end to end.
+- **P1 itself.** This probe is about the refactor changing nothing; the fix working is the cljs
+  suite plus manual step M1.
 
 ## P4 is the one unit that should change shape before it lands
 
