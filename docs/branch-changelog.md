@@ -169,11 +169,25 @@ comes with a check that fails without it.
 
 ## Added
 
+- **A check for homebrew no repair knows about** — a browser probe breaks one race on
+  conversion and one only when drawn, and checks the app, the notice, the set-aside,
+  Restore and import (`fa57ebbc`).
+
 - **A check that every fix is saved** — a browser probe applies each repair through
   the app, reloads and exports, so a fix that only lives on screen fails a test
   instead of reverting on refresh (`dd2ff2b7`).
 
 ## Fixed
+
+- **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
+  a keyword, or whose traits or options held something other than cards, crashed the
+  import or later the export; it now imports with what can be kept (`c0b757c7`).
+- **Startup only reads homebrew** — the character options autosave needs are built on
+  the first save instead of on every page load, and a library that cannot be loaded is
+  set aside intact with a download, so the app still starts (`fa57ebbc`).
+- **Homebrew that still breaks is set aside, not left to break the page** — an entry
+  that fails to build is set aside with a notice that names it and links to My Content,
+  and a page that fails on homebrew checks it and loads again on its own (`fa57ebbc`).
 
 - **Bad stored homebrew no longer stops the app from starting** — a race whose key
   was text left every page on the loading spinner. A failed startup step no longer
