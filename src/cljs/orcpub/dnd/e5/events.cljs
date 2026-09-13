@@ -1580,30 +1580,45 @@
 ;; attribute can hold a nested map (see db/schema.clj). The char5e/portrait
 ;; getter parses it back.
 
-(def ^:private portrait-ui-keys
-  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
-   :portrait/open-slot :portrait/open-layer])
+(defn- seed-portrait-draft
+  "Reset the draft to whatever the character currently has saved.
+
+   Reads the RAW value, not char5e/portrait -- that getter resolves through
+   es/entity-val against a BUILT character, and db :character is the raw
+   entity. Going through the getter here silently yields nil, which once made
+   reopening the drawer discard a saved portrait."
+  [db]
+  (assoc db
+         :portrait/draft (or (char5e/parse-portrait
+                              (get-in db [:character ::entity/values ::char5e/portrait]))
+                             portrait-assets5e/empty-portrait)
+         :portrait/draft-seed nil
+         :portrait/open-slot nil
+         :portrait/open-layer nil))
+
+(reg-event-db
+ :portrait/ensure-draft
+ ;; For the inline Portrait tab, which has no open/close of its own: give it a
+ ;; draft if there is not one, and leave any in-progress edits alone.
+ (fn [db _]
+   (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
 (reg-event-db
  :portrait/open
  (fn [db _]
-   (assoc db
-          :portrait/drawer-open? true
-          ;; Read the RAW value, not char5e/portrait -- that getter resolves
-          ;; through es/entity-val against a BUILT character, and db :character
-          ;; is the raw entity. Going through the getter here silently yields
-          ;; nil, so reopening the drawer would discard a saved portrait.
-          :portrait/draft (or (char5e/parse-portrait
-                               (get-in db [:character ::entity/values ::char5e/portrait]))
-                              portrait-assets5e/empty-portrait)
-          :portrait/draft-seed nil
-          :portrait/open-slot nil
-          :portrait/open-layer nil)))
+   ;; Keeps an existing draft rather than reseeding: the drawer and the inline
+   ;; tab share one, so opening the drawer from the tab must not silently throw
+   ;; away what is on the tab's canvas.
+   (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
+       (assoc :portrait/drawer-open? true))))
 
 (reg-event-db
  :portrait/close
  (fn [db _]
-   (apply dissoc db portrait-ui-keys)))
+   ;; Cancel still discards, but by reseeding rather than dissoc-ing: the
+   ;; inline tab renders from this same draft and would otherwise go blank
+   ;; underneath the closing drawer.
+   (-> db seed-portrait-draft (assoc :portrait/drawer-open? false))))
 
 (reg-event-db
  :portrait/pick-layer
@@ -1677,11 +1692,13 @@
 (reg-event-db
  :portrait/save
  [db-char->local-store]
- (fn [db _]
+ (fn [db [_ keep-open?]]
+   ;; The draft is kept either way -- it now equals what was just saved, so the
+   ;; dirty indicator clears and the inline tab carries on showing the portrait
+   ;; instead of emptying itself the moment you save it.
    (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
-     (as-> db $
-       (assoc-in $ [:character ::entity/values ::char5e/portrait] (pr-str draft))
-       (apply dissoc $ portrait-ui-keys)))))
+     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+       (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI
   (reg-event-db

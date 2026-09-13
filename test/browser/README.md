@@ -37,3 +37,14 @@ re-frame events. Routing via the app's own router is fine for navigation.
   and a phone viewport.
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).
+
+## portrait_tab_e2e.js
+
+The compositor rendered as a builder tab rather than in the drawer. Covers the
+seams between the two: draft seeding without an open/close, handing in-progress
+edits to the drawer via "Full screen", and Save leaving the panel populated.
+
+Also covers the tab bar itself at phone width. Note that `:device-type` comes
+from the USER AGENT, not the viewport — a narrow window still renders the
+desktop layout, so the phone half of this suite runs in a context with a mobile
+UA. A viewport-only "mobile" test proves nothing here.
