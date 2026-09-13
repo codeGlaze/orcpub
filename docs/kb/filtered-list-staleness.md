@@ -101,9 +101,58 @@ helper that computes from the signals — `subs.cljs:1003-1007` on that branch:
 
 That branch also carries `equipment_subs_test.cljs` pinning the regression, and `api_subs.cljs`
 with a `reg-api-sub` sibling. **None of it has landed** — the branch is unmerged and its 20 new
-definitions appear on no other branch (see
-[claude-branch-triage.md](claude-branch-triage.md)). Nothing here has been compiled or run; the
-defect is verified by reading, the fix is not.
+definitions appear on no other branch (see [claude-branch-triage.md](claude-branch-triage.md)).
+
+## The merge is cheap — measured, 2026-09-13
+
+The branch is based at `d42e05d1` (2026-04-09) and `integration` has moved **579 commits** since, so
+it looks daunting. It is not. A test merge of `origin/integration` into
+`claude/fix-custom-items-disappearing-DW8rb` (`509431f2`) produced **three conflict hunks in two
+files**, all of them additive lists:
+
+| file | hunks | what |
+|---|---|---|
+| `subs.cljs` | 1 | the `:require` on `re-frame.core` — branch adds `[re-frame.db]`, integration adds `reg-event-db` to `:refer` |
+| `test_runner.cljs` | 2 | each side registers different test namespaces, in the `:require` and in `run-tests` |
+
+**The reason it is this clean: `integration` has not touched the defect.** Of the 21 commits that
+changed `subs.cljs` since the base, **zero** touch `filtered-items` (`git log -S'filtered-items'`).
+The buggy `(or …)` shape was already present at `d42e05d1` and is unchanged today, so the fix still
+applies to exactly the code it was written against.
+
+**One of the three conflicts is a trap.** The `subs.cljs` one *looks* like a list union, but
+resolving it line-wise yields two `(:require` forms and a broken `ns`. The refer vector has to be
+unioned — keep the branch's `[re-frame.db]` and add integration's `reg-event-db` to the existing
+`:refer` list.
+
+Checked on the merged tree, statically:
+
+- exactly **one** definition of `::char5e/filtered-items`, the reactive `reg-filtered-sub` one;
+- the snapshot write is **gone** from `events.cljs` — `::char5e/filter-items` now stores only
+  `::char5e/item-text-filter`, and a comment in place says *"Do NOT write
+  `::char5e/filtered-items` into db — the sub composes"*;
+- every symbol the fix calls resolves: `compute/filter-items` (`compute.cljc:87`),
+  `compute/filter-spells` (`:80`), `reg-filtered-sub` (`subs.cljs:1068`),
+  `event-utils/get-auth-token` (`event_utils.cljc:29`);
+- parens and brackets balance in the merged `subs.cljs`.
+
+**Nothing was compiled or run** — this sandbox has `node` but no `lein` or `clojure`, and the cljs
+suite runs through the figwheel test build (`orcpub.test-runner`), not `lein test`. Static
+resolution is not a build.
+
+### What to actually test after merging
+
+1. The cljs suite via the figwheel test build, with `test_runner.cljs` carrying **both** sides'
+   namespaces — that conflict is the one most likely to silently drop tests from the run.
+2. `equipment_subs_test.cljs`, the branch's own regression pin.
+3. By hand: open My Items, type three characters, delete them, save an item, confirm it appears.
+   That is the falsifier for this whole doc.
+
+**Scope note.** The branch is not only the #669 fix: it also moves `get-auth-token` into
+`event_utils`, adds a 401 observability breadcrumb, and migrates five API-backed subs to a
+`reg-api-sub` HOF. Those ride along and want their own coverage. Given how clean the merge is,
+taking the branch whole is defensible; extracting just the two `reg-filtered-sub` calls is the
+smaller-blast-radius alternative.
 
 ## Related
 
