@@ -9849,6 +9849,42 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
+(defn item-key-row
+  "The saved item's key, and the one control that changes it.
+
+   Keys are minted once (D10a) — the Name field no longer re-addresses an item — so this is the
+   only way an author fixes a key minted from a typo. Renders nothing until the item has one."
+  [item save-event]
+  (let [editing? (r/atom false)
+        draft    (r/atom "")]
+    (fn [item save-event]
+      (when-let [k (:key item)]
+        ;; NOT opacity-5 at the page edge: the first version of this rendered as a grey 12px line
+        ;; flush against the viewport and was easy to miss entirely. It sits on the form's left
+        ;; margin, at the form's text colour.
+        [:div.f-s-12.m-l-20.m-r-20.m-b-10.main-text-color.flex.align-items-c.flex-wrap
+         [:span.m-r-5.opacity-5 "key"]
+         [:span.f-w-b.m-r-10 (str k)]
+         (if @editing?
+           [:<>
+            [:input.input.h-32.w-200.m-r-5
+             {:type "text"
+              :value @draft
+              :auto-focus true
+              :placeholder (name k)
+              :on-change #(reset! draft (-> % .-target .-value))}]
+            [:span.pointer.underline.orange.m-r-10
+             {:on-click #(do (dispatch [::e5/change-builder-item-key save-event
+                                        (common/name-to-kw @draft)])
+                             (reset! editing? false))}
+             "save key"]
+            [:span.pointer.underline
+             {:on-click #(reset! editing? false)}
+             "cancel"]]
+           [:span.pointer.underline
+            {:on-click #(do (reset! draft (name k)) (reset! editing? true))}
+            "change"])]))))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered
   ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
@@ -9878,6 +9914,7 @@
       ;; the advisory rendered 1300x12px at y=407 of a long form, which is present but not visible.
       ;; :error is styling and wording only; it does not block saving.
       [builder-notes tag-notes {:severity :error}]
+      [item-key-row item save-event]
       [builder]]]))
 
 (defn combat-tracker-page []

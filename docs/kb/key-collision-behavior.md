@@ -70,9 +70,18 @@ What that removes, rather than what it adds:
 **The key and the name can therefore diverge** — "Tidewall" living at `:tideward`. That is the
 point: the key is an address, the name is display text. Exports show it.
 
-Changing a key is a separate, deliberate act — import conflict resolution and the manual relink,
-both through `rename-key-in-plugin` — and those record `:former-keys`. There is no control in the
-builder for it yet.
+Changing a key is a separate, deliberate act, and there are three ways in — all through
+`rename-key-in-plugin`, all recording `:former-keys`:
+
+| | |
+|---|---|
+| the builder's **key row** | `::e5/change-builder-item-key`, wired for every builder from `builder-drafts` |
+| import conflict resolution | the modal's rename |
+| the manual relink | `::char5e/relink-content` |
+
+The builder's row renders under the page header once the item has a key (an unsaved item has none
+yet) and refuses a key any other item already answers to. It changes the key and nothing else — the
+NAME is left alone, because a key change is not a rename.
 
 ### What the save refuses
 

@@ -227,6 +227,48 @@
   (is (= "edited" (get-in (stored) [:tideward :description])))
   (is (empty? (:builder-field-errors @app-db))))
 
+(defn- change-key! [new-key]
+  (reset! queued [])
+  (rf/dispatch-sync [::e5/change-builder-item-key ::langs5e/save-language new-key])
+  (loop [n 0]
+    (let [evs @queued]
+      (when (and (seq evs) (< n 10))
+        (reset! queued [])
+        (doseq [ev evs] (rf/dispatch-sync ev))
+        (recur (inc n))))))
+
+;; ---------------------------------------------------------------------------
+;; Changing a key on purpose
+;; ---------------------------------------------------------------------------
+
+(deftest changing-a-key-moves-the-item-and-records-the-move
+  ;; The only way an author changes a key now that the name field does not. Same move import
+  ;; conflict resolution makes, so characters rebind on load.
+  (open! (draft "Tidewrad"))
+  (save!)
+  (change-key! :tideward)
+  (is (= #{:tideward} (set (keys (stored)))) "moved, not copied")
+  (is (= [:tidewrad] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
+  (is (= :tideward (:key (in-builder))) "the open form follows its own item")
+  (is (= {:tidewrad :tideward} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= "Tidewrad" (get-in (stored) [:tideward :name])) "the NAME is untouched"))
+
+(deftest a-key-change-is-refused-when-the-key-is-taken-anywhere
+  (swap! app-db assoc :plugins
+         {SRC {ct {:tidewrad (assoc (draft "Tidewrad") :key :tidewrad)}}
+          "Someone Else's Pak" {ct {:tideward {:key :tideward :name "Tideward"
+                                               :option-pack "Someone Else's Pak"}}}})
+  (open! (get-in @app-db [:plugins SRC ct :tidewrad]))
+  (change-key! :tideward)
+  (is (= #{:tidewrad} (set (keys (stored)))) "nothing moved")
+  (is (= :tidewrad (:key (in-builder)))))
+
+(deftest an-unsaved-item-has-no-key-to-change
+  (open! (draft "Tideward"))
+  (change-key! :something-else)
+  (is (nil? (stored)))
+  (is (nil? (:key (in-builder)))))
+
 ;; ---------------------------------------------------------------------------
 ;; Why a duplicate key is refused wherever it lives
 ;; ---------------------------------------------------------------------------

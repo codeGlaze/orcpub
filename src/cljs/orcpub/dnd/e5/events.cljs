@@ -4467,6 +4467,52 @@
 (doseq [[save-event [item-key content-type]] builder-drafts]
   (reg-export-draft (draft-event-for save-event) item-key content-type))
 
+(reg-event-fx
+ ::e5/change-builder-item-key
+ ;; The ONE way an author changes a key. Keys are minted once and then fixed (D10a), so the name
+ ;; field no longer re-addresses anything -- which leaves this, for a key that was minted from a
+ ;; typo or that someone wants to read differently.
+ ;;
+ ;; It is the same move import conflict resolution makes: rename-key-in-plugin carries the item,
+ ;; rewrites the references other content holds to it, and records :former-keys, so characters
+ ;; rebind on load. The item open in the builder follows, since it is the same item.
+ (fn [{:keys [db]} [_ save-event new-key]]
+   (let [[item-key plugin-key] (get builder-drafts save-event)
+         {:keys [option-pack] :as item} (get db item-key)
+         old-key (:key item)
+         plugins (:plugins db)]
+     (cond
+       (or (nil? old-key) (nil? (get-in plugins [option-pack plugin-key old-key])))
+       {:dispatch [:show-error-message
+                   "Save this first — a key is only assigned once the item is in your library."
+                   builder-error-ttl]}
+
+       (or (nil? new-key) (= new-key old-key))
+       {:dispatch [:set-builder-field-errors {}]}
+
+       ;; Free ANYWHERE, not just here: a key is a global address (key-collision-behavior.md).
+       (save-collision plugins option-pack plugin-key new-key {})
+       (let [{:keys [source] twin-name :name} (save-collision plugins option-pack plugin-key new-key {})]
+         {:dispatch [:show-error-message
+                     (str "\"" twin-name "\" in \"" source "\" already answers to "
+                          new-key ". A key can only belong to one item.")
+                     builder-error-ttl]})
+
+       :else
+       (let [renamed (orcbrew-val/rename-key-in-plugin (get plugins option-pack)
+                                                       plugin-key old-key new-key)
+             new-plugins (assoc plugins option-pack renamed)
+             moved (get-in renamed [plugin-key new-key])]
+         {:db (assoc db item-key moved)
+          ::persist-builder-wip [item-key moved]
+          :dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
+                       [:show-warning-message
+                        {:title (str "Key changed to " new-key)
+                         :details [(str "Characters that stored " old-key
+                                        " are rebound when they next load.")]}
+                        10000]]})))))
+
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
     (js/console.warn
