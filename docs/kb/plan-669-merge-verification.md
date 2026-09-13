@@ -414,7 +414,38 @@ Two consequences:
   collisions — which means a collision between an owned item and a shared one of the same key is
   exactly the situation where a stale snapshot would show the wrong one.
 
-### What seeding the differential actually requires
+### Seeding — done, 2026-09-13
+
+`dev/e2e_boot.clj` now seeds **two** verified accounts, each owning items:
+`kaylee`/`serenity99` with three (`Kaylee Seeded Alpha/Beta/Gamma`) and
+`zoe`/`washburne7` with one (`Zoe Seeded Only`). Distinct names per owner so a leak shows in a list
+without cross-referencing ids.
+
+Results on the merged tree, both accounts:
+
+| | kaylee | zoe |
+|---|---|---|
+| items came back from the API | 3/3 | 1/1 |
+| items **rendered** on the page | 3/3 | 1/1 |
+| other account's items leaked | none of 1 | none of 3 |
+| overlay settled / page errors | clean | clean |
+
+**The render assertion is the one that matters.** It is the first time `:set-event` →
+db-population ran with a non-empty body — the gap the first differential left open, and where a
+wrong `:db-key` would hide. Isolation is proven from both sides, which one account could not do.
+
+#### Two probe bugs the seeding exposed, both mine
+
+- **It was asserting against the wrong page.** `/pages/dnd/5e/my-content` is the homebrew-sources
+  page (orcbrew import, quarantine panel). Custom magic items render on
+  **`/pages/dnd/5e/magic-items`** (`dnd-e5-item-list-page-route`), which is the page whose list is
+  `::char5e/filtered-items` — the chain P1 fixes. Against the wrong page it reported "not rendered"
+  for items that were in the API response all along.
+- **One assertion could not tell a server miss from a render miss.** Split into two: whether the
+  names appear in the items **response body**, and whether they appear on the **page**. That split
+  is what localised the bug above in one run instead of several.
+
+### What seeding the differential originally required
 
 The earlier "seed some content" note was too thin. To test the hypothesis **and** sharing:
 
