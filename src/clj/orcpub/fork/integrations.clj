@@ -2,6 +2,10 @@
   "Optional third-party <head> integrations.
    Configure via environment variables; disabled when unset.
    Fork overrides: uncomment examples and add real service config."
+  ;; `env` is unused here on purpose: every integration below ships commented out,
+  ;; and a fork uncommenting one reads its config through it. Dropping the refer
+  ;; would make the first thing a forker does a compile error.
+  #_{:clj-kondo/ignore [:unused-referred-var]}
   (:require [environ.core :refer [env]]))
 
 ;; ─── How to add an integration ───────────────────────────────────────

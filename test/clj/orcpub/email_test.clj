@@ -3,7 +3,6 @@
             [clojure.string :as s]
             [orcpub.email :as email]))
 
-(defn- subject [report] (:subject (email/character-report-message report)))
 (defn- body [report] (get-in (email/character-report-message report) [:body 0 :content]))
 
 (deftest character-report-message-shape

@@ -11,6 +11,12 @@
 //      (chromium binaries are expected under $PLAYWRIGHT_BROWSERS_PATH, default /opt/pw-browsers)
 // Run:  node test/browser/starting_equipment_browser_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     nothing. Serves resources/public from its own throwaway origin, no backend
+// Runs in:   ~5s.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

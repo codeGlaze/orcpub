@@ -290,21 +290,31 @@
                              (+ ability-mod (if-let [lvl (?class-level class-kw)]
                                               (int (/ lvl slot-factor))
                                               0))))
-    ?spell-slots (merge-with
-                  +
-                  (cond
-                    (> (count ?spell-slot-factors) 1)
-                    (opt5e/total-slots
-                     ?total-spellcaster-levels
-                     1)
-                    (= 1 (count ?spell-slot-factors))
-                    (opt5e/total-slots (let [k (some-> ?spell-slot-factors first key)]
-                                         (:class-level (?levels k)))
-                                       (some-> ?spell-slot-factors first val))
+    ;; The slots every non-pact caster draws on. 5e gives a multiclass ONE table
+    ;; computed from combined caster levels, so this is shared rather than per
+    ;; class -- a Sorcerer 5 / Wizard 5 has one pool, not two.
+    ?shared-spell-slots (cond
+                          (> (count ?spell-slot-factors) 1)
+                          (opt5e/total-slots
+                           ?total-spellcaster-levels
+                           1)
+                          (= 1 (count ?spell-slot-factors))
+                          (opt5e/total-slots (let [k (some-> ?spell-slot-factors first key)]
+                                               (:class-level (?levels k)))
+                                             (some-> ?spell-slot-factors first val))
 
-                    :else {})
-                  (when ?pact-magic?
-                    (warlock-spell-slot-schedule (?class-level :warlock))))
+                          :else {})
+    ;; Pact Magic is a SEPARATE pool at its own level, and the one thing that does
+    ;; not merge. It is kept apart so a sheet can print it against the Warlock
+    ;; rather than against everyone.
+    ?pact-spell-slots (if ?pact-magic?
+                        (warlock-spell-slot-schedule (?class-level :warlock))
+                        {})
+    ;; The two added together, which is what a sheet with one slot row per level
+    ;; has to show and what everything downstream has always read. Adding them is
+    ;; lossy -- a Warlock 5 / Sorcerer 5 shows one number where the player has two
+    ;; pools -- which is why the parts above are kept.
+    ?spell-slots (merge-with + ?shared-spell-slots ?pact-spell-slots)
     ?classes []
     ?reactions []
     ?actions []

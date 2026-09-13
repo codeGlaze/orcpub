@@ -17,6 +17,10 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
 - [🐳 Docker User Management](docker-user-management.md) - Verified user setup for Docker deployments
 
+**For Operators:**
+- [🖼️ Character Image Fetch](CHARACTER-IMAGE-FETCH.md) - Why a portrait is missing from a PDF, the limits on the fetch, and how nginx/Compose/Swarm/egress proxies affect it
+- [📄 PDF Export Capacity](PDF-EXPORT-CAPACITY.md) - What an export costs, and how to size the export stack
+
 ## Key Design Decisions
 
 ### Why Progressive Import?

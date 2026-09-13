@@ -4,6 +4,7 @@
 ;; comment in common_test.clj before treating that as a bug.
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             #?(:cljs [cljs.reader])
             [orcpub.common :as common]))
 
@@ -188,14 +189,14 @@
   (testing "bare-colon tokens become unique placeholders; result is readable"
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: {:a 1}}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{:k :}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: 1 : 2}")]
       (is (= 2 count) "two bad tokens get distinct placeholders (no map-key collision)")
-      (is (clojure.string/includes? text ":unnamed-1"))
-      (is (clojure.string/includes? text ":unnamed-2"))))
+      (is (str/includes? text ":unnamed-1"))
+      (is (str/includes? text ":unnamed-2"))))
   (testing "already-clean input is untouched (count 0)"
     (is (= 0 (:count (common/sanitize-edn-colons "{:fighter 1 :orcpub.dnd.e5/x 2}"))))
     (is (= 0 (:count (common/sanitize-edn-colons "#:orcpub.dnd.e5{:c {:artificer {:key :artificer}}}")))))
@@ -203,7 +204,7 @@
     (let [in (str "{:desc " (pr-str "Choose one: fire") "}")
           {:keys [text count]} (common/sanitize-edn-colons in)]
       (is (= 0 count))
-      (is (clojure.string/includes? text "Choose one: fire"))))
+      (is (str/includes? text "Choose one: fire"))))
   (testing "non-string input is returned unchanged"
     (is (= {:text nil :count 0} (common/sanitize-edn-colons nil)))))
 
@@ -335,3 +336,107 @@
       (let [r (common/repair-name-lead nm)]
         (is (common/keyword-starts-with-letter? (common/name-to-kw r))
             (str nm " -> " (pr-str r) " must key-validate"))))))
+
+;; ---------------------------------------------------------------------------
+;; source-abbreviation / disambiguated
+;;
+;; These matter most under CLJS, which is where the import path calls them and
+;; where the regexes are a JS RegExp rather than a java.util.regex.Pattern. The
+;; two dialects disagree on \p{L} and on \Q...\E, so a rule that reads fine in
+;; Clojure can silently split on the wrong characters in the browser.
+;; ---------------------------------------------------------------------------
+
+(deftest source-abbreviation-short-sources-use-first-and-last-letters
+  (is (= "KsTy" (common/source-abbreviation "Kibbles Tasty")))
+  (is (= "BdMc" (common/source-abbreviation "Bard Magic")))
+  (testing "an apostrophe joins its word instead of splitting it"
+    ;; "Tasha's" must stay one word; splitting there would add a stray "s" and
+    ;; push a 3-word source into the initials branch.
+    (is (= "TsGe" (common/source-abbreviation "Tasha's Guide"))))
+  (testing "a one-letter word contributes one letter, not a doubled one"
+    (is (= "A" (common/source-abbreviation "A")))))
+
+(deftest source-abbreviation-long-sources-use-initials
+  (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+  (is (= "XGtE" (common/source-abbreviation "Xanathar's Guide to Everything")))
+  (testing "each word keeps its own case, which is what makes the lowercase o"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))))
+
+(deftest source-abbreviation-defers-to-the-real-world-form
+  ;; The derivation is right about invented source names and wrong by definition
+  ;; about ones that already have an abbreviation. Nobody writes UdAa.
+  (testing "however the source is spelled, Unearthed Arcana is UA"
+    (doseq [s ["Unearthed Arcana" "unearthed arcana" "Unearthed Arcana:"
+               "unearthed-arcana" "UA" "ua" "Ua"]]
+      (is (= "UA" (common/source-abbreviation s)) (pr-str s))))
+  (testing "other sources the two-shape rule would mangle"
+    (is (= "MM" (common/source-abbreviation "Monster Manual")))
+    (is (= "PHB" (common/source-abbreviation "Player's Handbook")))
+    (is (= "DMG" (common/source-abbreviation "Dungeon Master's Guide")))
+    (is (= "EB" (common/source-abbreviation "Eberron"))))
+  (testing "a source that is ALREADY an abbreviation passes through unchanged"
+    ;; "SRD" must not come back "Srd" -- same name, meaning filed off.
+    (is (= "SRD" (common/source-abbreviation "SRD")))
+    (is (= "XGE" (common/source-abbreviation "XGE"))))
+  (testing "sources the rule already gets right are NOT in the override table,
+            so there is only one place they can be wrong"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+    (is (= "VGtM" (common/source-abbreviation "Volo's Guide to Monsters")))))
+
+(deftest source-abbreviation-is-nil-when-there-is-nothing-to-abbreviate
+  ;; nil, not "" — the caller has to be able to tell "no tag" from "empty tag"
+  ;; so it can leave the name alone rather than producing "Artificer ()".
+  (doseq [s [nil "" "   " "!!!" "---"]]
+    (is (nil? (common/source-abbreviation s)) (pr-str s))))
+
+(deftest source-abbreviation-keeps-accented-letters-in-their-word
+  ;; Splitting on a non-ASCII letter would turn "Café" into "Caf" + a dropped
+  ;; letter. The word-separator class spells out the Latin ranges for this.
+  (is (= "CéNr" (common/source-abbreviation "Café Noir"))))
+
+(deftest disambiguated-key-is-always-derived-from-the-name
+  ;; The whole point of A. If these ever disagree, the editor's save path
+  ;; re-derives a DIFFERENT key from the name and the conflict comes back.
+  (doseq [[item-name source] [["Artificer" "Kibbles Tasty"]
+                              ["Artificer" "Tasha's Cauldron of Everything"]
+                              ["Bag of Holding" "Kibbles Tasty"]
+                              ["Fireball" "Unearthed Arcana"]
+                              ["Fireball" "UA"]
+                              ["Artificer" "Eberron"]
+                              ["Élan" "Kibbles Tasty"]
+                              ["Artificer" "Café Noir"]
+                              ["Artificer" "!!!"]]]
+    (let [{:keys [name key]} (common/disambiguated item-name source)]
+      (is (= key (common/name-to-kw name))
+          (str (pr-str item-name) " + " (pr-str source)
+               " -> " (pr-str name) " / " (pr-str key))))))
+
+(deftest disambiguated-tags-the-name-and-derives-the-key
+  (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+         (common/disambiguated "Artificer" "Kibbles Tasty")))
+  (is (= {:name "Artificer (TCoE)" :key :artificer-tcoe}
+         (common/disambiguated "Artificer" "Tasha's Cauldron of Everything"))))
+
+(deftest disambiguated-does-not-stack-the-same-tag-twice
+  ;; Importing the same file twice must not yield "Artificer (KsTy) (KsTy)".
+  (let [once (common/disambiguated "Artificer" "Kibbles Tasty")
+        twice (common/disambiguated (:name once) "Kibbles Tasty")]
+    (is (= once twice)))
+  (testing "a DIFFERENT source still tags a name that already carries one"
+    (is (= "Artificer (KsTy) (TCoE)"
+           (:name (common/disambiguated "Artificer (KsTy)"
+                                        "Tasha's Cauldron of Everything"))))))
+
+(deftest disambiguated-tie-breaks-inside-the-parentheses
+  ;; The counter has to ride in the NAME, or the tie-broken key stops being
+  ;; derivable from it and the invariant above breaks for exactly the items
+  ;; that needed disambiguating most.
+  (let [taken? #{:artificer-ksty :artificer-ksty-2}
+        r (common/disambiguated "Artificer" "Kibbles Tasty" taken?)]
+    (is (= {:name "Artificer (KsTy 3)" :key :artificer-ksty-3} r))
+    (is (= (:key r) (common/name-to-kw (:name r))))))
+
+(deftest disambiguated-leaves-the-name-alone-when-the-source-has-no-tag
+  ;; Degrade to today's behaviour rather than inventing "Artificer ()".
+  (is (= {:name "Artificer" :key :artificer}
+         (common/disambiguated "Artificer" "!!!"))))

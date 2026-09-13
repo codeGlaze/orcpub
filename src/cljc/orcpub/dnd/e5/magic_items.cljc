@@ -362,7 +362,7 @@ direction to the closest dragon within 30 miles of you that is of the same type 
      ::modifiers [(for [i modv]
                     (cond (= i :sp-atk-mod) (mod5e/spell-attack-modifier-bonus bonus)
                           (= i :sp-dc-mod) (mod5e/spell-save-dc-bonus bonus)))]
-     ::decription description}))
+     ::description description}))
 
 (defn rod-of-the-pact-keeper [bonus]
   {name-key (str "Rod of the Pact Keeper +" bonus)
