@@ -96,6 +96,33 @@ Spell granting reads like a special case. It is not.
 So: **one `:spells` pool, list membership on the entry, grants filter on it.** Not six
 list-shaped pools.
 
+## A registered pool cannot see who is granting from it
+
+**Measured 2026-09-13** (`legacy_shim_equivalence_test`), while checking the shim registry's
+fixed-class rows.
+
+`:options-fn` takes `plugin-vals` and nothing else, so a pool's options are built once, before
+any granting item exists. For nine of the ten pools that is correct — a language is a language
+whoever grants it. `:skill-expertise` is the exception: its modifiers are
+`(skill-prof-or-expertise k nil)`, and that `nil` is the source recorded in
+`?skill-profs [skill source]`.
+
+The result is that the expertise half never fires. Its condition asks whether some source *other
+than me* already grants the skill; with a nil source, the pool's own grant and every other
+nil-sourced proficiency are the same map entry, so there is never another source to find. The
+legacy `:props :skill-prof-or-expertise` path passes the granting item's key and does upgrade.
+
+Two things follow:
+
+- **A live defect**, not a shim problem. Anything granting skill expertise through the registry
+  today is a plain proficiency.
+- **A registry-shape question.** Expressing it needs the entry's modifiers to depend on the
+  granting item — `:modifiers-fn (fn [owner-key])` rather than baked `::t/modifiers`, or the
+  owner threaded through `compile-grants`, which has `key` in scope at both call sites and does
+  not pass it. Unowned; do not invent it mid-step.
+
+Detail and the measured table: `builder-disposition-audit.md` §"Row 31 is not fixed-class-safe".
+
 ## Provisional — set by one agent, not decided
 
 - `:offerable-by` sets on the three registered pools are guesses. One is now decided by evidence:

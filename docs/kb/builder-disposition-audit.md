@@ -400,11 +400,53 @@ the "pin" column. Removal of the struck widget after ~3 months, tracked in `back
 | 28 | feat | `feat-weapon-proficiency` (choice half) | `[:props :weapon-prof-choice n]` | `make-feat-selections :weapon-prof-choice` | `{:pool :weapons :count n}` | |
 | 29 | feat | `feat-armor-proficiency` (armor half) | `[:props :armor-prof type]` | as 7 | as 7 | |
 | 30 | feat | `feat-damage-resistance` | as 9 | as 9 | as 9 | |
-| 31 | feat | `option-skill-proficiency-or-expertise` | `[:props :skill-prof-or-expertise k]` | `make-feat-modifiers :skill-prof-or-expertise` | `{:pool :skill-expertise :key k}` | |
+| 31 | feat | `option-skill-proficiency-or-expertise` | `[:props :skill-prof-or-expertise k]` | `make-feat-modifiers :skill-prof-or-expertise` | ⛔ **not yet** — `{:pool :skill-expertise :key k}` loses the granting source and with it the expertise half; see below | `legacy_shim_equivalence_test` pins both behaviours |
 | 32 | feat | `option-tool-proficiency-or-expertise` | `[:props :tool-prof-or-expertise k]` | `make-feat-modifiers :tool-prof-or-expertise` | `{:pool :tools :key k}` — **open:** tool expertise has no pool yet | |
 | 33 | feat | `feat-ability-increase-options` | `:ability-increases #{:str :con}` (legacy SET) | `feat-option-from-cfg` dual-format reader — set stays legacy forever | the SHARED `ability-increase-choices` spread widget (not a grant row) | `ability_increase_grant_test` feat-legacy-* already pins the set path |
 | 34 | feat | `feat-speed-bonuses` | `[:props :speed n]` | `make-feat-modifiers :speed` | an EFFECT kind (`:number`), not a grant row | `modifiers/speed` |
 | 35 | feat | `feat-spellcasting` ×3 | `[:props :magic-novice\|:ritual-casting\|:attack-spell true]` | `make-feat-selections` templates | **not yet** — waits for the spell pool + nested grants; stays as passthrough hiccup | |
+
+### ⛔ Row 31 is not fixed-class-safe — measured 2026-09-13
+
+The precondition table above put `:skill-prof-or-expertise` in the **fixed** class, safe once
+`:key` mode emits modifiers. Built and measured, it is not: the legacy path and the pool path
+build different characters.
+
+`skill-proficiency` writes `?skill-profs [skill-kw source] true` — the source is the second
+level of the key. `make-feat-modifiers` passes the granting item's key; the `:skill-expertise`
+pool passes `nil`, because `:options-fn` takes only `plugin-vals` and never learns which item is
+granting. So the pool's own proficiency and any other nil-sourced proficiency collapse into one
+entry, and the predicate `skill-prof-or-expertise` turns on — *is some source other than me
+already granting this?* — can never see a second source.
+
+Measured on a character proficient in Athletics from a second source:
+
+| | `?skill-profs` | `?skill-expertise` |
+| --- | --- | --- |
+| legacy `:props` | `{:athletics {nil true, :shim-probe true}}` | `#{:athletics}` |
+| `:grants` via pool | `{:athletics {nil true}}` | `nil` |
+
+Two consequences:
+
+1. **The shim must not normalize row 31.** Register it `:status :blocked-on-source`, beside the
+   choice class's `:blocked-on-ref`.
+2. **This is a live defect in the pool, not in the shim plan.** An author granting skill
+   expertise through the registry today gets a proficiency that never upgrades. Fixing it means
+   the entry's modifiers depend on the granting item, which `:options-fn (fn [plugin-vals])`
+   cannot express — a registry-shape question, not a one-line fix. Unowned.
+
+### ⛔ And the fixed class is gated by silo too — measured 2026-09-13
+
+Being fixed-class is necessary but not sufficient. Only `feat-option-from-cfg` and `race-option`
+take `grantable-pools` and compile `:grants`; `subrace-option`, `background-option`,
+`class-option`/`level-option` and `subclass-option` do not. Normalizing a legacy key on one of
+those four writes a key nothing reads, so the mechanic disappears silently. Rows 11, 14–25 wait
+on step 4 of `handoff-grant-rows.md`, not on the `:key` fix. Pinned in
+`legacy_shim_equivalence_test`.
+
+The other six fixed-class rows with a registered pool — `:skill-prof`, `:weapon-prof`,
+`:armor-prof`, `:language`, `:damage-resistance`, `:damage-immunity` — build identical sheets,
+asserted in `legacy_shim_equivalence_test`.
 
 Rows 1–32 are grant-row deletions and need the seven pool registrations, the node, and **the shim
 registry normalizing their legacy keys at import** before any widget is struck — fixed-class rows
