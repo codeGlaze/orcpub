@@ -22,6 +22,24 @@ Five units, not one. Ranked by what they can break.
 | **P2** | `get-auth-token` consolidated into `event_utils` | `910fd535` | Changes the login guard for all five P5 subs at once |
 | **P3** | `console.warn` on the custom-items 401 | `dbc86571` | Diagnostic only |
 
+## Does any of this fix something broken on integration? Only P1.
+
+Asked directly, checked directly, 2026-09-13 against `integration` `36766010`. **The answer matters
+because it settles what the testing is for:** P1 is a defect fix and needs proving; P2–P5 are a
+refactor and need proving they changed *nothing*.
+
+| | what it does on integration | is integration broken without it? |
+|---|---|---|
+| **P1** | makes `filtered-items`/`filtered-spells` reactive | **Yes — the only live defect.** Orcpub#669 |
+| **P2** | moves `get-auth-token` into `event_utils.cljc` | **No.** It already exists, at `events.cljs:2586`, with the correct body `(-> db :user-data :token)`. The move is so `equipment_subs.cljs` and `subs.cljs` can require it without an import cycle |
+| **P3** | `console.warn` on the custom-items 401 | **No.** Diagnostic only — the branch's own comment says "zero behavior change" |
+| **P4** | discards `::mi5e/remote-items`, `::mi5e/remote-item`, `::mi5e/item` | **No, but it removes a latent footgun.** `equipment_subs.cljs:272` on integration guards with `(and (:user @app-db) (:token (:user @app-db)))`, and `db[:user]` has never held `:token` — so that guard is **always false** and the sub can never fire. It is unreachable: `clj-grep --live` finds **no** subscriber to either key, so nothing user-facing is broken by it today |
+| **P5** | five API subs onto one `reg-api-sub` HOF | **No.** It collapses ~10 duplicated lines per site. Its value is preventing the P4 typo class from recurring — one canonical guard instead of five hand-written ones |
+
+So the branch is **one bug fix plus a refactor that removes a footgun**. That is a good reason to take
+it whole, and the reason the test plan below weights P5 heaviest: a refactor that silently changes
+behaviour is the failure mode, and P5 touches the app's five primary data loaders.
+
 ## Pre-flight — done, with results
 
 These are cheap, repeatable, and already cleared. Re-run them after the merge, not before.
@@ -221,19 +239,21 @@ which carries more test namespaces; this tree is integration + the fix branch.
 | Spinner sticks or never shows | The `:user` counter change meeting the `0`-is-truthy gotcha | Check `character_builder.cljs:2651`, which binds `loading` raw |
 | Something breaks and the cause is unclear | Five units landed together | Bisect **by unit, not by commit** — the table at the top maps units to commits |
 
-## If it has to come out
+## Take it whole — decided
 
-The units are separable, in increasing order of what you keep:
+**Decision (owner, 2026-09-13): keep all five units and test all of them thoroughly.** The earlier
+framing of this section offered three partial takes; that is no longer the question and the options
+are recorded only so the reasoning is not lost:
 
-1. **P1 only** — cherry-pick `0024e0bf` and `1248e8e6`. Two `reg-filtered-sub` calls plus the helper
-   and its tests. This is the #669 fix with none of the refactor. Smallest blast radius.
-2. **P1 + P2 + P3** — adds the guard consolidation and the breadcrumb. Low risk, no HOF.
-3. **Everything** — the recommendation, *if* Stage 4 passes. P5 is good work: it closes a real typo
-   class (`(:token (:user db))` against a `db[:user]` that has never held a token) at five call sites
-   at once, and that is worth more than it costs.
+- P5 cannot be cleanly reverted after the fact anyway — it touches the same regions as P1.
+- Splitting would leave the typo class P4 documents alive at five call sites, which is the thing P5
+  exists to close.
+- The unit table at the top of this doc stays useful for one purpose only: **bisecting by unit if a
+  stage fails**, not for choosing a subset to merge.
 
-Reverting P5 alone after the fact is awkward — it touches the same regions as P1. Decide before
-merging, not after.
+What "thoroughly" requires is everything in *The matrix* above, and specifically the four stages that
+have not run: Stages 3–5 plus the P5 surface that no automated test touches
+(`::char5e/characters`, `::party5e/parties`, `::folder5e/folders`).
 
 ## What this plan cannot cover
 

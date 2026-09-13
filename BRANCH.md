@@ -92,9 +92,15 @@ proven to fail when the defect is reinstated. See
 **Blocker: the work is on `claude/fix-custom-items-disappearing-DW8rb`, and `claude/*` branches do
 not merge.** They are harness auto-branches (the `git-branch` skill mints them). Re-home the commits
 onto a typed branch first — `fix/…`, matching `fix/ac-unarmored-natural-stacking`,
-`fix/item-stable-identity`. The branch also carries more than the fix (a `get-auth-token` move, a 401
-breadcrumb, five subs migrated to a `reg-api-sub` HOF); the plan doc separates them if only the fix
-should travel.
+`fix/item-stable-identity`.
+
+**Take all five units, and test all five.** Of them only P1 fixes something broken on `integration`;
+P2 relocates a `get-auth-token` that already exists there, P3 is a `console.warn`, P4 removes an
+unreachable sub carrying an always-false guard, and P5 collapses five hand-written auth guards onto
+one. So the testing is asymmetric in kind, not in effort: P1 must be proven to fix, P2–P5 must be
+proven to change nothing — and P5 touches the app's five primary data loaders, three of which have no
+automated coverage at all. The table in the plan doc is for bisecting by unit if a stage fails, not
+for choosing a subset.
 
 ### 2. Vet the roadmap that lives here
 

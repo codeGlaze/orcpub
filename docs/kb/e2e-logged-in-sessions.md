@@ -106,11 +106,33 @@ a 566-line file conflicting with a 394-line file that shares nothing but a name.
 merge is the wrong shape of work: give the two suites distinct names first and the hunk stops
 existing.
 
-**The names are an open question, deliberately left open.** `test/browser/` uses a `*_e2e.js`
-suffix; `test/e2e/` uses plain descriptive names (`race-builder-asi.js`, `export-import-use.js`);
-`scripts/e2e/` has no precedent beyond the contested `run.js`. A name that reads as source rather
-than as a suite is worse than the conflict. Scheduled as step 3 of the active sequence in
-`BRANCH.md`.
+### Naming convention for `scripts/e2e/`
+
+Derived from what `test/e2e/` already does across 27 scripts, so this is the house style written
+down rather than a new one invented.
+
+| slot | name | rule |
+|---|---|---|
+| launcher | `run.sh` | keeps its name — it is the thing you invoke, and it already takes a script argument |
+| shared helpers | `lib.js` | `login`, `clickButton`, `newItem`, overlay stamps. `test/e2e/lib.js` is the precedent |
+| a suite | **named for the journey it drives** | `export-import-use.js`, `messy-pak-survives.js`, `multi-container-roundtrip.js`, `imported-style-usable.js` |
+
+**The rule the existing names follow: a suite is named for the journey or the claim, never for the
+domain object.** `export-import-use.js` is what it does; a file called `plugins.js` would not be.
+That is exactly why `custom-items.js` is the wrong name — it reads as source, not as a suite — and
+why `run.js` is wrong in the other direction: it names the mechanism instead of the journey, which
+is how two unrelated suites ended up claiming it.
+
+Applied to the collision:
+
+| now | becomes |
+|---|---|
+| `integration:scripts/e2e/run.js` (394 lines, PDF) | `export-character-pdf.js` |
+| `fix/custom-item-classification:scripts/e2e/run.js` (566 lines, items) | `classify-items-in-builder.js` |
+
+`run.sh`'s default should then be dropped rather than repointed: with no `run.js` to fall back on,
+`./scripts/e2e/run.sh` with no argument should list the suites instead of silently picking one.
+Scheduled as step 3 of the active sequence in `BRANCH.md`.
 
 ### The four facts behind those seven lines
 
