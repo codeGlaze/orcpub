@@ -65,6 +65,45 @@ undefined-namespace errors again, check the Content-Type before believing any of
 everything under `test/cljc`, so it failed with *"No such namespace: clojure.java.io"* and produced
 no JS. Moved to `test/clj`. A test that reaches for the filesystem belongs there, not in `cljc`.
 
+## Running it from a code branch — four things that stop it (2026-09-13)
+
+Rebuilt from this recipe in a fresh container against a merge of
+`claude/fix-custom-items-disappearing-DW8rb` + `origin/integration`. The recipe is right; these are
+the gaps between it and a branch that is not `agents/develop`.
+
+**`lein` installs fine — there is no need to treat its absence as a blocker.** The curl-to-`~/bin`
+step above works through the sandbox proxy, self-installs on first `lein version`, and `lein deps`
+completes. Java 21 is already present. Budget ~2 min for `lein deps` and ~10 min for `lein fig:test`.
+
+**`test/e2e/cljs-harness.js` is not on `integration`.** It arrived with `feature/grant-rows` and
+lives on `agents/develop`. From any other branch, copy it in:
+`git show origin/agents/develop:test/e2e/cljs-harness.js > test/e2e/cljs-harness.js`.
+
+**The runner HTML is not in the repo — `lein fig:test` does not emit it.** `target/test/` gets
+`js/test.js` and `js/test-auto-testing.js` and nothing else, so the harness 404s on `runner-all.html`
+and reports `SUMMARY: (none)` with zero failures, which reads exactly like a pass. Create both by
+hand (contents are given above) before running anything, and **treat `SUMMARY: (none)` as a harness
+fault, never as a result.**
+
+**`playwright` must be resolvable from the directory you run in.** `npm install playwright` in the
+repo root; a driver script placed outside the tree cannot `require` it.
+
+### Mode B did not emit the totals line; mode A did
+
+`cljs-harness.js` waits for `/Ran \d+ tests/` and mode B (`runner-all.html`,
+`test-auto-testing.js`) never produced it in this build — it renders the full test list into the DOM
+and ends with *"Hit the P key to toggle the display of passing tests."* The harness timed out after
+240s and printed `SUMMARY: (none)`, while the tests had in fact run.
+
+**Mode A is the one that reports totals.** Point the same static server at `runner.html` →
+`js/test.js`, which runs `orcpub.test-runner/-main` through `cljs.test` to the console, and the
+console carries `Ran N tests containing M assertions. / N failures, N errors.` plus per-test
+`FAIL in (…)` with `expected:`/`actual:`. Use mode A for any run whose result you intend to report.
+
+**`cljs.test` prints nothing for a passing test**, so grepping the log for your new test's name and
+finding zero hits means it passed — not that it failed to run. To confirm a test is wired in, break
+it deliberately, or reinstate the defect it targets and check it appears.
+
 ## Gotchas worth remembering
 - **JVM-isms bite only here.** `(int char)` = code point on JVM, but `(int "é")` = 0 in cljs
   (no Character type; strings seq into 1-char strings). Use `(.charCodeAt % 0)`. This class

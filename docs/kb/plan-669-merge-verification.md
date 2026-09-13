@@ -4,9 +4,11 @@ Plan for taking `claude/fix-custom-items-disappearing-DW8rb` (`509431f2`) into `
 Written 2026-09-13 against `integration` `36766010`. The defect itself is
 [filtered-list-staleness.md](filtered-list-staleness.md).
 
-**Status: nothing has been run.** This sandbox has `node` but no `lein` or `clojure`. Everything in
-*Pre-flight* below was verified statically and the results are recorded; everything in *The matrix*
-is for whoever has a toolchain. **Static resolution is not a build.**
+**Status: Stages 1 and 2 are DONE and green.** 2026-09-13: the merged tree compiles and the whole
+cljs suite passes — **354 tests, 1699 assertions, 0 failures, 0 errors**. The toolchain was built in
+this sandbox from the recipe in [cljs-headless-harness.md](cljs-headless-harness.md) (`lein` is not
+preinstalled but installs fine; see that doc for the four things that stopped the harness working).
+Stages 3–5 still need a person, a browser and a login. Details in *What has actually been run*.
 
 ## What is actually being merged
 
@@ -88,22 +90,86 @@ only end-to-end coverage and say so.
 **Nothing covers P5 for the other four subs.** There is no test that `::char5e/characters`,
 `::party5e/parties`, or `::folder5e/folders` still load after migration. That is the largest gap.
 
+## What has actually been run
+
+Built in the sandbox: `lein` 2.12.0 on Java 21, `lein deps`, `lein fig:test`, then the cljs suite
+headless via Playwright. The tree under test is `claude/fix-custom-items-disappearing-DW8rb`
+(`509431f2`) with `origin/integration` (`36766010`) merged in and the three conflicts resolved as
+described above.
+
+| | result |
+|---|---|
+| Merge compiles | **yes** |
+| Full cljs suite | **354 tests / 1699 assertions, 0 failures, 0 errors** |
+| P4's discarded subs | no build error, so nothing referenced them — confirms the static finding |
+
+### The discrimination check — the part that matters
+
+A green suite proves nothing on its own. To prove the tests detect the bug, the pre-fix shape was
+reinstated in the merged tree (sub reads a db snapshot via `or`; the filter events write it), the
+build recompiled, and the suite re-run:
+
+**7 failures, and they are the right 7.**
+
+| test | file | catches the bug? |
+|---|---|---|
+| `filter-items-event-stores-only-filter-text` | `equipment_subs_test.cljs` (branch) | yes |
+| `filter-spells-event-stores-only-filter-text` | `equipment_subs_test.cljs` (branch) | yes |
+| `filtered-items-updates-after-simulated-save` | `equipment_subs_test.cljs` (branch) | yes |
+| `filter-items-short-text-returns-all` | `events_test.cljs` (branch) | yes |
+| `filter-spells-short-text-returns-all-sorted` | `events_test.cljs` (branch) | yes |
+| `new-item-appears-while-a-filter-is-active` | `filtered_list_reactivity_test.cljs` (added) | yes |
+| `deleting-an-item-removes-it-while-a-filter-is-active` | `filtered_list_reactivity_test.cljs` (added) | yes |
+
+The fix was then restored and the suite verified green again.
+
+### One of the branch's tests is vacuous — measured, not guessed
+
+**`filtered-items-reacts-to-custom-items-change` does not fail when the bug is present.** It never
+appeared in the 7. The reason is mechanical: under the old code the stale snapshot only existed
+*after* a filter event had run, and that test changes `::mi/custom-items` without dispatching one, so
+the `or` falls through to the live `sorted-items` on both the broken and the fixed code.
+
+It is not harmful, but it is not coverage either. **Any reactivity test for this bug must dispatch a
+filter first.** That is the single most important thing to know before writing more of them.
+
+### What was added, and what each one is for
+
+`test/cljs/orcpub/dnd/e5/filtered_list_reactivity_test.cljs` — 10 tests. Two of them detect the bug
+(above); the other eight are guards against plausible regressions the branch does not cover:
+
+| | guards |
+|---|---|
+| `a-non-matching-new-item-stays-hidden` | the cheap wrong fix — making the list reactive by ignoring the filter would pass every reactivity test and break the feature |
+| `filter-below-min-length-returns-the-whole-list` | the 3-character threshold, for `""`, `"z"`, `"zz"`. `reg-filtered-sub` takes `min-length` as a parameter and nothing else pins it |
+| `filter-at-exactly-min-length-does-filter` | the boundary itself |
+| `filtered-items-come-back-sorted` | `compute/filter-items` sorts by name; the sub must not disturb it |
+| `parties-sub-reads-the-historical-db-key` | **P5.** `::party5e/parties` must read `db[::char5e/parties]`. "Tidying" that name is the most likely self-inflicted break in the whole merge |
+| `characters-and-folders-subs-read-their-db-keys` | P5, the other two list subs |
+| `migrated-subs-default-to-empty-not-nil` | `[]` not `nil` from an unset key, so `count`/`seq` at call sites stay safe |
+| `logged-out-subs-do-not-touch-the-loading-counter` | the `:user` counter change — logged out, the guard must short-circuit before `:set-loading` |
+
+None of the eight fails on either version, which is correct: they are regression guards, not bug
+detectors. Stated explicitly so nobody later mistakes them for proof the fix works.
+
 ## The matrix
 
 Run in this order. Each stage is cheap relative to the next and each one can stop the line.
 
-### Stage 1 — build
+### Stage 1 — build ✅ done
 
-1. The cljs build compiles. P4 removes three `reg-sub` registrations; a stale reference surfaces here
+1. The cljs build compiles. **Verified 2026-09-13.** P4 removes three `reg-sub` registrations; a stale reference surfaces here
    or not at all.
 2. **`test_runner.cljs` carries both sides of its conflict.** If the union was resolved wrong, tests
    silently drop out of the run and everything below passes vacuously. Count the namespaces before
    trusting a green result.
 
-### Stage 2 — cljs suite
+### Stage 2 — cljs suite ✅ done
 
-Via the figwheel test build (`orcpub.test-runner`), **not** `lein test`. All four test files above,
-plus the existing suite.
+Via the figwheel test build (`orcpub.test-runner`), **not** `lein test`. **354/1699, 0 failures,
+0 errors**, and the discrimination check above. Note the count differs from the 370/1742 baseline in
+[cljs-headless-harness.md](cljs-headless-harness.md) because that was measured on `agents/develop`,
+which carries more test namespaces; this tree is integration + the fix branch.
 
 ### Stage 3 — manual, logged in, with custom content
 
@@ -164,7 +230,7 @@ merging, not after.
 
 ## What this plan cannot cover
 
-- **Whether it compiles.** Nothing here was built. Every "resolves" above is a static symbol check.
+- ~~Whether it compiles.~~ **It compiles, and the cljs suite is green.** What remains unproven is everything a browser does: Stages 3–5.
 - **The four unmigrated-sub paths.** No automated coverage exists for `::char5e/characters`,
   `::party5e/parties`, `::folder5e/folders` post-P5. M5 is a smoke test, not a net.
 - **Concurrency.** A6 approximates the counter race by hand. Nothing pins it.
