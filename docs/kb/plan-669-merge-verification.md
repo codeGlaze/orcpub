@@ -313,15 +313,66 @@ landmine for every future grep of this namespace.
 **Suggested disposition — the only change to the branch recommended here:**
 
 1. **Delete** the `#_` forms. Nothing subscribes to them; git has them if they are ever wanted.
-2. **Move the design note into `docs/kb/`** as its own doc. The content is genuinely worth keeping:
-   the bulk `GET /api/dnd/e5/items` endpoint returns only items the caller owns, while
-   `GET /api/dnd/e5/items/:id` returns any item by db-id regardless of owner — so the server already
-   supports cross-user item viewing and only the client consumer is missing. That asymmetry is a real
-   finding and it is invisible from the code once the chain is gone.
+2. **Record the note as SUPERSEDED, not as groundwork.** Its framing — "groundwork for viewing
+   magic items owned by OTHER users" — was overtaken by `integration`, and keeping it as written
+   would mislead. **Sharing shipped, by a deliberately different design:** a share link *embeds* the
+   content in the URL payload (`share-url/decode-shared`, behind an input cap, a decompression-bomb
+   guard, a safe reader and a structural whitelist) and lands it in an ephemeral
+   `:shared-custom-items` overlay that is never persisted to the recipient's library. It does **not**
+   read another user's items from the server.
+
+   That reframes the endpoint asymmetry the note describes. `GET …/items/:id` returning any item by
+   db-id regardless of owner is no longer "the server already supports what we want to build" — it is
+   a cross-owner read path with no client consumer, on a codebase that chose link-embedding
+   specifically to avoid needing one. Worth writing down as exactly that.
 3. Leave **no** placeholder comment. The KB index is how it stays findable.
 
 This is a shape change, not a scope change: P4's effect on the running app is identical either way,
 because the code it removes could never execute.
+
+## The sharing feature changes what P1 and P5 need to cover
+
+`integration` gained custom-content sharing by link, and it wires straight into the chain this
+branch touches:
+
+```
+::mi5e/custom-items        (P5 migrates this one)
+        +
+::mi5e/shared-custom-items (plain reg-sub over db :shared-custom-items — ephemeral, link-embedded)
+        ↓
+::mi5e/expanded-custom-items   (equipment_subs.cljs:70-77, shared appended LAST so it wins collisions)
+        ↓
+::char5e/sorted-items          (:91)
+        ↓
+::char5e/filtered-items        ← P1's fix
+```
+
+**So the #669 filtered list now includes shared items**, and nothing tests that. The cljs tests
+added here seed `::mi/custom-items` only; the shared overlay is never populated in any of them.
+
+Two consequences:
+
+- **P5 does not need to grow.** `::mi5e/shared-custom-items` is a plain `reg-sub` reading `db`, not
+  an API-backed loader, so `reg-api-sub` correctly leaves it alone. Confirmed, not assumed.
+- **P1 needs a case it does not have.** A sheet viewed through a share link, with a filter active,
+  where the shared items are the ones being filtered. Shared items are appended last so they win key
+  collisions — which means a collision between an owned item and a shared one of the same key is
+  exactly the situation where a stale snapshot would show the wrong one.
+
+### What seeding the differential actually requires
+
+The earlier "seed some content" note was too thin. To test the hypothesis **and** sharing:
+
+1. **Account A (`kaylee`) with content** — so `::mi5e/custom-items` returns a non-empty body and the
+   `:set-event` → db-population path finally runs. This is the gap the first differential left open.
+2. **A second account with its own content** — so isolation is observable: A's items must not appear
+   in B's list, and B's must not appear in A's. With one account, a `:db-key` mistake that returned
+   *everyone's* items would look identical to correct behaviour.
+3. **A share link from one to the other** — which needs no second session, since the content rides in
+   the URL. That covers the shared-overlay path and the collision ordering above.
+
+`dev/e2e_boot.clj` seeds exactly one user and no content, so all three need adding there — it is the
+only place that can, because `datomic:mem://` lives solely in the JVM that created it.
 
 ## Take it whole — decided
 
