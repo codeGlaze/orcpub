@@ -103,7 +103,7 @@
   (let [size (max 9 (js/Math.round (* h 0.026)))
         halo (max 1 (js/Math.round (/ size 12)))
         y (- h (max 4 (js/Math.round (* h 0.018))))]
-    (set! (.-font ctx) (str size "px system-ui, -apple-system, sans-serif"))
+    (set! (.-font ctx) (str "italic " size "px '" credit-font-family "', Georgia, serif"))
     (set! (.-textAlign ctx) "center")
     (set! (.-textBaseline ctx) "alphabetic")
     (set! (.-lineWidth ctx) (* 2 halo))
@@ -112,6 +112,18 @@
     (.strokeText ctx text (/ w 2) y)
     (set! (.-fillStyle ctx) "rgba(20,20,20,0.92)")
     (.fillText ctx text (/ w 2) y)))
+
+(defn- load-credit-font
+  "Resolves once the credit face is usable by a canvas.
+
+   Resolves either way: a webfont that will not fetch should cost the
+   typeface, not the export."
+  []
+  (if-let [fonts (.-fonts js/document)]
+    (-> (.load fonts (str "italic 20px '" credit-font-family "'"))
+        (.then (fn [_] true))
+        (.catch (fn [_] false)))
+    (js/Promise.resolve false)))
 
 (defn rasterize
   "Bake `portrait` into a PNG. Resolves to base64 (no data: prefix), or nil
@@ -125,9 +137,14 @@
                        pa/layer-order)]
     (if (empty? selected)
       (js/Promise.resolve nil)
-      (-> (js/Promise.all (clj->js (map (fn [[_ a]] (load-image (:asset/url a))) selected)))
+      (-> (js/Promise.all
+            (clj->js (conj (mapv (fn [[_ a]] (load-image (:asset/url a))) selected)
+                           ;; a canvas substitutes silently for a face that is
+                           ;; not resident yet, so wait for it like an image
+                           (load-credit-font))))
           (.then
-            (fn [imgs]
+            (fn [results]
+              (let [imgs (.slice results 0 (count selected))]
               (try
                 (let [canvas (.createElement js/document "canvas")
                       _ (set! (.-width canvas) raster-width)
@@ -155,6 +172,9 @@
                     (.fillRect tctx 0 0 raster-width raster-height)
                     (.drawImage ctx tmp 0 0))
                   (when-let [credit (pa/credit-line portrait)]
+                    ;; The face has to be resident before fillText or the
+                    ;; canvas silently substitutes; document.fonts.load is
+                    ;; awaited up in `rasterize` before we get here.
                     (draw-credit! ctx credit raster-width raster-height))
                   (some-> (.toDataURL canvas "image/png")
                           (s/split #",")
@@ -163,12 +183,26 @@
                 ;; worth more than the picture.
                 (catch :default e
                   (js/console.warn "portrait rasterize failed" e)
-                  nil))))
+                  nil)))))
           (.catch (fn [_] nil))))))
 
 ;; ---------------- drawer chrome ----------------
 
+(def credit-font-family "Vollkorn")
+
 (def drawer-styles "
+/* The baked portrait credit is drawn on a canvas, and a canvas can only use
+   faces the document has loaded. Vollkorn is the face the PDF itself is set
+   in, so the caption inside the exported picture matches the sheet around it
+   rather than falling back to whatever the viewer's OS offers. Fetched only
+   when something actually asks for it -- i.e. on an export. */
+@font-face {
+  font-family: 'Vollkorn';
+  src: url('/fonts/Vollkorn-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
 .pl-backdrop {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.55);

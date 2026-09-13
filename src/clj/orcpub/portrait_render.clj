@@ -150,6 +150,34 @@
         (finally (.dispose tg)))
       (.drawImage g tinted 0 0 nil))))
 
+(def credit-face "public/fonts/Vollkorn-Italic.ttf")
+(def mark-face "public/fonts/Vollkorn-Regular.ttf")
+
+(def ^:private load-face
+  "Vollkorn off the classpath, parsed once.
+
+   Not java.awt.Font/SANS_SERIF: that is a *logical* family the JVM resolves
+   through the host's fontconfig, so a slim container renders the marks in
+   whatever it happens to have, or in a fallback full of boxes. This is the
+   same face the PDF is set in, shipped with the app, so the picture looks the
+   same wherever it is rendered."
+  (memoize
+    (fn [path]
+      (try
+        (with-open [in (io/input-stream (io/resource path))]
+          (java.awt.Font/createFont java.awt.Font/TRUETYPE_FONT in))
+        (catch Exception e
+          (println "portrait-render: could not load" path "-" (.getMessage e))
+          nil)))))
+
+(defn- face
+  "`path` at `size`, falling back to the logical sans rather than losing the
+   mark entirely if the file is missing from a build."
+  [path size]
+  (if-let [base (load-face path)]
+    (.deriveFont ^java.awt.Font base (float size))
+    (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN (int size))))
+
 (defn- draw-credit!
   "Burn the artist credit into the picture itself.
 
@@ -164,7 +192,7 @@
    just a credit that survives being right-click-saved."
   [^Graphics2D g text w h]
   (let [size (max 9 (int (* h 0.026)))
-        font (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN size)
+        font (face credit-face size)
         fm (.getFontMetrics g font)
         tw (.stringWidth fm text)
         x (int (/ (- w tw) 2))
@@ -205,7 +233,7 @@
    opposite edges the cheap crop takes this and leaves her."
   [^Graphics2D g text w h]
   (let [size (max 8 (int (* h 0.020)))
-        font (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN size)
+        font (face mark-face size)
         fm (.getFontMetrics g font)
         tw (.stringWidth fm text)
         x (- w (max 4 (int (* w 0.022))))
@@ -242,6 +270,10 @@
                               RenderingHints/VALUE_ANTIALIAS_ON)
            (.setRenderingHint g RenderingHints/KEY_STROKE_CONTROL
                               RenderingHints/VALUE_STROKE_PURE)
+           (.setRenderingHint g RenderingHints/KEY_TEXT_ANTIALIASING
+                              RenderingHints/VALUE_TEXT_ANTIALIAS_ON)
+           (.setRenderingHint g RenderingHints/KEY_FRACTIONALMETRICS
+                              RenderingHints/VALUE_FRACTIONALMETRICS_ON)
            (doseq [[layer-key asset] drawable]
              ;; One unreadable layer is skipped, not fatal -- the rest of the
              ;; portrait is still worth showing.
