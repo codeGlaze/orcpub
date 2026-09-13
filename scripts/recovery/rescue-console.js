@@ -1,47 +1,27 @@
 /* ===========================================================================
- * OrcPub / Dungeon Master's Vault — repair a character that won't open
+ * OrcPub / Dungeon Master's Vault — fix a character that crashes the site
  *
- * SYMPTOMS
- *   • Opening one character crashes the whole site; you have to reload
- *   • Still broken in a private/incognito window with no homebrew loaded
- *   • The Parties page now hangs too, because that character is in a party
- *
- * WHAT IS ACTUALLY WRONG
- *   The saved character contains an unreadable empty keyword — it prints as a
- *   lone ":". The reader throws while decoding the character, and because that
- *   happens inside an async block the error escapes to the top level where
- *   nothing can catch it, so the page dies instead of showing a message.
- *   It is not your browser, your login, or your local data: the bad value is
- *   stored server-side, which is why incognito behaves the same.
- *
- * THE GOOD NEWS: the character is not lost. This repairs it in place.
- *
- * ── HOW TO USE ────────────────────────────────────────────────────────────
- *   1. Log in, then open a page that DOES work (your character list is fine).
- *   2. Press F12 (Cmd+Opt+I on Mac) → the "Console" tab.
+ * WHAT TO DO
+ *   1. Log in, and open your CHARACTER LIST page.
+ *   2. Press F12 (Cmd+Option+I on a Mac), click the "Console" tab.
  *   3. Paste this whole file and press Enter.
- *   4. Run:   await orcpubRescue.list()      → shows your characters + ids
- *   5. Run:   await orcpubRescue.fix(12345)  → using the broken character's id
- *   6. Follow the printed steps: click into the character IN THE APP
- *      (do NOT reload — a reload removes the patch), then EXPORT a copy,
- *      then EDIT, then SAVE in the builder. The SAVE is what makes it stick:
- *      it rewrites the character cleanly on the server.
- *   7. Reload normally. The sheet and the Parties page both work again —
- *      permanently, without waiting for a release.
+ *   4. Do what it tells you. It is two clicks.
  *
- * Verified end to end against the bundle the live site currently serves:
- * before, the character throws the uncaught error and never renders; after
- * the rescue + SAVE, the server copy is clean and the character loads with
- * no script and no patch.
+ * That's it. It finds the broken character itself, saves you a backup copy,
+ * and opens it. You click EDIT, then SAVE, and it's fixed for good.
  *
- * Nothing here deletes anything. `remove()` exists as a last resort and it
- * downloads a backup before it will delete.
+ * ── WHAT WENT WRONG (for the curious) ────────────────────────────────────
+ * The character has an empty name where a name should be, stored as a lone
+ * ":". The site can't read that, and the error happens somewhere it can't be
+ * caught, so the whole page dies instead of showing a message. It's saved on
+ * the server, which is why a private window and a different computer behave
+ * the same. Nothing is lost — the fix below rewrites it cleanly.
  * ======================================================================== */
 (() => {
   const R = {};
 
-  // The two shapes the EDN reader chokes on. A quoted string is matched first
-  // and passed through untouched, so a ':' inside your notes is never altered.
+  // The two shapes the reader chokes on. Quoted text is matched first and
+  // passed through untouched, so a ':' inside your notes is never altered.
   const BARE = /"(?:[^"\\]|\\.)*"|:(?=[\s,{}\[\]()";]|$)/g;
   const NSEMPTY = /"(?:[^"\\]|\\.)*"|:[^\s,{}\[\]()";/]+\/(?=[\s,{}\[\]()";]|$)/g;
 
@@ -66,64 +46,60 @@
     a.href = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
     a.download = name; document.body.appendChild(a); a.click(); a.remove();
   };
-  const idFromUrl = () => (location.pathname.match(/characters\/(\d+)/) || [])[1];
+  const big = (msg, color) =>
+    console.log('%c' + msg, `font-size:15px;font-weight:bold;color:${color || '#0a0'}`);
+  const step = (msg) => console.log('%c' + msg, 'font-size:14px');
 
-  // ── find the broken character WITHOUT opening it ────────────────────────
-  // The summary list omits the corrupt part of the character, so it keeps
-  // working even when the sheet itself crashes.
+  // ── read the character list (regex, not an EDN reader, so corrupt data
+  //    in the list itself can never break this) ─────────────────────────────
   R.list = async () => {
-    if (!token()) return console.log('Log in first, then re-run this.');
     const res = await fetch('/dnd/5e/character-summaries', { headers: authHeaders({ Accept: 'application/edn' }) });
     const raw = await res.text();
-    if (res.status !== 200) return console.log('HTTP', res.status, raw.slice(0, 200));
-    // Parsed with a regex on purpose: if a summary is itself corrupt, an EDN
-    // reader would throw here too, and this listing has to keep working.
+    if (res.status !== 200) { console.log('Could not read your character list — HTTP', res.status); return []; }
     const rows = [];
     raw.replace(/\{[^{}]*:db\/id\s+(\d+)[^{}]*\}/g, (chunk, id) => {
       const nm = (chunk.match(/character-name\s+"([^"]*)"/) || [])[1];
-      rows.push({ id, name: nm || '(no name in summary)' });
+      rows.push({ id, name: nm || '(no name)' });
       return chunk;
     });
-    console.table(rows);
-    console.log(`${rows.length} character(s). Use an id with:  await orcpubRescue.fix(<id>)`);
     return rows;
   };
 
-  // ── inspect one character ────────────────────────────────────────────────
-  R.check = async (id = idFromUrl()) => {
-    if (!id) return console.log('Need an id — run  await orcpubRescue.list()  first.');
+  // ── ids of every character this account can see: the ones they own, plus
+  //    everyone in their parties (a broken party member may not be theirs) ──
+  R.partyMemberIds = async () => {
+    const res = await fetch('/dnd/5e/parties', { headers: authHeaders({ Accept: 'application/edn' }) });
+    if (res.status !== 200) return [];
+    const raw = await res.text();
+    const ids = [];
+    raw.replace(/:db\/id\s+(\d+)/g, (m, id) => { ids.push(id); return m; });
+    return ids;
+  };
+
+  // ── look at one character (never parses it, so it cannot crash) ─────────
+  R.inspect = async (id) => {
     const res = await fetch(`/dnd/5e/characters/${id}`, { headers: authHeaders({ Accept: 'application/edn' }) });
     const raw = await res.text();
-    const { count } = heal(raw);
-    console.log(`character ${id} • HTTP ${res.status} • ${raw.length} chars • ${count} unreadable keyword(s)`);
-    if (count) {
-      raw.replace(BARE, (m, off) => {
-        if (m[0] !== '"') console.log('   …' + raw.slice(Math.max(0, off - 70), off + 15).replace(/\s+/g, ' ') + '…');
-        return m;
-      });
-      console.log('   ^ that lone ":" is what kills the page.');
-    } else if (res.status === 200) {
-      console.log('   No empty-keyword corruption here — this one is not the culprit.');
-    }
-    window.__orcpubRaw = raw;
-    return { status: res.status, count, raw };
+    // The server answers 400 with an empty body when there is no character
+    // with that id (or it has no owner) — that is "not found", not "healthy".
+    const missing = res.status !== 200 || /^\s*\[\s*\]\s*$/.test(raw);
+    return { id, status: res.status, missing, count: missing ? 0 : heal(raw).count, raw };
   };
 
-  // ── always keep a copy ───────────────────────────────────────────────────
-  R.save = (id = idFromUrl()) => {
-    const raw = window.__orcpubRaw;
-    if (!raw) return console.log('Run  await orcpubRescue.check(id)  first.');
-    const { text, count } = heal(raw);
-    download(`character-${id}-original.edn`, raw);
-    if (count) download(`character-${id}-repaired.edn`, text);
-    console.log(`Saved a copy of character ${id} to your downloads${count ? ' (original + repaired)' : ''}.`);
+  R.check = async (id) => {
+    const r = await R.inspect(id);
+    if (r.status === 401) console.log(`character ${id}: you are not logged in (HTTP 401).`);
+    else if (r.missing) console.log(`character ${id}: no character with that id on this account (HTTP ${r.status}). Double-check the id — the number at the end of the character's URL.`);
+    else if (r.count) console.log(`character ${id}: BROKEN — ${r.count} unreadable value(s). This is the one killing the page.`);
+    else console.log(`character ${id}: reads fine, ${r.raw.length} chars. Not the culprit.`);
+    return r;
   };
 
-  // ── patch the reader so the character can load ──────────────────────────
-  // cljs-http reads responses off XMLHttpRequest; healing the text there means
-  // the EDN reader never sees the bad token, so nothing throws.
+  // ── stop the crash in this tab ───────────────────────────────────────────
+  // The site reads server responses off XMLHttpRequest; repairing the text
+  // there means the reader never sees the bad value, so nothing throws.
   R.arm = () => {
-    if (R._armed) return console.log('Already patched.');
+    if (R._armed) return;
     const proto = XMLHttpRequest.prototype;
     ['response', 'responseText'].forEach((prop) => {
       const desc = Object.getOwnPropertyDescriptor(proto, prop);
@@ -132,92 +108,135 @@
         configurable: true,
         get() {
           const v = desc.get.call(this);
-          if (typeof v !== 'string') return v;
-          const { text, count } = heal(v);
-          if (count) console.log(`[rescue] repaired ${count} bad keyword(s) in a response`);
-          return text;
+          return typeof v === 'string' ? heal(v).text : v;
         },
       });
     });
     R._armed = true;
-    console.log('Reader patched for this tab.');
   };
 
-  // ── THE MAIN ONE: back up, patch, and walk them through the real repair ──
-  R.fix = async (id = idFromUrl()) => {
-    const info = await R.check(id);
-    if (!info) return;
-    if (info.status === 200) R.save(id);
-    if (!info.count) {
-      console.log('\nThis character decodes fine, so the patch will not change anything.');
-      console.log('If it still crashes, the cause is something else — send the output above to support.');
-      return info;
+  // ── open a character without reloading (a reload would undo the repair) ──
+  R.open = (id) => {
+    history.pushState({}, '', '/pages/dnd/5e/characters/' + id);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  // ── the whole thing, start to finish ─────────────────────────────────────
+  R.auto = async () => {
+    console.log('Looking for the broken character…');
+
+    if (!token()) {
+      big('You are not logged in.', '#c00');
+      step('Log in first, open your character list, then paste this again.');
+      return;
     }
+
+    const rows = await R.list();
+    // also check everyone in their parties — the character breaking the
+    // Parties page is not necessarily one they own
+    const extra = (await R.partyMemberIds()).filter((id) => !rows.some((r) => r.id === id));
+    const targets = rows.concat(extra.map((id) => ({ id, name: '(from a party)' })));
+
+    if (!targets.length) {
+      big('No characters found on this account.', '#c00');
+      step('Make sure you are logged in on dungeonmastersvault.com, then paste this again.');
+      return;
+    }
+
+    // Some accounts have hundreds of characters, so check several at a time
+    // and report progress — otherwise this just looks frozen.
+    console.log(`Checking ${targets.length} character(s)…`);
+    const broken = [];
+    let done = 0, nextTick = 0;
+    const queue = targets.slice();
+    const worker = async () => {
+      for (;;) {
+        const row = queue.shift();
+        if (!row) return;
+        try {
+          const r = await R.inspect(row.id);
+          if (r.count) broken.push(Object.assign({}, row, r));
+        } catch (e) { /* one bad fetch must not stop the sweep */ }
+        done++;
+        const pct = Math.floor((done / targets.length) * 100);
+        if (pct >= nextTick) { console.log(`   …${pct}% (${done}/${targets.length})`); nextTick += 25; }
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+
+    if (!broken.length) {
+      big('None of your characters have this particular problem.', '#c60');
+      console.log(`Checked ${targets.length} character(s) — your list plus everyone in your parties.`);
+      console.log('So whatever is crashing the page, it is not an unreadable character value.');
+      console.log('Send a screenshot of this console to support, including the list below.');
+      console.table(targets);
+      return;
+    }
+
+    console.log(`Found ${broken.length} broken character(s):`);
+    console.table(broken.map((b) => ({ id: b.id, name: b.name, problems: b.count })));
+
+    // Save a copy before touching anything.
+    broken.forEach((b) => {
+      download(`${(b.name || 'character').replace(/[^\w -]/g, '')}-${b.id}-backup.edn`, b.raw);
+    });
+    console.log('Saved a backup copy of each to your Downloads folder.');
+
     R.arm();
-    console.log('%c\nNow do this in THIS TAB, without reloading:', 'font-weight:bold;font-size:13px');
-    console.log('  1. Click into the broken character in the app — it will open now.');
-    console.log('  2. Click EXPORT to keep your own copy (belt and braces).');
-    console.log('  3. Click EDIT (top of the sheet) to open the character builder.');
-    console.log('  4. Click SAVE in the builder. This is the step that actually');
-    console.log('     repairs it — it rewrites the character cleanly on the server.');
-    console.log('  5. Reload normally. The sheet and the Parties page both work again,');
-    console.log('     permanently, with no script and no waiting for a patch.');
-    console.log('');
-    console.log('  The builder will show "Missing Content (1)" — that is the option whose');
-    console.log('  name was lost, now shown as :unnamed-1. Re-pick it and SAVE again to');
-    console.log('  restore it fully. Saving without re-picking is still safe: the crash');
-    console.log('  is gone either way.');
-    console.log('\nIf you would rather not keep it at all:  await orcpubRescue.remove(' + id + ')');
-    return info;
+    const first = broken[0];
+    R.open(first.id);
+
+    setTimeout(() => {
+      console.log('');
+      big(`✓ "${first.name}" is open now.`);
+      console.log('');
+      step('Finish the repair with two clicks:');
+      step('    1.  Click  EDIT   (button at the top of the character)');
+      step('    2.  Click  SAVE   (button at the top of the builder)');
+      console.log('');
+      console.log('%cImportant: do not refresh the page until after you click SAVE.',
+        'font-size:13px;color:#c60');
+      console.log('');
+      console.log('Once you have saved, refresh normally — the character and the Parties');
+      console.log('page will both work again, for good. You do not need this script again.');
+      console.log('');
+      console.log('If SAVE seems to do nothing, the character is missing something the');
+      console.log('builder requires (usually ability scores — you will see a message say so).');
+      console.log('Fill that in, then click SAVE again.');
+      if (broken.length > 1) {
+        console.log('');
+        console.log('Then repeat for the others by running:');
+        broken.slice(1).forEach((b) => console.log(`    orcpubRescue.open(${b.id})   // ${b.name}`));
+      }
+    }, 3000);
   };
 
-  // ── parties ──────────────────────────────────────────────────────────────
-  R.parties = async () => {
-    const res = await fetch('/dnd/5e/parties', { headers: authHeaders({ Accept: 'application/edn' }) });
-    const raw = await res.text();
-    console.log('HTTP', res.status, '•', heal(raw).count, 'unreadable keyword(s) in the parties response');
-    console.log(raw.slice(0, 1500));
-    return raw;
-  };
+  // ── extras, for support / if something goes sideways ────────────────────
+  R.save = (id) => R.inspect(id).then((r) => { download(`character-${id}-backup.edn`, r.raw); console.log('Backed up', id); });
 
-  // Detach without deleting — unbreaks Parties while you decide what to do.
-  R.detach = async (partyId, characterId) => {
-    if (!partyId || !characterId) return console.log('Usage: await orcpubRescue.detach(partyId, characterId)');
-    const res = await fetch(`/dnd/5e/parties/${partyId}/characters/${characterId}`, { method: 'DELETE', headers: authHeaders() });
-    console.log('Removed character', characterId, 'from party', partyId, '→ HTTP', res.status);
-  };
-
-  // ── last resort ──────────────────────────────────────────────────────────
-  // Deleting the character also clears it from any party (the party's link is
-  // a reference, so it is retracted with the character), which unbreaks Parties.
-  R.remove = async (id = idFromUrl()) => {
-    if (!token()) return console.log('Log in first.');
-    if (!id) return console.log('Need an id — run  await orcpubRescue.list()  first.');
-    const info = await R.check(id);
-    if (info.status === 200) R.save(id);      // never delete without a backup
+  // Last resort. Deleting also clears the character out of any party.
+  R.remove = async (id) => {
+    const r = await R.inspect(id);
+    if (r.status === 200) download(`character-${id}-backup.edn`, r.raw);
     const res = await fetch(`/dnd/5e/characters/${id}`, { method: 'DELETE', headers: authHeaders() });
-    if (res.status === 200) {
-      console.log(`Deleted character ${id}. Reload — the sheet is gone and Parties should work again.`);
-    } else {
-      console.log('Delete failed — HTTP', res.status, (await res.text()).slice(0, 200));
-    }
-    return res.status;
+    console.log(res.status === 200 ? `Deleted ${id} (backup downloaded first).` : `Delete failed — HTTP ${res.status}`);
   };
 
-  // ── is this site already running a build that fixes this? ───────────────
+  // Unbreak the Parties page without touching the character.
+  R.detach = async (partyId, characterId) => {
+    const res = await fetch(`/dnd/5e/parties/${partyId}/characters/${characterId}`, { method: 'DELETE', headers: authHeaders() });
+    console.log('Removed', characterId, 'from party', partyId, '→ HTTP', res.status);
+  };
+
   R.buildInfo = async () => {
     const src = [...document.querySelectorAll('script[src]')].map((s) => s.src).find((u) => /orcpub\.js/.test(u));
-    if (!src) return console.log('Could not find orcpub.js on this page.');
+    if (!src) return console.log('No orcpub.js on this page.');
     const js = await (await fetch(src)).text();
     const patched = js.includes(':unnamed-') || js.includes('decode-error');
-    console.log(`This site's build ${patched ? 'HAS' : 'does NOT have'} the empty-keyword fix.`);
+    console.log(`This site's build ${patched ? 'HAS' : 'does NOT have'} the fix.`);
     return patched;
   };
 
   window.orcpubRescue = R;
-  console.log('%cOrcPub rescue loaded.', 'font-weight:bold;font-size:13px');
-  console.log('Step 1:  await orcpubRescue.list()     → find the broken character id');
-  console.log('Step 2:  await orcpubRescue.fix(<id>)  → back up + repair it');
-  console.log('Extras:  .check() .save() .parties() .detach() .remove() .buildInfo()');
-  return R;
+  R.auto();
 })();
