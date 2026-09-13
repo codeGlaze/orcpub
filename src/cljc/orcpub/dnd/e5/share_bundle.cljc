@@ -19,10 +19,10 @@
    Emits a :plugins-shaped map grouped by original source, ready to serialize
    like an .orcbrew export.
 
-   Scope limit: custom magic items / weapons / armor are NOT plugins (they live
-   in the server-side ::mi5e/custom-items store, referenced by DB id), so they
-   are not — and cannot be — part of this closure. A character using one shows
-   it as missing on the recipient side. See the KB."
+   Custom magic items, weapons and armor are not plugins: each account's are
+   stored on the server, so this closure skips them. used-custom-items below
+   picks the ones the character equips, and the link carries each one whole,
+   its database id and owner username included."
   (:require [clojure.string :as str]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
