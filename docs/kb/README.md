@@ -116,7 +116,7 @@ sides had been written blind to the other's findings.
 | [e2e-logged-in-sessions.md](e2e-logged-in-sessions.md) | The seeded verified user (`kaylee`/`serenity99`), the one command that boots a server holding it, which of the four test layers to use, and why seeding a session in localStorage cannot work |
 | [handoff-669-final-pass.md](handoff-669-final-pass.md) | For the agent doing the last pass before dev-server integration: what is already verified and should not be re-run, what is still uncovered, the traps that each cost a cycle, working commands, and pass criteria |
 | [plan-669-merge-verification.md](plan-669-merge-verification.md) | How to take the #669 branch safely: the five units it actually contains ranked by blast radius, the pre-flight results, two behaviour changes that are not the fix, a stage-gated test matrix, and what to do when each stage fails |
-| [filtered-list-staleness.md](filtered-list-staleness.md) | LIVE: My Items / My Spells show a filter result cached by the event layer, so the list goes stale when content changes (Orcpub#669). Why the subscription looks correct in review |
+| [filtered-list-staleness.md](filtered-list-staleness.md) | Fixed (`3bd77862`): My Items / My Spells showed a filter result cached by the event layer, so the list went stale when content changed (Orcpub#669). Why the subscription looked correct in review |
 | [multi-tab-character-contamination.md](multi-tab-character-contamination.md) | LIVE: the character draft is cached under one localStorage key with no id, so two builder tabs overwrite each other and edits land on the wrong character. Notes carry :db/noHistory, so the loss is unrecoverable |
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Transactor crash forensics: the crash mechanism, GC's role, why writeConcurrency=4 hurts with H2 storage, recovery time and fix options |
 | [code-comment-style.md](code-comment-style.md) | House comment style: tech-manual not journal; docstrings for the what, inline why only for constraints; no jargon/markers/KB-links; relating scattered code |
@@ -143,6 +143,7 @@ sides had been written blind to the other's findings.
 | [http-fx-patterns.md](http-fx-patterns.md) | :http effect handler: dispatch vectors, eager JS call bug, auth headers |
 | [character-naming.md](character-naming.md) | Auto-naming: descriptive labels, random name gen, display fallbacks |
 | [env-and-auth.md](env-and-auth.md) | Environment variables, SIGNATURE auth, .env sourcing chain, dev defaults |
+| [auth-state-in-app-db.md](auth-state-in-app-db.md) | Where login state lives in app-db: the token path and `get-auth-token`, why `:user-data` is nested twice, why `db :user` holds only the follow list, and the 401 handler that cannot log anyone out |
 | [views-builders-split.md](views-builders-split.md) | builders.cljs decomposition: 10 domain files, dependency rules, gotchas (class→classes, spell-selector stays shared) |
 | [growable-option-menus.md](growable-option-menus.md) | Multi-select menu redesign: shared option-menu component, global layout toggle (grid/pills/A–Z), the two render-path families + inventory, map-prop/value-choice factories, menu-id rule, headless verify harness |
 | [monolith-decomposition-plan.md](monolith-decomposition-plan.md) | Full decomposition roadmap: tiers, precedence, branching strategy, 31 files assessed |

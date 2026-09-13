@@ -1,6 +1,9 @@
 # A stored filter result is not a subscription — the My Items / My Spells staleness bug
 
-**Live bug.** References are against `integration` at `36766010`, checked 2026-09-12.
+**Fixed.** The fix landed on `integration` in `3bd77862` (the merge of `fix/filtered-list-staleness`),
+2026-09-13: both lists are now derived in the subscription from the filter text. This note stays as
+the record of the defect and why it passed review. Its references are against `integration`
+`36766010`, before the fix.
 
 > **Pin warning, 2026-09-13.** These references are against **`integration` `36766010`** and were
 > correct there when written. They are **no longer correct against this branch's own working tree**:
@@ -105,8 +108,8 @@ helper that computes from the signals — `subs.cljs:1003-1007` on that branch:
 ```
 
 That branch also carries `equipment_subs_test.cljs` pinning the regression, and `api_subs.cljs`
-with a `reg-api-sub` sibling. **None of it has landed** — the branch is unmerged and its 20 new
-definitions appear on no other branch (see [claude-branch-triage.md](claude-branch-triage.md)).
+with a `reg-api-sub` sibling. When this was written none of it had landed (see
+[claude-branch-triage.md](claude-branch-triage.md)); it landed in `3bd77862`.
 
 ## The merge is cheap — measured, 2026-09-13
 

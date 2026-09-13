@@ -651,3 +651,31 @@ Either is fine, and the choice is really about whether the sheet has room:
 2026-09-06: a level 20 evoker on every style. Styles 1/2/3 report 194 fields
 each, style 4 reports 193 with this single drop. No other unplaceable field on
 any style.
+
+## Items owned by another account: decide who may see, edit or copy them
+
+Decide this before anyone restores the switched-off item-by-id loader (`::mi5e/remote-item` in
+`equipment_subs.cljs`, with `::mi/add-remote-item` in `events.cljs`) or builds item sharing on it.
+Recorded 2026-09-13 from the #669 review.
+
+What is true today:
+
+- `GET /api/dnd/e5/items/:id` (`routes/get-item`) has no `check-auth`. It returns any item that has
+  an owner, the owner's username included, to anyone who sends its database id.
+- The ids are not secret. A character share link carries each custom item the character equips
+  whole, as the server sent it (`share-bundle/used-custom-items`), so `:db/id` and the owner travel
+  with it.
+- The item page (`/magic-items/:key`) reads `::mi/custom-item` from the logged-in user's own list, so
+  a link to someone else's item shows "not found".
+- On a shared character the items are view-only. Keep saves homebrew only, and the banner says keeping
+  items is not supported yet.
+- Copying cannot overwrite the sender's item by accident: `update-entity` refuses an id the user does
+  not own. A copy would have to be saved without `:db/id`.
+
+Open questions:
+
+1. May anyone read an item by id, or only its owner? If a share link should grant access, that needs a
+   different mechanism than a guessable id.
+2. Should a share link strip `:db/id` and the owner from the items it carries? The recipient does not
+   need either to draw the sheet.
+3. Can a recipient keep a shared item as their own copy, and does the copy remember where it came from?

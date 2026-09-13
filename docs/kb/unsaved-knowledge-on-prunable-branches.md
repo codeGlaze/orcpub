@@ -68,7 +68,7 @@ Nine documents. Each was checked against all 167 distinct KB blobs on non-`claud
 | doc | lines | on branch | why it survives the discipline test |
 |---|---|---|---|
 | `docs/kb/datomic-crash-analysis.md` | 204 | 30 branches | See above. Deleted in transit |
-| `docs/CUSTOM_ITEMS_INVESTIGATION.md` | 1074 | `claude/fix-custom-items-disappearing-DW8rb` `509431f2` | Root cause for Orcpub#669: `filtered-items`/`filtered-spells` were non-reactive. **"filtered-items" and "reactive filter" are absent from every KB doc in the repo.** Five ranked patches with commit-level provenance |
+| `docs/CUSTOM_ITEMS_INVESTIGATION.md` | 1074 | `claude/fix-custom-items-disappearing-DW8rb` `509431f2` | Root cause for Orcpub#669: `filtered-items`/`filtered-spells` were non-reactive. **"filtered-items" and "reactive filter" are absent from every KB doc in the repo.** Five ranked patches with commit-level provenance. **Settled 2026-09-13:** the fix landed on `integration` (`3bd77862`); its lasting findings are in [filtered-list-staleness.md](filtered-list-staleness.md) and [auth-state-in-app-db.md](auth-state-in-app-db.md), and the doc was removed from `integration` |
 | `docs/kb/web-handoff.md` | 519 | `claude/half-caster-prepared-spells-Jo0ai` `ed5e13da` | The plan for homebrew half-casters with prepared spells. `homebrew-class-spellcasting.md:29` documents the *constraint* (`:prepares-spells?` is hardcoded per `known-mode`, not user-selectable); nothing documents the plan to lift it. This repo keeps plan docs in the KB (`plan-companions-and-wild-shape.md`, `plan-npc-statblock-customizer.md`), so it qualifies. Its own header says the source plan lived in session-scratch and is already gone |
 | `docs/kb/feature-tab-black-screen.md` §6 | 286 (§6 ≈ 60) | `claude/character-black-screen-feature-i8lvk3` `9869d07a` | §1–§5 duplicate `fail-soft-rendering.md`. **§6 does not**: a reusable diagnostic playbook — monkeypatching `Array.prototype.sort` to capture the throwing comparator's two operands, decoding cljs maps from JS (`.arr`/`.cnt`, keyword `.fqn`), and pickaxing a shallow clone (`-S` across `--all`, sort by date) when blame dead-ends at a re-import. `Array.prototype.sort` and `bookmarklet` are absent from every KB |
 | `docs/issues/character-notes-merge-investigation.md` | 230 | `claude/fix-character-notes-merge-4YNzf` `702fffc7` | Multi-tab contamination of the floating `:character` slot: a tab reload restores `:character` from `localStorage["character"]`, which holds whichever character was saved last *across tabs*, so keystrokes land on the wrong entity. Cites `schema.clj:182-185`, `:234-237`. **"multi-tab" and "local-store-character" are absent from every KB.** Explains a user-visible data-loss report |
@@ -134,8 +134,8 @@ unique. They stand or fall with the branch decision in the triage doc, not separ
 - **Whether the 53 non-`claude` KB docs should all move.** Several belong to live leaves
   (`content-extensibility-*`, `builder-*`, `fighting-style-*`) and may be deliberately branch-local
   until the leaf lands. This was not adjudicated per doc; only the count is established.
-- **Whether `CUSTOM_ITEMS_INVESTIGATION.md`'s five patches are still correct.** Nothing here was
-  compiled or run. The uniqueness of the finding is established; its current accuracy is not.
+- ~~**Whether `CUSTOM_ITEMS_INVESTIGATION.md`'s five patches are still correct.**~~ Settled 2026-09-13:
+  they compiled, passed the cljs suite and landed on `integration` in `3bd77862`.
 - **Why `042fd072` dropped the Datomic doc.** The commit message gives no reason, and the two files
   it removed were treated differently with no note. Deliberate omission and oversight look identical
   in the diff.

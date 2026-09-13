@@ -17,7 +17,7 @@ event dispatched on navigation.
  (fn [app-db _]
    ;; 1. This function runs when (subscribe [::characters]) is first deref'd
    ;; 2. The go block fires immediately
-   (when (:token (:user-data @app-db))        ; ← AUTH GUARD
+   (when (event-utils/get-auth-token @app-db) ; ← AUTH GUARD
      (go
        (dispatch [:set-loading true])          ; ← increment counter
        (let [response (<! (http-get "/api/characters"))]
@@ -34,11 +34,11 @@ The guard MUST wrap the `go` block, not just the HTTP call inside it:
 ```clojure
 ;; WRONG — go block fires, loading counter increments, then HTTP 401s
 (go
-  (when (:token (:user-data @app-db))
+  (when (event-utils/get-auth-token @app-db)
     ...))
 
 ;; RIGHT — no token = no go block = no loading increment = no HTTP call
-(when (:token (:user-data @app-db))
+(when (event-utils/get-auth-token @app-db)
   (go ...))
 ```
 
@@ -46,15 +46,22 @@ Without the guard: every unauthenticated page load fires HTTP requests →
 401 responses → triggers `:route-to-login` → infinite redirect loop on
 pages that don't require auth.
 
+The five API-backed subs (`::mi5e/custom-items`, `::char5e/characters`, `::party5e/parties`,
+`::folder5e/folders`, `:user`) now register through `orcpub.dnd.e5.api-subs/reg-api-sub`, which
+places the guard, the loading counter and the response handling. A new API-backed sub should use it
+rather than repeat the shape above.
+
 ### Auth Token Path
 
 The canonical token location is:
 ```clojure
 [:user-data :token]    ; ← CORRECT
-[:user :token]         ; ← WRONG (was used in some places, now fixed)
+[:user :token]         ; ← WRONG (db :user never holds a token)
 ```
 
-Check with: `(:token (:user-data @app-db))`
+Read it with `orcpub.dnd.e5.event-utils/get-auth-token`, the one place the path is spelled; it is
+also the logged-in check. Why the path looks the way it does, and what else sits under `:user-data`
+and `:user`: [auth-state-in-app-db.md](auth-state-in-app-db.md).
 
 The `:user-data` key is set by `create-login-response` in routes.clj and
 stored in app-db by the login success handler.
