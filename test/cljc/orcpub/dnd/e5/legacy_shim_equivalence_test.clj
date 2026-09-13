@@ -11,6 +11,7 @@
 
    Written before the shim exists, so the shim's arrival shows as a diff in expected values."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.common :as common]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.template :as t5e]
@@ -139,3 +140,40 @@
           "legacy: a second source is visible, so proficiency upgrades to expertise")
       (is (= [{:athletics {nil true}} nil] g)
           "pool: both grants collapse to the nil source, so nothing upgrades"))))
+
+;; ---------------------------------------------------------------------------
+;; Which silos can RECEIVE a normalized grant.
+;;
+;; The shim rewrites a legacy key into `:grants`. That is only safe on a silo whose assembly fn
+;; compiles `:grants` — and today only two do. Normalizing a subrace, background, class or
+;; subclass would write a key its assembly fn never reads, and the mechanic would vanish from the
+;; character with no error.
+;;
+;; So the 35-table's fixed-class rows are gated by SILO, not only by class:
+;;   race (1,3,5,7,8,9,10) and feat (26-32)      -> shimmable today
+;;   subrace (11,14-18), background (23-25),
+;;   class (19,20), subclass (21,22)             -> blocked until the silo is wired (step 4)
+;; ---------------------------------------------------------------------------
+
+(def ^:private a-grant [{:pool :languages :key :elvish}])
+
+(defn- language-mods [option]
+  (filter #(= :languages (:orcpub.modifiers/key %)) (::t/modifiers option)))
+
+(deftest only-race-and-feat-compile-grants-today
+  (testing "race compiles a fixed grant into its modifiers"
+    (is (seq (language-mods (opt5e/race-option nil nil language-map nil pools
+                                               {:name "Testfolk" :key :testfolk :grants a-grant})))))
+
+  (testing "feat compiles a fixed grant onto the built character"
+    (is (contains? (char5e/languages (build-feat {:grants a-grant})) :elvish)))
+
+  (testing "subrace silently drops it — no pool registry reaches subrace-option"
+    (is (empty? (language-mods (opt5e/subrace-option {} nil nil language-map nil
+                                                     {:name "Testkin" :key :testkin
+                                                      :grants a-grant})))))
+
+  (testing "background silently drops it — no pool registry reaches background-option"
+    (is (empty? (language-mods (opt5e/background-option language-map nil
+                                                        {:name "Testfolk Scholar" :key :testfolk-scholar
+                                                         :grants a-grant}))))))

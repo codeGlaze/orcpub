@@ -435,6 +435,15 @@ Two consequences:
    the entry's modifiers depend on the granting item, which `:options-fn (fn [plugin-vals])`
    cannot express — a registry-shape question, not a one-line fix. Unowned.
 
+### ⛔ And the fixed class is gated by silo too — measured 2026-09-13
+
+Being fixed-class is necessary but not sufficient. Only `feat-option-from-cfg` and `race-option`
+take `grantable-pools` and compile `:grants`; `subrace-option`, `background-option`,
+`class-option`/`level-option` and `subclass-option` do not. Normalizing a legacy key on one of
+those four writes a key nothing reads, so the mechanic disappears silently. Rows 11, 14–25 wait
+on step 4 of `handoff-grant-rows.md`, not on the `:key` fix. Pinned in
+`legacy_shim_equivalence_test`.
+
 The other six fixed-class rows with a registered pool — `:skill-prof`, `:weapon-prof`,
 `:armor-prof`, `:language`, `:damage-resistance`, `:damage-immunity` — build identical sheets,
 asserted in `legacy_shim_equivalence_test`.

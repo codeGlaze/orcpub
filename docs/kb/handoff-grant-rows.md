@@ -32,6 +32,29 @@ Each step is its own commit with its acceptance test green before the next. Docs
 `LABEL=after node test/e2e/builder-gallery.js` will report feat drifted (a new "Grants" label and
 its chips). That is deliberate. `cp target/e2e-shots/gallery-after/index.json test/e2e/builder-baseline.json`.
 
+### ⛔ Steps 2 and 4 are interleaved — measured 2026-09-13
+
+Step 2 below is written as if the fixed-class rows were gated only by their class. They are also
+gated by **silo**. The shim rewrites a legacy key into `:grants`, and only an assembly fn that
+compiles `:grants` can read it. Two do:
+
+| silo | compiles `:grants`? | fixed-class rows |
+| --- | --- | --- |
+| feat (`feat-option-from-cfg`) | yes | 26–32 |
+| race (`race-option`) | yes | 1, 3, 5, 7, 8, 9, 10 |
+| subrace (`subrace-option`) | **no** | 11, 14–18 |
+| background (`background-option`) | **no** | 23–25 |
+| class (`class-option`, `level-option`) | **no** | 19, 20 |
+| subclass (`subclass-option`) | **no** | 21, 22 |
+
+`subrace-option` and `background-option` do not take `grantable-pools` at all. Normalizing one of
+their legacy keys writes a `:grants` the silo never reads, and **the mechanic vanishes from the
+character with no error**. Pinned in `legacy_shim_equivalence_test`
+(`only-race-and-feat-compile-grants-today`).
+
+So: do step 4 for a silo before shimming that silo's rows. Step 2 can proceed now for feat and
+race only.
+
 ### 2. `legacy_shims.cljc` — fixed-class keys normalize at import
 Spec: `builder-disposition-audit.md` §"The 35 deletions", the model paragraph. Registry
 `{legacy-path {:since :remove-after :class :normalize}}`; applied once at `::e5/plugin-vals`
