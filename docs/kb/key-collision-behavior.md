@@ -79,9 +79,11 @@ Changing a key is a separate, deliberate act, and there are three ways in — al
 | import conflict resolution | the modal's rename |
 | the manual relink | `::char5e/relink-content` |
 
-The builder's row renders under the page header once the item has a key (an unsaved item has none
-yet) and refuses a key any other item already answers to. It changes the key and nothing else — the
-NAME is left alone, because a key change is not a rename.
+The builder's row sits behind a compact **Advanced** disclosure, collapsed by default, and appears
+at all only once the item has a key (an unsaved one has none yet). A key is an address the app
+mints, not a field an author fills in, so it is out of the way until someone needs to correct one.
+It refuses a key any other item already answers to, and it changes the key alone — the NAME is left
+as it is, because a key change is not a rename.
 
 ### What the save refuses
 

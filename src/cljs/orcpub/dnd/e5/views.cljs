@@ -7293,15 +7293,20 @@
 (defn optional-builder-section
   "Opt-in builder section: a toggle that reveals `body`. Keeps non-standard fields out of the default
    form (less clutter); starts OPEN when `has-content?` so editing existing data isn't hidden. The data
-   only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export."
-  [_label has-content? _body]
+   only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export.
+
+   `{:compact? true}` renders the trigger as a quiet 12px line instead of a section heading, and drops
+   the \"click to add\" nudge — for a section that is rarely wanted and never needs advertising."
+  [_label has-content? _body & [_opts]]
   (let [open? (r/atom (boolean has-content?))]
-    (fn [label _has-content? body]
-      [:div.m-b-20
+    (fn [label _has-content? body & [{:keys [compact?]}]]
+      [:div {:class (if compact? "m-b-10" "m-b-20")}
        [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
-        [:i.fa.m-r-5 {:class (if @open? "fa-caret-down" "fa-caret-up")}]
-        [:span.f-s-18.f-w-b label]
-        (when-not @open? [:span.m-l-10.f-s-12.i.orange "click to add"])]
+        [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
+                                  (when compact? " f-s-12 opacity-5"))}]
+        [:span {:class (if compact? "f-s-12 opacity-5" "f-s-18 f-w-b")} label]
+        (when (and (not @open?) (not compact?))
+          [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
 
 (defn ability-increase-choices
@@ -9859,10 +9864,7 @@
         draft    (r/atom "")]
     (fn [item save-event]
       (when-let [k (:key item)]
-        ;; NOT opacity-5 at the page edge: the first version of this rendered as a grey 12px line
-        ;; flush against the viewport and was easy to miss entirely. It sits on the form's left
-        ;; margin, at the form's text colour.
-        [:div.f-s-12.m-l-20.m-r-20.m-b-10.main-text-color.flex.align-items-c.flex-wrap
+        [:div.f-s-12.m-b-10.main-text-color.flex.align-items-c.flex-wrap
          [:span.m-r-5.opacity-5 "key"]
          [:span.f-w-b.m-r-10 (str k)]
          (if @editing?
@@ -9914,7 +9916,11 @@
       ;; the advisory rendered 1300x12px at y=407 of a long form, which is present but not visible.
       ;; :error is styling and wording only; it does not block saving.
       [builder-notes tag-notes {:severity :error}]
-      [item-key-row item save-event]
+      ;; The key is the item's address, not something an author sets — it is minted once and only
+      ;; wanted when one needs correcting. Collapsed, quiet, and only once there is a key to show.
+      (when (:key item)
+        [:div.m-l-20.m-r-20
+         [optional-builder-section "Advanced" false [item-key-row item save-event] {:compact? true}]])
       [builder]]]))
 
 (defn combat-tracker-page []
