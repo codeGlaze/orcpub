@@ -53,36 +53,52 @@ credentials from `ORCPUB_TEST_USER` / `ORCPUB_TEST_PASSWORD` — set those to `k
 owns the server lifecycle for you. See also [fast-browser-probes.md](fast-browser-probes.md) for
 the timing traps and the `.lein-env` trap.
 
-## Logging in from a probe — the recipe, verified
+## Logging in from a probe — use the one that already exists
 
-Run end to end 2026-09-13 via `./scripts/e2e/run.sh login-smoke.js` against a merge of
-`integration` + `claude/fix-custom-items-disappearing-DW8rb`: passes signed in, and fails with
-*"Password is incorrect."* under `SELFTEST=1`. Five things had to be right; each one was wrong first.
+**`fix/custom-item-classification:scripts/e2e/run.js` has been running logged-in custom-item
+scenarios since 2026-08. Start there; do not re-derive this.** Its `login()` is seven lines:
+
+```js
+const login = async p => {
+  await p.goto(BASE + '/pages/login-page', { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('input');
+  await p.locator('input').nth(0).fill(USER);
+  await p.locator('input').nth(1).fill(PASS);
+  await p.locator('button.form-button').click();
+  await p.waitForTimeout(3500);
+};
+```
+
+The same file carries the helpers a custom-items probe needs — `newItem(page, name, type)`,
+`kindSelect`, `clickButton`, `buttonLabels`, `shimFonts` — and nine scenario functions including
+`customItemOverridesSrd`, `removeForGoodActuallyRemoves` and `itemTextReachesTheCharacterSheet`.
+
+**It is not on `integration`.** That branch is unmerged, and integration's own
+`scripts/e2e/run.js` is the PDF-export script with no login at all. So the helper is real, works,
+and is invisible to anyone who looks only at `integration` or `agents/develop` — which is exactly
+how it got missed here.
+
+### The four facts behind those seven lines
+
+Worth keeping because a changed selector sends you back to them:
 
 | | |
 |---|---|
-| **URL** | `/pages/login-page`. Not `/login` — that 404s into the SPA and renders nothing |
-| **Fields** | `input[placeholder="Username or Email"]` and `input[placeholder="Password"]`. `form-input` (`views.cljs:111-127`) passes the title through as the placeholder, so placeholders are the stable handle |
-| **Submit** | Click `button.form-button` with text `LOGIN`. **Enter does nothing** — there is no form submit handler, just an `:on-click` dispatching `[:login params true]` (`views.cljs:~1004`) |
-| **Storage key** | `localStorage["user"]` (`db.cljs:35`). Not `user-data`, which is the key *inside* the stored map |
-| **Overlays** | Set `orcpub:no-cookie-banner` = `'1'` **and** `whats-new-seen` = `JSON.stringify(current-release-id)` in an init script, before load. The What's New backdrop swallows clicks otherwise and the LOGIN button times out after 58 retries. Current id lives in `whats_new.cljc` `current-release-id`; `test/browser/lib/suppress-overlays-preload.js` does this for `test/browser/` probes, but `scripts/e2e/` scripts must do it themselves |
+| **URL** | `/pages/login-page`. `/login` 404s into the SPA |
+| **Submit** | Click `button.form-button`. **Enter does nothing** — LOGIN is an `:on-click` dispatching `[:login params true]`, not a form submit |
+| **Storage key** | `localStorage["user"]` (`db.cljs:35`). `user-data` is the key *inside* the stored map |
+| **Overlays** | Set `orcpub:no-cookie-banner` = `'1'` and `whats-new-seen` = `JSON.stringify(current-release-id)` in an init script before load, or the What's New backdrop swallows the click — 58 retries then a timeout. `test/browser/lib/suppress-overlays-preload.js` does this for `test/browser/` probes; `scripts/e2e/` scripts must do it themselves |
 
-`scripts/e2e/run.sh` checks that `require('playwright')` resolves **from the repo root**, not from
-`scripts/e2e/`, so install it at the root even though the `package.json` lives in the subdirectory.
+`scripts/e2e/run.sh` resolves `require('playwright')` from the **repo root**, not from
+`scripts/e2e/` where its `package.json` lives.
 
-### Two assertions that look like session checks and are not
+### An assertion trap, if you add checks
 
-Both were written, both passed under `SELFTEST=1` with no session at all, and both were deleted
-rather than shipped:
-
-- **"a session-gated page stayed put"** — `/pages/dnd/5e/my-content` renders for anonymous visitors
-  too, so *not* bouncing to login says nothing.
-- **"the header LOGIN link is gone"** (`views.cljs:782`) — reported zero links while logged out as
-  well, so it is not a session signal on that page either.
-
-What does discriminate: **the stored token** and **leaving the login page**. The username is behind
-the user menu and needs a click to reach. If you add a third check, verify it fails under SELFTEST
-before trusting it — that is the whole point of the flag.
+Two that look like session checks and are not — both pass with no session at all:
+`/pages/dnd/5e/my-content` renders for anonymous visitors, so "did not bounce to login" proves
+nothing; and the header LOGIN link (`views.cljs:782`) reports zero while logged out too. What
+discriminates: the stored token, and leaving the login page. Verify any new check fails without a
+session before trusting it.
 
 ## Seeding a session in localStorage does not work
 
@@ -105,3 +121,14 @@ same time as this doc was written; noted here because the wrong instruction has 
 - [fast-browser-probes.md](fast-browser-probes.md) — probe timing, keeping the server up
 - [testing-infrastructure.md](testing-infrastructure.md) — runners, re-frame testing truths
 - [env-and-auth.md](env-and-auth.md) — how `SIGNATURE` and the env chain feed auth
+
+## Revisions
+
+- **2026-09-13 — this doc originally derived the login flow from scratch; that was wasted work.**
+  `fix/custom-item-classification` has been running logged-in e2e scenarios for weeks, with a
+  `login()` helper and an item-creation helper already written. The derivation cost a throwaway
+  smoke test and five wrong guesses at things that file already encodes. **The search that missed it
+  covered `integration` and `agents/develop` only** — the helper lives on an unmerged branch. Third
+  time in this session that searching a subset and reporting as though it were the whole repo
+  produced a wrong conclusion; the rule that actually works is `git grep` across
+  `git branch -r`, not across the two branches that happen to be checked out.

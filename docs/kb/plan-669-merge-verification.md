@@ -80,6 +80,13 @@ than at subscribe-time. The branch pins the decomposed logic in `subs_test.cljs`
 | `event_utils_test.cljc` (+37) | `get-auth-token` |
 | `events_test.cljs` (+28/−23) | Adjusted for the removed db write |
 
+**A working custom-items e2e suite already exists — on `fix/custom-item-classification`.**
+`scripts/e2e/run.js` there has `login()`, `newItem(page, name, type)` and nine logged-in scenarios
+against the real app and a real DB. Stage 3 is therefore much cheaper than the rest of this section
+implies: the probe for M1 is a scenario function added to that file's shape, not new machinery.
+That branch is unmerged, and it is the non-`claude` sibling of the custom-item work in the triage
+doc — so the two custom-item efforts probably want considering together rather than separately.
+
 **The advertised e2e regression net does not run.** `e2e/scenarios/custom-items.spec.ts` (335 lines)
 is **inert by its own admission** — its header says it depends on Playwright infrastructure that
 exists only on `testing/develop`. `integration` has no `e2e/` directory at all; browser tests live in
