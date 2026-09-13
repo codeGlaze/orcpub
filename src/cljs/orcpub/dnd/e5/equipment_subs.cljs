@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.equipment-subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
+  (:require [re-frame.core :refer [reg-sub]]
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.spell-subs]
@@ -17,14 +17,11 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
-                                                                    handle-api-response]]
+            [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.api-subs :as api-subs]
             [reagent.ratom :as ra]
             [clojure.string :as s]
-            [orcpub.dnd.e5.http-safe :as http]
-            [cljs.core.async :refer [<!]])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [orcpub.dnd.e5.http-safe :as http]))
 
 
 (def sorted-items
