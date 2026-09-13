@@ -799,9 +799,9 @@
                  saving would silently discard it. `:key` on the item being saved
                  is what distinguishes an edit returning to its own slot from a
                  rename landing on an occupied one.
-     :cross      the key exists in ANOTHER source. Not data loss -- both copies
-                 survive and the disable hierarchy decides which is live -- so
-                 this informs rather than blocks.
+     :cross      the key exists in ANOTHER source. Not data loss, but not benign:
+                 the combines that dedupe by key pick their winner by the hash
+                 order of source names, and the ones that don't show both copies.
 
    Returns {:kind :overwrite|:cross :source .. :name ..}."
   [plugins option-pack plugin-key key item]
@@ -877,23 +877,28 @@
              (when (nil? explanation)
                (save-collision plugins option-pack plugin-key key item))]
          (cond
-           ;; The one case worth stopping: this key holds a DIFFERENT item in this same source, so
-           ;; saving would discard it.
-           (= :overwrite kind)
+           ;; A key is an ADDRESS, and it is global. Two items answering to one key is the same
+           ;; problem wherever the second one lives: the combines that dedupe pick a winner by the
+           ;; hash-iteration order of source names, and the ones that don't show both. Neither is
+           ;; something to create by pressing Save. (Wanting both copies is legitimate -- a
+           ;; published class and its playtest -- and it arrives through IMPORT, where the conflict
+           ;; modal asks and "keep both" is a choice someone made.)
+           (some? kind)
            {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
                          [:show-error-message
-                          (str "\"" twin-name "\" in \"" source "\" already uses the name "
-                               "\"" name "\". Saving would replace it. Give this one a "
-                               "different name, or edit the existing entry instead.")
+                          (if (= :overwrite kind)
+                            (str "\"" twin-name "\" in \"" source "\" already uses the name "
+                                 "\"" name "\". Saving would replace it. Give this one a "
+                                 "different name, or edit the existing entry instead.")
+                            (str "\"" source "\" already has a " (s/lower-case type-name)
+                                 " under this key (\"" twin-name "\"). Two items answering to one "
+                                 "key collide wherever they live — give this one a different name, "
+                                 "or edit the existing entry."))
                           builder-error-ttl]]}
 
            (some? explanation)
            (builder-field-error-fx type-name explanation item error-message anyway-event-key)
 
-           ;; A key held by ANOTHER source is said, not refused. Both copies survive, the disable
-           ;; hierarchy decides which is live, and the health card reports the pair until someone
-           ;; settles it -- so refusing would hold the author to a stricter rule than the importer,
-           ;; who is offered "keep both" deliberately.
            :else
            (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
                                                 item-with-key nil)]
@@ -908,22 +913,17 @@
                             ;; Headline carries the point -- it is saved, and only here. The
                             ;; caveat and the way out sit under it.
                             {:title (str type-name " saved — in this browser only")
-                             :details (cond-> [[:span
-                                                "Clearing browser data loses it. "
-                                                [:span.pointer.underline
-                                                 ;; stop the click: the banner closes on any click
-                                                 ;; that reaches it, so exporting used to pull the
-                                                 ;; card out from under the reader mid-action.
-                                                 {:on-click (fn [e]
-                                                              (.stopPropagation e)
-                                                              (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
-                                                 "Export this source"]
-                                                " to keep a copy."]]
-                                        (= :cross kind)
-                                        (conj (str "\"" source "\" has a " (s/lower-case type-name)
-                                                   " under the same key. Both are kept, but only one "
-                                                   "can be switched on at a time — My Content shows "
-                                                   "which.")))}
+                             :details [[:span
+                                        "Clearing browser data loses it. "
+                                        [:span.pointer.underline
+                                         ;; stop the click: the banner closes on any click that
+                                         ;; reaches it, so exporting used to pull the card out from
+                                         ;; under the reader mid-action.
+                                         {:on-click (fn [e]
+                                                      (.stopPropagation e)
+                                                      (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                         "Export this source"]
+                                        " to keep a copy."]]}
                             60000]]})))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,

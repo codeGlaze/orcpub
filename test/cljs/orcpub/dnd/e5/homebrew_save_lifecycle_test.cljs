@@ -199,13 +199,26 @@
   (is (= "Tidewall" (get-in (stored) [:tidewall :name])) "the other item is untouched")
   (is (= "Tidewall" (get-in (stored) [:tideward :name])) "and this one took the name, not the key"))
 
-(deftest a-key-held-by-another-source-is-said-not-refused
-  ;; Both copies survive and the disable hierarchy decides which is live, so refusing would hold
-  ;; the author to a stricter rule than the importer, who is offered "keep both" deliberately.
+(deftest a-key-held-by-another-source-is-refused-too
+  ;; A key is an address, and it is global. Two items answering to one key collide wherever they
+  ;; live: the combines that dedupe pick a winner by the hash order of source names, and the ones
+  ;; that do not show both copies. Wanting both is legitimate, and it arrives through IMPORT, where
+  ;; "keep both" is something someone chose.
   (swap! app-db assoc :plugins {"Someone Else's Pak" {ct {:tideward {:key :tideward
                                                                     :name "Tideward"
                                                                     :option-pack "Someone Else's Pak"}}}})
   (open! (draft "Tideward"))
   (save!)
-  (is (= #{:tideward} (set (keys (stored)))) "it saved")
-  (is (empty? (:builder-field-errors @app-db)) "and the name field is not flagged"))
+  (is (nil? (stored)) "nothing saved into this source")
+  (is (= :invalid (:name (:builder-field-errors @app-db))) "and the name field says why"))
+
+(deftest an-item-that-already-owns-its-key-saves-over-itself-in-any-library
+  ;; The refusal is for MINTING a key something else holds. An item that already owns the key it
+  ;; is saving to is returning to its own slot, however crowded the rest of the library is.
+  (swap! app-db assoc :plugins {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}
+                                "Someone Else's Pak" {ct {:other {:key :other :name "Other"
+                                                                  :option-pack "Someone Else's Pak"}}}})
+  (open! (assoc (draft "Tideward") :key :tideward :description "edited"))
+  (save!)
+  (is (= "edited" (get-in (stored) [:tideward :description])))
+  (is (empty? (:builder-field-errors @app-db))))

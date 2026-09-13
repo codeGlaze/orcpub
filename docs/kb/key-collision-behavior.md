@@ -74,15 +74,27 @@ Changing a key is a separate, deliberate act — import conflict resolution and 
 both through `rename-key-in-plugin` — and those record `:former-keys`. There is no control in the
 builder for it yet.
 
-### What the save still refuses
+### What the save refuses
 
-Only `:overwrite`: a NEW item whose minted key is already held by a different item **in this same
-source**. Changing the name is a real fix there, because the key has not been minted yet.
+**Minting a key something else already holds — in any source.** A key is an address and the address
+space is global: the combines that dedupe by key pick their winner by the hash-iteration order of
+source names (see the CORRECTION below), and the ones that don't show both copies. Neither is a
+state to create by pressing Save. Changing the name is a real fix, because the key has not been
+minted yet.
 
-A key held by **another source** is now reported, not refused: both copies survive, the disable
-hierarchy decides which is live, and the health card reports the pair. Refusing it held the author
-to a stricter rule than the importer, who is offered "keep both" deliberately — and it flagged the
-name field as invalid when nothing about the name was wrong.
+Wanting both copies is legitimate — a published class and its playtest version — and it arrives
+through **import**, where the conflict modal asks and "keep both" is something someone chose.
+
+An item that already owns the key it is saving to is returning to its own slot, and is never
+refused however crowded the rest of the library is.
+
+#### Correction (2026-09-13)
+
+This was briefly changed so a key held by another source was reported rather than refused, on the
+strength of `save-collision`'s docstring ("informs rather than blocks") over the behaviour two
+sections down this page. Reverted the same day. The docstring was the thing that was wrong, and it
+now says what the combines actually do. **A duplicate key is a duplicate key; the source it sits in
+does not change that.**
 
 ## The rename history — `:former-keys` (2026-09-12)
 

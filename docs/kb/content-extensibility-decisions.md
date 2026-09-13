@@ -185,9 +185,10 @@ three separate defects — a rename orphaned the old entry (the move was conditi
 new-item path never carried), a second save of the same item was refused as a collision with
 itself, and `save-collision` needed a "is this slot mine?" comparison to paper over both. Key and
 name may now diverge; that is D10's position — the key is an address, the name is display text.
-*Also:* a key held by ANOTHER source is reported rather than refused, matching `save-collision`'s
-own docstring and what import already offers ("keep both"). *Rejected:* keeping the re-derivation
-and comparing harder.
+*Unchanged by this:* the save still refuses to MINT a key another item holds, in any source — a key
+is a global address, so a duplicate is a duplicate wherever it lives. *Rejected:* keeping the
+re-derivation and comparing harder; and (briefly tried, reverted the same day) treating a
+cross-source duplicate as informational.
 
 **D11 — Catalog reads are layered, memoized subscriptions; never recomputed in hot subs.**
 Each catalog is its own `reg-sub` (re-frame memoizes it); `grant-choice` references it
