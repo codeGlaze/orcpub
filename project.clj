@@ -130,7 +130,8 @@
 
   ;; NOTE: Garden compilation removed from global :prep-tasks for faster REPL startup.
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
-  ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
+  ;; The compiled styles.css is generated (gitignored, not tracked) — run one of the
+  ;; above after a fresh clone or a style change, or the app renders unstyled.
 
   ;; CLJS production builds use figwheel-main (prod.cljs.edn / fig:prod alias).
   ;; lein-cljsbuild has been fully removed — see docs/LEIN-UBERJAR-HANG.md
@@ -191,12 +192,17 @@
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
-            ;; Single-command production build: clean → CLJS → uberjar.
+            ;; Emit the bundled demo-content pack from its cljc recipe. Committed
+            ;; like the compiled CSS; the golden test fails the build if it's stale.
+            ;; A plain `run` step (NOT a :prep-tasks entry — that recurses through
+            ;; the uberjar profile's prep-tasks; see the :uberjar note below).
+            "gen-demo" ["run" "-m" "orcpub.build.demo-emit"]
+            ;; Single-command production build: clean → demo pack → CLJS → uberjar.
             ;; clean runs first because :clean-targets includes
             ;; resources/public/js/compiled (the CLJS output dir).
             ;; The :uberjar profile itself never cleans — CLJS is compiled
             ;; BEFORE the uberjar step and must not be deleted.
-            "build" ["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
+            "build" ["do" "clean," "gen-demo," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]

@@ -17,11 +17,18 @@
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.built-character-debounce-test]
             [orcpub.dnd.e5.content-reconciliation-test]
+            [orcpub.dnd.e5.draconic-ancestry-test]
+            [orcpub.dnd.e5.dragonborn-ancestry-e2e-test]
+            [orcpub.dnd.e5.simple-content-builder-test]
+            ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
+            [orcpub.dnd.e5.homebrew-save-lifecycle-test]
+            [orcpub.dnd.e5.grant-vocabulary-cljs-test]
+            [orcpub.dnd.e5.ability-increase-grant-cljs-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
             [orcpub.dnd.e5.db-test]
-            ;; orcbrew import/export validation
+            ;; orcbrew import/export validation (renamed from import-validation-test)
             [orcpub.dnd.e5.orcbrew-validation-test]))
 
 (defn -main []
@@ -37,6 +44,12 @@
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
+             'orcpub.dnd.e5.draconic-ancestry-test
+             'orcpub.dnd.e5.dragonborn-ancestry-e2e-test
+             'orcpub.dnd.e5.simple-content-builder-test
+             'orcpub.dnd.e5.homebrew-save-lifecycle-test
+             'orcpub.dnd.e5.grant-vocabulary-cljs-test
+             'orcpub.dnd.e5.ability-increase-grant-cljs-test
              'orcpub.dnd.e5.views-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test

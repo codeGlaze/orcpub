@@ -7,6 +7,11 @@
             [cljs.reader :as reader]
             [clojure.string :as str]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.field-schemas :as field-schemas]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
+            ;; the rename history (:former-keys) is written here and read by the heal path
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.common :as common]))
 
 ;; Forward declarations for functions used before definition
@@ -109,9 +114,11 @@
 ;; Required Fields - Content-type-specific field requirements
 ;; ============================================================================
 
-(def required-fields
-  "Map of content types to their required fields and dummy values.
-   Fields listed here will be auto-filled on import and validated on export.
+(def crash-prevention-fields
+  "Hand-maintained EXTRA required fields (beyond any type's field schema) that keep the app
+   from breaking on import — auto-filled with dummies. The schema's required fields are merged
+   in by `required-fields` below, so this only holds what the schemas DON'T cover (e.g. the
+   universal :name, parent refs, and value checks for types with no field schema yet).
 
    Structure: {content-type {:field-name {:dummy <value> :check-fn <optional-predicate>}}}
 
@@ -157,7 +164,22 @@
    {:name {:dummy "Missing Selection Name"}}
 
    :orcpub.dnd.e5/encounters
-   {:name {:dummy "Missing Encounter Name"}}})
+   {:name {:dummy "[Missing Encounter Name]"}}
+
+   :orcpub.dnd.e5/draconic-ancestries
+   {:name {:dummy "[Missing Draconic Ancestry Name]"}}}) ; breath-weapon fields come from the schema
+
+(def schema-required-fields
+  "Required fields AUTO-GENERATED (synced) from each type's field schema — not hand-listed, so
+   they can't drift from the form/save spec. Keyed by the field :key, which may be a nested path."
+  (into {} (for [[plugin-key fields] field-schemas/by-plugin-key]
+             [plugin-key (bf/fields->required-entries fields)])))
+
+(def required-fields
+  "Effective required-fields per content type = the schema-synced fields MERGED WITH the
+   hand-maintained crash-prevention table. Schema is the source for a type's own fields; the
+   crash table adds the rest (universal :name, parent refs, no-schema-yet types)."
+  (merge-with merge schema-required-fields crash-prevention-fields))
 
 (def trait-required-fields
   "Required fields for traits (nested within other content types).
@@ -168,7 +190,9 @@
   "Check if a required field is missing or invalid.
    Returns true if the field should be filled with dummy data."
   [item field-key field-spec]
-  (let [value (get item field-key)
+  ;; field-key may be a single key OR a nested path vector (schema fields like
+  ;; [:breath-weapon :damage-type]); flat keys behave exactly as before.
+  (let [value (if (sequential? field-key) (get-in item field-key) (get item field-key))
         check-fn (or (:check-fn field-spec) some?)]
     (or (nil? value)
         (and (string? value) (str/blank? value))
@@ -206,7 +230,7 @@
   (let [missing (find-missing-fields item content-type)]
     (if (seq missing)
       [(reduce (fn [i {:keys [field dummy]}]
-                 (assoc i field dummy))
+                 (if (sequential? field) (assoc-in i field dummy) (assoc i field dummy)))
                item
                missing)
        (mapv :field missing)]
@@ -924,6 +948,16 @@
 ;; Pre-Export Validation
 ;; ============================================================================
 
+(defn unknown-tag-warnings
+  "Export-side wrapper over bf/unknown-tag-problems, naming the item each problem is on."
+  [plugin-data]
+  (for [[content-key items] plugin-data
+        :when (and (qualified-keyword? content-key) (map? items))
+        [item-key item] items
+        :when (map? item)
+        problem (bf/unknown-tag-problems item)]
+    (str "Item " (name content-key) "/" (name item-key) " :props " problem)))
+
 (defn validate-before-export
   "Validates plugin data before export to catch bugs early.
 
@@ -944,7 +978,9 @@
                                                   (= "" (:option-pack item))))]
                                (str "Item " (name content-key) "/" (name item-key)
                                     " has missing option-pack"))
-        warnings (into (vec nil-warnings) option-pack-warnings)]
+        warnings (-> (vec nil-warnings)
+                     (into option-pack-warnings)
+                     (into (unknown-tag-warnings plugin-data)))]
 
     ;; Check for required field issues
     (if (not (:valid required-field-validation))
@@ -1861,8 +1897,8 @@
   Returns detailed validation results with user-friendly error messages.
   Includes :changes key with list of all cleaning operations performed.
   Includes :key-conflicts key with duplicate key warnings."
-  [edn-text {:keys [strategy auto-clean existing-plugins import-source-name]
-             :or {strategy :progressive auto-clean true}}]
+  [edn-text {:keys [strategy auto-clean auto-fill existing-plugins import-source-name]
+             :or {strategy :progressive auto-clean true auto-fill true}}]
 
   ;; Step 1: String-level cleaning (syntax fixes only) with tracking
   (let [string-changes (atom [])
@@ -1901,9 +1937,27 @@
                          after-commas)
                        edn-text)
         ;; Step 2: Parse EDN
-        parse-result (parse-edn cleaned-text)]
+        parse-result (parse-edn cleaned-text)
+        ;; Step 2.4: Format-version gate. A v2 envelope from a NEWER build than this
+        ;; one is refused with a clear message; a supported envelope is unwrapped so
+        ;; the rest validates the plugin map, not the wrapper; a plain v1 file passes
+        ;; through untouched.
+        compat (when (:success parse-result)
+                 (orcbrew-format/compat-check (:data parse-result)))
+        parse-result (if (and compat (:ok? compat))
+                       (update parse-result :data orcbrew-format/unwrap)
+                       parse-result)]
 
-    (if (:success parse-result)
+    (cond
+      (and compat (not (:ok? compat)))
+      {:success false
+       :parse-error false
+       :errors [(:message compat)]
+       :error (:message compat)
+       :changes @string-changes
+       :skipped-items []}
+
+      (:success parse-result)
 
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
         (let [parsed-data (:data parse-result)
@@ -1918,10 +1972,16 @@
                              (clean-data-with-log normalized-data)
                              {:data normalized-data :changes []})
 
-              ;; Step 3.5: Fill missing required fields with dummy data
-              fill-result (if auto-clean
-                            (fill-missing-in-import (:data clean-result))
-                            {:data (:data clean-result) :changes []})
+              ;; Step 3.5: Fill missing required fields with dummy data (low-friction default).
+              ;; STRICT mode (auto-fill false — for creators/devs): DETECT the gaps but do NOT
+              ;; fill them, so they surface (in :strict-unfilled) instead of being papered over.
+              fill-result (cond
+                            (not auto-clean) {:data (:data clean-result) :changes []}
+                            auto-fill        (fill-missing-in-import (:data clean-result))
+                            :else            (let [detected (fill-missing-in-import (:data clean-result))]
+                                               {:data (:data clean-result) ; ORIGINAL — unfilled
+                                                :changes []
+                                                :unfilled (:changes detected)}))
 
               ;; Step 3.75: Dedup selection options (same-name options within selections)
               dedup-result (if auto-clean
@@ -1951,8 +2011,12 @@
           (assoc validation-result
                  :changes all-changes
                  :key-conflicts key-conflicts
-                 :key-warnings key-warnings))
+                 :key-warnings key-warnings
+                 ;; strict mode: the required fields that were left UNFILLED (empty in the
+                 ;; default low-friction mode, since they get auto-filled there)
+                 :strict-unfilled (:unfilled fill-result)))
 
+      :else
         ;; Parse failed - return detailed error
         {:success false
          :parse-error true
@@ -2095,9 +2159,9 @@
             ;; and the next save in the editor derives the OLD key back.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key (cond-> (assoc item
-                                                            :key new-key
-                                                            :former-key old-key)
+                              (assoc new-key (cond-> (-> item
+                                                          (assoc :key new-key)
+                                                          (content-recon/record-former-key old-key))
                                                new-name (assoc :name new-name))))
 
             ;; Step 2: Find content types that reference this type

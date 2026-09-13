@@ -31,6 +31,7 @@
             [bidi.bidi :as bidi]
             [orcpub.common :as common]
             [orcpub.route-map :as route-map]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
             [orcpub.email :as email]
@@ -1795,44 +1796,35 @@
            classes)))))
 
 (def index-page-paths
-  [[route-map/dnd-e5-char-list-page-route]
-   [route-map/dnd-e5-char-parties-page-route]
-   [route-map/dnd-e5-monster-list-page-route]
-   [route-map/dnd-e5-monster-page-route :key ":key"]
-   [route-map/dnd-e5-spell-list-page-route]
-   [route-map/dnd-e5-spell-page-route :key ":key"]
-   [route-map/dnd-e5-spell-builder-page-route]
-   [route-map/dnd-e5-monster-builder-page-route]
-   [route-map/dnd-e5-selection-builder-page-route]
-   [route-map/dnd-e5-background-builder-page-route]
-   [route-map/dnd-e5-encounter-builder-page-route]
-   [route-map/dnd-e5-combat-tracker-page-route]
-   [route-map/dnd-e5-race-builder-page-route]
-   [route-map/dnd-e5-subrace-builder-page-route]
-   [route-map/dnd-e5-subclass-builder-page-route]
-   [route-map/dnd-e5-class-builder-page-route]
-   [route-map/dnd-e5-language-builder-page-route]
-   [route-map/dnd-e5-invocation-builder-page-route]
-   [route-map/dnd-e5-boon-builder-page-route]
-   [route-map/dnd-e5-feat-builder-page-route]
-   [route-map/dnd-e5-item-list-page-route]
-   [route-map/dnd-e5-item-page-route :key ":key"]
-   [route-map/dnd-e5-item-builder-page-route]
-   [route-map/dnd-e5-char-builder-route]
-   [route-map/dnd-e5-newb-char-builder-route]
-   [route-map/dnd-e5-my-content-route]
-   [route-map/send-password-reset-page-route]
-   [route-map/my-account-page-route]
-   [route-map/register-page-route]
-   [route-map/login-page-route]
-   [route-map/verify-sent-route]
-   [route-map/password-reset-sent-route]
-   [route-map/password-reset-expired-route]
-   [route-map/password-reset-used-route]
-   [route-map/verify-failed-route]
-   [route-map/verify-success-route]
-   [route-map/unsubscribe-success-route]
-   [route-map/dnd-e5-orcacle-page-route]])
+  (concat
+   [[route-map/dnd-e5-char-list-page-route]
+    [route-map/dnd-e5-char-parties-page-route]
+    [route-map/dnd-e5-monster-list-page-route]
+    [route-map/dnd-e5-monster-page-route :key ":key"]
+    [route-map/dnd-e5-spell-list-page-route]
+    [route-map/dnd-e5-spell-page-route :key ":key"]
+    [route-map/dnd-e5-combat-tracker-page-route]
+    [route-map/dnd-e5-item-list-page-route]
+    [route-map/dnd-e5-item-page-route :key ":key"]
+    [route-map/dnd-e5-item-builder-page-route]
+    [route-map/dnd-e5-char-builder-route]
+    [route-map/dnd-e5-newb-char-builder-route]
+    [route-map/dnd-e5-my-content-route]
+    [route-map/send-password-reset-page-route]
+    [route-map/my-account-page-route]
+    [route-map/register-page-route]
+    [route-map/login-page-route]
+    [route-map/verify-sent-route]
+    [route-map/password-reset-sent-route]
+    [route-map/password-reset-expired-route]
+    [route-map/password-reset-used-route]
+    [route-map/verify-failed-route]
+    [route-map/verify-success-route]
+    [route-map/unsubscribe-success-route]
+    [route-map/dnd-e5-orcacle-page-route]]
+   ;; the homebrew builder pages that serve the SPA — generated from the content-types
+   ;; registry, so a new homebrew type is allow-listed automatically (no edit here).
+   (map (fn [{:keys [route-kw]}] [route-kw]) ct/content-types)))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")
@@ -1899,6 +1891,11 @@
 
 (def get-image get-file)
 
+;; The app-shipped demo-content pack (resources/public/demo/*), fetched at boot.
+;; Explicit route like the other asset prefixes — routing here is prefix-based
+;; with no general resource catch-all, so a new prefix needs its own entry.
+(def get-demo get-file)
+
 (def get-favicon get-file)
 
 (def webjars-root "META-INF/resources/webjars/")
@@ -1921,6 +1918,7 @@
        ["/css/*" {:get `get-css}]
        ["/assets/*" {:get `get-webjar}]
        ["/image/*" {:get `get-image}]
+       ["/demo/*" {:get `get-demo}]
        ["/favicon/*" {:get `get-favicon}]
        [(route-map/path-for route-map/register-route)
         {:post `register}]

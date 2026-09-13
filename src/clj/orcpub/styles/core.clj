@@ -262,6 +262,316 @@
     {:align-items :flex-end}]
    [:.flex-wrap
     {:flex-wrap :wrap}]
+   ;; ==== BUILDER-FORM CSS: START ====================================================
+   ;; Everything between these sentinels is rendered by the declarative builder framework, and is
+   ;; gated by builder_class_names_test: each class must be prefixed (bf-/opt-/select-menu) or on
+   ;; that test's allow-list. Move the sentinels if the block moves — the test says so when it
+   ;; cannot find them. See docs/kb/before-you-start.md.
+   ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
+   ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
+   ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
+   ;; Keep the two in step: the mockup is the design record and this is its implementation.
+   [:.effect-row
+    {:border "1px solid rgba(255,255,255,0.14)"
+     :border-radius "6px"
+     :overflow :hidden}]
+   [:.effect-row-header
+    {:background-color "rgba(240,161,0,0.10)"
+     :border-bottom "1px solid rgba(255,255,255,0.14)"
+     :padding "8px 12px"}
+    [:span
+     {:color "var(--accent, #f0a100)"
+      :font-size "13px"
+      :letter-spacing "0.04em"}]]
+   ;; A dashed outline chip reads as "there is more you could add", where a solid button reads as
+   ;; "do this now" — an add-bar of solid buttons competes with Save.
+   ;; --accent, not the literal. port/redesign-on-refactor makes the accent a per-theme token
+   ;; (themes.cljs: Classic and Dwarven #f0a100, Arcane #7c8cff) and wires it as a CSS var; the
+   ;; fallback keeps this identical until that lands. Hardcoding the orange would have made every
+   ;; builder chip the wrong colour under any theme but the default.
+   [:.chip
+    {:background :transparent
+     :border "1px dashed var(--accent, #f0a100)"
+     :border-radius "20px"
+     :color "var(--accent, #f0a100)"
+     :padding "5px 13px"
+     :font-size "12.5px"
+     :font-weight 700
+     :cursor :pointer}]
+   [:.tags
+    {:gap "8px 10px"}]
+   [:.tag
+    {:display :flex
+     :flex-direction :column
+     :gap "3px"}
+    ;; width:auto is the point — a tag is two words, not a page, and seven page-wide selects were
+    ;; the flat form's wall.
+    [:select
+     {:width :auto
+      :min-width "104px"
+      :padding "5px 8px"
+      :font-size "12.5px"}]
+    ]
+   [:.tag-label
+    {:font-size "11.5px"
+     :color "rgba(255,255,255,0.55)"}]
+   [:.when-label
+    {:color "rgba(255,255,255,0.55)"
+     :font-size "12px"
+     :text-transform :uppercase
+     :letter-spacing "0.07em"
+     :margin "2px 0 7px"}]
+   ;; Declarative fields FLOW; they do not each take a page width. A hand-written form put Level
+   ;; and School on one row and ran the checkboxes inline, and a generated form has to do the same
+   ;; or it trades the page's cohesion for brevity in the source. Sizes are intrinsic to the field
+   ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
+   ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
+   ;; tighter sizing.
+   ;; A GRID, not a flex row. Flexbox distributes leftover space per ROW, so every row laid itself
+   ;; out independently: measured on the spell form, the second control started at x=611, 332 and
+   ;; 607 on three consecutive rows, and Casting Time came out 318px wide against Duration's 573px
+   ;; — the same kind of field at different widths, because they landed in rows with different item
+   ;; counts. Fixed tracks make a field's width depend on the field, not on its neighbours.
+   ;;
+   ;; It also restores the hand-written pairing for free: with :text spanning two columns, Casting
+   ;; Time and Range fall onto one row and Duration onto the next, which is what the original did.
+   [:.bf-flow
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"
+     :align-items :end}
+    [:> [:.bf-field {:margin-bottom "0 !important"
+                     :grid-column "span 1"
+                     :min-width 0}]]
+    [:> [:.bf-field-text       {:grid-column "span 2"}]]
+    [:> [:.bf-field-number     {:grid-column "span 1"}]]
+    [:> [:.bf-field-boolean    {:grid-column "span 1"}]]
+    [:> [:.bf-field-multi-enum {:grid-column "1 / -1"}]]
+    [:> [:.bf-field-wide       {:grid-column "span 2"}]]
+    ;; A <input list=…> is a dropdown-with-typing, but Chromium draws it as a plain box: nothing on
+    ;; screen said the suggestions existed, so the combos read as text fields and the feature was
+    ;; invisible. Borrow the select's chevron.
+    [:> [:.bf-field-combo
+         [:input
+          {:background-image "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.55)' stroke-width='2' fill='none'/></svg>\")"
+           :background-repeat :no-repeat
+           :background-position "right 12px center"
+           :padding-right "32px"}]]]
+    [:> [:.bf-field-full       {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-stack       {:grid-column "span 1"}]]
+    [:> [:.bf-break            {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-row         {:grid-column "1 / -1"}]]]
+   ;; toggles that are the whole row: adjacent, not one per grid track
+   [:.bf-bool-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "8px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
+   ;; two 16px rows — the children kept their own margins and the column inherited the flow's
+   ;; leading — so it overshot the 42px select beside it top and bottom. Explicit gap, no child
+   ;; margins, and it sits on the same baseline as the inputs it accompanies.
+   [:.bf-bool-stack
+    {:flex "0 0 auto"
+     :display :flex
+     :flex-direction :column
+     :justify-content :center
+     :gap "8px"
+     :min-height "42px"
+     :margin-right "14px"
+     :align-self :flex-end
+     :padding-bottom "4px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; No margin rule for .bf-section: every titled section is now an .opt-section card, and the
+   ;; card carries its own margin-bottom. (A `:not()` selector here is not valid Clojure — the
+   ;; reader takes `.opt-section` inside parens for a member expression — and garden failed to
+   ;; compile, which is silent unless you read its exit code.)
+   ;; a section heading, or a :rows node, owns its own line
+   [:.bf-break
+    {:flex "1 1 100%"
+     :width "100%"}]
+   [:.form-head
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"}
+    [:.form-col {:grid-column "span 2"
+                 :min-width 0}]]
+
+   ;; Narrow screens get fewer tracks rather than four squeezed ones. These MUST come after the
+   ;; base rules: same specificity, so source order decides, and declared first they lost to
+   ;; .form-head's four-track default — Name and Option Source stayed side by side at 390px with
+   ;; the source input clipped mid-word.
+   (at-media {:max-width "900px"}
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}]
+             ;; tablet: name and source stay side by side, one track each
+             [:.form-head {:grid-template-columns "repeat(2, 1fr)"}
+              [:.form-col {:grid-column "span 1"}]])
+   ;; Phones keep TWO tracks, not one. The hand-written form paired Level and School at 390px and
+   ;; two short selects genuinely do fit; collapsing every field to its own row cost ~270px of
+   ;; scrolling for no gain. Only the wide things take the full width.
+   (at-media {:max-width "600px"}
+             ;; Only :enum pairs on a phone — two short selects fit and everything else wants the
+             ;; width. Leaving :number at one track left a lone half-width box among full-width
+             ;; ones, which is the inconsistency it looked like.
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}
+              [:> [:.bf-field-text {:grid-column "span 2"}]]
+              [:> [:.bf-field-combo {:grid-column "span 2"}]]
+              [:> [:.bf-field-number {:grid-column "span 2"}]]
+              [:> [:.bf-field-wide {:grid-column "span 2"}]]
+              ;; the flags read better side by side than stacked once the screen is narrow
+              [:> [:.bf-bool-stack {:grid-column "span 2"
+                                    :flex-direction :row
+                                    :flex-wrap :wrap
+                                    :align-self :start
+                                    :min-height 0
+                                    :padding-bottom 0}]]]
+             ;; name and source are both text and each wants the width
+             [:.form-head {:grid-template-columns "1fr"}
+              [:.form-col {:grid-column "span 1"}]])
+   [:.effect-row-body
+    {:padding "12px"}]
+   ;; A toggle chip and an ACTION chip must not look alike. In the add-bar a chip means "click to
+   ;; add"; in a :multi-enum it means "this is/is not chosen". Same shape, different question — so
+   ;; an unchosen toggle is muted, and a chosen one is solid orange, which also keeps the form's
+   ;; one rule intact: a thing carrying a value is orange.
+   [:.chip-row
+    {:gap "8px"
+     :margin-bottom "6px"}]
+   ;; ── section cards: ported from port/redesign-on-refactor (option_menu_views/card) ────────
+   ;; The suggested spell-builder page is built out of these — a flat card per section with an
+   ;; amber accent tab beside the title. Verbatim apart from the accent becoming a var. Note its
+   ;; own comment about dropping legacy `.field` margins inside a card: that is the same global
+   ;; `.field {margin-top:30px}` that made a mess of the builder rows here.
+   [:.opt-section
+    ;; DEVIATION from the verbatim port, and the reason for it: the literal #1b232f was chosen
+    ;; against the mock's #161d27 page — a +6 lift, barely there. This builder page sits on
+    ;; rgb(8,10,13), so the same literal lifts +19 and the cards read as chunky pale blocks rather
+    ;; than a grouping. A translucent white overlay lifts RELATIVE to whatever is behind it, so it
+    ;; lands the same on both pages and survives the redesign's light/dark work instead of needing
+    ;; a second literal.
+    {:background "rgba(255,255,255,0.035)"
+     :border "1px solid rgba(255,255,255,0.08)"
+     :border-radius "14px"
+     :padding "20px 22px 22px"
+     ;; margin on the TOP, not the bottom. With margin-bottom the first card butted straight into
+     ;; the stat fields above it — a measured gap of 0px — because nothing preceded it to supply
+     ;; the space. Top margin gives every card the same 18px run-in, including the first.
+     :margin-top "18px"
+     :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+    [:.field {:margin-top "0"}]
+    [:.input {:margin-top "0"}]]
+   [:.opt-section-head
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "10px"
+     :margin-bottom "14px"}]
+   [:.opt-section-accent
+    {:width "4px"
+     :height "18px"
+     :border-radius "3px"
+     :background "var(--accent, #f0a100)"
+     :flex "0 0 auto"}]
+   [:.opt-section-accent.tall
+    {:height "22px"}]
+   [:.opt-section-title
+    {:font-size "clamp(19px, 3vw, 22px)"
+     :font-weight 700
+     :color "#f3f6fa"
+     :letter-spacing "-0.005em"
+     ;; wrap INSIDE this box rather than wrapping the whole title below the accent bar. The head is
+     ;; flex-wrap (the mock puts a count pill beside the title), so a long title on a narrow screen
+     ;; broke to its own line and stranded the accent alone above it — visible at 390px on
+     ;; "Add This Spell to Which Class Spell Lists?".
+     :flex "1 1 auto"
+     :min-width 0}]
+
+   ;; ── select-menu: ported from port/redesign-on-refactor (3384d4c5) ────────────────────────
+   ;; Kept as close to the original as possible so the merge is a delete rather than a
+   ;; reconciliation; the accent is the one deliberate change (var, per themes.cljs).
+   [:.select-menu
+    {:position :relative}]
+   [:.select-menu-btn
+    {:width "100%"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :gap "8px"
+     :background "rgba(0,0,0,0.3)"
+     :border "1px solid rgba(255,255,255,0.12)"
+     :border-radius "8px"
+     :color "#e7ecf2"
+     :font-size "14px"
+     :font-family :inherit
+     :padding "10px 12px"
+     :cursor :pointer}]
+   [:.select-menu-btn:hover
+    {:border-color "rgba(255,255,255,0.2)"}]
+   [:.select-menu-chev
+    {:display :inline-flex
+     :flex "0 0 auto"
+     :transition "transform .15s"}]
+   [:.select-menu-chev.open
+    {:transform "rotate(180deg)"}]
+   [:.select-menu-pop
+    {:position :absolute
+     :top "calc(100% + 4px)"
+     :left 0
+     :right 0
+     :z-index 30
+     :background "#0d1218"
+     :border "1px solid rgba(255,255,255,0.14)"
+     :border-radius "8px"
+     :overflow-y :auto
+     :max-height "320px"
+     :box-shadow "0 14px 30px -8px rgba(0,0,0,0.8)"}]
+   [:.select-menu-opt
+    {:display :block
+     :width "100%"
+     :text-align :left
+     :border :none
+     :cursor :pointer
+     :font-family :inherit
+     :font-size "14px"
+     :color "#e7ecf2"
+     :background :transparent
+     :padding "9px 12px"}]
+   [:.select-menu-opt:hover
+    {:background "rgba(255,255,255,0.06)"}]
+   [:.select-menu-opt.active
+    {:background "rgba(240,161,15,0.14)"
+     :color "var(--accent, #f0b54a)"}]
+   ;; a tag inside an effect row is two words, not a page — the compact form of the same control
+   [:.tag
+    [:.select-menu-btn
+     {:padding "5px 8px"
+      :font-size "12.5px"
+      :border-radius "4px"}]]
+   ;; and the one carrying an actual restriction is picked out
+   [:.bf-enum.set
+    [:.select-menu-btn
+     {:border-color "var(--accent, #f0a100)"
+      :color "var(--accent, #f0a100)"}]]
+
+   ;; A TOGGLE chip answers "is this set?"; an ACTION chip (the add-bar) answers "do you want to add
+   ;; this?". Same shape, opposite question, so an unset toggle must not look like an action — it
+   ;; did, everywhere except :multi-enum, the moment every checkbox became a chip.
+   [:.chip-toggle
+    {:border-color "rgba(255,255,255,0.3)"
+     :color "rgba(255,255,255,0.55)"}]
+   [:.chip-toggle.chip-on
+    {:background-color "rgba(240,161,0,0.15)"
+     :border-style :solid
+     :border-color "var(--accent, #f0a100)"
+     :color "var(--accent, #f0a100)"}]
+
+   [:.row-lead-num
+    {:width "92px"
+     :flex "0 0 92px"}
+    [:input
+     {:text-align :center
+      :font-weight 700}]]
+   ;; ==== BUILDER-FORM CSS: END ======================================================
 
    [:.w-auto
     {:width :auto}]
@@ -1430,6 +1740,53 @@
                [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
                [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
 
+    ;; Demo/example content tier: a pinned, teal-tinted source row in My Content
+    ;; plus the On/Off switch that hides the pack. Teal marks it as app-shipped
+    ;; example content, distinct from the user's own homebrew sources.
+    [:.demo-source
+     {:border-left "3px solid #1aa8a0"
+      :background-color "rgba(26,168,160,0.08)"
+      :transition "opacity 0.15s ease, margin 0.15s ease, background-color 0.15s ease"}
+     [:.demo-source-row {:padding "20px"}]]
+    ;; Off: the row recedes — grey instead of teal, dimmed, shrunk to about the
+    ;; toggle's height, and inset a little so it reads as parked, not active.
+    [:.demo-source.off
+     {:border-left-color "#6b6b6b"
+      :background-color "rgba(255,255,255,0.03)"
+      :opacity 0.55
+      :margin "6px 12px"
+      :border-radius "8px"
+      :border-bottom 0}
+     [:.demo-source-row {:padding "4px 12px"}]
+     [:.demo-badge
+      {:background-color "rgba(255,255,255,0.10)" :color "#b8b8b8"}
+      [:.lib-dot {:background-color "#8a8a8a"}]]]
+    [:.demo-badge
+     {:background-color "rgba(26,168,160,0.20)" :color "#7fd6cf"}
+     [:.lib-dot {:background-color "#1aa8a0"}]]
+    [:.pretty-toggle
+     {:position :relative
+      :display :inline-flex
+      :flex-shrink 0
+      :width "46px"
+      :height "24px"
+      :border-radius "999px"
+      :background-color "rgba(255,255,255,0.25)"
+      :transition "background-color 0.15s ease"}
+     [:.pretty-toggle-knob
+      {:position :absolute
+       :top "2px"
+       :left "2px"
+       :width "20px"
+       :height "20px"
+       :border-radius "50%"
+       :background-color "#ffffff"
+       :box-shadow "0 1px 2px rgba(0,0,0,0.4)"
+       :transition "left 0.15s ease"}]]
+    [:.pretty-toggle.on
+     {:background-color "#1aa8a0"}
+     [:.pretty-toggle-knob {:left "24px"}]]
+
     [:.roll-button
      {:color :white
       :min-width "68px"
@@ -2251,7 +2608,10 @@
       :border-radius "6px"
       :width "100%"
       :max-width "620px"
-      :max-height "84vh"
+      ;; 100% is the backdrop's content box, which SHRINKS while the cookie notice is up (the
+      ;; backdrop stops above it) and grows back when it goes. 84vh alone would overflow into
+      ;; the notice on a short viewport.
+      :max-height "min(84vh, 100%)"
       :display :flex
       :flex-direction :column
       :overflow :hidden

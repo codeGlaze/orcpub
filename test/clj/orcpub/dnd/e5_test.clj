@@ -258,6 +258,10 @@
     :ns "orcpub.dnd.e5.races" :base {:option-pack "Pack"}}
    {:label "subrace"    :spec ::races5e/homebrew-subrace
     :ns "orcpub.dnd.e5.races" :base {:option-pack "Pack" :race :elf}}
+   {:label "draconic-ancestry" :spec ::races5e/homebrew-draconic-ancestry
+    :ns "orcpub.dnd.e5.races" :base {:option-pack "Pack"
+                                     :breath-weapon {:damage-type :fire :area-type :line
+                                                     :save :orcpub.dnd.e5.character/dex}}}
    {:label "feat"       :spec ::feats5e/homebrew-feat
     :ns "orcpub.dnd.e5.feats" :base {:option-pack "Pack"}}
    {:label "background" :spec ::backgrounds5e/homebrew-background
@@ -271,6 +275,8 @@
     :ns "orcpub.dnd.e5.encounters" :base {:option-pack "Pack"}}
    {:label "selection"  :spec ::selections5e/homebrew-selection
     :ns "orcpub.dnd.e5.selections" :base {:option-pack "Pack"}}
+   {:label "fighting-style" :spec ::classes5e/homebrew-fighting-style
+    :ns "orcpub.dnd.e5.classes" :base {:option-pack "Pack"}}
    {:label "spell"      :spec ::spells5e/homebrew-spell
     :ns "orcpub.dnd.e5.spells" :base {:option-pack "Pack" :school "evocation"
                                       :level 1 :spell-lists {:wizard true}}}])

@@ -1,8 +1,108 @@
 # Agent Knowledge Base
 
-Deep-dive reference docs for AI agents working on this project. These contain full decision history, research results, and corrections that are too detailed for the human-facing migration docs.
+Verified, research-backed findings from in-depth investigations. Each document is sourced from
+direct inspection of code, logs, or authoritative references. Speculation is marked
+**⚠️ UNVALIDATED SPECULATION** and must not be treated as fact without further verification.
 
-## Documents
+Two knowledge bases were merged here on 2026-09-13 when `feature/grant-rows` was pulled into
+`agents/develop`: the Fall Update content-extensibility track (51 docs, indexed first) and the
+agent/operations KB (73 docs, indexed second). Neither was a superset of the other, and both
+sides had been written blind to the other's findings.
+
+## Start here
+
+| If you are | Read |
+| --- | --- |
+| Taking over the Fall Update content work | [roadmap.md](roadmap.md), then [handoff-grant-rows.md](handoff-grant-rows.md) |
+| Looking for which doc owns a topic | [topic-index.md](topic-index.md) |
+| New to the codebase | [namespace-architecture.md](namespace-architecture.md) |
+| About to touch a builder, a control, or CSS | [before-you-start.md](before-you-start.md) |
+| Writing a doc | [documentation-discipline.md](documentation-discipline.md) · [verification-discipline.md](verification-discipline.md) |
+
+## Index
+### Plan & status
+| Document | Topic |
+|----------|-------|
+| [plan-next.md](plan-next.md) | **The working list.** What to build next, ordered, with what each item unblocks and roughly how big. One hard dependency; the rest can move. | Working list |
+| [roadmap.md](roadmap.md) | **START HERE — what this branch is.** The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
+
+### Content-extensibility track (the pool/grant initiative)
+| Document | Topic | Source quality |
+|----------|-------|---------------|
+| [handoff-grant-rows.md](handoff-grant-rows.md) | **Taking over `feature/grant-rows`? Start here.** Where the branch is, what is proven, and the eight steps in order with an acceptance test each — shim registry, the `:ref` decision, the other silos, effect kinds, E3, the one-liner, spells. Plus the rules that bit and the don'ts. | High — written at handoff |
+| [pool-grant-map.md](pool-grant-map.md) | **Start here for anything pool/grant.** The whole web on one page: the three layers, a REAL-vs-AIR ledger with dates and provenance, the dependency graph between the open pieces, why spells are closer to a pool than they look, and the three claims this area got wrong by designing before grepping. | High — code-verified ledger |
+| [content-extensibility-direction.md](content-extensibility-direction.md) | **Canonical detail + direction for the content track** (v2 spine): the pool+grant model, the one principle (an abstraction must be thicker than what it hides), the variant forward-compat seam, and the next levers/pins. | Mixed — verified + DESIGN flagged |
+| [content-extensibility-decisions.md](content-extensibility-decisions.md) | The numbered decision log (**D1–D34**) — how each decision was reached, incl. the prototype-then-converge governance (D23), the grant conflict (D29/D30), and the vocabulary/AC duplication findings (D31). | Decision record |
+| [content-extensibility-framework.md](content-extensibility-framework.md) | How-to reference for the registry-driven content system (mental model + schema + add-a-type + invariants). | High — code + design |
+| [content-extensibility-compatibility.md](content-extensibility-compatibility.md) | Inventory of the persisted data formats (saved characters, `.orcbrew`) the refactor must not break — the backward-compat invariants. | High — format inventory |
+| [content-extensibility-e2e.md](content-extensibility-e2e.md) | Live end-to-end verification checklist (what the JVM gate can't cover; for a browser/figwheel run). | Checklist |
+| [registry-before-after.md](registry-before-after.md) | Representative before/after of adding a content type (Pact Boon) — scattered wiring vs the registry-driven path. | High — code |
+| [content-extensibility.md](content-extensibility.md) · [content-extensibility-plan.md](content-extensibility-plan.md) | ⚠️ **HISTORY (superseded)** by the direction doc — read as "what was tried," not the live plan. | Historical |
+
+### Verified topic / reference
+| Document | Topic | Source quality |
+|----------|-------|---------------|
+| [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo emits and which assembly fn compiles them. Includes the verified A/B grant-vocabulary comparison (shared primitive, B is level-gated, cljc/cljs layer split). | Medium-High — call-graph verified; key claims now test-backed |
+| [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def). | High — code |
+| [key-collision-behavior.md](key-collision-behavior.md) | What happens when content keys collide, **per layer**: classes/races/spells → homebrew OVERRIDES built-in (predictable, plugin-wins); subraces/pools/lists → coexist; import → conflict modal. The "duplicate keys" map. Includes the two later-traced corrections (plugin-vs-plugin winner is **hash-order/nondeterministic**; spell-list membership **unions** across duplicates). | High — traced + test-backed (`key_collision_test`) |
+| [content-tiers-and-key-resolution.md](content-tiers-and-key-resolution.md) | **Design direction**: the "≤1 *enabled* item per key" invariant + disable-based duplicate resolution; three content provenance tiers (owned/example/variant) in one store; versioned self-updating example content with copy-on-edit graduation; library-management UX (show/search/count disabled, hide empty categories); move-between-sources; and the suggested branch decomposition. | Mixed — verified refs + DESIGN flagged |
+| [spell-granting-across-silos.md](spell-granting-across-silos.md) | Why feats/races/classes grant spells differently when they bottom out at the same primitives (`spells-known`, `spell-selection`); the per-silo wrappers, the gaps, the route-one-key fix. | High — chain traced; some paths flagged NOT-TESTED |
+| [spell-slot-progression.md](spell-slot-progression.md) | How spell *slots* are computed: the overloaded `:level-factor` (table + multiclass + prepared count; why Artificer can't be expressed), warlock pact vs normal multiclassing, and the bucket-of-tables design. Test-backed (`spell_slot_characterization_test`). | High — traced + tested |
+| [declarative-grant-vocabulary.md](declarative-grant-vocabulary.md) | DESIGN: a builder-UI vocabulary (`<grant spell>` / `<select spell>` + filters) compiling to existing primitives; the Magic-Initiate special case; open scope flags. | Mixed — verified + DESIGN |
+| [class-features-and-mechanization.md](class-features-and-mechanization.md) | How class features are structured (inline, class-coupled, captured code), the rolling layer + mechanization ceiling, the registry/`compile-feature` direction (data spec → real fighter/rogue output, overridable fields). | Mixed — VERIFIED/USER-REPORTED/SPECULATION flagged |
+| [class-feature-catalogue.md](class-feature-catalogue.md) | Per-class inventory of all 12 base classes (C1): distinct auto-features, sizing, and the odd cases the registry must handle (multi-source counts, resource pools, build-context interpolation, multi-part features, attribute interdependence). | High — all 12 read |
+| [building-a-class-from-builders.md](building-a-class-from-builders.md) | What a homebrew class can be assembled from today: the `homebrew-class` spec, what `subclass-option`/`spellcasting-template` accept, the invocation/boon pool pattern, the `ua_artificer` witness, and the real gaps. | High — code |
+| [armor-class-computation.md](armor-class-computation.md) | How AC is computed (max-of-alternatives + sum-of-bonuses), the channels, custom-AC friction. Test-backed (`ac_characterization_test`: armored dex-cap, unarmored tie-break, natural-AC duplication; the `:max-dex-mod`-ignored + cljs-nil-add findings). | High — traced + tested |
+| [runtime-toggles-and-conditional-modifiers.md](runtime-toggles-and-conditional-modifiers.md) | How a player toggle (equipped armor/magic items) changes computed sheet stats — the `equipped?`-flag + deferred-modifier mechanism; basis for "while active" features. | High — code |
+| [ability-increase-spreads.md](ability-increase-spreads.md) | `:ability-increases` as `[amount pool]` pairs, the `:save` rider, multi-silo containment, the feat dual-format reader. Decision D33. | High — JVM + cljs + E2E |
+| [dropdown-value-coercion.md](dropdown-value-coercion.md) | The `<select>`-yields-a-string footgun and the `:typed?` template. Decision D32. | High |
+| [starting-equipment.md](starting-equipment.md) | Starting-equipment data shape, consumption, the class-builder UI, and the base+delta export encoding (`collapse-class`/`expand-class`). | High |
+| [custom-content-lifecycle.md](custom-content-lifecycle.md) | The three custom-content mechanisms (inline custom, full builders, server-backed magic items) and the false-flagged reconciliation. | High |
+| [content-tiers-and-key-resolution.md](content-tiers-and-key-resolution.md) · [key-collision-behavior.md](key-collision-behavior.md) · [library-management-and-conflicts.md](library-management-and-conflicts.md) · [keyword-trap-name-repair.md](keyword-trap-name-repair.md) · [orcbrew-format-versioning.md](orcbrew-format-versioning.md) · [demo-content-tier.md](demo-content-tier.md) | Content library, key resolution, import/export conflicts, format versioning, and the demo tier. | High |
+| [built-character-representation.md](built-character-representation.md) | Two halves of the entity-spec engine: READING a built character (deferred `:entity-fn?` values, `entity-val`, why it has no flat spec) and WRITING against it (`?attr` refs are rewritten at compile time, so only a MACRO can splice one into generated code — the rule that decides what is expressible, and why the Dual Wielder feat was hand-written for years). | High — code |
+
+### Search surfaces
+| Document | Topic |
+|----------|-------|
+| [topic-index.md](topic-index.md) | **Generated search surface** — every document with its distinctive vocabulary and section headings. Use it to find which document owns a topic. For *whether* something has been looked at, grep the corpus: `grep -ril "<term>" docs/kb/` — measured, that answers more than any index here does. Regenerate with `lein with-profile +tools run -m orcpub.topic-index`. |
+| [before-you-start.md](before-you-start.md) | **Review lessons indexed by TASK, not by topic.** What to check before designing a control, adding a CSS class, changing how something is rendered, converting a builder, borrowing a value from a mock, or believing a CSS change worked. Every entry is a rule a review had to supply, with one line of evidence. |
+
+### Builders + authored mechanics (this branch, 2026-09)
+| Document | Topic | Source quality |
+|----------|-------|---------------|
+| [builder-form-schemas.md](builder-form-schemas.md) | **Read before touching a builder form.** The three content tiers, what is shipped vs proposed, the `:rows` node design and its D9 storage-shape question, the Track E plan (E0–E5) with acceptance tests, why triggers are sheet entries not conditions, and the corrected 16-builder census. | Mixed — measured + DESIGN flagged |
+| [builder-disposition-audit.md](builder-disposition-audit.md) | **Read before converting any of the six unconverted builders.** Every widget in race, subrace, class, subclass, background and monster: what it writes, what reads it, and what it becomes (GRANT row / EFFECT row / typed field / shared / bespoke). 35 widget instances become one node. Monster is a stat block and grants nothing; the four pools still to register; two open design points. | High — measured from the assembly paths |
+| [feat-builder-audit.md](feat-builder-audit.md) | **Read before converting or extending the feat builder.** Widget → `:props` key → compiler arm for all 14 widgets. The grant/select verb split (both halves built, wired to opposite silos), the six AC/weapon props the compiler accepts and the builder cannot author, one dead control, the unlisted third grant vocabulary in the Custom Feat path, and why feat is last rather than next. Records the five storage shapes one language question is persisted in, and `grant-selection` — the generic pool-agnostic, owner-agnostic hook that collapses them, now wired to a second silo (`race-option`) with `:languages` registered. | High — builder diffed against compiler |
+| [builder-conversion-gallery.md](builder-conversion-gallery.md) | **Pictures.** Each converted builder form side by side with the bespoke one it replaced — real app, captured by script — plus the measurements (controls, ambiguous labels, page height) and the code for each pair. Includes the numbers that do *not* flatter the change. | High — measured |
+| [fighting-style-authoring.md](fighting-style-authoring.md) | The fighting-style **decisions**: feat-grant wired; the class-path divvying rule (`:classes`, absent = all); the `:ref` footgun; Phase B (builder) — now built. | High — decision record |
+| [fighting-style-vocabulary-gap.md](fighting-style-vocabulary-gap.md) | What a style builder must express, measured against 14 published styles: 3 authorable, engine hooks for 8, the wielding-predicate need, what only engine work can reach. Includes the round-trip and usability E2E results. | High — measured |
+| [armor-class-refactor.md](armor-class-refactor.md) | **The current AC model** + the refactor ledger: universal authored shape, channel trim 18→10, engine namespace, parity sweep at 0, the bucketing rejection (measured), the Bracers bug, corrections. `armor-class-computation.md` is its historical predecessor. | High — traced + tested |
+| [requirements-registry.md](requirements-registry.md) | **Reference for `requirements.cljc`** — the facts an effect can gate on (`:dual-wielding?`, `:armored?`), the entry shape, the three gates, the three-state semantics, how to add one, and why entries hold predicates over a context rather than condition forms (a macro captures forms at compile time, so a runtime registry of them is unbuildable). Design record at the tail. | DESIGN — evidence verified |
+| [authoring-vocabulary.md](authoring-vocabulary.md) | **Read before adding a tag, condition, or one of the little lookup tables.** What `::melee?` means, why `tag->flag` cannot be derived (three of thirteen are spelled differently), the shared three-state / unknown-tags-ignored semantics and the forward-compatibility they buy, and the real test for whether a table earns its place — "how many places must agree", not "how many entries". | High — code-verified |
+| [edition-drift.md](edition-drift.md) | 2014 vs 2024 two-weapon fighting, and which LAYER each difference hits — content values, which vocabulary applies, where a fact is stored, how content is categorised. All four absorbed by the current shapes. Includes two data traps: Light Crossbow is not Light, and the Dual Wielder implementation dropped "melee". | Measured from 5etools data |
+| [weapon-data-model.md](weapon-data-model.md) | Every field on a weapon, derived from the loaded data: absent-vs-false flags, three fields missing their `?`, maps that look like flags, and the invariants the attack vocabulary leans on. | High — data-derived |
+| [homebrew-override.md](homebrew-override.md) | The mug icon: a per-selection switch that waives *selection* rules and never touches computed values — the design consequence for restrictions. | High — code |
+| [rules-override-layer.md](rules-override-layer.md) | PROPOSAL, cross-branch: DM-issued grants/permissions as a ledger above the silos; naming candidates; should ride `:props`. | DESIGN |
+| [frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md) | **Read before styling anything.** `port/redesign-on-refactor` is a theme-token design system (themes as data, per-theme `:accent` wired to `--accent`, a 610-line searchable option picker). The builder CSS now consumes `var(--accent)`; the light/dark surface tokens are an open follow-up. | High — read from the branch |
+| [fonts.md](fonts.md) | Open Sans self-hosted; CSP tightened; regeneration recipe. | High |
+
+### Process & infrastructure
+| Document | Topic |
+|----------|-------|
+| [verification-discipline.md](verification-discipline.md) | Lessons on assumptions/thoroughness + the **standing rule**: don't call it verified without walking it up and down and backing it with a falsifiable test (or the full chain); and how a characterization test doubles as the old-vs-new comparison instrument. |
+| [data-safety-layers.md](data-safety-layers.md) | **Standing design rule** for robustness against bad data: the four layers (prevent / harden / heal / surface), the rule that picks between them by lifecycle, the `save ⊆ load` + diagnosable-rejection invariants, worked examples, and anti-patterns (silent-drop, speculative-heal). From the cross-branch toggle-nil review. |
+| [cljs-headless-harness.md](cljs-headless-harness.md) | How to run the cljs test suite headless in a container (compile `fig:test` → serve `target/test` → Playwright Chromium) — the gate for cljs-only code; plus the full-app click-through E2E (`test/e2e/`). |
+| [dropdown-value-coercion.md](dropdown-value-coercion.md) | The `<select>`-always-yields-a-string footgun — bit this branch twice (breath weapon, then floating ASI) because the first fix lived only in a code comment — and the `:typed?` template that round-trips the value's type. Decision **D32**. | High — git-verified provenance + E2E-backed |
+| [ability-increase-spreads.md](ability-increase-spreads.md) | `:ability-increases` as terse `[amount pool]` pairs — fixed/floating/Tasha's "+2/+1"/arbitrary custom spreads, the "different abilities" rule, the opt-in `:save` rider, the standalone `:save-proficiencies` tool, multi-silo containment, and the feat dual-format reader. Compile + assign-from-bag widget + authoring. Decisions **D33** (terse export data). | High — JVM + cljs + E2E-backed |
+| [documentation-discipline.md](documentation-discipline.md) | When a change earns a doc; update in place vs record reversals; current-truth-first structure; the audit history; the git-push reminder hook. |
+| [backfill-ledger.md](backfill-ledger.md) | Living list for converging bespoke paths onto the pool/grant standard (D29) + deprecating code (D34): migration recipe, the ledger table, and the watch-list. | Process doc |
+| [test-suite-state.md](test-suite-state.md) | Verified record of what the test suites run and gate, the pre-existing cljs failures (classified), and open decisions. |
+| [character-validation.md](character-validation.md) | Preserves the intent of *validating a character* + a falsifiable replacement charter (own-branch). |
+
+## Agent and operations KB
+
+### Documents
+
 
 | Document | Purpose |
 |----------|---------|
@@ -60,7 +160,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [class-builder-extraction-plan.md](class-builder-extraction-plan.md) | Plan for the first incremental view decomposition: extract the class builder from the views.cljs monolith (reuses views-builders-split rules; the anti-views-extraction cadence) |
 | [starting-equipment-override-ledger.md](starting-equipment-override-ledger.md) | Design: template + ledger override for starting equipment — stable-key addressing (not names), add/replace(=remove) ops, SRD-key freeze, derived-diff, edge cases |
 
-## From `feat/option-picker`
+### From `feat/option-picker`
 
 - **[equipment-option-picker.md](equipment-option-picker.md)** -- the Equipment tab's 1037
   `<option>` elements, five controls measured against each other, and why the winner is a
@@ -71,13 +171,13 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
   minutes and how to make it 4. The `.lein-env` race that boots the e2e server against the
   wrong database, and why `character_image_capture` runs 393s.
 
-## Findings moved from `integration`
+### Findings moved from `integration`
 
 These were written on feature branches and folded into `integration`'s `docs/kb/`
 before that tree was retired. Each records what was measured, what turned out to be
 wrong, and why.
 
-### Performance
+#### Performance
 
 - **[perf-homebrew-builder-loop.md](perf-homebrew-builder-loop.md)** -- the builder freeze
   with large homebrew libraries. Root cause: `cljs.core/memoize` cache lookups that
@@ -90,7 +190,7 @@ wrong, and why.
   Per-source localStorage keys. Measured ceiling 5,177,344 chars; why copy-then-delete
   migration is dead; why this does not fix the reported freeze.
 
-### Plans
+#### Plans
 
 - **[extras-definitions.md](extras-definitions.md)** -- *not built.* What each kind of Extra
   needs to function. One creature record with capabilities toggled rather than a type per kind,
@@ -119,14 +219,14 @@ wrong, and why.
   are `#_` discarded as non-SRD, so companions must be plugin-driven. Two slice sequences,
   Wild Shape and companions, the second depending on the first. Carries a revision log.
 
-## Operations
+### Operations
 
 - **[secrets-in-boot-output.md](secrets-in-boot-output.md)** -- the database password was in
   every boot log, in four places rather than one, because `ex-info` data is log output too.
   Covers redacting at the boundary, the near-miss that would have broken every connection,
   and two boot-banner designs that reported a rejected setting as though it had taken effect.
 
-## Practice
+### Practice
 
 - **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site
   scanned and traced. Four are dead code; `memoized-spell-option` is measurably 10x slower
@@ -139,16 +239,12 @@ wrong, and why.
 - **[documentation-tenets.md](documentation-tenets.md)** -- record reversals; never silently
   overwrite superseded reasoning.
 
-### Domain
+#### Domain
 
 - [pdf-form-techniques.md](pdf-form-techniques.md) -- what works against the real PDF
   templates, and what does not.
-- [custom-content-lifecycle.md](custom-content-lifecycle.md)
-- [library-management-and-conflicts.md](library-management-and-conflicts.md)
-- [keyword-trap-name-repair.md](keyword-trap-name-repair.md)
-- [starting-equipment.md](starting-equipment.md)
 
-### Browser probes
+#### Browser probes
 
 All under `test/browser/`, run against `lein e2e-server` (see `test/browser/README.md`).
 
@@ -164,11 +260,11 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `character_image_capture_e2e.js` | both routes a portrait can take into a PDF, and the shape of the field's notices |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |
 
-## Human-Facing Docs (Copies)
+### Human-Facing Docs (Copies)
 
 The `docs/migration/` and `docs/MIGRATION-INDEX.md`, `docs/JAVA-COMPATIBILITY.md`, `docs/ENVIRONMENT.md` are copies of the human-facing docs from `breaking/2026-stack-modernization`. They're included here so integration branches don't need to cherry-pick from the feature branch.
 
-## Known Corrections
+### Known Corrections
 
 The UPGRADE_PLAN.md contains inaccuracies discovered during the breaking branch assembly:
 

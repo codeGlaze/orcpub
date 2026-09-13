@@ -325,6 +325,9 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
+;; Returns the BUILT (computed) character: a map whose derived values are deferred
+;; :entity-fn? fns — read with es/entity-val, not plain get. NOT a flat map; don't
+;; spec/keys it. See docs/kb/built-character-representation.md.
 (defn built-character [character built-template]
   (entity/build character built-template))
 
@@ -818,7 +821,7 @@
    ::char5e/best-weapon-damage-modifier-fn char5e/best-weapon-damage-modifier-fn
    ::char5e/total-levels char5e/total-levels
    ::char5e/class-level-fn char5e/class-level-fn
-   ::char5e/dual-wield-weapon-fn char5e/dual-wield-weapon-fn
+   ::char5e/dual-wield-weapon-specs char5e/dual-wield-weapon-specs
    ::char5e/option-sources char5e/option-sources
    ::char5e/public? char5e/public?
    ::char5e/used-resources char5e/used-resources

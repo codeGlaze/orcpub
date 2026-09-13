@@ -1477,18 +1477,30 @@
     {:value @(subscribe [:custom-race-name])
      :on-change (fn [e] (dispatch [:set-custom-race (.. e -target -value)]))}]])
 
-(defn template-selections [magic-weapon-options
-                           magic-armor-options
-                           other-magic-item-options
-                           weapon-map
-                           custom-and-standard-weapons
-                           spell-lists
-                           spells-map
-                           backgrounds
-                           races
-                           classes
-                           feats
-                           language-map]
+(defn template-selections
+  ;; 12-arity: no grantable pools. Preserves every existing caller — content with a :grants simply
+  ;; offers nothing, which is the same graceful-miss behaviour as naming an unregistered pool.
+  ;; The production sub passes the assembled registry via the 13-arity below (::e5/grantable-pools).
+  ([magic-weapon-options magic-armor-options other-magic-item-options weapon-map
+    custom-and-standard-weapons spell-lists spells-map backgrounds races classes
+    feats language-map]
+   (template-selections magic-weapon-options magic-armor-options
+                        other-magic-item-options weapon-map custom-and-standard-weapons
+                        spell-lists spells-map backgrounds races classes feats
+                        language-map {}))
+  ([magic-weapon-options
+    magic-armor-options
+    other-magic-item-options
+    weapon-map
+    custom-and-standard-weapons
+    spell-lists
+    spells-map
+    backgrounds
+    races
+    classes
+    feats
+    language-map
+    grantable-pools]                    ; ← the assembled pool registry; see grant_pools.cljc
   [#_optional-content-selection
    (t/selection-cfg
     {:name "Base Ability Scores"
@@ -1527,7 +1539,11 @@
    (opt5e/race-selection
     {:options (conj
                (map
-                (partial opt5e/race-option spell-lists spells-map language-map weapon-map)
+                ;; The pool registry arrives assembled (grant_pools.cljc) and is passed to every
+                ;; assembly fn that compiles :grants. Registering a new pool is one entry there —
+                ;; nothing here changes.
+                (partial opt5e/race-option spell-lists spells-map language-map weapon-map
+                         grantable-pools)
                 races)
                (opt5e/custom-race-option spell-lists spells-map language-map weapon-map))})
    (opt5e/background-selection
@@ -1542,7 +1558,12 @@
                (opt5e/feat-options spell-lists spells-map)
                (let [race-map (common/map-by-key races)]
                  (map
-                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map)
+                  ;; Same assembled registry as race-option above, so a feat's
+                  ;; :grants {:pool <p> :count N} offers a choice from any registered pool —
+                  ;; including pack-authored entries, since every open pool derives from
+                  ;; plugin-vals.
+                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map
+                           grantable-pools)
                   feats)))
      :show-if-zero? true
      :min 0
@@ -1560,7 +1581,7 @@
    (inventory-selection "Armor" "breastplate" armor5e/armor mod5e/deferred-armor)
    (magic-item-selection "Magic Armor" "magic-shield" magic-armor-options mod5e/deferred-magic-armor magic-item-details)
    (inventory-selection "Equipment" "backpack" equip5e/equipment mod5e/deferred-equipment)
-   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)])
+   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)]))
 
 (defn template [selections]
   {::t/base t-base/template-base

@@ -3,6 +3,7 @@
             [orcpub.user-agent :as user-agent]
             [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
@@ -42,6 +43,7 @@
 (def local-storage-language-key "language")
 (def local-storage-invocation-key "invocation")
 (def local-storage-boon-key "boon")
+(def local-storage-draconic-ancestry-key "draconic-ancestry")
 (def local-storage-selection-key "selection")
 (def local-storage-feat-key "feat")
 (def local-storage-race-key "race")
@@ -61,6 +63,10 @@
 ;; so a dismissed heads-up stays hidden across reloads — but only until the set of
 ;; problems changes (the signature changes), and never on the My Content hub.
 (def local-storage-health-dismissed-key "health-dismissed")
+;; Whether the user has hidden the app-shipped demo pack — a per-device view
+;; preference like the disable overlay, kept in its own slot and never in plugin
+;; data. The demo pack itself always reloads from the bundled file on boot.
+(def local-storage-demo-hidden-key "demo-hidden")
 ;; Which release the What's New panel last showed here. Per-device: the panel is a
 ;; heads-up, not account state, so a stamp that never arrives (private browsing,
 ;; storage off) costs one extra showing rather than an error.
@@ -116,8 +122,6 @@
 
 (def default-invocation {})
 
-(def default-boon {})
-
 (def default-selection {:options []})
 
 
@@ -142,10 +146,15 @@
                     :level-modifiers []})
 
 (def default-value
-  {:builder {:character {:tab #{:build :options}}}
+  (merge
+   {:builder {:character {:tab #{:build :options}}}
    :character default-character
    :template t5e/template
    :plugins {"Default Option Source" {}}
+   ;; App-shipped example content, fetched at boot into its own slot so the
+   ;; content-lookup subs can fold it in for building while export and the library
+   ;; manager (which read :plugins) never see it. See ::e5/load-demo-content.
+   :demo-plugins {}
    :locked-components #{}
    :route (parse-route)
    :route-history (list default-route)
@@ -172,7 +181,6 @@
    ::bg5e/builder-item default-background
    ::langs5e/builder-item default-language
    ::class5e/invocation-builder-item default-invocation
-   ::class5e/boon-builder-item default-boon
    ::selections5e/builder-item default-selection
    ::feats5e/builder-item default-feat
    ::race5e/builder-item default-race
@@ -180,7 +188,11 @@
    ::class5e/builder-item default-class
    ::class5e/subclass-builder-item default-subclass
    ::char5e/newb-char-data {:answers {}
-                            :tags #{}}})
+                            :tags #{}}}
+   ;; Builder-item draft slots for registry homebrew types — generated from the
+   ;; content-types registry, so a new :homebrew-builder? type needs no db edit.
+   (into {} (map (juxt :builder-item :default))
+         (filter :homebrew-builder? ct/content-types))))
 
 (defn set-item
   "Write to localStorage. Returns true on success, false if the write failed
@@ -242,6 +254,10 @@
   (when js/window.localStorage
     (set-item local-storage-boon-key (str boon))))
 
+(defn draconic-ancestry->local-store [draconic-ancestry]
+  (when js/window.localStorage
+    (set-item local-storage-draconic-ancestry-key (str draconic-ancestry))))
+
 (defn selection->local-store [selection]
   (when js/window.localStorage
     (set-item local-storage-selection-key (str selection))))
@@ -290,19 +306,9 @@
   (when js/window.localStorage
     (set-item local-storage-health-dismissed-key (str sig))))
 
-(defn cookie-banner-pending?
-  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
-   It shows unless its consent cookie is set or the localStorage opt-out is on.
-   Two overlays at once on a first visit is one too many, so the release panel
-   waits a visit rather than stacking on top of it."
-  []
-  (let [suppressed? (try
-                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
-                      (catch js/Object _ false))
-        consented? (boolean (re-find #"flatsome_cookie_notice"
-                                     (or js/document.cookie "")))]
-    (not (or suppressed? consented?))))
-
+(defn demo-hidden->local-store [hidden?]
+  (when js/window.localStorage
+    (set-item local-storage-demo-hidden-key (str (boolean hidden?)))))
 (defn dev-mode->local-store [on?]
   (when js/window.localStorage
     (set-item local-storage-dev-mode-key (str (boolean on?)))))
@@ -432,6 +438,12 @@
  local-storage-health-dismissed-key
  ::health-dismissed)
 
+;; Whether the demo pack is hidden — a boolean per-device preference.
+(spec/def ::demo-hidden boolean?)
+(reg-local-store-cofx
+ ::e5/demo-hidden
+ local-storage-demo-hidden-key
+ ::demo-hidden)
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (spec/def ::dev-mode boolean?)
 (reg-local-store-cofx

@@ -19,11 +19,12 @@
    this by requiring orcpub.dnd.e5.events, which has side effects
    (reg-event-db, reg-event-fx calls at load time)."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
-            [cljs.reader :as reader]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
+            [re-frame.registrar :as registrar]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.classes :as class5e]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.selections :as selections5e]
@@ -199,6 +200,37 @@
     (is true "Handler completed without exception")))
 
 ;; ---------------------------------------------------------------------------
+;; register-homebrew-content! — boon
+;;
+;; Boon's handlers (save / delete / edit / new + set / set-prop / reset) are
+;; wired through register-homebrew-content! from a single descriptor. These
+;; tests are falsifiable: if the HOF fails to register a handler, get-handler
+;; returns nil and the first test goes red; the second checks that the set and
+;; set-prop handlers it generates actually mutate the builder-item as before.
+;; ---------------------------------------------------------------------------
+
+(deftest boon-handlers-are-registered
+  (testing "register-homebrew-content! registered every boon event handler"
+    (doseq [event-id [::class5e/save-boon
+                      ::class5e/delete-boon
+                      ::class5e/edit-boon
+                      ::class5e/new-boon
+                      ::class5e/set-boon
+                      ::class5e/set-boon-prop
+                      ::class5e/reset-boon]]
+      (is (some? (registrar/get-handler :event event-id))
+          (str event-id " should have a registered handler")))))
+
+(deftest boon-set-and-set-prop
+  (testing "set-boon stores the builder-item; set-boon-prop updates one key"
+    (reset! app-db {})
+    (rf/dispatch-sync [::class5e/set-boon {:name "Test Boon" :option-pack "Pack"}])
+    (is (= {:name "Test Boon" :option-pack "Pack"}
+           (::class5e/boon-builder-item @app-db))
+        "set-boon writes the whole item to the builder-item path")
+    (rf/dispatch-sync [::class5e/set-boon-prop :name "Renamed Boon"])
+    (is (= "Renamed Boon" (:name (::class5e/boon-builder-item @app-db)))
+        "set-boon-prop assoc's a single key onto the current item")))
 ;; Per-source export runs the same correction gate as Export All
 ;;
 ;; The cleanups below are what the two paths used to disagree on. Text
@@ -279,26 +311,8 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
-
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability

@@ -1,0 +1,168 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Builder form — current vs proposed</title>
+<style>
+  :root{
+    --bg:#1a2532; --panel:#2c3445; --lighter:rgba(0,0,0,.15);
+    --orange:#f0a100; --text:#fff; --muted:rgba(255,255,255,.55);
+    --line:rgba(255,255,255,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:"Open Sans",system-ui,sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 26px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:1000px){.cols{grid-template-columns:1fr}}
+  .col > h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;margin:0 0 4px}
+  .col.now > h2{color:#e5637a}
+  .col.new > h2{color:#70a800}
+  .col > .note{color:var(--muted);font-size:12.5px;margin:0 0 12px;min-height:34px}
+  .panel{background:var(--panel);border-radius:6px;padding:16px}
+
+  label{display:block;font-weight:700;margin:0 0 5px;font-size:13.5px}
+  input[type=text],input[type=number],select,textarea{
+    background:var(--lighter);border:1px solid var(--line);border-radius:4px;
+    color:var(--text);font:inherit;padding:8px 10px;width:100%}
+  textarea{min-height:52px;resize:vertical}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row > *{flex:1 1 200px}
+  .f{margin-bottom:12px}
+
+  /* ── current ── */
+  .now .f input,.now .f select{width:100%}
+  .dupe{outline:2px solid #e5637a;outline-offset:2px;border-radius:4px}
+  .flag{color:#e5637a;font-size:11.5px;font-weight:700;margin:2px 0 0}
+
+  /* ── proposed ── */
+  .addbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 14px}
+  .addbar span{color:var(--muted);font-size:12.5px;margin-right:2px}
+  .chip{background:transparent;border:1px dashed var(--orange);color:var(--orange);
+        border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .grp{border:1px solid var(--line);border-radius:6px;margin:0 0 12px;overflow:hidden}
+  .grp > header{display:flex;align-items:center;justify-content:space-between;
+    background:rgba(240,161,0,.10);border-bottom:1px solid var(--line);padding:8px 12px}
+  .grp > header b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--orange)}
+  .x{color:var(--muted);cursor:pointer;font-size:16px;line-height:1}
+  .grp > .body{padding:12px}
+  .num{width:92px !important;flex:0 0 92px !important;text-align:center;font-weight:700}
+  .numline{display:flex;align-items:flex-end;gap:12px;margin-bottom:10px}
+  .numline .hint{color:var(--muted);font-size:12.5px;padding-bottom:9px}
+  .whenlbl{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.07em;
+           margin:2px 0 7px}
+  .tags{display:flex;flex-wrap:wrap;gap:8px 10px}
+  .tag{display:flex;flex-direction:column;gap:3px}
+  .tag span{font-size:11.5px;color:var(--muted);font-weight:700}
+  .tag select{width:auto;min-width:104px;padding:5px 8px;font-size:12.5px}
+  .tag select.set{border-color:var(--orange);color:var(--orange)}
+  .count{color:var(--muted);font-size:12px;margin-top:14px;padding-top:10px;
+         border-top:1px solid var(--line)}
+</style></head>
+<body><div class="wrap">
+<h1>Fighting Style builder — form layout</h1>
+<p class="sub">Same fields, same vocabulary. Only the arrangement differs.</p>
+
+<div class="cols">
+
+  <!-- ══════════ CURRENT ══════════ -->
+  <div class="col now">
+    <h2>Now</h2>
+    <p class="note">19 fields in one flat stack. Seven labels appear <b>twice</b> with nothing
+      saying which bonus they belong to, and every control is full width.</p>
+    <div class="panel">
+      <div class="row f">
+        <div><label>Name</label><input type="text" value="Bulwark"></div>
+        <div><label>Option Source Name</label><input type="text" value="Roundtrip Source"></div>
+      </div>
+      <div class="f"><label>Description</label><textarea></textarea></div>
+
+      <div class="f"><label>AC Bonus</label><input type="number" value="1"></div>
+      <div class="f"><label>Armor requirement</label>
+        <select><option>Both</option><option selected>Only while wearing armor</option></select></div>
+      <div class="f"><label>Shield requirement</label><select><option>Both</option></select></div>
+
+      <div class="f"><label>Attack Bonus</label><input type="number" value="2"></div>
+      <div class="f dupe"><label>Melee</label><select><option>Both</option></select>
+        <p class="flag">↑ which bonus is this for?</p></div>
+      <div class="f"><label>Ranged</label><select><option>Both</option></select></div>
+      <div class="f"><label>Heavy</label><select><option>Both</option></select></div>
+      <div class="f"><label>Thrown</label><select><option>Both</option></select></div>
+      <div class="f"><label>Finesse</label><select><option>Both</option></select></div>
+      <div class="f"><label>Light</label><select><option>Both</option></select></div>
+      <div class="f"><label>Handedness</label><select><option>Both</option></select></div>
+
+      <div class="f"><label>Damage Bonus</label><input type="number"></div>
+      <div class="f dupe"><label>Melee</label><select><option>Both</option></select>
+        <p class="flag">↑ identical label, different bonus</p></div>
+      <div class="f"><label>Ranged</label><select><option>Both</option></select></div>
+      <div class="f" style="opacity:.5"><label>Heavy</label><select><option>Both</option></select></div>
+      <div class="f" style="opacity:.35"><label>Thrown</label><select><option>Both</option></select></div>
+      <div class="f" style="opacity:.2">…Finesse, Light, Handedness</div>
+      <p class="count">19 controls · 7 duplicated labels · every one full width</p>
+    </div>
+  </div>
+
+  <!-- ══════════ PROPOSED ══════════ -->
+  <div class="col new">
+    <h2>Proposed</h2>
+    <p class="note">Effects are added on demand and each is a titled group, so its tags are
+      unambiguous. Numbers are number-sized; tags wrap inline.</p>
+    <div class="panel">
+      <div class="row f">
+        <div><label>Name</label><input type="text" value="Bulwark"></div>
+        <div><label>Option Source Name</label><input type="text" value="Roundtrip Source"></div>
+      </div>
+      <div class="f"><label>Description</label><textarea></textarea></div>
+
+      <div class="addbar">
+        <span>Add an effect:</span>
+        <button class="chip">+ AC Bonus</button>
+        <button class="chip">+ Attack Bonus</button>
+        <button class="chip">+ Damage Bonus</button>
+        <button class="chip">+ Reaction</button>
+      </div>
+
+      <div class="grp">
+        <header><b>AC Bonus</b><span class="x">✕</span></header>
+        <div class="body">
+          <div class="numline">
+            <div><label>Bonus</label><input class="num" type="number" value="1"></div>
+            <div class="hint">added to whichever AC calculation wins</div>
+          </div>
+          <p class="whenlbl">Applies when</p>
+          <div class="tags">
+            <div class="tag"><span>Armor</span>
+              <select class="set"><option>Only while wearing</option><option>Both</option></select></div>
+            <div class="tag"><span>Shield</span><select><option>Both</option></select></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <header><b>Attack Bonus</b><span class="x">✕</span></header>
+        <div class="body">
+          <div class="numline">
+            <div><label>Bonus</label><input class="num" type="number" value="2"></div>
+            <div class="hint">to attack rolls with matching weapons</div>
+          </div>
+          <p class="whenlbl">Only with weapons that are</p>
+          <div class="tags">
+            <div class="tag"><span>Melee</span><select><option>Both</option></select></div>
+            <div class="tag"><span>Ranged</span>
+              <select class="set"><option>Ranged only</option><option>Both</option></select></div>
+            <div class="tag"><span>Thrown</span><select><option>Both</option></select></div>
+            <div class="tag"><span>Heavy</span><select><option>Both</option></select></div>
+            <div class="tag"><span>Finesse</span><select><option>Both</option></select></div>
+            <div class="tag"><span>Light</span><select><option>Both</option></select></div>
+            <div class="tag"><span>Handedness</span><select><option>Both</option></select></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="count">Starts at 3 controls. Groups appear only when added, and each one names its
+        own tags — “Melee” under <b>Attack Bonus</b> can only mean one thing.</p>
+    </div>
+  </div>
+
+</div>
+</div></body></html>

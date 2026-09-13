@@ -1,12 +1,15 @@
 (ns orcpub.dnd.e5.modifiers
   (:require [clojure.spec.alpha :as spec]
+            [orcpub.dnd.e5.requirements :as reqs]
             [clojure.string :as s]
             [orcpub.common :as common]
             [orcpub.modifiers :as mods]
             [orcpub.entity-spec :as es]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character.equipment :as char-equip]
-            [orcpub.dnd.e5.skills :as skill5e])
+            [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.armor-class :as ac5e]
+            [orcpub.dnd.e5.weapons :as weapons5e])
   #?(:cljs (:require-macros [orcpub.entity-spec :as es]
                             [orcpub.modifiers :as mods])))
 
@@ -472,8 +475,12 @@
     (let [equipment-mod (equipment-mod-fn cfg)]
       (if (::char-equip/equipped? cfg)
         (let [mods (concat [equipment-mod]
+                           ;; CHARACTER magic (Ring/Cloak of Protection): applies to whichever AC
+                           ;; calculation wins, so it is a bonus. Distinct from ITEM magic, the
+                           ;; ::magical-ac-bonus field on a worn armor or shield, which is part of
+                           ;; that item's own value.
                            (when (and include-magic-bonus? magical-ac-bonus)
-                             [(mods/cum-sum-mod ?magical-ac-bonus magical-ac-bonus)])
+                             [(mods/vec-mod ?ac-bonus-fns (fn [_ _] magical-ac-bonus))])
                            modifiers)]
           mods)
         equipment-mod))))
@@ -555,29 +562,91 @@
 (defn melee-damage-bonus-fn [bonus-fn]
   (mods/vec-mod ?melee-damage-bonus-fns bonus-fn))
 
-(defn armored-ac-bonus [bonus]
-  (mods/cum-sum-mod ?armored-ac-bonus bonus))
+;; ── Conditional weapon bonuses ────────────────────────────────────────────────────────────────
+;; Both take the same three-state tag map as the AC vocabulary, read by weapons/matches?. They use
+;; the GENERAL channels rather than the melee/ranged-specific ones, which is what the note on
+;; damage-bonus-fn above already suspected was right: with a predicate, ?melee-damage-bonus-fns and
+;; ?ranged-damage-bonus-fns have nothing left to do. (?ranged-damage-bonus-fns never had anything —
+;; both are commented out of the engine at template_base.cljc:223.)
+;;
+;; LIMIT, deliberate: the engine hands these fns ONE argument, the weapon. They cannot see whether
+;; it is the off-hand attack or what else is being wielded, so "no other weapons" (Dueling) and
+;; "the extra attack" (Two-Weapon Fighting) are NOT expressible without widening that signature.
+
+(defn attack-bonus
+  "A bonus to attack rolls with weapons matching `tags` — Archery is (attack-bonus 2 {:ranged? true})."
+  [bonus tags]
+  (mods/vec-mod ?attack-modifier-fns
+                (fn [weapon] (if (weapons5e/matches? tags weapon) bonus 0))))
+
+(defn damage-bonus
+  "A bonus to damage rolls with weapons matching `tags` — Thrown Weapon Fighting is
+  (damage-bonus 2 {:thrown? true})."
+  [bonus tags]
+  (mods/vec-mod ?damage-bonus-fns
+                (fn [weapon] (if (weapons5e/matches? tags weapon) bonus 0))))
+
+(defn armored-ac-bonus
+  "A flat bonus that applies only while wearing armor — the Defense fighting style. A BONUS, so it
+  stacks onto whichever AC calculation wins. Was a dedicated ?armored-ac-bonus channel summed only
+  in the worn-armor branch; the predicate says the same thing without a channel."
+  [bonus]
+  (mods/vec-mod ?ac-bonus-fns (fn [armor _shield] (if armor bonus 0))))
 
 (defn unarmored-ac-bonus
-  "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
-  stacks onto whichever AC calculation wins.
-
-  It used to write ?unarmored-ac-bonus, expressing \"no shield\" by NOT also writing
-  ?unarmored-with-shield-ac-bonus. That put a flat bonus in a channel that also carries Barbarian's
-  and Monk's ability modifiers, which compete as calculations and get zeroed by the tie-break in
-  ?unarmored-armor-class when ?natural-ac-bonus wins. A natural-armor character therefore lost the
-  bonus entirely — AC 15 where the rules give 17."
+  "A flat bonus applying only while wearing no armor and using no shield — Bracers of Defense.
+  A bonus, so it sums onto whichever calculation wins. See docs/kb/armor-class-refactor.md."
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
-(defn natural-ac-bonus [bonus]
-  (mods/cum-sum-mod ?natural-ac-bonus bonus))
+;; DEPRECATED 2026-09-08 — superseded by `ac-bonus` below. Zero live callers: the three magic-item
+;; bonuses were converted, and the five remaining call sites are all inside #_-commented UA blocks
+;; that never compile. Struck rather than deleted only because those blocks reference it.
+;; Remove after 2026-12-08. See docs/kb/backfill-ledger.md.
+#_(defmacro ac-bonus-fn [bonus-fn]
+    `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
-(defmacro ac-bonus-fn [bonus-fn]
-  `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
+(defmacro ac-bonus
+  "`n` added to the winning AC calculation while `spec`'s requirements hold.
+   `(ac-bonus {} 1)` · `(ac-bonus {:armor? false} 5)` · `(ac-bonus {:dual-wielding? true} 1)`
 
-(defn unarmored-defense [cls]
-  (mods/vec-mod ?unarmored-defense cls))
+   A macro because it splices ?-refs into the contributor body — a contributor is called
+   `(f armor shield)` and a plain fn could not see the wielded weapons. Adding a fact to the
+   context here also needs an entry in `requirements`."
+  [spec n]
+  `(mods/vec-mod ~'?ac-bonus-fns
+                 (fn [armor# shield#]
+                   (if (reqs/meets-all?
+                        ~spec
+                        {:armor armor#
+                         :shield shield#
+                         :main-hand ~'?orcpub.dnd.e5.character/main-hand-weapon
+                         :off-hand  ~'?orcpub.dnd.e5.character/off-hand-weapon})
+                     ~n
+                     0))))
+
+(defmacro ac-formula
+  "Register a whole AC calculation — unarmored defense, natural armor, homebrew. `formula-fn` is
+  (fn [armor shield] -> number); return 0 when it does not apply.
+
+  GOTCHA: calculations COMPETE (max) and never stack. A flat +N belongs in ac-bonus, which sums
+  onto whichever calculation won."
+  [formula-fn]
+  `(mods/vec-mod ~'?ac-fns ~formula-fn))
+
+(defn armor-dex-cap
+  "Raise the Dex allowance for one armor type — Medium Armor Master is (armor-dex-cap :medium 3).
+  Raises only: a type already uncapped stays uncapped, and a lower value is ignored."
+  [armor-type cap]
+  (mods/modifier ?armor-dex-caps (ac5e/raise-dex-cap ?armor-dex-caps armor-type cap)))
+
+(defn armor-gives-no-ac
+  "Worn armor contributes nothing to AC; the character is treated as unarmored for AC purposes.
+
+  GOTCHA: this is NOT a rules restriction on wearing armor. Nothing stops it being equipped and
+  everything else derived from it still applies — notably ?armor-stealth-disadvantage?."
+  []
+  (mods/modifier ?armor-ac-suppressed? true))
 
 (defmacro attack [atk]
   `(mods/modifier ~'?attacks

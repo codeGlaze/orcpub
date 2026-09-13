@@ -41,7 +41,10 @@
    ::e5/feats        ::feats/homebrew-feat
    ::e5/races        ::races/homebrew-race
    ::e5/subraces     ::races/homebrew-subrace
+   ;; draconic-ancestry: our branch's field-schema builder (not on develop); spec from races.cljc
+   ::e5/draconic-ancestries ::races/homebrew-draconic-ancestry
    ::e5/subclasses   ::classes/homebrew-subclass
+   ::e5/fighting-styles ::classes/homebrew-fighting-style
    ::e5/classes      ::classes/homebrew-class})
 
 (def load-item-spec

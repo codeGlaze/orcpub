@@ -7,6 +7,7 @@
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
@@ -32,12 +33,14 @@
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
+                                      set-item
                                       character->local-store
                                       user->local-store
                                       magic-item->local-store
@@ -49,6 +52,7 @@
                                       language->local-store
                                       invocation->local-store
                                       boon->local-store
+                                      draconic-ancestry->local-store
                                       selection->local-store
                                       feat->local-store
                                       race->local-store
@@ -59,8 +63,8 @@
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
+                                      demo-hidden->local-store
                                       whats-new-seen->local-store
-                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -71,7 +75,6 @@
                                       default-background
                                       default-language
                                       default-invocation
-                                      default-boon
                                       default-selection
                                       default-feat
                                       default-race
@@ -139,6 +142,8 @@
 
 (def boon->local-store-interceptor (after boon->local-store))
 
+(def draconic-ancestry->local-store-interceptor (after draconic-ancestry->local-store))
+
 (def selection->local-store-interceptor (after selection->local-store))
 
 (def feat->local-store-interceptor (after feat->local-store))
@@ -162,44 +167,11 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
-(def ^:private hold-ceiling-ms
-  "How long the release panel waits on the cookie notice before showing anyway.
-   Long enough to let someone dismiss the notice first, short enough that ignoring
-   it costs them the panel for a few seconds rather than forever."
-  10000)
+(def demo-hidden->local-store-interceptor
+  (after (fn [db] (demo-hidden->local-store (:demo-hidden? db)))))
 
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
-
-(reg-fx
- ::e5/watch-cookie-notice
- ;; The release panel is held while the cookie notice is up so a first visit gets
- ;; one overlay, not two. The hold is BOUNDED in both directions, because a hold
- ;; with no bound is the same as never showing it:
- ;;
- ;;   * the notice only goes away on a click on its own button, so re-check after
- ;;     any click and release as soon as it has gone — waiting for a reload the
- ;;     visitor has no reason to perform means they never see the release;
- ;;   * a notice that is ignored rather than dismissed never goes away, and it
- ;;     comes back every visit, so release anyway after hold-ceiling-ms.
- ;;
- ;; Takes the flag, since an effect map entry runs its handler whatever the value.
- (fn [watch?]
-   (when watch?
-     (let [handler (atom nil)
-           done? (atom false)
-           release! (fn []
-                      (when-not @done?
-                        (reset! done? true)
-                        (when-let [h @handler]
-                          (js/document.removeEventListener "click" h true))
-                        (dispatch [::e5/release-whats-new])))]
-       (reset! handler
-               (fn [_]
-                 ;; after the notice's own fade-out, so the two don't cross
-                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
-       (js/document.addEventListener "click" @handler true)
-       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -239,6 +211,9 @@
 (def boon-interceptors [(path ::class5e/boon-builder-item)
                         boon->local-store-interceptor])
 
+(def draconic-ancestry-interceptors [(path ::race5e/draconic-ancestry-builder-item)
+                                     draconic-ancestry->local-store-interceptor])
+
 (def selection-interceptors [(path ::selections5e/builder-item)
                              selection->local-store-interceptor])
 
@@ -256,6 +231,18 @@
 
 (def subclass-interceptors [(path ::class5e/subclass-builder-item)
                             subclass->local-store-interceptor])
+
+(def ^:private builder-wip-store-key
+  "app-db builder-item key -> its localStorage draft slot, from the content-type registry."
+  (into {} (map (juxt :builder-item :local-storage-key)) ct/content-types))
+
+(reg-fx
+ ::persist-builder-wip
+ ;; The per-builder ->local-store interceptors only fire on edit events, so a write
+ ;; the SAVE makes to the builder item (the :key stamp) would be lost on refresh.
+ (fn [[item-key item]]
+   (when-let [store-key (builder-wip-store-key item-key)]
+     (set-item store-key (str item)))))
 
 (def plugins-interceptors [(path :plugins)
                            plugins->local-store-interceptor])
@@ -280,6 +267,7 @@
   (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::e5/health-dismissed)
+  (inject-cofx ::e5/demo-hidden)
   (inject-cofx ::e5/whats-new-seen)
   (inject-cofx ::e5/dev-mode)
   (inject-cofx ::combat/tracker-item)
@@ -293,25 +281,27 @@
               ::e5/rejected-plugins
               ::e5/disable-overlay
               ::e5/health-dismissed
+              ::e5/demo-hidden
               ::e5/whats-new-seen
               ::e5/dev-mode
               ::combat/tracker-item]} _]
-   {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                  (cookie-banner-pending?))
-    :db (if (seq db)
+   {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
+            (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
             (some? dev-mode) (assoc :dev-mode? dev-mode)
             ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id. Reading the stamp here (not at render) keeps it
-            ;; to one showing per browser rather than one per page view.
-            (and (whats-new/unseen? whats-new-seen)
-                 (not (cookie-banner-pending?)))
+            ;; first sees a new id — at launch, not on a later trigger. Reading the
+            ;; stamp here (not at render) keeps it to one showing per browser rather
+            ;; than one per page view. It shares the screen with the cookie notice
+            ;; rather than queueing behind it: the panel measures the notice and
+            ;; stops above it (views/whats_new.cljs).
+            (whats-new/unseen? whats-new-seen)
             (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
@@ -544,18 +534,21 @@
      (if-not (seq cached-template)
        {} ;; template not cached yet — skip this cycle, next autosave will retry
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
-             built-character (entity/build character cached-template)
-             summary (make-summary built-character)]
+             built-character (entity/build character cached-template)]
+         ;; Gate on abilities BEFORE make-summary: a character missing base abilities
+         ;; crashes make-summary (entity-val on an unbuilt class). Fail fast with the
+         ;; error message instead of crashing. See docs/kb/test-suite-state.md (§2 #4).
          (if (every?
               (fn [ability-kw]
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
-           {:dispatch [:set-loading true]
-            :http {:method :post
-                   :headers (authorization-headers db)
-                   :url (url-for-route routes/dnd-e5-char-list-route)
-                   :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-                   :on-success [:character-save-success]}}
+           (let [summary (make-summary built-character)]
+             {:dispatch [:set-loading true]
+              :http {:method :post
+                     :headers (authorization-headers db)
+                     :url (url-for-route routes/dnd-e5-char-list-route)
+                     :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                     :on-success [:character-save-success]}})
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
@@ -571,22 +564,24 @@
          db' (if needs-name?
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
                db)
-         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
-         summary (cond-> (make-summary built-character)
-                   ;; Override summary name with the generated name
-                   ;; (make-summary produced a descriptive label since entity was blank)
-                   needs-name? (assoc ::char5e/character-name rand-name))]
+         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))]
+     ;; Gate on abilities BEFORE make-summary (see ::char5e/save-character above):
+     ;; make-summary crashes on a character missing base abilities. Fail fast instead.
      (if (every?
           (fn [ability-kw]
             (nat-int? (get-in built-character [:base-abilities ability-kw])))
           char5e/ability-keys)
-       {:db db'
-        :dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db')
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
+       (let [summary (cond-> (make-summary built-character)
+                       ;; Override summary name with the generated name
+                       ;; (make-summary produced a descriptive label since entity was blank)
+                       needs-name? (assoc ::char5e/character-name rand-name))]
+         {:db db'
+          :dispatch [:set-loading true]
+          :http {:method :post
+                 :headers (authorization-headers db')
+                 :url (url-for-route routes/dnd-e5-char-list-route)
+                 :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                 :on-success [:character-save-success]}})
        {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
 
 (reg-event-fx
@@ -804,9 +799,9 @@
                  saving would silently discard it. `:key` on the item being saved
                  is what distinguishes an edit returning to its own slot from a
                  rename landing on an occupied one.
-     :cross      the key exists in ANOTHER source. Not data loss -- both copies
-                 survive and the disable hierarchy decides which is live -- so
-                 this informs rather than blocks.
+     :cross      the key exists in ANOTHER source. Not data loss, but not benign:
+                 the combines that dedupe by key pick their winner by the hash
+                 order of source names, and the ones that don't show both copies.
 
    Returns {:kind :overwrite|:cross :source .. :name ..}."
   [plugins option-pack plugin-key key item]
@@ -865,39 +860,30 @@
      event-key
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
-             key (common/name-to-kw name)
+             ;; MINTED ONCE (D10). The key is an address, not a label: derived from the name at
+             ;; creation, then fixed. Renaming is a name edit, and every character holding the key
+             ;; still resolves. Changing a key is a separate, deliberate act -- import conflict
+             ;; resolution, the manual relink -- and those record :former-keys.
+             key (or (:key item) (common/name-to-kw name))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
              ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             ;; A rename here changes identity. Record where it came from, the same
-             ;; way import conflict resolution does, so a character that selected
-             ;; this content under the old key is rebound on load rather than
-             ;; quietly losing it.
-             renamed? (and (:key item) (not= (:key item) key))
-             item-with-key (cond-> (assoc normalized-item :key key)
-                             renamed? (assoc :former-key (:key item)))
+             item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
-             explanation (spec/explain-data spec-key item-with-key)]
-         (if-let [{:keys [kind source] twin-name :name}
-                  (and (nil? explanation)
-                       (save-collision plugins option-pack plugin-key key item))]
-           ;; Both kinds stop the save. They differ in what is at stake, so they
-           ;; differ in what they say, but neither should happen quietly.
-           ;;
-           ;; The cross-source case is the common one -- 27 of the conflicts in one
-           ;; shipped pak are a key held by more than one source -- and it is not
-           ;; harmless. Two sources claiming a key is a mutual-exclusion pair: only
-           ;; one can be on, the library health card reports it until somebody
-           ;; resolves it, and which one wins is not obvious from the builder.
-           ;; Creating that state as a side effect of pressing Save, and mentioning
-           ;; it afterwards, is how a library accumulates dozens of them.
-           ;;
-           ;; Wanting both copies IS legitimate -- a published class and its
-           ;; playtest version -- but that arrives through IMPORT, where the
-           ;; conflict modal asks and "keep both" is a choice someone made. It does
-           ;; not arrive by authoring a class here that happens to collide.
+             explanation (spec/explain-data spec-key item-with-key)
+             {:keys [kind source] twin-name :name}
+             (when (nil? explanation)
+               (save-collision plugins option-pack plugin-key key item))]
+         (cond
+           ;; A key is an ADDRESS, and it is global. Two items answering to one key is the same
+           ;; problem wherever the second one lives: the combines that dedupe pick a winner by the
+           ;; hash-iteration order of source names, and the ones that don't show both. Neither is
+           ;; something to create by pressing Save. (Wanting both copies is legitimate -- a
+           ;; published class and its playtest -- and it arrives through IMPORT, where the conflict
+           ;; modal asks and "keep both" is a choice someone made.)
+           (some? kind)
            {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
                          [:show-error-message
                           (if (= :overwrite kind)
@@ -905,37 +891,40 @@
                                  "\"" name "\". Saving would replace it. Give this one a "
                                  "different name, or edit the existing entry instead.")
                             (str "\"" source "\" already has a " (s/lower-case type-name)
-                                 " named \"" twin-name "\". Two sources with the same name can't "
-                                 "both be switched on — give this one a different name, or turn "
-                                 "one off in My Content."))
+                                 " under this key (\"" twin-name "\"). Two items answering to one "
+                                 "key collide wherever they live — give this one a different name, "
+                                 "or edit the existing entry."))
                           builder-error-ttl]]}
-           (if (nil? explanation)
-             (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                  item-with-key
-                                                  (when renamed? (:key item)))]
-               {:dispatch-n [[::e5/set-plugins new-plugins]
-                             [:set-builder-field-errors {}]
-                             [:show-warning-message
-                              ;; Headline carries the point — it is saved, and only
-                              ;; here. The caveat and the way out sit under it. It
-                              ;; used to be one 200-character sentence that opened
-                              ;; with IMPORTANT! and buried the export link at the
-                              ;; end, which is a thing people scroll past.
-                              {:title (str type-name " saved — in this browser only")
-                               :details [[:span
-                                          "Clearing browser data loses it. "
-                                          [:span.pointer.underline
-                                           ;; stop the click: the banner closes on
-                                           ;; any click that reaches it, so exporting
-                                           ;; used to pull the card out from under
-                                           ;; the reader mid-action.
-                                           {:on-click (fn [e]
-                                                        (.stopPropagation e)
-                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
-                                           "Export this source"]
-                                          " to keep a copy."]]}
-                              60000]]})
-  (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
+
+           (some? explanation)
+           (builder-field-error-fx type-name explanation item error-message anyway-event-key)
+
+           :else
+           (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
+                                                item-with-key nil)]
+             ;; Stamp the key back onto the item still open in the builder: `save-collision` reads
+             ;; it to tell an edit returning to its own slot from a name landing on somebody
+             ;; else's, and a restored draft must carry it too.
+             {:db (assoc db item-key item-with-key)
+              ::persist-builder-wip [item-key item-with-key]
+              :dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            ;; Headline carries the point -- it is saved, and only here. The
+                            ;; caveat and the way out sit under it.
+                            {:title (str type-name " saved — in this browser only")
+                             :details [[:span
+                                        "Clearing browser data loses it. "
+                                        [:span.pointer.underline
+                                         ;; stop the click: the banner closes on any click that
+                                         ;; reaches it, so exporting used to pull the card out from
+                                         ;; under the reader mid-action.
+                                         {:on-click (fn [e]
+                                                      (.stopPropagation e)
+                                                      (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                         "Export this source"]
+                                        " to keep a copy."]]}
+                            60000]]})))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
     ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
@@ -952,7 +941,10 @@
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-             item-with-key (assoc sanitized :option-pack src)
+             ;; minted once, like the ordinary save: sanitizing a name must not re-address an
+             ;; item that already has a key
+             item-with-key (cond-> (assoc sanitized :option-pack src)
+                             (:key item) (assoc :key (:key item)))
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -1003,12 +995,8 @@
  ::e5/invocations
  "You must specify 'Name', 'Option Source Name'")
 
-(reg-save-homebrew
- "Boon"
- ::class5e/save-boon
- ::class5e/boon-builder-item
- ::e5/boons
- "You must specify 'Name', 'Option Source Name'")
+;; Boon save handler is registered via register-homebrew-content! (search "Pact Boon"), which now
+;; routes through develop's hardened reg-save-homebrew (registry + Save-anyway). So no explicit reg here.
 
 ;; Selection save handler — standalone instead of reg-save-homebrew to add
 ;; duplicate option name validation. Mirrors reg-save-homebrew logic plus
@@ -1017,7 +1005,7 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (common/name-to-kw name)
+         key (or (:key item) (common/name-to-kw name))      ; minted once (D10)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1086,7 +1074,7 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (common/name-to-kw (:name filled-item))
+         key (or (:key item) (common/name-to-kw (:name filled-item)))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -1161,9 +1149,7 @@
  ::class5e/delete-invocation
  ::e5/invocations)
 
-(reg-delete-homebrew
- ::class5e/delete-boon
- ::e5/boons)
+;; ::class5e/delete-boon is registered via register-homebrew-content!.
 
 (reg-delete-homebrew
  ::selections5e/delete-selection
@@ -2708,10 +2694,7 @@
  ::class5e/set-invocation
  routes/dnd-e5-invocation-builder-page-route)
 
-(reg-edit-homebrew
- ::class5e/edit-boon
- ::class5e/set-boon
- routes/dnd-e5-boon-builder-page-route)
+;; ::class5e/edit-boon is registered via register-homebrew-content!.
 
 (reg-edit-homebrew
  ::selections5e/edit-selection
@@ -3310,14 +3293,21 @@
 (reg-event-db
  ::spells/set-spell-prop
  spell-interceptors
+ ;; prop-key may be a single key or a PATH vector, matching the generated set-<base>-prop events.
+ ;; A declarative field always sends a path, so a plain assoc here stored the KEY VECTOR itself —
+ ;; [:school] "abjuration" sitting next to :school — and the form looked like it worked. Caught by
+ ;; the characterization pin, which reads back what was saved rather than what was typed.
  (fn [spell [_ prop-key prop-value]]
-   (assoc spell prop-key prop-value)))
+   (assoc-in spell (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 (reg-event-db
  ::spells/toggle-spell-prop
  spell-interceptors
+ ;; was (update spell prop-key not) — the bare-not toggle the boolean convergence note warns
+ ;; about: no path support, garbage reads as ON, and a path landing on a map collapses it. Routed
+ ;; through the one hardened primitive, which ::spells/toggle-component already used.
  (fn [spell [_ prop-key]]
-   (update spell prop-key not)))
+   (common/toggle-in spell (if (sequential? prop-key) prop-key [prop-key]))))
 
 (reg-event-db
  ::monsters/set-monster-prop
@@ -3625,11 +3615,7 @@
  (fn [invocation [_ prop-key prop-value]]
    (assoc invocation prop-key prop-value)))
 
-(reg-event-db
- ::class5e/set-boon-prop
- boon-interceptors
- (fn [boon [_ prop-key prop-value]]
-   (assoc boon prop-key prop-value)))
+;; ::class5e/set-boon-prop is registered via register-homebrew-content!.
 
 (reg-event-db
  ::selections5e/set-selection-prop
@@ -3770,7 +3756,10 @@
  ::feats5e/set-feat-prop
  feat-interceptors
  (fn [feat [_ prop-key prop-value]]
-   (assoc feat prop-key prop-value)))
+   ;; prop-key may be a single key or a PATH vector — the same contract the generated
+   ;; set-<base>-prop handlers have, so a schema node (grant-rows writes [:grants i :count])
+   ;; can drive this builder too. Plain (assoc feat [:grants] …) stored the vector AS the key.
+   (assoc-in feat (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 #_ ;; never dispatched from UI
   (reg-event-db
@@ -4410,21 +4399,18 @@
      {} data)
     data))
 
-(defn serialize-orcbrew
-  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
-   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
-   inflates 3–5MB files to ~10–20MB and can freeze the UI."
-  [data & {:keys [pretty-print?]}]
-  (if pretty-print?
-    (with-out-str (pprint/pprint data))
-    (str data)))
-
 (defn- save-orcbrew-blob!
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`."
+   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`.
+   `stamp` wraps the data in the v2 format envelope IFF it uses non-backward-
+   compatible features (a no-op for plain v1 content), so an old build can't
+   silently mis-load a new-format export."
   [filename data & {:keys [pretty-print?]}]
-  (let [content (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
-                                   :pretty-print? pretty-print?)
+  ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
+  ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
+  (let [content (orcbrew-format/serialize-orcbrew
+                 (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+                 :pretty-print? pretty-print?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -4905,21 +4891,20 @@
  (fn [db [_ sig]]
    (assoc db :health-dismissed sig)))
 
+;; Show/hide the app-shipped demo pack. Persisted per-device; the content-lookup
+;; subs read :demo-hidden? via ::e5/demo-plugins, so flipping it here hides the
+;; pack everywhere it's folded in.
+(reg-event-db
+ ::e5/toggle-demo-hidden
+ [demo-hidden->local-store-interceptor]
+ (fn [db _]
+   (update db :demo-hidden? not)))
 ;; What's New. Opening is free; closing is what stamps the release as seen, so a
 ;; reader who closes the panel from any entry point stops being shown it.
 (reg-event-db
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
-
-(reg-event-db
- ::e5/release-whats-new
- ;; The end of a hold, not a request to open: if the reader has meanwhile opened
- ;; and closed the panel from the footer, the release is stamped and there is
- ;; nothing left to show.
- (fn [db _]
-   (cond-> db
-     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
@@ -5037,6 +5022,13 @@
 ;; Import Plugin Events
 ;; ============================================================================
 
+;; Strict-import toggle (creators/devs): when on, import reports missing required fields
+;; instead of low-friction auto-filling them.
+(reg-event-db
+ ::e5/set-strict-import?
+ (fn [db [_ strict?]]
+   (assoc db :strict-import? strict?)))
+
 ;; ============================================================================
 ;; Shared-content loading (viewing a character shared with embedded homebrew)
 ;; ============================================================================
@@ -5101,6 +5093,43 @@
               ;; are in place. No-op when no character is loaded yet.
               (:character db) (update-in [:character :orcpub.fork/shared-rev] (fnil inc 0)))}
        {}))))
+
+;; ============================================================================
+;; Demo content pack (app-shipped example content)
+;; ============================================================================
+;; The bundled pack is fetched at boot and loaded through the SAME pure validate +
+;; per-item load-floor path a file import uses — so loading it exercises the real
+;; import pipeline — into :demo-plugins, an overlay the content-lookup subs fold in
+;; but export / the library manager never read. It is never persisted to
+;; localStorage: the file is the source of truth and reloads every boot.
+
+(def demo-content-url "/demo/demo-content.orcbrew")
+
+(reg-fx
+ ::fetch-demo-content!
+ (fn [url]
+   (go (let [response (<! (http/get url))]
+         (when (and (= 200 (:status response)) (string? (:body response)))
+           (dispatch [::e5/demo-content-loaded (:body response)]))))))
+
+(reg-event-fx
+ ::e5/load-demo-content
+ (fn [_ _]
+   {::fetch-demo-content! demo-content-url}))
+
+(reg-event-db
+ ::e5/demo-content-loaded
+ (fn [db [_ text]]
+   (let [result (orcbrew-val/validate-import text {:strategy :progressive
+                                                   :auto-clean true
+                                                   :auto-fill true})]
+     (if (:success result)
+       (let [{:keys [kept]} (e5/salvage-library-items
+                             content-specs/valid-item-for-load? (:data result))]
+         (assoc db :demo-plugins kept))
+       (do (js/console.warn "Demo content not loaded:"
+                            (orcbrew-val/format-import-result result))
+           db)))))
 
 ;; Persist the currently-viewed shared content into the recipient's own library,
 ;; collapsed under one clearly-labeled source so it can't silently overwrite an
@@ -5277,7 +5306,9 @@
   [db incoming log-name result user-message]
   (let [import-log [:set-import-log {:name log-name
                                      :changes (:changes result)
-                                     :errors []
+                                     ;; strict mode surfaces unfilled required fields as errors
+                                     ;; (empty when strict-import is off / no :strict-unfilled)
+                                     :errors (mapv :description (:strict-unfilled result))
                                      :skipped-items (:skipped-items result)
                                      :key-conflicts (:key-conflicts result)
                                      :key-warnings (:key-warnings result)}]
@@ -5297,6 +5328,9 @@
    ;; Pass existing plugins for duplicate key detection
    (let [result (orcbrew-val/validate-import plugin-text {:strategy :progressive
                                                          :auto-clean true
+                                                         ;; strict mode (creators/devs) turns OFF
+                                                         ;; the low-friction auto-fill
+                                                         :auto-fill (not (:strict-import? db))
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
          user-message (orcbrew-val/format-import-result result)
@@ -5864,11 +5898,7 @@
  (fn [_ [_ invocation]]
    invocation))
 
-(reg-event-db
- ::class5e/set-boon
- boon-interceptors
- (fn [_ [_ boon]]
-   boon))
+;; ::class5e/set-boon is registered via register-homebrew-content!.
 
 (reg-event-db
  ::selections5e/set-selection
@@ -5955,11 +5985,7 @@
    {:dispatch [::class5e/set-invocation
                default-invocation]}))
 
-(reg-event-fx
- ::class5e/reset-boon
- (fn [_ _]
-   {:dispatch [::class5e/set-boon
-               default-boon]}))
+;; ::class5e/reset-boon is registered via register-homebrew-content!.
 
 (reg-event-fx
  ::selections5e/reset-selection
@@ -6005,6 +6031,93 @@
                                   (assoc :option-pack option-pack)
                                   (merge option))]
                    [:route route]]})))
+
+(defn register-homebrew-content!
+  "Register the full set of re-frame handlers for one homebrew content type from a
+   single descriptor, composing the existing reg-*-homebrew factories. The win is
+   colocation: a content type's wiring is otherwise scattered across this file
+   (save / delete / edit / new + set / set-prop / reset), and this gathers it into one
+   call so adding or reading a type is a single place.
+
+   Scope: the 'basic' homebrew types whose only persistence is the in-browser :plugins
+   map. Richer types (race, class, …) additionally call reg-option-traits/modifiers/
+   selections themselves; server-persisted content (magic items) does not use this.
+
+   Every event keyword is passed explicitly (not derived) so it stays greppable."
+  [{:keys [type-name save-error
+           save-event delete-event edit-event new-event
+           set-event set-prop-event remove-prop-event toggle-prop-event reset-event
+           builder-item spec plugin-key default route interceptors]}]
+  ;; persistence + builder lifecycle — the existing, trusted factories.
+  ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
+  ;; plugin-key, not passed per-call — so `spec` from the descriptor is unused here now.)
+  (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
+  (reg-delete-homebrew delete-event plugin-key)
+  (reg-edit-homebrew edit-event set-event route)
+  (reg-new-homebrew new-event set-event default route)
+  ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
+  (reg-event-db set-event interceptors (fn [_ [_ item]] item))
+  (reg-event-db set-prop-event interceptors
+                (fn [item [_ prop-key prop-value]]
+                  ;; prop-key may be a single key (assoc) or a path vector (assoc-in) so a
+                  ;; declarative builder field can target nested data (e.g. [:breath-weapon
+                  ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
+                  (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
+  (when remove-prop-event
+    (reg-event-db remove-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/dissoc-in item (if (sequential? prop-key) prop-key [prop-key])))))
+  (when toggle-prop-event
+    (reg-event-db toggle-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/toggle-in item (if (sequential? prop-key) prop-key [prop-key])))))
+  (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
+
+;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
+;; convention EVERY homebrew builder follows: in the builder-item's namespace, the verbs
+;; save-/delete-/edit-/new-/set-/reset-<base> and set-<base>-prop, where <base> is the
+;; builder-item name minus the "-builder-item" suffix (e.g. ::class5e/boon-builder-item ->
+;; ::class5e/save-boon). These same keywords are referenced LITERALLY at their dispatch
+;; sites in views (builder-page, simple-content-builder, the new/edit/delete buttons), so
+;; grepping a specific event still finds where it's used.
+(defn- homebrew-event-keys [builder-item]
+  (let [ns   (namespace builder-item)
+        base (let [n (name builder-item)]
+               (subs n 0 (- (count n) (count "-builder-item"))))
+        ev   #(keyword ns (str % base))]
+    {:save-event (ev "save-")   :delete-event (ev "delete-") :edit-event (ev "edit-")
+     :new-event  (ev "new-")    :set-event    (ev "set-")    :reset-event (ev "reset-")
+     :set-prop-event (keyword ns (str "set-" base "-prop"))
+     ;; assoc-in's counterpart. A :rows form needs to REMOVE a row, and assoc-in nil is not the
+     ;; same thing — it leaves the key present holding nil, which the :props compiler then reads.
+     :remove-prop-event (keyword ns (str "remove-" base "-prop"))
+     ;; a :boolean field flips through common/toggle-in — never assoc-in with (not v), which
+     ;; collapses a map if the path lands on one (builder_fields.cljc's boolean note)
+     :toggle-prop-event (keyword ns (str "toggle-" base "-prop"))}))
+
+;; The localStorage draft interceptor, built generically from the registry's
+;; :local-storage-key + :builder-item — no per-type ->local-store fn needed.
+(defn- homebrew-local-store-interceptor [{:keys [builder-item local-storage-key]}]
+  [(path builder-item)
+   (after (fn [item]
+            (when js/window.localStorage
+              (set-item local-storage-key (str item)))))])
+
+;; ONE loop wires every homebrew type flagged :homebrew-builder? in the content-types
+;; registry. Adding a new simple homebrew type is a registry entry — NOT an edit here.
+;; (Richer/older types still register their extra option-trait/modifier handlers below.)
+(doseq [{:keys [type-name builder-item spec plugin-key route-kw default save-error] :as ct-entry}
+        (filter :homebrew-builder? ct/content-types)]
+  (register-homebrew-content!
+   (merge (homebrew-event-keys builder-item)
+          {:type-name    type-name
+           :save-error   (or save-error "You must specify 'Name', 'Option Source Name'")
+           :builder-item builder-item
+           :spec         spec
+           :plugin-key   plugin-key
+           :default      (or default {})
+           :route        route-kw
+           :interceptors (homebrew-local-store-interceptor ct-entry)})))
 
 (defn reg-option-selections [option-name option-key interceptors]
   (reg-event-db
@@ -6219,11 +6332,7 @@
  default-selection
  routes/dnd-e5-selection-builder-page-route)
 
-(reg-new-homebrew
- ::class5e/new-boon
- ::class5e/set-boon
- default-boon
- routes/dnd-e5-boon-builder-page-route)
+;; ::class5e/new-boon is registered via register-homebrew-content!.
 
 (reg-new-homebrew
  ::feats5e/new-feat

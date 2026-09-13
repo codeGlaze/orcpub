@@ -2,7 +2,13 @@
   (:require [clojure.string :as s]
             [clojure.set :as sets]))
 
-(defn entity-val [entity k]
+(defn entity-val
+  "Read field `k` from a built entity/character. Built entities are MAPS whose derived
+   values are deferred functions tagged with :entity-fn? metadata; this realizes them.
+   A plain `get` on a deferred key returns the FUNCTION, not the value — use this instead.
+   The built character is NOT a flat map; don't spec/keys it.
+   See docs/kb/built-character-representation.md."
+  [entity k]
   (let [v (entity k)
         entity-fn? (:entity-fn? (meta v))]
     (if entity-fn?

@@ -487,7 +487,7 @@
           item (get-in result [:orcpub.dnd.e5/classes :artificer-ksty])]
       (is (= "Artificer (KsTy)" (:name item)))
       (is (= :artificer-ksty (:key item)))
-      (is (= :artificer (:former-key item)) "still rebindable for characters")
+      (is (= [:artificer] (:former-keys item)) "still rebindable for characters")
       (is (= (:key item) (common/name-to-kw (:name item)))
           "the invariant holds on the stored item")))
 
@@ -614,6 +614,7 @@
                             {:alchemist {:option-pack "Source A" :name "Alchemist" :class :artificer}}}
                 "Source B" {:orcpub.dnd.e5/classes
                             {:artificer {:option-pack "Source B" :name "Artificer B"}}}}
+          ;; apply-key-renames expects :from/:to (matches the real caller in events.cljs).
           renames [{:source "Source A"
                     :content-type :orcpub.dnd.e5/classes
                     :from :artificer
@@ -1042,6 +1043,45 @@
         (is (= #{"Alpha" "Beta"} (set (map :name options)))))
       ;; Should have a dedup change logged
       (is (some #(= :dedup-selection-options (:type %)) (:changes result))))))
+;; ============================================================================
+;; Schema-synced required fields (import/export verification kept in sync with
+;; the builder field schema — see field-schemas / builder-fields/fields->required-entries)
+;; ============================================================================
+
+(deftest draconic-required-fields-synced-from-schema
+  (testing "draconic required-fields = crash-table :name + schema breath-weapon fields"
+    (let [rf (get orcbrew-val/required-fields :orcpub.dnd.e5/draconic-ancestries)]
+      (is (contains? rf :name) "universal :name from the crash-prevention table")
+      (is (contains? rf [:breath-weapon :damage-type]) "nested schema field synced in")
+      (is (contains? rf [:breath-weapon :area-type]))
+      (is (contains? rf [:breath-weapon :save])))))
+
+(deftest draconic-fill-fills-nested-schema-fields
+  (testing "import fill creates the nested breath-weapon required fields (path-aware assoc-in)"
+    (let [[filled changes] (orcbrew-val/fill-missing-fields
+                            {:name "Storm" :option-pack "P"}
+                            :orcpub.dnd.e5/draconic-ancestries)]
+      (is (some? (get-in filled [:breath-weapon :damage-type])) "nested damage-type filled")
+      (is (some? (get-in filled [:breath-weapon :area-type])))
+      (is (some? (get-in filled [:breath-weapon :save])))
+      (is (seq changes) "changes recorded"))))
+
+(deftest draconic-export-flags-missing-schema-field
+  (testing "export validation flags a draconic item missing schema-required breath-weapon fields"
+    (let [result (orcbrew-val/validate-item-for-export
+                  {:name "Storm" :option-pack "P"} ; no breath weapon
+                  :orcpub.dnd.e5/draconic-ancestries)]
+      (is (not (:valid result)) "missing required breath-weapon fields → invalid for export"))))
+
+(deftest strict-mode-detects-but-does-not-auto-fill
+  (testing "auto-fill false (strict) reports missing required fields instead of filling them"
+    (let [edn "{:orcpub.dnd.e5/draconic-ancestries {:storm {:option-pack \"P\" :name \"Storm\"}}}"
+          lenient (orcbrew-val/validate-import edn {:auto-fill true :existing-plugins {}})
+          strict  (orcbrew-val/validate-import edn {:auto-fill false :existing-plugins {}})]
+      (is (empty? (:strict-unfilled lenient))
+          "default low-friction mode fills, so nothing is reported as unfilled")
+      (is (seq (:strict-unfilled strict))
+          "strict mode reports the unfilled required breath-weapon fields (creators see the gap)"))))
 
 ;; ============================================================================
 ;; Tests for format-export-validation-for-log

@@ -24,6 +24,9 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.content-types :as ct]
+            [orcpub.dnd.e5.content-pools :as pools]
+            [orcpub.dnd.e5.grant-pools :as grant-pools]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -103,6 +106,36 @@
  (fn [db _]
    (get db :shared-plugins)))
 
+;; App-shipped example content, fetched at boot into :demo-plugins. The
+;; content-lookup subs fold it in (FIRST, so a user's own content wins a key
+;; collision) so it's usable in the builder, while export / the library manager
+;; read :plugins and never see it. Returns nothing while the pack is hidden by the
+;; user's top-of-My-Content toggle, so nothing else has to check the flag.
+(reg-sub
+ ::e5/demo-hidden?
+ (fn [db _]
+   (boolean (:demo-hidden? db))))
+
+(reg-sub
+ ::e5/demo-plugins
+ (fn [db _]
+   (when-not (:demo-hidden? db)
+     (get db :demo-plugins))))
+
+;; Did a demo pack actually load? Independent of the hide flag, so the demo row
+;; renders (with its On/Off toggle) whether the pack is showing or hidden.
+(reg-sub
+ ::e5/demo-available?
+ (fn [db _]
+   (boolean (seq (get db :demo-plugins)))))
+
+;; The raw demo pack, ignoring the hide flag — the demo source row reads this to
+;; show its name and list its items even while the pack is toggled off.
+(reg-sub
+ ::e5/demo-plugins-raw
+ (fn [db _]
+   (get db :demo-plugins)))
+
 ;; Summary for the shared-content banner: {:count n :collisions [...]} while a
 ;; shared character with embedded homebrew is being viewed, else nil.
 (reg-sub
@@ -116,6 +149,11 @@
  ::e5/quarantined-plugins
  (fn [db _]
    (get db :quarantined-plugins)))
+
+(reg-sub
+ ::e5/strict-import?
+ (fn [db _]
+   (get db :strict-import?)))
 
 (defn- process-plugin-vals
   "Filter out malformed/disabled plugin data so a bad entry can't break the
@@ -217,12 +255,15 @@
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
  :<- [::e5/disable-overlay]
- (fn [[plugins shared overlay] _]
+ :<- [::e5/demo-plugins]
+ (fn [[plugins shared overlay demo] _]
    ;; The disable overlay is a preference over the user's OWN library, so it
-   ;; applies to `plugins` only — shared (view-once) content is never hidden by
-   ;; the recipient's global/section toggles. Shared is appended LAST so it wins
-   ;; key collisions against the recipient's own library for the shared view only.
-   (concat (process-plugin-vals plugins overlay)
+   ;; applies to `plugins` only — demo (app-shipped) and shared (view-once) content
+   ;; are never hidden by the recipient's global/section toggles. Demo is appended
+   ;; FIRST so the user's own library wins a key collision against it; shared is
+   ;; appended LAST so it wins for the shared view only.
+   (concat (process-plugin-vals demo)
+           (process-plugin-vals plugins overlay)
            (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
@@ -251,10 +292,13 @@
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
  :<- [::e5/disable-overlay]
- (fn [[plugins shared overlay] _]
-   ;; Shared (view-once) sources appended LAST so they win key collisions for
-   ;; the shared view only; the overlay applies to the user's own library only.
-   (concat (process-plugins-with-sources plugins overlay)
+ :<- [::e5/demo-plugins]
+ (fn [[plugins shared overlay demo] _]
+   ;; Demo (app-shipped) sources appended FIRST so the user's own library wins a
+   ;; key collision; shared (view-once) sources appended LAST so they win for the
+   ;; shared view only. The overlay applies to the user's own library only.
+   (concat (process-plugins-with-sources demo)
+           (process-plugins-with-sources plugins overlay)
            (process-plugins-with-sources shared))))
 
 (reg-sub
@@ -263,7 +307,14 @@
  (fn [plugins _]
    (map
     (fn [background]
-      (assoc background :edit-event [::bg5e/edit-background background]))
+      ;; A4: a background's ability/save grants (:ability-increases spread incl. the :save rider, +
+      ;; standalone :save-proficiencies) compile to modifiers + selections, additive (none -> {}).
+      ;; 2024 rules grant the ASI via background; same hook as races/subraces.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants background {:attribution :general})]
+        (assoc background
+               :modifiers (concat (:modifiers background) ai-mods)
+               :selections (concat (:selections background) ai-sels)
+               :edit-event [::bg5e/edit-background background])))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
@@ -302,12 +353,18 @@
  (fn [plugins _]
    (map
     (fn [race]
-      (assoc race
-             :modifiers
-             (concat (opt5e/plugin-modifiers (:props race)
-                                             (:key race))
-                     (spell-modifiers race (:name race)))
-             :edit-event [::races5e/edit-race race]))
+      ;; A4: a race's ability/save grants (:ability-increases fixed+floating incl. the :save rider, +
+      ;; standalone :save-proficiencies) compile to extra modifiers + selections; additive (none ->
+      ;; empty), so races without them are unchanged.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants race)]
+        (assoc race
+               :modifiers
+               (concat (opt5e/plugin-modifiers (:props race)
+                                               (:key race))
+                       (spell-modifiers race (:name race))
+                       ai-mods)
+               :selections (concat (:selections race) ai-sels)
+               :edit-event [::races5e/edit-race race])))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
@@ -316,13 +373,27 @@
  (fn [plugins _]
    (map
     (fn [subrace]
-      (assoc subrace
-             :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
-                                                        (:key subrace))
-                                (spell-modifiers subrace (:name subrace)))
-             :edit-event [::races5e/edit-subrace subrace]))
+      ;; A4: same ability/save grants hook as races (ASI spread + :save rider + standalone saves); additive.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subrace {:attribution :subrace})]
+        (assoc subrace
+               :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
+                                                          (:key subrace))
+                                  (spell-modifiers subrace (:name subrace))
+                                  ai-mods)
+               :selections (concat (:selections subrace) ai-sels)
+               :edit-event [::races5e/edit-subrace subrace])))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
+;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
+;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc) on profs/resist/immunity/
+;; save-adv/speed but diverges: B uniquely has :spell, :num-attacks, :tool-prof; A uniquely has
+;; :language/:initiative/etc. NOTE on :spell — it calls mod5e/spells-known, granting an *innate
+;; known spell* (castable via the chosen ability, like a racial spell), NOT a spell-slot
+;; progression. Real slot-based spellcasting comes only from the subclass-builder spellcasting UI,
+;; which is gated to #{:fighter :rogue :warlock :cleric :paladin} (views.cljs ~5975) — a custom
+;; non-caster base class cannot be given spellcasting via a subclass through the builders.
+;; The same capability living in two vocabularies (×UI ×compile = four sites) is the prime
+;; sustainability target. See docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
   (case type
     :weapon-prof (mod5e/weapon-proficiency value)
@@ -605,10 +676,14 @@
         (when (and (map? subclass) subclass-key)
           ;; Ensure the subclass has its key set (the map key is authoritative)
           (let [subclass-with-key (assoc subclass :key subclass-key)
-                levels (make-levels spell-lists spells-map selection-map subclass-with-key)]
+                levels (make-levels spell-lists spells-map selection-map subclass-with-key)
+                ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
+                ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
+                ;; Non-standard for 5e, so authored behind a builder toggle.
+                {ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subclass {:attribution :general})]
             (assoc subclass-with-key
-                   :modifiers (opt5e/plugin-modifiers (:props subclass)
-                                                      subclass-key)
+                   :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+                   :selections (concat (:selections subclass) ai-sels)
                    :levels levels
                    :plugin-source source-name
                    :edit-event [::classes5e/edit-subclass subclass-with-key])))
@@ -706,39 +781,9 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
+;; The built-in language list moved to languages.cljc so a cljc pool registry can read it.
+;; This var is kept as an alias: existing readers here are unchanged.
+(def languages langs5e/languages)
 
 (reg-sub
  ::langs5e/languages
@@ -913,13 +958,33 @@
                                            (opt5e/skill-selection 1)
                                            (opt5e/ability-increase-selection char5e/ability-keys 2 true)]})]})]})
 
-(defn draconic-ancestry-option [{:keys [name breath-weapon]}]
+(defn draconic-ancestry-option [{:keys [name key props breath-weapon]}]
   (t/option-cfg
-   {:name name
-    :modifiers [(mod5e/damage-resistance (:damage-type breath-weapon))
-                (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]}))
+   ;; Same mechanical heft for built-in and homebrew ancestries: resistance to the breath
+   ;; damage type + the breath-weapon value the race's Breath Weapon attack reads. Built-in
+   ;; entries carry no :key (so the key derives from name as before — behavior-preserving);
+   ;; homebrew entries pass their stored :key through (identity from a stable id, not a
+   ;; display name — direction doc D10).
+   ;;
+   ;; Richer ancestries (e.g. Fizban's gem/metallic dragonborn, or homebrew) can carry EXTRA
+   ;; mechanics beyond resistance+breath as a declarative :props map — flying/swimming speed,
+   ;; saving-throw advantage, skill profs, languages, etc. — compiled by the SAME
+   ;; opt5e/plugin-modifiers vocabulary homebrew races/feats already use. Built-in colours
+   ;; have no :props, so they are unchanged. (Level-gated ancestry features — Gem Flight at 5,
+   ;; Chromatic Warding — are NOT yet expressible this way; see the direction doc pins.)
+   (cond-> {:name name
+            :modifiers (concat
+                        [(mod5e/damage-resistance (:damage-type breath-weapon))
+                         (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]
+                        (when props (opt5e/plugin-modifiers props key)))}
+     key (assoc :key key))))
 
-(def dragonborn-option-cfg
+(defn dragonborn-option-cfg
+  "The dragonborn race. Its Draconic Ancestry choice now GRANTS from an open pool
+   (`::races5e/draconic-ancestry-pool` = built-in ++ homebrew) instead of a fixed list, so an
+   orcbrew pack can add a new colour and it inherits the full mechanics. `draconic-ancestries`
+   is that pool, passed in by the `::races5e/races` sub."
+  [draconic-ancestries]
   {:name "Dragonborn"
    :key :dragonborn
    :help "Kin to dragons, dragonborn resemble humanoid dragons, without wings or tail and standing erect. They tend to make excellent warriors."
@@ -949,7 +1014,46 @@
                   :tags #{:subrace}
                   :options (map
                             draconic-ancestry-option
-                            opt5e/draconic-ancestries)})]})
+                            draconic-ancestries)})]})
+
+;; The open pool dragonborn grants from: the built-in colours ++ any homebrew ancestries an
+;; orcbrew pack adds under ::e5/draconic-ancestries. Reads through ::e5/plugin-vals (the
+;; single resolved-content seam every plugin pool already uses). Memoized by re-frame.
+(reg-sub
+ ::races5e/draconic-ancestry-pool
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
+
+;; The open fighting-style pool a feat's :grants {:pool :fighting-styles} draws from:
+;; the built-in styles ++ any homebrew styles an orcbrew pack adds under
+;; ::e5/fighting-styles. Unlike the draconic pool, the built-ins are ALREADY option
+;; cfgs (opt5e/fighting-style-options) while homebrew arrive as raw data, so the
+;; constructor is mapped over the homebrew entries only, then concatenated built-in
+;; first. Reads through ::e5/plugin-vals like every plugin pool.
+(reg-sub
+ ::classes5e/homebrew-fighting-styles
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))
+
+;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
+;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
+;; THE grantable-pool registry, resolved. One sub for every pool: registering a pool is an entry in
+;; grant_pools.cljc and nothing here, which is the acceptance gate the direction doc sets. Derives
+;; from ::e5/plugin-vals — the single resolved-content seam every pool must read through.
+(reg-sub
+ ::e5/grantable-pools
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (grant-pools/assemble plugin-vals)))
+
+(reg-sub
+ ::classes5e/fighting-style-pool
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [homebrew _]
+   (concat opt5e/fighting-style-options
+           (map opt5e/fighting-style-option homebrew))))
 
 
 (def gnome-option-cfg
@@ -1069,7 +1173,8 @@
  :<- [::spells5e/spell-lists]
  :<- [::spells5e/spells-map]
  :<- [::langs5e/language-map]
- (fn [[plugin-races subraces-map spell-lists spells-map language-map]]
+ :<- [::races5e/draconic-ancestry-pool]
+ (fn [[plugin-races subraces-map spell-lists spells-map language-map draconic-ancestries]]
    (vec
     (into
      (sorted-set-by compare-keys)
@@ -1084,22 +1189,26 @@
         (elf-option-cfg spell-lists spells-map language-map)
         halfling-option-cfg
         (human-option-cfg spell-lists spells-map language-map)
-        dragonborn-option-cfg
+        (dragonborn-option-cfg draconic-ancestries)
         gnome-option-cfg
         (half-elf-option-cfg language-map)
         half-orc-option-cfg
         tiefling-option-cfg]))))))
 
 
-(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                          & [homebrew-fighting-styles]]
   [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
+   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
@@ -1115,10 +1224,13 @@
  :<- [::classes5e/invocations]
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
- (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map
+       homebrew-fighting-styles] _]
    ;; Defensive handling: ensure base classes always render even if plugin classes fail
    (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
+                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                                            homebrew-fighting-styles)
                         (catch js/Error e
                           (js/console.error "Failed to build base classes:" e)
                           []))
@@ -1444,70 +1556,14 @@
                      (spell-option spells-map [nil spell-key ability-key class-name]))))
              levels))))
 
-(reg-sub
- ::spells5e/builder-item
- (fn [db _]
-   (::spells5e/builder-item db)))
-
-(reg-sub
- ::bg5e/builder-item
- (fn [db _]
-   (::bg5e/builder-item db)))
-
-(reg-sub
- ::races5e/builder-item
- (fn [db _]
-   (::races5e/builder-item db)))
-
-(reg-sub
- ::races5e/subrace-builder-item
- (fn [db _]
-   (::races5e/subrace-builder-item db)))
-
-(reg-sub
- ::classes5e/subclass-builder-item
- (fn [db _]
-   (::classes5e/subclass-builder-item db)))
-
-(reg-sub
- ::classes5e/invocation-builder-item
- (fn [db _]
-   (::classes5e/invocation-builder-item db)))
-
-(reg-sub
- ::classes5e/boon-builder-item
- (fn [db _]
-   (::classes5e/boon-builder-item db)))
-
-(reg-sub
- ::classes5e/builder-item
- (fn [db _]
-   (::classes5e/builder-item db)))
-
-(reg-sub
- ::feats5e/builder-item
- (fn [db _]
-   (::feats5e/builder-item db)))
-
-(reg-sub
- ::langs5e/builder-item
- (fn [db _]
-   (::langs5e/builder-item db)))
-
-(reg-sub
- ::monsters5e/builder-item
- (fn [db _]
-   (::monsters5e/builder-item db)))
-
-(reg-sub
- ::encounters5e/builder-item
- (fn [db _]
-   (::encounters5e/builder-item db)))
-
-(reg-sub
- ::selections5e/builder-item
- (fn [db _]
-   (::selections5e/builder-item db)))
+;; Builder-item passthrough subscriptions, generated from the content-types registry
+;; (Phase 4b). Each homebrew content type exposes its in-progress builder item via
+;; ::<type>/builder-item. This loop registers the same 13 subs the hand-written block
+;; used to; the registry is the single source of truth (see content_types.cljc).
+;; content_types_test/builder-items-match-the-subs locks this set against drift.
+;; (Magic-item and combat are not registry types — the combat tracker-item sub stays below.)
+(doseq [{:keys [builder-item]} ct/content-types]
+  (reg-sub builder-item (fn [db _] (get db builder-item))))
 
 (reg-sub
  ::combat5e/tracker-item

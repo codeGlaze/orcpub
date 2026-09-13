@@ -8,7 +8,7 @@ a stale branch cites lines that have moved.
 
 ## Current state
 
-*Updated 2026-09-10. Update at every milestone — nothing else here carries live state.*
+*Updated 2026-09-13. Update at every milestone — nothing else here carries live state.*
 
 ### The tree
 
@@ -18,6 +18,9 @@ integration          hotfixes; mints the Summer Patch tag, then quiet
         └── leaves    holds merges from its leaves: content-extensibility,
                       data-extraction, garden-inline-styles, views-extraction,
                       banner-parts-and-design
+             └── feature/grant-rows   the live tip of content-extensibility.
+                      Verified 2026-09-13: content-extensibility is an ancestor of it,
+                      so is integration. The most active Fall Update branch
 
 agents/develop       a silo, off to the side. An ancestor of develop, not a leaf of
                      anything. Pulls stable changes in; ships nothing back. Its job is
@@ -34,13 +37,27 @@ release; the next one inherits the branches.
 
 ### Fall Update leaves
 
+**`feature/grant-rows` is the live one** and everything below is downstream of it. Merged into
+this branch on 2026-09-13 (371 commits). Its KB arrived with it — 51 docs that did not exist
+here, against 73 here that did not exist there, with only 7 filenames in common. Neither side
+was a superset; both had been written without the other. Start at
+[`docs/kb/roadmap.md`](docs/kb/roadmap.md), then
+[`docs/kb/handoff-grant-rows.md`](docs/kb/handoff-grant-rows.md).
+
 - **Companions, summons and Wild Shape** —
-  [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md).
-  Researched, unbuilt. Belongs under `refactor/content-extensibility`, which is the live leaf,
-  carries the orcbrew v1/v2 format versioning, and rewrites the same files. Blocked on: CR is
-  a string on the character and a number on the monster; and nothing lets content declare that
-  a feature grants a creature. **Edition is not a blocker** — both rulesets ship and mix, so
-  both get built; only the default is open.
+  [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md) and
+  [`docs/kb/extras-definitions.md`](docs/kb/extras-definitions.md).
+  Researched, unbuilt. Belongs on `feature/grant-rows`, not beside it: the grant vocabulary a
+  companion needs is the one being built there. Blocked on: CR is a string on the character and
+  a number on the monster; and nothing lets content declare that a feature grants a creature.
+  **Edition is not a blocker** — both rulesets ship and mix, so both get built; only the default
+  is open.
+  **Read before extending it** — written before the merge, so they do not cite:
+  [`pool-grant-map.md`](docs/kb/pool-grant-map.md),
+  [`authoring-vocabulary.md`](docs/kb/authoring-vocabulary.md),
+  [`edition-drift.md`](docs/kb/edition-drift.md),
+  [`requirements-registry.md`](docs/kb/requirements-registry.md),
+  [`rules-override-layer.md`](docs/kb/rules-override-layer.md).
 - **NPC statblock customizer** —
   [`docs/kb/plan-npc-statblock-customizer.md`](docs/kb/plan-npc-statblock-customizer.md).
   DM-facing, not character-facing. Researched, unbuilt. Independent of the Extras leaf but
@@ -80,6 +97,8 @@ is unset on a fresh clone, and nothing enforcing below fires without it.**
 ## Rules
 
 - Findings go in `docs/kb/`, linked from its README.
+- **Merge `feature/grant-rows` in before planning Fall Update work.** Its KB is where the
+  content track's decisions live, and it moves daily.
 - Keep the `.gitignore` exception for `.claude/` when merging integration in.
 - Doc-touching PRs target this branch.
 
