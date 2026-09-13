@@ -1899,10 +1899,12 @@
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         :portrait [portrait5e/tab-panel]
          [views5e/character-display nil true 1])]]]))
 
 
@@ -1913,9 +1915,11 @@
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
-       (if (= current-tab :options)
-         [new-options-column (if (= device-type :desktop) 2 1)]
+        [builder-tab "Description" :details current-tab]
+        [builder-tab "Portrait" :portrait current-tab]]
+       (case current-tab
+         :options [new-options-column (if (= device-type :desktop) 2 1)]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
        [views5e/character-display nil true 1]]]]))

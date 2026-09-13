@@ -15,6 +15,7 @@
    (portrait-assets/tint-for), so one asset renders in any hair / skin /
    eye color. `composite` is shared with the character summary."
   (:require [re-frame.core :refer [dispatch subscribe]]
+            [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
@@ -694,6 +695,30 @@
   /* clear of the pencil in the bottom-right corner */
   padding: 0 22px 11px 0;
 }
+
+/* ---- inline: the compositor as a builder tab ---- */
+/* Everything that makes the drawer a drawer hangs off .pl-drawer -- fixed
+   position, backdrop, slide-in -- so the shared body needs only a frame of
+   its own and a scroll bound to sit in the page flow instead of over it. */
+.pl-inline {
+  display: flex; flex-direction: column;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  background: #131924;
+  overflow: hidden;
+  font-family: 'Open Sans', system-ui, sans-serif;
+  color: #ebeef4;
+  margin-bottom: 20px;
+}
+.pl-inline .pl-drawer-body { max-height: 70vh; }
+.pl-inline .pl-btn-primary:disabled { opacity: 0.45; cursor: default; filter: none; }
+.pl-root.light-theme.pl-inline {
+  background: #f7f7f5; color: #363636; border-color: rgba(0,0,0,0.1);
+}
+/* on a phone the two columns already stack; let the page scroll, not the panel */
+@media (max-width: 700px) {
+  .pl-inline .pl-drawer-body { max-height: none; }
+}
 ")
 
 ;; ---------------- color controls ----------------
@@ -876,13 +901,40 @@
 
 ;; ---------------- drawer ----------------
 
+(defn- compositor-body
+  "Canvas on one side, layer pickers on the other. Shared verbatim by the
+   drawer and the inline Portrait tab so the two cannot drift apart."
+  [portrait seed open-slot open-layer]
+  (let [any? (boolean (seq (:layers portrait)))]
+    [:div.pl-drawer-body
+     [:div.pl-canvas-side
+      [:div.pl-portrait-frame
+       (if any?
+         [composite portrait]
+         [:div.pl-empty-hint
+          "Pick a layer below, or hit " [:em "Randomize"] "."])]
+      [:div.pl-toolbar
+       [:button.pl-btn.pl-btn-primary
+        {:type "button" :on-click #(dispatch [:portrait/randomize])}
+        "\ud83c\udfb2 Randomize"]
+       [:button.pl-btn.pl-btn-ghost
+        {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
+        "Reset"]
+       (when seed
+         [:div.pl-seed-row [:span "seed"] [:code seed]])]
+      [color-strip portrait open-slot]]
+     [:div.pl-pickers-side
+      (for [layer-key pa/layer-order]
+        ^{:key layer-key}
+        [category-picker portrait layer-key open-layer])]]))
+
 (defn drawer
   "Renders the compositor drawer when :portrait/drawer-open? is truthy.
    Mount once at the character-builder root; it overlays.
 
    The stylesheet is mounted unconditionally, not inside the open? branch --
-   it also styles the launcher button, which lives in the Description tab and
-   is on screen precisely when the drawer is not.
+   it also styles the launcher button and the inline Portrait tab, both of
+   which are on screen precisely when the drawer is not.
 
    The theme class goes on this component's own root rather than being
    inherited: the drawer is mounted as a SIBLING of content-page, and .app --
@@ -897,50 +949,65 @@
        (let [portrait   @(subscribe [:portrait/draft])
              seed       @(subscribe [:portrait/draft-seed])
              open-slot  @(subscribe [:portrait/open-slot])
-             open-layer @(subscribe [:portrait/open-layer])
-             layers     (:layers portrait)
-             any?       (boolean (seq layers))]
+             open-layer @(subscribe [:portrait/open-layer])]
          [:div
           [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
-       [:div.pl-drawer
-        [:div.pl-drawer-head
-         [:div.pl-drawer-title
-          [:span.pl-drawer-title-rune "§"] "Compose portrait"]
-         [:button.pl-drawer-close
-          {:type "button"
-           :on-click #(dispatch [:portrait/close])
-           :aria-label "Close portrait compositor"}
-          "✕"]]
-        [:div.pl-drawer-body
-         [:div.pl-canvas-side
-          [:div.pl-portrait-frame
-           (if any?
-             [composite portrait]
-             [:div.pl-empty-hint
-              "Pick a layer below, or hit " [:em "Randomize"] "."])]
-          [:div.pl-toolbar
-           [:button.pl-btn.pl-btn-primary
-            {:type "button" :on-click #(dispatch [:portrait/randomize])}
-            "🎲 Randomize"]
+          [:div.pl-drawer
+           [:div.pl-drawer-head
+            [:div.pl-drawer-title
+             [:span.pl-drawer-title-rune "\u00a7"] "Compose portrait"]
+            [:button.pl-drawer-close
+             {:type "button"
+              :on-click #(dispatch [:portrait/close])
+              :aria-label "Close portrait compositor"}
+             "\u2715"]]
+           [compositor-body portrait seed open-slot open-layer]
+           [:div.pl-drawer-foot
+            [attribution (:layers portrait)]
+            [:div.pl-drawer-actions
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/close])}
+              "Cancel"]
+             [:button.pl-btn.pl-btn-primary
+              {:type "button" :on-click #(dispatch [:portrait/save])}
+              "Save portrait"]]]]]))]))
+
+(defn tab-panel
+  "The compositor rendered in place, as a builder tab.
+
+   Same body as the drawer, different chrome: there is nothing to cancel back
+   to, so instead of Cancel/Save it carries Save with a dirty marker and a way
+   to pop the focused overlay -- which is the nicer place to work on a phone,
+   where the two columns stack into a long scroll.
+
+   Needs its own .pl-root because the drawer stylesheet scopes the light theme
+   to that class; here it also happens to sit inside .app, but relying on that
+   would mean two different theme hooks for one stylesheet."
+  []
+  (r/create-class
+   {:display-name "portrait-tab-panel"
+    :component-did-mount #(dispatch [:portrait/ensure-draft])
+    :reagent-render
+    (fn []
+      (let [portrait   @(subscribe [:portrait/draft])
+            seed       @(subscribe [:portrait/draft-seed])
+            open-slot  @(subscribe [:portrait/open-slot])
+            open-layer @(subscribe [:portrait/open-layer])
+            dirty?     @(subscribe [:portrait/dirty?])
+            theme      @(subscribe [:theme])]
+        [:div.pl-root.pl-inline {:class theme}
+         [compositor-body portrait seed open-slot open-layer]
+         [:div.pl-drawer-foot
+          [attribution (:layers portrait)]
+          [:div.pl-drawer-actions
            [:button.pl-btn.pl-btn-ghost
-            {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
-            "Reset"]
-           (when seed
-             [:div.pl-seed-row [:span "seed"] [:code seed]])]
-          [color-strip portrait open-slot]]
-         [:div.pl-pickers-side
-          (for [layer-key pa/layer-order]
-            ^{:key layer-key}
-            [category-picker portrait layer-key open-layer])]]
-        [:div.pl-drawer-foot
-         [attribution layers]
-         [:div.pl-drawer-actions
-          [:button.pl-btn.pl-btn-ghost
-           {:type "button" :on-click #(dispatch [:portrait/close])}
-           "Cancel"]
-          [:button.pl-btn.pl-btn-primary
-           {:type "button" :on-click #(dispatch [:portrait/save])}
-           "Save portrait"]]]]]))]))
+            {:type "button" :on-click #(dispatch [:portrait/open])}
+            "Full screen"]
+           [:button.pl-btn.pl-btn-primary
+            {:type "button"
+             :disabled (not dirty?)
+             :on-click #(dispatch [:portrait/save true])}
+            (if dirty? "Save portrait" "Saved")]]]]))}))
 
 (defn launcher-button
   "The 'Compose portrait' button that slots next to the Image URL input in

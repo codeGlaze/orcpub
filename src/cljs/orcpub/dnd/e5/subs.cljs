@@ -14,6 +14,7 @@
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
@@ -100,6 +101,17 @@
 (reg-sub
  :portrait/open-layer
  (fn [db _] (get db :portrait/open-layer)))
+
+(reg-sub
+ :portrait/dirty?
+ ;; Compared as data, not as strings: pr-str of an equal map is not guaranteed
+ ;; to be byte-identical, and nil-vs-empty-portrait must not read as an edit.
+ (fn [db _]
+   (let [draft (get db :portrait/draft)
+         saved (char5e/parse-portrait
+                (get-in db [:character ::entity/values ::char5e/portrait]))]
+     (boolean (and draft
+                   (not= draft (or saved portrait-assets5e/empty-portrait)))))))
 
 (reg-sub
  :locked
