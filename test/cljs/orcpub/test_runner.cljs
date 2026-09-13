@@ -17,6 +17,8 @@
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.built-character-debounce-test]
             [orcpub.dnd.e5.content-reconciliation-test]
+            ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
+            [orcpub.dnd.e5.homebrew-save-lifecycle-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
@@ -37,6 +39,7 @@
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
+             'orcpub.dnd.e5.homebrew-save-lifecycle-test
              'orcpub.dnd.e5.views-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
