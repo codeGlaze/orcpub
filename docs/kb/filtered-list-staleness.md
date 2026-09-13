@@ -1,7 +1,12 @@
 # A stored filter result is not a subscription — the My Items / My Spells staleness bug
 
-**Live bug.** References are against `integration` at `36766010` (identical `src/` on
-`agents/develop` `260aae1f`), checked 2026-09-12.
+**Live bug.** References are against `integration` at `36766010`, checked 2026-09-12.
+
+> **Pin warning, 2026-09-13.** These references are against **`integration` `36766010`** and were
+> correct there when written. They are **no longer correct against this branch's own working tree**:
+> `a1d16fc7` merged `feature/grant-rows` into `agents/develop`, so `src/` here now differs from
+> `integration` in 42 files. Check these line numbers against `integration`, not against a checkout
+> of `agents/develop`. The symbols named are still the right symbols; only the line numbers moved.
 
 The My Items and My Spells lists show a result computed when the user last typed, not the current
 content. Save an item, delete one, or let a fetch land, and the list keeps showing the old set until
