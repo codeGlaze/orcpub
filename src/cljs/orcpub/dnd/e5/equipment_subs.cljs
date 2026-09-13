@@ -28,23 +28,17 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
-;; Browser vs test/CLJ compile-time split: the browser gets the real
-;; HTTP-backed reg-sub-raw via reg-api-sub; the test/CLJ path gets a
-;; plain reg-sub returning [] so the sub key is always registered but
-;; doesn't try to hit the network during tests.
+;; With no window (the test runner) this is a plain sub returning [], so tests never reach the
+;; network.
 (if js/window.location
   (api-subs/reg-api-sub
    {:sub-key    ::mi5e/custom-items
     :route      routes/dnd-e5-items-route
     :db-key     ::mi5e/custom-items
     :set-event  ::mi5e/set-custom-items
-    ;; Silent 401 is deliberate: the handle-api-response default is
-    ;; :route-to-login, which would cause a login-loop here since this
-    ;; sub fires on first subscribe and can race with
-    ;; :verify-user-session. The console.warn is diagnostic-only — zero
-    ;; behavior change, but gives future debuggers a greppable breadcrumb
-    ;; when users report "items missing" (#669). Search the dev console
-    ;; for "custom-items fetch rejected".
+    ;; No redirect on 401: this sub fires on first subscribe, which can race
+    ;; :verify-user-session, and the default :route-to-login would loop. The warning is only
+    ;; there for diagnosis.
     :on-401     (fn [_]
                   (js/console.warn
                    "custom-items fetch rejected (401); session may be stale"))
@@ -264,83 +258,19 @@
           mi5e/all-magic-items-map
           maps)))
 
-;; ============================================================================
-;; ORPHANED: Cross-user item detail fetch chain — commented out, kept for
-;; reference. Item sharing is on the roadmap but not yet prioritized.
-;; ============================================================================
+;; Switched off: fetching one item by id, meant for an item page that shows an item someone
+;; else owns. Nothing subscribes to it. To bring it back, restore these three forms together with
+;; ::mi/add-remote-item in events.cljs and the requires they use (reg-sub-raw, dispatch,
+;; subscribe, <!, go, url-for-route, auth-headers, handle-api-response), and point
+;; views/item-page at [::mi5e/item key]. Today that page reads ::mi/custom-item from the
+;; logged-in user's own list, so /items/<id> for another owner's item shows "not found".
 ;;
-;; PURPOSE: Groundwork for viewing magic items owned by OTHER users.
+;; GET /api/dnd/e5/items/:id (routes/get-item) has no check-auth: it returns any owned item,
+;; owner included, to anyone who asks. Decide who may see, edit or copy another owner's items
+;; before wiring this up.
 ;;
-;; The bulk `GET /api/dnd/e5/items` endpoint returns only items where
-;; `::mi5e/owner = (:user identity)` — items the current user owns.
-;; The server also exposes `GET /api/dnd/e5/items/:id` (routes.clj
-;; `get-item`) which returns ANY item by db-id regardless of whose
-;; owner it has. This chain was intended as the client-side consumer
-;; for that by-id endpoint, so visiting `/items/<id>` for someone
-;; else's shared item would fetch it on demand.
-;;
-;; The live `views/item-page` (views.cljs:3874) bypasses this chain —
-;; it subscribes to `::mi/custom-item item-key` directly, which reads
-;; from the bulk-fetched `::mi/custom-items` list. As a result,
-;; visiting `/items/<id>` for an item you don't own silently falls
-;; back to "not found."
-;;
-;; CHAIN (when restored):
-;;
-;;   views/item-page calls (subscribe [::mi5e/item item-key])
-;;     |
-;;     |--- ::mi5e/item dispatcher (below)
-;;           |
-;;           |-- int key: (subscribe [::mi5e/remote-item id])
-;;           |       |
-;;           |       |-- fires GET /api/dnd/e5/items/:id with auth headers
-;;           |       |-- dispatches [::mi5e/add-remote-item (:body response)]
-;;           |             (handler lives in events.cljs — also commented)
-;;           |       |-- stores under db[::mi5e/remote-items][id]
-;;           |       +-- reaction reads that path
-;;           |
-;;           +-- kw key: (get mi5e/all-equipment-map key) via make-reaction
-;;
-;; COMMENTED OUT because:
-;;
-;; - Half-alive: registered in the signal graph but zero live subscribers.
-;;   Only in-tree reference is inside the #_ dispatcher below. Was
-;;   confusing to auditors who kept re-discovering it.
-;;
-;; - Broken guard since 45ef969 (Aug 2025): the `(and (:user @app-db)
-;;   (:token (:user @app-db)))` check reads db[:user] which has NEVER
-;;   contained a :token. db[:user] is only written by :set-user via
-;;   :follow-user / :unfollow-user with {:following [...]} shapes.
-;;   The canonical token path is [:user-data :token] — see
-;;   event_utils/get-auth-token. Guard has been false 100% of the time
-;;   since it was introduced, so the fetch never fired even if a live
-;;   caller had existed. Fixed in the commented form below so the
-;;   next restorer doesn't hit the same trap.
-;;
-;; TO RESTORE when item sharing is implemented:
-;;
-;; 1. Uncomment the four forms below AND ::mi/add-remote-item in
-;;    events.cljs (search for "ORPHANED: see equipment_subs").
-;;
-;; 2. Update views/item-page (views.cljs:3874) to subscribe to
-;;    [::mi5e/item key] instead of [::mi/custom-item item-key], so
-;;    numeric id keys route through the remote fetch while keyword
-;;    keys continue to resolve against the local map.
-;;
-;; 3. Consider whether the remote fetch should be an explicit event
-;;    on route-mount rather than a reg-sub-raw side effect — the
-;;    modern pattern per docs/kb/reframe-subscription-patterns.md on
-;;    agents/develop. The current shape works but is not the style
-;;    the rest of the code has moved toward.
-;;
-;; 4. Product decisions needed before wiring the UI:
-;;    - Can viewers edit items they don't own?
-;;    - Can they favorite/clone/share them?
-;;    - Decide before exposing the detail page.
-;;
-;; 5. Add a KB entry to docs/kb/ on agents/develop documenting the
-;;    cross-user item fetch chain once it's wired and working.
-;; ============================================================================
+;; The original guard read (:token (:user db)), which is always nil, so the fetch never fired;
+;; the copy below reads get-auth-token.
 
 #_(reg-sub
     ::mi5e/remote-items
@@ -350,10 +280,7 @@
 #_(reg-sub-raw
     ::mi5e/remote-item
     (fn [app-db [_ id]]
-      ;; Guard uses event-utils/get-auth-token (canonical path). Original
-      ;; was `(and (:user @app-db) (:token (:user @app-db)))` which was
-      ;; wrong — db[:user] has never contained :token. Fixed here so the
-      ;; next restorer doesn't re-hit 45ef969's typo.
+      
       (when (event-utils/get-auth-token @app-db)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route

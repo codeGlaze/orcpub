@@ -86,7 +86,7 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
     }
   });
 
-  // Log in (helper shape lifted from fix/custom-item-classification:scripts/e2e/run.js).
+  // Log in.
   await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('input');
   await page.locator('input').nth(0).fill(USER);
