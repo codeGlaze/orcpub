@@ -1024,3 +1024,9 @@
   (is (= [] (:moved (events/set-aside-broken-entries {"P" {::e5/races {}}} nil
                                                      [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
 
+(deftest reporting-a-character-problem-sends-the-auth-token
+  (reset! app-db {:user-data {:token "t0ken"}})
+  (let [fx (effects-of [:report-character-problem 42 "boom" "{:raw 1}"] [:http])]
+    (is (= "t0ken" (get-in fx [:http :auth-token]))
+        "get-auth-token had moved to event-utils, so this handler threw and the report never sent")))
+
