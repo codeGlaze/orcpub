@@ -794,12 +794,11 @@
    clear.
 
    `assoc-in` cannot tell replacing yourself from replacing somebody else, so this
-   asks before the write:
+   asks before the write. Both kinds are about MINTING a key something else holds:
+   an item that already owns the key gets nil, whatever else is in the library.
 
      :overwrite  the key already holds a DIFFERENT item in this same source, so
-                 saving would silently discard it. `:key` on the item being saved
-                 is what distinguishes an edit returning to its own slot from a
-                 rename landing on an occupied one.
+                 saving would silently discard it.
      :cross      the key exists in ANOTHER source. Not data loss, but not benign:
                  the combines that dedupe by key pick their winner by the hash
                  order of source names, and the ones that don't show both copies.
@@ -808,17 +807,21 @@
   [plugins option-pack plugin-key key item]
   (let [occupant (get-in plugins [option-pack plugin-key key])
         self?    (= key (:key item))]
-    (cond
-      (and occupant (not self?))
-      {:kind :overwrite :source option-pack :name (:name occupant)}
-
-      :else
-      (when-let [[src occ] (first (for [[src plugin] plugins
-                                        :when (and (not= src option-pack) (map? plugin))
-                                        :let [occ (get-in plugin [plugin-key key])]
-                                        :when occ]
-                                    [src occ]))]
-        {:kind :cross :source src :name (:name occ)}))))
+    ;; An item that already answers to this key is returning to its own slot, and neither kind
+    ;; applies to it -- INCLUDING :cross. A library can already hold the same key in two sources
+    ;; (an import where someone chose "keep both"), and that duplicate is not created by this save.
+    ;; Refusing it fixed nothing and trapped the item: under mint-once the author cannot rename
+    ;; their way out either, because renaming no longer moves the key. The library health card is
+    ;; where a standing duplicate is reported; the save is not.
+    (when-not self?
+      (if occupant
+        {:kind :overwrite :source option-pack :name (:name occupant)}
+        (when-let [[src occ] (first (for [[src plugin] plugins
+                                          :when (and (not= src option-pack) (map? plugin))
+                                          :let [occ (get-in plugin [plugin-key key])]
+                                          :when occ]
+                                      [src occ]))]
+          {:kind :cross :source src :name (:name occ)})))))
 
 (defn save-into-plugins
   "Write `item` at `key`, and remove whatever sat under `renamed-from`.

@@ -92,6 +92,15 @@ link, rather than a bespoke grey — which is what made an earlier attempt read 
 
 ### What the save refuses
 
+**Only a MINT.** An item that already answers to the key it is saving to is returning to its own
+slot, and the check does not run for it at all — whatever else the library holds. That matters for
+a library that already has the same key in two sources (an import where someone chose "keep both"):
+the duplicate is real and the health card reports it, but this save did not create it, and refusing
+the save fixed nothing while trapping the item. Under mint-once the author could not even rename
+their way out, because renaming no longer moves the key. Pinned by
+`editing-your-own-item-works-even-when-another-source-answers-to-its-key`.
+
+
 **Minting a key something else already holds — in any source.** A key is an address and the address
 space is global: the combines that dedupe by key pick their winner by the hash-iteration order of
 source names (see the CORRECTION below), and the ones that don't show both copies. Neither is a
