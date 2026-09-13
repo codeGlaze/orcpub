@@ -7295,16 +7295,17 @@
    form (less clutter); starts OPEN when `has-content?` so editing existing data isn't hidden. The data
    only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export.
 
-   `{:compact? true}` renders the trigger as a quiet 12px line instead of a section heading, and drops
-   the \"click to add\" nudge — for a section that is rarely wanted and never needs advertising."
+   `{:compact? true}` renders the trigger a size down from a section heading and drops the
+   \"click to add\" nudge — for a section that is rarely wanted and never needs advertising. Quieter,
+   not dimmer: 12px at half opacity was unreadable."
   [_label has-content? _body & [_opts]]
   (let [open? (r/atom (boolean has-content?))]
     (fn [label _has-content? body & [{:keys [compact?]}]]
       [:div {:class (if compact? "m-b-10" "m-b-20")}
        [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
         [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
-                                  (when compact? " f-s-12 opacity-5"))}]
-        [:span {:class (if compact? "f-s-12 opacity-5" "f-s-18 f-w-b")} label]
+                                  (when compact? " f-s-12 orange"))}]
+        [:span {:class (if compact? "f-s-14 f-w-b opacity-7" "f-s-18 f-w-b")} label]
         (when (and (not @open?) (not compact?))
           [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
@@ -9864,8 +9865,8 @@
         draft    (r/atom "")]
     (fn [item save-event]
       (when-let [k (:key item)]
-        [:div.f-s-12.m-b-10.main-text-color.flex.align-items-c.flex-wrap
-         [:span.m-r-5.opacity-5 "key"]
+        [:div.f-s-14.m-b-10.m-l-20.main-text-color.flex.align-items-c.flex-wrap
+         [:span.m-r-5.opacity-7 "key"]
          [:span.f-w-b.m-r-10 (str k)]
          (if @editing?
            [:<>
