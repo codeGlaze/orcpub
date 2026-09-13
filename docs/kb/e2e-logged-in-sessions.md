@@ -78,6 +78,33 @@ The same file carries the helpers a custom-items probe needs — `newItem(page, 
 and is invisible to anyone who looks only at `integration` or `agents/develop` — which is exactly
 how it got missed here.
 
+### Why that helper is invisible: two different suites share one filename
+
+`scripts/e2e/run.js` is **two unrelated test suites contesting one path**:
+
+| | lines | what it is |
+|---|---|---|
+| `integration` | 394 | PDF export scenarios. No login at all |
+| `fix/custom-item-classification` | 566 | Custom-item flows, with `login()`, `newItem()`, and `kaylee`/`serenity99` as the defaults |
+
+They are not versions of one file. The branch wrote its runner alongside `dev/e2e_boot.clj`
+(`8775f9f4`, 2026-08-27); the harness itself then reached `integration` through a *different*
+commit (`23eb07cf`, 2026-08-30 — byte-identical blob, so it was carried over separately), and
+`integration` grew its own `run.js` for PDF. **The infrastructure landed; the suite that used it
+did not.**
+
+That is the whole reason a reader on `integration` sees a runner with no login and concludes
+logged-in probing is unsupported.
+
+`integration`'s `run.sh` already takes a script argument — `node "scripts/e2e/${1:-run.js}"` — so
+the mechanism for having several suites exists. Only the contested default filename is missing a
+decision. The branch's own `run.sh` still hardcodes `run.js`, which is one of the four hunks that
+file conflicts on.
+
+**Merging the branch as-is is 17 hunks across 12 files**, and `scripts/e2e/run.js` is one of them —
+a 566-line file conflicting with a 394-line file that shares nothing but a name. Resolving that as a
+merge is the wrong shape of work. Rename first, then merge.
+
 ### The four facts behind those seven lines
 
 Worth keeping because a changed selector sends you back to them:
