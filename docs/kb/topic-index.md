@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, race, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -54,7 +54,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, ring, scalar, shield, sum, sweep, tie-break, unarmored, worn
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, magic, monk, natural, plate, ring, scalar, shield, sum, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, crossbow, dual, equipped, ignored, iterating, melee, predicate, silently, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -116,7 +116,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, check, css, expression, finds, fires, form, green, layout, lesson, machine, page, past, pin, review, screenshot, stale, vanished
+**topics:** blind, block, check, control, css, fires, form, green, invented, item, machine, page, react, reagent, rendering, review, screenshot, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -124,6 +124,8 @@ _before-you-start · before you start_
 - Before designing anything (a control, a palette, a layout)
 - Before borrowing a value from a mock or another branch
 - Before converting a builder
+- Before passing a data map as a Reagent component's first argument
+- Before de-emphasising a control
 - Before believing a CSS change worked
 - Before reporting a UI change as done
 - How this page stays small
@@ -178,7 +180,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, race, row, rows, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -194,6 +196,8 @@ _builder-disposition-audit · builder disposition audit_
 - What the six tables add up to
 - Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
 - The 35 deletions — replacement and shim, one row each
+- ⛔ Row 31 is not fixed-class-safe — measured 2026-09-13
+- ⛔ And the fixed class is gated by silo too — measured 2026-09-13
 - OMV (port/redesign-on-refactor)
 
 ## builder-form-schemas.md
@@ -232,7 +236,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, reaction, scaling, tool
+**topics:** artificer, builders, cfg, companion, d28, dead, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -283,7 +287,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, summary, surge, user-reported, wind
+**topics:** attack, cfg, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, summary, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -298,11 +302,12 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, html, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, harness, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
-- Known-good baseline (as of this branch)
+- Known-good baseline — 2026-09-12: 370 tests / 1742 assertions, 0 failures, 0 errors
+- Two things had the suite reporting nonsense, and neither was a test
 - Gotchas worth remembering
 - Full-app headless E2E — render and drive the REAL app UI (not the test build)
 - Full content round-trip through the real UI (test/e2e/export-import-use.js)
@@ -334,7 +339,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, readability, rejected
+**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -412,7 +417,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -463,7 +468,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, library, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -611,7 +616,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, tick, watch-list, whitelist
+**topics:** backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, styles, tick, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -639,7 +644,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** blocks, browser, csp, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, ships, subset, subsets, visitor
+**topics:** browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, vietnamese, visitor
 
 - Why
 - What is checked in
@@ -671,11 +676,12 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, commit, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, row, sentence, session, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
 - 1. Re-record the gallery baseline — 5 minutes
+- ⛔ Steps 2 and 4 are interleaved — measured 2026-09-13
 - 2. legacyshims.cljc — fixed-class keys normalize at import
 - 3. The :ref decision — unblocks the choice class
 - 4. grant-rows on the other silos — one line each
@@ -715,18 +721,23 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** appear, built-in, coexist, combines, copy, duplicate, last-wins, membership, override, plugin, predictable, reduces, same-key, spell, unique, winner, wins, within
+**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, key, minted, override, plugin, predictable, rename, returning, same-key, save, spell, wins
 
 - TL;DR
 - The map (VERIFIED)
 - Why the override is "plugin wins" (the load-bearing semantics) — VERIFIED by test
+- Open: tagging every minted key with its source
+- The builder's own save gate (2026-09-12)
+- The builder's save: a key is minted once (2026-09-13)
+- What the save refuses
+- The rename history — :former-keys (2026-09-12)
 - Notes / boundaries
 
 ## keyword-trap-name-repair.md
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, falls, invalid, junk, leading, least-destructive, mangled, quarantine, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -737,7 +748,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, dismissal, enabled, global, item, library, modal, off, overlay, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, item, library, modal, nondeterministic, off, overlay, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -766,7 +777,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, cap, capabilities, contributor, converting, damage, hygiene, integration, macro, move, picked, requirements, roughly, row, understood, wants, warforged
+**topics:** advanced, armour, capabilities, control, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -781,7 +792,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, grant, irregularity, membership, pieces, pool, pools, registered, shaped, spells, styles, tested, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -789,6 +800,7 @@ _pool-grant-map · pool grant map_
 - AIR — decided in a doc, not built
 - How the open pieces constrain each other
 - Spells: closer than it looks
+- A registered pool cannot see who is granting from it
 - Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
 - The path — four items, then wait for a case
@@ -797,7 +809,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, routes, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -814,7 +826,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** acquisition, alias, asks, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, spellings, trigger, wants
+**topics:** accessor, acquisition, alias, archmagi, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -834,7 +846,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -854,7 +866,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, scope, table-wide, tortle, wants, wear, writs
+**topics:** armor, campaign, computation, dispensations, everyone, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -875,11 +887,24 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 - Boundaries (what this does NOT do)
 - Design implication (the condition/benefit registry idea)
 
+## source-tagged-keys.md
+
+_source-tagged-keys · source tagged keys_
+
+**topics:** 2026-09-13, abbreviation, collisions, d10a, decided, default, elf, mint, name, people, possible, source, srd, stone, tag, tagging, untagged, words
+
+- What exists today
+- The proposal
+- What it would buy
+- Settled
+- Still to be said out loud, but not blocking
+- Recommendation
+
 ## spell-granting-across-silos.md
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -906,7 +931,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -923,9 +948,10 @@ _starting-equipment · starting equipment_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, crashes, debt, diagnosis, errors, failures, figwheel, harness, pre-existing, run, spec, suite, suites, theater, unresolved, unrun
+**topics:** 2016, assertions, browser, cljs, cookie, debt, diagnosis, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved
 
-- 0. Current measured state — 2026-09-05, feature/fighting-style-authoring
+- 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
+- 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
 - 1. What runs where (the gate reality)
 - 2. Pre-existing cljs failures (10 failures / 3 errors)
 - 3. The ::character spec / character-test.cljc saga (verified via unshallowed git)
@@ -936,7 +962,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claim, claims, compare, concluded, confident, faster, integration, miss, optimisation, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)

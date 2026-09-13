@@ -39,18 +39,22 @@ const clickLink = (page, text) => page.evaluate(t => {
     await fill(page, 'Name', 'Tidewrad');
     await fill(page, 'Option Source Name', SOURCE);
     check('no key is shown before the first save',
-          !/key\s*:?tidewrad/i.test(await page.locator('#app').innerText()));
+          !/key\s+:tidewrad/i.test(await page.locator('#app').innerText()));
     check('saved', await clickText(page, /save to browser storage/i));
     await page.waitForTimeout(1000);
 
     const body = await page.locator('#app').innerText();
-    check('the key it was minted under is shown, below the form', /:tidewrad/.test(body),
+    // "Key Change Pin" abbreviates to KyCePn (first+last letter per word, three words or fewer)
+    check('the minted key carries the source tag, and is shown below the form',
+          /:tidewrad-kycepn/.test(body),
           (body.match(/key[^\n]*/i) || [''])[0]);
 
     check('opened the key editor', await clickLink(page, 'change'));
     await page.waitForTimeout(400);
+    // the input is the one inside the key row — its placeholder is the CURRENT key, which carries
+    // the source tag (D10b) and is not worth spelling out here
     await page.evaluate(() => {
-      const i = [...document.querySelectorAll('#app input')].find(x => x.placeholder === 'tidewrad');
+      const i = document.querySelector('.bf-meta input');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
       setter.call(i, 'tideward');
       i.dispatchEvent(new Event('input', { bubbles: true }));
@@ -59,9 +63,10 @@ const clickLink = (page, text) => page.evaluate(t => {
     await page.waitForTimeout(1200);
 
     const stored = await dbAt(page, `[:plugins "${SOURCE}" :orcpub.dnd.e5/languages]`);
-    check('the item moved to the new key', /:tideward\b/.test(stored) && !/:tidewrad {/.test(stored),
-          stored.slice(0, 220));
-    check('and the move is recorded for characters', /:former-keys \[:tidewrad\]/.test(stored));
+    check('the item moved to the key the author typed — no tag put back',
+          /:tideward\b/.test(stored) && !/:tidewrad-kycepn {/.test(stored), stored.slice(0, 240));
+    check('and the move is recorded for characters',
+          /:former-keys \[:tidewrad-kycepn\]/.test(stored));
     check('the NAME is untouched — a key change is not a rename', /"Tidewrad"/.test(stored));
     check('the form now shows the new key', /:tideward/.test(await page.locator('#app').innerText()));
     const box = await page.locator('.bf-meta').boundingBox();
@@ -72,7 +77,7 @@ const clickLink = (page, text) => page.evaluate(t => {
     await clickLink(page, 'change');
     await page.waitForTimeout(300);
     await page.evaluate(() => {
-      const i = [...document.querySelectorAll('#app input')].find(x => x.placeholder === 'tideward');
+      const i = document.querySelector('.bf-meta input');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
       setter.call(i, 'common');                       // a built-in language key
       i.dispatchEvent(new Event('input', { bubbles: true }));

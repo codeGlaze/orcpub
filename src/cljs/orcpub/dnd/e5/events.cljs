@@ -864,11 +864,12 @@
      event-key
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
-             ;; MINTED ONCE (D10). The key is an address, not a label: derived from the name at
-             ;; creation, then fixed. Renaming is a name edit, and every character holding the key
-             ;; still resolves. Changing a key is a separate, deliberate act -- import conflict
-             ;; resolution, the manual relink -- and those record :former-keys.
-             key (or (:key item) (common/name-to-kw name))
+             ;; MINTED ONCE (D10a), TAGGED WITH ITS SOURCE (D10b). The key is an address, not a
+             ;; label: derived from the name at creation, carrying the source's abbreviation, then
+             ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
+             ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
+             ;; is a separate, deliberate act that records :former-keys.
+             key (or (:key item) (common/source-tagged-key name option-pack))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
@@ -947,7 +948,11 @@
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
              ;; minted once, like the ordinary save: sanitizing a name must not re-address an
              ;; item that already has a key
-             item-with-key (cond-> (assoc sanitized :option-pack src)
+             item-with-key (cond-> (assoc sanitized
+                                          :option-pack src
+                                          ;; the placeholder source tags too -- "dflt" exists for
+                                          ;; exactly this landing spot
+                                          :key (common/source-tagged-key (:name sanitized) src))
                              (:key item) (assoc :key (:key item)))
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -1009,7 +1014,7 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (or (:key item) (common/name-to-kw name))      ; minted once (D10)
+         key (or (:key item) (common/source-tagged-key name option-pack))   ; minted once, tagged
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1078,7 +1083,7 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (or (:key item) (common/name-to-kw (:name filled-item)))
+         key (or (:key item) (common/source-tagged-key (:name filled-item) src))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]

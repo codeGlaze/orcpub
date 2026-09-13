@@ -14,6 +14,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.spells :as spells5e]
+            [orcpub.common :as common]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
             ;; Side effect: registers every event handler under test.
             [orcpub.dnd.e5.events]
@@ -23,6 +24,13 @@
 
 (def ^:private SRC "Lifecycle Pak")
 (def ^:private ct :orcpub.dnd.e5/languages)
+
+(defn- k
+  "The key `item-name` mints in SRC. A minted key carries its source's tag (D10b), so the tests
+   below ask for it by the same rule rather than spelling `:tideward-lepk` out twenty times — the
+   literal is pinned once, in `a-minted-key-carries-its-sources-tag`."
+  [item-name]
+  (common/source-tagged-key item-name SRC))
 
 (defn- reset-db! []
   (reset! app-db {:plugins {}}))
@@ -71,23 +79,23 @@
 (deftest a-new-item-lands-under-a-key-derived-from-its-name
   (open! (draft "Tideward"))
   (save!)
-  (is (= #{:tideward} (set (keys (stored)))))
-  (is (= "Tideward" (get-in (stored) [:tideward :name]))))
+  (is (= #{(k "Tideward")} (set (keys (stored)))))
+  (is (= "Tideward" (get-in (stored) [(k "Tideward") :name]))))
 
 (deftest the-form-keeps-the-key-it-just-wrote
   ;; `save-collision` reads this to tell an edit returning to its own slot from a name landing on
   ;; somebody else's. Without it the SECOND save below is refused as an overwrite of itself.
   (open! (draft "Tideward"))
   (save!)
-  (is (= :tideward (:key (in-builder)))))
+  (is (= (k "Tideward") (:key (in-builder)))))
 
 (deftest saving-the-same-item-twice-is-not-a-collision
   (open! (draft "Tideward"))
   (save!)
   (swap! app-db assoc-in [::langs5e/builder-item :description] "a tide-tongue")
   (save!)
-  (is (= #{:tideward} (set (keys (stored)))) "one entry, not two")
-  (is (= "a tide-tongue" (get-in (stored) [:tideward :description])) "the second save landed")
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "one entry, not two")
+  (is (= "a tide-tongue" (get-in (stored) [(k "Tideward") :description])) "the second save landed")
   (is (empty? (:builder-field-errors @app-db)) "and nothing was flagged"))
 
 (deftest a-restored-draft-saves-back-into-its-own-slot
@@ -97,18 +105,20 @@
   (save!)
   (let [persisted (in-builder)]
     (reset-db!)
-    (swap! app-db assoc :plugins {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}})
+    (swap! app-db assoc :plugins {SRC {ct {(k "Tideward") (assoc (draft "Tideward")
+                                                                 :key (k "Tideward"))}}})
     (open! persisted)
     (save!)
-    (is (= #{:tideward} (set (keys (stored)))))))
+    (is (= #{(k "Tideward")} (set (keys (stored)))))))
 
 (deftest editing-a-saved-item-saves-back-into-its-own-slot
-  (swap! app-db assoc :plugins {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}})
-  (open! (get-in @app-db [:plugins SRC ct :tideward]))       ; what the edit event hands the form
+  (swap! app-db assoc :plugins {SRC {ct {(k "Tideward") (assoc (draft "Tideward")
+                                                               :key (k "Tideward"))}}})
+  (open! (get-in @app-db [:plugins SRC ct (k "Tideward")]))  ; what the edit event hands the form
   (swap! app-db assoc-in [::langs5e/builder-item :description] "edited")
   (save!)
-  (is (= #{:tideward} (set (keys (stored)))))
-  (is (= "edited" (get-in (stored) [:tideward :description]))))
+  (is (= #{(k "Tideward")} (set (keys (stored)))))
+  (is (= "edited" (get-in (stored) [(k "Tideward") :description]))))
 
 ;; ---------------------------------------------------------------------------
 ;; Renaming
@@ -121,16 +131,16 @@
   (save!)
   (set-name! "Tidewall")
   (save!)
-  (is (= #{:tideward} (set (keys (stored)))) "one entry, still at the key it was minted under")
-  (is (= "Tidewall" (get-in (stored) [:tideward :name])) "with the new name on it")
-  (is (empty? (get-in (stored) [:tideward :former-keys])) "nothing moved, so nothing to record"))
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "one entry, still at the key it was minted under")
+  (is (= "Tidewall" (get-in (stored) [(k "Tideward") :name])) "with the new name on it")
+  (is (empty? (get-in (stored) [(k "Tideward") :former-keys])) "nothing moved, so nothing to record"))
 
 (deftest a-character-keeps-resolving-across-a-rename
   (open! (draft "Tideward"))
   (save!)
   (set-name! "Tidewall")
   (save!)
-  (is (contains? (stored) :tideward) "the key a character stored is still the live one")
+  (is (contains? (stored) (k "Tideward")) "the key a character stored is still the live one")
   (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and there is nothing to heal"))
 
 (deftest a-deliberate-key-change-still-records-the-move
@@ -185,7 +195,8 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest a-new-item-may-not-take-a-key-another-item-in-this-source-holds
-  (swap! app-db assoc :plugins {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}})
+  (swap! app-db assoc :plugins {SRC {ct {(k "Tideward") (assoc (draft "Tideward")
+                                                               :key (k "Tideward"))}}})
   (open! (draft "Tideward"))                                 ; a DIFFERENT item, same name
   (save!)
   (is (= 1 (count (stored))) "the sitting tenant is not replaced")
@@ -193,24 +204,29 @@
 
 (deftest taking-another-items-name-does-not-take-its-key
   ;; Two items may share a display name. Only the key is unique, and a saved item keeps its own.
-  (swap! app-db assoc :plugins {SRC {ct {:tidewall (assoc (draft "Tidewall") :key :tidewall)}}})
+  (swap! app-db assoc :plugins {SRC {ct {(k "Tidewall") (assoc (draft "Tidewall")
+                                                               :key (k "Tidewall"))}}})
   (open! (draft "Tideward"))
   (save!)
-  (is (= #{:tideward :tidewall} (set (keys (stored)))))
+  (is (= #{(k "Tideward") (k "Tidewall")} (set (keys (stored)))))
   (set-name! "Tidewall")                                     ; the same NAME as the other item
   (save!)
-  (is (= #{:tideward :tidewall} (set (keys (stored)))) "both survive")
-  (is (= "Tidewall" (get-in (stored) [:tidewall :name])) "the other item is untouched")
-  (is (= "Tidewall" (get-in (stored) [:tideward :name])) "and this one took the name, not the key"))
+  (is (= #{(k "Tideward") (k "Tidewall")} (set (keys (stored)))) "both survive")
+  (is (= "Tidewall" (get-in (stored) [(k "Tidewall") :name])) "the other item is untouched")
+  (is (= "Tidewall" (get-in (stored) [(k "Tideward") :name])) "and this one took the name, not the key"))
 
 (deftest a-key-held-by-another-source-is-refused-too
   ;; A key is an address, and it is global. Two items answering to one key collide wherever they
   ;; live: the combines that dedupe pick a winner by the hash order of source names, and the ones
   ;; that do not show both copies. Wanting both is legitimate, and it arrives through IMPORT, where
   ;; "keep both" is something someone chose.
-  (swap! app-db assoc :plugins {"Someone Else's Pak" {ct {:tideward {:key :tideward
-                                                                    :name "Tideward"
-                                                                    :option-pack "Someone Else's Pak"}}}})
+  ;;
+  ;; Tagging (D10b) makes this rare rather than impossible: the twin here holds the key THIS source
+  ;; mints, which is what an .orcbrew authored in "Lifecycle Pak" and imported under another source
+  ;; name leaves behind.
+  (swap! app-db assoc :plugins {"Someone Else's Pak" {ct {(k "Tideward") {:key (k "Tideward")
+                                                                          :name "Tideward"
+                                                                          :option-pack "Someone Else's Pak"}}}})
   (open! (draft "Tideward"))
   (save!)
   (is (nil? (stored)) "nothing saved into this source")
@@ -219,12 +235,14 @@
 (deftest an-item-that-already-owns-its-key-saves-over-itself-in-any-library
   ;; The refusal is for MINTING a key something else holds. An item that already owns the key it
   ;; is saving to is returning to its own slot, however crowded the rest of the library is.
-  (swap! app-db assoc :plugins {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}
-                                "Someone Else's Pak" {ct {:other {:key :other :name "Other"
-                                                                  :option-pack "Someone Else's Pak"}}}})
-  (open! (assoc (draft "Tideward") :key :tideward :description "edited"))
+  (swap! app-db assoc :plugins {SRC {ct {(k "Tideward") (assoc (draft "Tideward")
+                                                               :key (k "Tideward"))}}
+                                "Someone Else's Pak" {ct {(k "Tideward") {:key (k "Tideward")
+                                                                          :name "Tideward"
+                                                                          :option-pack "Someone Else's Pak"}}}})
+  (open! (assoc (draft "Tideward") :key (k "Tideward") :description "edited"))
   (save!)
-  (is (= "edited" (get-in (stored) [:tideward :description])))
+  (is (= "edited" (get-in (stored) [(k "Tideward") :description])))
   (is (empty? (:builder-field-errors @app-db))))
 
 (defn- change-key! [new-key]
@@ -246,22 +264,24 @@
   ;; conflict resolution makes, so characters rebind on load.
   (open! (draft "Tidewrad"))
   (save!)
+  ;; the author TYPES this one, so it is exactly what they typed -- no tag appended. Deleting the
+  ;; tag is how an SRD override is asked for, so the control must not put one back.
   (change-key! :tideward)
   (is (= #{:tideward} (set (keys (stored)))) "moved, not copied")
-  (is (= [:tidewrad] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
+  (is (= [(k "Tidewrad")] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
   (is (= :tideward (:key (in-builder))) "the open form follows its own item")
-  (is (= {:tidewrad :tideward} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= {(k "Tidewrad") :tideward} (reconcile/former-key-index (:plugins @app-db))))
   (is (= "Tidewrad" (get-in (stored) [:tideward :name])) "the NAME is untouched"))
 
 (deftest a-key-change-is-refused-when-the-key-is-taken-anywhere
   (swap! app-db assoc :plugins
-         {SRC {ct {:tidewrad (assoc (draft "Tidewrad") :key :tidewrad)}}
+         {SRC {ct {(k "Tidewrad") (assoc (draft "Tidewrad") :key (k "Tidewrad"))}}
           "Someone Else's Pak" {ct {:tideward {:key :tideward :name "Tideward"
                                                :option-pack "Someone Else's Pak"}}}})
-  (open! (get-in @app-db [:plugins SRC ct :tidewrad]))
+  (open! (get-in @app-db [:plugins SRC ct (k "Tidewrad")]))
   (change-key! :tideward)
-  (is (= #{:tidewrad} (set (keys (stored)))) "nothing moved")
-  (is (= :tidewrad (:key (in-builder)))))
+  (is (= #{(k "Tidewrad")} (set (keys (stored)))) "nothing moved")
+  (is (= (k "Tidewrad") (:key (in-builder)))))
 
 (deftest an-unsaved-item-has-no-key-to-change
   (open! (draft "Tideward"))
@@ -296,12 +316,29 @@
   ;; THIS save, and refusing the save fixes nothing. It only traps the item: under mint-once the
   ;; author cannot rename their way out either, because renaming no longer moves the key.
   (swap! app-db assoc :plugins
-         {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}
-          "Someone Else's Pak" {ct {:tideward {:key :tideward :name "Tideward"
-                                               :option-pack "Someone Else's Pak"}}}})
-  (open! (assoc (get-in @app-db [:plugins SRC ct :tideward]) :description "edited"))
+         {SRC {ct {(k "Tideward") (assoc (draft "Tideward") :key (k "Tideward"))}}
+          "Someone Else's Pak" {ct {(k "Tideward") {:key (k "Tideward") :name "Tideward"
+                                                     :option-pack "Someone Else's Pak"}}}})
+  (open! (assoc (get-in @app-db [:plugins SRC ct (k "Tideward")]) :description "edited"))
   (save!)
-  (is (= "edited" (get-in (stored) [:tideward :description])) "the edit landed")
+  (is (= "edited" (get-in (stored) [(k "Tideward") :description])) "the edit landed")
   (is (empty? (:builder-field-errors @app-db)) "and nothing was flagged")
-  (is (= "Tideward" (get-in @app-db [:plugins "Someone Else's Pak" ct :tideward :name]))
+  (is (= "Tideward" (get-in @app-db [:plugins "Someone Else's Pak" ct (k "Tideward") :name]))
       "the other source is untouched"))
+
+;; ---------------------------------------------------------------------------
+;; The tag itself
+;; ---------------------------------------------------------------------------
+
+(deftest a-minted-key-carries-its-sources-tag
+  ;; The literal, pinned once. Everything above asks for keys through `k` so a change to the
+  ;; abbreviation rule fails HERE and not in thirty places.
+  (is (= :tideward-lepk (common/source-tagged-key "Tideward" SRC)))
+  (is (= :artificer-ksty (common/source-tagged-key "Artificer" "Kibbles Tasty"))
+      "the same key an import conflict would give it")
+  (is (= :stone-elf-dflt (common/source-tagged-key "Stone Elf" "Default Option Source"))
+      "the placeholder source tags too — it is where most first homebrew lands")
+  (is (= :stone-elf-ua (common/source-tagged-key "Stone Elf" "Unearthed Arcana"))
+      "and a source with a real-world abbreviation uses it")
+  (is (= :stone-elf (common/source-tagged-key "Stone Elf" ""))
+      "a source with no name mints the plain key"))

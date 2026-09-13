@@ -1,6 +1,6 @@
 # Should every minted key carry its source's abbreviation?
 
-**Status: DECIDED 2026-09-13, not built.** Written down because the question kept coming up in chat
+**Status: BUILT 2026-09-13.** (D10b) Written down because the question kept coming up in chat
 and was nowhere in the KB. The *mechanism* ships already and runs only on collisions; what is
 decided and unbuilt is applying it to every mint.
 
@@ -26,13 +26,13 @@ actually write, and relocation following it).
 ## The proposal
 
 Tag **every** key at mint time, not just the colliding ones. "Stone Elf" authored in *Tidewater
-Curios* mints `:stone-elf-tc` rather than `:stone-elf`. The author can delete the tag in the key
+Curios* mints `:stone-elf-trcs` rather than `:stone-elf`. The author can delete the tag in the key
 control, and deleting it is how they say *"I mean to replace the SRD one."*
 
 ## What it would buy
 
 - **The duplicate-key class mostly stops happening.** Two authors' "Stone Elf" are
-  `:stone-elf-tc` and `:stone-elf-ksty` — no coin-flip winner among plugins
+  `:stone-elf-trcs` and `:stone-elf-ksty` — no coin-flip winner among plugins
   (`key-collision-behavior.md`), no health-card pair, no cross-source refusal on a new mint.
 - **Override becomes deliberate.** Today, replacing an SRD class is what you get by *accident* when
   you name yours "Fighter". With tagging it is what you get by *choosing* to strip the tag — the
@@ -63,10 +63,19 @@ up.
   and drift is already accepted — but it makes the tag a *mint-time fact*, not a live statement
   about where the item lives.
 
-## Recommendation
+## As built
 
-Build it: key only, tag removable, `dflt` for the default source. Then `:cross` collisions become
-rare enough that the remaining ones are worth a modal rather than a banner.
+`common/source-tagged-key` — `(:key (disambiguated item-name source-name))`, so a minted key and an
+import-disambiguated one can never drift apart, and the NAME is discarded rather than tagged. Wired
+into the three mint sites: the save, its save-anyway, and the selection save. An item that already
+has a key is untouched, so nothing in an existing library moves.
 
-Not started. When it is, it wants a D-number in `content-extensibility-decisions.md` and a
-characterization test beside the lifecycle suite.
+The abbreviation rule is first-letter-plus-last-letter per word for three words or fewer
+(`"Kibbles Tasty"` → `KsTy`, `"Tidewater Curios"` → `TrCs`), initials beyond that, the override
+table where the world already has a spelling, and `dflt` for the placeholder source. Pinned by
+`a-minted-key-carries-its-sources-tag`; the rest of the lifecycle suite asks for keys through a
+helper so a change to the rule fails in one place.
+
+**The key control does not re-tag.** A key the author types is exactly what they typed — deleting
+the tag is how an SRD override is asked for, and a control that put one back would make that
+impossible.

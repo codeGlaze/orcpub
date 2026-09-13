@@ -39,6 +39,7 @@ against" record). Full reasoning is in the body — this is only an index.
 | D9 | Backward compat is non-negotiable; zero-migration | LIVE (constraint) |
 | D10 | Identity from a stable key, never a display name | LIVE |
 | D10a | The builder mints a key once; no re-derivation on save | LIVE |
+| D10b | A minted key carries its source's abbreviation; deleting it is how an override is asked for | LIVE |
 | D11 | Catalog reads = layered memoized subs | LIVE |
 | D12 | Readability is the deciding constraint | LIVE |
 | D13 | Deflate Layer 1 to descriptor+HOF; ~~reject catalogs/grants~~ | DONE (deflation) / **REVERSED** (anti-catalog half, by D17b–D19) |
@@ -189,6 +190,16 @@ name may now diverge; that is D10's position — the key is an address, the name
 is a global address, so a duplicate is a duplicate wherever it lives. *Rejected:* keeping the
 re-derivation and comparing harder; and (briefly tried, reverted the same day) treating a
 cross-source duplicate as informational.
+
+**D10b — A minted key carries its source's abbreviation.** `:stone-elf-trcs`, not `:stone-elf`.
+The key only; the name is left as the author typed it. *Why:* two authors' "Stone Elf" stop
+colliding, which removes the nondeterministic plugin-vs-plugin winner and the health-card pair for
+the common case — and it makes overriding an SRD item an explicit act (delete the tag in the key
+control) rather than something you get by naming your class "Fighter". Possible only because D10a
+broke the key↔name coupling: `disambiguated` had to tag the NAME too, or the next save re-derived
+the key and reverted it. *Also:* the placeholder source tags as `dflt`, where most first homebrew
+lands. *Not done:* existing libraries keep their untagged keys (D9 — no migration), so old-vs-new
+duplicates remain possible. Detail: `source-tagged-keys.md`.
 
 **D11 — Catalog reads are layered, memoized subscriptions; never recomputed in hot subs.**
 Each catalog is its own `reg-sub` (re-frame memoizes it); `grant-choice` references it

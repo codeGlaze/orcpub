@@ -117,7 +117,11 @@
    Only sources the derivation gets WRONG belong here. \"Tasha's Cauldron of
    Everything\" already derives TCoE and \"Volo's Guide to Monsters\" already derives
    VGtM, so listing them would just be a second place to keep them correct."
-  {"unearthed arcana" "UA"
+  {;; The source an item lands in when its author never named one. The derivation reads it as
+   ;; three words and produces DtOnSe; "dflt" is the tag people recognise. It matters more than
+   ;; any other entry here: most first-time homebrew lands in this source.
+   "default option source" "dflt"
+   "unearthed arcana" "UA"
    ;; The initialisms themselves, so someone who types the short form lowercase
    ;; gets the same tag as someone who spells the source out. The all-caps
    ;; passthrough below only catches them when they are already capitalised.
@@ -238,6 +242,24 @@
            (if (or (not (taken? (:key c))) (> n 99))
              c
              (recur (candidate n) (inc n)))))))))
+
+(defn source-tagged-key
+  "The key an item mints in `source-name`: its name's keyword with the source's abbreviation
+   appended — `(\"Stone Elf\" \"Tidewater Curios\")` => `:stone-elf-trcs`.
+
+   The NAME is not tagged. `disambiguated` tags both because it resolves a collision that a reader
+   should see in the picker; a key minted this way is carrying its source's address, which a reader
+   should not have to read. Deleting the tag in the builder's key control is how an author says they
+   mean to answer to the untagged key — an SRD override.
+
+   GOTCHA: routed through `disambiguated` rather than assembling the key itself, so a minted key and
+   an import-disambiguated one can never drift apart. A source with no abbreviation (unnamed) mints
+   the plain key.
+
+   No `taken?`: two items with one name in one source is a mistake worth reporting, not one to
+   uniquify silently."
+  [item-name source-name]
+  (:key (disambiguated item-name source-name)))
 
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)
