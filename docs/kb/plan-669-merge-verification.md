@@ -421,14 +421,25 @@ Two consequences:
 `zoe`/`washburne7` with one (`Zoe Seeded Only`). Distinct names per owner so a leak shows in a list
 without cross-referencing ids.
 
-Results on the merged tree, both accounts:
+**Four runs: both accounts, on both trees.** Identical in every cell.
 
-| | kaylee | zoe |
+| | integration (control) | merged (P1–P5) |
 |---|---|---|
-| items came back from the API | 3/3 | 1/1 |
-| items **rendered** on the page | 3/3 | 1/1 |
-| other account's items leaked | none of 1 | none of 3 |
-| overlay settled / page errors | clean | clean |
+| kaylee — API / rendered / leaked | 3/3 · 3/3 · none | 3/3 · 3/3 · none |
+| zoe — API / rendered / leaked | 1/1 · 1/1 · none | 1/1 · 1/1 · none |
+| overlay settled, no page errors | clean | clean |
+
+And the request trace is the same string on all four runs:
+
+```
+1x  characters GET auth=true status=200      4x  items GET auth=true status=200
+1x  folders    GET auth=true status=200      4x  user  GET auth=true status=200
+1x  parties    GET auth=true status=200
+```
+
+**So P2–P5 cause no observable regression on the paths that now have coverage** — guard, headers,
+endpoint, method, call count, status, loading counter, response handling, and per-account
+isolation.
 
 **The render assertion is the one that matters.** It is the first time `:set-event` →
 db-population ran with a non-empty body — the gap the first differential left open, and where a
