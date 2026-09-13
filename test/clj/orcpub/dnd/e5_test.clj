@@ -654,3 +654,12 @@
     (is (= [] (:repairs (e5/mend-plugin {:orcpub.dnd.e5/races {:fine {:key :fine :name "Fine" :option-pack "P"
                                                                      :traits [{:name "T"}]}}}))))))
 
+(deftest a-spell-whose-class-lists-are-not-a-map-keeps-loading-without-them
+  (let [{p :plugin rs :repairs} (e5/mend-plugin {:orcpub.dnd.e5/spells
+                                                 {:bolt {:key :bolt :name "Bolt" :option-pack "P" :spell-lists 42}
+                                                  :fine {:key :fine :name "Fine" :option-pack "P" :spell-lists {:wizard true}}}})]
+    (is (= {:key :bolt :name "Bolt" :option-pack "P"} (get-in p [:orcpub.dnd.e5/spells :bolt]))
+        "it stopped the character options from building")
+    (is (= {:wizard true} (get-in p [:orcpub.dnd.e5/spells :fine :spell-lists])))
+    (is (= [[:bolt :spell-lists :spell-lists-not-a-map]] (map (juxt :key :field :repair) rs)))))
+

@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [run-tests]]
             ;; .cljc tests (run on both JVM and CLJS)
             [orcpub.common-test]
+            [orcpub.dnd.e5.homebrew-guard-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
             [orcpub.dnd.e5.hunter-evasion-test]
@@ -26,6 +27,7 @@
 
 (defn -main []
   (run-tests 'orcpub.common-test
+   'orcpub.dnd.e5.homebrew-guard-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test

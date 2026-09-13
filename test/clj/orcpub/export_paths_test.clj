@@ -47,6 +47,7 @@
              "reg-export-draft"                     ; builder WIP rescue
              "::e5/emergency-export-raw"            ; offered when export refuses
              "::e5/export-quarantined-raw"          ; a source validation already rejected
+             "::e5/download-unloadable-library"     ; a library that stopped startup, as raw text
              "::e5/export-all-plugins-pretty-print"} ; footer safety valve
            (disj (enclosing-form-names events-src "(save-orcbrew-blob!")
                  "save-orcbrew-blob!"))

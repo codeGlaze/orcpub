@@ -1884,6 +1884,8 @@
                                                                                                      " items that were not cards"))))]
                                  (when (seq parts) (str ": " (str/join ", " parts)))))
       :cards-not-a-list   (str "Removed the " field-name " of " entry in ", which were not a list")
+      :spell-lists-not-a-map (str "Removed the class lists of " entry in
+                                  ", which were not a map of classes; add it to classes in the spell builder")
       (str "Repaired " (or what "a section") in))))
 
 (defn fill-import-sources

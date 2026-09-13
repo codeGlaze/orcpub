@@ -525,6 +525,25 @@
 ;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
 ;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
 ;; because the salvage/quarantine behavior is plugins-specific.
+(defn set-aside-unloadable-library!
+  "When loading the stored library stops startup, copy it to its :corrupt slot and clear
+   the active slot so the app can start without it. The active slot is only cleared once
+   the copy is saved. Returns the raw text that was set aside, or nil."
+  ([] (set-aside-unloadable-library! set-item #(.removeItem js/window.localStorage %)))
+  ([write! remove!]
+   (let [raw (when js/window.localStorage
+               (.getItem js/window.localStorage local-storage-plugins-key))]
+     (when (and raw (write! (corrupt-slot-key local-storage-plugins-key) raw))
+       (remove! local-storage-plugins-key)
+       raw))))
+
+(defn restore-set-aside-library!
+  "Undo set-aside-unloadable-library! when starting without the library failed too, so
+   homebrew was not what stopped startup."
+  [raw]
+  (when (set-item local-storage-plugins-key raw)
+    (.removeItem js/window.localStorage (corrupt-slot-key local-storage-plugins-key))))
+
 (re-frame/reg-cofx
  ::e5/plugins
  (fn [cofx _]

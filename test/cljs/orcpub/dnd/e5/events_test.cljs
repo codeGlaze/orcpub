@@ -133,17 +133,33 @@
 ;; handler doesn't crash and doesn't produce unwanted side effects.
 ;; ---------------------------------------------------------------------------
 
-(deftest save-character-skips-when-no-cached-template
-  (testing "without cached template, handler is a no-op (returns {})"
-    ;; Set up db with a character but no cached template
+(defn- effects-of
+  "The effects a handler returns under `fx-keys`, captured instead of run."
+  [event fx-keys]
+  (let [captured (atom {})
+        originals (into {} (map (fn [k] [k (registrar/get-handler :fx k)]) fx-keys))]
+    (doseq [k fx-keys] (rf/reg-fx k #(swap! captured assoc k %)))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (doseq [[k f] originals] (when f (rf/reg-fx k f)))))))
+
+(deftest save-character-starts-the-template-cache-and-retries-when-it-is-empty
+  (testing "without a cached template the save asks for the cache and tries again"
     (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
-    ;; This should NOT throw or dispatch error — it should silently skip
-    ;; We verify by checking no error dispatch happened
-    (rf/dispatch-sync [::char5e/save-character "42"])
-    ;; If we got here without exception, the nil guard works.
-    ;; The db should not have :loading set to true (no save attempted)
-    (is (nil? (:loading @app-db))
-        "No save should be attempted without cached template")))
+    (let [fx (effects-of [::char5e/save-character "42"]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (true? (::autosave-fx/ensure-template-cache fx)))
+      (is (= [::char5e/save-character "42" 1] (:dispatch (first (:dispatch-later fx)))))
+      (is (nil? (:http fx)) "nothing is sent")
+      (is (nil? (:loading @app-db)))))
+  (testing "when the retries run out it says so; it used to skip silently"
+    (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
+    (let [fx (effects-of [::char5e/save-character "42" events/save-template-retries]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (= :show-warning-message (first (:dispatch fx))))
+      (is (nil? (:dispatch-later fx)))
+      (is (nil? (:http fx))))))
 
 (deftest save-character-rejects-missing-abilities
   (testing "with cached template but no ability scores → error dispatch"
@@ -156,7 +172,8 @@
           character {:orcpub.entity/options {}}]
       (reset! app-db {::char5e/character-map {42 character}
                       ::autosave-fx/cached-template template})
-      (rf/dispatch-sync [::char5e/save-character "42"])
+      (effects-of [::char5e/save-character "42"]
+                  [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])
       ;; no crash, and nothing was sent (no :loading set) — autosave skipped
       (is (nil? (:loading @app-db))
           "empty template → autosave safely skips this cycle"))))
@@ -972,3 +989,33 @@
       (is (contains? (get-in stored ["Pack A" ::e5/spells]) :bolt-a)))
     (finally
       (.removeItem js/localStorage "plugins:rejected"))))
+
+
+;; ---------------------------------------------------------------------------
+;; A homebrew entry that breaks the character options is set aside, once
+;; ---------------------------------------------------------------------------
+
+(deftest a-homebrew-entry-that-breaks-the-options-is-set-aside-and-reported
+  (try
+    (let [bad {:key :bad :option-pack "P" :name "Bad Race"}
+          report {:content-type ::e5/races :key :bad :option-pack "P" :name "Bad Race"}]
+      (reset! app-db {:plugins {"P" {::e5/races {:bad bad :good {:key :good :option-pack "P" :name "Good"}}}}})
+      (is (= [::e5/set-aside-broken-homebrew]
+             (:dispatch (first (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later]))))))
+      (testing "the same entry reported again is not queued again"
+        (is (nil? (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later])))))
+      (let [fx (effects-of [::e5/set-aside-broken-homebrew] [:dispatch])]
+        (is (not (contains? (get-in @app-db [:plugins "P" ::e5/races]) :bad)))
+        (is (contains? (get-in @app-db [:plugins "P" ::e5/races]) :good) "the rest of the source stays")
+        (is (= bad (get-in @app-db [:quarantined-plugins "P" ::e5/races :bad])))
+        (is (.includes (.getItem js/localStorage "plugins:rejected") ":bad")
+            "saved, so it stays set aside after a reload")
+        (is (= :show-warning-message (first (:dispatch fx))))))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected")
+      (.removeItem js/localStorage "plugins"))))
+
+(deftest a-report-for-content-not-in-the-library-moves-nothing
+  (is (= [] (:moved (events/set-aside-broken-entries {"P" {::e5/races {}}} nil
+                                                     [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
+

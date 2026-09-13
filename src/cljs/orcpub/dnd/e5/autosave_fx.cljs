@@ -37,9 +37,13 @@
 
 ;; The primary fx handler; simply return from a -fx event handler
 ;; as {::char5e/save-character-throttled <characterId>}
+(declare ensure-template-cache!)
+
 (reg-fx
   ::char5e/save-character-throttled
   (fn [id]
+    ;; The save builds the character from the cached template; start caching it now.
+    (ensure-template-cache!)
     (if-let [timer @throttled-save-timer]
       ; existing timer; clear it
       (js/clearTimeout timer)
@@ -66,7 +70,7 @@
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.
-   Called from core.cljs after all subscriptions are registered.
+   Started once, by ensure-template-cache!, when a character save first needs it.
    Guards the subscribe call itself — if the handler isn't registered yet,
    subscribe returns nil and we skip (no @nil crash). r/track! re-fires
    reactively when the subscription value changes."
@@ -81,4 +85,19 @@
             (dispatch [::cache-template template])))
         (catch :default e
           (js/console.error "Could not build the character template for the save cache:" e))))))
+
+(defonce ^:private template-cache (atom nil))
+
+(defn ensure-template-cache!
+  "Start the template cache the first time a character save needs it. It used to start
+   with the app, building the whole character template on every page before anything
+   was drawn and outside every error boundary, so bad homebrew there stopped the app
+   from starting. Only saving a character reads the cache."
+  []
+  (when-not @template-cache
+    (reset! template-cache (init-template-cache!))))
+
+(reg-fx
+  ::ensure-template-cache
+  (fn [_] (ensure-template-cache!)))
 

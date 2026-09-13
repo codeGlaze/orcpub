@@ -21,6 +21,7 @@
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.components :as comps]
             [re-frame.core :refer [dispatch subscribe]]
             [re-frame.db])
@@ -2966,8 +2967,9 @@
                            :tags #{:subclass}
                            :order 2
                            :options (conj
-                                     (map
-                                      #(subclass-option spell-lists spells-map language-map (assoc cls :key kw) %)
+                                     (keep
+                                      #(guard/guard-entry :orcpub.dnd.e5/subclasses %
+                                                           (partial subclass-option spell-lists spells-map language-map (assoc cls :key kw)))
                                       (if source (map (fn [sc] (assoc sc :source source)) subclasses) subclasses))
                                      (custom-subclass-option spell-lists spells-map weapon-map kw level-kw subclass-selection-key (some? spellcasting)))})]))
                     (when (and (not plugin?) (ability-inc-set i))

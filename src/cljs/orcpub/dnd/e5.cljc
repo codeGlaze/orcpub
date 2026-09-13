@@ -197,14 +197,18 @@
 (defn mend-entry
   "Repair damage inside one entry, filed under `entry-key` in section `section-key`. A
    :key that is not a letter-first keyword takes the key the entry is filed under;
-   :traits, and a selection's :options, go through mend-cards. A sound entry comes
-   back untouched. Returns {:entry e :repairs [{:field :repair ...}]}."
+   :traits, and a selection's :options, go through mend-cards; a spell's :spell-lists
+   that is not a map of classes is removed, leaving the spell on no class list. A sound
+   entry comes back untouched. Returns {:entry e :repairs [{:field :repair ...}]}."
   [section-key entry-key entry]
   (if-not (map? entry)
     {:entry entry :repairs []}
     (let [restore-key? (and (contains? entry :key)
                             (not (entry-key? (:key entry)))
                             (entry-key? entry-key))
+          drop-spell-lists? (and (= section-key ::spells)
+                                 (some? (:spell-lists entry))
+                                 (not (map? (:spell-lists entry))))
           fields (cond-> [:traits] (= section-key ::selections) (conj :options))]
       (reduce (fn [{e :entry :as acc} field]
                 (if-not (contains? e field)
@@ -218,8 +222,12 @@
                                  (assoc-in [:entry field] value)
                                  (update :repairs conj (-> r (dissoc :value) (assoc :field field))))
                       :else acc))))
-              {:entry (cond-> entry restore-key? (assoc :key entry-key))
-               :repairs (if restore-key? [{:field :key :repair :key-restored}] [])}
+              {:entry (cond-> entry
+                        restore-key? (assoc :key entry-key)
+                        drop-spell-lists? (dissoc :spell-lists))
+               :repairs (cond-> []
+                          restore-key? (conj {:field :key :repair :key-restored})
+                          drop-spell-lists? (conj {:field :spell-lists :repair :spell-lists-not-a-map}))}
               fields))))
 
 (defn- mend-entries [section-key section]
