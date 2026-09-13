@@ -19,6 +19,7 @@
    the character their page."
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
+            [orcpub.fork.branding :as branding]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
@@ -180,6 +181,48 @@
 
 ;; ---------- the portrait ----------
 
+(defn site-mark
+  "The domain to stamp down the edge of a shared portrait, or nil.
+
+   Read from branding rather than written literally: app-url is empty by
+   default and every fork overrides it, so a hardcoded domain would brand
+   other people's deployments with ours. Empty means no mark."
+  []
+  (some-> branding/app-url
+          s/trim
+          not-empty
+          (s/replace #"^https?://" "")
+          (s/replace #"/+$" "")
+          s/trim
+          not-empty))
+
+(defn- draw-site-mark!
+  "The site's own mark, running up the right edge of a shared portrait.
+
+   Deliberately on a different edge from the artist credit, and deliberately
+   faint. Two marks in one caption band would give anyone who wants the
+   advertising gone a reason to crop the artist's name off with it; on
+   opposite edges the cheap crop takes this and leaves her."
+  [^Graphics2D g text w h]
+  (let [size (max 8 (int (* h 0.020)))
+        font (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN size)
+        fm (.getFontMetrics g font)
+        tw (.stringWidth fm text)
+        x (- w (max 4 (int (* w 0.022))))
+        y (int (/ (+ h tw) 2))
+        saved (.getTransform g)]
+    (try
+      (.setFont g font)
+      (.translate g (double x) (double y))
+      ;; counter-clockwise, so it reads bottom-to-top like a book spine and
+      ;; the glyphs hang to the left of the baseline, inside the picture
+      (.rotate g (- (/ Math/PI 2)))
+      (.setColor g (Color. 255 255 255 90))
+      (.drawString g ^String text 1 1)
+      (.setColor g (Color. 20 20 20 128))
+      (.drawString g ^String text 0 0)
+      (finally (.setTransform g saved)))))
+
 (defn render
   "Composite `portrait` ({:layers :colors :tweaks}) into a BufferedImage, or
    nil when it selects nothing drawable."
@@ -214,8 +257,10 @@
            (try
              (when-let [credit (pa/credit-line portrait)]
                (draw-credit! g credit w h))
+             (when-let [mark (site-mark)]
+               (draw-site-mark! g mark w h))
              (catch Exception e
-               (println "portrait-render: credit skipped -" (.getMessage e))))
+               (println "portrait-render: marks skipped -" (.getMessage e))))
            (finally (.dispose g)))
          img)))))
 

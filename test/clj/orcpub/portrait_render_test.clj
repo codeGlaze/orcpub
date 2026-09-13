@@ -3,7 +3,8 @@
    browser to bake the CSS-mask layers the way the PDF export does, so these
    pixels are produced here -- and, like every other picture path, must
    degrade to 'no portrait' rather than throw."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
+            [orcpub.fork.branding :as branding]
             [orcpub.portrait-render :as pr]
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.io ByteArrayInputStream]
@@ -119,3 +120,45 @@
           png (pr/render-png p)]
       (is (bytes? png) "still rendered the layers it could")
       (is (pos? (opaque-pixels (decode png)))))))
+
+;; ---------- the two marks ----------
+;;
+;; The artist credit sits along the bottom and the site mark up the right
+;; edge, on purpose. Together in one caption band, anyone who wanted the
+;; advertising gone would crop her name off with it.
+
+(deftest site-mark-is-normalised-from-branding
+  (testing "written literally it would brand every fork's exports with ours"
+    (are [in out] (= out (with-redefs [branding/app-url in] (pr/site-mark)))
+      "https://orcpub.com/" "orcpub.com"
+      "http://orcpub.com"   "orcpub.com"
+      "orcpub.com"          "orcpub.com"
+      "  orcpub.com/  "     "orcpub.com"
+      "https://example.test/app/" "example.test/app"
+      ""                    nil
+      "   "                 nil
+      nil                   nil)))
+
+(deftest site-mark-stays-off-the-artists-edge
+  (testing "every pixel the mark adds is in the right-hand strip, well clear
+            of the bottom band the credit uses -- that separation is the whole
+            point of putting them on different edges"
+    (let [p (portrait-with [:head :shirt])
+          plain (decode (pr/render-png p))
+          marked (decode (with-redefs [branding/app-url "orcpub.com"]
+                           (pr/render-png p)))
+          w (.getWidth plain) h (.getHeight plain)
+          changed (for [x (range w) y (range h)
+                        :when (not= (.getRGB plain x y) (.getRGB marked x y))]
+                    [x y])]
+      (is (seq changed) "the mark actually drew something")
+      (is (every? (fn [[x _]] (> x (* w 0.9))) changed)
+          "the mark stays in the right-hand tenth")
+      (is (not-any? (fn [[_ y]] (> y (* h 0.94))) changed)
+          "and never reaches the caption band at the bottom"))))
+
+(deftest no-site-mark-when-branding-is-unset
+  (let [p (portrait-with [:head])]
+    (is (= (vec (pr/render-png p))
+           (vec (with-redefs [branding/app-url ""] (pr/render-png p))))
+        "an unconfigured deployment stamps nothing")))
