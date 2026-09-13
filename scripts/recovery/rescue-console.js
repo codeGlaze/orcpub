@@ -23,11 +23,16 @@
  *   4. Run:   await orcpubRescue.list()      → shows your characters + ids
  *   5. Run:   await orcpubRescue.fix(12345)  → using the broken character's id
  *   6. Follow the printed steps: click into the character IN THE APP
- *      (do NOT reload the page — a reload removes the patch), check it looks
- *      right, hit "Export" to keep a copy, then "Edit", re-pick whatever field
- *      shows up blank/unknown, and save. That rewrites the character cleanly
- *      on the server, so it stays fixed for everyone, forever.
- *   7. Reload normally. The sheet and the Parties page both work again.
+ *      (do NOT reload — a reload removes the patch), then EXPORT a copy,
+ *      then EDIT, then SAVE in the builder. The SAVE is what makes it stick:
+ *      it rewrites the character cleanly on the server.
+ *   7. Reload normally. The sheet and the Parties page both work again —
+ *      permanently, without waiting for a release.
+ *
+ * Verified end to end against the bundle the live site currently serves:
+ * before, the character throws the uncaught error and never renders; after
+ * the rescue + SAVE, the server copy is clean and the character loads with
+ * no script and no patch.
  *
  * Nothing here deletes anything. `remove()` exists as a last resort and it
  * downloads a backup before it will delete.
@@ -71,10 +76,12 @@
     const res = await fetch('/dnd/5e/character-summaries', { headers: authHeaders({ Accept: 'application/edn' }) });
     const raw = await res.text();
     if (res.status !== 200) return console.log('HTTP', res.status, raw.slice(0, 200));
+    // Parsed with a regex on purpose: if a summary is itself corrupt, an EDN
+    // reader would throw here too, and this listing has to keep working.
     const rows = [];
     raw.replace(/\{[^{}]*:db\/id\s+(\d+)[^{}]*\}/g, (chunk, id) => {
-      const nm = (chunk.match(/character-name\s+"([^"]*)"/) || chunk.match(/"([^"]{2,40})"/) || [])[1];
-      rows.push({ id, name: nm || '(unnamed)' });
+      const nm = (chunk.match(/character-name\s+"([^"]*)"/) || [])[1];
+      rows.push({ id, name: nm || '(no name in summary)' });
       return chunk;
     });
     console.table(rows);
@@ -147,15 +154,20 @@
       return info;
     }
     R.arm();
-    console.log('%c\nNow do this, in this tab, WITHOUT reloading:', 'font-weight:bold;font-size:13px');
-    console.log('  1. Click into the broken character in the app — it should open now.');
-    console.log('  2. Hit "Export" to keep your own copy (belt and braces).');
-    console.log('  3. Hit "Edit", find the field that looks blank or unknown');
-    console.log('     (usually a custom class/race whose name went missing), re-pick it,');
-    console.log('     and save.');
-    console.log('  4. That writes the character back clean. Reload normally —');
-    console.log('     the sheet AND the Parties page will work again, permanently.');
-    console.log('\nIf you would rather not keep it:  await orcpubRescue.remove(' + id + ')');
+    console.log('%c\nNow do this in THIS TAB, without reloading:', 'font-weight:bold;font-size:13px');
+    console.log('  1. Click into the broken character in the app — it will open now.');
+    console.log('  2. Click EXPORT to keep your own copy (belt and braces).');
+    console.log('  3. Click EDIT (top of the sheet) to open the character builder.');
+    console.log('  4. Click SAVE in the builder. This is the step that actually');
+    console.log('     repairs it — it rewrites the character cleanly on the server.');
+    console.log('  5. Reload normally. The sheet and the Parties page both work again,');
+    console.log('     permanently, with no script and no waiting for a patch.');
+    console.log('');
+    console.log('  The builder will show "Missing Content (1)" — that is the option whose');
+    console.log('  name was lost, now shown as :unnamed-1. Re-pick it and SAVE again to');
+    console.log('  restore it fully. Saving without re-picking is still safe: the crash');
+    console.log('  is gone either way.');
+    console.log('\nIf you would rather not keep it at all:  await orcpubRescue.remove(' + id + ')');
     return info;
   };
 
