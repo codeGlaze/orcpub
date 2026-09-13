@@ -13,9 +13,13 @@
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.languages :as langs5e]
+            [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
             ;; Side effect: registers every event handler under test.
-            [orcpub.dnd.e5.events]))
+            [orcpub.dnd.e5.events]
+            ;; …and every subscription: the collision the save refuses is the one pinned at the
+            ;; bottom of this file.
+            [orcpub.dnd.e5.spell-subs]))
 
 (def ^:private SRC "Lifecycle Pak")
 (def ^:private ct :orcpub.dnd.e5/languages)
@@ -222,3 +226,24 @@
   (save!)
   (is (= "edited" (get-in (stored) [:tideward :description])))
   (is (empty? (:builder-field-errors @app-db))))
+
+;; ---------------------------------------------------------------------------
+;; Why a duplicate key is refused wherever it lives
+;; ---------------------------------------------------------------------------
+
+(deftest two-spells-sharing-a-key-resolve-inconsistently
+  ;; The spell's DATA comes from a set deduped by key; its class membership is reduced over the
+  ;; non-deduped seq. So the two disagree, and the disagreement is the reason the save refuses to
+  ;; mint a key another source already holds rather than reporting it.
+  (reset! app-db
+          {:plugins {"A" {:orcpub.dnd.e5/spells
+                          {:tideward {:key :tideward :name "Tideward" :level 3 :option-pack "A"
+                                      :spell-lists {:wizard true}}}}
+                     "B" {:orcpub.dnd.e5/spells
+                          {:tideward {:key :tideward :name "Tideward" :level 3 :option-pack "B"
+                                      :spell-lists {:wizard true :cleric true}}}}}})
+  (let [lists @(rf/subscribe [::spells5e/plugin-spell-lists])]
+    (is (= [:tideward :tideward] (get-in lists [:wizard 3]))
+        "the key lands on the list once per copy")
+    (is (= #{:wizard :cleric} (set (keys lists)))
+        "and membership is the union, so an override can add a class but not remove one")))

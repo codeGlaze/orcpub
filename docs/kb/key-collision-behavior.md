@@ -135,12 +135,18 @@ item is dropped, and so is one that is some item's live key.
   source-name strings** — deterministic for a fixed set of source names, but arbitrary and NOT
   "last-imported" or user-controllable. "Plugin overrides built-in" is predictable; "which plugin wins
   a plugin-vs-plugin key" is effectively a coin flip. Do not build reliable override behavior on it.
-- **Spell → spell-list is a genuine misbehavior, not clean coexistence.** A spell's class-list
-  membership lives on the spell (`:spell-lists {class-key true}`), and `plugin-spell-lists` reduces
-  over the **non-deduped** spell seq. So a duplicate-key spell (a) gets `conj`-ed once per copy →
-  **duplicate membership entries**, and (b) has its membership **unioned across all copies** — meaning
-  you **cannot narrow** a spell's class access by overriding it, and the spell *data* (single winner)
-  and its *list membership* (union) disagree. No exception; just wrong.
+- **Spell data and spell-list membership resolve differently for the same key.** A spell's class
+  membership lives on the spell (`:spell-lists {class-key true}`). `::spells5e/plugin-spell-lists`
+  (`spell_subs.cljs:1495`) reduces over `plugin-spells`, which is **not deduped by key**, while the
+  spell itself comes from a set that **is** (`:1228`). For two spells sharing a key:
+  - the key is `conj`-ed onto a class list once per copy that names that class — **duplicate
+    entries in the list**;
+  - membership is the **union** of every copy's `:spell-lists`, so an override can add a class but
+    **cannot remove one**;
+  - the spell's data is one winner, its membership is all of them.
+
+  Pinned by `two-spells-sharing-a-key-resolve-inconsistently`
+  (`homebrew_save_lifecycle_test.cljs`).
 - **Design direction (see `content-tiers-and-key-resolution.md`):** the clean fix for all of the above
   is not per-type dedup but a single invariant — **≤1 *enabled* item per key** — enforced by a
   disable-based resolution (disable one side of a collision rather than relying on implicit last-wins).
