@@ -38,6 +38,8 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
+                                      set-item
+                                      builder-wip-stores
                                       character->local-store
                                       user->local-store
                                       magic-item->local-store
@@ -256,6 +258,18 @@
 
 (def subclass-interceptors [(path ::class5e/subclass-builder-item)
                             subclass->local-store-interceptor])
+
+(def ^:private builder-wip-store-key
+  "app-db builder-item key -> its localStorage draft slot. `db/builder-wip-stores`, inverted."
+  (reduce-kv (fn [m store-key item-key] (assoc m item-key store-key)) {} builder-wip-stores))
+
+(reg-fx
+ ::persist-builder-wip
+ ;; The per-builder ->local-store interceptors only fire on edit events, so a write the SAVE makes
+ ;; to the builder item (the :key stamp) would be lost on refresh.
+ (fn [[item-key item]]
+   (when-let [store-key (builder-wip-store-key item-key)]
+     (set-item store-key (str item)))))
 
 (def plugins-interceptors [(path :plugins)
                            plugins->local-store-interceptor])
@@ -804,9 +818,9 @@
                  saving would silently discard it. `:key` on the item being saved
                  is what distinguishes an edit returning to its own slot from a
                  rename landing on an occupied one.
-     :cross      the key exists in ANOTHER source. Not data loss -- both copies
-                 survive and the disable hierarchy decides which is live -- so
-                 this informs rather than blocks.
+     :cross      the key exists in ANOTHER source. Not data loss, but not benign:
+                 the combines that dedupe by key pick their winner by the hash
+                 order of source names, and the ones that don't show both copies.
 
    Returns {:kind :overwrite|:cross :source .. :name ..}."
   [plugins option-pack plugin-key key item]
@@ -865,19 +879,17 @@
      event-key
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
-             key (common/name-to-kw name)
+             ;; MINTED ONCE. The key is an address, not a label: derived from the name at
+             ;; creation, then fixed. Renaming is a name edit, and every character holding the key
+             ;; still resolves. Changing a key is a separate, deliberate act -- import conflict
+             ;; resolution, the manual relink -- and those record :former-keys.
+             key (or (:key item) (common/name-to-kw name))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
              ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             ;; A rename here changes identity. Record where it came from, the same
-             ;; way import conflict resolution does, so a character that selected
-             ;; this content under the old key is rebound on load rather than
-             ;; quietly losing it.
-             renamed? (and (:key item) (not= (:key item) key))
-             item-with-key (cond-> (assoc normalized-item :key key)
-                             renamed? (assoc :former-key (:key item)))
+             item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
          (if-let [{:keys [kind source] twin-name :name}
@@ -911,9 +923,13 @@
                           builder-error-ttl]]}
            (if (nil? explanation)
              (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                  item-with-key
-                                                  (when renamed? (:key item)))]
-               {:dispatch-n [[::e5/set-plugins new-plugins]
+                                                  item-with-key nil)]
+               ;; Stamp the key back onto the item still open in the builder: `save-collision`
+               ;; reads it to tell an edit returning to its own slot from a name landing on
+               ;; somebody else's, and a restored draft must carry it too.
+               {:db (assoc db item-key item-with-key)
+                ::persist-builder-wip [item-key item-with-key]
+                :dispatch-n [[::e5/set-plugins new-plugins]
                              [:set-builder-field-errors {}]
                              [:show-warning-message
                               ;; Headline carries the point — it is saved, and only
@@ -1017,7 +1033,7 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (common/name-to-kw name)
+         key (or (:key item) (common/name-to-kw name))      ; minted once
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
