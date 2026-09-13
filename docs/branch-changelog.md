@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <!-- Branch changelog for claude/zen-wright-04xhdz. Undated by design: intended to be merged into
      the top-level CHANGELOG.md (matches its `## [branch]` / `### Category` / `- **Title** (hash)`
      format). Forked from `develop` at d42e05d1. -->
@@ -183,7 +182,12 @@ ability, +1 to another) work across races, backgrounds, and subclasses the way o
   errors preserved in the import log. Fixed 3 tests that were red on summer-fixes itself (commit
   `54f4e87d` changed the fill default `"Unnamed Content"` → `"Default Option Source"` but left the
   assertions stale). Post-merge: JVM 361/2037, cljs 237/684, 0 failures; import round-trip E2E green.
-=======
+
+---
+
+<!-- A second branch's changelog arrived on this filename in a merge. Kept whole, below,
+     rather than interleaved: they describe different branches. -->
+
 # Branch changelog — `consolidate/notifications-and-exports`
 
 ## Why this branch exists
@@ -342,4 +346,3 @@ as an afterthought rather than part of that source's controls.
   disabled, then Export and Delete on one row, with side padding so nothing is
   flush against the panel. On a phone the search takes the row and the toggle and
   buttons wrap beneath it.
->>>>>>> origin/integration

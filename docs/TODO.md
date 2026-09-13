@@ -2,7 +2,6 @@
 
 ## 📌 PINNED — new content-format extension (HIGH PRIORITY, blocks the new format)
 
-<<<<<<< HEAD
 The content-extensibility refactor produces content **older builds can't read**, and old
 builds fail opaquely. The fix is a **new file extension** for the new format (keeps it out
 of old file pickers) plus an in-file compat tag for new builds. **The extension NAME is an
@@ -13,7 +12,11 @@ open decision — being polled with the community + other developers.**
   from one constant so the final name is a one-place swap.
 - Full design (extension + `:orcbrew/format-version` + `:orcbrew/requires` compat tag +
   the open conversion-tag question): **[docs/kb/orcbrew-format-versioning.md](kb/orcbrew-format-versioning.md)**.
-=======
+
+---
+
+## Datomic transactor crashes — investigate Postgres migration
+
 **Status:** Unverified — no recurrence observed since the report; re-measure before
 acting. The analysis below is from the crashing period and has not been retested
 against the current stack (the peer is on Datomic Pro now, which the analysis
@@ -51,7 +54,6 @@ already done). What remains is the **storage backend migration**:
 
 - `docker/datomic/` — transactor container and config templates
 - `docs/migration/datomic-pro.md` — peer library already migrated to Pro
->>>>>>> origin/integration
 
 ---
 
