@@ -442,10 +442,7 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-;; API-backed subscriptions — use reg-api-sub for consistent guard, loading
-;; counter, auth headers, and handle-api-response wrapping. See
-;; orcpub.dnd.e5.api-subs for the HOF definition and the anti-pattern
-;; it replaces.
+;; Subscriptions that load from the server; see orcpub.dnd.e5.api-subs.
 
 (reg-api-sub
  {:sub-key    ::char5e/characters
@@ -459,19 +456,15 @@
 (reg-api-sub
  {:sub-key    ::party5e/parties
   :route      routes/dnd-e5-char-parties-route
-  ;; NB: db-key is ::char5e/parties (historical naming, set by
-  ;; ::party5e/set-parties event handler). Do not "fix" to ::party5e/parties
-  ;; without also updating set-parties and its callers.
+  ;; The list lives under ::char5e/parties, where ::party5e/set-parties writes it; rename both
+  ;; together.
   :db-key     ::char5e/parties
   :set-event  ::party5e/set-parties
   :on-401     (fn [[_ login-optional?]]
                 (when-not login-optional? (dispatch [:route-to-login])))
   :context    "fetch parties"})
 
-;; :user sub helpers — extracted as named fns so the compound on-401
-;; logic (clear login state + conditionally bounce to login) is unit-
-;; testable. See subs-test.cljs for the regression tests that pin this
-;; behavior in place across the P5 reg-api-sub migration.
+
 
 (defn user-sub-on-401-actions
   "Pure: returns the sequence of dispatch vectors the :user sub's 401
@@ -481,10 +474,7 @@
    Always clears the login credentials (via `:set-user-data` with
    `:user-data` and `:token` dissoced — preserves `:theme` and any
    other non-login fields). Additionally bounces to the login route
-   when the subscription was invoked with `required?` true.
-
-   Split from the side-effecting `user-sub-on-401` so tests can
-   assert on the action sequence without stubbing dispatch."
+   when the subscription was invoked with `required?` true."
   [user-data-map [_ required?]]
   (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
     required? (conj [:route-to-login])))
@@ -508,11 +498,8 @@
  {:sub-key    :user
   :route      routes/user-route
   :db-key     :user
-  ;; No :set-event / :on-success — the :user sub is fire-and-forget
-  ;; in the current design (the response is discarded on 200). Preserved
-  ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
-  ;; dead-storage cleanup follow-up in the investigation notes for
-  ;; context on why this is intentional today.
+  ;; The response is not stored. db :user holds only the :following list that :follow-user and
+  ;; :unfollow-user build locally.
   :on-401     user-sub-on-401
   :on-500     user-sub-on-500
   :context    "fetch user"})
@@ -1073,13 +1060,7 @@
    the sorted input unchanged. Otherwise calls `filter-fn filter-text
    sorted` to produce the filtered slice.
 
-   This replaced a `(or (::key db) sorted)` pattern where the filter
-   event handler computed a snapshot and wrote it to db, freezing the
-   list from that point forward — breaking reactivity whenever the
-   underlying data changed (#669). The reactive composition here
-   recomputes automatically when either input changes and re-frame's
-   sub memoization keeps the per-keystroke cost low: the upstream
-   sorted-sub is cached, so only the filter step re-runs."
+   A filtered list stored in db instead stops following changes to its source."
   [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
   (reg-sub sub-key
     (fn [_ _]

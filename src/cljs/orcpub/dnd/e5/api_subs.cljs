@@ -1,24 +1,11 @@
 (ns orcpub.dnd.e5.api-subs
-  "Shared HOF for API-backed `reg-sub-raw` subscriptions that lazy-load
-   data from the backend on first subscribe.
+  "reg-api-sub registers a subscription that loads from the server the first time it is
+   subscribed while a user is logged in: ::mi5e/custom-items, ::char5e/characters,
+   ::party5e/parties, ::folder5e/folders and :user.
 
-   Eliminates ~10 lines of boilerplate per sub (guard, loading counter,
-   http/get with auth headers, handle-api-response wrapping, reaction
-   construction) that was previously duplicated across 5 sites —
-   `::mi5e/custom-items`, `::char5e/characters`, `::party5e/parties`,
-   `::folder5e/folders`, `:user`.
-
-   The guard uses `event-utils/get-auth-token` as its canonical check,
-   so every API sub registered via `reg-api-sub` gets the correct
-   token-path check for free and cannot re-introduce the
-   `:user` / `:user-data` typo class that broke `::mi5e/remote-item`.
-
-   This file lives in its own namespace (rather than event_utils.cljc
-   or subs.cljs) because the HOF needs cljs-only imports that don't
-   belong in a cross-platform `.cljc` file, and putting it in
-   `subs.cljs` would require a new import edge from `equipment_subs.cljs`
-   → `subs.cljs` to reuse it for `::mi5e/custom-items`. A small
-   dedicated namespace is the cleanest break."
+   A namespace of its own because it needs cljs-only requires, which rules out
+   event_utils.cljc, and because equipment_subs uses it as well as subs, which would
+   otherwise have to require subs."
   (:require [re-frame.core :refer [reg-sub-raw dispatch]]
             [reagent.ratom :as ra]
             [orcpub.dnd.e5.event-utils :as event-utils]
@@ -50,11 +37,7 @@
                    `handle-api-response` default (dispatches
                    `show-generic-error`)
      :context    — error log string; default `(str sub-key)`
-     :default    — default value for unset `db-key`; default `[]`
-
-   The guard, loading-counter management, header injection, response
-   dispatch shape, and reaction construction are owned by this HOF.
-   Call sites express only what varies between subs."
+          :default    — default value for unset `db-key`; default `[]`"
   [{:keys [sub-key route db-key set-event on-success on-401 on-500 context default]
     :or {default []}}]
   (reg-sub-raw sub-key

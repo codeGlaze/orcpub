@@ -2652,10 +2652,7 @@
    (fn [db [_ response]]
      (assoc-in db [:dnd :e5 :characters] (:body response))))
 
-;; get-auth-token lives in orcpub.dnd.e5.event-utils alongside auth-headers
-;; and the handle-api-response HOF. See event_utils.cljc for the canonical
-;; docstring describing its dual use (retrieval + predicate) and why it's
-;; the single source of truth for the auth token path.
+
 
 #_ ;; never dispatched — character loading uses :load-user-data flow
   (reg-event-fx
@@ -2963,11 +2960,7 @@
 
 #_ ;; orphaned re-export alias — callers use compute/compute-plugin-vals directly
   (def compute-plugin-vals compute/compute-plugin-vals)
-;; Only filter-by-name-xform is still used locally (in search-results below).
-;; compute-sorted-{spells,items} and filter-{spells,items} aliases were
-;; dropped when ::char5e/filter-spells and ::char5e/filter-items became
-;; reactive subs (P1 / #669) — the handlers no longer compute anything
-;; here, they just store the filter text for the reactive sub to pick up.
+
 (def filter-by-name-xform compute/filter-by-name-xform)
 
 (defn search-results [text]
@@ -3055,19 +3048,15 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/monster-text-filter filter-text)))
 
-;; Filter spell list by name. Only stores the filter text — the
-;; ::char5e/filtered-spells sub reactively recomputes from sorted-spells
-;; + this text. Previously this handler snapshotted the filtered result
-;; into db, which froze the list against future changes to the underlying
-;; spells (see #669 regression for items).
+;; Stores only the filter text; ::char5e/filtered-spells derives the list from it. A filtered
+;; list written into db stops following later changes to the spells.
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
    (assoc db ::char5e/spell-text-filter filter-text)))
 
-;; Filter magic item list by name. Same reactive pattern as filter-spells.
-;; Do NOT write ::char5e/filtered-items into db — the sub composes
-;; sorted-items + item-text-filter reactively.
+;; Stores only the filter text, like ::char5e/filter-spells; ::char5e/filtered-items derives
+;; the list.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
@@ -3363,12 +3352,7 @@
                  (toggle-set value)
                  set-any-attunement))))
 
-;; ORPHANED: see equipment_subs.cljs — ::mi5e/remote-item block-comment.
-;; This event is the handler for ::mi5e/remote-item's success response:
-;; stores a single fetched item into db[::mi/remote-items][id]. It's
-;; commented out as part of the orphaned cross-user item fetch chain
-;; (roadmap: item sharing, not yet prioritized). Do NOT remove in
-;; isolation — restore it together with the rest of the chain.
+;; Switched off with ::mi5e/remote-item in equipment_subs.cljs; restore them together.
 #_(reg-event-db
     ::mi/add-remote-item
     (fn [db [_ item]]
