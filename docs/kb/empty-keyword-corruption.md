@@ -31,6 +31,13 @@ Route an HTTP loader through `http_safe` and the whole uncaught-decode class is 
 **A new loader that calls `cljs-http.client` directly reopens it** — that is the thing to watch for
 in review.
 
+## If someone is hitting this right now
+
+The defences are on `develop`; that is not the same as being in the build the user is running.
+[character-rescue-console.md](character-rescue-console.md) covers the field side — how to check
+whether the served bundle actually carries the fix, the `Uncaught mk` triage tell, and a console
+tool that repairs an already-corrupt character through the app’s own save path.
+
 ## Related but different
 
 [keyword-trap-name-repair.md](keyword-trap-name-repair.md) covers names that lead with a *number or
