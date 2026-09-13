@@ -38,7 +38,7 @@ The engine and the data path are built and tested. **Nothing writes the data** �
 | `grant_pools.cljc` | THE registry. One entry per pool; each entry owns its own shape | 2026-09-07 |
 | `::e5/grantable-pools` | assembles the registry from `plugin-vals` | 2026-09-07 |
 | silos compiling `:grant` | feat, race | 06-17 / 09-07 |
-| pools registered | `:languages`, `:fighting-styles`, `:skills` | 2026-09-07 |
+| pools registered | ten: `:languages` `:fighting-styles` `:skills` `:skill-expertise` `:tools` `:skills-or-tools` `:weapons` `:armor` `:damage-resistances` `:damage-immunities` (`grant_pools.cljc`, read 2026-09-13 — this row said three) | 2026-09-07 |
 | entry eligibility | fighting style `:classes` (absent = all); the class path reads the open pool via `eligible-homebrew-styles` — direction lever (a)(i), done | 2026-09-02 |
 | `effect-rows` | the repeatable-row builder node, for *effects* (not grants). **Map-keyed only** — a row is present when data exists at a fixed path | 2026-09-05 |
 | pools carry `:tags` | the D30 fix: a grant lands on the same tab as the bespoke choice it replaces | 2026-09-07 |

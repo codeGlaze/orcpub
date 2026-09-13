@@ -204,11 +204,54 @@ character entity holds per-form state, which is a bigger change than anything el
 Wild Shape sequence. Printing only is much cheaper and matches how the card is used. Left
 open deliberately — it wants a call before slice 4.
 
+## What `feature/grant-rows` already built
+
+*Added 2026-09-13, when `grant-rows` was merged into `agents/develop`. This doc was written
+without it. Nothing below changes what the feature **needs**; it changes **how** three of the
+needs are met, and it removes one stated blocker.*
+
+**The declaration mechanism exists.** The doc's central gap — "nothing lets content declare
+that a feature grants a creature" — is closed in general form. Content declares
+`{:grants [{:pool :languages :count 2}]}`; `grant-selection` compiles it to a `selection-cfg`;
+`grant_pools.cljc` is the registry, one entry per pool, `{:name :offerable-by :tags
+:options-fn}` where `:options-fn` takes `plugin-vals` and returns option-cfgs. Ten pools are
+registered today (language, fighting style, skill, skill expertise, tool, skill-or-tool,
+weapon, armor, damage resistance, damage immunity). Registering the third cost one entry and
+nothing else — measured, not asserted.
+
+So **"grant a creature" is a pool registration**, not a new key and not a new mechanism. The
+`:options-fn` for a creature pool is the one piece with real work in it, because its options
+come from monster data rather than a short table.
+
+**Wild Shape is the case `filter`-as-a-predicate has been waiting for.**
+[`pool-grant-map.md`](pool-grant-map.md) parks that lever as speculative — `:filter` is a key
+set today, used only in tests, because "no real data narrows a pool." A druid's form list is a
+*rule* (CR ≤ X, no fly or swim speed, size bound), never an enumeration, and it is real content.
+Same argument as the existing `eligible-homebrew-styles` hand-written filter, one level up.
+
+**Wild Shape is also E3's third consumer.** `:grants` is a vector — ordered, duplicates allowed
+— and the repeatable-row node today (`effect-rows`) is map-keyed. Track E3 generalises it to
+vector rows, and `builder-form-schemas.md` §6 already names **encounter creatures** as one of
+the three vector-shaped needs. A prepared-forms list is the same shape.
+
+**The reference-integrity risk is smaller than recorded below.** `:former-keys` landed
+2026-09-12 — a rename history on the item, capped at four, consumed by
+`reconcile-former-keys` (`content_reconciliation.cljs:404-418`, `events.cljs:1634`, `:1687`),
+covering both automatic resolution and a manual relink. Key stability is still load-bearing for
+a creature reference; it is no longer unaddressed.
+
+**Read before extending this plan:** [`pool-grant-map.md`](pool-grant-map.md),
+[`authoring-vocabulary.md`](authoring-vocabulary.md),
+[`requirements-registry.md`](requirements-registry.md),
+[`edition-drift.md`](edition-drift.md), [`plan-next.md`](plan-next.md).
+
 ## Homebrew: buckets A and B
 
 Both buckets need the same thing from homebrew — a way for authored content to say "this
-grants a creature" — and the answer is cheaper than expected, because the specs are already
-open.
+grants a creature". **Superseded:** this section argued the answer was an additive key on an
+open `spec/keys`. The answer is a registered pool plus a `:grants` entry (see the section
+above). The v1/v2 envelope reasoning below still holds — a creature grant an old build drops
+silently is exactly what `detect-incompatible-features` exists to prevent.
 
 ### Base branch and dependency
 
@@ -313,10 +356,9 @@ sore spot:
   A companion reference is the same class of thing as a spell selection pointing at content
   that is gone, so it should join that machinery rather than grow its own.
 
-**Decide before building:** does a companion reference a monster, or embed a copy? A
-reference stays in sync and can dangle; a copy cannot dangle and cannot be corrected. The
-repo's existing reconciliation argues for a reference, but it is a real trade and it is not
-yet decided.
+**Decided since** — copy-on-adopt with the source recorded, in
+[`extras-definitions.md`](extras-definitions.md). A table picking Wolf for their pet fox wants
+to diverge from it, which a live reference either forbids or silently breaks.
 
 ### What is not yet checked
 
@@ -474,6 +516,14 @@ codebase reaches for.
 - The Foundry reference is a **fork**: `codeGlaze/dnd5e` of `foundryvtt/dnd5e`.
 
 ## Revisions
+
+**2026-09-13 (latest).** `feature/grant-rows` merged into `agents/develop`; this doc had been
+written without any of its 51 KB docs. One blocker retracted: "nothing lets content declare
+that a feature grants a creature" was true of `integration` and false of the branch this leaf
+belongs on. The mechanism is `:grants` + `grant_pools.cljc`; a creature pool is a registration.
+The reference-vs-copy question recorded as undecided was decided in `extras-definitions.md`, and
+`:former-keys` (2026-09-12) reduces the key-stability risk it turned on. See "What
+`feature/grant-rows` already built" above. Nothing about **what** the feature needs changed.
 
 **2026-09-08.** The first draft concluded "it is not one feature, it is two systems, and the
 starting point is neither of them," and called per-form PDF sheets the wrong shape. Both were
