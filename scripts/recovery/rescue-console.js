@@ -21,7 +21,7 @@
   const R = {};
   // Bump this on every change. It is printed on load and stamped into every
   // report, so a pasted console log always says which build produced it.
-  const VERSION = 'v5 (2026-09-13)';
+  const VERSION = 'v6 (2026-09-13)';
 
   // The two shapes the reader chokes on. Quoted text is matched first and
   // passed through untouched, so a ':' inside your notes is never altered.
@@ -37,8 +37,11 @@
   }
 
   const token = () => {
-    try { return ((localStorage.getItem('user') || '').match(/:token\s+"([^"]+)"/) || [])[1]; }
-    catch (e) { return undefined; }
+    let t;
+    try { t = ((localStorage.getItem('user') || '').match(/:token\s+"([^"]+)"/) || [])[1]; }
+    catch (e) { /* storage can be blocked entirely */ }
+    // Some sessions keep it in a cookie instead.
+    return t || (document.cookie.match(/(?:^|;\s*)token=([^;]+)/) || [])[1];
   };
   const authHeaders = (extra) => {
     const t = token();
@@ -148,17 +151,33 @@
   // ── stop the crash in this tab ───────────────────────────────────────────
   // The site reads server responses off XMLHttpRequest; repairing the text
   // there means the reader never sees the bad value, so nothing throws.
+  // Only character loads are healed. This scoping is essential, not tidiness:
+  // the healer turns a colon followed by a delimiter into :unnamed-N, and in
+  // JSON that describes every key — {"a":"b"} would become {"a":unnamed-1"b"}.
+  // Transit happens to survive (its colons live inside strings), which is why
+  // an unscoped version can pass a save test and still be wrong. Scope it.
+  const CHARACTER_URL = /\/dnd\/5e\/characters\/\d+/;
+
   R.arm = () => {
     if (R._armed) return;
-    const proto = XMLHttpRequest.prototype;
+    const P = XMLHttpRequest.prototype;
+    const open = P.open;
+    P.open = function (method, url) { this.__rescueUrl = url; return open.apply(this, arguments); };
     ['response', 'responseText'].forEach((prop) => {
-      const desc = Object.getOwnPropertyDescriptor(proto, prop);
+      // The descriptor may sit further up the prototype chain — walk to it
+      // rather than assuming it is an own property of XMLHttpRequest.prototype.
+      let proto = P, desc;
+      while (proto && !(desc = Object.getOwnPropertyDescriptor(proto, prop))) proto = Object.getPrototypeOf(proto);
       if (!desc || !desc.get) return;
-      Object.defineProperty(proto, prop, {
+      Object.defineProperty(P, prop, {
         configurable: true,
         get() {
           const v = desc.get.call(this);
-          return typeof v === 'string' ? heal(v).text : v;
+          if (typeof v !== 'string') return v;
+          if (!CHARACTER_URL.test(this.__rescueUrl || '')) return v;
+          const { text, count } = heal(v);
+          if (count) console.log(`[rescue] repaired ${count} unreadable value(s) while loading a character`);
+          return text;
         },
       });
     });
@@ -442,6 +461,10 @@
 
   // Last resort. Deleting also clears the character out of any party.
   R.remove = async (id) => {
+    if (!id) return console.log('Which one?  await orcpubRescue.remove(<id>)');
+    if (!confirm('Permanently delete character ' + id + '?\n\nA backup downloads first, but the character cannot be restored from here.')) {
+      return console.log('Cancelled — nothing was deleted.');
+    }
     const r = await R.inspect(id);
     if (r.status === 200) download(`character-${id}-backup.edn`, r.raw);
     const res = await fetch(`/dnd/5e/characters/${id}`, { method: 'DELETE', headers: authHeaders() });
