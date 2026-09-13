@@ -239,6 +239,42 @@ which carries more test namespaces; this tree is integration + the fix branch.
 | Spinner sticks or never shows | The `:user` counter change meeting the `0`-is-truthy gotcha | Check `character_builder.cljs:2651`, which binds `loading` raw |
 | Something breaks and the cause is unclear | Five units landed together | Bisect **by unit, not by commit** — the table at the top maps units to commits |
 
+## P4 is the one unit that should change shape before it lands
+
+**Why it exists:** the auth-guard audit (P2) walked every `reg-sub-raw` guard looking for the
+`(:token (:user db))` typo. It found the `::mi5e/remote-item` chain carrying exactly that, and also
+found the chain unreachable — nothing subscribes to it. Rather than delete it or fix it, the author
+switched it off with `#_` and wrote down what it was for.
+
+**Why that shape is wrong for this repo:** the block is **77 comment lines** wrapped around
+discarded code, and its content is a design note — purpose, an ASCII diagram of the intended chain,
+the server-endpoint asymmetry, open product questions ("Can viewers edit items they don't own? Can
+they favorite/clone/share them?"), and a numbered list of follow-ups.
+[code-comment-style.md](code-comment-style.md) is explicit that comments are "a technical manual for
+how things work, not a journal", that an inline `;;` earns its place only when it "stops someone
+breaking the code", and to "drop a *why* when it's history or self-justification."
+
+Its own item 5 gives the game away: *"Add a KB entry to docs/kb/ … documenting the cross-user item
+fetch chain."* The block knows where it belongs.
+
+**It also sets a trap.** `#_` discards the next form, so the three subs grep as live code. That is
+not hypothetical — the first search in this session reported five live references to keys that are
+not registered, and only `scripts/clj-grep.py` showed otherwise. A 77-line discarded block is a
+landmine for every future grep of this namespace.
+
+**Suggested disposition — the only change to the branch recommended here:**
+
+1. **Delete** the `#_` forms. Nothing subscribes to them; git has them if they are ever wanted.
+2. **Move the design note into `docs/kb/`** as its own doc. The content is genuinely worth keeping:
+   the bulk `GET /api/dnd/e5/items` endpoint returns only items the caller owns, while
+   `GET /api/dnd/e5/items/:id` returns any item by db-id regardless of owner — so the server already
+   supports cross-user item viewing and only the client consumer is missing. That asymmetry is a real
+   finding and it is invisible from the code once the chain is gone.
+3. Leave **no** placeholder comment. The KB index is how it stays findable.
+
+This is a shape change, not a scope change: P4's effect on the running app is identical either way,
+because the code it removes could never execute.
+
 ## Take it whole — decided
 
 **Decision (owner, 2026-09-13): keep all five units and test all of them thoroughly.** The earlier

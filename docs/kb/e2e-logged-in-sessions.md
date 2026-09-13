@@ -130,9 +130,26 @@ Applied to the collision:
 | `integration:scripts/e2e/run.js` (394 lines, PDF) | `export-character-pdf.js` |
 | `fix/custom-item-classification:scripts/e2e/run.js` (566 lines, items) | `classify-items-in-builder.js` |
 
-`run.sh`'s default should then be dropped rather than repointed: with no `run.js` to fall back on,
-`./scripts/e2e/run.sh` with no argument should list the suites instead of silently picking one.
-Scheduled as step 3 of the active sequence in `BRANCH.md`.
+**`run.sh`'s default gets dropped, not repointed** (decided 2026-09-13). The silent
+`${1:-run.js}` fallback is part of how the collision went unnoticed — two suites could claim the
+default and neither run announced which it had picked. With no `run.js` to fall back on, a bare
+invocation should list what is available:
+
+```bash
+SUITE="${1:-}"
+if [ -z "$SUITE" ] || [ ! -f "scripts/e2e/$SUITE" ]; then
+  echo "usage: ./scripts/e2e/run.sh <suite.js>"
+  echo "suites:"
+  for f in scripts/e2e/*.js; do
+    b=$(basename "$f"); [ "$b" = "lib.js" ] && continue
+    echo "  $b"
+  done
+  exit 2
+fi
+```
+
+Place the check **before** the server boots, so a typo costs nothing rather than a full build and
+boot. Scheduled as step 3 of the active sequence in `BRANCH.md`.
 
 ### The four facts behind those seven lines
 
