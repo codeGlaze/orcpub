@@ -146,6 +146,14 @@
       (s/replace #"[^a-z0-9À-ɏ]+" " ")
       (s/trim)))
 
+(def ^:private initialism-re
+  "A word that is ALREADY an abbreviation: two to six characters, all caps or digits, starting
+   with a letter.
+
+   GOTCHA: the leading-letter requirement is what keeps a year out. \"Unearthed Arcana 2022:
+   Heroes of Krynn\" must read UA2HoK, not UA2022HoK."
+  #"[A-Z][A-Z0-9]{1,5}")
+
 (defn source-abbreviation
   "A short tag for a content source, for disambiguating two items that share a
    name -- \"Kibbles Tasty\" -> \"KsTy\", \"Tasha's Cauldron of Everything\" -> \"TCoE\".
@@ -181,16 +189,29 @@
         ;; abbreviated again: "UA" would otherwise come back "Ua", which is the
         ;; same name with its meaning filed off. One all-caps word, short enough
         ;; to read as a tag.
-        (if (and (= 1 (count words)) (re-matches #"[A-Z0-9]{2,6}" (first words)))
+        (cond
+          (and (= 1 (count words)) (re-matches initialism-re (first words)))
           (first words)
-          (if (<= (count words) 3)
-            (s/join (map (fn [w]
-                           (if (= 1 (count w))
-                             (s/upper-case w)
-                             (str (s/upper-case (subs w 0 1))
-                                  (s/lower-case (subs w (dec (count w)))))))
-                         words))
-            (s/join (map #(subs % 0 1) words))))))))
+
+          ;; An initialism with a description after it -- "UA - Giant Options",
+          ;; "MM Extra Monsters" -- is how releases in a series are actually named, and
+          ;; the two-shape rule mangles both halves: three words gave "UaGtOs" and four
+          ;; gave "UHoK", each filing the meaning off the part that carries it. Keep the
+          ;; initialism whole and take initials of the rest, which is how people write
+          ;; these anyway.
+          (some #(re-matches initialism-re %) words)
+          (s/join (map (fn [w] (if (re-matches initialism-re w) w (subs w 0 1))) words))
+
+          (<= (count words) 3)
+          (s/join (map (fn [w]
+                         (if (= 1 (count w))
+                           (s/upper-case w)
+                           (str (s/upper-case (subs w 0 1))
+                                (s/lower-case (subs w (dec (count w)))))))
+                       words))
+
+          :else
+          (s/join (map #(subs % 0 1) words)))))))
 
 (defn- abbreviation-suffix-re
   "Matches a trailing \" (Abbr)\" or \" (Abbr 2)\" for one specific abbreviation, so

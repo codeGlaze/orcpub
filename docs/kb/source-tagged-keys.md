@@ -70,9 +70,15 @@ import-disambiguated one can never drift apart, and the NAME is discarded rather
 into the three mint sites: the save, its save-anyway, and the selection save. An item that already
 has a key is untouched, so nothing in an existing library moves.
 
-The abbreviation rule is first-letter-plus-last-letter per word for three words or fewer
-(`"Kibbles Tasty"` → `KsTy`, `"Tidewater Curios"` → `TrCs`), initials beyond that, the override
-table where the world already has a spelling, and `dflt` for the placeholder source. Pinned by
+The abbreviation rule, in order: the override table where the world already has a spelling
+(`dflt` for the placeholder source); a source that IS an abbreviation passes through (`SRD`); a
+source that CONTAINS one keeps it whole and takes initials of the rest, because that is how a
+release in a series is named (`"UA - Heroes of Krynn"` → `UAHoK`, `"UA - Giant Options"` → `UAGO`);
+then first-letter-plus-last-letter per word for three words or fewer (`"Kibbles Tasty"` → `KsTy`,
+`"Tidewater Curios"` → `TrCs`) and initials beyond that.
+
+A year is not an initialism — `"Unearthed Arcana 2022: Heroes of Krynn"` is `UA2HoK`, not
+`UA2022HoK`. Pinned by
 `a-minted-key-carries-its-sources-tag`; the rest of the lifecycle suite asks for keys through a
 helper so a change to the rule fails in one place.
 
