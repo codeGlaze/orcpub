@@ -330,6 +330,61 @@ landmine for every future grep of this namespace.
 This is a shape change, not a scope change: P4's effect on the running app is identical either way,
 because the code it removes could never execute.
 
+## Was `remote-item` meant for sharing between accounts? The endpoint says more than the comment does
+
+The branch's note asserts it was "groundwork for viewing magic items owned by OTHER users." That is
+the branch author's reading. The server tells a sharper story.
+
+`routes.clj:1458-1463` on `integration`:
+
+```clojure
+(defn get-item [{:keys [db] {:keys [:id]} :path-params}]
+  (let [item (d/pull db '[*] id)]
+    (if (::mi5e/owner item)
+      {:status 200 :body item}
+      {:status 404})))
+```
+
+The `::mi5e/owner` test is a "is this actually a custom item" guard, **not** an authorization check —
+compare `delete-item` immediately below it, which does `(if (= username owner) …)` explicitly.
+
+And the routing, `:1941-1944`, registers the same path twice with different interceptors:
+
+```clojure
+[… :id ":id") ^:interceptors [check-auth parse-id]  {:delete `delete-item}]
+[… :id ":id") ^:interceptors [parse-id]             {:get    `get-item}]
+```
+
+**The GET has no `check-auth`.** DELETE on the same path does. So the asymmetry is deliberate, not an
+oversight: `GET /dnd/5e/items/:id` is a **public, unauthenticated read of any user's custom item by
+db-id**.
+
+So: plausibly yes, it was built to let a link to an item work for someone else — which is what
+`remote-item` would have consumed. But **sharing shipped without it**, by embedding content in the
+URL instead. Whichever came first, the state today is:
+
+- a deliberately public by-id read of any user's custom items, with **no client consumer**;
+- a client chain that would have consumed it, unreachable and carrying an always-false guard.
+
+**P4 removes the second and leaves the first untouched.** That is worth being explicit about: deleting
+the dead client code neither fixes nor worsens the endpoint, and it should not be mistaken for having
+dealt with it.
+
+### The open question this raises — for the owner, not for this merge
+
+Custom items are user-authored content, db-ids are guessable, and the endpoint is public. Whether
+that exposure is intended is a product decision, and it sits next to the existing privacy work
+(`src/clj/orcpub/privacy.clj`, `fork/privacy_content.clj`). Three options, none of them this branch's
+business:
+
+1. Intended — a link to an item should work for anyone. Then document it as public API and the
+   `remote-item` chain is simply the client half nobody finished.
+2. Not intended — add `check-auth`, and decide separately whether owners-only or any-signed-in-user.
+3. Superseded — sharing is link-embedded now, so retire the endpoint with the chain.
+
+**Not verified:** whether anything external depends on that endpoint today, and whether item db-ids
+are exposed anywhere a stranger could harvest them. Both are checkable and neither was checked here.
+
 ## The sharing feature changes what P1 and P5 need to cover
 
 `integration` gained custom-content sharing by link, and it wires straight into the chain this
