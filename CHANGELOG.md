@@ -842,6 +842,11 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
   which is the conflict a user hits when two packs overlap (`26f8c602`).
 - A **signed-in lane** that logs in through the real form when `ORCPUB_TEST_USER`
   and `ORCPUB_TEST_PASSWORD` are set, and audits the user menu (`26f8c602`).
+- The overlay probe walks **My Content's delete-all guard** — the quiet `Delete…`
+  button, the `.mc-liftpop` it unfurls, and the `.mc-confirmbar` underneath. It
+  cancels at the last step and then asserts the stored library is the same size it
+  was, so a run can never be one stray click from wiping a library. None of the
+  three steps is a modal, so a probe that waits on a modal selector skips.
 
 **Fixed**
 
@@ -859,6 +864,108 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
 - **The banner has room to breathe** — padding above it as well as below, a gap
   between the text and the close icon, and the icon aligned to the first line
   rather than halfway down a three-line message (`2e13d2b2`).
+
+### consolidate/notifications-and-exports
+
+**Highlights**
+
+Homebrew can now be rescued from a broken app. The boot shell carries a download
+control that the app removes once it has actually rendered, so a missing bundle,
+a failed init or a component that throws all leave it standing — and the error
+screen puts it back. It reads storage at the moment you click it, not at page
+load, so work done during the session is in the file.
+
+**Added**
+
+- **Homebrew rescue in the boot shell** — downloads what is stored when the app
+  itself cannot. Present by default and removed on a clean render, so nothing has
+  to detect the failure (`46b6f807`, `7bd0d7bc`).
+- **Developer mode** — a named switch in the footer reveals "Dump library" and
+  "Debug info", off by default and remembered per device. Replaces two unlabelled
+  icons that sat on every page (`c1dad978`).
+- **Export coverage for the save banner's link** — a source holding one item from
+  before the session and one saved seconds ago must export with both, and the file
+  must re-import into a clean store (`c1dad978`, `cb40740e`).
+
+**Fixed**
+
+- **Banners render markup again** — every message built from hiccup had been
+  rendering as its own source text since `e13d2b2f`, which removed every control
+  inside one, including the save banner's export link (`68c9873e`).
+- **Per-source export runs the same checks as Export All** — the same source no
+  longer produces two different files depending on which button you press
+  (`f7b259fe`).
+- **The size a rescue reports** — anything under a kilobyte read as "0 KB", which
+  looks like there is nothing to save (`7ccc9d3a`).
+
+**Changed**
+
+- **The footer's raw library dump is named and explained** — it stays reachable in
+  production, because it is the way out when validation is what is broken
+  (`17658bb5`, `c1dad978`).
+
+### fix/item-builder-save-label
+
+**Fixed**
+
+- **The item builder's save button says "Save Item"** rather than claiming browser
+  storage it does not use.
+
+### refactor/banner-parts-and-design
+
+**Changed**
+
+- **Import messages are structured** — `format-import-result` returns
+  `{:title :details}`, one idea per line, and the banner renders each line itself.
+  No newline sentinels, no `white-space: pre-line`, no regex collapsing blank
+  lines. A plain string is still accepted and split at the edge, so the remaining
+  legacy callers keep working while they move over.
+- **The banner has a hierarchy** — a severity icon carrying the colour, a headline,
+  supporting detail at a lighter weight, a tinted box instead of a filled slab,
+  and a dismiss with a real touch target.
+- **A successful import reads as success** — green, not warning-orange.
+- **The banner says what happened and stops there.** The advice line — "To be
+  safe, export all content now" — is gone rather than promoted to a button: on My
+  Content it would have sat directly above the page's own Export All. A message
+  pointing at a control already on screen is noise.
+
+- **The save-validation error leads with the problem.** It opened with a line
+  naming the builder you were already standing in ("Spell:"), then the problem,
+  then the escape hatch — three stacked blocks for one short message. The problem
+  is the headline now, with the rest beneath it.
+- **Exporting from the storage warning no longer closes the card.** The banner
+  dismisses on any click that reaches it, and the export link did not stop its
+  own, so the surface vanished mid-action — which is how a working control comes
+  to feel broken.
+- **The browser-storage warning leads with the point.** It was one
+  200-character sentence opening with "IMPORTANT!:" and ending with the export
+  link — the part that matters, last. Now: "Spell saved — in this browser only",
+  and under it "Clearing browser data loses it. Export this source to keep a copy."
+- **The banner is sized to what it says** rather than to one fixed width. A flat
+  cap fixed the five-word slab and then squeezed a two-sentence warning into a
+  narrow column; `fit-content` with a ceiling does both jobs.
+- **A save confirmation says what it saved** — "Saved “Flame Tongue”" rather than
+  "Your item has been saved.", for characters too when they have a name.
+
+**Fixed**
+
+- **A message that is markup renders as markup.** The builders' "please fill in
+  X" carries a bolded field name and a clickable "Save anyway with placeholders",
+  and the new banner ran `str` over it, printing the hiccup at the reader. Vectors
+  now pass through untouched.
+
+- **Callout action buttons carry a React key again** — the key was attached to the
+  `let` form rather than the element it returns, so every callout with actions
+  logged a missing-key warning.
+
+### fix/my-content-source-toolbar
+
+**Changed**
+
+- **An expanded source's search sits inline with its buttons** — search, show
+  disabled, then Export and Delete on one row, with side padding so nothing is
+  flush against the panel. On a phone the search takes the row and the toggle and
+  buttons wrap beneath it.
 
 ## [breaking/2026-stack-modernization]
 
