@@ -967,6 +967,32 @@ load, so work done during the session is in the file.
   flush against the panel. On a phone the search takes the row and the toggle and
   buttons wrap beneath it.
 
+### fix/filtered-list-staleness
+
+**Fixed**
+
+- **A filtered list keeps up with its contents again.** Creating, editing or
+  deleting a custom item left the visible list unchanged while any filter was
+  active, because the list read a snapshot written at the last keystroke and
+  nothing ever cleared it. Filters now derive from the live data (`27a92457`).
+- **A 401 on custom items leaves a breadcrumb.** The request still fails
+  quietly by design; it no longer fails invisibly (`b7bd29df`).
+
+**Changed**
+
+- **`get-auth-token` lives in `event_utils.cljc`** instead of being redefined
+  where it was needed (`dbb71dce`).
+- **Five API-backed subscriptions share one `reg-api-sub`** rather than
+  repeating the same fetch-and-store shape (`f1952497`).
+- **The orphaned `::mi5e/remote-item` chain is switched off** with `#_` rather
+  than left looking live. Nothing subscribed to it; the item page that ships
+  uses `::mi/custom-item` (`7af6253b`).
+
+**Tests**
+
+- Thirteen tests cover filtered-list reactivity, two of which fail against the
+  old shape, plus the share overlay and eight regression guards (`436284ad`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
