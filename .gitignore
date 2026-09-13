@@ -59,6 +59,11 @@ dev/test-accounts.edn
 .cpcache
 cljs-test-runner-out
 
+# deps.edn is generated from project.clj's :dependencies for the Clojure CLI
+# (running the server / cljs builds without lein). project.clj stays the single
+# source of truth for dependencies — a committed copy would silently drift.
+/deps.edn
+
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
 
