@@ -50,30 +50,77 @@
     console.log('%c' + msg, `font-size:15px;font-weight:bold;color:${color || '#0a0'}`);
   const step = (msg) => console.log('%c' + msg, 'font-size:14px');
 
-  // ── read the character list (regex, not an EDN reader, so corrupt data
-  //    in the list itself can never break this) ─────────────────────────────
+  // ── EDN scanning, depth-aware ────────────────────────────────────────────
+  // Deliberately NOT a real reader: the whole problem is that this data can be
+  // unreadable. But it must respect nesting — a character summary embeds its
+  // classes as nested maps that carry their own :db/id, and grabbing those by
+  // a flat regex yields component ids that are not characters at all.
+
+  // The outermost {...} chunks in `text`, strings respected.
+  const mapChunks = (text) => {
+    const chunks = [];
+    let depth = 0, start = -1, inStr = false, esc = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inStr) {
+        if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') { inStr = true; continue; }
+      if (c === '{') { if (depth === 0) start = i; depth++; }
+      else if (c === '}') { depth--; if (depth === 0 && start >= 0) { chunks.push(text.slice(start, i + 1)); start = -1; } }
+    }
+    return chunks;
+  };
+
+  // A map's own fields, with everything nested deeper stripped out.
+  const shallow = (chunk) => {
+    let out = '', depth = 0, inStr = false, esc = false;
+    for (let i = 0; i < chunk.length; i++) {
+      const c = chunk[i];
+      if (inStr) {
+        if (depth <= 1) out += c;
+        if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') { inStr = true; if (depth <= 1) out += c; continue; }
+      if (c === '{' || c === '[' || c === '(') { depth++; if (depth <= 1) out += ' '; continue; }
+      if (c === '}' || c === ']' || c === ')') { if (depth <= 1) out += ' '; depth--; continue; }
+      if (depth <= 1) out += c;
+    }
+    return out;
+  };
+
+  const ownId = (chunk) => (shallow(chunk).match(/:db\/id\s+(\d+)/) || [])[1];
+  const ownName = (chunk) => (shallow(chunk).match(/character-name\s+"((?:[^"\\]|\\.)*)"/) || [])[1];
+
+  // ── the characters they own ──────────────────────────────────────────────
   R.list = async () => {
     const res = await fetch('/dnd/5e/character-summaries', { headers: authHeaders({ Accept: 'application/edn' }) });
     const raw = await res.text();
     if (res.status !== 200) { console.log('Could not read your character list — HTTP', res.status); return []; }
-    const rows = [];
-    raw.replace(/\{[^{}]*:db\/id\s+(\d+)[^{}]*\}/g, (chunk, id) => {
-      const nm = (chunk.match(/character-name\s+"([^"]*)"/) || [])[1];
-      rows.push({ id, name: nm || '(no name)' });
-      return chunk;
-    });
-    return rows;
+    return mapChunks(raw)
+      .map((chunk) => ({ id: ownId(chunk), name: ownName(chunk) || '(no name)' }))
+      .filter((r) => r.id);
   };
 
-  // ── ids of every character this account can see: the ones they own, plus
-  //    everyone in their parties (a broken party member may not be theirs) ──
+  // ── everyone in their parties (a broken party member may not be theirs) ──
+  // Only the ids inside ::party/character-ids — NOT the party's own :db/id,
+  // which is not a character and would 400.
   R.partyMemberIds = async () => {
     const res = await fetch('/dnd/5e/parties', { headers: authHeaders({ Accept: 'application/edn' }) });
     if (res.status !== 200) return [];
     const raw = await res.text();
     const ids = [];
-    raw.replace(/:db\/id\s+(\d+)/g, (m, id) => { ids.push(id); return m; });
-    return ids;
+    mapChunks(raw).forEach((party) => {
+      const at = party.indexOf('character-ids');
+      if (at < 0) return;
+      mapChunks(party.slice(at)).forEach((member) => {
+        const id = ownId(member);
+        if (id) ids.push(id);
+      });
+    });
+    return [...new Set(ids)];
   };
 
   // ── look at one character (never parses it, so it cannot crash) ─────────
