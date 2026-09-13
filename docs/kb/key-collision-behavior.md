@@ -39,6 +39,13 @@ this: a `{::t/key :fighter}` plugin option placed before a built-in `:fighter` y
 containing the **plugin** one; distinct keys both survive; a plain `concat` (the pool/list shape) keeps
 **both** same-key entries.
 
+## Open: tagging every minted key with its source
+
+Whether a key should carry its source's abbreviation at MINT time — `:stone-elf-tc` rather than
+`:stone-elf` — instead of only when a collision forces it. Would remove most of what this page
+describes; unresolved on the default source and on old libraries keeping untagged keys.
+**`source-tagged-keys.md`.**
+
 ## The builder's own save gate (2026-09-12)
 
 `save-collision` (`events.cljs`) runs before every homebrew save and blocks two cases: `:overwrite`
