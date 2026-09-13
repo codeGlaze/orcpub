@@ -17,7 +17,7 @@
 
 const { chromium } = require('playwright');
 // Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
-const { findChrome } = require('./lib');
+const { findChrome, dismissWhatsNew } = require('./lib');
 const http = require('http'), fs = require('fs'), path = require('path');
 
 const REPO = process.env.REPO || path.resolve(__dirname, '../..');
@@ -49,6 +49,7 @@ const server = http.createServer((req, res) => {
   pg.on('pageerror', e => errs.push((e.message || e).toString().split('\n')[0]));
   await pg.setViewportSize({ width: 1280, height: 1000 });
   await pg.goto(`http://localhost:${PORT}/pages/dnd/5e/race-builder`, { waitUntil: 'load', timeout: 30000 });
+  await dismissWhatsNew(pg);   // the release panel opens at launch and eats clicks
 
   // The visible text inputs carry class `input h-40`; input[0] is Name. (input[1] is the
   // Orcacle SEARCH box, placeholder="search" — typing there opens an autofill suggestions

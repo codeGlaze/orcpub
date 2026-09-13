@@ -54,6 +54,36 @@ off `db/builder-wip-stores` so the refresh-restored copy carries it too). Pinned
 `test/e2e/spell-builder.js` (save → add a field → save again) and `test/e2e/feat-grants.js`
 (save → remove a grant row → save again).
 
+## The builder's save: a key is minted once (2026-09-13)
+
+`key (or (:key item) (name-to-kw name))`. The key is derived from the name when the item is
+created and then fixed; editing the Name field changes the name and nothing else. This is D10 —
+`name-to-kw` is a creation-time default, and re-running it on a display name is the footgun that
+orphaned saved characters before.
+
+What that removes, rather than what it adds:
+
+- a rename cannot orphan the old entry (there is no old entry — nothing moved);
+- a rename cannot collide, so it cannot be refused;
+- a character holding the key keeps resolving, with nothing to heal.
+
+**The key and the name can therefore diverge** — "Tidewall" living at `:tideward`. That is the
+point: the key is an address, the name is display text. Exports show it.
+
+Changing a key is a separate, deliberate act — import conflict resolution and the manual relink,
+both through `rename-key-in-plugin` — and those record `:former-keys`. There is no control in the
+builder for it yet.
+
+### What the save still refuses
+
+Only `:overwrite`: a NEW item whose minted key is already held by a different item **in this same
+source**. Changing the name is a real fix there, because the key has not been minted yet.
+
+A key held by **another source** is now reported, not refused: both copies survive, the disable
+hierarchy decides which is live, and the health card reports the pair. Refusing it held the author
+to a stricter rule than the importer, who is offered "keep both" deliberately — and it flagged the
+name field as invalid when nothing about the name was wrong.
+
 ## The rename history — `:former-keys` (2026-09-12)
 
 A key move is recorded on the item that moved, and `former-key-index` turns every record into

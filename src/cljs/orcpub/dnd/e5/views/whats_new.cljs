@@ -17,9 +17,10 @@
   (.stopPropagation e))
 
 (def ^:private cookie-notice-selector
-  "The cookie notice's BANNER (resources/public/js/cookies.js). Its wrapper div is an unstyled,
-   zero-height node in the normal flow; the banner inside it is the fixed bottom bar. The wrapper
-   is removed from the document when the notice is dismissed."
+  "The cookie notice's banner (resources/public/js/cookies.js).
+
+   GOTCHA: the `.window` is the fixed bar; its wrapper div is a zero-height node in the normal
+   flow, so measuring the wrapper returns 0. The wrapper is removed on dismissal."
   "#cookie-policy-popup .window")
 
 (defn- cookie-notice-height []
@@ -64,10 +65,9 @@
 (defn panel
   "Mount once in the app shell. Renders nothing until the panel is open.
 
-   The backdrop STOPS ABOVE the cookie notice instead of covering it, so a first visit gets both
-   at once: the notice stays readable and clickable, and the panel takes the room that is left and
-   grows into the rest the moment the notice goes. The height is measured, not assumed — the notice
-   is a third-party banner whose height depends on how its text wraps."
+   The backdrop stops above the cookie notice rather than covering it, so both are usable at once
+   and the panel reclaims the space when the notice goes. The notice's height is measured, not
+   assumed — it is third-party markup that wraps differently at different widths."
   []
   (let [on-key   (fn [e] (when (= "Escape" (.-key e)) (close)))
         notice-h (r/atom 0)

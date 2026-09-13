@@ -38,6 +38,7 @@ against" record). Full reasoning is in the body — this is only an index.
 | D8 | Document before coding the spike | DONE (historical) |
 | D9 | Backward compat is non-negotiable; zero-migration | LIVE (constraint) |
 | D10 | Identity from a stable key, never a display name | LIVE |
+| D10a | The builder mints a key once; no re-derivation on save | LIVE |
 | D11 | Catalog reads = layered memoized subs | LIVE |
 | D12 | Readability is the deciding constraint | LIVE |
 | D13 | Deflate Layer 1 to descriptor+HOF; ~~reject catalogs/grants~~ | DONE (deflation) / **REVERSED** (anti-catalog half, by D17b–D19) |
@@ -176,6 +177,17 @@ already orphaned saved characters when a source suffix was folded into class `:n
 (fixed on `feature/name-keyword-fix`: `option-cfg` `::plugin-source` slot, key-from-
 `:class-key`, a load-time reconciler). The catalog/grant work must pass each item's stored
 `:key` through to `option-cfg`. *Rejected:* relying on name→key re-derivation (the footgun).
+
+**D10a — The builder mints a key once, and re-derivation is gone from the save path.**
+`reg-save-homebrew` took `key (name-to-kw name)` on EVERY save, which is the re-derivation D10
+rejects. It is now `(or (:key item) (name-to-kw name))`. *Why:* the re-derivation was the source of
+three separate defects — a rename orphaned the old entry (the move was conditional on a `:key` the
+new-item path never carried), a second save of the same item was refused as a collision with
+itself, and `save-collision` needed a "is this slot mine?" comparison to paper over both. Key and
+name may now diverge; that is D10's position — the key is an address, the name is display text.
+*Also:* a key held by ANOTHER source is reported rather than refused, matching `save-collision`'s
+own docstring and what import already offers ("keep both"). *Rejected:* keeping the re-derivation
+and comparing harder.
 
 **D11 — Catalog reads are layered, memoized subscriptions; never recomputed in hot subs.**
 Each catalog is its own `reg-sub` (re-frame memoizes it); `grant-choice` references it

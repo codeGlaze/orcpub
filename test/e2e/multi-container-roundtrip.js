@@ -10,7 +10,7 @@
 // Run: REPO=/abs/path/to/orcpub node test/e2e/multi-container-roundtrip.js   (exit 0 = pass)
 const { chromium } = require('playwright');
 // Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
-const { findChrome } = require('./lib');
+const { findChrome, dismissWhatsNew } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8878);
@@ -47,8 +47,10 @@ async function authorMartialPlus1(pg,name){
 
   // 1. author BOTH silos through their real forms, same option-pack
   await pg.goto(`${U}/pages/dnd/5e/race-builder`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);   // the clear step below drops the seen-stamp, so re-stamp each time
   await authorMartialPlus1(pg,'Tide');
   await pg.goto(`${U}/pages/dnd/5e/background-builder`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);
   await authorMartialPlus1(pg,'Sea-Marked');
   const authored=await lsPlugins(pg);
   check('race silo authored through the form into RT Pack', /orcpub\.dnd\.e5\/races[\s\S]*:tide/.test(authored));
@@ -57,6 +59,7 @@ async function authorMartialPlus1(pg,name){
 
   // 2. export the pack via the real button; capture the real download
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);
   await pg.waitForTimeout(1200);
   await pg.locator('#app .item-list-item').filter({hasText:'RT Pack'}).first().locator('text=expand').first().click();
   await pg.waitForTimeout(400);
@@ -76,6 +79,7 @@ async function authorMartialPlus1(pg,name){
   // 3. fully clear the browser (a machine that never had the pack)
   await pg.evaluate(()=>localStorage.clear());
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);
   await pg.waitForTimeout(1000);
   check('pack gone after localStorage.clear()', !/RT Pack/.test(await pg.locator('#app').innerText()));
 
@@ -89,6 +93,7 @@ async function authorMartialPlus1(pg,name){
 
   // 5. USE both in the builder out of the freshly-imported pack
   await pg.goto(`${U}/pages/dnd/5e/character-builder`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);
   await pg.waitForTimeout(2500);
   // EXACT name: the app-shipped demo pack ships a "Demo: Tideborn" race, and a loose 'Tide'
   // matcher picks that one instead of this fixture's.

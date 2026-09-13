@@ -9,7 +9,7 @@
 // Run: REPO=/abs/path/to/orcpub node test/e2e/subclass-asi-toggle.js   (exit 0 = pass)
 const { chromium } = require('playwright');
 // Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
-const { findChrome } = require('./lib');
+const { findChrome, dismissWhatsNew } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8868);
@@ -27,6 +27,7 @@ const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${o
   pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1100});
   await pg.goto(`${U}/pages/dnd/5e/subclass-builder`,{waitUntil:'load',timeout:30000});
+  await dismissWhatsNew(pg);   // the release panel opens at launch and eats clicks
   await pg.waitForSelector('#app input.input.h-40',{timeout:20000});
 
   const sect = '#app :text("Ability Score Increases (non-standard)")';

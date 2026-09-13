@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, checker, controlFor, fillEffectBonus, optionsOf } = require('./lib');
+const { BASE, SHOTS, findChrome, checker, controlFor, fillEffectBonus, optionsOf, dismissWhatsNew } = require('./lib');
 
 const { check, report } = checker();
 
@@ -30,6 +30,7 @@ const { check, report } = checker();
 
   await page.goto(`${BASE}/pages/dnd/5e/fighting-style-builder`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2500);
+  await dismissWhatsNew(page);   // the release panel opens at launch and eats clicks
 
   const body = await page.textContent('body');
   check('page renders (macro-generated route→view binding)', /Fighting Style/i.test(body),

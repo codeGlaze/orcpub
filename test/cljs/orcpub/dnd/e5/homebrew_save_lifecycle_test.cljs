@@ -110,68 +110,71 @@
 ;; Renaming
 ;; ---------------------------------------------------------------------------
 
-(deftest renaming-moves-the-entry-rather-than-copying-it
-  ;; The bug this pins: the old entry used to be left behind, so one item became two and the
-  ;; abandoned one stayed in the library, in exports, and in the source list forever.
+(deftest renaming-is-a-name-edit-and-does-not-re-address-the-item
+  ;; MINTED ONCE (D10). The key is derived at creation and then fixed, so a rename cannot orphan
+  ;; the old entry, cannot collide with anything, and cannot strand a character that holds the key.
   (open! (draft "Tideward"))
   (save!)
   (set-name! "Tidewall")
   (save!)
-  (is (= #{:tidewall} (set (keys (stored)))) "no orphan under the old key")
-  (is (= [:tideward] (get-in (stored) [:tidewall :former-keys])) "and the move is recorded"))
+  (is (= #{:tideward} (set (keys (stored)))) "one entry, still at the key it was minted under")
+  (is (= "Tidewall" (get-in (stored) [:tideward :name])) "with the new name on it")
+  (is (empty? (get-in (stored) [:tideward :former-keys])) "nothing moved, so nothing to record"))
 
-(deftest a-character-on-the-old-key-heals-through-former-key
+(deftest a-character-keeps-resolving-across-a-rename
   (open! (draft "Tideward"))
   (save!)
   (set-name! "Tidewall")
   (save!)
-  (let [character {:orcpub.entity/options {:languages [{:orcpub.entity/key :tideward}]}}
-        index     (reconcile/former-key-index (:plugins @app-db))
-        {:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
-    (is (= {:tideward :tidewall} index))
-    (is (= [{:from :tideward :to :tidewall}] rewrote))
-    (is (= :tidewall (get-in character [:orcpub.entity/options :languages 0 :orcpub.entity/key])))))
+  (is (contains? (stored) :tideward) "the key a character stored is still the live one")
+  (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and there is nothing to heal"))
 
-(deftest a-chain-of-renames-heals-from-every-link
+(deftest a-deliberate-key-change-still-records-the-move
+  ;; The rename path that remains: import conflict resolution and the manual relink go through
+  ;; rename-key-in-plugin, which records :former-keys so characters rebind on load.
+  (let [item  {:key :tideward :name "Tideward" :option-pack SRC}
+        moved (reconcile/record-former-key (assoc item :key :tidewall) :tideward)]
+    (swap! app-db assoc :plugins {SRC {ct {:tidewall moved}}})
+    (let [character {:orcpub.entity/options {:languages [{:orcpub.entity/key :tideward}]}}
+          index     (reconcile/former-key-index (:plugins @app-db))
+          {:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
+      (is (= {:tideward :tidewall} index))
+      (is (= [{:from :tideward :to :tidewall}] rewrote))
+      (is (= :tidewall (get-in character [:orcpub.entity/options :languages 0 :orcpub.entity/key]))))))
+
+(defn- moved-through
+  "An item carried through a chain of deliberate key changes, oldest first."
+  [ks]
+  (reduce (fn [item k] (reconcile/record-former-key (assoc item :key k) (:key item)))
+          {:key (first ks) :option-pack SRC}
+          (rest ks)))
+
+(deftest a-chain-of-key-changes-heals-from-every-link
   ;; :former-keys, not :former-key: one slot kept only the last hop, so A->B->C healed B and
   ;; stranded anyone still on A.
-  (open! (draft "Alpha"))
-  (save!)
-  (set-name! "Beta")
-  (save!)
-  (set-name! "Gamma")
-  (save!)
-  (let [index (reconcile/former-key-index (:plugins @app-db))]
-    (is (= #{:gamma} (set (keys (stored)))))
-    (is (= [:alpha :beta] (:former-keys (get (stored) :gamma))))
-    (is (= {:alpha :gamma :beta :gamma} index) "every former key points at the live one")))
+  (let [item (moved-through [:alpha :beta :gamma])]
+    (swap! app-db assoc :plugins {SRC {ct {:gamma item}}})
+    (is (= [:alpha :beta] (:former-keys item)))
+    (is (= {:alpha :gamma :beta :gamma} (reconcile/former-key-index (:plugins @app-db)))
+        "every former key points at the live one")))
 
-(deftest the-history-is-capped-and-the-original-key-is-never-dropped
-  ;; The mint is what a character nobody has opened since then still points at, so overflow comes
-  ;; out of the MIDDLE.
-  (open! (draft "One"))
-  (save!)
-  (doseq [n ["Two" "Three" "Four" "Five" "Six"]]
-    (set-name! n)
-    (save!))
-  (let [item (get (stored) :six)]
+(deftest the-history-is-capped-and-the-prime-key-is-never-dropped
+  (let [item (moved-through [:one :two :three :four :five :six])]
     (is (= reconcile/former-key-cap (count (:former-keys item))))
-    (is (= :one (first (:former-keys item))) "the key it was minted under survives")
-    (is (= [:one :three :four :five] (:former-keys item)) "and the middle is what gave way")
+    (is (= [:one :three :four :five] (:former-keys item)) "entry 0 stays; the middle gives way")
     (is (nil? (:former-key item)) "the singular is not written alongside the plural")))
 
-(deftest an-item-saved-under-the-old-singular-key-still-heals
-  ;; Everything already in a library carries :former-key. It keeps working, and picks up the
-  ;; plural the next time it is renamed.
+(deftest an-item-carrying-the-old-singular-key-still-heals
+  ;; Everything already in a library carries :former-key. It keeps working, and folds into the
+  ;; vector at its next key change.
   (swap! app-db assoc :plugins {SRC {ct {:new-name {:key :new-name :name "New Name"
                                                     :option-pack SRC :former-key :old-name}}}})
   (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db))))
-  (open! (get-in @app-db [:plugins SRC ct :new-name]))
-  (set-name! "Newer Name")
-  (save!)
-  (let [item (get (stored) :newer-name)]
-    (is (= [:old-name :new-name] (:former-keys item)) "the old singular is carried into the list")
-    (is (nil? (:former-key item)))))
+  (let [next-move (reconcile/record-former-key
+                   (assoc (get-in @app-db [:plugins SRC ct :new-name]) :key :newer-name)
+                   :new-name)]
+    (is (= [:old-name :new-name] (:former-keys next-move)))
+    (is (nil? (:former-key next-move)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Landing on a key something else holds
@@ -184,25 +187,25 @@
   (is (= 1 (count (stored))) "the sitting tenant is not replaced")
   (is (= :invalid (:name (:builder-field-errors @app-db))) "and the name field says why"))
 
-(deftest renaming-onto-an-occupied-key-is-refused-and-loses-nothing
+(deftest taking-another-items-name-does-not-take-its-key
+  ;; Two items may share a display name. Only the key is unique, and a saved item keeps its own.
   (swap! app-db assoc :plugins {SRC {ct {:tidewall (assoc (draft "Tidewall") :key :tidewall)}}})
   (open! (draft "Tideward"))
   (save!)
   (is (= #{:tideward :tidewall} (set (keys (stored)))))
-  (set-name! "Tidewall")                                     ; onto the other item's key
+  (set-name! "Tidewall")                                     ; the same NAME as the other item
   (save!)
   (is (= #{:tideward :tidewall} (set (keys (stored)))) "both survive")
-  (is (= "Tidewall" (get-in (stored) [:tidewall :name])) "the tenant is untouched"))
+  (is (= "Tidewall" (get-in (stored) [:tidewall :name])) "the other item is untouched")
+  (is (= "Tidewall" (get-in (stored) [:tideward :name])) "and this one took the name, not the key"))
 
-(deftest CURRENT-a-name-held-by-another-source-is-refused
-  ;; DECISION OPEN. `save-collision`'s own docstring says the cross-source case "informs rather
-  ;; than blocks" -- both copies survive and the disable hierarchy decides which is live, and
-  ;; import deliberately offers "keep both". The caller blocks it anyway. Whichever way that is
-  ;; settled, it gets settled HERE first.
+(deftest a-key-held-by-another-source-is-said-not-refused
+  ;; Both copies survive and the disable hierarchy decides which is live, so refusing would hold
+  ;; the author to a stricter rule than the importer, who is offered "keep both" deliberately.
   (swap! app-db assoc :plugins {"Someone Else's Pak" {ct {:tideward {:key :tideward
                                                                     :name "Tideward"
                                                                     :option-pack "Someone Else's Pak"}}}})
   (open! (draft "Tideward"))
   (save!)
-  (is (nil? (stored)) "nothing saved into this source")
-  (is (= :invalid (:name (:builder-field-errors @app-db)))))
+  (is (= #{:tideward} (set (keys (stored)))) "it saved")
+  (is (empty? (:builder-field-errors @app-db)) "and the name field is not flagged"))

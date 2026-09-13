@@ -12,7 +12,7 @@
 const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText } = require('./lib');
+const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, dismissWhatsNew } = require('./lib');
 
 const SOURCE = 'E1 Source';
 const NAME = 'Thieves Argot';
@@ -30,6 +30,7 @@ const DESC = 'A clipped trade cant of the dockside crews.';
   try {
     await page.goto(`${BASE}/pages/dnd/5e/language-builder`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
+    await dismissWhatsNew(page);   // the release panel opens at launch and eats clicks
 
     const body = await page.textContent('body');
     check('page renders', /language/i.test(body), `body starts: ${body.trim().slice(0, 60)}`);

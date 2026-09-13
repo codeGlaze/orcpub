@@ -398,23 +398,22 @@
 ;; already hydrated at :set-character.
 
 (def former-key-cap
-  "How many former keys an item carries. The rename history is a repair aid, not an archive."
+  "Former keys kept per item. A repair aid, not an archive."
   4)
 
 (defn former-keys
-  "An item's former keys, oldest first. Reads the singular `:former-key` too — every item saved
-   before the plural existed has one."
+  "`item`'s former keys, oldest first. Reads the singular `:former-key` as a one-entry history."
   [item]
   (or (:former-keys item)
       (some-> (:former-key item) vector)
       []))
 
 (defn record-former-key
-  "Add `old-key` to `item`'s rename history, capped at `former-key-cap`.
+  "Append `old-key` to `item`'s `:former-keys`, capped at `former-key-cap`. Drops `:former-key`.
 
-   GOTCHA: overflow is dropped from the MIDDLE. The first entry is the key the item was minted
-   under, and a character nobody has opened since then still points at it, so it is never evicted;
-   the middle links are the ones least likely to be anyone's stored key."
+   Entry 0 is the prime key, minted at creation, and is never evicted — kept on the assumption
+   that the oldest characters point at the oldest key. Overflow is taken from the middle.
+   Six renames: `[:one :three :four :five]` under `:six` — `:two` gave way, `:one` stays."
   [item old-key]
   (let [prior (former-keys item)
         ks    (if (some #{old-key} prior) prior (conj (vec prior) old-key))]

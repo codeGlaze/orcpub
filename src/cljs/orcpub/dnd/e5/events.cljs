@@ -860,83 +860,71 @@
      event-key
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
-             key (common/name-to-kw name)
+             ;; MINTED ONCE (D10). The key is an address, not a label: derived from the name at
+             ;; creation, then fixed. Renaming is a name edit, and every character holding the key
+             ;; still resolves. Changing a key is a separate, deliberate act -- import conflict
+             ;; resolution, the manual relink -- and those record :former-keys.
+             key (or (:key item) (common/name-to-kw name))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
              ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             ;; A rename here changes identity. Record where it came from, the same
-             ;; way import conflict resolution does, so a character that selected
-             ;; this content under the old key is rebound on load rather than
-             ;; quietly losing it.
-             renamed? (and (:key item) (not= (:key item) key))
-             item-with-key (cond-> (assoc normalized-item :key key)
-                             renamed? (content-recon/record-former-key (:key item)))
+             item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
-             explanation (spec/explain-data spec-key item-with-key)]
-         (if-let [{:keys [kind source] twin-name :name}
-                  (and (nil? explanation)
-                       (save-collision plugins option-pack plugin-key key item))]
-           ;; Both kinds stop the save. They differ in what is at stake, so they
-           ;; differ in what they say, but neither should happen quietly.
-           ;;
-           ;; The cross-source case is the common one -- 27 of the conflicts in one
-           ;; shipped pak are a key held by more than one source -- and it is not
-           ;; harmless. Two sources claiming a key is a mutual-exclusion pair: only
-           ;; one can be on, the library health card reports it until somebody
-           ;; resolves it, and which one wins is not obvious from the builder.
-           ;; Creating that state as a side effect of pressing Save, and mentioning
-           ;; it afterwards, is how a library accumulates dozens of them.
-           ;;
-           ;; Wanting both copies IS legitimate -- a published class and its
-           ;; playtest version -- but that arrives through IMPORT, where the
-           ;; conflict modal asks and "keep both" is a choice someone made. It does
-           ;; not arrive by authoring a class here that happens to collide.
+             explanation (spec/explain-data spec-key item-with-key)
+             {:keys [kind source] twin-name :name}
+             (when (nil? explanation)
+               (save-collision plugins option-pack plugin-key key item))]
+         (cond
+           ;; The one case worth stopping: this key holds a DIFFERENT item in this same source, so
+           ;; saving would discard it.
+           (= :overwrite kind)
            {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
                          [:show-error-message
-                          (if (= :overwrite kind)
-                            (str "\"" twin-name "\" in \"" source "\" already uses the name "
-                                 "\"" name "\". Saving would replace it. Give this one a "
-                                 "different name, or edit the existing entry instead.")
-                            (str "\"" source "\" already has a " (s/lower-case type-name)
-                                 " named \"" twin-name "\". Two sources with the same name can't "
-                                 "both be switched on — give this one a different name, or turn "
-                                 "one off in My Content."))
+                          (str "\"" twin-name "\" in \"" source "\" already uses the name "
+                               "\"" name "\". Saving would replace it. Give this one a "
+                               "different name, or edit the existing entry instead.")
                           builder-error-ttl]]}
-           (if (nil? explanation)
-             (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                  item-with-key
-                                                  (when renamed? (:key item)))]
-               ;; Stamp the key back onto the item still open in the builder: `save-collision`
-               ;; reads it to tell an edit returning to its own slot from a name landing on
-               ;; somebody else's, so without this a second save of the same item is refused as
-               ;; an overwrite of itself.
-               {:db (assoc db item-key item-with-key)
-                ::persist-builder-wip [item-key item-with-key]
-                :dispatch-n [[::e5/set-plugins new-plugins]
-                             [:set-builder-field-errors {}]
-                             [:show-warning-message
-                              ;; Headline carries the point — it is saved, and only
-                              ;; here. The caveat and the way out sit under it. It
-                              ;; used to be one 200-character sentence that opened
-                              ;; with IMPORTANT! and buried the export link at the
-                              ;; end, which is a thing people scroll past.
-                              {:title (str type-name " saved — in this browser only")
-                               :details [[:span
-                                          "Clearing browser data loses it. "
-                                          [:span.pointer.underline
-                                           ;; stop the click: the banner closes on
-                                           ;; any click that reaches it, so exporting
-                                           ;; used to pull the card out from under
-                                           ;; the reader mid-action.
-                                           {:on-click (fn [e]
-                                                        (.stopPropagation e)
-                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
-                                           "Export this source"]
-                                          " to keep a copy."]]}
-                              60000]]})
-  (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
+
+           (some? explanation)
+           (builder-field-error-fx type-name explanation item error-message anyway-event-key)
+
+           ;; A key held by ANOTHER source is said, not refused. Both copies survive, the disable
+           ;; hierarchy decides which is live, and the health card reports the pair until someone
+           ;; settles it -- so refusing would hold the author to a stricter rule than the importer,
+           ;; who is offered "keep both" deliberately.
+           :else
+           (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
+                                                item-with-key nil)]
+             ;; Stamp the key back onto the item still open in the builder: `save-collision` reads
+             ;; it to tell an edit returning to its own slot from a name landing on somebody
+             ;; else's, and a restored draft must carry it too.
+             {:db (assoc db item-key item-with-key)
+              ::persist-builder-wip [item-key item-with-key]
+              :dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            ;; Headline carries the point -- it is saved, and only here. The
+                            ;; caveat and the way out sit under it.
+                            {:title (str type-name " saved — in this browser only")
+                             :details (cond-> [[:span
+                                                "Clearing browser data loses it. "
+                                                [:span.pointer.underline
+                                                 ;; stop the click: the banner closes on any click
+                                                 ;; that reaches it, so exporting used to pull the
+                                                 ;; card out from under the reader mid-action.
+                                                 {:on-click (fn [e]
+                                                              (.stopPropagation e)
+                                                              (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                                 "Export this source"]
+                                                " to keep a copy."]]
+                                        (= :cross kind)
+                                        (conj (str "\"" source "\" has a " (s/lower-case type-name)
+                                                   " under the same key. Both are kept, but only one "
+                                                   "can be switched on at a time — My Content shows "
+                                                   "which.")))}
+                            60000]]})))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
     ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
@@ -953,7 +941,10 @@
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-             item-with-key (assoc sanitized :option-pack src)
+             ;; minted once, like the ordinary save: sanitizing a name must not re-address an
+             ;; item that already has a key
+             item-with-key (cond-> (assoc sanitized :option-pack src)
+                             (:key item) (assoc :key (:key item)))
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -1014,7 +1005,7 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (common/name-to-kw name)
+         key (or (:key item) (common/name-to-kw name))      ; minted once (D10)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1083,7 +1074,7 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (common/name-to-kw (:name filled-item))
+         key (or (:key item) (common/name-to-kw (:name filled-item)))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]
