@@ -12,7 +12,7 @@
 
 ### What `lein fig:test` Actually Does
 
-Compiles `test.cljs.edn` to `target/test/js/test.js`. Tests auto-run when opened in a browser (via `:auto-testing true`). There is **no headless runner** — no doo, no karma, no node. The CLJS tests exist to be run interactively or eventually via doo.
+Compiles `test.cljs.edn` to `target/test/js/test.js`. Tests auto-run when opened in a browser (via `:auto-testing true`). **CORRECTION (2026-09-13): there IS a headless runner now** — `test/e2e/cljs-harness.js`, Playwright-driven, measured at 354 tests / 1699 assertions on a merge of `integration` + `claude/fix-custom-items-disappearing-DW8rb`. See [cljs-headless-harness.md](cljs-headless-harness.md), which also lists the four things that make it report a false pass. The sentence this replaces said there was none — no doo, no karma, no node — and that was true when written.
 
 ### Directory Layout
 

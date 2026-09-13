@@ -46,11 +46,25 @@ Notes:
 ## E2E Testing
 
 ### Running Tests
+
+**`e2e/` does not exist on the code branches.** The instruction that used to be here
+(`cd e2e && npm test`) pointed at an abandoned Playwright/TypeScript harness that only ever lived on
+`testing/develop`. Use one of these instead:
+
 ```bash
-# Quick start (assumes Datomic is running)
-PORT=8890 lein run &  # Start backend
-cd e2e && npm test    # Run all tests
+# Real app + real DB + a LOGGED-IN session, server lifecycle handled for you.
+# Seeds a verified user: kaylee / serenity99
+./scripts/e2e/run.sh [script.js]
+
+# cljs / re-frame suite, headless
+lein fig:test && node test/e2e/cljs-harness.js   # see docs/kb/cljs-headless-harness.md
+
+# JVM suite
+lein test
 ```
+
+Full map of the four test layers, the seeded credentials, and why seeding a session in
+localStorage cannot work: `git show agents/develop:docs/kb/e2e-logged-in-sessions.md`.
 
 ### Browser probes (`test/browser/`)
 
@@ -198,7 +212,8 @@ src/clj/orcpub/styles/
 | Backend routes | `src/clj/orcpub/routes.clj` |
 | D&D 5e rules | `src/cljc/orcpub/dnd/e5/` |
 | Tests (CLJ) | `test/clj/`, `test/cljc/` |
-| E2E tests | `e2e/scenarios/` |
+| E2E: real SPA, no backend | `test/e2e/*.js` |
+| E2E: real app + DB + login | `test/browser/*_e2e.js`, `scripts/e2e/run.sh` |
 | **Styles (Garden)** | `src/clj/orcpub/styles/` |
 | - Core styles | `src/clj/orcpub/styles/core.clj` |
 | - Theme definitions | `src/clj/orcpub/styles/themes.clj` |

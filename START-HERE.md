@@ -35,6 +35,17 @@ changing anything.
 `BRANCH.md` on `agents/develop` carries the live state and the active plan. Read it
 before proposing work — the plan may have moved since the last session.
 
+## 2b. If you are going to run anything
+
+Four test layers, and picking the wrong one wastes a build. There is a **seeded verified user**
+(`kaylee` / `serenity99`) and a one-command script that boots a server holding it —
+`./scripts/e2e/run.sh`. Two sessions concluded logged-in browser testing was impossible here before
+anyone wrote that down:
+
+```bash
+git show agents/develop:docs/kb/e2e-logged-in-sessions.md
+```
+
 ## 3. Two rules that cause the most rework here
 
 **Findings go to `agents/develop`, never to a code branch**, in `docs/kb/`, indexed in
