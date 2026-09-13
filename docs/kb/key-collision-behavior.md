@@ -41,9 +41,9 @@ containing the **plugin** one; distinct keys both survive; a plain `concat` (the
 
 ## Open: tagging every minted key with its source
 
-Whether a key should carry its source's abbreviation at MINT time — `:stone-elf-tc` rather than
-`:stone-elf` — instead of only when a collision forces it. Would remove most of what this page
-describes; unresolved on the default source and on old libraries keeping untagged keys.
+A key carrying its source's abbreviation at MINT time — `:stone-elf-tc` rather than `:stone-elf` —
+instead of only when a collision forces it, with deleting the tag being how an author says they mean
+to override an SRD item. Decided, not built; the default source tags as `dflt`.
 **`source-tagged-keys.md`.**
 
 ## The builder's own save gate (2026-09-12)

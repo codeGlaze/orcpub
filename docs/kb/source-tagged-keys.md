@@ -1,6 +1,6 @@
 # Should every minted key carry its source's abbreviation?
 
-**Status: OPEN.** Recorded 2026-09-13 because the question kept coming up in chat and was nowhere on
+**Status: DECIDED, not built.** Recorded 2026-09-13 because the question kept coming up in chat and was nowhere on
 this page. Nothing here is built. The *mechanism* is built and shipped; only the always-on policy is
 undecided.
 
@@ -42,26 +42,31 @@ control, and deleting it is how they say *"I mean to replace the SRD one."*
   (mint once) removed that coupling. Tagging the KEY and leaving the NAME alone is only possible
   now — and nobody wants their homebrew listed as "Stone Elf (TC)".
 
-## What is unresolved — these block building it
+## Settled
 
-1. **The default source.** What does "Default Option Source" abbreviate to? `:stone-elf-dos` is
-   worse than no tag. Probably: no tag when the source is the default placeholder — which leaves the
-   collision class alive for exactly the people least likely to notice.
-2. **Existing libraries keep their untagged keys.** Retro-tagging is a migration, and D9 says no.
-   So the same content authored before and after this change differs, and old-vs-new duplicates stay
-   possible. Acceptable, but it should be said out loud rather than discovered.
-3. **Sources get renamed.** The tag would then be stale. Harmless under D10a — a key is an address
-   and staleness is already accepted — but it means the tag is a *mint-time fact*, not a live
-   statement about where the item lives.
-4. **Does an author see it before it happens?** Minting silently and letting them edit it off after
-   the fact means the key control has to be discoverable, which is a different bar from where it is
-   now (a muted line under the form).
+**The default source tags as `dflt`** (decided 2026-09-13). `:stone-elf-dflt`. It goes in
+`source-abbreviation-overrides` beside UA and MM: the derivation would otherwise turn "Default
+Option Source" into `DtOnSe` (three words, so first-letter-plus-last-letter each), and *no* tag
+there leaves the collision class alive for exactly the people least likely to notice it — most
+first-time homebrew lands in the default source.
+
+**Discoverability of the key control stays as it is** (decided 2026-09-13). A muted line under the
+form is the right weight for something an author touches once. Finding it a spot up top is the only
+alternative worth considering, and it is not a priority — it is certainly not a reason to hold this
+up.
+
+## Still to be said out loud, but not blocking
+
+- **Existing libraries keep their untagged keys.** Retro-tagging is a migration, and D9 says no. So
+  the same content authored before and after differs, and old-vs-new duplicates stay possible.
+- **Sources get renamed**, and the tag then reads stale. Harmless under D10a — a key is an address,
+  and drift is already accepted — but it makes the tag a *mint-time fact*, not a live statement
+  about where the item lives.
 
 ## Recommendation
 
-Do it, key only, tag removable — with (1) settled first, since the default source is where most
-first-time homebrew lands. Then `:cross` collisions become rare enough that the remaining ones are
-worth a modal rather than a banner.
+Build it: key only, tag removable, `dflt` for the default source. Then `:cross` collisions become
+rare enough that the remaining ones are worth a modal rather than a banner.
 
 Not started. When it is, it wants a D-number in `content-extensibility-decisions.md` and a
 characterization test beside the lifecycle suite.
