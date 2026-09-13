@@ -53,6 +53,37 @@ credentials from `ORCPUB_TEST_USER` / `ORCPUB_TEST_PASSWORD` — set those to `k
 owns the server lifecycle for you. See also [fast-browser-probes.md](fast-browser-probes.md) for
 the timing traps and the `.lein-env` trap.
 
+## Logging in from a probe — the recipe, verified
+
+Run end to end 2026-09-13 via `./scripts/e2e/run.sh login-smoke.js` against a merge of
+`integration` + `claude/fix-custom-items-disappearing-DW8rb`: passes signed in, and fails with
+*"Password is incorrect."* under `SELFTEST=1`. Five things had to be right; each one was wrong first.
+
+| | |
+|---|---|
+| **URL** | `/pages/login-page`. Not `/login` — that 404s into the SPA and renders nothing |
+| **Fields** | `input[placeholder="Username or Email"]` and `input[placeholder="Password"]`. `form-input` (`views.cljs:111-127`) passes the title through as the placeholder, so placeholders are the stable handle |
+| **Submit** | Click `button.form-button` with text `LOGIN`. **Enter does nothing** — there is no form submit handler, just an `:on-click` dispatching `[:login params true]` (`views.cljs:~1004`) |
+| **Storage key** | `localStorage["user"]` (`db.cljs:35`). Not `user-data`, which is the key *inside* the stored map |
+| **Overlays** | Set `orcpub:no-cookie-banner` = `'1'` **and** `whats-new-seen` = `JSON.stringify(current-release-id)` in an init script, before load. The What's New backdrop swallows clicks otherwise and the LOGIN button times out after 58 retries. Current id lives in `whats_new.cljc` `current-release-id`; `test/browser/lib/suppress-overlays-preload.js` does this for `test/browser/` probes, but `scripts/e2e/` scripts must do it themselves |
+
+`scripts/e2e/run.sh` checks that `require('playwright')` resolves **from the repo root**, not from
+`scripts/e2e/`, so install it at the root even though the `package.json` lives in the subdirectory.
+
+### Two assertions that look like session checks and are not
+
+Both were written, both passed under `SELFTEST=1` with no session at all, and both were deleted
+rather than shipped:
+
+- **"a session-gated page stayed put"** — `/pages/dnd/5e/my-content` renders for anonymous visitors
+  too, so *not* bouncing to login says nothing.
+- **"the header LOGIN link is gone"** (`views.cljs:782`) — reported zero links while logged out as
+  well, so it is not a session signal on that page either.
+
+What does discriminate: **the stored token** and **leaving the login page**. The username is behind
+the user menu and needs a click to reach. If you add a third check, verify it fails under SELFTEST
+before trusting it — that is the whole point of the flag.
+
 ## Seeding a session in localStorage does not work
 
 Do not try it. The app verifies a stored token against the server on boot and clears it if the
