@@ -89,6 +89,18 @@ save or when opened for editing), every field in the list renders under the item
 sees a list of identical keys. Give the list explicit `^{:key …}` metadata instead of relying on
 what the props map happens to hold.
 
+### Before de-emphasising a control
+
+Take the muted treatment from the block you are rendering into, not from a hex you picked. The
+builder CSS already has one — `rgba(255,255,255,0.14)` hairlines, `rgba(255,255,255,0.55)` labels,
+`var(--accent, …)` for anything clickable (`frontend-redesign-parallel-work.md`). An invented grey
+on a dark ground reads as *unstyled*, not as quiet.
+
+And dimming is not the lever. 12px at half opacity is a smudge; a collapsed section labelled
+"Advanced" above the form draws MORE attention, because a thing visibly trying not to be seen is a
+thing you look at. Position it where that kind of information belongs — after the form, under a
+rule — and let it be legible.
+
 ### Before believing a CSS change worked
 
 `lein garden once` **can fail while everything downstream stays green** — `fig:build` succeeds, the

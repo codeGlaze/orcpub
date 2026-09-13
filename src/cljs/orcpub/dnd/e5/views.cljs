@@ -9865,9 +9865,9 @@
         draft    (r/atom "")]
     (fn [item save-event]
       (when-let [k (:key item)]
-        [:div.f-s-14.m-b-10.m-l-20.bf-quiet.flex.align-items-c.flex-wrap
+        [:div.bf-meta.f-s-14.m-l-20.m-r-20.flex.align-items-c.flex-wrap
          [:span.m-r-5 "key"]
-         [:span.f-w-b.m-r-10 (str k)]
+         [:span.bf-meta-value.m-r-10 (str k)]
          (if @editing?
            [:<>
             [:input.input.h-32.w-200.m-r-5
@@ -9876,15 +9876,15 @@
               :auto-focus true
               :placeholder (name k)
               :on-change #(reset! draft (-> % .-target .-value))}]
-            [:span.pointer.underline.m-r-10
+            [:span.pointer.bf-meta-action.m-r-10
              {:on-click #(do (dispatch [::e5/change-builder-item-key save-event
                                         (common/name-to-kw @draft)])
                              (reset! editing? false))}
              "save key"]
-            [:span.pointer.underline
+            [:span.pointer.bf-meta-action
              {:on-click #(reset! editing? false)}
              "cancel"]]
-           [:span.pointer.underline
+           [:span.pointer.bf-meta-action
             {:on-click #(do (reset! draft (name k)) (reset! editing? true))}
             "change"])]))))
 
@@ -9917,12 +9917,12 @@
       ;; the advisory rendered 1300x12px at y=407 of a long form, which is present but not visible.
       ;; :error is styling and wording only; it does not block saving.
       [builder-notes tag-notes {:severity :error}]
-      ;; The key is the item's address, not something an author sets — it is minted once and only
-      ;; wanted when one needs correcting. Collapsed, quiet, and only once there is a key to show.
-      (when (:key item)
-        [:div.m-l-20.m-r-20
-         [optional-builder-section "Advanced" false [item-key-row item save-event] {:compact? true}]])
-      [builder]]]))
+      [builder]
+      ;; The key is the item's address, not a field an author fills in — so it sits after the form,
+      ;; under a hairline, in the muted label colour the rest of the builder CSS uses. It was a
+      ;; collapsed "Advanced" line above the form, which drew MORE attention: a thing visibly
+      ;; trying not to be seen is a thing you look at.
+      [item-key-row item save-event]]]))
 
 (defn combat-tracker-page []
   [content-page

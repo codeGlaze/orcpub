@@ -79,11 +79,16 @@ Changing a key is a separate, deliberate act, and there are three ways in — al
 | import conflict resolution | the modal's rename |
 | the manual relink | `::char5e/relink-content` |
 
-The builder's row sits behind a compact **Advanced** disclosure, collapsed by default, and appears
-at all only once the item has a key (an unsaved one has none yet). A key is an address the app
-mints, not a field an author fills in, so it is out of the way until someone needs to correct one.
-It refuses a key any other item already answers to, and it changes the key alone — the NAME is left
-as it is, because a key change is not a rename.
+The builder's row sits **after the form**, under a hairline, and appears only once the item has a
+key (an unsaved one has none yet). A key is an address the app mints, not a field an author fills
+in, so it reads as a footnote to the form rather than part of it. It refuses a key any other item
+already answers to, and it changes the key alone — the NAME is left as it is, because a key change
+is not a rename.
+
+It was a collapsed "Advanced" disclosure first, and that was worse: a thing visibly trying not to
+be seen is a thing you look at. `.bf-meta` uses the hairline and muted label colour the builder CSS
+already defines (`rgba(255,255,255,0.14)` / `rgba(255,255,255,0.55)`) and `var(--accent, …)` for the
+link, rather than a bespoke grey — which is what made an earlier attempt read as unstyled.
 
 ### What the save refuses
 

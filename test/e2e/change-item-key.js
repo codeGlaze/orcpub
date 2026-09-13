@@ -43,15 +43,8 @@ const clickLink = (page, text) => page.evaluate(t => {
     check('saved', await clickText(page, /save to browser storage/i));
     await page.waitForTimeout(1000);
 
-    const collapsed = await page.locator('#app').innerText();
-    check('the key is NOT on the form by default — it is behind Advanced',
-          !/:tidewrad/.test(collapsed) && /Advanced/.test(collapsed));
-    await page.screenshot({ path: path.join(SHOTS, 'change-item-key-collapsed.png'),
-                            clip: { x: 0, y: 330, width: 1200, height: 260 } });
-    check('opened Advanced', await clickLink(page, 'Advanced'));
-    await page.waitForTimeout(300);
     const body = await page.locator('#app').innerText();
-    check('and the key it was minted under is there', /:tidewrad/.test(body),
+    check('the key it was minted under is shown, below the form', /:tidewrad/.test(body),
           (body.match(/key[^\n]*/i) || [''])[0]);
 
     check('opened the key editor', await clickLink(page, 'change'));
@@ -71,8 +64,9 @@ const clickLink = (page, text) => page.evaluate(t => {
     check('and the move is recorded for characters', /:former-keys \[:tidewrad\]/.test(stored));
     check('the NAME is untouched — a key change is not a rename', /"Tidewrad"/.test(stored));
     check('the form now shows the new key', /:tideward/.test(await page.locator('#app').innerText()));
+    const box = await page.locator('.bf-meta').boundingBox();
     await page.screenshot({ path: path.join(SHOTS, 'change-item-key.png'),
-                            clip: { x: 0, y: 330, width: 1200, height: 330 } });
+                            clip: { x: 0, y: Math.max(0, box.y - 170), width: 1200, height: 260 } });
 
     // and a key something else already answers to is refused
     await clickLink(page, 'change');

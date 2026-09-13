@@ -572,13 +572,24 @@
      {:text-align :center
       :font-weight 700}]]
 
-   ;; "Go away green": plumbing an author needs about once, in a colour the eye skips. Legible at a
-   ;; normal weight and size -- dimming it instead (12px at half opacity) made it a smudge, not a
-   ;; quiet control.
-   [:.bf-quiet
-    {:color "#7c828d"}
-    [:a:hover :.pointer:hover
-     {:color "#9aa1ac"}]]
+   ;; Plumbing an author touches about once: the item's key. Set apart from the form by a hairline
+   ;; and the muted label colour the rest of this block already uses -- NOT a bespoke grey, which
+   ;; is what made an earlier version read as unstyled rather than as quiet.
+   [:.bf-meta
+    {:border-top "1px solid rgba(255,255,255,0.14)"
+     :padding-top "14px"
+     :margin-top "10px"
+     ;; clear of the page footer, which starts immediately below it
+     :margin-bottom "24px"
+     :color "rgba(255,255,255,0.55)"}
+    ;; the value is data, not chrome: readable
+    [:.bf-meta-value
+     {:color "rgba(255,255,255,0.85)"
+      :font-weight 700}]
+    ;; and the control is a link, in the app's link colour like every other link
+    [:.bf-meta-action
+     {:color "var(--accent, #f0a100)"
+      :text-decoration :underline}]]
    ;; ==== BUILDER-FORM CSS: END ======================================================
 
    [:.w-auto
