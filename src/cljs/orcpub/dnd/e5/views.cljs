@@ -7304,8 +7304,8 @@
       [:div {:class (if compact? "m-b-10" "m-b-20")}
        [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
         [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
-                                  (when compact? " f-s-12 orange"))}]
-        [:span {:class (if compact? "f-s-14 f-w-b opacity-7" "f-s-18 f-w-b")} label]
+                                  (when compact? " f-s-12"))}]
+        [:span {:class (if compact? "f-s-14" "f-s-18 f-w-b")} label]
         (when (and (not @open?) (not compact?))
           [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
@@ -9865,8 +9865,8 @@
         draft    (r/atom "")]
     (fn [item save-event]
       (when-let [k (:key item)]
-        [:div.f-s-14.m-b-10.m-l-20.main-text-color.flex.align-items-c.flex-wrap
-         [:span.m-r-5.opacity-7 "key"]
+        [:div.f-s-14.m-b-10.m-l-20.bf-quiet.flex.align-items-c.flex-wrap
+         [:span.m-r-5 "key"]
          [:span.f-w-b.m-r-10 (str k)]
          (if @editing?
            [:<>
@@ -9876,7 +9876,7 @@
               :auto-focus true
               :placeholder (name k)
               :on-change #(reset! draft (-> % .-target .-value))}]
-            [:span.pointer.underline.orange.m-r-10
+            [:span.pointer.underline.m-r-10
              {:on-click #(do (dispatch [::e5/change-builder-item-key save-event
                                         (common/name-to-kw @draft)])
                              (reset! editing? false))}

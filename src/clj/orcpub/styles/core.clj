@@ -571,6 +571,14 @@
     [:input
      {:text-align :center
       :font-weight 700}]]
+
+   ;; "Go away green": plumbing an author needs about once, in a colour the eye skips. Legible at a
+   ;; normal weight and size -- dimming it instead (12px at half opacity) made it a smudge, not a
+   ;; quiet control.
+   [:.bf-quiet
+    {:color "#7c828d"}
+    [:a:hover :.pointer:hover
+     {:color "#9aa1ac"}]]
    ;; ==== BUILDER-FORM CSS: END ======================================================
 
    [:.w-auto
