@@ -117,6 +117,7 @@ decision:
 
 ## Related
 
+- [homebrew-safety-net.md](homebrew-safety-net.md): what happens when an entry still breaks after every repair
 - [fast-browser-probes.md](fast-browser-probes.md): running probes, and which Chromium
   they launch
 - [error-handling-import-validation.md](error-handling-import-validation.md): the
