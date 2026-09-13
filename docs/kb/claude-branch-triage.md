@@ -134,13 +134,15 @@ despite the ancestor check. `SALVAGE` = new definitions found on no other branch
 |---|---|---|---|
 | `claude/zen-wright-04xhdz` | `c1c9b339` | 2026-08-24 | 183 commits, 60 code files. 99% of added lines on `refactor/content-extensibility`, `perf/entity-build` and `feature/demo-content-tier`; 2% on `integration`. 49/60 files byte-identical to `refactor/content-extensibility`, including all of `content_types.cljc`, `builder_fields.cljc`, `content_pools.cljc`, `field_schemas.cljc` and the whole `test/e2e/` set. The only lines not present are comment rewordings in `events.cljs`; the substance (`:strict-unfilled`) is there, twice |
 | `claude/cross-platform-scripts-x3efN` | `5691ef12` | 2026-02-24 | 100% of added lines on `feature/cross-platform-scripts`; 32/34 files byte-identical, including every `scripts/windows/*.ps1`. The views split is inherited from `refactor/views-extraction` — all 19 `views/` modules byte-identical there too |
-| `claude/custom-items-magical-fix-9kvywv` | `60283985` | 2026-08-25 | 105/105 new defs on `fix/custom-item-classification`; 0/105 on `integration` or `develop` |
+| `claude/custom-items-magical-fix-9kvywv` | `60283985` | 2026-08-25 | 105/105 new defs on `fix/custom-item-classification`; 0/105 on `integration` or `develop`. **Superseded by a branch that was never finished** — `fix/custom-item-classification` was paused 2026-08-30 for a security branch and is still unmerged, with bulk review designed and unbuilt. Deleting this copy loses nothing; the feature still has not landed anywhere. See `BRANCH.md` § *Active sequence* step 3 |
 | `claude/add-kill-stop-subcommands-LU4GK` | `83e6c0af` | 2026-01-22 | 100% of added lines on `testing/develop` and `testing/dev-tooling-enhancements`; 6/7 files byte-identical (all of `scripts/git/`). 0% on `integration` |
 | `claude/audit-name-to-kw-yVcJn` | `56cf559c` | 2026-05-19 | Its only file, `docs/kb/name-to-kw-audit.md`, is byte-identical on `agents/develop` (blob `fe43b26c`) |
 
 Note that `feature/cross-platform-scripts`, `fix/custom-item-classification`, `testing/develop` and
 `testing/dev-tooling-enhancements` are themselves unmerged. Deleting the `claude/*` copies loses
-nothing; the work still needs a decision on its own branch.
+nothing; the work still needs a decision on its own branch. **`fix/custom-item-classification` has
+that decision pending now** — it is step 3 of the active sequence in `BRANCH.md`, with its base
+539 integration commits behind.
 
 ### Salvage — 0 matches anywhere (11)
 

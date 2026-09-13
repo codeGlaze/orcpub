@@ -77,6 +77,72 @@ was a superset; both had been written without the other. Start at
   five pinning tests sit on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`) — 16 commits ahead
   of a 2026-04-09 base.
 
+## Active sequence — do these in order
+
+*Set 2026-09-13. This exists because the custom-item work went off course with no map back; the
+point of the ordering is that each step names its own blocker.*
+
+### 1. Land the #669 stale-filtered-list fix
+
+Verified ready: merge is 3 conflict hunks, the cljs suite is green at 354/1699, and the tests are
+proven to fail when the defect is reinstated. See
+[`docs/kb/plan-669-merge-verification.md`](docs/kb/plan-669-merge-verification.md) and
+[`docs/kb/filtered-list-staleness.md`](docs/kb/filtered-list-staleness.md).
+
+**Blocker: the work is on `claude/fix-custom-items-disappearing-DW8rb`, and `claude/*` branches do
+not merge.** They are harness auto-branches (the `git-branch` skill mints them). Re-home the commits
+onto a typed branch first — `fix/…`, matching `fix/ac-unarmored-natural-stacking`,
+`fix/item-stable-identity`. The branch also carries more than the fix (a `get-auth-token` move, a 401
+breadcrumb, five subs migrated to a `reg-api-sub` HOF); the plan doc separates them if only the fix
+should travel.
+
+### 2. Vet the roadmap that lives here
+
+**`docs/kb/roadmap.md` and `docs/kb/plan-next.md` are scoped to `feature/fighting-style-authoring`,
+not to this branch.** They arrived with the `feature/grant-rows` merge. `roadmap.md` opens
+*"One reconciled plan for branch `feature/fighting-style-authoring`"* and `plan-next.md` is that
+branch's ordered worklist, including items about its own merge hygiene.
+
+So "the roadmap" currently means one leaf's plan sitting in the shared KB. Decide the scope before
+vetting the contents: either it stays that leaf's plan and is labelled as such, or this branch grows a
+roadmap that spans the tree. Its status claims are commit-anchored and therefore checkable, which is
+what makes vetting worth doing rather than guessing.
+
+### 3. Add `fix/custom-item-classification` to it, then finish that branch
+
+**This branch was never finished and never merged, and nothing said so until now.**
+
+| | |
+|---|---|
+| tip | `b234db2b`, 2026-08-30 |
+| base | `e632297d`, 2026-07-07 — `integration` has moved **539 commits** since |
+| size | 36 commits |
+| why it stopped | its own last commit: *"Paused for a security branch, so the reasoning is written down rather than carried in someone's head"* |
+| what is left | bulk review of unclassified items — designed, not built. `docs/issues/bulk-review-of-unclassified-items.md` on that branch |
+| state of the feature on `integration` | **absent.** `classification-tx`, `effective-item`, `backfill-report` all score zero there |
+| what did leak across | only `dev/e2e_boot.clj`, carried over separately (byte-identical, different commit `23eb07cf`). The harness landed; the suite that used it did not |
+
+**Merge `integration` into it before anything else.** As it stands the merge is 17 hunks across 12
+files and grows with every integration commit. One of those hunks is not really a conflict:
+`scripts/e2e/run.js` is **two unrelated suites contesting one filename** — 394 lines of PDF
+scenarios on `integration`, 566 lines of custom-item flows on the branch. Give them distinct names
+first and that hunk disappears. `integration`'s `run.sh` already takes a script argument
+(`node "scripts/e2e/${1:-run.js}"`), so nothing else has to change. Naming is an open question —
+`test/browser/` uses a `*_e2e.js` suffix, `test/e2e/` uses plain descriptive names, and
+`scripts/e2e/` has no precedent yet.
+
+Also worth lifting while in there: that branch's `login()` helper into a shared
+`scripts/e2e/lib.js`, so the next session does not re-derive it.
+[`docs/kb/e2e-logged-in-sessions.md`](docs/kb/e2e-logged-in-sessions.md) has the detail.
+
+### 4. Only then, resume combing branches
+
+The `claude/*` triage is paused at this point deliberately, with its findings recorded:
+[`claude-branch-triage.md`](docs/kb/claude-branch-triage.md),
+[`unsaved-knowledge-on-prunable-branches.md`](docs/kb/unsaved-knowledge-on-prunable-branches.md),
+[`rescued/`](docs/kb/rescued/README.md). Nothing has been deleted; deletion is still the owner's call
+and the report is the input to it.
+
 ## Agent tooling
 
 Everything this branch exists to hold. **Run `scripts/setup-hooks.sh` first — `core.hooksPath`

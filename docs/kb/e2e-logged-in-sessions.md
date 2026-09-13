@@ -103,7 +103,14 @@ file conflicts on.
 
 **Merging the branch as-is is 17 hunks across 12 files**, and `scripts/e2e/run.js` is one of them —
 a 566-line file conflicting with a 394-line file that shares nothing but a name. Resolving that as a
-merge is the wrong shape of work. Rename first, then merge.
+merge is the wrong shape of work: give the two suites distinct names first and the hunk stops
+existing.
+
+**The names are an open question, deliberately left open.** `test/browser/` uses a `*_e2e.js`
+suffix; `test/e2e/` uses plain descriptive names (`race-builder-asi.js`, `export-import-use.js`);
+`scripts/e2e/` has no precedent beyond the contested `run.js`. A name that reads as source rather
+than as a suite is worse than the conflict. Scheduled as step 3 of the active sequence in
+`BRANCH.md`.
 
 ### The four facts behind those seven lines
 
