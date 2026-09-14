@@ -4,8 +4,9 @@
    one copy per character and replaces it whenever the owner's share button sends the homebrew again,
    so the link stays the same and shows the current homebrew.
 
-   The token is random, and only the owner can see or replace it. New link replaces it and deletes the
-   stored homebrew, so every link made before loads nothing. The token stays after the # in the link,
+   Nothing is stored for a character until its owner presses Share link (create-token). After that the
+   token is random, and only the owner can see or replace it. New link replaces it and deletes the stored
+   homebrew, so every link made before loads nothing. The token stays after the # in the link,
    which is not part of the page request the server logs.
 
    An upload that differs from the last one is checked once: unpacked under a size cap, read as plain
@@ -95,7 +96,17 @@
        (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))
 
 (defn get-token
-  "The character's share token, for its owner, made the first time it is asked for."
+  "The character's share token, for its owner, or the 404 a character never shared gets. Nothing is made
+   here: a character's page asks this on every view, and only Share link creates a share."
+  [{:keys [db identity] {:keys [id]} :path-params}]
+  (let [token (:orcpub.share/token (share-of db id))]
+    (if (and token (owns-character? db (:user identity) id))
+      (text token)
+      {:status 404})))
+
+(defn create-token
+  "Shares the character: makes its token if it has none, for its owner, and returns it. Share link does
+   this; until then nothing about the character is stored."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
   (let [username (:user identity)]
     (cond
