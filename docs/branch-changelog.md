@@ -24,8 +24,9 @@ comes with a check that fails without it.
 
 - **Short share links** — a character's owner gets a link of about 85 characters that stays the
   same and always shows the character's current homebrew, which the server keeps and checks; New link
-  revokes every earlier link, the limits are config settings, and anyone else's link still carries the
-  homebrew itself (`20179535`, `191b612e`, `eab46b9f`).
+  revokes every earlier link, nothing is stored until the owner presses Share link, the limits are
+  config settings, and anyone else's link still carries the homebrew itself (`20179535`, `191b612e`,
+  `eab46b9f`, `e43b41ca`).
 
 ## Fixed
 
