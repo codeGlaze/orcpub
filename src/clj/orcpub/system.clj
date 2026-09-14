@@ -5,7 +5,8 @@
             [orcpub.pedestal :as pedestal]                         
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
-            [orcpub.share-pruner :as share-pruner]
+            [orcpub.heartbeat :as heartbeat]
+            [orcpub.routes.share :as share]
             [orcpub.config :as config]
             [orcpub.pdf :as pdf]
             [environ.core :as environ])
@@ -105,9 +106,9 @@
       (pedestal/new-pedestal)
       [:service-map :conn])
 
-    :share-pruner
+    :heartbeat
     (component/using
-      (share-pruner/new-pruner)
+      (heartbeat/new-heartbeat {"share link pruning" share/prune-job})
       [:conn])))
 
 (rrepl/set-init! #(system :prod))

@@ -10,10 +10,11 @@
 // then give the same link. The link is opened logged out and as zoe, neither of whom has the homebrew,
 // and both must load it; a wrong token must load nothing and say so. Then kaylee changes the language's
 // description and opens her character again: the link must stay the same and show the new description.
-// Last, she presses New link: the old link loads nothing and the new one works.
+// Then she presses New link: the old link loads nothing and the new one works. Last, she presses Stop
+// sharing: that link loads nothing too, and opening her character again stores nothing.
 const { chromium } = require('playwright');
 const { BASE, EXECUTABLE, HOMEBREW, newContext, login, watchShares, waitForButton, copyLink,
-        sharedHomebrew, checker } = require('./lib');
+        sharedHomebrew, tokenStatus, checker } = require('./lib');
 
 const ID = process.env.E2E_HOMEBREW_CHARACTER_ID;
 const FIRST = 'Spoken only by test suites.';
@@ -60,12 +61,7 @@ async function open(browser, link, who) {
 
   console.log('kaylee makes the link:');
   const first = await ownerSession(browser, FIRST);
-  const beforeSharing = await first.page.evaluate(async url => {
-    const c = window.cljs.core;
-    const login = c.get_in(window.re_frame.db.app_db.state,
-      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
-    return (await fetch(url, { headers: { Authorization: `Token ${login}` } })).status;
-  }, `${BASE}/dnd/5e/characters/${ID}/share-token`);
+  const beforeSharing = await tokenStatus(first.page, ID);
   check(beforeSharing === 404 && first.requests.length === 0, 'nothing is stored before Share link is pressed',
     `token route ${beforeSharing}; ${first.requests.join(', ') || 'no uploads'}`);
   await waitForButton(first.page, 'Share link');
@@ -126,6 +122,24 @@ async function open(browser, link, who) {
     check(old.sources.length === 0 && old.failedNotice > 0, 'the old link loads nothing, and says so', JSON.stringify(old.sources));
     const renewed = await open(browser, fresh, null);
     check(renewed.description === SECOND, 'the new link loads the homebrew', renewed.description);
+
+    console.log('\nkaylee stops sharing:');
+    const fourth = await ownerSession(browser, SECOND);
+    await waitForButton(fourth.page, 'Stop sharing');
+    await fourth.page.locator('button', { hasText: 'Stop sharing' }).first().click();
+    await waitForButton(fourth.page, 'Share link');
+    check(await tokenStatus(fourth.page, ID) === 404, 'the page offers Share link again, and the server keeps no share');
+    await fourth.ctx.close();
+    const stopped = await open(browser, fresh, null);
+    check(stopped.sources.length === 0 && stopped.failedNotice > 0, 'the last link loads nothing, and says so',
+      JSON.stringify(stopped.sources));
+    const fifth = await ownerSession(browser, SECOND);
+    await waitForButton(fifth.page, 'Share link');
+    await fifth.page.waitForTimeout(2000);
+    const afterStopping = await tokenStatus(fifth.page, ID);
+    check(!fifth.requests.some(x => x.startsWith('PUT')) && afterStopping === 404,
+      'opening the character again stores nothing', `token route ${afterStopping}; ${fifth.requests.join(', ') || 'no uploads'}`);
+    await fifth.ctx.close();
   }
 
   await browser.close();

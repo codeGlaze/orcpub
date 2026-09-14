@@ -76,6 +76,17 @@ async function sharedHomebrew(page) {
   }, HOMEBREW.source);
 }
 
+// The status a signed-in page gets from character `id`'s share-token route: 200 when it is shared, 404
+// when not, 410 when its last link expired and the owner has not acted on that.
+async function tokenStatus(page, id) {
+  return page.evaluate(async url => {
+    const c = window.cljs.core;
+    const login = c.get_in(window.re_frame.db.app_db.state,
+      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
+    return (await fetch(url, { headers: { Authorization: `Token ${login}` } })).status;
+  }, `${BASE}/dnd/5e/characters/${id}/share-token`);
+}
+
 function checker() {
   let failures = 0;
   const check = (ok, label, detail) => {
@@ -86,4 +97,4 @@ function checker() {
 }
 
 module.exports = { BASE, EXECUTABLE, HOMEBREW, newContext, login, watchShares, waitForButton, copyLink,
-                   sharedHomebrew, checker };
+                   sharedHomebrew, tokenStatus, checker };

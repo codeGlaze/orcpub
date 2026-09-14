@@ -18,14 +18,16 @@
    character. The browser learns them from the X-Share-Max-* headers. Deleting a character deletes its
    copy.
 
-   A share nobody uses for ORCPUB_SHARE_PRUNE_DAYS while the server runs is deleted: its token and this
-   copy of the homebrew, never the character or the owner's own homebrew. Use is the link opened with the
-   current token, the owner's page, or a party page loading it, recorded at most once a day; a request
-   without the token records nothing, so it cannot keep a share alive. Only prune! deletes, run hourly by
-   orcpub.share-pruner, and time the server was off does not count (record-beat!)."
+   A share nobody uses for ORCPUB_SHARE_PRUNE_DAYS while the server runs expires: its token and share data
+   are deleted, never the character, and a note of the date stays so the owner's page can say so until
+   the owner shares again or dismisses it. Use is the link opened with the current token, the owner's
+   page, or a party page loading it, recorded at most once a day; a request without the token records
+   nothing, so it cannot keep a share alive. Only prune! deletes on its own, run hourly after
+   orcpub.heartbeat's beat, and time the server was off does not count. Stop sharing deletes at once."
   (:require [clojure.edn :as edn]
             [datomic.api :as d]
             [orcpub.config :as config]
+            [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.entity.strict :as se])
   (:import [java.security MessageDigest SecureRandom]
@@ -91,9 +93,7 @@
 
 (defn now [] (java.util.Date.))
 
-(def ^:private hour-ms (* 60 60 1000))
-
-(def ^:private day-ms (* 24 hour-ms))
+(def ^:private day-ms (* 24 60 60 1000))
 
 (defn- touch!
   "Records use of a share, at most once a day."
@@ -109,48 +109,55 @@
   (let [share (share-of db character-id)]
     (boolean (and share (string? token) (= token (:orcpub.share/token share))))))
 
-(def ^:private beat-gap-ms
-  "Beats come hourly; a longer gap than this means the server was off or its clock jumped ahead."
-  (+ hour-ms (* 10 60 1000)))
+(defn- expiry-of
+  "When the character's last share link expired unused, while the owner has neither shared again nor
+   dismissed the note."
+  [db character-id]
+  (d/q '[:find ?on . :in $ ?c :where [?e :orcpub.share-expiry/character ?c] [?e :orcpub.share-expiry/on ?on]]
+       db character-id))
 
-(defn record-beat!
-  "Records that the server is running, and records the time since the last beat as an outage when the gap
-   is longer than hourly beats explain. Pruning does not count an outage as disuse. A clock set back
-   records no outage and so deletes nothing sooner."
-  [conn]
-  (let [at       (now)
-        previous ^java.util.Date (d/q '[:find ?t . :where [?e :db/ident :orcpub.share/clock] [?e :orcpub.share/beat ?t]]
-                                      (d/db conn))]
-    @(d/transact conn (cond-> [{:db/ident :orcpub.share/clock :orcpub.share/beat at}]
-                        (and previous (> (- (.getTime at) (.getTime previous)) beat-gap-ms))
-                        (conj {:orcpub.share-outage/from previous :orcpub.share-outage/to at})))))
-
-(defn- unused-ms
-  "Time from a share's last use to `at`, less the outages in between."
-  [^java.util.Date used ^java.util.Date at outages]
-  (let [from (.getTime used)
-        to   (.getTime at)]
-    (- to from (reduce + (for [[^java.util.Date start ^java.util.Date end] outages]
-                           (max 0 (- (min to (.getTime end)) (max from (.getTime start)))))))))
+(defn- expiry-retractions [db character-id]
+  (map (fn [e] [:db/retractEntity e])
+       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share-expiry/character ?c]] db character-id)))
 
 (defn prune!
-  "Deletes the shares unused for longer than the prune window, and returns how many. A day more is
-   allowed because use is recorded at most daily. A share with no recorded use counts from when its
-   record was made. Only share records go: the character, a party's entry for it and the owner's
-   homebrew stay."
+  "Expires the shares unused for longer than the prune window: each is deleted, leaving a note of its
+   character and the date for the owner's page, and a note still there after another window is deleted
+   too. A day more is allowed because use is recorded at most daily, a share with no recorded use counts
+   from when its record was made, and time the server was off does not count. Only share records and
+   notes go, never a character or a party's entry for it. Returns {:expired n :forgotten n}."
   [conn]
-  (let [db      (d/db conn)
-        at      (now)
-        days    (config/get-share-prune-days)
-        outages (d/q '[:find ?from ?to :where [?o :orcpub.share-outage/from ?from] [?o :orcpub.share-outage/to ?to]] db)
-        stale   (when (pos? days)
-                  (for [[e made] (d/q '[:find ?e ?made :where [?e :orcpub.share/character _ ?tx] [?tx :db/txInstant ?made]] db)
-                        :let [used (or (:orcpub.share/used (d/entity db e)) made)]
-                        :when (> (unused-ms used at outages) (* (inc days) day-ms))]
-                    e))]
-    (when (seq stale)
-      @(d/transact conn (map (fn [e] [:db/retractEntity e]) stale)))
-    (count stale)))
+  (let [db        (d/db conn)
+        at        (now)
+        days      (config/get-share-prune-days)
+        outages   (heartbeat/outages db)
+        unused?   (fn [since] (> (heartbeat/running-ms outages since at) (* (inc days) day-ms)))
+        stale     (when (pos? days)
+                    (vec (for [[e c made] (d/q '[:find ?e ?c ?made
+                                                 :where [?e :orcpub.share/character ?c ?tx] [?tx :db/txInstant ?made]]
+                                               db)
+                               :when (unused? (or (:orcpub.share/used (d/entity db e)) made))]
+                           [e c])))
+        expiring  (set (map second stale))
+        forgotten (when (pos? days)
+                    (vec (for [[e c on] (d/q '[:find ?e ?c ?on
+                                               :where [?e :orcpub.share-expiry/character ?c] [?e :orcpub.share-expiry/on ?on]]
+                                             db)
+                               :when (and (unused? on) (not (expiring c)))]
+                           e)))]
+    (when (or (seq stale) (seq forgotten))
+      @(d/transact conn (concat (mapcat (fn [[e c]] [[:db/retractEntity e]
+                                                     {:orcpub.share-expiry/character c :orcpub.share-expiry/on at}])
+                                        stale)
+                                (map (fn [e] [:db/retractEntity e]) forgotten))))
+    {:expired (count stale) :forgotten (count forgotten)}))
+
+(defn prune-job
+  "prune! for the heartbeat, saying in the log what it removed."
+  [conn]
+  (let [{:keys [expired forgotten]} (prune! conn)]
+    (when (pos? (+ expired forgotten))
+      (println "Share links:" expired "expired unused," forgotten "expiry notes nobody dismissed removed"))))
 
 (defn- random-token []
   (let [b (byte-array 16)]
@@ -160,23 +167,32 @@
 (defn- text [s] {:status 200 :headers (merge {"Content-Type" "text/plain; charset=utf-8"} (cap-headers)) :body s})
 
 (defn retractions-for-character
-  "Transaction data that deletes a character's shared homebrew and token, for when the character goes."
+  "Transaction data that deletes a character's share and any note that its last link expired, for Stop
+   sharing, New link, and when the character goes."
   [db character-id]
-  (map (fn [e] [:db/retractEntity e])
-       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))
+  (concat (map (fn [e] [:db/retractEntity e])
+               (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id))
+          (expiry-retractions db character-id)))
 
 (defn get-token
-  "The character's share token, for its owner, or the 404 a character never shared gets. Nothing is made
-   here: a character's page asks this on every view, and only Share link creates a share."
+  "The character's share token, for its owner. Otherwise 404, or 410 with the date when the character's
+   last share link expired unused and the owner has neither shared again nor dismissed the note. Nothing
+   is made here: a character's page asks this on every view, and only Share link creates a share."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (if-let [share (and (owns-character? db (:user identity) id) (share-of db id))]
-    (do (touch! conn share)
-        (text (:orcpub.share/token share)))
-    {:status 404}))
+  (let [owner? (owns-character? db (:user identity) id)
+        share  (when owner? (share-of db id))
+        on     (when (and owner? (not share)) (expiry-of db id))]
+    (cond
+      share (do (touch! conn share)
+                (text (:orcpub.share/token share)))
+      on    {:status 410 :headers {"Content-Type" "text/plain; charset=utf-8"}
+             :body (str (.toInstant ^java.util.Date on))}
+      :else {:status 404})))
 
 (defn create-token
   "Shares the character: makes its token if it has none, for its owner, and returns it. Share link does
-   this; until then nothing about the character is stored."
+   this; until then nothing about the character is stored. Sharing again clears the note that an earlier
+   link expired."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
   (let [username (:user identity)
         share    (share-of db id)]
@@ -184,8 +200,9 @@
       (not (owns-character? db username id)) {:status 404}
       share (do (touch! conn share)
                 (text (:orcpub.share/token share)))
-      :else (do @(d/transact conn [{:orcpub.share/character id :orcpub.share/owner username
-                                    :orcpub.share/token (random-token) :orcpub.share/used (now)}])
+      :else (do @(d/transact conn (concat [{:orcpub.share/character id :orcpub.share/owner username
+                                            :orcpub.share/token (random-token) :orcpub.share/used (now)}]
+                                          (expiry-retractions db id)))
                 ;; Read back: had two first requests raced, both callers get the token that stuck.
                 (text (:orcpub.share/token (share-of (d/db conn) id)))))))
 
@@ -203,6 +220,16 @@
         @(d/transact conn [{:orcpub.share/character id :orcpub.share/owner username :orcpub.share/token token
                             :orcpub.share/used (now)}])
         (text token)))))
+
+(defn stop-sharing
+  "Deletes the character's share, so every link made before loads nothing and nothing is stored until
+   Share link is pressed again, and the note that an earlier link expired. For the owner only."
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (if-not (owns-character? db (:user identity) id)
+    {:status 404}
+    (do (when-let [tx (seq (retractions-for-character db id))]
+          @(d/transact conn tx))
+        {:status 204})))
 
 (defn get-share
   "The character's shared homebrew, compressed, to anyone whose link carries its current token. Only that
