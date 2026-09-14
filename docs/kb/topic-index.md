@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -631,7 +631,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, five, gaps, hardcoded, hook, language, map-of-flags, modifiers, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -743,13 +743,14 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, background, decision-already-held-resolution, fighter, hidden, multi-tab-character-contamination, multiclass, nine, offers, pick, prereq, replacement, selection, sites, skill, template, unreachable, whatever
+**topics:** 2026-09-14, already-held-grants, athletics, decision-already-held-resolution, dies, multi-tab-character-contamination, multiclass, nine, pick, prereq, remove, replacement, report, reproduced, rogue, selection, skill, template
 
 - The mechanism
 - What is NOT broken
 - What is broken
 - Exposed sites
-- Why it has been hard to find
+- The multiclass case — REPRODUCED
+- Why it has been hard to find## Why it has been hard to find
 - Fixing it
 - Related
 
