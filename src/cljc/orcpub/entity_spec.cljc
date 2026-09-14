@@ -1,4 +1,21 @@
 (ns orcpub.entity-spec
+  "The modifier engine: a lazy dataflow graph over a built entity.
+
+   A `?foo` symbol in a macro body is rewritten AT MACROEXPANSION to
+   `(entity-val entity :foo)`, and `deps` scans the same form for `?` symbols to declare the
+   edges `apply-options` topologically sorts on.
+
+   LOAD-BEARING — the rewrite is a source transform, so a `?`-ref only works where a MACRO put
+   it. A runtime-assembled form can never reference one; that is why `requirements.cljc` holds
+   predicates over a plain-data context instead of condition forms. Content names things and code
+   maps those names to macro-built modifiers. Do not replace this docstring with a summary: the
+   boundary has been rediscovered the hard way twice.
+
+   GOTCHA: `deps` finds edges by scanning for LITERAL `?` symbols. An attribute reached any other
+   way declares no edge, so the sort can order it wrong — and that fails as a silently wrong
+   number, never an error.
+
+   Reference: docs/kb/built-character-representation.md."
   (:require [clojure.string :as s]
             [clojure.set :as sets]))
 
