@@ -5,6 +5,7 @@
             [datomic.api :as d]
             [orcpub.routes :as routes]
             [orcpub.routes.share :as share]
+            [orcpub.config :as config]
             [orcpub.route-map :as route-map]
             [orcpub.db.schema :as schema]
             [orcpub.entity.strict :as se])
@@ -50,7 +51,7 @@
                                               :body (ByteArrayInputStream. upload)})))
 
 (defn- load-share [conn id token]
-  (let [{:keys [status body]} (share/get-share {:db (d/db conn) :path-params {:id id :token token}})]
+  (let [{:keys [status body]} (share/get-share {:db (d/db conn) :conn conn :path-params {:id id :token token}})]
     (if (= 200 status)
       (edn/read-string (slurp (GZIPInputStream. body) :encoding "UTF-8"))
       status)))
@@ -190,3 +191,58 @@
     (is (auth? token-path :get))
     (is (auth? token-path :put))
     (is (auth? token-path :post))))
+
+(defn- days-later [^java.util.Date d n] (java.util.Date. (+ (.getTime d) (* n 24 60 60 1000))))
+
+(deftest a-share-nobody-uses-is-deleted-and-use-keeps-it
+  (with-conn conn
+    (setup! conn)
+    (let [t0     (java.util.Date.)
+          quiet  (create! conn {::se/owner "alice"})
+          busy   (create! conn {::se/owner "alice"})
+          shared (with-redefs [share/now (constantly t0)]
+                   (into {} (for [id [quiet busy]]
+                              (let [token (:body (share! conn "alice" id))]
+                                (put! conn "alice" id token (gz (pr-str (homebrew "First"))))
+                                [id token]))))]
+      (with-redefs [share/now (constantly (days-later t0 100))]
+        (is (= (homebrew "First") (load-share conn busy (shared busy))) "opening the link at day 100"))
+      (with-redefs [share/now (constantly (days-later t0 181))]
+        (is (= 404 (load-share conn quiet (shared quiet))) "181 days unused: gone")
+        (is (= (homebrew "First") (load-share conn busy (shared busy))) "81 days since it was last opened"))
+      (is (= 1 (count (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn))))
+          "the quiet share's record was deleted when it was asked for"))))
+
+(deftest use-is-recorded-at-most-daily
+  (with-conn conn
+    (setup! conn)
+    (let [id    (create! conn {::se/owner "alice"})
+          token (:body (share! conn "alice" id))]
+      (put! conn "alice" id token (gz (pr-str (homebrew "First"))))
+      (load-share conn id token)
+      (let [before (d/basis-t (d/db conn))]
+        (load-share conn id token)
+        (load-share conn id token)
+        (is (= before (d/basis-t (d/db conn))) "opening the link again the same day writes nothing")))))
+
+(deftest the-daily-sweep-deletes-only-unused-shares
+  (with-conn conn
+    (setup! conn)
+    (let [t0 (java.util.Date.)
+          ids (repeatedly 2 #(create! conn {::se/owner "alice"}))]
+      (with-redefs [share/now (constantly t0)]
+        (doseq [id ids] (share! conn "alice" id)))
+      (with-redefs [share/now (constantly (days-later t0 90))]
+        (token! conn "alice" (second ids)))
+      (with-redefs [share/now (constantly (days-later t0 200))]
+        (is (= 1 (share/prune! conn))))
+      (is (= [(second ids)] (d/q '[:find [?c ...] :where [_ :orcpub.share/character ?c]] (d/db conn)))))))
+
+(deftest zero-days-keeps-shares
+  (with-conn conn
+    (setup! conn)
+    (let [id    (create! conn {::se/owner "alice"})
+          token (with-redefs [share/now (constantly (java.util.Date. 0))] (:body (share! conn "alice" id)))]
+      (with-redefs [config/get-share-prune-days (constantly 0)]
+        (is (zero? (share/prune! conn)))
+        (is (= token (:body (token! conn "alice" id))))))))

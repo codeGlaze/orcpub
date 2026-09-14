@@ -5,6 +5,7 @@
             [orcpub.pedestal :as pedestal]                         
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
+            [orcpub.share-pruner :as share-pruner]
             [orcpub.config :as config]
             [orcpub.pdf :as pdf]
             [environ.core :as environ])
@@ -102,6 +103,11 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn])))
+      [:service-map :conn])
+
+    :share-pruner
+    (component/using
+      (share-pruner/new-pruner)
+      [:conn])))
 
 (rrepl/set-init! #(system :prod))
