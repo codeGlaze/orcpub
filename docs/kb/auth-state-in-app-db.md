@@ -50,20 +50,30 @@ list starts empty on every page load and holds only follows made in this session
 Two ways to fix it, neither done: store the `GET /user` response with a `:set-event`, or move
 `:following` under the account record and drop `db :user`.
 
-## The :user 401 handler cannot log anyone out
+## A loader's 401 logs out
 
-`user-sub-on-401-actions` dispatches `[:set-user-data (dissoc user-data :user-data :token)]`.
-`:set-user-data` merges into `db :user-data`, and a merge cannot remove keys, so the token and the
-account record stay. The tests in subs_test.cljs check that the payload has no `:token`, which is
-true, not what db holds after the dispatch. It behaved the same before #669.
+Fixed on `integration-local` in `6f1e6309`, 2026-09-13. Before it, a 401 from a server loader left
+the user logged in. The `:user` loader dispatched `:set-user-data` with the token removed from the
+map, but `:set-user-data` merges into `db :user-data`, and a merge cannot remove a key. The character
+and party loaders routed to login and left the token alone. The header kept showing the user and
+every later request failed until they logged in again or reloaded, since `:verify-user-session`
+clears a rejected token properly at startup. A tab that outlives the 24-hour token hits it.
 
-The damage is small. The only subscriber, `:following-users`, subscribes without `required?`, so a
-401 never routes to login. At startup `:verify-user-session` clears a stale token with `:clear-login`,
-which does work. What remains: if `GET /user` returns 401 mid-session, the app keeps the token and
-still shows the user as logged in, and later requests keep failing until they log in again.
+`api-subs/rejected-token!` now runs for every loader `reg-api-sub` registers: `:clear-login`, then
+the loader's own `:on-401`, or a route to login when it has none. It does nothing when the token
+changed while the request was out, so a late 401 cannot log out a login that replaced it.
 
-The fix is to dispatch `:clear-login` (it removes both keys and keeps `:theme`), and to test db after
-the dispatch rather than the payload.
+Log out with `:clear-login`. Anything that merges into `:user-data` cannot remove the token.
+
+Checked with a browser probe on a seeded server: log in as kaylee, swap in a token the server
+rejects, let `:user` and `::char5e/characters` fetch. Before the fix the rejected token stayed in
+app-db and localStorage with kaylee still shown; after it, both log out on a single 401.
+
+**Not covered: requests made through the `:http` effect** (saves, deletes, follows). Its 401 default
+routes to login without logging out, and it cannot do better yet: the server also answers 401 when
+someone saves or deletes a character or item they do not own, so a 401 there does not always mean
+the token was rejected. Separating the two needs the server to send 403 for "not yours", or an error
+code in the body.
 
 ## Related
 

@@ -50,6 +50,8 @@ The five API-backed subs (`::mi5e/custom-items`, `::char5e/characters`, `::party
 `::folder5e/folders`, `:user`) now register through `orcpub.dnd.e5.api-subs/reg-api-sub`, which
 places the guard, the loading counter and the response handling. A new API-backed sub should use it
 rather than repeat the shape above.
+On a 401 it logs the user out with `:clear-login` before the sub's own `:on-401` runs; see
+[auth-state-in-app-db.md](auth-state-in-app-db.md).
 
 ### Auth Token Path
 

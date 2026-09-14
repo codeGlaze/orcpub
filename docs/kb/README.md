@@ -143,7 +143,7 @@ sides had been written blind to the other's findings.
 | [http-fx-patterns.md](http-fx-patterns.md) | :http effect handler: dispatch vectors, eager JS call bug, auth headers |
 | [character-naming.md](character-naming.md) | Auto-naming: descriptive labels, random name gen, display fallbacks |
 | [env-and-auth.md](env-and-auth.md) | Environment variables, SIGNATURE auth, .env sourcing chain, dev defaults |
-| [auth-state-in-app-db.md](auth-state-in-app-db.md) | Where login state lives in app-db: the token path and `get-auth-token`, why `:user-data` is nested twice, why `db :user` holds only the follow list, and the 401 handler that cannot log anyone out |
+| [auth-state-in-app-db.md](auth-state-in-app-db.md) | Where login state lives in app-db: the token path and `get-auth-token`, why `:user-data` is nested twice, why `db :user` holds only the follow list, and how a loader's 401 logs out (and why an `:http` 401 cannot yet) |
 | [views-builders-split.md](views-builders-split.md) | builders.cljs decomposition: 10 domain files, dependency rules, gotchas (class→classes, spell-selector stays shared) |
 | [growable-option-menus.md](growable-option-menus.md) | Multi-select menu redesign: shared option-menu component, global layout toggle (grid/pills/A–Z), the two render-path families + inventory, map-prop/value-choice factories, menu-id rule, headless verify harness |
 | [monolith-decomposition-plan.md](monolith-decomposition-plan.md) | Full decomposition roadmap: tiers, precedence, branching strategy, 31 files assessed |
