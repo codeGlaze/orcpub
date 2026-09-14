@@ -172,26 +172,49 @@
   [opts]
   (clj->js (update opts :headers merge (event-utils/auth-headers @re-frame.db/app-db))))
 
-(defn- store-share!
-  "Promise of this character's share token, after sending its homebrew to the server, which keeps the
-   current copy for the link; the token is made the first time, and its response carries the server's
-   caps. Resolves nil when the browser cannot compress, the homebrew is over the caps or a request
-   fails, and the caller then embeds the bundle in the link."
+(defn- send-homebrew!
+  "Promise of the token once the character's homebrew is on the server under it, or nil. resp is the
+   token route's response, which carries the token and the server's caps."
+  [id bundle resp]
+  (-> (js/Promise.all #js [(.text resp) (share-url/encode-share bundle (share-url/share-caps-from resp))])
+      (.then (fn [got]
+               (let [token                 (aget got 0)
+                     {:keys [bytes error]} (aget got 1)]
+                 (when-not error
+                   (-> (js/fetch (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :token token)
+                                 (with-login {:method  "PUT"
+                                              :headers {"Content-Type" "application/octet-stream"}
+                                              :body    bytes}))
+                       (.then #(when (.-ok %) token)))))))))
+
+(defn- refresh-share!
+  "For a character its owner has shared, send the current homebrew so the link shows it. Promise of
+   {:token t}, {:unshared true} when the character has never been shared, or nil when a request fails.
+   Never creates a share: only Share link does."
   [id bundle]
   (-> (js/fetch (share-token-url id) (with-login {}))
       (.then (fn [resp]
-               (when (.-ok resp)
-                 (-> (js/Promise.all #js [(.text resp) (share-url/encode-share bundle (share-url/share-caps-from resp))])
-                     (.then (fn [got]
-                              (let [token                 (aget got 0)
-                                    {:keys [bytes error]} (aget got 1)]
-                                (when-not error
-                                  (-> (js/fetch (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :token token)
-                                                (with-login {:method  "PUT"
-                                                             :headers {"Content-Type" "application/octet-stream"}
-                                                             :body    bytes}))
-                                      (.then #(when (.-ok %) token)))))))))))
+               (cond
+                 (.-ok resp)             (-> (send-homebrew! id bundle resp) (.then #(when % {:token %})))
+                 (= 404 (.-status resp)) {:unshared true}
+                 :else                   nil)))
       (.catch (fn [_] nil))))
+
+(defn- start-share!
+  "Share link: make the character's share and send its homebrew. Promise of the token, or nil."
+  [id bundle]
+  (-> (js/fetch (share-token-url id) (with-login {:method "PUT"}))
+      (.then (fn [resp] (when (.-ok resp) (send-homebrew! id bundle resp))))
+      (.catch (fn [_] nil))))
+
+(defn- embedded-link
+  "Promise of the share state for a link that carries the homebrew itself."
+  [base container]
+  (-> (share-url/build-share-payload container)
+      (.then (fn [{:keys [tier payload]}]
+               {:tier        tier
+                :short-link? false
+                :url         (if payload (str base "#c=" payload) base)}))))
 
 (defn- new-link!
   "Asks the server for a new share token, which deletes the character's shared homebrew, so every link
@@ -242,19 +265,17 @@
               (swap! state assoc :tier :plain :url base :short-link? false)
               (do
                 (swap! state assoc :tier :working :url base)
-                ;; The owner's link carries a token for the homebrew the server keeps, and stays short and
-                ;; the same. Anyone else, or a browser that cannot compress, embeds the bundle as before.
+                ;; An owner who has shared this character gets its short link, kept current. One who has not
+                ;; gets Share link, and nothing is stored until it is pressed. Anyone else, or a failed
+                ;; request, embeds the bundle in the link as before.
                 (-> (if (and username (= username (::entity/owner character)))
-                      (store-share! id plugins-bundle)
+                      (refresh-share! id plugins-bundle)
                       (js/Promise.resolve nil))
-                    (.then (fn [fragment]
-                             (if fragment
-                               {:tier :full :url (str base "#s=" fragment) :short-link? true}
-                               (-> (share-url/build-share-payload container)
-                                   (.then (fn [{:keys [tier payload]}]
-                                            {:tier      tier
-                                             :short-link? false
-                                             :url       (if payload (str base "#c=" payload) base)}))))))
+                    (.then (fn [{:keys [token unshared]}]
+                             (cond
+                               token    {:tier :full :url (str base "#s=" token) :short-link? true}
+                               unshared {:tier :unshared :url base :short-link? false}
+                               :else    (embedded-link base container))))
                     (.then #(swap! state merge %)))))))
         (let [{:keys [tier url copied? short-link?]} @state
               url  (or url base)
@@ -282,6 +303,18 @@
                       [:button.form-button.m-r-5
                        {:title title :disabled working? :on-click on-click}
                        [:i.fa.m-r-5 {:class icon}] label]))]
+          (if (= tier :unshared)
+           (btn "fa-link" "Share link"
+                "Share this character with its homebrew. The homebrew is kept on the server so the link stays short."
+                (fn [_]
+                  (swap! state assoc :tier :working)
+                  (let [bundle (sb/extract-bundle character plugins)]
+                    (-> (start-share! id bundle)
+                        (.then (fn [token]
+                                 (if token
+                                   (swap! state assoc :tier :full :url (str base "#s=" token) :short-link? true)
+                                   (-> (embedded-link base {:plugins bundle})
+                                       (.then #(swap! state merge %))))))))))
           [:<>
            (btn (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
                 (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
@@ -319,7 +352,7 @@
                                      :url url})
                         (.then (fn [_] (note)))
                         ;; user-cancelled / permission rejections are expected — swallow.
-                        (.catch (fn [_] nil))))))])))))
+                        (.catch (fn [_] nil))))))]))))))
 
 (defn share-links
   "Header share cluster (Copy link + native Share) carrying the character's

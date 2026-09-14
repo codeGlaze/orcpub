@@ -5,8 +5,9 @@
 //
 // e2e-boot seeds a character for kaylee that knows a homebrew language, and run.sh passes its id on as
 // E2E_HOMEBREW_CHARACTER_ID. kaylee's browser gets that language in its local library, where an import
-// would leave it. Signed in, her character page sends the homebrew to the server and makes a link that
-// carries only a token, and the character list must give the same link. The link is opened logged out
+// would leave it. Signed in, her character page must store nothing until she presses Share link, which
+// sends the homebrew to the server and makes a link that carries only a token; the character list must
+// then give the same link. The link is opened logged out
 // and as zoe, neither of whom has the homebrew, and both must load it; a wrong token must load nothing
 // and say so. Then kaylee changes the language's description and opens her character again: the link
 // must stay the same and show the new description. Last, she presses New link: the old link loads
@@ -121,6 +122,18 @@ async function open(browser, link, who) {
 
   console.log('kaylee makes the link:');
   const first = await ownerSession(browser, FIRST);
+  const beforeSharing = await first.page.evaluate(async url => {
+    const c = window.cljs.core;
+    const login = c.get_in(window.re_frame.db.app_db.state,
+      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
+    return (await fetch(url, { headers: { Authorization: `Token ${login}` } })).status;
+  }, `${BASE}/dnd/5e/characters/${ID}/share-token`);
+  check(beforeSharing === 404 && first.requests.length === 0, 'nothing is stored before Share link is pressed',
+    `token route ${beforeSharing}; ${first.requests.join(', ') || 'no uploads'}`);
+  await first.page.waitForFunction(
+    () => [...document.querySelectorAll('button')].some(b => b.textContent.includes('Share link') && !b.disabled),
+    null, { timeout: 60000 });
+  await first.page.locator('button', { hasText: 'Share link' }).first().click();
   const link = await copyLink(first.page);
   const match = link.match(/#s=([A-Za-z0-9_-]{22})$/);
   check(Boolean(match), 'the link carries a share token', link);

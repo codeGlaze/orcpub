@@ -1994,6 +1994,7 @@
         {:put `share/put-share}]
        [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
         {:get `share/get-token
+         :put `share/create-token
          :post `share/new-token}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]

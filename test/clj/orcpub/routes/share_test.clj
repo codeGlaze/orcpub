@@ -43,6 +43,8 @@
 
 (defn- token! [conn username id] (share/get-token (request conn username id)))
 
+(defn- share! [conn username id] (share/create-token (request conn username id)))
+
 (defn- put! [conn username id token ^bytes upload]
   (share/put-share (request conn username id {:path-params {:id id :token token}
                                               :body (ByteArrayInputStream. upload)})))
@@ -53,11 +55,22 @@
       (edn/read-string (slurp (GZIPInputStream. body) :encoding "UTF-8"))
       status)))
 
+(deftest nothing-is-stored-until-the-character-is-shared
+  (with-conn conn
+    (setup! conn)
+    (let [id (create! conn {::se/owner "alice"})]
+      (is (= 404 (:status (token! conn "alice" id))) "asking, as every page view does, makes nothing")
+      (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn))))
+      (let [token (:body (share! conn "alice" id))]
+        (is (re-matches #"[A-Za-z0-9_-]{22}" token) "Share link makes the token")
+        (is (= token (:body (share! conn "alice" id))) "pressing it again keeps it")
+        (is (= token (:body (token! conn "alice" id))))))))
+
 (deftest the-owner-shares-homebrew-and-the-link-loads-it
   (with-conn conn
     (setup! conn)
     (let [id    (create! conn {::se/owner "alice"})
-          token (:body (token! conn "alice" id))]
+          token (:body (share! conn "alice" id))]
       (is (re-matches #"[A-Za-z0-9_-]{22}" token))
       (is (= 404 (load-share conn id token)) "nothing shared yet")
       (is (= 200 (:status (put! conn "alice" id token (gz (pr-str (homebrew "First")))))))
@@ -68,7 +81,7 @@
   (with-conn conn
     (setup! conn)
     (let [id    (create! conn {::se/owner "alice"})
-          token (:body (token! conn "alice" id))]
+          token (:body (share! conn "alice" id))]
       (put! conn "alice" id token (gz (pr-str (homebrew "First"))))
       (is (= 200 (:status (put! conn "alice" id token (gz (pr-str (homebrew "Second")))))))
       (is (= token (:body (token! conn "alice" id))) "the same token in the next session")
@@ -80,18 +93,19 @@
     (setup! conn)
     (let [id       (create! conn {::se/owner "alice"})
           by-email (create! conn {::se/owner "alice@test.com"})
-          token    (:body (token! conn "alice" id))]
+          token    (:body (share! conn "alice" id))]
       (is (= 404 (:status (token! conn "bob" id))))
+      (is (= 404 (:status (share! conn "bob" id))) "nor share someone else's character")
       (is (= 404 (:status (token! conn nil id))))
       (is (= 404 (:status (put! conn "bob" id token (gz (pr-str (homebrew "Bob's")))))))
       (is (= 404 (load-share conn id token)) "bob stored nothing")
-      (is (= 200 (:status (token! conn "alice" by-email))) "a character saved under its owner's email"))))
+      (is (= 200 (:status (share! conn "alice" by-email))) "a character saved under its owner's email"))))
 
 (deftest an-upload-is-checked-like-an-import
   (with-conn conn
     (setup! conn)
     (let [id    (create! conn {::se/owner "alice"})
-          token (:body (token! conn "alice" id))]
+          token (:body (share! conn "alice" id))]
       (is (= 404 (:status (put! conn "alice" id "AAAAAAAAAAAAAAAAAAAAAA" (gz (pr-str (homebrew "x"))))))
           "not the character's token")
       (is (= 400 (:status (put! conn "alice" id token (.getBytes "not compressed" "UTF-8")))))
@@ -114,7 +128,7 @@
   (with-conn conn
     (setup! conn)
     (let [id     (create! conn {::se/owner "alice"})
-          token  (:body (token! conn "alice" id))
+          token  (:body (share! conn "alice" id))
           upload (gz (pr-str (homebrew "First")))]
       (put! conn "alice" id token upload)
       (let [before (d/basis-t (d/db conn))]
@@ -126,7 +140,7 @@
   (with-conn conn
     (setup! conn)
     (let [id (create! conn {::se/owner "alice"})
-          {:keys [headers]} (token! conn "alice" id)]
+          {:keys [headers]} (share! conn "alice" id)]
       (is (= (str (share/max-upload-bytes)) (get headers "X-Share-Max-Upload-Bytes")))
       (is (= (str (share/max-text-bytes)) (get headers "X-Share-Max-Text-Bytes"))))))
 
@@ -136,21 +150,21 @@
     (let [first-id  (create! conn {::se/owner "alice"})
           second-id (create! conn {::se/owner "alice"})
           upload    (gz (pr-str (homebrew "Shared by both")))]
-      (put! conn "alice" first-id (:body (token! conn "alice" first-id)) upload)
+      (put! conn "alice" first-id (:body (share! conn "alice" first-id)) upload)
       (let [one (d/q '[:find ?s . :where [_ :orcpub.share/size ?s]] (d/db conn))]
         (with-redefs [share/max-bytes-per-owner (constantly (+ one 10))]
-          (is (= 413 (:status (put! conn "alice" second-id (:body (token! conn "alice" second-id)) upload)))))))))
+          (is (= 413 (:status (put! conn "alice" second-id (:body (share! conn "alice" second-id)) upload)))))))))
 
 (deftest new-link-revokes-every-earlier-link
   (with-conn conn
     (setup! conn)
     (let [id  (create! conn {::se/owner "alice"})
-          old (:body (token! conn "alice" id))]
+          old (:body (share! conn "alice" id))]
       (put! conn "alice" id old (gz (pr-str (homebrew "First"))))
       (is (= 404 (:status (share/new-token (request conn "bob" id)))) "nobody else can")
       (let [fresh (:body (share/new-token (request conn "alice" id)))]
         (is (not= old fresh))
-        (is (= fresh (:body (token! conn "alice" id))))
+        (is (= fresh (:body (share! conn "alice" id))))
         (is (= 404 (load-share conn id old)) "the old link loads nothing")
         (is (= 404 (load-share conn id fresh)) "and the homebrew is gone until it is shared again")
         (put! conn "alice" id fresh (gz (pr-str (homebrew "First"))))
@@ -160,7 +174,7 @@
   (with-conn conn
     (setup! conn)
     (let [id (create! conn {::se/owner "alice"})]
-      (put! conn "alice" id (:body (token! conn "alice" id)) (gz (pr-str (homebrew "First"))))
+      (put! conn "alice" id (:body (share! conn "alice" id)) (gz (pr-str (homebrew "First"))))
       (is (= 200 (:status (routes/delete-character {:db (d/db conn) :conn conn :identity {:user "alice"}
                                                      :path-params {:id (str id)}}))))
       (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn)))))))
@@ -174,4 +188,5 @@
     (is (auth? share-path :put))
     (is (nil? (auth? share-path :get)))
     (is (auth? token-path :get))
+    (is (auth? token-path :put))
     (is (auth? token-path :post))))
