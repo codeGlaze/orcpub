@@ -404,6 +404,19 @@
      ::weapon5e/reach?
      ::weapon5e/ammunition?])))
 
+(def share-schema
+  "Encrypted share snapshots, see orcpub.routes.share. :orcpub.share/blob is ciphertext the server
+   cannot read; :orcpub.share/id is \"<character id>/<share id>\"."
+  [{:db/ident :orcpub.share/id :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.share/blob :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}])
+
 (def all-schemas
   (concat
    user-schema
@@ -415,4 +428,5 @@
    party-schema
    folder-schema
    magic-item-schema
-   weapon-schema))
+   weapon-schema
+   share-schema))

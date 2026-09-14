@@ -139,6 +139,14 @@
 
 ;; ── public: decode (untrusted) ───────────────────────────────────────────────
 
+(defn- read-shared-edn
+  "The last layers every incoming share passes: safe EDN read, then the structural whitelist."
+  [edn-str]
+  (let [data (safe-read-edn edn-str)]
+    (if (= data ::read-error)
+      {:error :parse}
+      (sb/whitelist-shared data))))
+
 (defn decode-shared
   "Decode + structurally validate an untrusted fragment payload. Returns a Promise
    resolving to {:plugins m :custom-items [...] :dropped n} on success, or
@@ -164,9 +172,107 @@
         (.then (fn [b64] (b64url-decode b64)))
         (.then (fn [bytes] (gunzip-capped bytes max-decompressed-bytes)))
         (.then (fn [out] (bytes->str out)))
-        (.then (fn [edn-str]
-                 (let [data (safe-read-edn edn-str)]
-                   (if (= data ::read-error)
-                     {:error :parse}
-                     (sb/whitelist-shared data)))))
+        (.then read-shared-edn)
+        (.catch (fn [_] {:error :decode})))))
+
+;; ── encrypted snapshots: short links ─────────────────────────────────────────
+;; A link can carry "#s=<share id>.<key>" instead of the bundle. The server holds the encrypted
+;; bundle (orcpub.routes.share) and never sees the key, which stays after the #. The key is derived
+;; from the content and the character id, so the same content gives the same blob and id and uploading
+;; it again stores nothing new. Someone who already has the exact content could confirm a match;
+;; nobody can read a snapshot without its link.
+
+(def max-snapshot-edn-bytes
+  "The most text a snapshot unpacks to, which also bounds what a viewer's browser decompresses. A
+   packed level 20 character measured 61 to 110 KB."
+  (* 1024 1024))
+
+(def max-snapshot-blob-chars
+  "The most a snapshot stores, as orcpub.routes.share/max-blob-chars allows. Measured snapshots of
+   packed level 20 characters store 21 to 32 KB."
+  (* 256 1024))
+
+(def ^:private snapshot-version "2")
+
+(defn encryption-supported?
+  "True when the browser can compress and encrypt. Web Crypto exists only on https and localhost, so a
+   plain-http LAN address embeds the bundle in the link instead."
+  []
+  (and (supported?) (exists? js/crypto) (some? (.-subtle js/crypto))))
+
+(defn- subtle [] (.-subtle js/crypto))
+
+(defn- sha-256 [u8]
+  (-> (.digest (subtle) "SHA-256" u8) (.then #(js/Uint8Array. %))))
+
+(defn- join-bytes [a b]
+  (let [out (js/Uint8Array. (+ (.-length a) (.-length b)))]
+    (.set out a 0)
+    (.set out b (.-length a))
+    out))
+
+(defn- aes-key [raw usage]
+  (.importKey (subtle) "raw" raw #js {:name "AES-GCM"} false #js [usage]))
+
+(defn- iv-for
+  "One IV per key. Safe here because a key only ever encrypts the one plaintext it was derived from."
+  [raw-key]
+  (-> (sha-256 (join-bytes raw-key (str->bytes "iv"))) (.then #(.slice % 0 12))))
+
+(defn- snapshot-id
+  "The id the server stores a blob under, computed as orcpub.routes.share/share-id computes it: the
+   first 22 characters of the blob's SHA-256 in base64url."
+  [blob]
+  (-> (sha-256 (str->bytes blob)) (.then #(subs (b64url-encode %) 0 22))))
+
+(defn build-snapshot
+  "bundle + character id -> Promise of {:share id :key k :blob b}, or {:error :unsupported|:too-large}.
+   Compressed, then encrypted with AES-GCM."
+  [bundle character-id]
+  (let [edn (str->bytes (sb/bundle->edn bundle))]
+    (cond
+      (not (encryption-supported?)) (js/Promise.resolve {:error :unsupported})
+      (> (.-length edn) max-snapshot-edn-bytes) (js/Promise.resolve {:error :too-large})
+      :else
+      (-> (js/Promise.all #js [(sha-256 (join-bytes (str->bytes (str "orcpub share v1 " character-id "\n")) edn))
+                               (gzip edn)])
+          (.then (fn [derived]
+                   (let [raw (aget derived 0)
+                         gz  (aget derived 1)]
+                     (-> (js/Promise.all #js [(aes-key raw "encrypt") (iv-for raw)])
+                         (.then (fn [ki] (.encrypt (subtle) #js {:name "AES-GCM" :iv (aget ki 1)} (aget ki 0) gz)))
+                         (.then (fn [ct]
+                                  (let [blob (str snapshot-version (b64url-encode (js/Uint8Array. ct)))]
+                                    (if (> (count blob) max-snapshot-blob-chars)
+                                      {:error :too-large}
+                                      (-> (snapshot-id blob)
+                                          (.then (fn [id] {:share id :key (b64url-encode raw) :blob blob})))))))))))))))
+
+(defn decode-snapshot
+  "Decrypt a snapshot's blob with the key from its link, then apply decode-shared's last layers under a
+   max-snapshot-edn-bytes cap. Promise of {:plugins m :custom-items [...] :dropped n} or {:error kw}; a
+   wrong key or a tampered blob is {:error :decode}."
+  [blob key-str]
+  (cond
+    (not (and (string? blob) (string? key-str) (seq blob) (seq key-str)))
+    (js/Promise.resolve {:error :empty})
+
+    (> (count blob) max-snapshot-blob-chars)
+    (js/Promise.resolve {:error :too-large})
+
+    (not (str/starts-with? blob snapshot-version))
+    (js/Promise.resolve {:error :version})
+
+    (not (encryption-supported?))
+    (js/Promise.resolve {:error :unsupported})
+
+    :else
+    (-> (js/Promise.resolve key-str)
+        (.then b64url-decode)
+        (.then (fn [raw] (js/Promise.all #js [(aes-key raw "decrypt") (iv-for raw)])))
+        (.then (fn [ki] (.decrypt (subtle) #js {:name "AES-GCM" :iv (aget ki 1)} (aget ki 0)
+                                  (b64url-decode (subs blob (count snapshot-version))))))
+        (.then (fn [plain] (gunzip-capped (js/Uint8Array. plain) max-snapshot-edn-bytes)))
+        (.then bytes->str)
+        (.then read-shared-edn)
         (.catch (fn [_] {:error :decode})))))
