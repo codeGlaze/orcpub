@@ -35,6 +35,13 @@ comes with a check that fails without it.
   can share again, and `ORCPUB_SHARE_PRUNE_DAYS` sets the window, 30 days at least. A request without
   the link's token does not count as use, and time the server was off does not count against a link
   (`59400455`, `110569dc`, `3895027b`).
+- **Stop sharing** — a character's owner can stop sharing it at any time: every link made before stops
+  showing its custom content, and nothing is stored again until Share link is pressed (`e3aa6d07`).
+- **The owner is told when a share link expired** — the character page and list show the date beside
+  Share link on every visit, until the owner shares again or dismisses the note; the note keeps only the
+  character and the date (`e3aa6d07`).
+- **The server records when it was running** — an hourly heartbeat kept in the database notes when the
+  server was off, and scheduled jobs run after it; share link pruning is the first (`e3aa6d07`).
 
 ## Fixed
 
@@ -113,6 +120,9 @@ comes with a check that fails without it.
 
 ## Changed
 
+- **Share wording** — the startup log's share settings speak of share data, the Share link button no
+  longer describes server storage, and What's New describes short links, New link and Stop sharing
+  (`e3aa6d07`, `567f4bdb`).
 - **Browser probes share one way to find Chromium** — they find Playwright's
   current install without setting four variables by hand, and the runner reports
   a missing browser once as a skip (`b48d312c`).
