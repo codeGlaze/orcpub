@@ -251,6 +251,18 @@
         (is (zero? (share/prune! conn)))
         (is (= token (:body (token! conn "alice" id))))))))
 
+(deftest the-prune-window-is-at-least-30-days
+  (let [days (fn [raw]
+               (with-redefs-fn {#'config/env-raw (fn [n] (when (= n "ORCPUB_SHARE_PRUNE_DAYS") raw))}
+                 config/get-share-prune-days))]
+    (is (= 180 (days nil)))
+    (is (= 0 (days "0")) "0 keeps shares")
+    (is (= 30 (days "1")) "a typo does not delete links a day old")
+    (is (= 30 (days "29")))
+    (is (= 45 (days "45")))
+    (is (= 180 (days "-5")))
+    (is (= 180 (days "soon")))))
+
 (defn- at [^java.util.Date t f] (with-redefs [share/now (constantly t)] (f)))
 
 (defn- minutes-later [^java.util.Date d n] (java.util.Date. (+ (.getTime d) (* n 60 1000))))
@@ -287,15 +299,16 @@
                                              ::party/shared-tokens [{:orcpub.party-share/character id
                                                                      :orcpub.party-share/token token}]}}))))
       (create! conn {:orcpub.share/character 42 :orcpub.share/owner "alice" :orcpub.share/token "unrecorded"})
-      (is (= 1 (at (days-later t0 400) #(share/prune! conn))))
+      (is (zero? (at (days-later t0 100) #(share/prune! conn))))
+      (is (= 2 (at (days-later t0 400) #(share/prune! conn)))
+          "a share with no recorded use counts from when it was made")
       (let [db (d/db conn)]
         (is (= "alice" (::se/owner (d/pull db [::se/owner] id))) "the character stays")
         (is (= [token] (d/q '[:find [?t ...] :where [_ :orcpub.party-share/token ?t]] db)) "the party's entry stays")
         (is (nil? (->> (party-routes/parties {:db db :identity {:user "bob"}})
                        :body first ::party/character-ids first :orcpub.party-share/token))
             "but lists no token, so the party page loads no homebrew")
-        (is (= [42] (d/q '[:find [?c ...] :where [_ :orcpub.share/character ?c]] db))
-            "a share with no recorded use is kept")))))
+        (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] db)))))))
 
 (deftest time-the-server-was-off-does-not-count
   (with-conn conn
