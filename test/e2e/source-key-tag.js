@@ -62,8 +62,14 @@ const authorLanguage = async (page, name) => {
     const rowText = await page.locator('.bf-meta').first().innerText();
     check('the source row shows the tag its keys get, at rest', /key tag\s+TrCs/.test(rowText),
           JSON.stringify(rowText));
-    check('and says nothing else — the explanation is behind the ?', /\?/.test(rowText),
-          JSON.stringify(rowText));
+    // the help line renders as a SIBLING of the row, so assert against the whole panel or this
+    // proves nothing
+    const panel = await page.locator('#app').innerText();
+    check('and the explanation is NOT on screen until the ? is clicked',
+          /\?/.test(rowText) && !/Keys already minted keep/.test(panel));
+    await page.screenshot({ path: path.join(SHOTS, 'source-key-tag-resting.png'),
+                            clip: { x: 0, y: Math.max(0, (await page.locator('.bf-meta').first().boundingBox()).y - 130),
+                                    width: 1200, height: 200 } });
     check('nothing is stored until an author sets one',
           !/abbreviation/.test(await dbAt(page, `[:plugins "${SOURCE}"]`)));
 
@@ -95,9 +101,17 @@ const authorLanguage = async (page, name) => {
     check('a typed tag is normalized on the way in',
           /:abbreviation "TWC"/.test(await dbAt(page, `[:plugins "${SOURCE}"]`)),
           (await dbAt(page, `[:plugins "${SOURCE}"]`)).slice(0, 120));
-    await page.screenshot({ path: path.join(SHOTS, 'source-key-tag.png'),
+
+    await page.evaluate(() => {
+      const e = [...document.querySelectorAll('.bf-meta span')].find(x => x.textContent.trim() === '?');
+      e.click();                                       // close it again
+    });
+    await page.waitForTimeout(300);
+    check('a stored tag reads as one — and the ? closes again',
+          !/Keys already minted keep/.test(await page.locator('#app').innerText()));
+    await page.screenshot({ path: path.join(SHOTS, 'source-key-tag-set.png'),
                             clip: { x: 0, y: Math.max(0, (await page.locator('.bf-meta').first().boundingBox()).y - 130),
-                                    width: 1200, height: 240 } });
+                                    width: 1200, height: 200 } });
 
     await authorLanguage(page, 'Tidewall');
     const stored = await dbAt(page, `[:plugins "${SOURCE}" ${ct}]`);
