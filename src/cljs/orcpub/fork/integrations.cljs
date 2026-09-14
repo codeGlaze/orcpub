@@ -182,7 +182,9 @@
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]
     (fn [id variant]
-      (let [character @(subscribe [:character])
+      ;; The character this button shares, by id. [:character] is the builder's working copy, which on the
+      ;; character page and in the character list is some other character or none.
+      (let [character @(subscribe [::char5e/character id])
             plugins   @(subscribe [:plugins])
             char-name @(subscribe [::char5e/character-name id])
             base      (char-url id)]
