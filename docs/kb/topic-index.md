@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -508,7 +508,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, already-held-grants, compiler, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, srd, xphb
+**topics:** 2024, already-held-grants, background, compiler, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, xphb
 
 - The question
 - What the published rules actually do
@@ -585,7 +585,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, dotfiles, goes, history, hook, irreducible, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, css, dotfiles, goes, history, hook, irreducible, learned, lessons, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -704,7 +704,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -721,6 +721,19 @@ _handoff-grant-rows · handoff grant rows_
 - Rules that bit this session — do not re-learn them
 - Don'ts
 - Commands
+
+## handoff-integration-branches.md
+
+_handoff-integration-branches · handoff integration branches_
+
+**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
+
+- The branches, and the order
+- Gates, as measured on each branch
+- What a reviewer has to consciously accept
+- Not covered by any test — check by hand
+- Traps in this repo that will cost you time
+- When integration later merges back into feature/grant-rows
 
 ## homebrew-content-merge.md
 
@@ -919,7 +932,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -977,7 +990,7 @@ _starting-equipment · starting equipment_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, browser, cljs, cookie, debt, diagnosis, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved
+**topics:** 2016, assertions, backdrop, browser, cljs, debt, diagnosis, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
