@@ -135,15 +135,17 @@
 
 (defn prune!
   "Deletes the shares unused for longer than the prune window, and returns how many. A day more is
-   allowed because use is recorded at most daily, and a share with no recorded use is kept. Only share
-   records go: the character, a party's entry for it and the owner's homebrew stay."
+   allowed because use is recorded at most daily. A share with no recorded use counts from when its
+   record was made. Only share records go: the character, a party's entry for it and the owner's
+   homebrew stay."
   [conn]
   (let [db      (d/db conn)
         at      (now)
         days    (config/get-share-prune-days)
         outages (d/q '[:find ?from ?to :where [?o :orcpub.share-outage/from ?from] [?o :orcpub.share-outage/to ?to]] db)
         stale   (when (pos? days)
-                  (for [[e used] (d/q '[:find ?e ?used :where [?e :orcpub.share/character] [?e :orcpub.share/used ?used]] db)
+                  (for [[e made] (d/q '[:find ?e ?made :where [?e :orcpub.share/character _ ?tx] [?tx :db/txInstant ?made]] db)
+                        :let [used (or (:orcpub.share/used (d/entity db e)) made)]
                         :when (> (unused-ms used at outages) (* (inc days) day-ms))]
                     e))]
     (when (seq stale)
