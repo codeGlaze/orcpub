@@ -43,7 +43,7 @@
                                                               PDAppearanceStream)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.cos COSName COSDictionary)
-           (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
+           (org.apache.pdfbox.pdmodel PDPage PDPageContentStream PDResources)
            ;; APPEND appends operators to a page's existing content stream, so
            ;; template artwork survives. The alternative overwrites it.
            (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
