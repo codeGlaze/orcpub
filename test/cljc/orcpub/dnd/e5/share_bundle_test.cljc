@@ -160,3 +160,11 @@
     (testing "keys only on one side are NOT collisions"
       (is (empty? (sb/collisions {"S" {:orcpub.dnd.e5/spells {:only-shared {:name "X"}}}}
                                  lib))))))
+
+(deftest a-share-carries-no-embedded-media
+  (let [spell (fn [d] {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok" :option-pack "S" :description d}}}})]
+    (testing "a data: URI in any text field is emptied, whatever its case or leading space"
+      (is (= (spell "") (sb/without-embedded-media (spell "data:image/png;base64,iVBORw0KGgo"))))
+      (is (= (spell "") (:plugins (sb/whitelist-shared {:plugins (spell " DATA:video/mp4;base64,AAAA")})))))
+    (testing "text that only mentions data: is kept"
+      (is (= (spell "see data: below") (sb/without-embedded-media (spell "see data: below")))))))

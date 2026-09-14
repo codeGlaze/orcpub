@@ -197,15 +197,22 @@
 
 ;; ── Public entry point ───────────────────────────────────────────────────────
 
+(defn without-embedded-media
+  "The bundle with every data: URI emptied. Homebrew is text; a pasted image, audio clip or video
+   would sit in some text field as a data: URI, and a share must not carry one."
+  [bundle]
+  (walk/postwalk #(if (and (string? %) (re-find #"(?i)^\s*data:" %)) "" %) bundle))
+
 (defn extract-bundle
   "Given a character entity and the full :plugins map, return the plugins-shaped
    sub-map of exactly the homebrew content this character depends on."
   [character plugins]
   (let [idx (plugin-index plugins)]
-    (->> (direct-refs idx character)
-         (closure idx)
-         (add-reverse-spell-lists idx)
-         (emit-bundle idx))))
+    (without-embedded-media
+     (->> (direct-refs idx character)
+          (closure idx)
+          (add-reverse-spell-lists idx)
+          (emit-bundle idx)))))
 
 ;; The share link always carries the character's FULL content — descriptions and
 ;; all. A feat/trait IS its description, so a "trimmed to fit" link is useless;
@@ -335,4 +342,4 @@
                          items-in))
                 [])
         idropped (if (sequential? items-in) (- (count items-in) (count items)) 0)]
-    {:plugins pb :custom-items items :dropped (+ pd idropped)}))
+    {:plugins (without-embedded-media pb) :custom-items items :dropped (+ pd idropped)}))
