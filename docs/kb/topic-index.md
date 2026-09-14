@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, race, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, reagent, rendering, screenshot, vanished
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -508,7 +508,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, already-held-grants, compiler, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, srd, xphb
+**topics:** 2024, already-held-grants, background, behaviour, courtier, edition-drift, elegant, expertise, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, skill, xphb
 
 - The question
 - What the published rules actually do
@@ -516,6 +516,8 @@ _decision-already-held-resolution · decision already held resolution_
 - Pseudocode
 - Before and after
 - What that actually moves
+- The addressing gate — RUN, and it passes
+- But the pick outlives its justification
 - Open
 
 ## decision-vocabulary.md
@@ -602,7 +604,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -737,7 +739,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, per-selection, selection, suppressed, switch, systematically, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -837,7 +839,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, routes, spec-valid, type
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs

@@ -158,11 +158,47 @@ because both ask *"did someone who is not me already give me this?"*
 resolutions call into them. Consolidating *those* is a separate question, and claiming this
 decision does it would be overselling.
 
-## Open
+## The addressing gate — RUN, and it passes
 
-- **Conditional selections and addressing.** A resolution's replacement pick appears only when the
-  duplicate occurs. Selections that come and go are the territory of the `:ref` problem the branch
-  already hit (`handoff-grant-rows.md` step 3). **Test this before writing any of it.**
+**VERIFIED 2026-09-14** (`conditional_selection_ref_test.clj`), through the shipping
+`background-skills-cfg` path rather than a prototype. A background grants Athletics; a race may or
+may not also grant it.
+
+| rival race grants it | `?skill-profs` | selection offered |
+| --- | --- | --- |
+| no | `{:athletics {"Testbound" true}}` | none |
+| yes | `{:athletics {nil true}}` — the background's own grant suppressed | `Skill Proficiency` at `[:background :testbound :skill-proficiency]` |
+
+**The replacement selection is NESTED under its owner, not a top-level `:ref`.** So the `:ref`
+addressing hazard from `handoff-grant-rows.md` step 3 does not apply to this shape, and the gate
+is clear. The mechanism is `remove-disqualified-selections` (`entity.cljc:536`): the selection is
+always present in the template with a stable path, and a failing `prereq-fn` only removes it from
+what the builder OFFERS.
+
+### But the pick outlives its justification
+
+Measured on the same fixture — pick Insight in the replacement, then remove the duplicate:
+
+```
+with duplicate:    {:athletics {nil true},         :insight {nil true}}
+duplicate removed: {:athletics {"Testbound" true}, :insight {nil true}}
+```
+
+The character keeps **both**. The selection vanishes from the builder, but the stored pick is
+untouched and still compiles, so the background's own skill comes back and the replacement stays —
+a free extra skill.
+
+That is current behaviour in `background-skills-cfg`, not a consequence of this design. It is rare
+today (you must change race after picking) and would become common the moment every silo offers
+resolutions.
+
+**OPEN, and it belongs to whoever builds this:** should a resolution's pick be revoked when its
+condition lapses? Three options, none obviously right — leave it (today's behaviour, quietly
+generous), suppress the pick's modifiers with the same `unless-held-by-other` gate the grant uses,
+or surface it as a reconciliation notice like a dangling content reference. The second is
+cheapest and the third is the most honest.
+
+## Open
 - **`:saving-throw` resolution scope.** Iron Mind and Elegant Courtier grant a saving-throw
   proficiency from a named ability list. Whether that is a resolution or just a differently-poled
   grant is undecided.
