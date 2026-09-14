@@ -96,6 +96,9 @@ export E2E_CHARACTER_ID
 # Another of kaylee's characters, which also uses homebrew, for the share-link suite.
 E2E_HOMEBREW_CHARACTER_ID=$(grep -o "E2E-HOMEBREW-CHARACTER 200 [0-9]*" "$LOG" | awk '{print $3}')
 export E2E_HOMEBREW_CHARACTER_ID
+# And one whose last share link expired, for the expired-note suite.
+E2E_EXPIRED_CHARACTER_ID=$(grep -o "E2E-EXPIRED-CHARACTER 200 [0-9]*" "$LOG" | awk '{print $3}')
+export E2E_EXPIRED_CHARACTER_ID
 
 E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/$SUITE"
 NODE_RC=$?

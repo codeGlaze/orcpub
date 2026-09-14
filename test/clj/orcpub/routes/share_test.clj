@@ -7,6 +7,7 @@
             [orcpub.routes :as routes]
             [orcpub.routes.party :as party-routes]
             [orcpub.routes.share :as share]
+            [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.party :as party]
             [orcpub.config :as config]
             [orcpub.route-map :as route-map]
@@ -179,9 +180,11 @@
     (setup! conn)
     (let [id (create! conn {::se/owner "alice"})]
       (put! conn "alice" id (:body (share! conn "alice" id)) (gz (pr-str (homebrew "First"))))
+      @(d/transact conn [{:orcpub.share-expiry/character id :orcpub.share-expiry/on (java.util.Date.)}])
       (is (= 200 (:status (routes/delete-character {:db (d/db conn) :conn conn :identity {:user "alice"}
                                                      :path-params {:id (str id)}}))))
-      (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn)))))))
+      (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn))))
+      (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share-expiry/character]] (d/db conn))) "and its note"))))
 
 (deftest sharing-needs-a-login-and-loading-does-not
   (let [auth? (fn [path method] (some->> routes/routes
@@ -193,7 +196,8 @@
     (is (nil? (auth? share-path :get)))
     (is (auth? token-path :get))
     (is (auth? token-path :put))
-    (is (auth? token-path :post))))
+    (is (auth? token-path :post))
+    (is (auth? token-path :delete))))
 
 (defn- days-later [^java.util.Date d n] (java.util.Date. (+ (.getTime d) (* n 24 60 60 1000))))
 
@@ -211,9 +215,9 @@
       (with-redefs [share/now (constantly (days-later t0 100))]
         (is (= (homebrew "First") (load-share conn busy (shared busy))) "opening the link at day 100"))
       (with-redefs [share/now (constantly (days-later t0 181))]
-        (is (zero? (share/prune! conn)) "use is recorded at most daily, so a day more is allowed"))
+        (is (zero? (:expired (share/prune! conn))) "use is recorded at most daily, so a day more is allowed"))
       (with-redefs [share/now (constantly (days-later t0 182))]
-        (is (= 1 (share/prune! conn)))
+        (is (= 1 (:expired (share/prune! conn))))
         (is (= 404 (load-share conn quiet (shared quiet))) "182 days unused: gone")
         (is (= (homebrew "First") (load-share conn busy (shared busy))) "82 days since it was last opened")))))
 
@@ -239,7 +243,7 @@
       (with-redefs [share/now (constantly (days-later t0 90))]
         (token! conn "alice" (second ids)))
       (with-redefs [share/now (constantly (days-later t0 200))]
-        (is (= 1 (share/prune! conn))))
+        (is (= 1 (:expired (share/prune! conn)))))
       (is (= [(second ids)] (d/q '[:find [?c ...] :where [_ :orcpub.share/character ?c]] (d/db conn)))))))
 
 (deftest zero-days-keeps-shares
@@ -248,7 +252,7 @@
     (let [id    (create! conn {::se/owner "alice"})
           token (with-redefs [share/now (constantly (java.util.Date. 0))] (:body (share! conn "alice" id)))]
       (with-redefs [config/get-share-prune-days (constantly 0)]
-        (is (zero? (share/prune! conn)))
+        (is (= {:expired 0 :forgotten 0} (share/prune! conn)))
         (is (= token (:body (token! conn "alice" id))))))))
 
 (deftest the-prune-window-is-at-least-30-days
@@ -263,9 +267,7 @@
     (is (= 180 (days "-5")))
     (is (= 180 (days "soon")))))
 
-(defn- at [^java.util.Date t f] (with-redefs [share/now (constantly t)] (f)))
-
-(defn- minutes-later [^java.util.Date d n] (java.util.Date. (+ (.getTime d) (* n 60 1000))))
+(defn- at [^java.util.Date t f] (with-redefs [share/now (constantly t) heartbeat/now (constantly t)] (f)))
 
 (deftest a-request-without-the-token-is-not-use
   (with-conn conn
@@ -285,7 +287,7 @@
                  "someone else, even with the token")
              (is (= 404 (:status (put! conn "alice" id "AAAAAAAAAAAAAAAAAAAAAA" (gz (pr-str (homebrew "First")))))))
              (is (= before (d/basis-t (d/db conn))) "none of them wrote anything")))
-      (is (= 1 (at (days-later t0 182) #(share/prune! conn))) "so none of them kept the share alive"))))
+      (is (= 1 (:expired (at (days-later t0 182) #(share/prune! conn)))) "so none of them kept the share alive"))))
 
 (deftest the-sweep-deletes-share-records-and-nothing-else
   (with-conn conn
@@ -299,8 +301,8 @@
                                              ::party/shared-tokens [{:orcpub.party-share/character id
                                                                      :orcpub.party-share/token token}]}}))))
       (create! conn {:orcpub.share/character 42 :orcpub.share/owner "alice" :orcpub.share/token "unrecorded"})
-      (is (zero? (at (days-later t0 100) #(share/prune! conn))))
-      (is (= 2 (at (days-later t0 400) #(share/prune! conn)))
+      (is (zero? (:expired (at (days-later t0 100) #(share/prune! conn)))))
+      (is (= 2 (:expired (at (days-later t0 400) #(share/prune! conn))))
           "a share with no recorded use counts from when it was made")
       (let [db (d/db conn)]
         (is (= "alice" (::se/owner (d/pull db [::se/owner] id))) "the character stays")
@@ -308,22 +310,62 @@
         (is (nil? (->> (party-routes/parties {:db db :identity {:user "bob"}})
                        :body first ::party/character-ids first :orcpub.party-share/token))
             "but lists no token, so the party page loads no homebrew")
-        (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] db)))))))
+        (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] db)))
+        (is (= #{id 42} (set (d/q '[:find [?c ...] :where [_ :orcpub.share-expiry/character ?c]] db)))
+            "each leaves only a note of its character and the date")))))
 
 (deftest time-the-server-was-off-does-not-count
   (with-conn conn
     (setup! conn)
-    (let [t0      (java.util.Date.)
-          id      (create! conn {::se/owner "alice"})
-          beat!   (fn [t] (at t #(share/record-beat! conn)))
-          outages #(count (d/q '[:find ?o :where [?o :orcpub.share-outage/from]] (d/db conn)))]
+    (let [t0 (java.util.Date.)
+          id (create! conn {::se/owner "alice"})]
       (at t0 #(share! conn "alice" id))
-      (beat! (days-later t0 10))
-      (beat! (minutes-later (days-later t0 10) 60))
-      (is (zero? (outages)) "hourly beats")
-      (beat! (days-later t0 100))
-      (is (= 1 (outages)) "no beat for 90 days: the server was off")
-      (beat! (days-later t0 50))
-      (is (= 1 (outages)) "a clock set back is not an outage")
-      (is (zero? (at (days-later t0 185) #(share/prune! conn))) "185 days, 90 of them off")
-      (is (= 1 (at (days-later t0 275) #(share/prune! conn))) "275 days, 90 of them off, is 185 unused"))))
+      (at (days-later t0 10) #(heartbeat/beat! conn))
+      (at (days-later t0 100) #(heartbeat/beat! conn))
+      (is (= 1 (count (heartbeat/outages (d/db conn)))) "no beat for 90 days: the server was off")
+      (is (zero? (:expired (at (days-later t0 185) #(share/prune! conn)))) "185 days, 90 of them off")
+      (is (= 1 (:expired (at (days-later t0 275) #(share/prune! conn)))) "275 days, 90 of them off, is 185 unused"))))
+
+(deftest an-expired-share-leaves-a-note-until-the-owner-acts
+  (with-conn conn
+    (setup! conn)
+    (let [t0      (java.util.Date.)
+          [reshared dismissed ignored :as ids] (repeatedly 3 #(create! conn {::se/owner "alice"}))
+          tokens  (at t0 #(into {} (for [id ids]
+                                     (let [token (:body (share! conn "alice" id))]
+                                       (put! conn "alice" id token (gz (pr-str (homebrew "First"))))
+                                       [id token]))))
+          expired (days-later t0 182)]
+      (is (= {:expired 3 :forgotten 0} (at expired #(share/prune! conn))))
+      (doseq [id ids]
+        (is (= {:status 410 :body (str (.toInstant ^java.util.Date expired))}
+               (select-keys (token! conn "alice" id) [:status :body]))
+            "the owner's page learns when the link expired, on every visit")
+        (is (= 404 (:status (token! conn "bob" id))) "nobody else does")
+        (is (= 404 (load-share conn id (tokens id))) "the old link loads nothing"))
+      (at (days-later expired 100)
+          #(let [fresh (:body (share! conn "alice" reshared))]
+             (is (not= fresh (tokens reshared)) "Share link makes a new link")
+             (is (= fresh (:body (token! conn "alice" reshared))) "and the note is gone")))
+      (is (= 404 (:status (share/stop-sharing (request conn "bob" dismissed)))))
+      (is (= 410 (:status (token! conn "alice" dismissed))) "nobody else can dismiss it")
+      (is (= 204 (:status (share/stop-sharing (request conn "alice" dismissed)))) "Dismiss")
+      (is (= 404 (:status (token! conn "alice" dismissed))))
+      (is (= {:expired 0 :forgotten 1} (at (days-later expired 182) #(share/prune! conn)))
+          "a note nobody acted on goes after another window")
+      (is (= 404 (:status (token! conn "alice" ignored)))))))
+
+(deftest stop-sharing-deletes-the-share-and-stores-nothing
+  (with-conn conn
+    (setup! conn)
+    (let [id    (create! conn {::se/owner "alice"})
+          token (:body (share! conn "alice" id))]
+      (put! conn "alice" id token (gz (pr-str (homebrew "First"))))
+      (is (= 404 (:status (share/stop-sharing (request conn "bob" id)))) "nobody else can")
+      (is (= (homebrew "First") (load-share conn id token)))
+      (is (= 204 (:status (share/stop-sharing (request conn "alice" id)))))
+      (is (= 404 (load-share conn id token)) "the link loads nothing")
+      (is (= 404 (:status (token! conn "alice" id))) "the page offers Share link again")
+      (is (= 404 (:status (put! conn "alice" id token (gz (pr-str (homebrew "First")))))) "the old token stores nothing")
+      (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn))))
+      (is (= 204 (:status (share/stop-sharing (request conn "alice" id)))) "stopping again is harmless"))))

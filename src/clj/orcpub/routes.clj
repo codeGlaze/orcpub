@@ -1995,7 +1995,8 @@
        [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
         {:get `share/get-token
          :put `share/create-token
-         :post `share/new-token}]
+         :post `share/new-token
+         :delete `share/stop-sharing}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]

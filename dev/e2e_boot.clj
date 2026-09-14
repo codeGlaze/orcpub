@@ -82,6 +82,14 @@
                                                           (knowing-language "Wren Holloway" :kaylee-seeded-beta :e2e-cant)
                                                           {:user "kaylee"})]
       (println "E2E-HOMEBREW-CHARACTER" status (:db/id body)))
+    ;; A character whose last share link expired, as prune! leaves it: a note of the character and the date.
+    ;; Ten days ago, well inside the window, so the heartbeat's first prune keeps the note.
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (knowing-language "Ash Marlow" :kaylee-seeded-gamma :e2e-cant)
+                                                          {:user "kaylee"})]
+      @(d/transact conn [{:orcpub.share-expiry/character (:db/id body)
+                          :orcpub.share-expiry/on (java.util.Date. (- (System/currentTimeMillis) (* 10 24 60 60 1000)))}])
+      (println "E2E-EXPIRED-CHARACTER" status (:db/id body)))
     (println "E2E-READY")
     (flush)
     @(promise)))

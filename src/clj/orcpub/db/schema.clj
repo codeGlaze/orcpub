@@ -433,12 +433,19 @@
    ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
    {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
     :db/noHistory true}
-   ;; The pruner's last beat, on the entity :orcpub.share/clock, and the stretches between beats that show
-   ;; the server was off or its clock jumped ahead; see orcpub.routes.share/record-beat!.
-   {:db/ident :orcpub.share/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+   ;; A share that expired unused, kept as its character and the date so the owner's page can say so; see
+   ;; orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share-expiry/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share-expiry/on :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
+(def heartbeat-schema
+  "When the server was running, see orcpub.heartbeat: the last beat, on the entity :orcpub.heartbeat/clock,
+   and each gap between beats long enough to mean the server was off."
+  [{:db/ident :orcpub.heartbeat/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
     :db/noHistory true}
-   {:db/ident :orcpub.share-outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
-   {:db/ident :orcpub.share-outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+   {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
 
 (def all-schemas
   (concat
@@ -452,4 +459,5 @@
    folder-schema
    magic-item-schema
    weapon-schema
-   share-schema))
+   share-schema
+   heartbeat-schema))

@@ -189,14 +189,16 @@
 
 (defn- refresh-share!
   "For a character its owner has shared, send the current homebrew so the link shows it. Promise of
-   {:token t}, {:unshared true} when the character has never been shared, or nil when a request fails.
-   Never creates a share: only Share link does."
+   {:token t}, {:unshared true} when the character is not shared, {:unshared true :expired-on iso} when
+   its last link expired unused and the owner has not acted on that, or nil when a request fails. Never
+   creates a share: only Share link does."
   [id bundle]
   (-> (js/fetch (share-token-url id) (with-login {}))
       (.then (fn [resp]
                (cond
                  (.-ok resp)             (-> (send-homebrew! id bundle resp) (.then #(when % {:token %})))
                  (= 404 (.-status resp)) {:unshared true}
+                 (= 410 (.-status resp)) (-> (.text resp) (.then (fn [on] {:unshared true :expired-on on})))
                  :else                   nil)))
       (.catch (fn [_] nil))))
 
@@ -223,6 +225,19 @@
   (-> (js/fetch (share-token-url id) (with-login {:method "POST"}))
       (.then #(.-ok %))
       (.catch (fn [_] false))))
+
+(defn- stop-sharing!
+  "Asks the server to delete the character's share, or the note that its last link expired. Promise of
+   true when it worked."
+  [id]
+  (-> (js/fetch (share-token-url id) (with-login {:method "DELETE"}))
+      (.then #(.-ok %))
+      (.catch (fn [_] false))))
+
+(defn- reader-date
+  "An ISO instant as a date in the reader's locale, e.g. March 3, 2027."
+  [iso]
+  (.toLocaleDateString (js/Date. iso) js/undefined #js {:year "numeric" :month "long" :day "numeric"}))
 
 (defn share-controls
   "Reactive share cluster for a character: Copy link (+ native Share where the
@@ -271,13 +286,13 @@
                 (-> (if (and username (= username (::entity/owner character)))
                       (refresh-share! id plugins-bundle)
                       (js/Promise.resolve nil))
-                    (.then (fn [{:keys [token unshared]}]
+                    (.then (fn [{:keys [token unshared expired-on]}]
                              (cond
-                               token    {:tier :full :url (str base "#s=" token) :short-link? true}
-                               unshared {:tier :unshared :url base :short-link? false}
+                               token    {:tier :full :url (str base "#s=" token) :short-link? true :expired-on nil}
+                               unshared {:tier :unshared :url base :short-link? false :expired-on expired-on}
                                :else    (embedded-link base container))))
                     (.then #(swap! state merge %)))))))
-        (let [{:keys [tier url copied? short-link?]} @state
+        (let [{:keys [tier url copied? short-link? expired-on]} @state
               url  (or url base)
               working? (= tier :working)
               owner? (and username (= username (::entity/owner character)))
@@ -304,17 +319,28 @@
                        {:title title :disabled working? :on-click on-click}
                        [:i.fa.m-r-5 {:class icon}] label]))]
           (if (= tier :unshared)
-           (btn "fa-link" "Share link"
-                "Share this character with its homebrew. The homebrew is kept on the server so the link stays short."
-                (fn [_]
-                  (swap! state assoc :tier :working)
-                  (let [bundle (sb/extract-bundle character plugins)]
-                    (-> (start-share! id bundle)
-                        (.then (fn [token]
-                                 (if token
-                                   (swap! state assoc :tier :full :url (str base "#s=" token) :short-link? true)
-                                   (-> (embedded-link base {:plugins bundle})
-                                       (.then #(swap! state merge %))))))))))
+           [:<>
+            (btn "fa-link" "Share link"
+                 "Make a short link to this character, custom content included."
+                 (fn [_]
+                   (swap! state assoc :tier :working)
+                   (let [bundle (sb/extract-bundle character plugins)]
+                     (-> (start-share! id bundle)
+                         (.then (fn [token]
+                                  (if token
+                                    (swap! state assoc :tier :full :url (str base "#s=" token) :short-link? true
+                                           :expired-on nil)
+                                    (-> (embedded-link base {:plugins bundle})
+                                        (.then #(swap! state merge %))))))))))
+            ;; Shown on every visit until the owner shares again or dismisses it, so it cannot be missed once.
+            (when expired-on
+              [:<>
+               [:span.f-s-12.orange.m-l-5.m-r-5
+                (str "Your last share link expired on " (reader-date expired-on) " after going unused.")]
+               (btn "fa-times" "Dismiss" "Hide this note. Share link makes a new link."
+                    (fn [_]
+                      (-> (stop-sharing! id)
+                          (.then #(when % (swap! state assoc :expired-on nil))))))])]
           [:<>
            (btn (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
                 (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
@@ -327,22 +353,37 @@
                        (swap! state assoc :copied? true)
                        (note)
                        (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
-           ;; Only a short link can be revoked; an embedded link carries the homebrew itself.
+           ;; Only a short link can be revoked; an embedded link carries its custom content itself.
            (when (and owner? short-link?)
              (btn "fa-refresh" "New link"
-                  "Make a new link. Links you shared before will stop showing this character's homebrew."
+                  "Make a new link. Links you shared before stop showing this character's custom content."
                   (fn [_]
-                    (when (js/confirm "Links you shared before will stop showing this character's homebrew. Make a new link?")
+                    (when (js/confirm "Links you shared before will stop showing this character's custom content. Make a new link?")
                       (swap! state assoc :tier :working)
                       (-> (new-link! id)
                           (.then (fn [ok?]
-                                   ;; Forget the last inputs, so the homebrew is sent again under the new token.
+                                   ;; Forget the last inputs, so the content is sent again under the new token.
                                    (reset! prev {})
                                    (swap! state assoc :tier :plain :short-link? false)
                                    (dispatch [:show-message
                                               (if ok?
-                                                "New link made. Links you shared before no longer show this character's homebrew."
+                                                "New link made. Links you shared before no longer show this character's custom content."
                                                 "Could not make a new link. Try again.")]))))))))
+           (when (and owner? short-link?)
+             (btn "fa-ban" "Stop sharing"
+                  "Stop sharing this character. Links you shared before stop showing its custom content."
+                  (fn [_]
+                    (when (js/confirm "Links you shared before will stop showing this character's custom content. Stop sharing?")
+                      (swap! state assoc :tier :working)
+                      (-> (stop-sharing! id)
+                          (.then (fn [ok?]
+                                   ;; Nothing is sent again until Share link: the page now asks and gets a 404.
+                                   (swap! state assoc :tier (if ok? :unshared :full) :short-link? (not ok?)
+                                          :expired-on nil)
+                                   (dispatch [:show-message
+                                              (if ok?
+                                                "Stopped sharing. Links you shared before no longer show this character's custom content."
+                                                "Could not stop sharing. Try again.")]))))))))
            (when (native-share?)
              (btn "fa-share-alt" "Share"
                   "Share this character (custom content included)"
