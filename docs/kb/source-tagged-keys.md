@@ -92,16 +92,22 @@ The derivation is a guess, and `source-abbreviation-overrides` can only ever hol
 shipped content uses — an author's own "Tidewater Curios" never gets an entry, so `TrCs` is what
 its keys carry whether or not they would have written `TWC`.
 
-**Where:** My Content's source row, beside search / show-disabled / export / delete. Not the
+**Where:** My Content's source row, beside search / show-disabled / export / delete, as the same
+`meta-edit-row` the builder's key line uses — `key tag  TrCs  change  ?` — because it is the same
+kind of thing: an address the app decided, occasionally corrected. A stored tag shows in the value
+colour, a derived one stays muted, which is the whole "is this mine or the app's guess?" signal
+without a word spent on it. The explanation lives behind the `?` (`with-help`, which already existed
+for the PDF options), because a sentence that is true forever does not need to be on screen
+forever. Not the
 builder, for two reasons: it is source-level data, so editing it from one item's form silently
 changes what a sibling item's next key gets; and Option Source Name is free text, so in the builder
 the source may not exist yet and there is nowhere to put its setting. The builder already shows the
 consequence — the key row reads `key :tideward-trcs` — which is the context without the ownership.
 It also means an IMPORTED source can be retagged, which the builder could never reach.
 
-**Blank, derived value as placeholder.** Nothing is stored until an author types one, so improving
-the rule reaches every source that never set a tag, and a stored value always means somebody chose
-it.
+**Nothing is stored until an author sets one**, so improving the rule reaches every source that
+never set a tag, and a stored value always means somebody chose it. `change` seeds the input with
+the tag in force, so correcting a derived one is a typo-fix rather than a retype.
 
 **Stored** at `[:plugins source :abbreviation]`, beside `:disabled?`. `::e5/content-keyword` and
 `::e5/plugin` accept it, so it survives export and import like any other source-level setting.

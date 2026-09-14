@@ -59,22 +59,44 @@ const authorLanguage = async (page, name) => {
       await row.locator('text=expand').first().click();
       await page.waitForTimeout(800);
     }
-    const field = page.locator('.bf-meta input').first();
-    check('the source row has a key-tag field', await field.count() > 0);
-    check('and it is EMPTY, with the derived tag as its placeholder',
-          (await field.inputValue()) === '' && (await field.getAttribute('placeholder')) === 'TrCs',
-          `value=${JSON.stringify(await field.inputValue())} placeholder=${await field.getAttribute('placeholder')}`);
+    const rowText = await page.locator('.bf-meta').first().innerText();
+    check('the source row shows the tag its keys get, at rest', /key tag\s+TrCs/.test(rowText),
+          JSON.stringify(rowText));
+    check('and says nothing else — the explanation is behind the ?', /\?/.test(rowText),
+          JSON.stringify(rowText));
     check('nothing is stored until an author sets one',
           !/abbreviation/.test(await dbAt(page, `[:plugins "${SOURCE}"]`)));
 
+    await page.evaluate(() => {
+      const e = [...document.querySelectorAll('.bf-meta span')].find(x => x.textContent.trim() === '?');
+      e.click();
+    });
+    await page.waitForTimeout(300);
+    check('the ? opens the explanation beneath',
+          /Keys already minted keep the tag they have/.test(await page.locator('#app').innerText()));
+    await page.screenshot({ path: path.join(SHOTS, 'source-key-tag-help.png'),
+                            clip: { x: 0, y: Math.max(0, (await page.locator('.bf-meta').first().boundingBox()).y - 130),
+                                    width: 1200, height: 260 } });
+
+    await page.evaluate(() => {
+      const e = [...document.querySelectorAll('.bf-meta span')].find(x => x.textContent.trim() === 'change');
+      e.click();
+    });
+    await page.waitForTimeout(300);
+    const field = page.locator('.bf-meta input').first();
+    check('change opens an input seeded with the current tag',
+          (await field.inputValue()) === 'TrCs', await field.inputValue());
     await field.fill('twc');
-    await field.blur();
+    await page.evaluate(() => {
+      const e = [...document.querySelectorAll('.bf-meta span')].find(x => x.textContent.trim() === 'save');
+      e.click();
+    });
     await page.waitForTimeout(700);
     check('a typed tag is normalized on the way in',
           /:abbreviation "TWC"/.test(await dbAt(page, `[:plugins "${SOURCE}"]`)),
           (await dbAt(page, `[:plugins "${SOURCE}"]`)).slice(0, 120));
     await page.screenshot({ path: path.join(SHOTS, 'source-key-tag.png'),
-                            clip: { x: 0, y: Math.max(0, (await page.locator('.bf-meta').boundingBox()).y - 120),
+                            clip: { x: 0, y: Math.max(0, (await page.locator('.bf-meta').first().boundingBox()).y - 130),
                                     width: 1200, height: 240 } });
 
     await authorLanguage(page, 'Tidewall');

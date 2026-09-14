@@ -101,6 +101,13 @@ And dimming is not the lever. 12px at half opacity is a smudge; a collapsed sect
 thing you look at. Position it where that kind of information belongs — after the form, under a
 rule — and let it be legible.
 
+### Before writing an explanation onto the form
+
+`with-help` (`views.cljs`) puts a `?` on the end of a row and opens the line beneath it, on click
+rather than hover because the builder is used on phones. A sentence that will be true forever does
+not need to be on screen forever — and a permanent sentence beside a control is the loudest thing
+in the row.
+
 ### Before believing a CSS change worked
 
 `lein garden once` **can fail while everything downstream stays green** — `fig:build` succeeds, the

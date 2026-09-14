@@ -59,7 +59,7 @@ const clickLink = (page, text) => page.evaluate(t => {
       setter.call(i, 'tideward');
       i.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    check('typed the corrected key', await clickLink(page, 'save key'));
+    check('typed the corrected key', await clickLink(page, 'save'));
     await page.waitForTimeout(1200);
 
     const stored = await dbAt(page, `[:plugins "${SOURCE}" :orcpub.dnd.e5/languages]`);
@@ -82,7 +82,7 @@ const clickLink = (page, text) => page.evaluate(t => {
       setter.call(i, 'common');                       // a built-in language key
       i.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await clickLink(page, 'save key');
+    await clickLink(page, 'save');
     await page.waitForTimeout(900);
     const after = await dbAt(page, `[:plugins "${SOURCE}" :orcpub.dnd.e5/languages]`);
     check('a key held by a BUILT-IN is not refused — built-ins are overridable by design',

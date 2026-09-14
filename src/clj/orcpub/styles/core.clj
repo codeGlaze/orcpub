@@ -572,6 +572,11 @@
      {:text-align :center
       :font-weight 700}]]
 
+   ;; A short field for a tag or a key: wide enough for six characters and a cursor, so the row
+   ;; stays a line rather than becoming a form.
+   [:.bf-meta-input
+    {:width "150px"}]
+
    ;; Plumbing an author touches about once: the item's key. Set apart from the form by a hairline
    ;; and the muted label colour the rest of this block already uses -- NOT a bespoke grey, which
    ;; is what made an earlier version read as unstyled rather than as quiet.
