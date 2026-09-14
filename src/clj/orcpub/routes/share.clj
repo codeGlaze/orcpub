@@ -18,10 +18,11 @@
    character. The browser learns them from the X-Share-Max-* headers. Deleting a character deletes its
    copy.
 
-   A share nobody uses for ORCPUB_SHARE_PRUNE_DAYS is deleted, token and homebrew together: opening the
-   link, the owner's page refreshing it, or a party page loading it all count as use, recorded at most
-   once a day. An expired share is deleted when it is next asked for, and prune! sweeps the rest daily
-   (orcpub.share-pruner)."
+   A share nobody uses for ORCPUB_SHARE_PRUNE_DAYS while the server runs is deleted: its token and this
+   copy of the homebrew, never the character or the owner's own homebrew. Use is the link opened with the
+   current token, the owner's page, or a party page loading it, recorded at most once a day; a request
+   without the token records nothing, so it cannot keep a share alive. Only prune! deletes, run hourly by
+   orcpub.share-pruner, and time the server was off does not count (record-beat!)."
   (:require [clojure.edn :as edn]
             [datomic.api :as d]
             [orcpub.config :as config]
@@ -90,47 +91,61 @@
 
 (defn now [] (java.util.Date.))
 
-(def ^:private day-ms (* 24 60 60 1000))
+(def ^:private hour-ms (* 60 60 1000))
 
-(defn- stale?
-  "Whether a share has gone unused past the prune window at the moment `at`."
-  [share ^java.util.Date at]
-  (let [days (config/get-share-prune-days)
+(def ^:private day-ms (* 24 hour-ms))
+
+(defn- touch!
+  "Records use of a share, at most once a day."
+  [conn share]
+  (let [at   (now)
         used ^java.util.Date (:orcpub.share/used share)]
-    (boolean (and (pos? days) used (> (- (.getTime at) (.getTime used)) (* days day-ms))))))
-
-(defn- touch
-  "Transaction data recording use of a share at `at`, or nil when it was recorded within the last day."
-  [share ^java.util.Date at]
-  (let [used ^java.util.Date (:orcpub.share/used share)]
     (when (or (nil? used) (> (- (.getTime at) (.getTime used)) day-ms))
-      [{:db/id (:db/id share) :orcpub.share/used at}])))
-
-(defn- live-share
-  "The character's share, recording this use, or nil. A share past the prune window is deleted here."
-  [conn db character-id]
-  (when-let [share (share-of db character-id)]
-    (let [at (now)]
-      (if (stale? share at)
-        (do @(d/transact conn [[:db/retractEntity (:db/id share)]]) nil)
-        (do (when-let [tx (touch share at)] @(d/transact conn tx))
-            share)))))
+      @(d/transact conn [{:db/id (:db/id share) :orcpub.share/used at}]))))
 
 (defn token-current?
-  "Whether token is the character's current, unexpired share token."
+  "Whether token is the character's current share token."
   [db character-id token]
   (let [share (share-of db character-id)]
-    (boolean (and share (string? token) (= token (:orcpub.share/token share)) (not (stale? share (now)))))))
+    (boolean (and share (string? token) (= token (:orcpub.share/token share))))))
+
+(def ^:private beat-gap-ms
+  "Beats come hourly; a longer gap than this means the server was off or its clock jumped ahead."
+  (+ hour-ms (* 10 60 1000)))
+
+(defn record-beat!
+  "Records that the server is running, and records the time since the last beat as an outage when the gap
+   is longer than hourly beats explain. Pruning does not count an outage as disuse. A clock set back
+   records no outage and so deletes nothing sooner."
+  [conn]
+  (let [at       (now)
+        previous ^java.util.Date (d/q '[:find ?t . :where [?e :db/ident :orcpub.share/clock] [?e :orcpub.share/beat ?t]]
+                                      (d/db conn))]
+    @(d/transact conn (cond-> [{:db/ident :orcpub.share/clock :orcpub.share/beat at}]
+                        (and previous (> (- (.getTime at) (.getTime previous)) beat-gap-ms))
+                        (conj {:orcpub.share-outage/from previous :orcpub.share-outage/to at})))))
+
+(defn- unused-ms
+  "Time from a share's last use to `at`, less the outages in between."
+  [^java.util.Date used ^java.util.Date at outages]
+  (let [from (.getTime used)
+        to   (.getTime at)]
+    (- to from (reduce + (for [[^java.util.Date start ^java.util.Date end] outages]
+                           (max 0 (- (min to (.getTime end)) (max from (.getTime start)))))))))
 
 (defn prune!
-  "Deletes every share unused past the prune window. Returns how many."
+  "Deletes the shares unused for longer than the prune window, and returns how many. A day more is
+   allowed because use is recorded at most daily, and a share with no recorded use is kept. Only share
+   records go: the character, a party's entry for it and the owner's homebrew stay."
   [conn]
-  (let [db    (d/db conn)
-        at    (now)
-        stale (for [e (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] db)
-                    :let [share (d/pull db [:db/id :orcpub.share/used] e)]
-                    :when (stale? share at)]
-                (:db/id share))]
+  (let [db      (d/db conn)
+        at      (now)
+        days    (config/get-share-prune-days)
+        outages (d/q '[:find ?from ?to :where [?o :orcpub.share-outage/from ?from] [?o :orcpub.share-outage/to ?to]] db)
+        stale   (when (pos? days)
+                  (for [[e used] (d/q '[:find ?e ?used :where [?e :orcpub.share/character] [?e :orcpub.share/used ?used]] db)
+                        :when (> (unused-ms used at outages) (* (inc days) day-ms))]
+                    e))]
     (when (seq stale)
       @(d/transact conn (map (fn [e] [:db/retractEntity e]) stale)))
     (count stale)))
@@ -152,19 +167,21 @@
   "The character's share token, for its owner, or the 404 a character never shared gets. Nothing is made
    here: a character's page asks this on every view, and only Share link creates a share."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (if-let [token (and (owns-character? db (:user identity) id)
-                      (:orcpub.share/token (live-share conn db id)))]
-    (text token)
+  (if-let [share (and (owns-character? db (:user identity) id) (share-of db id))]
+    (do (touch! conn share)
+        (text (:orcpub.share/token share)))
     {:status 404}))
 
 (defn create-token
   "Shares the character: makes its token if it has none, for its owner, and returns it. Share link does
    this; until then nothing about the character is stored."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (let [username (:user identity)]
+  (let [username (:user identity)
+        share    (share-of db id)]
     (cond
       (not (owns-character? db username id)) {:status 404}
-      (:orcpub.share/token (live-share conn db id)) (text (:orcpub.share/token (share-of (d/db conn) id)))
+      share (do (touch! conn share)
+                (text (:orcpub.share/token share)))
       :else (do @(d/transact conn [{:orcpub.share/character id :orcpub.share/owner username
                                     :orcpub.share/token (random-token) :orcpub.share/used (now)}])
                 ;; Read back: had two first requests raced, both callers get the token that stuck.
@@ -186,12 +203,15 @@
         (text token)))))
 
 (defn get-share
-  "The character's shared homebrew, compressed, to anyone whose link carries its current token."
+  "The character's shared homebrew, compressed, to anyone whose link carries its current token. Only that
+   request counts as use: one without the token writes nothing, so it cannot keep a share from expiring."
   [{:keys [db conn] {:keys [id token]} :path-params}]
-  (let [{stored :orcpub.share/bundle current :orcpub.share/token} (live-share conn db id)]
-    (if (and stored (string? token) (= token current))
-      {:status 200 :headers (merge {"Content-Type" "application/octet-stream"} (cap-headers))
-       :body (ByteArrayInputStream. ^bytes stored)}
+  (let [share  (share-of db id)
+        stored (:orcpub.share/bundle share)]
+    (if (and stored (string? token) (= token (:orcpub.share/token share)))
+      (do (touch! conn share)
+          {:status 200 :headers (merge {"Content-Type" "application/octet-stream"} (cap-headers))
+           :body (ByteArrayInputStream. ^bytes stored)})
       {:status 404})))
 
 (defn put-share
@@ -200,8 +220,10 @@
    upload identical to the stored one is not checked or written again."
   [{:keys [db conn identity body] {:keys [id token]} :path-params}]
   (let [username (:user identity)
-        share    (when (owns-character? db username id) (live-share conn db id))]
-    (if-not (and share (= token (:orcpub.share/token share)))
+        share    (when (owns-character? db username id) (share-of db id))
+        current? (and share (= token (:orcpub.share/token share)))]
+    (when current? (touch! conn share))
+    (if-not current?
       {:status 404}
       (let [upload (when body (read-capped body (max-upload-bytes)))]
         (cond

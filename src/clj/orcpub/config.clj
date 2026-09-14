@@ -272,9 +272,9 @@
   (positive-int-env ["ORCPUB_SHARE_MAX_ACCOUNT_KB"] 1024))
 
 (defn get-share-prune-days
-  "Days a share link may go unused before it and its homebrew are deleted, from
-   ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. Opening the link or the owner's page counts as use.
-   180 leaves room for a campaign that pauses for a season."
+  "Days a share link may go unused while the server runs before the link and the server's copy of its
+   homebrew are deleted, from ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. The character and the owner's own
+   homebrew are never deleted. 180 leaves room for a campaign that pauses for a season."
   []
   (let [n (some-> (System/getenv "ORCPUB_SHARE_PRUNE_DAYS") str/trim parse-long)]
     (if (and n (not (neg? n))) n 180)))
@@ -325,7 +325,7 @@
     {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
      :note "shared homebrew one account keeps in all"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
-     :note "days a share link may go unused before it is deleted; 0 keeps them"}]))
+     :note "days unused before a share link and its stored homebrew are deleted; 0 keeps them"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
