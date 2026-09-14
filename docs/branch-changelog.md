@@ -22,9 +22,10 @@ comes with a check that fails without it.
   custom items it has equipped, as they are now. Share links no longer carry items, so they are
   shorter; homebrew still travels in the link, and older links still open (`7f375829`).
 
-- **Short share links** — a character's owner gets a link of about 130 characters instead of one
-  that carries all its homebrew; the homebrew is stored on the server encrypted, with the key only in
-  the link, and anyone else's link, or a browser that cannot encrypt, still embeds it (`20179535`).
+- **Short share links** — a character's owner gets a link of about 85 characters that stays the
+  same and always shows the character's current homebrew, which the server keeps and checks; New link
+  revokes every earlier link, the limits are config settings, and anyone else's link still carries the
+  homebrew itself (`20179535`, `191b612e`, `eab46b9f`).
 
 ## Fixed
 
