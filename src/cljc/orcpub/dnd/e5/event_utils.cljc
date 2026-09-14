@@ -11,12 +11,13 @@
 
 #?(:cljs
    (defn backend-url
-     "Rewrites a path to the backend URL in local dev (port 8890)."
+     "A path on the server that served the page.
+
+      It used to send every http://localhost page to port 8890, from when figwheel served the page
+      on another port. dev.cljs.edn now opens the app on the server itself, so that rewrite only
+      broke a server on any other localhost port: logins and API calls went to 8890."
      [path]
-     (if (and js/window.location
-              (s/starts-with? js/window.location.href "http://localhost"))
-       (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
-       path)))
+     (if (s/starts-with? path "/") path (str "/" path))))
 
 #?(:cljs
    (defn url-for-route
