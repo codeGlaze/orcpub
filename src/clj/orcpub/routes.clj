@@ -47,6 +47,7 @@
             [orcpub.fork.user-data :as user-data]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
+            [orcpub.routes.share :as share]
             [hiccup.page :as page]
             [hiccup2.core :as h]
             [environ.core :as environ]
@@ -1604,7 +1605,8 @@
         (errors/with-db-error-handling :character-deletion-failed
           {:character-id parsed-id}
           "Unable to delete character. Please try again or contact support."
-          @(d/transact conn [[:db/retractEntity parsed-id]])
+          @(d/transact conn (cons [:db/retractEntity parsed-id]
+                                  (share/retractions-for-character db parsed-id)))
           {:status 200})
         {:status 400 :body problems})
       {:status 401 :body "You do not own this character"})))
@@ -1986,6 +1988,10 @@
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
         {:get `get-character}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :share ":share") ^:interceptors [parse-id]
+        {:get `share/get-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :share ":share") ^:interceptors [check-auth parse-id]
+        {:put `share/put-share}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]

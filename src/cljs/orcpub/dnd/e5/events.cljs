@@ -2132,6 +2132,13 @@
     (when (s/starts-with? h "#c=")
       (not-empty (subs h 3)))))
 
+(defn- shared-snapshot-ref
+  "The encrypted snapshot a short share link names (#s=<share id>.<key>), as [share key], or nil."
+  []
+  (let [h (or (some-> js/window .-location .-hash) "")]
+    (when-let [[_ share k] (re-matches #"#s=([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})" h)]
+      [share k])))
+
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
@@ -2150,7 +2157,8 @@
              ;; Homebrew embedded in a share link loads only on the character page,
              ;; and only into the ephemeral :shared-plugins overlay (never the library).
              char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
-             shared-payload (when char-page? (shared-content-payload))]
+             shared-payload (when char-page? (shared-content-payload))
+             shared-snapshot (when char-page? (shared-snapshot-ref))]
          (when (and js/window.location
                     secure?
                     (not= "localhost" js/window.location.hostname))
@@ -2167,6 +2175,7 @@
            ;; so view-once content (homebrew + custom items) never lingers across characters.
            char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
+           shared-snapshot (update :dispatch-n conj [::e5/load-shared-snapshot (:id route-params) shared-snapshot])
            event (update :dispatch-n conj event)
            ;; A character that healed on its way here -- opened from the list, or
            ;; restored at boot -- is announced now, AFTER the [:hide-message] above.
@@ -5250,6 +5259,28 @@
                   (js/console.warn "Shared content not loaded:" (name (:error result)))
                   (or (seq (:plugins result)) (seq (:custom-items result)))
                   (dispatch [::e5/apply-shared-content result])))))))
+
+;; A short share link names an encrypted snapshot on the server. Fetch it, decrypt it with the key
+;; from the link, and load it exactly as an embedded payload loads.
+(reg-fx
+ ::fetch-shared-snapshot!
+ (fn [[id [share k]]]
+   (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :share share))
+       (.then (fn [resp] (when (.-ok resp) (.text resp))))
+       (.then (fn [blob] (if blob (share-url/decode-snapshot blob k) {:error :missing})))
+       (.then (fn [result]
+                (cond
+                  (:error result)
+                  (do (js/console.warn "Shared content not loaded:" (name (:error result)))
+                      (dispatch [:show-message "The homebrew this link shared could not be loaded. Ask for a new link."]))
+                  (or (seq (:plugins result)) (seq (:custom-items result)))
+                  (dispatch [::e5/apply-shared-content result]))))
+       (.catch (fn [e] (js/console.warn "Shared content not loaded:" e))))))
+
+(reg-event-fx
+ ::e5/load-shared-snapshot
+ (fn [_ [_ id snapshot]]
+   {::fetch-shared-snapshot! [id snapshot]}))
 
 (reg-event-fx
  ::e5/load-shared-content

@@ -44,6 +44,13 @@
                     {::se/key     :other-magic-items
                      ::se/options [{::se/key item-key}]}]})
 
+(defn- knowing-language
+  "The same fighter, also knowing a homebrew language. The browser suite puts that language in the
+   owner's local library, which is where homebrew lives; the server never has it."
+  [character-name item-key language-key]
+  (update (fighter-carrying character-name item-key) ::se/selections conj
+          {::se/key :languages ::se/options [{::se/key language-key}]}))
+
 (defn -main [& _]
   ;; The :dev system pins port 8890; run.sh passes E2E_PORT through as PORT.
   (let [port (some-> (System/getenv "PORT") Integer/parseInt)
@@ -71,6 +78,10 @@
                                                           (fighter-carrying "Bree Tinker" :kaylee-seeded-alpha)
                                                           {:user "kaylee"})]
       (println "E2E-CHARACTER" status (:db/id body)))
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (knowing-language "Wren Holloway" :kaylee-seeded-beta :e2e-cant)
+                                                          {:user "kaylee"})]
+      (println "E2E-HOMEBREW-CHARACTER" status (:db/id body)))
     (println "E2E-READY")
     (flush)
     @(promise)))

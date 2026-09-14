@@ -6,6 +6,7 @@
 (def dnd-e5-newb-char-builder-route :newb-char-builder-5e)
 (def dnd-e5-char-list-route :char-list-5e)
 (def dnd-e5-char-route :char-5e)
+(def dnd-e5-char-share-route :char-share-5e)
 (def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
@@ -154,7 +155,8 @@
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
-                                        ["/" :id] dnd-e5-char-route}
+                                        ["/" :id] dnd-e5-char-route
+                                        ["/" :id "/shares/" :share] dnd-e5-char-share-route}
                           "character-load-reports" dnd-e5-char-report-route
                           "my-content" dnd-e5-my-content-route
                           "items" {"" dnd-e5-items-route

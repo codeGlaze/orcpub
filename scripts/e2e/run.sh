@@ -93,6 +93,9 @@ for _ in $(seq 1 60); do grep -q E2E-READY "$LOG" && break; sleep 1; done
 # The seeded character that carries one of kaylee's custom items, for suites that open it.
 E2E_CHARACTER_ID=$(grep -o "E2E-CHARACTER 200 [0-9]*" "$LOG" | awk '{print $3}')
 export E2E_CHARACTER_ID
+# Another of kaylee's characters, which also uses homebrew, for the share-link suite.
+E2E_HOMEBREW_CHARACTER_ID=$(grep -o "E2E-HOMEBREW-CHARACTER 200 [0-9]*" "$LOG" | awk '{print $3}')
+export E2E_HOMEBREW_CHARACTER_ID
 
 E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/$SUITE"
 NODE_RC=$?

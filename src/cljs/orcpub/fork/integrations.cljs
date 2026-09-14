@@ -11,6 +11,9 @@
    this namespace provides the in-app component hooks."
   (:require [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
+            [re-frame.db]
+            [orcpub.entity :as entity]
+            [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.share-bundle :as sb]
@@ -161,6 +164,27 @@
   []
   (boolean (some-> js/navigator .-share)))
 
+(defn- store-snapshot!
+  "Promise of the link fragment \"<share id>.<key>\" for this character's homebrew. Uploads the
+   encrypted snapshot unless the server already has it. Resolves nil when the browser cannot encrypt,
+   the bundle is too big or the upload fails, and the caller then embeds the bundle in the link."
+  [id bundle]
+  (-> (share-url/build-snapshot bundle id)
+      (.then (fn [{:keys [share key blob error]}]
+               (when-not error
+                 (let [url      (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :share share)
+                       fragment (str share "." key)]
+                   (-> (js/fetch url)
+                       (.then (fn [resp]
+                                (if (.-ok resp)
+                                  fragment
+                                  (-> (js/fetch url (clj->js {:method  "PUT"
+                                                              :headers (merge {"Content-Type" "text/plain"}
+                                                                              (event-utils/auth-headers @re-frame.db/app-db))
+                                                              :body    blob}))
+                                      (.then #(when (.-ok %) fragment)))))))))))
+      (.catch (fn [_] nil))))
+
 (defn share-controls
   "Reactive share cluster for a character: Copy link (+ native Share where the
    browser supports it), both carrying a link with the character's homebrew
@@ -186,12 +210,14 @@
       ;; character page and in the character list is some other character or none.
       (let [character @(subscribe [::char5e/character id])
             plugins   @(subscribe [:plugins])
+            username  @(subscribe [:username])
             char-name @(subscribe [::char5e/character-name id])
             base      (char-url id)]
-        ;; Recompute the embedded URL only when inputs change (identical? = O(1)).
+        ;; Recompute the link only when its inputs change (identical? = O(1)).
         (when (or (not (identical? character (:character @prev)))
-                  (not (identical? plugins (:plugins @prev))))
-          (reset! prev {:character character :plugins plugins})
+                  (not (identical? plugins (:plugins @prev)))
+                  (not= username (:username @prev)))
+          (reset! prev {:character character :plugins plugins :username username})
           ;; Custom items stay out of the link: the server sends a character's equipped items with
           ;; the character to whoever may read it. Homebrew rides here because the server never had it.
           (let [plugins-bundle (sb/extract-bundle character plugins)
@@ -200,11 +226,19 @@
               (swap! state assoc :tier :plain :url base)
               (do
                 (swap! state assoc :tier :working :url base)
-                (-> (share-url/build-share-payload container)
-                    (.then (fn [{:keys [tier payload]}]
-                             (swap! state assoc
-                                    :tier tier
-                                    :url (if payload (str base "#c=" payload) base)))))))))
+                ;; The owner's link names an encrypted snapshot on the server and stays short. Anyone
+                ;; else, or a browser that cannot encrypt, embeds the bundle in the link as before.
+                (-> (if (and username (= username (::entity/owner character)))
+                      (store-snapshot! id plugins-bundle)
+                      (js/Promise.resolve nil))
+                    (.then (fn [fragment]
+                             (if fragment
+                               {:tier :full :url (str base "#s=" fragment)}
+                               (-> (share-url/build-share-payload container)
+                                   (.then (fn [{:keys [tier payload]}]
+                                            {:tier tier
+                                             :url  (if payload (str base "#c=" payload) base)}))))))
+                    (.then #(swap! state merge %)))))))
         (let [{:keys [tier url copied?]} @state
               url  (or url base)
               working? (= tier :working)

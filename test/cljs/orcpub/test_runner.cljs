@@ -27,7 +27,9 @@
             ;; storage layer (resilient loader read path)
             [orcpub.dnd.e5.db-test]
             ;; orcbrew import/export validation
-            [orcpub.dnd.e5.orcbrew-validation-test]))
+            [orcpub.dnd.e5.orcbrew-validation-test]
+            ;; encrypted share snapshots use Web Crypto, so they run only here
+            [orcpub.dnd.e5.share-url-test]))
 
 (defn -main []
   (run-tests 'orcpub.common-test
@@ -49,7 +51,8 @@
              'orcpub.dnd.e5.views-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
-             'orcpub.dnd.e5.orcbrew-validation-test))
+             'orcpub.dnd.e5.orcbrew-validation-test
+             'orcpub.dnd.e5.share-url-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []
