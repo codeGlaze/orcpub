@@ -154,6 +154,11 @@ lists the suites when given none or a missing one, honours `E2E_PORT`, and turns
 when the bundle on disk is a development build. `fix/custom-item-classification` still has to rename
 its own `run.js` to `classify-items-in-builder.js`.
 
+A third suite, `shared-character-shows-its-items.js`, opens a character e2e-boot seeds for kaylee
+(a level 1 fighter carrying one of her custom items) logged out, as zoe and as kaylee. `run.sh`
+waits for e2e-boot to print `E2E-READY` before starting any suite, because the server answers
+before seeding finishes, and passes the seeded character's id on as `E2E_CHARACTER_ID`.
+
 ### The four facts behind those seven lines
 
 Worth keeping because a changed selector sends you back to them:
