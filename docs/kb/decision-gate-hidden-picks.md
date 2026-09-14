@@ -28,39 +28,45 @@ The gate belongs between `flatten-options` and `collect-modifiers-2`: drop optio
 selection is disqualified, exactly as `remove-disqualified-selections` (`:536`) already does for
 the builder.
 
-## ⚠️ It is a fixed point, not a filter
+## It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
 
-**This is the finding that sets the cost.** `prereq-fn` takes the **built character**. You cannot
-know whether a gate passes until you have built, and you cannot build correctly until you know the
-gate. So the fix is two-pass:
+*An earlier version of this section said the gate was a two-pass fixed point that would double
+`entity/build`. That was wrong, and the cost estimate with it.*
+
+**The error:** `?classes` is written by a modifier —
+`(mods/modifier ?classes (conj ?classes cls-key))` — so I concluded `first-class?` needs a built
+character. The modifier *carries* the class order; it does not compute it.
+
+**VERIFIED** (`multiclass_hidden_pick_test.clj`):
 
 ```
-pass 1   build permissively, as today          → a character to evaluate gates against
-gates    evaluate every selection's prereq-fn against that character
-pass 2   rebuild, dropping options under failing selections
+raw [fighter rogue]  ->  built ?classes [:fighter :rogue]
+raw [rogue fighter]  ->  built ?classes [:rogue :fighter]
+raw [rogue]          ->  built ?classes [:rogue]
 ```
 
-Same shape as the CR → PB → CR loop in
-[plan-npc-statblock-customizer.md](plan-npc-statblock-customizer.md), and it needs the same care.
+Class order is exactly the raw `:class` vector order. So `first-class?` is answerable off the raw
+entity with no build at all:
 
-**The invariant that makes two passes enough:** *no selection's gate may depend on what that
-selection grants.* Checked against the nine live sites:
+```clojure
+(= class-kw (first (map ::entity/key (:class options))))
+```
 
-| gate | depends on | stable under the fix? |
+| gate | reads | needs a build? |
 | --- | --- | --- |
-| `first-class?` / `(complement first-class?)` (6 sites) | class order | **yes** — skills do not change class order |
-| `background-skills-cfg`'s replacement | is *this* skill held by another source | **yes in practice** — the replacement grants a *different* skill, so dropping it cannot change whether the original is held |
-| caller-supplied on `skill-selection-2`, `tool-*-selection-2` | whatever the caller passes | **unknown** — depends on the caller |
+| `first-class?` / `(complement …)` — both class skill arms, all five starting-equipment sites (**7**) | raw class order | **no** — a plain filter |
+| `background-skills-cfg` replacement (**1**) | `?skill-profs`, real modifier output | **yes** |
+| caller-supplied on `skill-selection-2`, `tool-*-selection-2` (**2**) | whatever the caller passes | unknown until each caller is checked |
 
-So two passes converge today. That is a property of the current nine, **not a guarantee** — it
-should be stated as an invariant and tested, not assumed. A third pass that changes nothing is the
-cheap check.
+**How it works today:** one build, then `get-all-selections-2` filters the selection list *for
+display* against that built character. Nothing builds twice. That is precisely why the bug exists
+— the filter is display-only and never feeds back into what gets applied.
 
-**Cost consequence:** `build-aux` is memoized and `entity/build` is the hot path
-(`perf-entity-build.md`: 25 ms → 4.9 ms in the browser, and the sort alone was 74% of it).
-Two passes is a doubling of the most expensive operation in the app. Measure before and after;
-gate evaluation may be cheap enough to fold into one pass for the six `first-class?` sites, which
-depend only on data available before modifiers run.
+**Consequence for the fix.** Seven sites need only a raw-data predicate applied before
+`collect-modifiers-2`, which is cheap and has no ordering problem. The background site genuinely
+needs the built character and is the only place where a second pass, or a narrower
+`unless-held-by-other` condition on its own modifiers, is required. Scope it as *one filter plus
+one special case*, not as a rebuild of the hot path.
 
 ## The mug does not cover this
 
@@ -76,12 +82,15 @@ It waives **how many** you may pick. `remove-disqualified-selections` takes only
 `[selections built-char]` — no character, no homebrew paths — so the mug **cannot un-hide a
 gated selection**, and after this fix a player who wants the fifth rogue skill has no route back.
 
-**OPEN, and it wants deciding with the fix, not after:** widen the mug to bypass `prereq-fn` as
-well as the count, or accept that a which-arm rule is not waivable per selection. Widening makes
-the pressure valve cover the case; not widening means the only route is a custom feature. The
-first matches what the override is *for*; the second keeps its definition narrow
-([homebrew-override.md](homebrew-override.md): it waives selection rules, never computed values —
-and a gate is a selection rule).
+**CORRECTED.** An earlier version said a player would have "no route back" after the fix. Wrong:
+the *other* arm is still on screen. Hide the rogue's multiclass skill pick and the first-class
+"choose 4" selection remains — mug that and take a fifth skill. Same for equipment: the surviving
+class's starting-equipment selections are still there to over-pick.
+
+What the fix removes is the specific stale pick, not the capability. So widening the mug to bypass
+`prereq-fn` is **not** required to keep the pressure valve working, and the case for doing it is
+much weaker than this doc first claimed. Left **OPEN** only as a question of whether re-picking
+through the other arm is good enough UX.
 
 ## The paper trail: a new attribute, not an existing text field
 
@@ -115,7 +124,11 @@ so nothing can be overwritten and no concatenation logic has to be careful. Hist
  longer applies now that rogue is your first class."
 ```
 
-Surfaced wherever character notices already appear, not inside an editable field.
+**Surfacing — a transient notice is not enough.** An earlier draft said "wherever character
+notices already appear", which means a toast the player can miss, and a paper trail nobody can
+find is the same invisibility that made this defect hard to track down. The log needs a **durable,
+readable place on the character** — its own section — with the load-time notice as a pointer to
+it, not as the only sighting.
 
 **OPEN:** whether the log is also shown on the PDF. Probably not by default — it is provenance,
 not character content.

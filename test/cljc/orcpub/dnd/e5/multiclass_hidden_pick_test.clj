@@ -174,3 +174,11 @@
       (is (contains? (equipment-selections rogue-1st)
                      [:class :rogue :starting-equipment-equipment-pack])
           "so the character can hold two classes' starting packs"))))
+
+(deftest ^:diagnostic is-class-order-just-the-raw-option-order
+  (println "\n=== does ?classes order track the raw :class vector? ===")
+  (doseq [[label classes] [["[fighter rogue]" [fighter-first rogue-plain]]
+                           ["[rogue fighter]" [rogue-plain fighter-first]]
+                           ["[rogue]"         [rogue-plain]]]]
+    (println (format "  raw %-18s -> built ?classes %s"
+                     label (pr-str (char5e/classes (build classes)))))))

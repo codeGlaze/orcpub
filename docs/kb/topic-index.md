@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, retracted, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -526,11 +526,11 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** attribute, concatenation, decision-already-held-resolution, gate, hidden-selection-picks, history, homebrew-override, log, mug, multi-tab-character-contamination, nine, notice, plan-npc-statblock-customizer, player, sites, skill, two-pass, widening
+**topics:** attribute, concatenation, decision-already-held-resolution, defect, fifth, filter, gate, hidden-selection-picks, history, log, mug, multi-tab-character-contamination, notice, paper, player, sites, skill, two-pass
 
 - Decision
 - Where the gate goes
-- ⚠️ It is a fixed point, not a filter
+- It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
 - The mug does not cover this
 - The paper trail: a new attribute, not an existing text field
 - Scope
@@ -744,7 +744,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
+**topics:** 374, 3816, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, source, tag, waiting, worktree
 
 - The branches, and the order
 - Gates, as measured on each branch
@@ -867,7 +867,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, shaped, spells, styles, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -1038,7 +1038,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, falsifiable, faster, integration, intended, miss, optimisation, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, intended, miss, number, optimisation, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
@@ -1053,7 +1053,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, mistype, neither, not-melee, ranged, ranged-only, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
