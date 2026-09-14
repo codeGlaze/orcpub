@@ -144,3 +144,9 @@ are **picked templates, not values that fire when the AC number matches** — a 
 fields the author did not touch is untrustworthy, and one number does not identify one race. A
 template is a parameter sheet over the same `:props` (the template tier,
 `builder-disposition-audit.md` §REFRAMING).
+
+☐ `plugin-datalist` (the Option Source Name field) keeps the source name in a component-local atom
+that **NEW does not reset**, so after New the field still shows the previous source while the item
+has none — and typing the same value back fires no change, so the save is refused for a field that
+looks filled. Worked around in `test/e2e/source-key-tag.js` with a reload; the fix is for the
+component to follow the item it is given.

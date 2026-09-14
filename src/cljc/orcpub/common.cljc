@@ -264,6 +264,20 @@
              c
              (recur (candidate n) (inc n)))))))))
 
+(defn normalize-abbreviation
+  "A source's own abbreviation, reduced to the shape the derivation would have produced: letters and
+   digits only, upper-cased, at most six, and a letter first. nil when nothing usable is left.
+
+   GOTCHA: upper-casing is not cosmetic. It is what makes the value pass `source-abbreviation`'s
+   already-an-abbreviation branch, so an author-set tag and a derived one travel the same path. The
+   key lower-cases either way, so case only shows in a name tagged by an import conflict."
+  [abbr]
+  (let [cleaned (-> (str abbr)
+                    (s/replace #"[^A-Za-z0-9]" "")
+                    (s/upper-case))]
+    (when (re-matches #"[A-Z][A-Z0-9]{1,5}" (subs cleaned 0 (min 6 (count cleaned))))
+      (subs cleaned 0 (min 6 (count cleaned))))))
+
 (defn source-tagged-key
   "The key an item mints in `source-name`: its name's keyword with the source's abbreviation
    appended — `(\"Stone Elf\" \"Tidewater Curios\")` => `:stone-elf-trcs`.
@@ -279,8 +293,11 @@
 
    No `taken?`: two items with one name in one source is a mistake worth reporting, not one to
    uniquify silently."
-  [item-name source-name]
-  (:key (disambiguated item-name source-name)))
+  ([item-name source-name] (source-tagged-key item-name source-name nil))
+  ([item-name source-name abbr]
+   ;; An author-set abbreviation is handed in AS the source name: normalized, it is already in the
+   ;; shape `source-abbreviation` passes through, so the explicit and derived paths stay one path.
+   (:key (disambiguated item-name (or (normalize-abbreviation abbr) source-name)))))
 
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)

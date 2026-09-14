@@ -869,7 +869,9 @@
              ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
              ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
              ;; is a separate, deliberate act that records :former-keys.
-             key (or (:key item) (common/source-tagged-key name option-pack))
+             key (or (:key item)
+                     (common/source-tagged-key name option-pack
+                                               (get-in db [:plugins option-pack :abbreviation])))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
@@ -952,7 +954,9 @@
                                           :option-pack src
                                           ;; the placeholder source tags too -- "dflt" exists for
                                           ;; exactly this landing spot
-                                          :key (common/source-tagged-key (:name sanitized) src))
+                                          :key (common/source-tagged-key
+                                                (:name sanitized) src
+                                                (get-in db [:plugins src :abbreviation])))
                              (:key item) (assoc :key (:key item)))
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -1014,7 +1018,9 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (or (:key item) (common/source-tagged-key name option-pack))   ; minted once, tagged
+         key (or (:key item)                                               ; minted once, tagged
+                 (common/source-tagged-key name option-pack
+                                           (get-in db [:plugins option-pack :abbreviation])))
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1083,7 +1089,8 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (or (:key item) (common/source-tagged-key (:name filled-item) src))
+         key (or (:key item) (common/source-tagged-key (:name filled-item) src
+                                                       (get-in db [:plugins src :abbreviation])))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -4474,6 +4481,20 @@
 
 (doseq [[save-event [item-key content-type]] builder-drafts]
   (reg-export-draft (draft-event-for save-event) item-key content-type))
+
+(reg-event-fx
+ ::e5/set-source-abbreviation
+ ;; The tag a source mints its keys with, when the derivation's guess is not what the author would
+ ;; write. Stored on the source beside :disabled?, normalized on the way in so an explicit tag and a
+ ;; derived one travel the same path. Blank clears it and the derivation takes over again.
+ ;;
+ ;; GOTCHA: keys already minted do NOT move (D9). This decides what the NEXT one gets.
+ (fn [{:keys [db]} [_ source abbr]]
+   (let [normalized (common/normalize-abbreviation abbr)
+         plugins    (cond-> (:plugins db)
+                      normalized       (assoc-in [source :abbreviation] normalized)
+                      (nil? normalized) (update source dissoc :abbreviation))]
+     {:dispatch [::e5/set-plugins plugins]})))
 
 (reg-event-fx
  ::e5/change-builder-item-key

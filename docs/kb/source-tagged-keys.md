@@ -86,30 +86,33 @@ helper so a change to the rule fails in one place.
 the tag is how an SRD override is asked for, and a control that put one back would make that
 impossible.
 
-## Next: let a source carry its own abbreviation (proposed 2026-09-13)
+## A source carries its own tag (built 2026-09-13)
 
-The derivation is a guess, and it is wrong for any source whose real-world tag nobody can derive —
-`source-abbreviation-overrides` is that admission, and it only holds sources shipped content uses.
-An author's own "Tidewater Curios" has no entry and never will, so `TrCs` is what their keys carry
-whether or not they would have written `TWC`.
+The derivation is a guess, and `source-abbreviation-overrides` can only ever hold sources that
+shipped content uses — an author's own "Tidewater Curios" never gets an entry, so `TrCs` is what
+its keys carry whether or not they would have written `TWC`.
 
-**Store it on the source.** A source is a map key in `:plugins` whose value already carries
-source-level data beside the content types (`:disabled?` is read there), so `:abbreviation` goes in
-the same place. `process-plugin-vals` keeps only map-valued entries when it collects content types,
-so a string there is ignored by the content path rather than mistaken for a content type.
+**Where:** My Content's source row, beside search / show-disabled / export / delete. Not the
+builder, for two reasons: it is source-level data, so editing it from one item's form silently
+changes what a sibling item's next key gets; and Option Source Name is free text, so in the builder
+the source may not exist yet and there is nowhere to put its setting. The builder already shows the
+consequence — the key row reads `key :tideward-trcs` — which is the context without the ownership.
+It also means an IMPORTED source can be retagged, which the builder could never reach.
 
-**Blank, with the derived value as the placeholder — not auto-filled.** Auto-filling stores a copy
-of a guess, and then: the rule improving (as it did for `UA - Heroes of Krynn`) does not reach the
-stored copies, and nothing distinguishes "the author chose this" from "the app guessed and wrote it
-down". Blank keeps one source of truth, and showing the derived value as placeholder text makes it
-visible without making it data. Same shape as the key row: the app's answer is on screen, and
-typing over it is the override.
+**Blank, derived value as placeholder.** Nothing is stored until an author types one, so improving
+the rule reaches every source that never set a tag, and a stored value always means somebody chose
+it.
 
-**Where the field lives is the open question.** My Content's source row is where sources are already
-managed (export, delete, enable, search) and where the abbreviation is source-level rather than
-item-level. The builder's Option Source Name field is where the name is typed, which argues for
-putting it beside that — but it would put source-level data in every item's form. My Content is the
-better home; it is also the larger change.
+**Stored** at `[:plugins source :abbreviation]`, beside `:disabled?`. `::e5/content-keyword` and
+`::e5/plugin` accept it, so it survives export and import like any other source-level setting.
 
-Whichever it is: existing keys do not re-tag when the abbreviation changes (D9), so it takes effect
-for keys minted after it is set. That is worth saying in the field's own hint text.
+**Normalized on the way in** (`common/normalize-abbreviation`): letters and digits, upper-cased, at
+most six, a letter first. The upper-casing is not cosmetic — it is what makes an author's tag pass
+`source-abbreviation`'s already-an-abbreviation branch, so the explicit and derived paths stay one
+path. The key lower-cases either way.
+
+**Keys already minted do not move** (D9). The tag decides what the next one gets, and the row says
+so.
+
+Pinned by four cljs tests and `test/e2e/source-key-tag.js` (placeholder not stored → typed tag
+normalizes → next key carries it → the first key stays put).

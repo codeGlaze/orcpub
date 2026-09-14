@@ -9353,6 +9353,23 @@
               [:button.form-button.m-l-5
                {:on-click (make-event-handler ::e5/delete-plugin name)}
                "delete"]]]
+            ;; The tag this source mints its keys with. Blank means the derivation decides, and the
+            ;; derived value is the PLACEHOLDER rather than a stored copy of a guess -- so improving
+            ;; the rule reaches every source that never set one, and a stored value always means an
+            ;; author chose it.
+            [:div.bf-meta.f-s-14.flex.align-items-c.flex-wrap
+             [:span.m-r-5 "key tag"]
+             [:input.input.h-32.w-100.m-r-10
+              {:type "text"
+               :default-value (:abbreviation plugin)
+               :placeholder (common/source-abbreviation name)
+               :max-length 6
+               :on-blur #(dispatch [::e5/set-source-abbreviation name (.. % -target -value)])}]
+             [:span (str "new keys in this source are minted \u2026-"
+                         (s/lower-case (or (:abbreviation plugin)
+                                           (common/source-abbreviation name)
+                                           "")))
+              ". Keys already minted keep theirs."]]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and

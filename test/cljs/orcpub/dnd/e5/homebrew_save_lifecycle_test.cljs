@@ -55,15 +55,19 @@
   [item]
   (swap! app-db assoc ::langs5e/builder-item item))
 
-(defn- save! []
+(defn- dispatch! 
+  "Dispatch `event` and run everything it queues, synchronously."
+  [event]
   (reset! queued [])
-  (rf/dispatch-sync [::langs5e/save-language])
-  (loop [n 0]                                   ; drain, bounded: this chain is two deep
+  (rf/dispatch-sync event)
+  (loop [n 0]                                   ; drain, bounded: these chains are two deep
     (let [evs @queued]
       (when (and (seq evs) (< n 10))
         (reset! queued [])
         (doseq [ev evs] (rf/dispatch-sync ev))
         (recur (inc n))))))
+
+(defn- save! [] (dispatch! [::langs5e/save-language]))
 
 (defn- set-name! [n]
   (swap! app-db assoc-in [::langs5e/builder-item :name] n))
@@ -246,14 +250,10 @@
   (is (empty? (:builder-field-errors @app-db))))
 
 (defn- change-key! [new-key]
-  (reset! queued [])
-  (rf/dispatch-sync [::e5/change-builder-item-key ::langs5e/save-language new-key])
-  (loop [n 0]
-    (let [evs @queued]
-      (when (and (seq evs) (< n 10))
-        (reset! queued [])
-        (doseq [ev evs] (rf/dispatch-sync ev))
-        (recur (inc n))))))
+  (dispatch! [::e5/change-builder-item-key ::langs5e/save-language new-key]))
+
+(defn- set-abbr! [abbr]
+  (dispatch! [::e5/set-source-abbreviation SRC abbr]))
 
 ;; ---------------------------------------------------------------------------
 ;; Changing a key on purpose
@@ -342,3 +342,41 @@
       "and a source with a real-world abbreviation uses it")
   (is (= :stone-elf (common/source-tagged-key "Stone Elf" ""))
       "a source with no name mints the plain key"))
+
+;; ---------------------------------------------------------------------------
+;; A source's own tag
+;; ---------------------------------------------------------------------------
+
+(deftest a-source-can-set-the-tag-its-keys-are-minted-with
+  ;; The derivation is a guess, and it is a guess nobody can correct for an author's own source.
+  (set-abbr! "twc")
+  (is (= "TWC" (get-in @app-db [:plugins SRC :abbreviation])) "normalized on the way in")
+  (open! (draft "Tideward"))
+  (save!)
+  (is (= #{:tideward-twc} (set (keys (stored)))) "and the next key is minted with it"))
+
+(deftest clearing-the-tag-hands-the-source-back-to-the-derivation
+  (set-abbr! "twc")
+  (set-abbr! "  ")
+  (is (nil? (get-in @app-db [:plugins SRC :abbreviation])) "no stored copy of a guess")
+  (open! (draft "Tideward"))
+  (save!)
+  (is (= #{(k "Tideward")} (set (keys (stored))))))
+
+(deftest keys-already-minted-do-not-move-when-the-tag-changes
+  ;; D9. The tag decides what the NEXT key gets; a stored key is an address something may hold.
+  (open! (draft "Tideward"))
+  (save!)
+  (set-abbr! "twc")
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "the existing key is untouched")
+  (open! (draft "Tidewall"))
+  (save!)
+  (is (= #{(k "Tideward") :tidewall-twc} (set (keys (stored)))) "only the new one carries it"))
+
+(deftest a-tag-that-normalizes-to-nothing-is-not-stored
+  (doseq [junk ["" "   " "!!!" "9" "2022"]]
+    (set-abbr! junk)
+    (is (nil? (get-in @app-db [:plugins SRC :abbreviation])) (pr-str junk)))
+  (testing "a digit may follow a letter, just not lead"
+    (set-abbr! "ua2")
+    (is (= "UA2" (get-in @app-db [:plugins SRC :abbreviation])))))
