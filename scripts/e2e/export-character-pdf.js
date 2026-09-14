@@ -1,6 +1,6 @@
 // Browser end-to-end check of the PDF export.
 //
-//   ./scripts/e2e/run.sh
+//   ./scripts/e2e/run.sh export-character-pdf.js
 //
 // Builds characters through the real builder and exports each one, so the whole
 // path runs: pdf_spec assembling the field map in the browser, the form POST,
@@ -345,6 +345,14 @@ if (require.main !== module) return;
 
   const browser = await chromium.launch({ executablePath: EXECUTABLE });
   const context = await browser.newContext({ acceptDownloads: true });
+  // The cookie banner and the What's New panel (since 2026-09-06) sit over the builder and take
+  // every click. Mark both seen before any page loads, as api-sub-loaders.js does.
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem('orcpub:no-cookie-banner', '1');
+      localStorage.setItem('whats-new-seen', JSON.stringify('summer-patch-2026'));
+    } catch (e) {}
+  });
 
   for (const scenario of SCENARIOS) {
     console.log(`\n${scenario.name}: ${scenario.classes.map(c => c.join(' ')).join(' / ')}`);

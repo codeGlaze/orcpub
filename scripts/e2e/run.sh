@@ -1,16 +1,31 @@
 #!/usr/bin/env bash
 # Browser end-to-end checks against a real server and a real database.
 #
-#   ./scripts/e2e/run.sh [script.js]      (defaults to run.js)
+#   ./scripts/e2e/run.sh <suite.js>
 #
-# Boots the app on an in-memory Datomic, seeds a verified user, drives
-# Chromium through scripts/e2e/run.js, then tears the server down.
+# Boots the app on an in-memory Datomic, seeds two verified users, drives
+# Chromium through the named suite in scripts/e2e/, then tears the server down.
+# Run it with no suite to list them.
 #
 # The database is datomic:mem://, which only exists inside the JVM that
 # created it -- that is why dev/e2e_boot.clj starts the server AND seeds the
 # user in one process rather than shelling out to `lein run -m user`.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
+
+# No default suite. A default named run.js let two unrelated suites claim the same file, and
+# neither run said which one it had picked. Checked before the server boots, so a typo is free.
+SUITE="${1:-}"
+if [ -z "$SUITE" ] || [ ! -f "scripts/e2e/$SUITE" ]; then
+  [ -n "$SUITE" ] && echo "no such suite: scripts/e2e/$SUITE"
+  echo "usage: ./scripts/e2e/run.sh <suite.js>"
+  echo "suites:"
+  for f in scripts/e2e/*.js; do
+    b=$(basename "$f"); [ "$b" = "lib.js" ] && continue
+    echo "  $b"
+  done
+  exit 2
+fi
 
 PORT="${E2E_PORT:-8890}"
 LOG="${E2E_LOG:-/tmp/e2e-server.log}"
@@ -19,6 +34,13 @@ if ! node -e "require('playwright')" 2>/dev/null; then
   echo "playwright is not installed. Run:"
   echo "  (cd scripts/e2e && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install)"
   exit 1
+fi
+
+# Every suite launches whatever E2E_CHROMIUM names, and export-character-pdf.js otherwise only looks
+# in the web sandbox's /opt/pw-browsers. Resolve it with the probes' finder so any machine works.
+if [ -z "${E2E_CHROMIUM:-}" ]; then
+  E2E_CHROMIUM="$(node -e "process.stdout.write(require('./test/browser/lib/find-chrome').resolveBrowser() || '')")"
+  export E2E_CHROMIUM
 fi
 
 if [ ! -f resources/public/js/compiled/orcpub.js ]; then
@@ -32,6 +54,14 @@ fi
 if [ ! -f resources/public/css/compiled/styles.css ]; then
   echo "Compiling the stylesheet (first run only)..."
   lein garden once || exit 1
+fi
+
+# A development bundle (lein fig:build) loads its namespaces with document.write, which the
+# strict policy's 'strict-dynamic' blocks, so every page fails before a check runs. Say so and
+# run without CSP; lein fig:prod builds the bundle the strict policy is for.
+if [ -z "${CSP_POLICY:-}" ] && grep -q CLOSURE_UNCOMPILED_DEFINES resources/public/js/compiled/orcpub.js 2>/dev/null; then
+  export CSP_POLICY=none
+  echo "Development bundle on disk, so CSP is off for this run. Build with lein fig:prod to test under the strict policy."
 fi
 
 echo "Starting server on :${PORT}..."
@@ -58,16 +88,17 @@ if grep -q BindException "$LOG" 2>/dev/null; then
   exit 1
 fi
 
-E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/${1:-run.js}"
+E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/$SUITE"
 NODE_RC=$?
 
 # The browser cannot read PDF field names -- they sit in compressed object
 # streams -- so each exported file is inspected here, where PDFBox is available.
+# Only the PDF suite writes there; any other suite would inspect a previous run's files.
 OUT="${E2E_OUT:-/tmp/e2e-pdf}"
-if [ "$NODE_RC" -eq 0 ]; then
+if [ "$NODE_RC" -eq 0 ] && [ "$SUITE" = "export-character-pdf.js" ]; then
   for pdf in "$OUT"/*.pdf; do
     [ -f "$pdf" ] || continue
-    # run.js leaves the expected page count beside each PDF.
+    # export-character-pdf.js leaves the expected page count beside each PDF.
     MIN_PAGES=""
     [ -f "${pdf%.pdf}.min-pages" ] && MIN_PAGES=$(cat "${pdf%.pdf}.min-pages")
     echo
