@@ -111,3 +111,66 @@
     (testing "meanwhile the first-class selection opens, on top of the skill already held"
       (is (contains? (offered-paths rogue-only) [:class :rogue :skill-proficiency])
           "a rogue chooses 4 skills as a first class — so this character can reach 5"))))
+
+;; ---------------------------------------------------------------------------
+;; The same gate, on STARTING EQUIPMENT — five of the nine prereq-fn sites.
+;;
+;; You get starting equipment from your FIRST class only, so every equipment selection carries
+;; `first-class?` (options.cljc:2672, :2682, :2735, :2798, :2811). Reorder the classes and the
+;; gate flips exactly as it does for skills — but the payload is gear, which a player sees.
+;; ---------------------------------------------------------------------------
+
+(def ^:private fighter-with-pack
+  {:orcpub.entity/key :fighter
+   :orcpub.entity/options {:starting-equipment-equipment-pack
+                           [{:orcpub.entity/key :explorers-pack}]
+                           :levels [(lvl 1)]}})
+
+(def ^:private rogue-plain
+  {:orcpub.entity/key :rogue :orcpub.entity/options {:levels [(lvl 1)]}})
+
+(defn- equipment-keys [classes]
+  (set (keys (char5e/normal-equipment-inventory (build classes)))))
+
+(defn- equipment-selections [classes]
+  (let [char {:orcpub.entity/options
+              {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
+               :class classes}}]
+    (->> (entity/get-all-selections-2 @the-template (entity/make-path-map char) (build classes))
+         (filter #(contains? (::t/tags %) :equipment))
+         (map ::entity/path)
+         set)))
+
+(deftest ^:diagnostic report-equipment-across-a-class-reorder
+  (println "\n=== starting equipment, when the granting class stops being first ===")
+  (doseq [[label classes] [["fighter first"            [fighter-with-pack rogue-plain]]
+                           ["rogue first, fighter 2nd" [rogue-plain fighter-with-pack]]]]
+    (println "\n" label)
+    (println "   equipment:" (pr-str (sort (equipment-keys classes))))
+    (println "   equipment selections offered:" (count (equipment-selections classes)))
+    (doseq [p (sort-by str (equipment-selections classes))]
+      (println "     " (pr-str p)))))
+
+(deftest starting-equipment-survives-the-class-losing-first-place
+  (let [fighter-1st [fighter-with-pack rogue-plain]
+        rogue-1st   [rogue-plain fighter-with-pack]
+        pack        #{:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen
+                      :tinderbox :torch :waterskin}]
+
+    (testing "fighter first: its explorer's pack is on the sheet and its selections are offered"
+      (is (= pack (equipment-keys fighter-1st)))
+      (is (contains? (equipment-selections fighter-1st)
+                     [:class :fighter :starting-equipment-equipment-pack])))
+
+    (testing "rogue first: the fighter's pack is STILL on the sheet"
+      (is (= pack (equipment-keys rogue-1st))))
+
+    (testing "…while the control that granted it is gone"
+      (is (not (contains? (equipment-selections rogue-1st)
+                          [:class :fighter :starting-equipment-equipment-pack]))
+          "the fighter's equipment selection is filtered out by first-class?"))
+
+    (testing "…and the rogue's own starting equipment opens on top of it"
+      (is (contains? (equipment-selections rogue-1st)
+                     [:class :rogue :starting-equipment-equipment-pack])
+          "so the character can hold two classes' starting packs"))))

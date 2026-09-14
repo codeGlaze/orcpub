@@ -757,12 +757,13 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, multi-tab-character-contamination, multiclass, nine, pick, prereq, remove, replacement, report, reproduced, rogue, selection, skill, template, unreachable
+**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
 
 - The mechanism
 - What is NOT broken
 - What is broken
-- Exposed sites
+- Exposed sites — by what is gated, not by where the code lives
+- Starting equipment is the most visible case
 - The multiclass case — REPRODUCED
 - Why it has been hard to find## Why it has been hard to find
 - Fixing it

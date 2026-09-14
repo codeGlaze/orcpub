@@ -50,17 +50,43 @@ duplicate removed: {:athletics {"Testbound" true}, :insight {nil true}}
 The background's own skill comes back **and** the replacement stays. A free extra skill, with no
 control on screen to remove it.
 
-## Exposed sites
+## Exposed sites — by what is gated, not by where the code lives
 
-Every selection carrying a `prereq-fn` is in this class — nine live sites in `options.cljc`:
+**VERIFIED.** Nine `prereq-fn` sites in `options.cljc`, but the useful grouping is what they gate.
+Five of them are **starting equipment**, which an earlier version of this doc missed by counting
+definitions instead of callers.
 
-| site | gate | the scenario |
-| --- | --- | --- |
-| `background-skills-cfg` replacement (`:2845`) | held by another source | change race after taking the background |
-| `class-skill-selection` (`:2672`, `:2682`) | `first-class?` | **change class order** |
-| the multiclass variants (`:2735`, `:2798`, `:2811`) | `(complement first-class?)` | **reproduced — see below** |
-| `tool-prof-selection` / `-aux` (`:2630`, `:2655`) | caller's prereq | as above |
-| `skill-selection-2` (`:1127`), `tool-proficiency-selection-2` (`:1183`) | caller's prereq | as above |
+| what is gated | sites | gate | status |
+| --- | --- | --- | --- |
+| class skills, first-class arm | `class-skill-selection … :skill-proficiency` (`:3347`) | `first-class?` | **reproduced** |
+| class skills, multiclass arm | `… :multiclass-skill-proficiency` (`:3351`) | `(complement first-class?)` | **reproduced** |
+| class starting equipment | `:2672`, `:2682`, `:2735`, `:2798`, `:2811` | `first-class?` | **reproduced** |
+| class tools | `tool-prof-selection … :tool-selection` (`:3339`), `:multiclass-tool-selection` (`:3341`) | both arms | untested |
+| background replacement skill | `background-skills-cfg` (`:2845`) | held by another source | **reproduced** |
+
+`does-not-have-feat-prereq` (`:1319`) is a **different mechanism** — `::t/prereq-fn` inside an
+option's `::t/prereqs`, read by `meets-prereqs?`, not a selection gate. Not in this class.
+
+## Starting equipment is the most visible case
+
+**VERIFIED** (`multiclass_hidden_pick_test.clj`). Fighter 1 / Rogue 1 with the fighter's
+Explorer's Pack chosen:
+
+```
+fighter first
+  equipment: (:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen :tinderbox :torch :waterskin)
+  offered:   [:class :fighter :starting-equipment-equipment-pack]  (and 3 more fighter selections)
+
+rogue first, fighter 2nd
+  equipment: (:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen :tinderbox :torch :waterskin)
+             ← identical, still there
+  offered:   [:class :rogue :starting-equipment-equipment-pack]    (fighter's: GONE)
+```
+
+The character keeps the fighter's whole starting pack, has no control to remove it, **and** the
+rogue's starting equipment opens on top — so they can hold two classes' starting gear. Eight items
+in the inventory is considerably easier to notice than one extra skill, which may be why this gets
+reported as "an option I can't uncheck" rather than as a rules error.
 
 ## The multiclass case — REPRODUCED
 
