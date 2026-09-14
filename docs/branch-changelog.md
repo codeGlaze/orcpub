@@ -30,8 +30,11 @@ comes with a check that fails without it.
 
 - **A party keeps a shared character's homebrew** — a character added to a party from its share link
   shows its homebrew on the party page, until its owner makes a new link (`c69dcf9d`).
-- **Unused share links expire** — a share link nobody opens for 180 days is deleted with its homebrew;
-  the owner can share again, and `ORCPUB_SHARE_PRUNE_DAYS` sets the window (`59400455`).
+- **Unused share links expire** — a share link nobody opens for 180 days of the server running is
+  deleted with the server's copy of its homebrew; the character and the owner's homebrew stay, the owner
+  can share again, and `ORCPUB_SHARE_PRUNE_DAYS` sets the window. A request without the link's token
+  does not count as use, and time the server was off does not count against a link (`59400455`,
+  `110569dc`).
 
 ## Fixed
 
