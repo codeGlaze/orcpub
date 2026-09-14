@@ -149,7 +149,10 @@ fi
 ```
 
 Place the check **before** the server boots, so a typo costs nothing rather than a full build and
-boot. Scheduled as step 3 of the active sequence in `BRANCH.md`.
+boot. **Done on `integration-local`, 2026-09-13:** `run.js` is now `export-character-pdf.js`, `run.sh`
+lists the suites when given none or a missing one, honours `E2E_PORT`, and turns CSP off (and says so)
+when the bundle on disk is a development build. `fix/custom-item-classification` still has to rename
+its own `run.js` to `classify-items-in-builder.js`.
 
 ### The four facts behind those seven lines
 

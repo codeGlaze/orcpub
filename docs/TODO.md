@@ -390,7 +390,10 @@ the selected-value display and the on-pick behaviour.
 
 ## Restrict PDF image-URL schemes and reject private address ranges
 
-**Status:** Open
+**Status:** Fixed, except the login question at the end. Checked 2026-09-13 on `integration-local`:
+`routes/image-url-shape` refuses anything but `http(s)`, and `pdf/safe-image-bytes` resolves the host
+once, rejects loopback and private-range addresses, and fetches with redirects off (`d3a3bfad`).
+Still open: whether `/character.pdf` should require a login.
 **Severity:** Medium — unauthenticated endpoint, pre-existing
 **Reported:** 2026-04-22
 **File:** `src/clj/orcpub/routes.clj:678-693`
@@ -658,24 +661,107 @@ Decide this before anyone restores the switched-off item-by-id loader (`::mi5e/r
 `equipment_subs.cljs`, with `::mi/add-remote-item` in `events.cljs`) or builds item sharing on it.
 Recorded 2026-09-13 from the #669 review.
 
-What is true today:
+Decided 2026-09-13: an item is loaded only as part of the character it is equipped on, and nobody
+else gets its database id or its owner. Done on `integration-local` the same day:
 
-- `GET /api/dnd/e5/items/:id` (`routes/get-item`) has no `check-auth`. It returns any item that has
-  an owner, the owner's username included, to anyone who sends its database id.
-- The ids are not secret. A character share link carries each custom item the character equips
-  whole, as the server sent it (`share-bundle/used-custom-items`), so `:db/id` and the owner travel
-  with it.
+- `GET /dnd/5e/items/:id` (`routes/get-item`) needs a login and answers the item's owner only; anyone
+  else gets the 404 a missing item gets (`2cae044b`).
+- A share link carries each equipped custom item's fields without `:db/id` at any depth and without
+  the owner (`share-bundle/used-custom-items`). Links made before that drop both on arrival
+  (`share-bundle/whitelist-shared`; `c34075f2`).
+- A character read brings the owner's custom items it has equipped (`routes/get-character-for-id`,
+  `7f375829`), so share links no longer carry items at all; links made before still open.
+
+Still true:
+
 - The item page (`/magic-items/:key`) reads `::mi/custom-item` from the logged-in user's own list, so
   a link to someone else's item shows "not found".
 - On a shared character the items are view-only. Keep saves homebrew only, and the banner says keeping
-  items is not supported yet.
-- Copying cannot overwrite the sender's item by accident: `update-entity` refuses an id the user does
-  not own. A copy would have to be saved without `:db/id`.
+  items is not supported yet. No branch builds keeping items.
+- Copying cannot overwrite the sender's item: `update-entity` refuses an id the user does not own. A
+  copy has to be saved without `:db/id`, which a shared item no longer carries.
 
-Open questions:
+Open, for the share permissions work in the next entry:
 
-1. May anyone read an item by id, or only its owner? If a share link should grant access, that needs a
-   different mechanism than a guessable id.
-2. Should a share link strip `:db/id` and the owner from the items it carries? The recipient does not
-   need either to draw the sheet.
-3. Can a recipient keep a shared item as their own copy, and does the copy remember where it came from?
+1. Can a recipient keep a shared item as their own copy, and does the copy remember where it came from?
+2. Items reach a shared sheet by their name-derived key, so renaming an item drops it there too. Stable
+   item identity fixes both (the entry after next).
+
+## Share permissions and groups (a future feature branch, not the Summer Update)
+
+Character sharing is an original feature; the Summer Update only added embedded homebrew and custom
+items to the link. Decided 2026-09-13 that nothing here blocks that release. Recorded so the design
+starts from what is actually true.
+
+What is true today (checked on `integration-local`, 2026-09-13):
+
+- **A character is readable by anyone who has its number.** `GET /dnd/5e/characters/:id`
+  (`routes/get-character`) and the character page need no login, and the numbers are database ids
+  that sit close together, so someone can step through them. A share link is that address plus the
+  embedded content after `#c=`.
+- **Embedded content cannot be taken back.** It rides in the URL fragment, which never reaches the
+  server, so it cannot be revoked or updated, and it stays in whatever chat the link was pasted into.
+- **Following needs no consent.** Follow any username and that account's characters appear in your
+  character list (`routes/character-summary-list`).
+- **Parties are private lists.** Every party route runs `check-party-owner`; there are no members.
+- **A portrait loads from whatever address its owner typed**, because the CSP's `img-src` allows
+  `https:`, so that host sees every viewer's IP address. The September image work got portraits into
+  the PDF; it did not change how the sheet shows them.
+- **The server answers 401 both for "not logged in" and for "not yours"** (saving or deleting another
+  account's character or item), so the client cannot log out on a rejected token for those requests.
+  See `kb/auth-state-in-app-db.md`.
+
+Already done on `integration-local`, 2026-09-13: reading an item by id is owner-only, and a character
+read shows its owner's username and never an email address (`2cae044b`; characters saved during nine
+days in May 2017 name their owner by the email used to log in). Share links no longer carry item ids
+or owners (`c34075f2`), and then no items at all, because a character read brings the items it has
+equipped (`7f375829`).
+
+The plan:
+
+1. **Visibility per character, stored on the server:** private, anyone with the link, group, or
+   public. Existing characters default to anyone with the link, so links already out there keep
+   working. Every character read goes through one server check.
+2. **Share by an unguessable token** instead of the database number. The owner creates it, can revoke
+   it, and can let it expire.
+3. **Groups as a server object.** People join by invite and accept, with roles such as DM and player.
+   Parties are the natural thing to grow into groups.
+4. **403 for "not yours", 401 only for "not logged in"**, so every rejected token can log the user out.
+5. **Share by reference inside a group.** Custom items already travel this way: a character read
+   brings the items it has equipped (`7f375829`), under the same access as the character, so
+   tightening character visibility (item 1) tightens them too. Homebrew from a player's own library
+   still rides in the link, because the server never had it. Needs stable item identity (the next
+   entry), and the versioning design in `kb/content-tiers-and-key-resolution.md` for "an item you use
+   was updated".
+6. **Display names in public responses** instead of raw usernames.
+7. **Follow with consent**, or fold following into groups.
+8. **Serve portraits from this server.** It already fetches and validates them for the PDF, so a
+   viewer's browser would only talk to us.
+
+## Renaming a custom item drops it from every character that uses it
+
+**Status:** Open. Written up only, on the unmerged docs branch `fix/item-stable-identity`
+(`docs/issues/item-stable-identity.md`, `bd07166e`, corrected in `b0094568`). Recorded here
+2026-09-13 because that write-up had nearly been lost.
+
+A custom item's key is derived from its name (`magic-items/add-key`, which `expand-magic-items` runs on
+every item), and a character stores that bare key. Rename "Bastard Sword" to "Bastard Blade" and every
+character holding `:bastard-sword` silently loses the item and its modifiers, with no error. The
+id-based fallback in `equipment_subs.cljs`, `(or key (keyword (str "id-" id)))`, never runs, because
+`:key` is always set.
+
+Do not switch character references to `:db/id`: an id means nothing outside one database, and
+name-derived keys are what keep `.orcbrew` content and shared characters resolvable elsewhere. The
+write-up's proposal:
+
+- Give each custom item a random key when it is created (`::mi/key`) and use it for new selections.
+  It survives a rename, travels with the item, and does not collide between accounts.
+- Backfill the current name-derived key onto existing items once, as a frozen `::mi/legacy-key`, and
+  register it as a hidden but still resolvable option, so existing characters keep resolving through
+  any number of renames. Nothing is retracted and no character is rewritten, the same additive pattern
+  `fix/custom-item-classification` uses.
+- SRD items keep name-derived keys; nobody renames them.
+
+It matters for shared sheets too: a character read brings its owner's items by the same name-derived
+key (`7f375829`), so a renamed item drops off a shared sheet as well. There, the owner's item wins over a
+viewer's own item of the same name, because the shared overlay is appended last.

@@ -1,5 +1,10 @@
 # Plan: custom magic items on a shared character sheet
 
+**Built, then superseded, 2026-09-13.** Carrying items in the link shipped from this plan on
+2026-08-09. It was replaced on `integration-local` by `7f375829`: a character read now brings the
+custom items it has equipped from the server, and links carry only homebrew. The key-matching finding
+below still holds; it is what the server uses (`share-bundle/used-custom-items`).
+
 How to make a character's CUSTOM magic items / weapons / armor apply on a shared
 sheet (a link opened by a different session), extending the homebrew-embed share
 feature. Output of a dedicated research spike. file:line against the
