@@ -526,10 +526,13 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** attribute, concatenation, decision-already-held-resolution, defect, fifth, filter, gate, hidden-selection-picks, history, log, mug, multi-tab-character-contamination, notice, paper, player, sites, skill, two-pass
+**topics:** backstop, concatenation, condition, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
-- Where the gate goes
+- The trace closes: there is no unknown family
+- The real diagnosis: the same rule, implemented twice, one of them wrong
+- Where the gate goes — REVISED
+- The efficiency this branch already buys
 - It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
 - The mug does not cover this
 - The paper trail: a new attribute, not an existing text field
@@ -722,7 +725,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -744,7 +747,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, source, tag, waiting, worktree
+**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
 
 - The branches, and the order
 - Gates, as measured on each branch
@@ -941,7 +944,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -1007,7 +1010,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1024,7 +1027,7 @@ _starting-equipment · starting equipment_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, backdrop, browser, cljs, debt, diagnosis, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved
+**topics:** 2016, assertions, backdrop, browser, cljs, debt, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring

@@ -12,21 +12,99 @@ Rationale: the rule is the rule, and a character carrying a skill with no contro
 worse than one that loses a skill and is told why. Existing characters are corrected on their next
 build. The notice is what turns "where did my skill go" into an answer.
 
-## Where the gate goes
+## The trace closes: there is no unknown family
 
-`apply-options` (`entity.cljc:661`) is the only place options become modifiers:
+**VERIFIED.** `skill-selection-2` and `tool-proficiency-selection-2` accept a caller-supplied
+`prereq-fn`, and an earlier version of this doc left their callers as an unknown. Traced: of the
+thirteen live call sites, exactly **two** pass one —
+
+| caller | gate |
+| --- | --- |
+| `background-skills-cfg` (`:2855`) | held by another source |
+| `class-skill-selection` (`:3264`) | `first-class?` / `(complement first-class?)` |
+
+Every other caller passes the 2- or 3-arg form and is ungated. So the complete list of gated
+selections is: class skills (2 arms), class tools (2 arms), class starting equipment (5), and the
+background replacement (1). **Nine, all accounted for**, and only class tools is uncharacterized.
+
+## The real diagnosis: the same rule, implemented twice, one of them wrong
+
+The multiclass rule is enforced in two different places depending on whether the proficiency is
+fixed or chosen — **in the same file**, for the same rule.
+
+**Fixed** — the condition rides on the modifier and is re-evaluated on every build:
 
 ```clojure
-(defn apply-options [raw-entity template]
-  (let [options   (flatten-options (::options raw-entity))
-        modifiers (sort-by ::mods/order (collect-modifiers-2 raw-entity options template))
-        …]
-    (mods/apply-modifiers base ordered-mods)))
+(defn weapon-proficiency [key & [first-class? cls-kw]]
+  (if first-class?
+    (mods/set-mod ?weapon-profs key nil nil [(= cls-kw (first ?classes))])   ; ← here
+    (mods/set-mod ?weapon-profs key)))
 ```
 
-The gate belongs between `flatten-options` and `collect-modifiers-2`: drop options whose owning
-selection is disqualified, exactly as `remove-disqualified-selections` (`:536`) already does for
-the builder.
+**Chosen** — the condition lives only on the selection, which is a display filter, and the
+option's own modifiers carry nothing:
+
+```clojure
+(defn class-skill-selection [{…} key prereq-fn]
+  (skill-selection skill-kws skill-num skill-select-order key prereq-fn))
+;; → skill-selection-2 → :prereq-fn prereq-fn        (display only)
+;;   options' modifiers: (modifiers/skill-proficiency skill-kw source)   ← no condition
+```
+
+**The fixed path is correct by construction. The chosen path relies on a filter that only the
+builder runs.** That asymmetry *is* the defect — not a missing gate at the entity layer.
+
+And the mechanism to fix it is already present and unused on this path: `skill-proficiency` takes
+a `conditions` argument.
+
+```clojure
+(defmacro skill-proficiency [skill-kw & [source conditions]] …)
+```
+
+## Where the gate goes — REVISED
+
+Put the condition on the chosen path's modifiers, exactly as the fixed path already does. Not a
+filter at the entity layer.
+
+```clojure
+;; class-skill-selection, with the owning class threaded in
+(modifiers/skill-proficiency skill-kw source [(= cls-kw (first ?classes))])
+```
+
+Why this over gating in `apply-options`:
+
+| | condition on the modifier | filter in `apply-options` |
+| --- | --- | --- |
+| mechanism | already exists, already proven on the fixed path | new |
+| hot path | untouched | a predicate over every option, every build |
+| ordering | none — conditions are evaluated where every other condition is | needs the raw-vs-derived split below |
+| lands | per site, incrementally, each with its own pinning test | all nine at once, one large behavioural change |
+| explains itself | the condition is data the builder can also read, so the UI can say *why* | opaque |
+| closes the general hole | **no** — a future selection with a `prereq-fn` and no condition still leaks | **yes** |
+
+The last row is the real trade. The modifier fix is right for the nine that exist; the entity-layer
+gate is what stops a tenth appearing. **Do the modifier fix now and keep the entity gate as the
+backstop**, rather than treating them as alternatives.
+
+### The efficiency this branch already buys
+
+These selections are on the 35-row deletion table — they are being replaced by `:grants` anyway.
+`compile-grants` is getting the owner threaded through it for the already-held resolution
+([decision-already-held-resolution.md](decision-already-held-resolution.md)), and `:prereq-fn`
+passthrough for the class multiclass rows. **A grant compiled with its owner's condition is
+gated correctly by construction.**
+
+So converting a site to a grant fixes it as a side effect, and the migration and the bug fix are
+the same work. The sequencing follows:
+
+1. **Class tools** — the one uncharacterized family. Pin it.
+2. **The condition on chosen class skills** — the smallest real fix, proves the shape.
+3. **Everything else as it migrates**, with the grant carrying the condition.
+4. **The entity-layer gate last**, as the backstop for anything that never migrates, with the
+   full nine-site characterization behind it.
+
+Step 2 is worth doing standalone even though step 3 would subsume it: the migration is long, and
+this is shipped behaviour people are hitting now.
 
 ## It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
 
