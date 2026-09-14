@@ -323,7 +323,19 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::party5e/character-ids
     :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many}])
+    :db/cardinality :db.cardinality/many}
+   ;; The share token a character was added with, when it came from a share link, so the party page
+   ;; can load that character's homebrew.
+   {:db/ident ::party5e/shared-tokens
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
+   {:db/ident :orcpub.party-share/character
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.party-share/token
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
 
 (def folder-schema
   [{:db/ident ::folder5e/owner

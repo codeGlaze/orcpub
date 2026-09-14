@@ -1244,6 +1244,13 @@
  ::class5e/delete-class
  ::e5/classes)
 
+(defn- share-token-for
+  "The share token the character page was opened with, when it is this character's."
+  [db character-id]
+  (let [{:keys [character token]} (:share-link db)]
+    (when (and token (= character (js/parseInt (str character-id))))
+      token)))
+
 (reg-event-fx
  ::party5e/make-party-success
  (fn []
@@ -1260,8 +1267,14 @@
     :http {:method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
-           :transit-params {::party5e/name "A New Party"
-                            ::party5e/character-ids character-ids}
+           :transit-params (let [tokens (keep (fn [cid]
+                                                (when-let [t (share-token-for db cid)]
+                                                  {:orcpub.party-share/character (js/parseInt (str cid))
+                                                   :orcpub.party-share/token t}))
+                                              character-ids)]
+                             (cond-> {::party5e/name "A New Party"
+                                      ::party5e/character-ids character-ids}
+                               (seq tokens) (assoc ::party5e/shared-tokens (vec tokens))))
            :on-success [::party5e/make-party-success]}}))
 
 (reg-event-fx
@@ -1376,7 +1389,11 @@
  (fn [{:keys [db]} [_ id character-id show-confirmation?]]
    {:http {:method :post
            :headers (authorization-headers db)
-           :transit-params character-id
+           ;; From a page opened through a share link, the token goes too, so the party page can load
+           ;; the character's homebrew.
+           :transit-params (if-let [token (share-token-for db character-id)]
+                             {:character-id character-id :share-token token}
+                             character-id)
            :url (url-for-route routes/dnd-e5-char-party-characters-route :id id)
            :on-success [::party5e/add-character-remote-success show-confirmation?]}}))
 
@@ -2172,7 +2189,10 @@
            (not skip-path?) (assoc :path path)
            ;; Leaving/entering a plain character view clears any prior shared overlay
            ;; so view-once content (homebrew + custom items) never lingers across characters.
-           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
+           ;; The link this page was opened with, so Add to Party can keep its token.
+           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil
+                              :share-link (when share-token
+                                            {:character (js/parseInt (:id route-params)) :token share-token}))
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
            share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
@@ -5263,7 +5283,7 @@
 ;; exactly as an embedded payload loads, within the caps the server reports.
 (reg-fx
  ::fetch-shared-homebrew!
- (fn [[id token]]
+ (fn [[id token on-loaded failure-message]]
    (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :token token))
        (.then (fn [resp]
                 (if (.-ok resp)
@@ -5274,15 +5294,32 @@
                 (cond
                   (:error result)
                   (do (js/console.warn "Shared content not loaded:" (name (:error result)))
-                      (dispatch [:show-message "The homebrew this link shared could not be loaded. Ask for a new link."]))
+                      (dispatch [:show-message failure-message]))
                   (or (seq (:plugins result)) (seq (:custom-items result)))
-                  (dispatch [::e5/apply-shared-content result]))))
+                  (dispatch (conj on-loaded result)))))
        (.catch (fn [e] (js/console.warn "Shared content not loaded:" e))))))
 
 (reg-event-fx
  ::e5/load-shared-homebrew
  (fn [_ [_ id token]]
-   {::fetch-shared-homebrew! [id token]}))
+   {::fetch-shared-homebrew! [id token [::e5/apply-shared-content]
+                              "The homebrew this link shared could not be loaded. Ask for a new link."]}))
+
+;; A party page row whose character was added from a share link loads that character's homebrew. It goes
+;; into the shared overlay beside any other row's, through the same load gate, without the banner a link
+;; shows; loading it counts as use of the share.
+(reg-event-fx
+ ::party5e/load-shared-homebrew
+ (fn [_ [_ id token]]
+   {::fetch-shared-homebrew! [id token [::party5e/apply-shared-homebrew]
+                              "The homebrew shared for a character in this party is no longer available."]}))
+
+(reg-event-db
+ ::party5e/apply-shared-homebrew
+ (fn [db [_ {:keys [plugins]}]]
+   (let [plugins        (map-plugin-classes sel/expand-class plugins)
+         {:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)]
+     (update db :shared-plugins #(e5/merge-all-plugins (or % {}) kept)))))
 
 (reg-event-fx
  ::e5/load-shared-content
