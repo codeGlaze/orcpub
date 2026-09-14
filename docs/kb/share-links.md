@@ -57,15 +57,17 @@ edit").
 ## Pruning
 
 A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` days while the server runs (default 180; 0 keeps shares
-forever) is deleted. Only the share record goes: the token and the server's copy of the homebrew. The
+forever; 1 to 29 count as 30, so a typo cannot delete links a day old) is deleted. Only the share record goes: the token and the server's copy of the homebrew. The
 character, a party's entry for it, and the homebrew in the owner's library are never touched, and the
 owner can share again at any time.
 
 Use is a request that could see the share: the link opened with its current token, the owner's page
 refreshing the copy, or a party page loading it. It is recorded in `:orcpub.share/used` at most once a
 day, so opening a link repeatedly writes nothing; to make up for that, a share is deleted only after one
-day more. A request with a wrong or missing token, or from anyone but the owner, records nothing, so
-nobody can keep a share alive by requesting its URL.
+day more. Every route that makes a share records a use; a record without one, such as a share made
+before pruning existed, counts from when the record was made, so it expires rather than staying forever.
+A request with a wrong or missing token, or from anyone but the owner, records nothing, so nobody can
+keep a share alive by requesting its URL.
 
 Only `routes.share/prune!` deletes, run by `orcpub.share-pruner` a minute after start and then hourly.
 Asking for a share never deletes it, so a share just past its window still works until the next run, and
