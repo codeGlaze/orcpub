@@ -54,6 +54,37 @@ changed. Editing the library without reopening a character leaves the last copy 
 shared characters after a library edit is future work (TODO, "Refresh shared homebrew after a library
 edit").
 
+## Pruning
+
+A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` (default 180; 0 keeps shares forever) is deleted,
+token and homebrew together. Use is: someone opening the link, the owner's page refreshing the copy, or a
+party page loading it. It is recorded in `:orcpub.share/used` at most once a day, so opening a link
+repeatedly writes nothing. An expired share is deleted the moment anything asks for it
+(`routes.share/live-share`), and `orcpub.share-pruner` sweeps the rest a minute after start and then
+daily (`routes.share/prune!`). Afterwards the old link says the homebrew could not be loaded, a party
+lists no token for it, and the owner's button reads Share link again, which makes a new link. 180 days
+leaves room for a campaign that pauses for a season.
+
+## Parties
+
+A logged-in viewer of someone else's character page sees Add to Party, which is how a DM usually adds a
+friend's character from a link. A party stores character ids, not links, so without more the party page
+loaded the character with no homebrew. Now:
+
+- The `:route` handler remembers the token a character page was opened with (`db :share-link`), and Add to
+  Party sends it: `{:character-id id :share-token token}` to `routes.party/add-character`, or
+  `::party5e/shared-tokens` when it makes a new party (`create-party`).
+- The server keeps a token with the party entry only when it is that character's current, unexpired
+  token (`routes.share/token-current?`), and lists only tokens that still work.
+- Opening that character's row on the party page dispatches `::party5e/load-shared-homebrew`, which loads
+  the homebrew into the shared overlay beside other rows' (no banner) and counts as use of the share.
+- New link or pruning leaves the party listing no token, so the row loads nothing. Removing the character
+  from the party drops its token.
+- Only characters can join a party. Adding checked nothing before, so any entity id could be added.
+
+Limits: rows share one overlay, so two characters whose homebrew uses the same key show the later row's;
+and, as with a link, the overlay stays until the next character page.
+
 ## What the server knows
 
 It stores and serves the homebrew readable, as it already does the character and its custom items. The
@@ -107,7 +138,8 @@ back means restoring `routes/share.clj`, `share_url.cljs`, the share parts of `i
 - **A report-and-remove process** for shared homebrew (TODO, "Share permissions and groups").
 - **Per-character visibility** would put the character, the items it brings and its shared homebrew
   behind one check.
-- **No expiry.** A link works until New link or the character is deleted.
+- **No way for the owner to see or revoke a party's copy of a token** other than New link, which
+  revokes every link and party entry at once.
 
 ## Traps hit building it
 
@@ -125,3 +157,8 @@ the new text; New link makes a different link, the old one stops loading and the
 code, nothing homebrew-shaped, both caps, pasted media and bad keys refused), an unchanged upload doing no
 work, the caps headers, the quota, New link and deletion.
 `test/cljs/orcpub/dnd/e5/share_url_test.cljs` covers the round trip, field order and both caps.
+`scripts/e2e/run.sh party-keeps-shared-homebrew.js`: zoe opens kaylee's link, adds the character to a
+party, and the party page loads its homebrew until kaylee presses New link.
+`test/clj/orcpub/routes/party_test.clj` covers characters only, tokens kept only while current, New link
+and removal; `share_test.clj` also covers pruning, use keeping a share alive, daily recording, the sweep
+and 0 days.

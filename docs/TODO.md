@@ -731,10 +731,11 @@ The plan:
 4. **403 for "not yours", 401 only for "not logged in"**, so every rejected token can log the user out.
 5. **Share by reference inside a group.** Custom items already travel this way: a character read
    brings the items it has equipped (`7f375829`), under the same access as the character, so
-   tightening character visibility (item 1) tightens them too. Homebrew from a player's own library
-   still rides in the link, because the server never had it. Needs stable item identity (the next
-   entry), and the versioning design in `kb/content-tiers-and-key-resolution.md` for "an item you use
-   was updated".
+   tightening character visibility (item 1) tightens them too. Homebrew now does for shared characters:
+   the server keeps the owner's current copy behind a token, and a party that added the character from
+   its link keeps that token, so the party page loads the homebrew (`kb/share-links.md`). Groups would
+   replace per-link tokens with membership. Needs stable item identity (the next entry), and the
+   versioning design in `kb/content-tiers-and-key-resolution.md` for "an item you use was updated".
 6. **Display names in public responses** instead of raw usernames.
 7. **Follow with consent**, or fold following into groups.
 8. **Serve portraits from this server.** It already fetches and validates them for the PDF, so a
