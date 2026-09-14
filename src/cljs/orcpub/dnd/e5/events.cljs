@@ -2132,12 +2132,11 @@
     (when (s/starts-with? h "#c=")
       (not-empty (subs h 3)))))
 
-(defn- shared-snapshot-ref
-  "The encrypted snapshot a short share link names (#s=<share id>.<key>), as [share key], or nil."
+(defn- share-token-in-link
+  "The token a short share link carries (#s=<token>), or nil."
   []
   (let [h (or (some-> js/window .-location .-hash) "")]
-    (when-let [[_ share k] (re-matches #"#s=([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})" h)]
-      [share k])))
+    (second (re-matches #"#s=([A-Za-z0-9_-]{22})" h))))
 
 (reg-event-fx
  :route
@@ -2158,7 +2157,7 @@
              ;; and only into the ephemeral :shared-plugins overlay (never the library).
              char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
              shared-payload (when char-page? (shared-content-payload))
-             shared-snapshot (when char-page? (shared-snapshot-ref))]
+             share-token (when char-page? (share-token-in-link))]
          (when (and js/window.location
                     secure?
                     (not= "localhost" js/window.location.hostname))
@@ -2175,7 +2174,7 @@
            ;; so view-once content (homebrew + custom items) never lingers across characters.
            char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
-           shared-snapshot (update :dispatch-n conj [::e5/load-shared-snapshot (:id route-params) shared-snapshot])
+           share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
            ;; A character that healed on its way here -- opened from the list, or
            ;; restored at boot -- is announced now, AFTER the [:hide-message] above.
@@ -5260,14 +5259,17 @@
                   (or (seq (:plugins result)) (seq (:custom-items result)))
                   (dispatch [::e5/apply-shared-content result])))))))
 
-;; A short share link names an encrypted snapshot on the server. Fetch it, decrypt it with the key
-;; from the link, and load it exactly as an embedded payload loads.
+;; A short share link carries a token for the homebrew the server keeps for the character. Load it
+;; exactly as an embedded payload loads, within the caps the server reports.
 (reg-fx
- ::fetch-shared-snapshot!
- (fn [[id [share k]]]
-   (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :share share))
-       (.then (fn [resp] (when (.-ok resp) (.arrayBuffer resp))))
-       (.then (fn [buf] (if buf (share-url/decode-snapshot (js/Uint8Array. buf) k) {:error :missing})))
+ ::fetch-shared-homebrew!
+ (fn [[id token]]
+   (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :token token))
+       (.then (fn [resp]
+                (if (.-ok resp)
+                  (-> (.arrayBuffer resp)
+                      (.then #(share-url/decode-share (js/Uint8Array. %) (share-url/share-caps-from resp))))
+                  {:error :missing})))
        (.then (fn [result]
                 (cond
                   (:error result)
@@ -5278,9 +5280,9 @@
        (.catch (fn [e] (js/console.warn "Shared content not loaded:" e))))))
 
 (reg-event-fx
- ::e5/load-shared-snapshot
- (fn [_ [_ id snapshot]]
-   {::fetch-shared-snapshot! [id snapshot]}))
+ ::e5/load-shared-homebrew
+ (fn [_ [_ id token]]
+   {::fetch-shared-homebrew! [id token]}))
 
 (reg-event-fx
  ::e5/load-shared-content

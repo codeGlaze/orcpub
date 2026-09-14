@@ -1,58 +1,70 @@
-;; Encrypted share snapshots: the homebrew a character's share link carries.
+;; Shared homebrew: what a character's short share link loads.
 (ns orcpub.routes.share
-  "The browser compresses a character's homebrew bundle, encrypts it, and uploads only the ciphertext.
-   The key travels in the link after #, which browsers never send, so the server stores what it cannot
-   read.
+  "A character's owner shares the homebrew it uses by link, /characters/<id>#s=<token>. The server keeps
+   one copy per character and replaces it whenever the owner's share button sends the homebrew again,
+   so the link stays the same and shows the current homebrew.
 
-   The key is derived from the character's share salt, the character id and the bundle, and the
-   snapshot id from the key. The same homebrew therefore gives the same link in any session or
-   browser, and uploading it again stores nothing. The salt is random and kept here; replacing it
-   (new-salt) deletes the character's snapshots, so every link made before stops loading the homebrew
-   and the next Copy link is a different one.
+   The token is random, and only the owner can see or replace it. New link replaces it and deletes the
+   stored homebrew, so every link made before loads nothing. The token stays after the # in the link,
+   which is not part of the page request the server logs.
 
-   Anyone may fetch a snapshot, as anyone may read the character; without the key it is noise. Only
-   the character's owner may store one or see or replace its salt. The server cannot check what is
-   inside a snapshot, so its guards are size: max-blob-bytes a snapshot, the newest
-   max-shares-per-character kept for each character, and max-bytes-per-owner across an account. A
-   character's snapshots and salt are deleted with it."
-  (:require [datomic.api :as d]
+   An upload that differs from the last one is checked once: unpacked under a size cap, read as plain
+   data, and required to be exactly homebrew, meaning share-bundle/whitelist-shared keeps all of it and
+   changes nothing. The browser applies the same filter before sending, so an honest upload passes and
+   is stored as sent; anything else is refused, so the store holds nothing but homebrew. An upload
+   identical to the last one is recognised by its digest and costs nothing. Limits come from config
+   (ORCPUB_SHARE_MAX_*_KB): compressed size, unpacked size, and an account's total, with one copy per
+   character. The browser learns them from the X-Share-Max-* headers. Deleting a character deletes its
+   copy."
+  (:require [clojure.edn :as edn]
+            [datomic.api :as d]
+            [orcpub.config :as config]
+            [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.entity.strict :as se])
-  (:import [java.security SecureRandom]
+  (:import [java.security MessageDigest SecureRandom]
            [java.util Arrays Base64]
+           [java.util.zip GZIPInputStream]
            [java.io ByteArrayInputStream InputStream]))
 
-;; Measured 2026-09-13 against the MegaPak (12 sources): compressed and encrypted, a packed level 20
-;; character's snapshot is 12 KB (divine soul sorcerer) to 25 KB (wizard with 40 homebrew spells), and
-;; a wizard holding every subclass and spell in the pack 40 KB. Stored as bytes, since base64 would add
-;; a third. The browser refuses to build one over max-blob-bytes.
-(def max-blob-bytes (* 128 1024))
-(def max-shares-per-character 5)
-(def max-bytes-per-owner (* 2560 1024))
+;; The caps, from config; the measurements behind their defaults sit with the getters.
+(defn max-upload-bytes [] (* 1024 (config/get-share-max-upload-kb)))
+(defn max-text-bytes [] (* 1024 (config/get-share-max-text-kb)))
+(defn max-bytes-per-owner [] (* 1024 (config/get-share-max-account-kb)))
 
-;; The first byte of a snapshot. Version 1 is the payload embedded in a link.
-(def ^:private format-version 2)
+(defn- cap-headers []
+  {"X-Share-Max-Upload-Bytes" (str (max-upload-bytes))
+   "X-Share-Max-Text-Bytes"   (str (max-text-bytes))})
 
-(def ^:private share-id-shape #"[A-Za-z0-9_-]{22}")
+(defn- read-capped
+  "Up to cap bytes from in, or ::too-large when there are more. Reads at most one byte past the cap."
+  [^InputStream in cap]
+  (let [buf (byte-array (inc cap))
+        n   (loop [off 0]
+              (if (= off (alength buf))
+                off
+                (let [got (.read in buf off (- (alength buf) off))]
+                  (if (neg? got) off (recur (+ off got))))))]
+    (if (> n cap) ::too-large (Arrays/copyOf buf (int n)))))
 
-(defn- record-id [character-id share] (str character-id "/" share))
+(defn- digest ^String [^bytes b]
+  (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) (.digest (MessageDigest/getInstance "SHA-256") b)))
 
-(defn- read-blob
-  "The request body's bytes, or ::too-large once it passes max-blob-bytes. Reads at most one byte past
-   the limit, so an oversized body is not buffered whole."
-  [^InputStream body]
-  (when body
-    (let [buf (byte-array (inc max-blob-bytes))
-          n   (loop [off 0]
-                (if (= off (alength buf))
-                  off
-                  (let [got (.read body buf off (- (alength buf) off))]
-                    (if (neg? got) off (recur (+ off got))))))]
-      (if (> n max-blob-bytes) ::too-large (Arrays/copyOf buf (int n))))))
-
-(defn- snapshot-shaped?
-  "The version byte, then at least the 16-byte AES-GCM tag and one byte of ciphertext."
-  [blob]
-  (and (bytes? blob) (> (alength ^bytes blob) 17) (= format-version (aget ^bytes blob 0))))
+(defn- upload-problem
+  "Why a compressed upload cannot be stored, or nil when it can: ::too-large unpacked, ::unreadable as
+   data, ::empty of homebrew, or ::not-homebrew when the whitelist would drop or change any of it."
+  [^bytes upload]
+  (let [text (try (with-open [z (GZIPInputStream. (ByteArrayInputStream. upload))]
+                    (read-capped z (max-text-bytes)))
+                  (catch Exception _ ::unreadable))]
+    (if (keyword? text)
+      text
+      (let [data (try (edn/read-string (String. ^bytes text "UTF-8")) (catch Exception _ ::unreadable))
+            kept (when-not (= ::unreadable data) (:plugins (sb/whitelist-shared data)))]
+        (cond
+          (= ::unreadable data) ::unreadable
+          (empty? kept)         ::empty
+          (not= data kept)      ::not-homebrew
+          :else                 nil)))))
 
 (defn- owns-character?
   "Whether username owns the character. A character saved in May 2017 may name its owner by email."
@@ -65,94 +77,87 @@
                       db username)]
        (and owner (or (= owner username) (and email (= owner email))))))))
 
-(defn- snapshot-retractions [db character-id]
-  (map (fn [e] [:db/retractEntity e])
-       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))
+(defn- share-of [db character-id]
+  (when-let [e (d/q '[:find ?e . :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)]
+    (d/pull db [:db/id :orcpub.share/token :orcpub.share/bundle :orcpub.share/digest :orcpub.share/size] e)))
 
-(defn retractions-for-character
-  "Transaction data that deletes a character's snapshots and share salt, for when the character goes."
-  [db character-id]
-  (concat (snapshot-retractions db character-id)
-          (map (fn [e] [:db/retractEntity e])
-               (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share-salt/character ?c]] db character-id))))
-
-(defn- random-salt []
-  (let [b (byte-array 32)]
+(defn- random-token []
+  (let [b (byte-array 16)]
     (.nextBytes (SecureRandom.) b)
     (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) b)))
 
-(defn- salt-of [db character-id]
-  (d/q '[:find ?s . :in $ ?c :where [?e :orcpub.share-salt/character ?c] [?e :orcpub.share-salt/value ?s]]
-       db character-id))
+(defn- text [s] {:status 200 :headers (merge {"Content-Type" "text/plain; charset=utf-8"} (cap-headers)) :body s})
 
-(defn- text [s] {:status 200 :headers {"Content-Type" "text/plain; charset=utf-8"} :body s})
+(defn retractions-for-character
+  "Transaction data that deletes a character's shared homebrew and token, for when the character goes."
+  [db character-id]
+  (map (fn [e] [:db/retractEntity e])
+       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))
 
-(defn get-salt
-  "The character's share salt, for its owner, made the first time it is asked for."
+(defn get-token
+  "The character's share token, for its owner, made the first time it is asked for."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (cond
-    (not (owns-character? db (:user identity) id)) {:status 404}
-    (salt-of db id) (text (salt-of db id))
-    :else (do @(d/transact conn [{:orcpub.share-salt/character id :orcpub.share-salt/value (random-salt)}])
-              ;; Read back: had two first requests raced, both callers get the value that stuck.
-              (text (salt-of (d/db conn) id)))))
-
-(defn new-salt
-  "Replaces the character's share salt and deletes its snapshots, so every link made before stops
-   loading the homebrew. For the owner only."
-  [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (if-not (owns-character? db (:user identity) id)
-    {:status 404}
-    (let [salt (random-salt)]
-      @(d/transact conn (concat (snapshot-retractions db id)
-                                [{:orcpub.share-salt/character id :orcpub.share-salt/value salt}]))
-      (text salt))))
-
-(defn get-share
-  "A snapshot's bytes, to anyone who asks."
-  [{:keys [db] {:keys [id share]} :path-params}]
-  (if-let [blob (d/q '[:find ?blob . :in $ ?rid
-                       :where [?e :orcpub.share/id ?rid] [?e :orcpub.share/ciphertext ?blob]]
-                     db (record-id id share))]
-    {:status 200 :headers {"Content-Type" "application/octet-stream"} :body (ByteArrayInputStream. ^bytes blob)}
-    {:status 404}))
-
-(defn put-share
-  "Stores a snapshot for a character the caller owns, under the id the path names. The browser derives
-   that id from the same secret as the key, so the server cannot match it to the bytes; a wrong one
-   only breaks its owner's own link. Stores nothing when that snapshot is already there. Anyone else
-   gets the 404 a missing character gets."
-  [{:keys [db conn identity body] {:keys [id share]} :path-params}]
   (let [username (:user identity)]
     (cond
       (not (owns-character? db username id)) {:status 404}
-      (not (and (string? share) (re-matches share-id-shape share))) {:status 400 :body {:error :share-id-invalid}}
-      :else
-      (let [blob (read-blob body)]
+      (:orcpub.share/token (share-of db id)) (text (:orcpub.share/token (share-of db id)))
+      :else (do @(d/transact conn [{:orcpub.share/character id :orcpub.share/owner username
+                                    :orcpub.share/token (random-token)}])
+                ;; Read back: had two first requests raced, both callers get the token that stuck.
+                (text (:orcpub.share/token (share-of (d/db conn) id)))))))
+
+(defn new-token
+  "Replaces the character's share token and deletes its shared homebrew, so every link made before loads
+   nothing. For the owner only."
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (let [username (:user identity)]
+    (if-not (owns-character? db username id)
+      {:status 404}
+      (let [token (random-token)]
+        ;; Two transactions: deleting the record and making its replacement in one would name the same
+        ;; unique character twice.
+        @(d/transact conn (retractions-for-character db id))
+        @(d/transact conn [{:orcpub.share/character id :orcpub.share/owner username :orcpub.share/token token}])
+        (text token)))))
+
+(defn get-share
+  "The character's shared homebrew, compressed, to anyone whose link carries its current token."
+  [{:keys [db] {:keys [id token]} :path-params}]
+  (let [{stored :orcpub.share/bundle current :orcpub.share/token} (share-of db id)]
+    (if (and stored (string? token) (= token current))
+      {:status 200 :headers (merge {"Content-Type" "application/octet-stream"} (cap-headers))
+       :body (ByteArrayInputStream. ^bytes stored)}
+      {:status 404})))
+
+(defn put-share
+  "Replaces the homebrew a character shares, for its owner, when the path carries its current token. The
+   body is the compressed homebrew, stored exactly as sent once upload-problem finds nothing wrong. An
+   upload identical to the stored one is not checked or written again."
+  [{:keys [db conn identity body] {:keys [id token]} :path-params}]
+  (let [username (:user identity)
+        share    (share-of db id)]
+    (if-not (and (owns-character? db username id) share (= token (:orcpub.share/token share)))
+      {:status 404}
+      (let [upload (when body (read-capped body (max-upload-bytes)))]
         (cond
-          (= ::too-large blob)
-          {:status 413 :body {:error :share-too-large}}
-
-          (not (snapshot-shaped? blob))
-          {:status 400 :body {:error :share-blob-invalid}}
-
-          (d/q '[:find ?e . :in $ ?rid :where [?e :orcpub.share/id ?rid]] db (record-id id share))
-          {:status 200 :body {:share share}}
-
+          (= ::too-large upload)                          {:status 413 :body {:error :share-too-large}}
+          (nil? upload)                                   {:status 400 :body {:error :share-unreadable}}
+          (= (digest upload) (:orcpub.share/digest share)) {:status 200 :body {:token token}}
           :else
-          (let [existing (sort (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db id))
-                evicted  (take (max 0 (inc (- (count existing) max-shares-per-character))) existing)
-                size-of  #(or (:orcpub.share/size (d/pull db [:orcpub.share/size] %)) 0)
-                used     (or (ffirst (d/q '[:find (sum ?size) :with ?e :in $ ?owner
-                                            :where [?e :orcpub.share/owner ?owner] [?e :orcpub.share/size ?size]]
-                                          db username))
-                             0)]
-            (if (> (+ (- used (reduce + (map size-of evicted))) (alength ^bytes blob)) max-bytes-per-owner)
-              {:status 413 :body {:error :share-quota}}
-              (do @(d/transact conn (concat (map (fn [e] [:db/retractEntity e]) evicted)
-                                            [{:orcpub.share/id         (record-id id share)
-                                              :orcpub.share/character  id
-                                              :orcpub.share/owner      username
-                                              :orcpub.share/ciphertext blob
-                                              :orcpub.share/size       (alength ^bytes blob)}]))
-                  {:status 200 :body {:share share}}))))))))
+          (case (upload-problem upload)
+            ::too-large    {:status 413 :body {:error :share-too-large}}
+            ::unreadable   {:status 400 :body {:error :share-unreadable}}
+            ::empty        {:status 400 :body {:error :share-empty}}
+            ::not-homebrew {:status 400 :body {:error :share-not-homebrew}}
+            nil
+            (let [used (or (ffirst (d/q '[:find (sum ?size) :with ?e :in $ ?owner
+                                          :where [?e :orcpub.share/owner ?owner] [?e :orcpub.share/size ?size]]
+                                        db username))
+                           0)]
+              (if (> (+ (- used (or (:orcpub.share/size share) 0)) (alength ^bytes upload)) (max-bytes-per-owner))
+                {:status 413 :body {:error :share-quota}}
+                (do @(d/transact conn [{:db/id               (:db/id share)
+                                        :orcpub.share/bundle upload
+                                        :orcpub.share/digest (digest upload)
+                                        :orcpub.share/size   (alength ^bytes upload)}])
+                    {:status 200 :body {:token token}})))))))))

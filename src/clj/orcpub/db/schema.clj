@@ -405,22 +405,19 @@
      ::weapon5e/ammunition?])))
 
 (def share-schema
-  "Encrypted share snapshots, see orcpub.routes.share. :orcpub.share/ciphertext is bytes the server
-   cannot read; :orcpub.share/id is \"<character id>/<share id>\"."
-  [{:db/ident :orcpub.share/id :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+  "Shared homebrew, see orcpub.routes.share: one record per character, holding the homebrew its owner
+   last shared, compressed, and the token a share link must carry to load it."
+  [{:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
     :db/unique :db.unique/identity}
-   {:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
-    :db/index true}
+   {:db/ident :orcpub.share/token :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/digest :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
    {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
     :db/index true}
-   {:db/ident :orcpub.share/ciphertext :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
+   {:db/ident :orcpub.share/bundle :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
     :db/noHistory true}
-   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
-   ;; One random value per character, mixed into every snapshot key; replacing it revokes old links.
-   {:db/ident :orcpub.share-salt/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
-    :db/unique :db.unique/identity}
-   {:db/ident :orcpub.share-salt/value :db/valueType :db.type/string :db/cardinality :db.cardinality/one
-    :db/noHistory true}])
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}])
 
 (def all-schemas
   (concat

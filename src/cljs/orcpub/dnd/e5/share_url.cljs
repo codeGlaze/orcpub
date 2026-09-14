@@ -176,56 +176,27 @@
         (.then read-shared-edn)
         (.catch (fn [_] {:error :decode})))))
 
-;; ── encrypted snapshots: short links ─────────────────────────────────────────
-;; A link can carry "#s=<snapshot id>.<key>" instead of the bundle. The server holds the encrypted
-;; bundle (orcpub.routes.share) and never sees the key, which stays after the #. The key comes from the
-;; character's share salt, the character id and the bundle written out in a fixed order, and the id
-;; comes from the key, so the same homebrew gives the same link in any session or browser. New link
-;; replaces the salt, which changes every key and so revokes every older link. Someone holding the
-;; exact content and the salt could confirm a match; nobody can read a snapshot without its link.
+;; ── shared homebrew: short links ─────────────────────────────────────────────
+;; A character's owner can share its homebrew by link, "/characters/<id>#s=<token>". The server keeps
+;; the homebrew (orcpub.routes.share) and the link carries only the token. These write the homebrew out
+;; for the upload and read back what a link loads.
 
-(def max-snapshot-edn-bytes
-  "The most text a snapshot unpacks to, which also bounds what a viewer's browser decompresses. A
-   packed level 20 character measured 62 to 112 KB, and a wizard holding every subclass and spell in
-   the MegaPak 175 KB."
-  (* 512 1024))
+(def default-share-caps
+  "What a share may hold when the server has not said, matching the defaults of
+   ORCPUB_SHARE_MAX_UPLOAD_KB and ORCPUB_SHARE_MAX_TEXT_KB."
+  {:upload (* 64 1024) :text (* 256 1024)})
 
-(def max-snapshot-blob-bytes
-  "The most a snapshot stores, as orcpub.routes.share/max-blob-bytes allows. Snapshots of packed level
-   20 characters measured 16 to 25 KB."
-  (* 128 1024))
-
-;; The first byte of a snapshot. Version 1 is the payload embedded in a link.
-(def ^:private snapshot-version 2)
-
-(defn encryption-supported?
-  "True when the browser can compress and encrypt. Web Crypto exists only on https and localhost, so a
-   plain-http LAN address embeds the bundle in the link instead."
-  []
-  (and (supported?) (exists? js/crypto) (some? (.-subtle js/crypto))))
-
-(defn- subtle [] (.-subtle js/crypto))
-
-(defn- sha-256 [u8]
-  (-> (.digest (subtle) "SHA-256" u8) (.then #(js/Uint8Array. %))))
-
-(defn- join-bytes [a b]
-  (let [out (js/Uint8Array. (+ (.-length a) (.-length b)))]
-    (.set out a 0)
-    (.set out b (.-length a))
-    out))
-
-(defn- aes-key [raw usage]
-  (.importKey (subtle) "raw" raw #js {:name "AES-GCM"} false #js [usage]))
-
-(defn- iv-for
-  "One IV per key. Safe here because a key only ever encrypts the one plaintext it was derived from."
-  [raw-key]
-  (-> (sha-256 (join-bytes raw-key (str->bytes "iv"))) (.then #(.slice % 0 12))))
+(defn share-caps-from
+  "The caps a response from the share routes reports in its X-Share-Max-* headers, over the defaults."
+  [resp]
+  (let [header #(js/parseInt (.get (.-headers resp) %))]
+    (cond-> default-share-caps
+      (pos? (header "X-Share-Max-Upload-Bytes")) (assoc :upload (header "X-Share-Max-Upload-Bytes"))
+      (pos? (header "X-Share-Max-Text-Bytes"))   (assoc :text (header "X-Share-Max-Text-Bytes")))))
 
 (defn- sorted-by-print
   "x with every map and set rebuilt in the order its members print, so the same homebrew writes out the
-   same text however its fields were added; a small map otherwise keeps the order its fields arrived in."
+   same bytes however its fields were added, and an unchanged share uploads nothing new; a small map otherwise keeps the order its fields arrived in."
   [x]
   (let [by-print (fn [a b] (compare (pr-str a) (pr-str b)))]
     (walk/postwalk (fn [v]
@@ -234,61 +205,41 @@
                            :else v))
                    x)))
 
-(defn build-snapshot
-  "bundle, character id and the character's share salt -> Promise of {:share id :key k :blob bytes}, or
-   {:error :unsupported|:too-large}. Compressed, then encrypted with AES-GCM; the blob is the version
-   byte and the ciphertext. The id is taken from the key, not the ciphertext, so a browser that
-   compresses a little differently still finds the snapshot already stored and gives the same link."
-  [bundle character-id salt]
-  (let [edn (str->bytes (sb/bundle->edn (sorted-by-print bundle)))]
+(defn encode-share
+  "bundle and caps -> Promise of {:bytes compressed-homebrew} for the upload, or {:error :unsupported|
+   :empty|:too-large}. The bundle goes through the same whitelist the server requires first, so an
+   upload is never refused for holding something the whitelist would change."
+  [bundle caps]
+  (let [{:keys [upload text]} (merge default-share-caps caps)
+        kept (:plugins (sb/whitelist-shared bundle))
+        edn  (str->bytes (sb/bundle->edn (sorted-by-print kept)))]
     (cond
-      (not (encryption-supported?)) (js/Promise.resolve {:error :unsupported})
-      (> (.-length edn) max-snapshot-edn-bytes) (js/Promise.resolve {:error :too-large})
+      (not (supported?)) (js/Promise.resolve {:error :unsupported})
+      (empty? kept)      (js/Promise.resolve {:error :empty})
+      (> (.-length edn) text) (js/Promise.resolve {:error :too-large})
+      :else (-> (gzip edn)
+                (.then (fn [gz]
+                         (if (> (.-length gz) upload)
+                           {:error :too-large}
+                           {:bytes gz})))))))
+
+(defn decode-share
+  "The compressed homebrew a share link loaded, and the caps its response reported -> Promise of
+   {:plugins m :custom-items [...] :dropped n} or {:error kw}, through decode-shared's last layers."
+  [bytes caps]
+  (let [{:keys [upload text]} (merge default-share-caps caps)]
+    (cond
+      (not (and (instance? js/Uint8Array bytes) (pos? (.-length bytes))))
+      (js/Promise.resolve {:error :empty})
+
+      (> (.-length bytes) upload)
+      (js/Promise.resolve {:error :too-large})
+
+      (not (supported?))
+      (js/Promise.resolve {:error :unsupported})
+
       :else
-      (-> (js/Promise.all #js [(sha-256 (join-bytes (str->bytes (str "orcpub share v2\n" salt "\n" character-id "\n")) edn))
-                               (gzip edn)])
-          (.then (fn [derived]
-                   (let [raw (aget derived 0)
-                         gz  (aget derived 1)]
-                     (-> (js/Promise.all #js [(aes-key raw "encrypt") (iv-for raw) (sha-256 (join-bytes (str->bytes "id") raw))])
-                         (.then (fn [kid]
-                                  (-> (.encrypt (subtle) #js {:name "AES-GCM" :iv (aget kid 1)} (aget kid 0) gz)
-                                      (.then (fn [ct]
-                                               (let [ct   (js/Uint8Array. ct)
-                                                     blob (js/Uint8Array. (inc (.-length ct)))]
-                                                 (aset blob 0 snapshot-version)
-                                                 (.set blob ct 1)
-                                                 (if (> (.-length blob) max-snapshot-blob-bytes)
-                                                   {:error :too-large}
-                                                   {:share (subs (b64url-encode (aget kid 2)) 0 22)
-                                                    :key   (b64url-encode raw)
-                                                    :blob  blob})))))))))))))))
-
-(defn decode-snapshot
-  "Decrypt a snapshot's bytes with the key from its link, then apply decode-shared's last layers under a
-   max-snapshot-edn-bytes cap. Promise of {:plugins m :custom-items [...] :dropped n} or {:error kw}; a
-   wrong key or a tampered blob is {:error :decode}."
-  [blob key-str]
-  (cond
-    (not (and (instance? js/Uint8Array blob) (pos? (.-length blob)) (string? key-str) (seq key-str)))
-    (js/Promise.resolve {:error :empty})
-
-    (> (.-length blob) max-snapshot-blob-bytes)
-    (js/Promise.resolve {:error :too-large})
-
-    (not= snapshot-version (aget blob 0))
-    (js/Promise.resolve {:error :version})
-
-    (not (encryption-supported?))
-    (js/Promise.resolve {:error :unsupported})
-
-    :else
-    (-> (js/Promise.resolve key-str)
-        (.then b64url-decode)
-        (.then (fn [raw] (js/Promise.all #js [(aes-key raw "decrypt") (iv-for raw)])))
-        (.then (fn [ki] (.decrypt (subtle) #js {:name "AES-GCM" :iv (aget ki 1)} (aget ki 0)
-                                  (.subarray blob 1))))
-        (.then (fn [plain] (gunzip-capped (js/Uint8Array. plain) max-snapshot-edn-bytes)))
-        (.then bytes->str)
-        (.then read-shared-edn)
-        (.catch (fn [_] {:error :decode})))))
+      (-> (gunzip-capped bytes text)
+          (.then bytes->str)
+          (.then read-shared-edn)
+          (.catch (fn [_] {:error :decode}))))))
