@@ -1455,9 +1455,12 @@
       {:status 200
        :body result})))
 
-(defn get-item [{:keys [db] {:keys [:id]} :path-params}]
+(defn get-item
+  "A custom item, for its owner only. Anyone else gets the 404 a missing item gets, so an id
+   says nothing about whether it exists."
+  [{:keys [db username] {:keys [:id]} :path-params}]
   (let [item (d/pull db '[*] id)]
-    (if (::mi5e/owner item)
+    (if (and (::mi5e/owner item) (= username (::mi5e/owner item)))
       {:status 200
        :body item}
       {:status 404})))
@@ -1605,12 +1608,23 @@
         {:status 400 :body problems})
       {:status 401 :body "You do not own this character"})))
 
+(defn- public-owner
+  "The owner as a character read shows it: the username, or nil. For nine days in May 2017 the
+   login token carried whatever the user typed (e3cdf5f to cf170fc), so characters saved then name
+   their owner by email address; this read needs no login, so the address must not go out."
+  [db owner]
+  (if-let [user (find-user-by-username-or-email db owner)]
+    (:orcpub.user/username user)
+    (when-not (s/includes? owner "@") owner)))
+
 (defn get-character-for-id [db id]
   (let [{:keys [::se/owner] :as character} (d/pull db '[*] id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (or (not owner) (seq problems))
       {:status 400 :body problems}
-      {:status 200 :body character})))
+      {:status 200 :body (if-let [shown (public-owner db owner)]
+                           (assoc character ::se/owner shown)
+                           (dissoc character ::se/owner))})))
 
 (defn character-summary-for-id [db id]
   ;; Fixed: bare destructuring outside let silently returned nil
@@ -1939,9 +1953,8 @@
         {:post `save-item
          :get `item-list}]
        [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:delete `delete-item}]
-       [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [parse-id]
-        {:get `get-item}]
+        {:get `get-item
+         :delete `delete-item}]
 
        ;; Characters
        [(route-map/path-for route-map/dnd-e5-char-list-route) ^:interceptors [check-auth]
