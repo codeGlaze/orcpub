@@ -56,14 +56,31 @@ edit").
 
 ## Pruning
 
-A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` (default 180; 0 keeps shares forever) is deleted,
-token and homebrew together. Use is: someone opening the link, the owner's page refreshing the copy, or a
-party page loading it. It is recorded in `:orcpub.share/used` at most once a day, so opening a link
-repeatedly writes nothing. An expired share is deleted the moment anything asks for it
-(`routes.share/live-share`), and `orcpub.share-pruner` sweeps the rest a minute after start and then
-daily (`routes.share/prune!`). Afterwards the old link says the homebrew could not be loaded, a party
-lists no token for it, and the owner's button reads Share link again, which makes a new link. 180 days
-leaves room for a campaign that pauses for a season.
+A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` days while the server runs (default 180; 0 keeps shares
+forever) is deleted. Only the share record goes: the token and the server's copy of the homebrew. The
+character, a party's entry for it, and the homebrew in the owner's library are never touched, and the
+owner can share again at any time.
+
+Use is a request that could see the share: the link opened with its current token, the owner's page
+refreshing the copy, or a party page loading it. It is recorded in `:orcpub.share/used` at most once a
+day, so opening a link repeatedly writes nothing; to make up for that, a share is deleted only after one
+day more. A request with a wrong or missing token, or from anyone but the owner, records nothing, so
+nobody can keep a share alive by requesting its URL.
+
+Only `routes.share/prune!` deletes, run by `orcpub.share-pruner` a minute after start and then hourly.
+Asking for a share never deletes it, so a share just past its window still works until the next run, and
+opening it in that time keeps it.
+
+Time the server is off does not count. Each run first calls `record-beat!`, which stores the time on the
+entity `:orcpub.share/clock`. When the previous beat is more than 70 minutes back, the server was off or
+its clock jumped ahead, and that stretch is stored as an `:orcpub.share-outage`; `prune!` subtracts
+outages from each share's unused time. A self-hosted server switched off for six months deletes nothing
+when it comes back, and a clock set back only makes shares look newer. A restart shorter than about an
+hour is not recorded, so each one can count up to about an hour against shares.
+
+Afterwards the old link says the homebrew could not be loaded, a party lists no token for it, and the
+owner's button reads Share link again, which makes a new link. Nothing tells the owner that an old link
+expired. 180 days leaves room for a campaign that pauses for a season.
 
 ## Parties
 
@@ -74,8 +91,8 @@ loaded the character with no homebrew. Now:
 - The `:route` handler remembers the token a character page was opened with (`db :share-link`), and Add to
   Party sends it: `{:character-id id :share-token token}` to `routes.party/add-character`, or
   `::party5e/shared-tokens` when it makes a new party (`create-party`).
-- The server keeps a token with the party entry only when it is that character's current, unexpired
-  token (`routes.share/token-current?`), and lists only tokens that still work.
+- The server keeps a token with the party entry only when it is that character's current token
+  (`routes.share/token-current?`), and lists only tokens that still work.
 - Opening that character's row on the party page dispatches `::party5e/load-shared-homebrew`, which loads
   the homebrew into the shared overlay beside other rows' (no banner) and counts as use of the share.
 - New link or pruning leaves the party listing no token, so the row loads nothing. Removing the character
@@ -160,5 +177,6 @@ work, the caps headers, the quota, New link and deletion.
 `scripts/e2e/run.sh party-keeps-shared-homebrew.js`: zoe opens kaylee's link, adds the character to a
 party, and the party page loads its homebrew until kaylee presses New link.
 `test/clj/orcpub/routes/party_test.clj` covers characters only, tokens kept only while current, New link
-and removal; `share_test.clj` also covers pruning, use keeping a share alive, daily recording, the sweep
-and 0 days.
+and removal; `share_test.clj` also covers pruning, use keeping a share alive, daily recording, a request
+without the token recording nothing, the sweep deleting share records and nothing else, time the server
+was off not counting, and 0 days.
