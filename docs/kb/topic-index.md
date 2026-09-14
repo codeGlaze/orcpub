@@ -37,11 +37,24 @@ _ability-increase-spreads · ability increase spreads_
 - Containment across silos (multi-source)
 - Tests
 
+## already-held-grants.md
+
+_already-held-grants · already held grants_
+
+**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+
+- The rule being modelled
+- The four paths
+- Consequence for the pool work
+- Expertise-instead-of-proficiency is not an SRD pattern — confirmed in the text
+- RETRACTED — the race :props "bug" was my broken fixture
+- Related
+
 ## armor-class-computation.md
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, channel, channels, con, defense, dex, heavy, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -90,7 +103,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, crossbow, dual, equipped, ignored, iterating, melee, predicate, silently, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -116,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, form, green, invented, item, machine, page, react, reagent, rendering, review, screenshot, vanished
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -126,6 +139,7 @@ _before-you-start · before you start_
 - Before converting a builder
 - Before passing a data map as a Reagent component's first argument
 - Before de-emphasising a control
+- Before writing an explanation onto the form
 - Before believing a CSS change worked
 - Before reporting a UI change as done
 - How this page stays small
@@ -248,7 +262,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, ordinary, plain, predicates, realized, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
 
 - One-liner
 - How it actually works (verified)
@@ -339,7 +353,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
+**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, decision, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -417,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -525,7 +539,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, churning, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, cha, churning, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -574,7 +588,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -676,7 +690,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -721,7 +735,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, key, minted, override, plugin, predictable, rename, returning, same-key, save, spell, wins
+**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, key, membership, override, plugin, predictable, rename, returning, same-key, save, spell, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -737,7 +751,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, falls, invalid, junk, leading, least-destructive, mangled, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, falls, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -748,7 +762,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, item, library, modal, nondeterministic, off, overlay, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -766,7 +780,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compat, demo, envelope, extension, implemented, in-file, incompatible, pickers, placeholder, poll, tag, version, versioning, won
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, version, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -792,7 +806,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, tested, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, vector
 
 - In four sentences
 - The three layers
@@ -826,7 +840,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** accessor, acquisition, alias, archmagi, channels, context, contributors, distinguishable, effect, explanation, fact, gates, macro, prereq, registry, requirement, spellings, trigger
+**topics:** accessor, acquisition, alias, archmagi, channels, context, contributors, distinguishable, effect, fact, gates, macro, prereq, registry, requirement, robe, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -846,7 +860,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -866,7 +880,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, dispensations, everyone, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -891,14 +905,15 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, collisions, d10a, decided, default, elf, mint, name, people, possible, source, srd, stone, tag, tagging, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
 - What it would buy
 - Settled
 - Still to be said out loud, but not blocking
-- Recommendation
+- As built
+- A source carries its own tag (built 2026-09-13)
 
 ## spell-granting-across-silos.md
 
@@ -931,7 +946,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -962,7 +977,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, callers, characterization, claim, claims, compare, concluded, confident, faster, integration, miss, optimisation, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, shown, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
@@ -977,7 +992,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, cosmetic, deals, flags, handaxe, longsword, mapping, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
