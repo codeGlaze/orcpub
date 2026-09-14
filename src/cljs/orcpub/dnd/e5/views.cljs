@@ -9939,7 +9939,9 @@
                          [:div.main-text-color.item-list-item
                           [:div.pointer
                            [:div.flex.justify-cont-s-b.align-items-c
-                            {:on-click #(swap! expanded-characters update-in [id character-id] not)}
+                            {:on-click #(do (when-let [token (and (not expanded?) (:orcpub.party-share/token summary))]
+                                              (dispatch [::party/load-shared-homebrew character-id token]))
+                                            (swap! expanded-characters update-in [id character-id] not))}
                             [:div.m-l-10.flex.align-items-c
                              [:div.f-s-24.f-w-600
                               [:div.list-character-summary

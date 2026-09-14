@@ -110,6 +110,7 @@
              (orcpub.routes.public-reads-test/with-conn)
              (orcpub.routes.item-save-test/with-conn)
              (orcpub.routes.share-test/with-conn)
+             (orcpub.routes.party-test/with-conn)
              (user/with-db)]}}
  ;; native/cljs and web/cljs are separate source roots; kondo doesn't know
  ;; about them so ns names appear to mismatch their file paths.
