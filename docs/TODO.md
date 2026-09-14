@@ -769,3 +769,21 @@ write-up's proposal:
 It matters for shared sheets too: a character read brings its owner's items by the same name-derived
 key (`7f375829`), so a renamed item drops off a shared sheet as well. There, the owner's item wins over a
 viewer's own item of the same name, because the shared overlay is appended last.
+
+## Refresh shared homebrew after a library edit
+
+**Status:** Future work, decided 2026-09-14. See `kb/share-links.md`.
+
+A shared character's copy of its homebrew on the server is refreshed when its owner opens a page that
+shows that character's share buttons (character page, character list row, builder, which includes after
+a save). Editing a homebrew entry in My Content touches no character, so every shared link that uses the
+entry keeps showing the old version until the owner opens or saves one of those characters.
+
+Closing that: after a library change (save, import, delete, rename, disable), find the owner's shared
+characters that use the changed entries and send each one's fresh homebrew. Pieces it needs:
+
+- **Which characters are shared:** a route listing the owner's shared character ids.
+- **Which of those use the change:** the character data (`::char5e/character` for each, fetched if not
+  loaded) and `share-bundle/extract-bundle` against the new library.
+- **When:** after the library write lands, debounced, so a bulk import sends once.
+- **Cost:** one upload per affected character; an unchanged one does no work on the server already.
