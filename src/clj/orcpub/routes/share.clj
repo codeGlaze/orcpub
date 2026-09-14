@@ -1,25 +1,30 @@
 ;; Encrypted share snapshots: the homebrew a character's share link carries.
 (ns orcpub.routes.share
-  "The browser compresses a character's homebrew bundle, encrypts it with a key derived from the
-   content, and uploads only the ciphertext. The key travels in the link after #, which browsers never
-   send, so the server stores what it cannot read. Identical content gives an identical blob, and a
-   snapshot's id is the start of the blob's SHA-256, so uploading the same content again stores nothing
-   new.
+  "The browser compresses a character's homebrew bundle, encrypts it, and uploads only the ciphertext.
+   The key travels in the link after #, which browsers never send, so the server stores what it cannot
+   read.
+
+   The key is derived from the character's share salt, the character id and the bundle, and the
+   snapshot id from the key. The same homebrew therefore gives the same link in any session or
+   browser, and uploading it again stores nothing. The salt is random and kept here; replacing it
+   (new-salt) deletes the character's snapshots, so every link made before stops loading the homebrew
+   and the next Copy link is a different one.
 
    Anyone may fetch a snapshot, as anyone may read the character; without the key it is noise. Only
-   the character's owner may store one. The server cannot check what is inside, so its guards are size:
-   max-blob-bytes a snapshot, the newest max-shares-per-character kept for each character, and
-   max-bytes-per-owner across an account. A character's snapshots are deleted with it."
+   the character's owner may store one or see or replace its salt. The server cannot check what is
+   inside a snapshot, so its guards are size: max-blob-bytes a snapshot, the newest
+   max-shares-per-character kept for each character, and max-bytes-per-owner across an account. A
+   character's snapshots and salt are deleted with it."
   (:require [datomic.api :as d]
             [orcpub.entity.strict :as se])
-  (:import [java.security MessageDigest]
+  (:import [java.security SecureRandom]
            [java.util Arrays Base64]
            [java.io ByteArrayInputStream InputStream]))
 
 ;; Measured 2026-09-13 against the MegaPak (12 sources): compressed and encrypted, a packed level 20
-;; character's snapshot is 16 KB (artificer) to 25 KB (wizard with 40 homebrew spells), and a wizard
-;; holding every subclass and spell in the pack 40 KB. Stored as bytes, since base64 would add a third.
-;; The browser refuses to build one over max-blob-bytes.
+;; character's snapshot is 12 KB (divine soul sorcerer) to 25 KB (wizard with 40 homebrew spells), and
+;; a wizard holding every subclass and spell in the pack 40 KB. Stored as bytes, since base64 would add
+;; a third. The browser refuses to build one over max-blob-bytes.
 (def max-blob-bytes (* 128 1024))
 (def max-shares-per-character 5)
 (def max-bytes-per-owner (* 2560 1024))
@@ -27,12 +32,7 @@
 ;; The first byte of a snapshot. Version 1 is the payload embedded in a link.
 (def ^:private format-version 2)
 
-(defn share-id
-  "The id a snapshot is stored under: the first 22 characters of its SHA-256 in base64url. The browser
-   computes the same, so the id in a link names exactly one snapshot."
-  [^bytes blob]
-  (let [digest (.digest (MessageDigest/getInstance "SHA-256") blob)]
-    (subs (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) digest) 0 22)))
+(def ^:private share-id-shape #"[A-Za-z0-9_-]{22}")
 
 (defn- record-id [character-id share] (str character-id "/" share))
 
@@ -65,6 +65,49 @@
                       db username)]
        (and owner (or (= owner username) (and email (= owner email))))))))
 
+(defn- snapshot-retractions [db character-id]
+  (map (fn [e] [:db/retractEntity e])
+       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))
+
+(defn retractions-for-character
+  "Transaction data that deletes a character's snapshots and share salt, for when the character goes."
+  [db character-id]
+  (concat (snapshot-retractions db character-id)
+          (map (fn [e] [:db/retractEntity e])
+               (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share-salt/character ?c]] db character-id))))
+
+(defn- random-salt []
+  (let [b (byte-array 32)]
+    (.nextBytes (SecureRandom.) b)
+    (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) b)))
+
+(defn- salt-of [db character-id]
+  (d/q '[:find ?s . :in $ ?c :where [?e :orcpub.share-salt/character ?c] [?e :orcpub.share-salt/value ?s]]
+       db character-id))
+
+(defn- text [s] {:status 200 :headers {"Content-Type" "text/plain; charset=utf-8"} :body s})
+
+(defn get-salt
+  "The character's share salt, for its owner, made the first time it is asked for."
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (cond
+    (not (owns-character? db (:user identity) id)) {:status 404}
+    (salt-of db id) (text (salt-of db id))
+    :else (do @(d/transact conn [{:orcpub.share-salt/character id :orcpub.share-salt/value (random-salt)}])
+              ;; Read back: had two first requests raced, both callers get the value that stuck.
+              (text (salt-of (d/db conn) id)))))
+
+(defn new-salt
+  "Replaces the character's share salt and deletes its snapshots, so every link made before stops
+   loading the homebrew. For the owner only."
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (if-not (owns-character? db (:user identity) id)
+    {:status 404}
+    (let [salt (random-salt)]
+      @(d/transact conn (concat (snapshot-retractions db id)
+                                [{:orcpub.share-salt/character id :orcpub.share-salt/value salt}]))
+      (text salt))))
+
 (defn get-share
   "A snapshot's bytes, to anyone who asks."
   [{:keys [db] {:keys [id share]} :path-params}]
@@ -75,13 +118,16 @@
     {:status 404}))
 
 (defn put-share
-  "Stores a snapshot for a character the caller owns. The body is the snapshot's bytes, and the path
-   names the id they must hash to. Stores nothing when that snapshot is already there. Anyone else gets the 404
-   a missing character gets."
+  "Stores a snapshot for a character the caller owns, under the id the path names. The browser derives
+   that id from the same secret as the key, so the server cannot match it to the bytes; a wrong one
+   only breaks its owner's own link. Stores nothing when that snapshot is already there. Anyone else
+   gets the 404 a missing character gets."
   [{:keys [db conn identity body] {:keys [id share]} :path-params}]
   (let [username (:user identity)]
-    (if-not (owns-character? db username id)
-      {:status 404}
+    (cond
+      (not (owns-character? db username id)) {:status 404}
+      (not (and (string? share) (re-matches share-id-shape share))) {:status 400 :body {:error :share-id-invalid}}
+      :else
       (let [blob (read-blob body)]
         (cond
           (= ::too-large blob)
@@ -89,9 +135,6 @@
 
           (not (snapshot-shaped? blob))
           {:status 400 :body {:error :share-blob-invalid}}
-
-          (not= share (share-id blob))
-          {:status 400 :body {:error :share-id-mismatch}}
 
           (d/q '[:find ?e . :in $ ?rid :where [?e :orcpub.share/id ?rid]] db (record-id id share))
           {:status 200 :body {:share share}}
@@ -107,15 +150,9 @@
             (if (> (+ (- used (reduce + (map size-of evicted))) (alength ^bytes blob)) max-bytes-per-owner)
               {:status 413 :body {:error :share-quota}}
               (do @(d/transact conn (concat (map (fn [e] [:db/retractEntity e]) evicted)
-                                            [{:orcpub.share/id        (record-id id share)
-                                              :orcpub.share/character id
-                                              :orcpub.share/owner     username
+                                            [{:orcpub.share/id         (record-id id share)
+                                              :orcpub.share/character  id
+                                              :orcpub.share/owner      username
                                               :orcpub.share/ciphertext blob
-                                              :orcpub.share/size      (alength ^bytes blob)}]))
+                                              :orcpub.share/size       (alength ^bytes blob)}]))
                   {:status 200 :body {:share share}}))))))))
-
-(defn retractions-for-character
-  "Transaction data that deletes every snapshot of a character, for when the character goes."
-  [db character-id]
-  (map (fn [e] [:db/retractEntity e])
-       (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id)))

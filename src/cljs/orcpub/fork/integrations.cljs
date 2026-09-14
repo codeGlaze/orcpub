@@ -164,12 +164,23 @@
   []
   (boolean (some-> js/navigator .-share)))
 
+(defn- share-salt-url [id]
+  (event-utils/url-for-route routes/dnd-e5-char-share-salt-route :id id))
+
+(defn- with-login
+  "fetch options carrying the login token."
+  [opts]
+  (clj->js (update opts :headers merge (event-utils/auth-headers @re-frame.db/app-db))))
+
 (defn- store-snapshot!
-  "Promise of the link fragment \"<share id>.<key>\" for this character's homebrew. Uploads the
-   encrypted snapshot unless the server already has it. Resolves nil when the browser cannot encrypt,
-   the bundle is too big or the upload fails, and the caller then embeds the bundle in the link."
+  "Promise of the link fragment \"<share id>.<key>\" for this character's homebrew. Fetches the
+   character's share salt, builds the snapshot, and uploads it unless the server already has it.
+   Resolves nil when the browser cannot encrypt, the bundle is too big or a request fails, and the
+   caller then embeds the bundle in the link."
   [id bundle]
-  (-> (share-url/build-snapshot bundle id)
+  (-> (js/fetch (share-salt-url id) (with-login {}))
+      (.then (fn [resp] (if (.-ok resp) (.text resp) (throw (js/Error. "no share salt")))))
+      (.then (fn [salt] (share-url/build-snapshot bundle id salt)))
       (.then (fn [{:keys [share key blob error]}]
                (when-not error
                  (let [url      (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :share share)
@@ -178,12 +189,19 @@
                        (.then (fn [resp]
                                 (if (.-ok resp)
                                   fragment
-                                  (-> (js/fetch url (clj->js {:method  "PUT"
-                                                              :headers (merge {"Content-Type" "application/octet-stream"}
-                                                                              (event-utils/auth-headers @re-frame.db/app-db))
-                                                              :body    blob}))
+                                  (-> (js/fetch url (with-login {:method  "PUT"
+                                                                 :headers {"Content-Type" "application/octet-stream"}
+                                                                 :body    blob}))
                                       (.then #(when (.-ok %) fragment)))))))))))
       (.catch (fn [_] nil))))
+
+(defn- new-link!
+  "Asks the server for a new share salt, which deletes this character's snapshots, so every link made
+   before stops loading the homebrew. Promise of true when it worked."
+  [id]
+  (-> (js/fetch (share-salt-url id) (with-login {:method "POST"}))
+      (.then #(.-ok %))
+      (.catch (fn [_] false))))
 
 (defn share-controls
   "Reactive share cluster for a character: Copy link (+ native Share where the
@@ -223,7 +241,7 @@
           (let [plugins-bundle (sb/extract-bundle character plugins)
                 container {:plugins plugins-bundle}]
             (if (empty? plugins-bundle)
-              (swap! state assoc :tier :plain :url base)
+              (swap! state assoc :tier :plain :url base :snapshot? false)
               (do
                 (swap! state assoc :tier :working :url base)
                 ;; The owner's link names an encrypted snapshot on the server and stays short. Anyone
@@ -233,15 +251,17 @@
                       (js/Promise.resolve nil))
                     (.then (fn [fragment]
                              (if fragment
-                               {:tier :full :url (str base "#s=" fragment)}
+                               {:tier :full :url (str base "#s=" fragment) :snapshot? true}
                                (-> (share-url/build-share-payload container)
                                    (.then (fn [{:keys [tier payload]}]
-                                            {:tier tier
-                                             :url  (if payload (str base "#c=" payload) base)}))))))
+                                            {:tier      tier
+                                             :snapshot? false
+                                             :url       (if payload (str base "#c=" payload) base)}))))))
                     (.then #(swap! state merge %)))))))
-        (let [{:keys [tier url copied?]} @state
+        (let [{:keys [tier url copied? snapshot?]} @state
               url  (or url base)
               working? (= tier :working)
+              owner? (and username (= username (::entity/owner character)))
               ;; Size caveats, shown once on a successful action. The full content
               ;; always rides along — we never strip it — so notices are only about
               ;; link length / transport, never about lost data.
@@ -276,6 +296,22 @@
                        (swap! state assoc :copied? true)
                        (note)
                        (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
+           ;; Only a short link can be revoked; an embedded link carries the homebrew itself.
+           (when (and owner? snapshot?)
+             (btn "fa-refresh" "New link"
+                  "Make a new link. Links you shared before will stop showing this character's homebrew."
+                  (fn [_]
+                    (when (js/confirm "Links you shared before will stop showing this character's homebrew. Make a new link?")
+                      (swap! state assoc :tier :working)
+                      (-> (new-link! id)
+                          (.then (fn [ok?]
+                                   ;; Forget the last inputs, so the link is built again with the new salt.
+                                   (reset! prev {})
+                                   (swap! state assoc :tier :plain :snapshot? false)
+                                   (dispatch [:show-message
+                                              (if ok?
+                                                "New link made. Links you shared before no longer show this character's homebrew."
+                                                "Could not make a new link. Try again.")]))))))))
            (when (native-share?)
              (btn "fa-share-alt" "Share"
                   "Share this character (custom content included)"

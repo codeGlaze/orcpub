@@ -7,7 +7,8 @@
 // would leave it. Signed in, her character page makes the share link: the homebrew is uploaded
 // encrypted, and the link carries only the snapshot's id and key. The link is then opened logged out
 // and as zoe, neither of whom has the homebrew, and both must load it. The same link with a wrong key
-// must load nothing and say so.
+// must load nothing and say so. Finally kaylee, in a new session, copies the same link again, presses
+// New link, and gets a different one: the old link then loads nothing and the new one works.
 const { chromium } = require('playwright');
 
 const BASE = process.env.E2E_BASE || 'http://localhost:8890';
@@ -151,6 +152,34 @@ async function open(browser, link, who) {
     const wrong = await open(browser, link.replace(/\.[A-Za-z0-9_-]{43}$/, '.' + 'A'.repeat(43)), null);
     check(wrong.sources.length === 0, 'loads nothing', JSON.stringify(wrong.sources));
     check(wrong.failedNotice > 0, 'says the homebrew could not be loaded');
+  }
+
+  if (match) {
+    console.log('\nkaylee, in a new session, makes a new link:');
+    const ctx = await newContext(browser, LIBRARY);
+    const page = await ctx.newPage();
+    page.on('dialog', d => d.accept());
+    await login(page, 'kaylee', 'serenity99');
+    await page.goto(`${BASE}/pages/dnd/5e/characters/${ID}`, { waitUntil: 'networkidle', timeout: 120000 });
+    const copy = async () => {
+      await page.waitForFunction(
+        () => [...document.querySelectorAll('button')].some(b => b.textContent.includes('Copy link') && !b.disabled),
+        null, { timeout: 60000 });
+      await page.evaluate(() => { window.__copied = ''; });
+      await page.locator('button', { hasText: 'Copy link' }).first().click();
+      await page.waitForTimeout(300);
+      return page.evaluate(() => window.__copied || '');
+    };
+    check(await copy() === link, 'the same link again in a new session');
+    await page.locator('button', { hasText: 'New link' }).first().click();
+    let fresh = link;
+    for (let i = 0; i < 20 && fresh === link; i++) { await page.waitForTimeout(1000); fresh = await copy(); }
+    check(/#s=[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/.test(fresh) && fresh !== link, 'New link gives a different link', fresh);
+    await ctx.close();
+    const old = await open(browser, link, null);
+    check(old.sources.length === 0 && old.failedNotice > 0, 'the old link loads nothing, and says so', JSON.stringify(old.sources));
+    const renewed = await open(browser, fresh, null);
+    check(renewed.sources.includes(SOURCE), 'the new link loads the homebrew', JSON.stringify(renewed.sources));
   }
 
   await browser.close();

@@ -23,6 +23,7 @@
 
    The payload is version-prefixed (\"1\") so the format can evolve."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [cljs.reader :as reader]
             [goog.crypt.base64 :as b64]
             [orcpub.dnd.e5.share-bundle :as sb]))
@@ -176,11 +177,12 @@
         (.catch (fn [_] {:error :decode})))))
 
 ;; ── encrypted snapshots: short links ─────────────────────────────────────────
-;; A link can carry "#s=<share id>.<key>" instead of the bundle. The server holds the encrypted
-;; bundle (orcpub.routes.share) and never sees the key, which stays after the #. The key is derived
-;; from the content and the character id, so the same content gives the same blob and id and uploading
-;; it again stores nothing new. Someone who already has the exact content could confirm a match;
-;; nobody can read a snapshot without its link.
+;; A link can carry "#s=<snapshot id>.<key>" instead of the bundle. The server holds the encrypted
+;; bundle (orcpub.routes.share) and never sees the key, which stays after the #. The key comes from the
+;; character's share salt, the character id and the bundle written out in a fixed order, and the id
+;; comes from the key, so the same homebrew gives the same link in any session or browser. New link
+;; replaces the salt, which changes every key and so revokes every older link. Someone holding the
+;; exact content and the salt could confirm a match; nobody can read a snapshot without its link.
 
 (def max-snapshot-edn-bytes
   "The most text a snapshot unpacks to, which also bounds what a viewer's browser decompresses. A
@@ -221,37 +223,46 @@
   [raw-key]
   (-> (sha-256 (join-bytes raw-key (str->bytes "iv"))) (.then #(.slice % 0 12))))
 
-(defn- snapshot-id
-  "The id the server stores a snapshot under, computed as orcpub.routes.share/share-id computes it: the
-   first 22 characters of its SHA-256 in base64url."
-  [blob]
-  (-> (sha-256 blob) (.then #(subs (b64url-encode %) 0 22))))
+(defn- sorted-by-print
+  "x with every map and set rebuilt in the order its members print, so the same homebrew writes out the
+   same text however its fields were added; a small map otherwise keeps the order its fields arrived in."
+  [x]
+  (let [by-print (fn [a b] (compare (pr-str a) (pr-str b)))]
+    (walk/postwalk (fn [v]
+                     (cond (map? v) (into (sorted-map-by by-print) v)
+                           (set? v) (into (sorted-set-by by-print) v)
+                           :else v))
+                   x)))
 
 (defn build-snapshot
-  "bundle + character id -> Promise of {:share id :key k :blob bytes}, or {:error :unsupported|:too-large}.
-   Compressed, then encrypted with AES-GCM; the blob is the version byte and the ciphertext."
-  [bundle character-id]
-  (let [edn (str->bytes (sb/bundle->edn bundle))]
+  "bundle, character id and the character's share salt -> Promise of {:share id :key k :blob bytes}, or
+   {:error :unsupported|:too-large}. Compressed, then encrypted with AES-GCM; the blob is the version
+   byte and the ciphertext. The id is taken from the key, not the ciphertext, so a browser that
+   compresses a little differently still finds the snapshot already stored and gives the same link."
+  [bundle character-id salt]
+  (let [edn (str->bytes (sb/bundle->edn (sorted-by-print bundle)))]
     (cond
       (not (encryption-supported?)) (js/Promise.resolve {:error :unsupported})
       (> (.-length edn) max-snapshot-edn-bytes) (js/Promise.resolve {:error :too-large})
       :else
-      (-> (js/Promise.all #js [(sha-256 (join-bytes (str->bytes (str "orcpub share v1 " character-id "\n")) edn))
+      (-> (js/Promise.all #js [(sha-256 (join-bytes (str->bytes (str "orcpub share v2\n" salt "\n" character-id "\n")) edn))
                                (gzip edn)])
           (.then (fn [derived]
                    (let [raw (aget derived 0)
                          gz  (aget derived 1)]
-                     (-> (js/Promise.all #js [(aes-key raw "encrypt") (iv-for raw)])
-                         (.then (fn [ki] (.encrypt (subtle) #js {:name "AES-GCM" :iv (aget ki 1)} (aget ki 0) gz)))
-                         (.then (fn [ct]
-                                  (let [ct   (js/Uint8Array. ct)
-                                        blob (js/Uint8Array. (inc (.-length ct)))]
-                                    (aset blob 0 snapshot-version)
-                                    (.set blob ct 1)
-                                    (if (> (.-length blob) max-snapshot-blob-bytes)
-                                      {:error :too-large}
-                                      (-> (snapshot-id blob)
-                                          (.then (fn [id] {:share id :key (b64url-encode raw) :blob blob})))))))))))))))
+                     (-> (js/Promise.all #js [(aes-key raw "encrypt") (iv-for raw) (sha-256 (join-bytes (str->bytes "id") raw))])
+                         (.then (fn [kid]
+                                  (-> (.encrypt (subtle) #js {:name "AES-GCM" :iv (aget kid 1)} (aget kid 0) gz)
+                                      (.then (fn [ct]
+                                               (let [ct   (js/Uint8Array. ct)
+                                                     blob (js/Uint8Array. (inc (.-length ct)))]
+                                                 (aset blob 0 snapshot-version)
+                                                 (.set blob ct 1)
+                                                 (if (> (.-length blob) max-snapshot-blob-bytes)
+                                                   {:error :too-large}
+                                                   {:share (subs (b64url-encode (aget kid 2)) 0 22)
+                                                    :key   (b64url-encode raw)
+                                                    :blob  blob})))))))))))))))
 
 (defn decode-snapshot
   "Decrypt a snapshot's bytes with the key from its link, then apply decode-shared's last layers under a
