@@ -210,6 +210,9 @@ wrong, and why.
 - **[duplicate-key-durability-roadmap.md](duplicate-key-durability-roadmap.md)** -- *not built.*
   Why duplicate keys keep coming back and the plan to stop them. Extends
   `RECONCILIATION-LOG.md` phase 3 and `name-to-kw-audit.md` section 6.
+- **[share-snapshots.md](share-snapshots.md)** -- *built.* Short share links: homebrew stored on the
+  server encrypted with the key only in the link, the measured size caps, what the server can know, and
+  what is still open.
 - **[share-custom-items-plan.md](share-custom-items-plan.md)** -- *built, then superseded by loading items with the character (`7f375829`).* Making a
   character's custom magic items, weapons and armor apply on a shared sheet opened by a
   different session. Extends the homebrew-embed share feature.
