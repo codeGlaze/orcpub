@@ -606,12 +606,13 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, css, dotfiles, goes, history, hook, irreducible, learned, lessons, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, css, docstring, documentation, dotfiles, goes, history, hook, learned, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
+- Docstring what you touch
 - Claims must be proven, not asserted
 - The push reminder hook
 - Audit history

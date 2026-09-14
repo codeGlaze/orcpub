@@ -56,6 +56,23 @@ on `agents/develop`, and the only hook (`kb-doc-reminder.sh`, pre-push) checks K
 the maintainer's head, which is why it was violated. It lives here now because this file travels
 with the KB; `CLAUDE.md` is per-environment and not committed on code branches.
 
+## Docstring what you touch
+
+A function you had to read to understand gets a docstring before you move on — spec, not prose,
+per the rule above. The test is whether the next person has to re-derive what you just derived.
+
+This applies to **namespaces too, and they are the bigger gap**: `entity_spec.cljc` had none at
+all — 131 lines deciding what is expressible in the whole modifier system, with nothing at the
+top saying so. A namespace docstring should ORIENT: what this is, what the public entry points
+are, the one rule that bites. It is the thing an editor shows on hover, so it is the cheapest
+documentation in the codebase.
+
+**Markers mean one thing.** `LOAD-BEARING` in this repo marks *behaviour that must not change* —
+`entity.cljc`'s sort order, `armor_class.cljc`'s max, `entity_spec.cljc`'s macroexpansion
+rewrite. Do not use it to mean "do not delete this text"; a marker that means two things stops
+meaning either. And never write agent-to-agent instructions inside an API docstring — a reader
+hovering the symbol wants to use it, not read about its editing history.
+
 ## Claims must be proven, not asserted
 
 The recurring failure in this repo is a confident claim built on a partial read: a `tag->flag` map

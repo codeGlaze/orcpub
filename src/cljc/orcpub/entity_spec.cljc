@@ -1,21 +1,23 @@
 (ns orcpub.entity-spec
-  "The modifier engine: a lazy dataflow graph over a built entity.
+  "Character attributes as a spreadsheet. Each attribute is a cell; a `?other-attr` reference in
+   its body is an input; the references decide what has to be computed first.
 
-   A `?foo` symbol in a macro body is rewritten AT MACROEXPANSION to
-   `(entity-val entity :foo)`, and `deps` scans the same form for `?` symbols to declare the
-   edges `apply-options` topologically sorts on.
+   READ a value with `entity-val` (or the `q` macro) — never plain `get`. Cells hold functions
+   until forced.
+   WRITE one with `modifier`, or `vec-mod` / `set-mod` / `map-mod` / `cum-sum-mod` for the
+   accumulating kinds. `dependencies` and `conditions` are what those macros use internally to
+   declare a cell's inputs and its guards.
 
-   LOAD-BEARING — the rewrite is a source transform, so a `?`-ref only works where a MACRO put
-   it. A runtime-assembled form can never reference one; that is why `requirements.cljc` holds
-   predicates over a plain-data context instead of condition forms. Content names things and code
-   maps those names to macro-built modifiers. Do not replace this docstring with a summary: the
-   boundary has been rediscovered the hard way twice.
+   THE REWRITE IS LOAD-BEARING. `?foo` becomes `(entity-val entity :foo)` at MACROEXPANSION, not
+   at runtime. So a `?`-ref exists only where a macro literally wrote one: no ordinary function,
+   and no form assembled from data at runtime, can reference an attribute. `requirements.cljc` is
+   the worked way around it — predicates over a plain-data context, never condition forms.
 
-   GOTCHA: `deps` finds edges by scanning for LITERAL `?` symbols. An attribute reached any other
-   way declares no edge, so the sort can order it wrong — and that fails as a silently wrong
-   number, never an error.
+   GOTCHA: `deps` declares a cell's inputs by scanning for literal `?` symbols. Reach an
+   attribute any other way and it declares no input, so evaluation can be ordered wrong — which
+   surfaces as a wrong number, never an error.
 
-   Reference: docs/kb/built-character-representation.md."
+   docs/kb/built-character-representation.md"
   (:require [clojure.string :as s]
             [clojure.set :as sets]))
 
@@ -32,7 +34,9 @@
       (v entity)
       v)))
 
-(defn ref-sym-to-kw [sym]
+(defn ref-sym-to-kw
+  "The symbol `?base-ac` -> the keyword `:base-ac`. Drops the leading `?`, nothing else."
+  [sym]
   (keyword (subs (str sym) 1)))
 
 (defmacro q [entity query]
@@ -40,13 +44,19 @@
     ~entity
     ~(ref-sym-to-kw query)))
 
-(defn ref-to-kw [s entity]
+(defn ref-to-kw
+  "One rewrite step: a `?`-prefixed symbol becomes `(entity-val entity :that-kw)`; anything else
+   is returned untouched. Called during macroexpansion, never at runtime."
+  [s entity]
   (if (and (symbol? s)
            (s/starts-with? (str s) "?"))
     `(entity-val ~entity ~(ref-sym-to-kw s))
     s))
 
-(defn replace-refs [entity body]
+(defn replace-refs
+  "Walk `body` and rewrite every `?`-ref into an `entity-val` lookup against `entity`. Recurses
+   through maps, vectors and seqs, and rewrites map KEYS as well as values."
+  [entity body]
   (cond
     (map? body)
     (into
@@ -62,7 +72,11 @@
     (map #(replace-refs entity %) body)
     :else (ref-to-kw body entity)))
 
-(defn deps [k body]
+(defn deps
+  "The set of attribute keywords `body` reads, minus `k` itself — the inputs `apply-options`
+   topologically sorts on. Found by scanning the form for literal `?` symbols; see the ns
+   docstring's GOTCHA for what that misses."
+  [k body]
   (let [nodes (tree-seq coll? seq body)]
     (into
      #{}
