@@ -26,10 +26,12 @@ Three things that wording settles, and an earlier draft of this doc got the firs
 - **"can choose"** — the player's option, not automatic. A design that silently substitutes is as
   wrong as one that silently wastes.
 
-**Languages are not covered.** The Languages section of the same chapter says only that some
-backgrounds grant extra languages; there is no duplicate rule for them anywhere in the SRD. So a
-duplicate language doing nothing is unaddressed rather than incorrect. Same for weapon and armor
-proficiencies.
+**Languages, weapons and armor are not covered** — checked exhaustively, not by one grep.
+`backgrounds.md:15` is the *only* duplicate-proficiency rule in the corpus: searches for "already
+have/proficient", "choose a different", "gain the same", "same proficiency", "duplicate" and
+"twice" across every file turn up nothing else on the subject. `languages.md` has no duplicate
+rule, and multiclassing's Proficiencies section is a *restriction* (you gain fewer), not a
+duplicate rule. So a wasted duplicate language is unaddressed by the rules rather than incorrect.
 
 `background-skills-cfg` (`options.cljc:2845`) is the only place in the app that implements any of
 it, and only for skills:
@@ -115,30 +117,36 @@ expertise**.
 **OPEN** — which published books define expertise-instead (Tasha's *Skill Expert*, XGtE
 *Prodigy*) is still unchecked; both are outside the SRD.
 
-## Found while building the fixture: a race's `:props` are read by nothing
+## RETRACTED — the race `:props` "bug" was my broken fixture
 
-**VERIFIED — live bug, independent of the grant work.**
+*Written and committed 2026-09-14, retracted the same day. Left in full because the error is more
+instructive than the claim was.*
 
-`::race5e/toggle-race-map-prop` writes `[:props <k> <v>]` (`events.cljs:3903`), and six race
-builder widgets route through it: skill, weapon and armor proficiency, damage resistance, damage
-immunity, languages (`views.cljs:7518-7528`; subrace is the same, `:7257-7270`).
+**The claim:** a race's `:props` were read by nothing — `race-option` destructures no `:props`,
+so the six race-builder checkboxes did nothing to a character.
 
-`race-option` destructures `[name icon key help abilities size speed darkvision subraces modifiers
-selections traits source languages language-options armor-proficiencies weapon-proficiencies profs
-plugin? grants edit-event]` — **no `:props`** — and nothing else compiles a race's props:
-`plugin-modifiers` has exactly two callers, `feat-modifiers` and the fighting-style option.
-`subrace-option` destructures no `:props` either.
+**Why it was wrong:** the supporting grep was `grep -n 'plugin-modifiers' options.cljc` — one
+file — and its result was reported as a fact about the codebase. There are **seven** callers, five
+of them in `spell_subs.cljs`: race (`:362`), subrace (`:379`), subclass (`:685`), class (`:721`).
 
-Measured: a race with `:props {:skill-prof {:athletics true}}` builds a character with
-`?skill-profs` **nil**. The same key on a feat grants it. The checkboxes save, reload into the
-form and export to `.orcbrew` — and do nothing to a character.
+A homebrew race's props are compiled in the cljs **subscription** layer, before the race reaches
+`race-option`:
 
-This matters for the shim: rows 3, 5, 7, 9, 10 of the 35-table are race `:props` rows, and
-normalizing a key that currently does nothing into a `:grants` that works is a **behaviour
-change**, not a behaviour-preserving migration. It may be the fix people want, but it is not
-silent and should not ride in on a shim commit.
+```clojure
+(assoc race :modifiers (concat (opt5e/plugin-modifiers (:props race) (:key race)) …))
+```
 
-**OPEN** — how long this has been broken, and whether any shipped homebrew race relies on it.
+The builder works. The JVM fixture handed `template-selections` a raw race map and skipped that
+step, so the race granted nothing and I read the fixture's silence as the app's.
+
+**The general trap, which this repo had already written down:**
+`grant_vocabulary_characterization_test` says vocabulary B "lives in `spell_subs.cljs` (cljs), so
+its level-gated assembly is NOT reachable from this JVM gate." Any JVM fixture standing in for
+plugin content must apply the cljs compile step itself. `compiled-race` in the test does.
+
+**What survives:** every duplicate-grant measurement. Re-run through the compiled path, all six
+rows still report no change. The retraction touches only the race-props claim, and rows 3, 5, 7,
+9, 10 of the 35-table are ordinary behaviour-preserving shim rows after all.
 
 ## Related
 

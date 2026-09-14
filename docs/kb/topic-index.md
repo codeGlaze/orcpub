@@ -41,13 +41,13 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, chapter, content-extensibility-framework, destructures, duplicate, expertise, implements, languages, option-prereq, pool-grant-map, porting, proficiencies, proficiency, replacement, skill, srd, tools, wasted
+**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
 - Consequence for the pool work
 - Expertise-instead-of-proficiency is not an SRD pattern — confirmed in the text
-- Found while building the fixture: a race's :props are read by nothing
+- RETRACTED — the race :props "bug" was my broken fixture
 - Related
 
 ## armor-class-computation.md
@@ -262,7 +262,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, ordinary, plain, predicates, realized, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
 
 - One-liner
 - How it actually works (verified)
@@ -588,7 +588,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -690,7 +690,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -823,7 +823,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, routes, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -880,7 +880,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, dispensations, everyone, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -905,7 +905,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, mint, minted, override, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -977,7 +977,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claim, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, shown, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)

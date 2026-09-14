@@ -50,15 +50,16 @@
                             :options [feat] :min 1 :max 1})]))))))
 
 ;; A race that already grants the thing, by the legacy :props path every silo shares.
-(def ^:private skilled-race   {:name "Testfolk" :key :testfolk :props {:skill-prof {:athletics true}}})
+(declare compiled-race)
+(def ^:private skilled-race   (delay (compiled-race {:name "Testfolk" :key :testfolk :props {:skill-prof {:athletics true}}})))
 (def ^:private lingual-race   {:name "Testfolk" :key :testfolk :languages ["Elvish"]})
 (def ^:private tooled-race    {:name "Testfolk" :key :testfolk :profs {:tool {:smiths-tools true}}})
 
 (deftest ^:diagnostic report-duplicate-grants
   (println "\n=== granted something the character ALREADY has ===")
   (doseq [[label race feat read]
-          [["skill  — legacy :props"  skilled-race {:props {:skill-prof {:athletics true}}}   char5e/skill-proficiencies]
-           ["skill  — pool :key"      skilled-race {:grants [{:pool :skills :key :athletics}]} char5e/skill-proficiencies]
+          [["skill  — legacy :props"  @skilled-race {:props {:skill-prof {:athletics true}}}   char5e/skill-proficiencies]
+           ["skill  — pool :key"      @skilled-race {:grants [{:pool :skills :key :athletics}]} char5e/skill-proficiencies]
            ["lang   — legacy :props"  lingual-race {:props {:language {:elvish true}}}         char5e/languages]
            ["lang   — pool :key"      lingual-race {:grants [{:pool :languages :key :elvish}]} char5e/languages]
            ["tool   — legacy :profs"  tooled-race  {:profs {:tool {:smiths-tools true}}}       char5e/tool-proficiencies]
@@ -71,45 +72,63 @@
                          (str "changed: " (pr-str without) " -> " (pr-str with))))))))
 
 ;; ---------------------------------------------------------------------------
-;; Found while building the fixture above: the race fixture granted nothing.
+;; RETRACTED 2026-09-14, same day it was written.
 ;;
-;; `toggle-race-map-prop` writes `[:props <k> <v>]` on the race (events.cljs:3887), and the race
-;; builder routes six widgets through it — skill, weapon and armor proficiency, damage resistance
-;; and immunity, languages. `race-option` destructures
-;;   [name icon key help abilities size speed darkvision subraces modifiers selections traits
-;;    source languages language-options armor-proficiencies weapon-proficiencies profs plugin?
-;;    grants edit-event]
-;; with no `:props`, and nothing else compiles a race's props — `plugin-modifiers` has exactly two
-;; callers, `feat-modifiers` and the fighting-style option. `subrace-option` is the same.
+;; This block asserted that a race's `:props` were read by nothing, because `race-option`
+;; destructures no `:props` and a grep of `options.cljc` found only two `plugin-modifiers`
+;; callers. The grep was scoped to ONE FILE and reported as a fact about the codebase. There are
+;; seven callers; five are in `spell_subs.cljs` — race (`:362`), subrace (`:379`), subclass
+;; (`:685`), class (`:721`).
 ;;
-;; So those checkboxes save, reload into the form, export to `.orcbrew` — and do nothing to a
-;; character.
+;; A homebrew race's props are compiled in the cljs SUBSCRIPTION layer, before the race ever
+;; reaches `race-option`:
+;;
+;;   (assoc race :modifiers (concat (opt5e/plugin-modifiers (:props race) (:key race)) …))
+;;
+;; So the race builder's checkboxes work. The fixture was broken, not the app — `build` below
+;; hands `template-selections` a raw race map and skips that step.
+;;
+;; The trap is already documented: `grant_vocabulary_characterization_test` notes that vocabulary
+;; B lives in cljs and "is NOT reachable from this JVM gate". Any JVM fixture standing in for
+;; plugin content must apply the cljs compile step itself, as `compiled-race` does.
 ;; ---------------------------------------------------------------------------
 
-(deftest race-props-are-written-by-the-builder-and-read-by-nothing
-  (testing "a race granting a skill through :props grants no skill proficiency"
+(defn- compiled-race
+  "A plugin race as `race-option` actually receives it — props already compiled to modifiers by
+   `::races5e/plugin-races` (spell_subs.cljs:362). A JVM fixture must do this itself."
+  [race]
+  (assoc race :modifiers (concat (:modifiers race)
+                                 (opt5e/plugin-modifiers (:props race) (:key race)))))
+
+(deftest race-props-compile-through-the-cljs-subscription-layer
+  (testing "a raw race map grants nothing — the props are still uncompiled"
     (is (nil? (char5e/skill-proficiencies
                (build {:name "Testfolk" :key :testfolk
                        :props {:skill-prof {:athletics true}}} nil)))))
 
-  (testing "the same key on a FEAT does grant it — the vocabulary works, the race never reads it"
-    ;; the source is nil: make-feat-modifiers passes option-key only on the prof-or-expertise arm,
-    ;; and plain :skill-prof calls (modifiers/skill-proficiency %) with one argument.
+  (testing "the same race, compiled the way the sub compiles it, grants the skill"
     (is (= {:athletics {nil true}}
            (char5e/skill-proficiencies
-            (build {:name "Testfolk" :key :testfolk}
-                   {:props {:skill-prof {:athletics true}}})))))
+            (build (compiled-race {:name "Testfolk" :key :testfolk
+                                   :props {:skill-prof {:athletics true}}}) nil)))))
 
-  (testing "damage resistance through a race's :props is dropped the same way"
-    (is (empty? (char5e/damage-resistances
-                 (build {:name "Testfolk" :key :testfolk
-                         :props {:damage-resistance {:fire true}}} nil))))))
+  (testing "and damage resistance the same way"
+    (is (= #{{:value :fire :qualifier nil}}
+           (char5e/damage-resistances
+            (build (compiled-race {:name "Testfolk" :key :testfolk
+                                   :props {:damage-resistance {:fire true}}}) nil))))))
 
 (deftest a-duplicate-grant-is-silently-wasted
   (testing "a language the character already has: the second grant changes nothing"
     (let [race {:name "Testfolk" :key :testfolk :languages ["Elvish"]}]
       (is (= (char5e/languages (build race nil))
              (char5e/languages (build race {:grants [{:pool :languages :key :elvish}]}))))))
+
+  (testing "a skill the character already has, through the compiled race path"
+    (let [race (compiled-race {:name "Testfolk" :key :testfolk
+                               :props {:skill-prof {:athletics true}}})]
+      (is (= (char5e/skill-proficiencies (build race nil))
+             (char5e/skill-proficiencies (build race {:grants [{:pool :skills :key :athletics}]}))))))
 
   (testing "and a tool proficiency behaves the same"
     (let [race {:name "Testfolk" :key :testfolk :profs {:tool {:smiths-tools true}}}]
