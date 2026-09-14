@@ -49,7 +49,7 @@
      {:group "Characters"
       :icon "fa-share-alt"
       :headline "Share a character with its homebrew"
-      :detail "A view-only link carries the custom content the sheet needs, magic items included, and the recipient can keep it in their library."}
+      :detail "A short view-only link opens the character with the custom content its sheet needs, magic items included, and the recipient can keep that content in their library. You can make a new link or stop sharing at any time."}
 
      {:group "Printing"
       :icon "fa-list-ol"
