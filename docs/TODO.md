@@ -723,9 +723,9 @@ The plan:
    public. Existing characters default to anyone with the link, so links already out there keep
    working. Every character read goes through one server check.
 2. **Share by an unguessable token** instead of the database number. The owner creates it, can revoke
-   it, and can let it expire. Homebrew already travels this way: an owner's link names an encrypted
-   snapshot and carries its key (`20179535`, `kb/share-snapshots.md`). Still to build: revoking and
-   expiring a link, and a token for the character itself.
+   it, and can let it expire. Homebrew already travels this way: an owner's link carries a token for the
+   homebrew the server keeps, and New link revokes it (`kb/share-links.md`). Still to build: expiry,
+   and a token for the character itself.
 3. **Groups as a server object.** People join by invite and accept, with roles such as DM and player.
    Parties are the natural thing to grow into groups.
 4. **403 for "not yours", 401 only for "not logged in"**, so every rejected token can log the user out.
@@ -739,8 +739,8 @@ The plan:
 7. **Follow with consent**, or fold following into groups.
 8. **Serve portraits from this server.** It already fetches and validates them for the PDF, so a
    viewer's browser would only talk to us.
-9. **A report-and-remove process** for stored share snapshots. The server cannot read them, and deleting
-   one breaks every link to it, but they are stored and served. Take the details to a lawyer.
+9. **A report-and-remove process** for the shared homebrew the server stores and serves. Take the details
+   to a lawyer.
 
 ## Renaming a custom item drops it from every character that uses it
 
