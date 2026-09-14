@@ -417,7 +417,10 @@
     :db/index true}
    {:db/ident :orcpub.share/bundle :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
     :db/noHistory true}
-   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}])
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}])
 
 (def all-schemas
   (concat
