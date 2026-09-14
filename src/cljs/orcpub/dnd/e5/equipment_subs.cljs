@@ -47,13 +47,13 @@
    ::mi5e/custom-items
    (fn [_ _] [])))
 
-;; Ephemeral overlay of custom items that arrived embedded in a share link
-;; (view-once). Held raw in db :shared-custom-items — never persisted, never in
-;; the item editor — and folded into resolution below. See share_bundle/share-url.
+;; Custom items on the sheet in view that are not the viewer's own: from a share link, or sent by
+;; the server with the character on the page. Never persisted, never in the item editor, and folded
+;; into resolution below.
 (reg-sub
  ::mi5e/shared-custom-items
  (fn [db _]
-   (get db :shared-custom-items)))
+   (mi5e/shared-custom-items db)))
 
 (defn- safe-expand-items
   "expand-magic-items per item, dropping any that throw. Used for the SHARED

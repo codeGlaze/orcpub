@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
             [bidi.bidi :as bidi]
@@ -1617,14 +1618,31 @@
     (:orcpub.user/username user)
     (when-not (s/includes? owner "@") owner)))
 
+(defn- equipped-custom-items
+  "The owner's custom items this character has equipped, without database ids or owner. Whoever may
+   read the character sees these, because the sheet is drawn from them; the owner's other items stay
+   out. Any failure sends none rather than failing the character read."
+  [db username character]
+  (try
+    (sb/used-custom-items (entity/from-strict character)
+                          (d/q '[:find [(pull ?e [*]) ...] :in $ ?owner :where [?e ::mi5e/owner ?owner]]
+                               db username)
+                          #(mi5e/expand-magic-items [%]))
+    (catch Exception e
+      (println "WARNING: custom items not attached to character" (:db/id character) ":" (.getMessage e))
+      nil)))
+
 (defn get-character-for-id [db id]
   (let [{:keys [::se/owner] :as character} (d/pull db '[*] id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (or (not owner) (seq problems))
       {:status 400 :body problems}
-      {:status 200 :body (if-let [shown (public-owner db owner)]
-                           (assoc character ::se/owner shown)
-                           (dissoc character ::se/owner))})))
+      (let [shown (public-owner db owner)
+            items (when shown (equipped-custom-items db shown character))]
+        {:status 200 :body (cond-> (if shown
+                                     (assoc character ::se/owner shown)
+                                     (dissoc character ::se/owner))
+                             (seq items) (assoc ::char5e/custom-items items))}))))
 
 (defn character-summary-for-id [db id]
   ;; Fixed: bare destructuring outside let silently returned nil

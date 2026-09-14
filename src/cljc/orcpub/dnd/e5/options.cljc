@@ -1224,7 +1224,7 @@
                        all-weapons-map (mi/compute-all-weapons-map
                                         ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -1805,7 +1805,7 @@
                                      all-weapons-map (mi/compute-all-weapons-map
                                                       ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon

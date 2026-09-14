@@ -184,22 +184,17 @@
     (fn [id variant]
       (let [character @(subscribe [:character])
             plugins   @(subscribe [:plugins])
-            raw-items @(subscribe [::mi5e/custom-items])
             char-name @(subscribe [::char5e/character-name id])
             base      (char-url id)]
         ;; Recompute the embedded URL only when inputs change (identical? = O(1)).
         (when (or (not (identical? character (:character @prev)))
-                  (not (identical? plugins (:plugins @prev)))
-                  (not (identical? raw-items (:raw-items @prev))))
-          (reset! prev {:character character :plugins plugins :raw-items raw-items})
+                  (not (identical? plugins (:plugins @prev))))
+          (reset! prev {:character character :plugins plugins})
+          ;; Custom items stay out of the link: the server sends a character's equipped items with
+          ;; the character to whoever may read it. Homebrew rides here because the server never had it.
           (let [plugins-bundle (sb/extract-bundle character plugins)
-                ;; Match by the item's REAL expanded key(s) — via the app's own
-                ;; expand, never a hand-rolled name-to-kw — so keys line up on both
-                ;; sides by construction.
-                items (sb/used-custom-items character (or raw-items [])
-                                            #(mi5e/expand-magic-items [%]))
-                container {:plugins plugins-bundle :custom-items items}]
-            (if (and (empty? plugins-bundle) (empty? items))
+                container {:plugins plugins-bundle}]
+            (if (empty? plugins-bundle)
               (swap! state assoc :tier :plain :url base)
               (do
                 (swap! state assoc :tier :working :url base)

@@ -576,6 +576,9 @@
                      ;; (delete / go to list) instead of a blank sheet.
                      (dispatch [::char5e/set-character-load-error int-id body])
                      (do (dispatch [::char5e/set-character-load-error int-id nil])
+                         ;; Before the character, so its first build already has them.
+                         (dispatch [::mi5e/set-character-custom-items int-id
+                                    (::char5e/custom-items body) (::se/owner body)])
                          (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction

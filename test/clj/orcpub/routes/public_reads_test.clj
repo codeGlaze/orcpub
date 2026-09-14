@@ -6,6 +6,7 @@
             [orcpub.route-map :as route-map]
             [orcpub.db.schema :as schema]
             [orcpub.entity.strict :as se]
+            [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi5e])
   (:import [java.util UUID]))
 
@@ -55,3 +56,24 @@
           "saved in May 2017 under the email the owner logged in with")
       (is (= ::absent (owner-of (create! conn {::se/owner "gone@test.com"})))
           "an email with no account behind it is not shown either"))))
+
+(deftest a-character-read-brings-the-items-it-has-equipped-and-no-others
+  (with-conn conn
+    (setup! conn)
+    @(d/transact conn [{::mi5e/name "Cloak of Mist" ::mi5e/owner "alice"
+                        ::mi5e/type :wondrous-item ::mi5e/rarity :rare}
+                       {::mi5e/name "Spare Ring" ::mi5e/owner "alice"
+                        ::mi5e/type :ring ::mi5e/rarity :rare}
+                       {::mi5e/name "Cloak of Mist" ::mi5e/owner "bob"
+                        ::mi5e/type :wondrous-item ::mi5e/rarity :legendary}])
+    (let [equipping {::se/selections [{::se/key :other-magic-items
+                                       ::se/options [{::se/key :cloak-of-mist}]}]}
+          items-of  (fn [id] (::char5e/custom-items (:body (routes/get-character-for-id (d/db conn) id))))
+          items     (items-of (create! conn (assoc equipping ::se/owner "alice")))]
+      (is (= ["Cloak of Mist"] (map ::mi5e/name items)) "the equipped item, not the spare ring")
+      (is (= :rare (::mi5e/rarity (first items))) "alice's own cloak, not bob's of the same name")
+      (is (not-any? #(or (:db/id %) (::mi5e/owner %)) items) "no database ids and no owner")
+      (is (= ["Cloak of Mist"]
+             (map ::mi5e/name (items-of (create! conn (assoc equipping ::se/owner "alice@test.com")))))
+          "a character saved under its owner's email still brings the owner's items")
+      (is (nil? (items-of (create! conn {::se/owner "alice"}))) "nothing equipped, nothing sent"))))

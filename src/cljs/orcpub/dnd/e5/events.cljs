@@ -5294,6 +5294,20 @@
               (:character db) (update-in [:character :orcpub.fork/shared-rev] (fnil inc 0)))}
        {}))))
 
+;; The owner's custom items a character read brought, kept per character id and read through
+;; mi/shared-custom-items while that character is on the page. Not kept for the viewer's own
+;; characters: their items come from their own list, which a copy taken at load would shadow.
+(reg-event-db
+ ::mi/set-character-custom-items
+ (fn [db [_ id items owner]]
+   (let [items (filterv (fn [it]
+                          (try (boolean (seq (mi/expand-magic-items [it])))
+                               (catch :default _ false)))
+                        items)]
+     (if (or (empty? items) (= owner (get-in db [:user-data :user-data :username])))
+       (update db :character-custom-items dissoc id)
+       (assoc-in db [:character-custom-items id] items)))))
+
 ;; Persist the currently-viewed shared content into the recipient's own library,
 ;; collapsed under one clearly-labeled source so it can't silently overwrite an
 ;; existing same-named source. Colliding keys were surfaced by the banner; the
