@@ -26,13 +26,39 @@
 
 ;; -- Auth --
 
+(defn get-auth-token
+  "Canonical access for the auth token in app-db.
+
+   Returns the JWT string, or nil if the user is not logged in.
+
+   This is the **single source of truth** for the token path
+   `[:user-data :token]` and for the 'is the user logged in' check.
+
+   Dual use:
+   - Retrieval: `(get-auth-token db)` when you need the token string
+     itself — e.g. Authorization header, `:http` fx `:auth-token`.
+   - Guard: `(when (get-auth-token @app-db) ...)` in reg-sub-raw bodies
+     and anywhere a decision depends on authentication. Nil is falsy,
+     so the retrieval form doubles as a predicate.
+
+   If the definition of 'logged in' ever needs to compose additional
+   conditions (e.g. after the `db[:user]` dead-storage cleanup or the
+   `db[:user-data][:user-data]` double-nesting fix), promote the guard
+   usage to a dedicated `logged-in?` predicate at that point — do NOT
+   inline compound logic at call sites. History of the typo class this
+   function closes: 45ef969 introduced `(:token (:user X))` guards
+   with the wrong top-level key; a0e20a8 fixed `::mi5e/custom-items`
+   but missed `::mi5e/remote-item`. Routing all guards through this
+   single function makes the silent-nil failure mode impossible."
+  [db]
+  (-> db :user-data :token))
+
 (defn auth-headers
   "Returns Authorization header map from db. Handles nil token gracefully."
   [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
+  (if-let [token (get-auth-token db)]
+    {"Authorization" (str "Token " token)}
+    {}))
 
 ;; -- Error helpers --
 

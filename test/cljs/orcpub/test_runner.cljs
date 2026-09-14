@@ -15,6 +15,8 @@
             ;; the toggle-corruption stress harness)
             [orcpub.dnd.e5.events-test]
             [orcpub.dnd.e5.subs-test]
+            [orcpub.dnd.e5.equipment-subs-test]
+            [orcpub.dnd.e5.filtered-list-reactivity-test]
             [orcpub.dnd.e5.built-character-debounce-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.draconic-ancestry-test]
@@ -42,6 +44,8 @@
              'orcpub.dnd.e5.spell-annotations-test
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
+             'orcpub.dnd.e5.equipment-subs-test
+             'orcpub.dnd.e5.filtered-list-reactivity-test
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.draconic-ancestry-test
