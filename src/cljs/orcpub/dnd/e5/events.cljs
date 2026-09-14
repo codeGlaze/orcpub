@@ -5266,8 +5266,8 @@
  ::fetch-shared-snapshot!
  (fn [[id [share k]]]
    (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :share share))
-       (.then (fn [resp] (when (.-ok resp) (.text resp))))
-       (.then (fn [blob] (if blob (share-url/decode-snapshot blob k) {:error :missing})))
+       (.then (fn [resp] (when (.-ok resp) (.arrayBuffer resp))))
+       (.then (fn [buf] (if buf (share-url/decode-snapshot (js/Uint8Array. buf) k) {:error :missing})))
        (.then (fn [result]
                 (cond
                   (:error result)

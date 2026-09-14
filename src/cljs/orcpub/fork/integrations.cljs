@@ -179,7 +179,7 @@
                                 (if (.-ok resp)
                                   fragment
                                   (-> (js/fetch url (clj->js {:method  "PUT"
-                                                              :headers (merge {"Content-Type" "text/plain"}
+                                                              :headers (merge {"Content-Type" "application/octet-stream"}
                                                                               (event-utils/auth-headers @re-frame.db/app-db))
                                                               :body    blob}))
                                       (.then #(when (.-ok %) fragment)))))))))))

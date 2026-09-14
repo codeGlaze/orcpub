@@ -405,7 +405,7 @@
      ::weapon5e/ammunition?])))
 
 (def share-schema
-  "Encrypted share snapshots, see orcpub.routes.share. :orcpub.share/blob is ciphertext the server
+  "Encrypted share snapshots, see orcpub.routes.share. :orcpub.share/ciphertext is bytes the server
    cannot read; :orcpub.share/id is \"<character id>/<share id>\"."
   [{:db/ident :orcpub.share/id :db/valueType :db.type/string :db/cardinality :db.cardinality/one
     :db/unique :db.unique/identity}
@@ -413,7 +413,7 @@
     :db/index true}
    {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
     :db/index true}
-   {:db/ident :orcpub.share/blob :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+   {:db/ident :orcpub.share/ciphertext :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
     :db/noHistory true}
    {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}])
 

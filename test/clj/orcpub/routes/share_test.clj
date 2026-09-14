@@ -27,12 +27,12 @@
   (let [{:keys [tempids db-after]} @(d/transact conn [(assoc entity :db/id "new")])]
     (d/resolve-tempid db-after tempids "new")))
 
-(defn- blob [seed] (str "2" seed "AbCd-_0123456789"))
+(defn- blob [seed] (byte-array (concat [2] (.getBytes (str seed "-and-a-sixteen-byte-tag") "UTF-8"))))
 
-(defn- put! [conn username character-id b & [claimed-id]]
+(defn- put! [conn username character-id ^bytes b & [claimed-id]]
   (share/put-share {:db (d/db conn) :conn conn :identity {:user username}
                     :path-params {:id character-id :share (or claimed-id (share/share-id b))}
-                    :body (ByteArrayInputStream. (.getBytes ^String b "UTF-8"))}))
+                    :body (ByteArrayInputStream. b)}))
 
 (defn- fetch [conn character-id b]
   (share/get-share {:db (d/db conn) :path-params {:id character-id :share (share/share-id b)}}))
@@ -45,7 +45,7 @@
     (setup! conn)
     (let [id (create! conn {::se/owner "alice"})]
       (is (= 200 (:status (put! conn "alice" id (blob "One")))))
-      (is (= (blob "One") (:body (fetch conn id (blob "One")))))
+      (is (= (seq (blob "One")) (seq (.readAllBytes ^java.io.InputStream (:body (fetch conn id (blob "One")))))))
       (is (= 200 (:status (put! conn "alice" id (blob "One")))) "the same content again")
       (is (= 1 (stored conn)) "is not stored twice")
       (is (= 404 (:status (fetch conn id (blob "Other"))))))))
@@ -66,9 +66,10 @@
     (setup! conn)
     (let [id (create! conn {::se/owner "alice"})]
       (is (= 400 (:status (put! conn "alice" id (blob "One") (share/share-id (blob "Two"))))))
-      (is (= 400 (:status (put! conn "alice" id "1AbCd"))) "an embedded-link payload, not a snapshot")
-      (is (= 400 (:status (put! conn "alice" id "2AbC+/="))) "not base64url")
-      (is (= 413 (:status (put! conn "alice" id (apply str "2" (repeat share/max-blob-chars "A"))))))
+      (is (= 400 (:status (put! conn "alice" id (byte-array (concat [1] (.getBytes "an-embedded-link-payload" "UTF-8"))))))
+          "the wrong version byte")
+      (is (= 400 (:status (put! conn "alice" id (byte-array [2 1 2 3])))) "too short to hold the tag")
+      (is (= 413 (:status (put! conn "alice" id (byte-array (inc share/max-blob-bytes) (byte 2))))))
       (is (zero? (stored conn))))))
 
 (deftest a-character-keeps-its-newest-snapshots

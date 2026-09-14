@@ -105,9 +105,12 @@ async function open(browser, link, who) {
   check(link.length < 200, 'the link is short', `${link.length} characters`);
   check(ownerRequests.some(r => r === 'PUT 200' || r === 'GET 200'), 'the snapshot is on the server', ownerRequests.join(', '));
   if (match) {
-    const stored = await owner.evaluate(async url => (await fetch(url)).text(),
-      `${BASE}/dnd/5e/characters/${ID}/shares/${match[1]}`);
-    check(stored.startsWith('2') && !stored.includes(LANGUAGE), 'what the server stores is not readable', stored.slice(0, 40));
+    const stored = await owner.evaluate(async url => {
+      const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+      return { first: bytes[0], size: bytes.length, text: new TextDecoder().decode(bytes) };
+    }, `${BASE}/dnd/5e/characters/${ID}/shares/${match[1]}`);
+    check(stored.first === 2 && !stored.text.includes(LANGUAGE), 'what the server stores is not readable',
+      `${stored.size} bytes`);
   }
 
   // The character list's Copy link is the same button. It used to pack whatever character was open in

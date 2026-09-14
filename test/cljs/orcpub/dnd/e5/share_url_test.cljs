@@ -15,7 +15,7 @@
         (.then (fn [{:keys [share key blob]}]
                  (is (re-matches #"[A-Za-z0-9_-]{22}" share))
                  (is (re-matches #"[A-Za-z0-9_-]{43}" key))
-                 (is (not (re-find #"My Spell" blob)) "the stored blob is not readable")
+                 (is (not (re-find #"My Spell" (.decode (js/TextDecoder.) blob))) "the stored bytes are not readable")
                  (-> (share-url/decode-snapshot blob key)
                      (.then (fn [opened]
                               (is (= bundle (:plugins opened)))
@@ -30,7 +30,8 @@
                              (share-url/build-snapshot bundle 42)
                              (share-url/build-snapshot bundle 43)])
         (.then (fn [made]
-                 (is (= (aget made 0) (aget made 1)) "uploading it again stores nothing new")
+                 (is (= (select-keys (aget made 0) [:share :key]) (select-keys (aget made 1) [:share :key]))
+                     "the same link again, and the same snapshot id, so nothing new is stored")
                  (is (not= (:key (aget made 0)) (:key (aget made 2))) "another character's has its own key")))
         (.catch fail)
         (.finally done))))
