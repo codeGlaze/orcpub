@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, terse, toggle, widget
 
 - The format
 - Examples
@@ -353,7 +353,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
+**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -526,7 +526,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** backstop, concatenation, condition, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** caller-supplied, concatenation, condition, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -648,7 +648,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, pool, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -760,7 +760,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
+**topics:** athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, nine, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -849,6 +849,23 @@ _orcbrew-format-versioning · orcbrew format versioning_
 - Why this exists
 - The mechanism (three parts)
 - Still open (besides the name)
+- Related
+
+## plan-hidden-pick-fix-and-grant-fields.md
+
+_plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
+
+**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, owner, part, per-pool, pool, wrapper
+
+- Position, stated once
+- Part A — the bug fix
+- Why it cuts from integration
+- The change
+- Blast radius
+- Order
+- Part B — completing the grant compiler
+- Are the new fields ornaments?
+- Derived helpers, or more fields?
 - Related
 
 ## plan-next.md
@@ -969,7 +986,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -1041,7 +1058,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, intended, miss, number, optimisation, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, number, optimisation, shown, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
