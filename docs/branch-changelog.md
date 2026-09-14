@@ -28,6 +28,11 @@ comes with a check that fails without it.
   config settings, and anyone else's link still carries the homebrew itself (`20179535`, `191b612e`,
   `eab46b9f`, `e43b41ca`).
 
+- **A party keeps a shared character's homebrew** — a character added to a party from its share link
+  shows its homebrew on the party page, until its owner makes a new link (`c69dcf9d`).
+- **Unused share links expire** — a share link nobody opens for 180 days is deleted with its homebrew;
+  the owner can share again, and `ORCPUB_SHARE_PRUNE_DAYS` sets the window (`59400455`).
+
 ## Fixed
 
 - **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
@@ -99,6 +104,9 @@ comes with a check that fails without it.
   it carried the homebrew of whatever character was open in the builder (`a92b47b7`).
 - **Pasted images and video are left out of shared homebrew** — a data: URI in any text field is
   emptied before sharing and again when a link is opened (`ac2e45bf`).
+
+- **Only characters can be added to a party** — adding checked nothing, so any id could be added
+  (`c69dcf9d`).
 
 ## Changed
 
