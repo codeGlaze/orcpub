@@ -117,7 +117,11 @@
    Only sources the derivation gets WRONG belong here. \"Tasha's Cauldron of
    Everything\" already derives TCoE and \"Volo's Guide to Monsters\" already derives
    VGtM, so listing them would just be a second place to keep them correct."
-  {"unearthed arcana" "UA"
+  {;; The source an item lands in when its author never named one. The derivation reads it as
+   ;; three words and produces DtOnSe; "dflt" is the tag people recognise. It matters more than
+   ;; any other entry here: most first-time homebrew lands in this source.
+   "default option source" "dflt"
+   "unearthed arcana" "UA"
    ;; The initialisms themselves, so someone who types the short form lowercase
    ;; gets the same tag as someone who spells the source out. The all-caps
    ;; passthrough below only catches them when they are already capitalised.
@@ -141,6 +145,14 @@
       (s/lower-case)
       (s/replace #"[^a-z0-9À-ɏ]+" " ")
       (s/trim)))
+
+(def ^:private initialism-re
+  "A word that is ALREADY an abbreviation: two to six characters, all caps or digits, starting
+   with a letter.
+
+   GOTCHA: the leading-letter requirement is what keeps a year out. \"Unearthed Arcana 2022:
+   Heroes of Krynn\" must read UA2HoK, not UA2022HoK."
+  #"[A-Z][A-Z0-9]{1,5}")
 
 (defn source-abbreviation
   "A short tag for a content source, for disambiguating two items that share a
@@ -177,16 +189,29 @@
         ;; abbreviated again: "UA" would otherwise come back "Ua", which is the
         ;; same name with its meaning filed off. One all-caps word, short enough
         ;; to read as a tag.
-        (if (and (= 1 (count words)) (re-matches #"[A-Z0-9]{2,6}" (first words)))
+        (cond
+          (and (= 1 (count words)) (re-matches initialism-re (first words)))
           (first words)
-          (if (<= (count words) 3)
-            (s/join (map (fn [w]
-                           (if (= 1 (count w))
-                             (s/upper-case w)
-                             (str (s/upper-case (subs w 0 1))
-                                  (s/lower-case (subs w (dec (count w)))))))
-                         words))
-            (s/join (map #(subs % 0 1) words))))))))
+
+          ;; An initialism with a description after it -- "UA - Giant Options",
+          ;; "MM Extra Monsters" -- is how releases in a series are actually named, and
+          ;; the two-shape rule mangles both halves: three words gave "UaGtOs" and four
+          ;; gave "UHoK", each filing the meaning off the part that carries it. Keep the
+          ;; initialism whole and take initials of the rest, which is how people write
+          ;; these anyway.
+          (some #(re-matches initialism-re %) words)
+          (s/join (map (fn [w] (if (re-matches initialism-re w) w (subs w 0 1))) words))
+
+          (<= (count words) 3)
+          (s/join (map (fn [w]
+                         (if (= 1 (count w))
+                           (s/upper-case w)
+                           (str (s/upper-case (subs w 0 1))
+                                (s/lower-case (subs w (dec (count w)))))))
+                       words))
+
+          :else
+          (s/join (map #(subs % 0 1) words)))))))
 
 (defn- abbreviation-suffix-re
   "Matches a trailing \" (Abbr)\" or \" (Abbr 2)\" for one specific abbreviation, so
@@ -238,6 +263,41 @@
            (if (or (not (taken? (:key c))) (> n 99))
              c
              (recur (candidate n) (inc n)))))))))
+
+(defn normalize-abbreviation
+  "A source's own abbreviation, reduced to the shape the derivation would have produced: letters and
+   digits only, upper-cased, at most six, and a letter first. nil when nothing usable is left.
+
+   GOTCHA: upper-casing is not cosmetic. It is what makes the value pass `source-abbreviation`'s
+   already-an-abbreviation branch, so an author-set tag and a derived one travel the same path. The
+   key lower-cases either way, so case only shows in a name tagged by an import conflict."
+  [abbr]
+  (let [cleaned (-> (str abbr)
+                    (s/replace #"[^A-Za-z0-9]" "")
+                    (s/upper-case))]
+    (when (re-matches #"[A-Z][A-Z0-9]{1,5}" (subs cleaned 0 (min 6 (count cleaned))))
+      (subs cleaned 0 (min 6 (count cleaned))))))
+
+(defn source-tagged-key
+  "The key an item mints in `source-name`: its name's keyword with the source's abbreviation
+   appended — `(\"Stone Elf\" \"Tidewater Curios\")` => `:stone-elf-trcs`.
+
+   The NAME is not tagged. `disambiguated` tags both because it resolves a collision that a reader
+   should see in the picker; a key minted this way is carrying its source's address, which a reader
+   should not have to read. Deleting the tag in the builder's key control is how an author says they
+   mean to answer to the untagged key — an SRD override.
+
+   GOTCHA: routed through `disambiguated` rather than assembling the key itself, so a minted key and
+   an import-disambiguated one can never drift apart. A source with no abbreviation (unnamed) mints
+   the plain key.
+
+   No `taken?`: two items with one name in one source is a mistake worth reporting, not one to
+   uniquify silently."
+  ([item-name source-name] (source-tagged-key item-name source-name nil))
+  ([item-name source-name abbr]
+   ;; An author-set abbreviation is handed in AS the source name: normalized, it is already in the
+   ;; shape `source-abbreviation` passes through, so the explicit and derived paths stay one path.
+   (:key (disambiguated item-name (or (normalize-abbreviation abbr) source-name)))))
 
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)
@@ -503,9 +563,15 @@
   "Flip a boolean flag, but leave a collection untouched instead of collapsing it.
    Use in place of bare `not` for builder toggles whose path could land on a MAP:
    `(not {…})` is `false`, which DESTROYS the map so every child read returns nil
-   (the 'true/false/nil from clicking a lot' corruption)."
+   (the 'true/false/nil from clicking a lot' corruption).
+
+   The leaf read is `(not (true? v))`, not `(not v)`: only an actual `true` counts as ON, so
+   nil, absent, and garbage (a string \"false\" from an old import, say) all read as OFF and the
+   first click turns them ON. Identical to `(not v)` for real booleans — it differs only where
+   the stored value was never a boolean, which is exactly the case worth being defensive about.
+   Both halves are needed; see the convergence note in builder_fields.cljc."
   [v]
-  (if (coll? v) v (not v)))
+  (if (coll? v) v (not (true? v))))
 
 (defn toggle-in
   "Toggle a boolean flag at path `ks` in `m` (like `update-in` with `not`), with

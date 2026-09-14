@@ -1535,6 +1535,7 @@
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
 (declare library-health-status)
+(declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Whether the header has reached the top of the viewport. position: sticky
@@ -8789,6 +8790,19 @@
               [:button.form-button.m-l-5
                {:on-click (make-event-handler ::e5/delete-plugin name)}
                "delete"]]]
+            ;; The tag this source mints its keys with — the same quiet line as the item's key,
+            ;; because it is the same kind of thing. Blank means the derivation decides, and the
+            ;; derived value shows muted rather than being stored, so improving the rule reaches
+            ;; every source that never set one.
+            [meta-edit-row
+             {:label "key tag"
+              :value (or (:abbreviation plugin) (common/source-abbreviation name))
+              :derived? (nil? (:abbreviation plugin))
+              :placeholder (or (:abbreviation plugin) (common/source-abbreviation name))
+              :on-save #(dispatch [::e5/set-source-abbreviation name %])
+              :help (str "Keys minted in this source from now on end with this tag. "
+                         "Keys already minted keep the tag they have. "
+                         "Leave it blank to use the one derived from the source's name.")}]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
@@ -9281,10 +9295,68 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
+(defn meta-edit-row
+  "A quiet `label value change` line that swaps in an input when `change` is clicked.
+
+   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
+   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
+   same `.bf-meta` register.
+
+     :value        what to show at rest; nil renders nothing at all
+     :derived?     the value is the app's guess rather than a stored choice, shown muted
+     :placeholder  seeds the input
+     :on-save      called with the raw string typed; blank is the caller's to interpret
+     :help         a line a `?` opens beneath the row"
+  [_]
+  (let [editing? (r/atom false)
+        draft    (r/atom "")]
+    (fn [{:keys [label value derived? placeholder on-save help]}]
+      (when value
+        (let [row [:div.bf-meta.f-s-14.flex.align-items-c.flex-wrap
+                   [:span.m-r-5 label]
+                   [:span.m-r-10 {:class (when-not derived? "bf-meta-value")} value]
+                   (if @editing?
+                     [:<>
+                      [:input.input.h-32.bf-meta-input.m-r-5
+                       {:type "text"
+                        :value @draft
+                        :auto-focus true
+                        :placeholder placeholder
+                        :on-change #(reset! draft (-> % .-target .-value))}]
+                      [:span.pointer.bf-meta-action.m-r-10
+                       {:on-click #(do (on-save @draft) (reset! editing? false))}
+                       "save"]
+                      [:span.pointer.bf-meta-action
+                       {:on-click #(reset! editing? false)}
+                       "cancel"]]
+                     [:span.pointer.bf-meta-action
+                      {:on-click #(do (reset! draft (or placeholder "")) (reset! editing? true))}
+                      "change"])]]
+          (if help
+            [with-help row help]
+            row))))))
+
+(defn item-key-row
+  "The saved item's key, and the one control that changes it.
+
+   Keys are minted once (D10a) — the Name field no longer re-addresses an item — so this is the
+   only way an author fixes a key minted from a typo. Renders nothing until the item has one."
+  [item save-event]
+  (when-let [k (:key item)]
+    [meta-edit-row
+     {:label "key"
+      :value (str k)
+      :placeholder (name k)
+      :on-save #(dispatch [::e5/change-builder-item-key save-event (common/name-to-kw %)])}]))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered
   ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  (let [export-draft-event (events/draft-event-for save-event)]
+  ;; The key row rides the same derivation: builder-drafts already maps the save event to the
+  ;; builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  (let [export-draft-event (events/draft-event-for save-event)
+        [item-sub] (get events/builder-drafts save-event)
+        item       (when item-sub @(subscribe [item-sub]))]
     [content-page
      (or title (str item-title " Builder"))
      [{:title (str "New " item-title)
@@ -9298,7 +9370,11 @@
       {:title "Export draft"
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
-     [builder]]))
+     [:div
+      [builder]
+      ;; The key is the item's address, not a field an author fills in — so it sits after the form,
+      ;; under a hairline, in a muted register.
+      [item-key-row item save-event]]]))
 
 (defn combat-tracker-page []
   [content-page
