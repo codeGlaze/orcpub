@@ -108,6 +108,26 @@
     (is (= [{:orcpub.dnd.e5.magic-items/name "Flametongue"}]
            (sb/used-custom-items char raw expand-one)))))
 
+(deftest a-shared-item-carries-no-database-ids-or-owner
+  (let [char {::entity/options {:magic-items [{::entity/key :cloak-of-x}]}}
+        raw [{:db/id 17592186045418
+              :orcpub.dnd.e5.magic-items/name "Cloak of X"
+              :orcpub.dnd.e5.magic-items/owner "kaylee"
+              :orcpub.dnd.e5.magic-items/modifiers
+              [{:db/id 17592186045419
+                :orcpub.modifiers/key :saving-throw-bonus
+                :orcpub.modifiers/args [{:db/id 17592186045420 :orcpub.modifiers/keyword-arg :dex}
+                                        {:db/id 17592186045421 :orcpub.modifiers/int-arg 1}]}]}]
+        shared [{:orcpub.dnd.e5.magic-items/name "Cloak of X"
+                 :orcpub.dnd.e5.magic-items/modifiers
+                 [{:orcpub.modifiers/key :saving-throw-bonus
+                   :orcpub.modifiers/args [{:orcpub.modifiers/keyword-arg :dex}
+                                           {:orcpub.modifiers/int-arg 1}]}]}]]
+    (testing "a new link leaves them out"
+      (is (= shared (sb/used-custom-items char raw (fn [_] [{:key :cloak-of-x}])))))
+    (testing "a link made before that drops them on arrival"
+      (is (= shared (:custom-items (sb/whitelist-shared {:custom-items raw})))))))
+
 (deftest whitelist-shared-handles-container-and-legacy
   (testing "container: plugins whitelisted, well-formed raw items kept, bad ones dropped"
     (let [r (sb/whitelist-shared

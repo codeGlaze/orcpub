@@ -21,9 +21,10 @@
 
    Custom magic items, weapons and armor are not plugins: each account's are
    stored on the server, so this closure skips them. used-custom-items below
-   picks the ones the character equips, and the link carries each one whole,
-   its database id and owner username included."
+   picks the ones the character equips, and the link carries their fields
+   without the database ids or the owner."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.common :as common]))
@@ -283,20 +284,31 @@
      data)))
 
 ;; Custom magic items are carried as their RAW server form (as in
-;; ::mi5e/custom-items), so the recipient runs the identical expand pipeline and
+;; ::mi5e/custom-items, less the database ids and owner), so the recipient runs the identical expand pipeline and
 ;; the raw list drops straight into every seam that reads custom-items. The raw
 ;; name lives under this namespaced key (mi5e/name).
 (def ^:private raw-item-name-key :orcpub.dnd.e5.magic-items/name)
+(def ^:private raw-item-owner-key :orcpub.dnd.e5.magic-items/owner)
+
+(defn- shareable-item
+  "A raw item as a share link carries it: no :db/id at any depth and no owner. The
+   recipient draws the item from its fields and needs neither, and both point back at
+   the sharer's account."
+  [raw]
+  (walk/postwalk #(if (map? %) (dissoc % :db/id) %) (dissoc raw raw-item-owner-key)))
 
 (defn used-custom-items
   "Raw custom items this character equips. `expand-one` maps a single raw item to
    its expanded, keyed variant(s) (magic-items/expand-magic-items on a 1-item vec)
    — injected so this stays pure/cljc-testable. A weapon/armor item expands to
    several keyed variants (one per subtype); the raw item is kept if the character
-   selected ANY of them. Returns a vector; empty when none."
+   selected ANY of them. Returns a vector of shareable items; empty when none."
   [character raw-items expand-one]
   (let [used (selected-keys character)]
-    (filterv (fn [raw] (some #(contains? used (:key %)) (expand-one raw))) raw-items)))
+    (into []
+          (comp (filter (fn [raw] (some #(contains? used (:key %)) (expand-one raw))))
+                (map shareable-item))
+          raw-items)))
 
 (defn whitelist-shared
   "Fail-closed structural gate for an UNTRUSTED shared payload. Accepts either the
@@ -311,13 +323,15 @@
         plugins-in (if container? (:plugins data) data)
         items-in   (when container? (:custom-items data))
         {pb :bundle pd :dropped} (whitelist-bundle plugins-in)
+        ;; A link made before ids were stripped still carries them; drop them on the way in.
         items (if (sequential? items-in)
-                (filterv (fn [it]
+                (mapv shareable-item
+                 (filterv (fn [it]
                            (and (map? it)
                                 (let [nm (get it raw-item-name-key)]
                                   (and (string? nm)
                                        (common/starts-with-letter? (str/trim nm))))))
-                         items-in)
+                         items-in))
                 [])
         idropped (if (sequential? items-in) (- (count items-in) (count items)) 0)]
     {:plugins pb :custom-items items :dropped (+ pd idropped)}))
