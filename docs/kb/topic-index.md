@@ -41,12 +41,12 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** books, builder-disposition-audit, content-extensibility-framework, destructures, expertise, grant, held, lifted, option-prereq, pool, pool-grant-map, prodigy, race, relational, replacement, skill, srd, xgte
+**topics:** builder-disposition-audit, chapter, content-extensibility-framework, destructures, duplicate, expertise, implements, languages, option-prereq, pool-grant-map, porting, proficiencies, proficiency, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
 - Consequence for the pool work
-- Expertise-instead-of-proficiency is not an SRD pattern
+- Expertise-instead-of-proficiency is not an SRD pattern — confirmed in the text
 - Found while building the fixture: a race's :props are read by nothing
 - Related
 
@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, channel, channels, con, defense, dex, heavy, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -823,7 +823,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, routes, spec-valid, type
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
