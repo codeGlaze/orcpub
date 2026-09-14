@@ -2787,7 +2787,7 @@
  (fn [{:keys [db]} [_ char-id error raw]]
    {:db (assoc-in db [:character-report-status char-id] :sending)
     :http {:method :post
-           :auth-token (get-auth-token db)
+           :auth-token (event-utils/get-auth-token db)
            :url (backend-url (routes/path-for routes/dnd-e5-char-report-route))
            :transit-params {:char-id char-id :error error :raw raw}
            :on-success [:report-character-result char-id]

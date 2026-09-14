@@ -824,3 +824,19 @@
          "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
   (is (re-find #"^Reconnected 2 references"
                (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
+
+;; ---------------------------------------------------------------------------
+;; :report-character-problem — the auth token reaches the request
+;; ---------------------------------------------------------------------------
+
+(deftest report-character-problem-sends-the-auth-token
+  ;; get-auth-token moved to event-utils and this call site kept the bare name, which compiles to
+  ;; an undeclared var and throws the moment the button is pressed. The fix is one namespace
+  ;; qualifier; this is here so the next move does not put it back.
+  (let [sent (atom nil)]
+    (rf/reg-fx :http (fn [cfg] (reset! sent cfg)))
+    (reset! app-db {:user-data {:token "tok-123"}})
+    (rf/dispatch-sync [:report-character-problem 42 "boom" "{:raw 1}"])
+    (is (= "tok-123" (:auth-token @sent)) "the request carries the token")
+    (is (= :sending (get-in @app-db [:character-report-status 42]))
+        "and the button reflects that it is in flight")))
