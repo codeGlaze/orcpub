@@ -47,6 +47,7 @@
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
@@ -139,10 +140,7 @@
 (defn download-form [built-char]
   [:form.download-form
    {:id "download-form"
-    :action (if (and js/window.location
-                     (s/starts-with? js/window.location.href "http://localhost"))
-              "http://localhost:8890/character.pdf"
-              "/character.pdf")
+    :action (event-utils/backend-url "/character.pdf")
     :method "POST"
     :target "_blank"}
    [:input {:type "hidden" :name "body" :id "fields-input"}]])
