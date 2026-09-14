@@ -13,6 +13,20 @@
             [cljs.core.async :refer [<!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+(defn rejected-token!
+  "What a loader does on a 401: the server no longer accepts the token it sent, so log out, then
+   run the sub's :on-401 with its query, or route to login when it has none.
+
+   Log out with :clear-login, not :set-user-data: that one merges into :user-data, and a merge
+   cannot remove the token. Does nothing when the token changed while the request was out, since
+   that 401 is about a login that has already been replaced."
+  [app-db sent-token on-401 query-v]
+  (when (= sent-token (event-utils/get-auth-token @app-db))
+    (dispatch [:clear-login])
+    (if on-401
+      (on-401 query-v)
+      (dispatch [:route-to-login]))))
+
 (defn reg-api-sub
   "Register a `reg-sub-raw` that lazy-loads from a backend endpoint
    when the user is logged in.
@@ -30,9 +44,8 @@
                    :set-event and :on-success are given, :on-success
                    wins; if neither, success is a no-op (fire-and-forget,
                    as with the `:user` sub)
-     :on-401     — 1-arg fn receiving the query-v; omit for the
-                   `handle-api-response` default (dispatches
-                   `:route-to-login`)
+     :on-401     — 1-arg fn receiving the query-v, called after the
+                   401 has logged the user out; omit to route to login
      :on-500     — 1-arg fn receiving the query-v; omit for the
                    `handle-api-response` default (dispatches
                    `show-generic-error`)
@@ -42,7 +55,7 @@
     :or {default []}}]
   (reg-sub-raw sub-key
     (fn [app-db query-v]
-      (when (event-utils/get-auth-token @app-db)
+      (when-let [token (event-utils/get-auth-token @app-db)]
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (event-utils/url-for-route route)
                                          {:headers (event-utils/auth-headers @app-db)}))]
@@ -52,7 +65,7 @@
                   on-success #(on-success response)
                   set-event  #(dispatch [set-event (:body response)])
                   :else      (fn []))
-                :on-401 (when on-401 #(on-401 query-v))
+                :on-401 #(rejected-token! app-db token on-401 query-v)
                 :on-500 (when on-500 #(on-500 query-v))
                 :context (or context (str sub-key))))))
       (ra/make-reaction

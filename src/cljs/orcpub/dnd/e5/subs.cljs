@@ -1,6 +1,5 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
-            [re-frame.db]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -466,27 +465,11 @@
 
 
 
-(defn user-sub-on-401-actions
-  "Pure: returns the sequence of dispatch vectors the :user sub's 401
-   handler would produce, given the current `:user-data` map and the
-   subscription query-v.
-
-   Always clears the login credentials (via `:set-user-data` with
-   `:user-data` and `:token` dissoced — preserves `:theme` and any
-   other non-login fields). Additionally bounces to the login route
-   when the subscription was invoked with `required?` true."
-  [user-data-map [_ required?]]
-  (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
-    required? (conj [:route-to-login])))
-
 (defn user-sub-on-401
-  "Side-effecting: dispatches the actions produced by
-   `user-sub-on-401-actions` against the current re-frame.db/app-db."
-  [query-v]
-  (doseq [action (user-sub-on-401-actions
-                  (:user-data @re-frame.db/app-db)
-                  query-v)]
-    (dispatch action)))
+  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
+   when the caller flagged the request as required."
+  [[_ required?]]
+  (when required? (dispatch [:route-to-login])))
 
 (defn user-sub-on-500
   "Conditional 500 handler for the :user sub: bounces to the generic
