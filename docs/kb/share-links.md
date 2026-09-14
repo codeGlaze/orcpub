@@ -44,6 +44,9 @@ never carry them).
 6. **New link** (owner only, beside Copy link, after a confirmation) POSTs to the token route: the token
    is replaced and the stored homebrew deleted, so every earlier link loads nothing. The page then
    uploads again under the new token.
+7. **Stop sharing** (owner only, beside New link, after a confirmation) DELETEs the token route
+   (`routes.share/stop-sharing`): the share goes, every earlier link loads nothing, and the button reads
+   Share link again. Nothing is uploaded until it is pressed, because the page's GET now gets a 404.
 
 ## When the stored copy changes
 
@@ -57,9 +60,9 @@ edit").
 ## Pruning
 
 A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` days while the server runs (default 180; 0 keeps shares
-forever; 1 to 29 count as 30, so a typo cannot delete links a day old) is deleted. Only the share record goes: the token and the server's copy of the homebrew. The
-character, a party's entry for it, and the homebrew in the owner's library are never touched, and the
-owner can share again at any time.
+forever; 1 to 29 count as 30, so a typo cannot delete links a day old) expires. Its token and stored copy
+are deleted; the character, a party's entry for it, and the homebrew in the owner's library are never
+touched, and the owner can share again at any time.
 
 Use is a request that could see the share: the link opened with its current token, the owner's page
 refreshing the copy, or a party page loading it. It is recorded in `:orcpub.share/used` at most once a
@@ -69,20 +72,23 @@ before pruning existed, counts from when the record was made, so it expires rath
 A request with a wrong or missing token, or from anyone but the owner, records nothing, so nobody can
 keep a share alive by requesting its URL.
 
-Only `routes.share/prune!` deletes, run by `orcpub.share-pruner` a minute after start and then hourly.
-Asking for a share never deletes it, so a share just past its window still works until the next run, and
-opening it in that time keeps it.
+Only `routes.share/prune!` deletes on its own, run hourly by the heartbeat (`heartbeat.md`) through
+`prune-job`. Asking for a share never deletes it, so a share just past its window still works until the
+next run, and opening it in that time keeps it.
 
-Time the server is off does not count. Each run first calls `record-beat!`, which stores the time on the
-entity `:orcpub.share/clock`. When the previous beat is more than 70 minutes back, the server was off or
-its clock jumped ahead, and that stretch is stored as an `:orcpub.share-outage`; `prune!` subtracts
-outages from each share's unused time. A self-hosted server switched off for six months deletes nothing
-when it comes back, and a clock set back only makes shares look newer. A restart shorter than about an
-hour is not recorded, so each one can count up to about an hour against shares.
+Time the server is off does not count: `prune!` measures unused time with `heartbeat/running-ms`, which
+leaves out the outages the heartbeat recorded. A self-hosted server switched off for six months deletes
+nothing when it comes back, and a clock set back only makes shares look newer. A restart shorter than
+about an hour is not recorded, so each one can count up to about an hour against shares.
 
-Afterwards the old link says the homebrew could not be loaded, a party lists no token for it, and the
-owner's button reads Share link again, which makes a new link. Nothing tells the owner that an old link
-expired. 180 days leaves room for a campaign that pauses for a season.
+An expired share leaves a note, `:orcpub.share-expiry/character` and `:orcpub.share-expiry/on`, and
+nothing else. While it is there, the owner's GET of the token route gets 410 with the date, and the share
+button shows "Your last share link expired on <date> after going unused." beside Share link, on the
+character page and in the character list, on every visit, because a note shown once is easy to miss.
+Share link clears it (`create-token`), Dismiss deletes it through the Stop sharing route, and `prune!`
+deletes a note still there after another window. Nobody else learns anything: they get 404, the old link
+says the homebrew could not be loaded, and a party lists no token for it. 180 days leaves room for a
+campaign that pauses for a season.
 
 ## Parties
 
@@ -171,7 +177,11 @@ back means restoring `routes/share.clj`, `share_url.cljs`, the share parts of `i
 `scripts/e2e/run.sh share-link-carries-homebrew.js`: kaylee's seeded character using a homebrew language
 stores nothing until she presses Share link; her link; the character list gives the same link; logged out and as zoe it loads; a wrong
 token loads nothing and says so; after kaylee changes the description the link stays the same and shows
-the new text; New link makes a different link, the old one stops loading and the new one works.
+the new text; New link makes a different link, the old one stops loading and the new one works; Stop
+sharing makes that link load nothing too, and opening the character again stores nothing.
+`scripts/e2e/run.sh share-link-expired-note.js`: a seeded character whose last link expired shows the
+note with its date and Share link, again after a reload and in the character list; Dismiss removes it for
+good and stores nothing.
 `test/clj/orcpub/routes/share_test.clj` covers ownership, tokens, upload checks (not compressed, not data,
 code, nothing homebrew-shaped, both caps, pasted media and bad keys refused), an unchanged upload doing no
 work, the caps headers, the quota, New link and deletion.
@@ -181,4 +191,5 @@ party, and the party page loads its homebrew until kaylee presses New link.
 `test/clj/orcpub/routes/party_test.clj` covers characters only, tokens kept only while current, New link
 and removal; `share_test.clj` also covers pruning, use keeping a share alive, daily recording, a request
 without the token recording nothing, the sweep deleting share records and nothing else, time the server
-was off not counting, and 0 days.
+was off not counting, 0 days and the 30-day minimum, the expiry note (shown to the owner only, cleared by
+Share link or Dismiss, removed after another window), and Stop sharing.

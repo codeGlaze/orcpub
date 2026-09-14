@@ -724,8 +724,8 @@ The plan:
    working. Every character read goes through one server check.
 2. **Share by an unguessable token** instead of the database number. The owner creates it, can revoke
    it, and can let it expire. Homebrew already travels this way: an owner's link carries a token for the
-   homebrew the server keeps, and New link revokes it (`kb/share-links.md`). Still to build: expiry,
-   and a token for the character itself.
+   homebrew the server keeps, New link or Stop sharing revokes it, and it expires unused
+   (`kb/share-links.md`). Still to build: a token for the character itself.
 3. **Groups as a server object.** People join by invite and accept, with roles such as DM and player.
    Parties are the natural thing to grow into groups.
 4. **403 for "not yours", 401 only for "not logged in"**, so every rejected token can log the user out.

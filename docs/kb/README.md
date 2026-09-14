@@ -211,8 +211,11 @@ wrong, and why.
   Why duplicate keys keep coming back and the plan to stop them. Extends
   `RECONCILIATION-LOG.md` phase 3 and `name-to-kw-audit.md` section 6.
 - **[share-links.md](share-links.md)** -- *built.* Short share links: one copy of a character's
-  homebrew on the server behind a revocable token, how uploads are checked, the measured size caps, and
-  the encrypted design kept in history.
+  homebrew on the server behind a revocable token, how uploads are checked, the measured size caps,
+  expiry and the owner's note, Stop sharing, and the encrypted design kept in history.
+- **[heartbeat.md](heartbeat.md)** -- *built.* When the server was running: an hourly beat kept in the
+  database, the outages between beats, and the scheduled jobs that run after it (share link pruning
+  first).
 - **[share-custom-items-plan.md](share-custom-items-plan.md)** -- *built, then superseded by loading items with the character (`7f375829`).* Making a
   character's custom magic items, weapons and armor apply on a shared sheet opened by a
   different session. Extends the homebrew-embed share feature.
