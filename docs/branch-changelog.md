@@ -18,6 +18,10 @@ comes with a check that fails without it.
   the app, reloads and exports, so a fix that only lives on screen fails a test
   instead of reverting on refresh (`dd2ff2b7`).
 
+- **A character brings its custom items from the server** — whoever can open a character now sees the
+  custom items it has equipped, as they are now. Share links no longer carry items, so they are
+  shorter; homebrew still travels in the link, and older links still open (`7f375829`).
+
 ## Fixed
 
 - **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
@@ -70,8 +74,30 @@ comes with a check that fails without it.
 - **An import with an entry that isn't a map no longer crashes** — the entry is
   skipped and listed in the import log (`09c22e11`).
 
+- **The email-support button on a character that will not load sends the report again** — clicking
+  it threw after the login change, so no report went out (`476e948c`).
+- **A login the server has stopped accepting now logs you out** — the app kept showing you signed in
+  while every request failed, until you logged in again or reloaded (`6f1e6309`).
+- **Share links no longer carry item ids or your username** — each custom item went into the link as
+  stored, with its database ids and its owner; links made before this drop both when opened
+  (`c34075f2`).
+- **Only its owner can read a custom item by its id** — anyone with the id could fetch the item and its
+  owner's username; everyone else now gets "not found" (`2cae044b`).
+- **A character page never shows an email address** — characters saved during nine days in May 2017
+  named their owner by the email used to log in (`2cae044b`).
+- **Logins, API calls and PDF downloads go to the server that served the page** — every
+  http://localhost page sent them to port 8890, which broke the Docker setup opened at
+  http://localhost and a server on any other local port (`d72bcc39`).
+
 ## Changed
 
 - **Browser probes share one way to find Chromium** — they find Playwright's
   current install without setting four variables by hand, and the runner reports
   a missing browser once as a skip (`b48d312c`).
+- **The e2e suites are named, and run.sh runs them on any machine** — the PDF check is now
+  export-character-pdf.js; run.sh lists the suites, honours E2E_PORT, finds Chromium the way the
+  probes do, and says when it turns CSP off for a development bundle; the PDF check hides the What's
+  New panel that had been taking its clicks (`eb8171d8`).
+- **A browser check that a character shows its owner's items to others** — it opens a seeded character
+  logged out, as another account and as the owner, and checks the item reaches the sheet each time;
+  run.sh now waits for the test accounts to be seeded before a suite starts (`359095b8`).
