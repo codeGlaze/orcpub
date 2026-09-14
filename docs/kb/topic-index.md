@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, race, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, retracted, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, channel, channels, con, defense, dex, heavy, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, reagent, rendering, screenshot, vanished
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -262,7 +262,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, macro, plain, predicates, realized, symbol, test-suite-state, value, writing
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, literally, macro, plain, predicates, realized, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, harness, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -508,14 +508,18 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, already-held-grants, background, compiler, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, xphb
+**topics:** 2024, background, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
 
 - The question
 - What the published rules actually do
 - Decision
 - Pseudocode
+- Terseness: :keys, not a row per key
+- :prereq-fn — the same field, needed twice
 - Before and after
 - What that actually moves
+- The addressing gate — RUN, and it passes
+- But the pick outlives its justification
 - Open
 
 ## decision-vocabulary.md
@@ -585,7 +589,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, css, dotfiles, goes, history, hook, irreducible, learned, lessons, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, dotfiles, goes, history, hook, irreducible, learned, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -602,7 +606,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, floating-asi, forget, free, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -735,6 +739,20 @@ _handoff-integration-branches · handoff integration branches_
 - Traps in this repo that will cost you time
 - When integration later merges back into feature/grant-rows
 
+## hidden-selection-picks.md
+
+_hidden-selection-picks · hidden selection picks_
+
+**topics:** already-held-grants, background, decision-already-held-resolution, fighter, hidden, multi-tab-character-contamination, multiclass, nine, offers, pick, prereq, replacement, selection, sites, skill, template, unreachable, whatever
+
+- The mechanism
+- What is NOT broken
+- What is broken
+- Exposed sites
+- Why it has been hard to find
+- Fixing it
+- Related
+
 ## homebrew-content-merge.md
 
 _homebrew-content-merge · homebrew content merge_
@@ -750,7 +768,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, per-selection, selection, suppressed, switch, systematically, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -850,7 +868,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, routes, spec-valid, type
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -867,7 +885,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** accessor, acquisition, alias, archmagi, channels, context, contributors, distinguishable, effect, fact, gates, macro, prereq, registry, requirement, robe, spellings, trigger
+**topics:** accessor, acquisition, alias, archmagi, bonuses, channels, context, contributors, distinguishable, effect, fact, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -907,7 +925,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -973,7 +991,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map

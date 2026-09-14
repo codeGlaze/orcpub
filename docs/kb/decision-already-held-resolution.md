@@ -109,6 +109,76 @@ that homebrew prereqs are never raw fns applies here too.
 condition, and the selection's `(and srcs (not (srcs background-nm)))` prereq. Both need `owner`,
 because both ask *"did someone who is not me already give me this?"*
 
+## Terseness: `:keys`, not a row per key
+
+A row per granted thing is worse than what it replaces. Criminal, today:
+
+```clojure
+:profs {:skill {:deception true, :stealth true}
+        :tool  {:thieves-tools true}
+        :tool-options {:gaming-set 1}}
+```
+
+as one-row-per-key — four rows, and the two skills read as unrelated:
+
+```clojure
+:grants [{:pool :skills :key :deception}
+         {:pool :skills :key :stealth}
+         {:pool :tools  :key :thieves-tools}
+         {:pool :tools  :count 1 :filter #{:gaming-set}}]
+```
+
+with `:keys` — three rows, one per concept, same count as the shape it replaces:
+
+```clojure
+:grants [{:pool :skills :keys #{:deception :stealth}}
+         {:pool :tools  :keys #{:thieves-tools}}
+         {:pool :tools  :count 1 :filter #{:gaming-set}}]
+```
+
+**`:keys` plural, never `:key` accepting a set.** One field with two types is the
+string-vs-keyword footgun in another costume (`dropdown-value-coercion.md`). `:key` stays
+singular; `:keys` takes a set; a row carrying both is malformed.
+
+Precedent: D33 chose terse authored shapes for `:ability-increases` for exactly this reason, and
+§3c′ of the framework doc settles that authored shape is never a runtime cost — so this is a
+readability decision and nothing else.
+
+Worth stating because it changes what "verbose" costs: **nobody hand-writes these.** The builder
+emits them, and the SRD backgrounds keep `:profs` through the shim. Terseness buys a readable
+diff, not an easier authoring experience.
+
+## `:prereq-fn` — the same field, needed twice
+
+`grant-selection` is **four fields short** of expressing what `skill-selection-2` already does:
+
+```clojure
+;; what skill-selection-2 accepts
+{:keys [options num min max order key prereq-fn]}
+
+;; what grant-selection emits
+{:name … :tags … :multiselect? true :min n :max n :options …}
+;;   missing: :key  :order  :prereq-fn  and min ≠ max
+```
+
+Three are plain data. `:prereq-fn` is a function, so it is **internal-only** — built-in callers
+pass one, authored content never can (the PINS rule again).
+
+It is wanted twice over, which is the argument for adding it early rather than filing it as
+cleanup:
+
+| wanted for | why |
+| --- | --- |
+| class multiclass rows (19, 20) | `class-skill-selection … first-class?` gates the pick today; a grant-compiled version drops it |
+| a resolution's replacement pick | the pick appears only while the duplicate does — that gate *is* a `prereq-fn` |
+
+With it, the seven skill/tool selection builders become expressible as grants and the collapse
+stops being hypothetical. Without it, neither the class rows nor the resolutions can be built.
+
+**This is not the E3/E4 question.** Those are about what *writes* the data — the builder node and
+its rows. This is about what *compiles* it. Related, and frequently confused in this
+investigation.
+
 ## Before and after
 
 **Before** — `background-option` carries its own compiler:
@@ -158,11 +228,47 @@ because both ask *"did someone who is not me already give me this?"*
 resolutions call into them. Consolidating *those* is a separate question, and claiming this
 decision does it would be overselling.
 
-## Open
+## The addressing gate — RUN, and it passes
 
-- **Conditional selections and addressing.** A resolution's replacement pick appears only when the
-  duplicate occurs. Selections that come and go are the territory of the `:ref` problem the branch
-  already hit (`handoff-grant-rows.md` step 3). **Test this before writing any of it.**
+**VERIFIED 2026-09-14** (`conditional_selection_ref_test.clj`), through the shipping
+`background-skills-cfg` path rather than a prototype. A background grants Athletics; a race may or
+may not also grant it.
+
+| rival race grants it | `?skill-profs` | selection offered |
+| --- | --- | --- |
+| no | `{:athletics {"Testbound" true}}` | none |
+| yes | `{:athletics {nil true}}` — the background's own grant suppressed | `Skill Proficiency` at `[:background :testbound :skill-proficiency]` |
+
+**The replacement selection is NESTED under its owner, not a top-level `:ref`.** So the `:ref`
+addressing hazard from `handoff-grant-rows.md` step 3 does not apply to this shape, and the gate
+is clear. The mechanism is `remove-disqualified-selections` (`entity.cljc:536`): the selection is
+always present in the template with a stable path, and a failing `prereq-fn` only removes it from
+what the builder OFFERS.
+
+### But the pick outlives its justification
+
+Measured on the same fixture — pick Insight in the replacement, then remove the duplicate:
+
+```
+with duplicate:    {:athletics {nil true},         :insight {nil true}}
+duplicate removed: {:athletics {"Testbound" true}, :insight {nil true}}
+```
+
+The character keeps **both**. The selection vanishes from the builder, but the stored pick is
+untouched and still compiles, so the background's own skill comes back and the replacement stays —
+a free extra skill.
+
+That is current behaviour in `background-skills-cfg`, not a consequence of this design. It is rare
+today (you must change race after picking) and would become common the moment every silo offers
+resolutions.
+
+**OPEN, and it belongs to whoever builds this:** should a resolution's pick be revoked when its
+condition lapses? Three options, none obviously right — leave it (today's behaviour, quietly
+generous), suppress the pick's modifiers with the same `unless-held-by-other` gate the grant uses,
+or surface it as a reconciliation notice like a dangling content reference. The second is
+cheapest and the third is the most honest.
+
+## Open
 - **`:saving-throw` resolution scope.** Iron Mind and Elegant Courtier grant a saving-throw
   proficiency from a named ability list. Whether that is a resolution or just a differently-poled
   grant is undecided.
