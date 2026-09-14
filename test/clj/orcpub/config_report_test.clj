@@ -166,9 +166,9 @@
       (is (not (some #(and (= v (:var %)) (:critical? %)) config/settings))
           (str v " is marked critical but has a working default"))))
   (testing "every critical setting explains how to fix it, not just what broke"
-    (doseq [{:keys [var fix]} (filter :critical? config/settings)]
-      (is (some? fix) (str var " is critical with no remedy"))
-      (is (str/includes? fix "Fix:") (str var "'s message has no Fix: line")))))
+    (doseq [{env-var :var :keys [fix]} (filter :critical? config/settings)]
+      (is (some? fix) (str env-var " is critical with no remedy"))
+      (is (str/includes? fix "Fix:") (str env-var "'s message has no Fix: line")))))
 
 (deftest the-card-cap-is-whole-sheets
   (testing "nine cards to a sheet, so a cap that is not a multiple of nine leaves a ragged
