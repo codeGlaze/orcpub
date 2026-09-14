@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
+**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, review, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -332,7 +332,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, selection, selection-key
+**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, payload, rollback, selection, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -366,7 +366,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -431,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, preconditions, require, revert, route, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -521,6 +521,20 @@ _decision-already-held-resolution · decision already held resolution_
 - The addressing gate — RUN, and it passes
 - But the pick outlives its justification
 - Open
+
+## decision-gate-hidden-picks.md
+
+_decision-gate-hidden-picks · decision gate hidden picks_
+
+**topics:** attribute, concatenation, decision-already-held-resolution, gate, hidden-selection-picks, history, homebrew-override, log, mug, multi-tab-character-contamination, nine, notice, plan-npc-statblock-customizer, player, sites, skill, two-pass, widening
+
+- Decision
+- Where the gate goes
+- ⚠️ It is a fixed point, not a filter
+- The mug does not cover this
+- The paper trail: a new attribute, not an existing text field
+- Scope
+- Related
 
 ## decision-vocabulary.md
 
@@ -589,7 +603,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, dotfiles, goes, history, hook, irreducible, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, css, dotfiles, goes, history, hook, irreducible, learned, lessons, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -631,7 +645,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, pool, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -743,7 +757,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** 2026-09-14, already-held-grants, athletics, decision-already-held-resolution, dies, multi-tab-character-contamination, multiclass, nine, pick, prereq, remove, replacement, report, reproduced, rogue, selection, skill, template
+**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, multi-tab-character-contamination, multiclass, nine, pick, prereq, remove, replacement, report, reproduced, rogue, selection, skill, template, unreachable
 
 - The mechanism
 - What is NOT broken
@@ -837,7 +851,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, capabilities, control, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** advanced, armour, cap, capabilities, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -852,7 +866,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, shaped, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers
@@ -906,7 +920,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -926,7 +940,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -1023,7 +1037,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, shown, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, falsifiable, faster, integration, intended, miss, optimisation, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
