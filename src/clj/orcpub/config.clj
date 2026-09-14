@@ -272,10 +272,10 @@
   (positive-int-env ["ORCPUB_SHARE_MAX_ACCOUNT_KB"] 1024))
 
 (defn get-share-prune-days
-  "Days a share link may go unused while the server runs before the link and the server's copy of its
-   homebrew are deleted, from ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. The character and the owner's own
-   homebrew are never deleted. 180 leaves room for a campaign that pauses for a season. 1 to 29 count as
-   30, so a typo cannot delete links a day old."
+  "Days a character's share link may go unused while the server runs before the link and its share data
+   are deleted, from ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. The character itself is never deleted. 180
+   leaves room for a campaign that pauses for a season. 1 to 29 count as 30, so a typo cannot delete
+   links a day old."
   []
   (let [n (some-> (env-raw "ORCPUB_SHARE_PRUNE_DAYS") str/trim parse-long)]
     (cond
@@ -323,13 +323,13 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
      :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
-     :note "compressed homebrew one share link keeps"}
+     :note "compressed share data one share link keeps"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
-     :note "that homebrew unpacked"}
+     :note "that share data unpacked"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
-     :note "shared homebrew one account keeps in all"}
+     :note "share data one account keeps in all"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
-     :note "days unused before a share link and its stored homebrew are deleted; 0 keeps them, at least 30"}]))
+     :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
