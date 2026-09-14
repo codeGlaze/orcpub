@@ -415,7 +415,12 @@
     :db/index true}
    {:db/ident :orcpub.share/ciphertext :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
     :db/noHistory true}
-   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}])
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   ;; One random value per character, mixed into every snapshot key; replacing it revokes old links.
+   {:db/ident :orcpub.share-salt/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share-salt/value :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}])
 
 (def all-schemas
   (concat

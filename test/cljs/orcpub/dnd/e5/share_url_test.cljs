@@ -7,11 +7,15 @@
   {"My Source" {:orcpub.dnd.e5/spells {:my-spell {:name "My Spell" :option-pack "My Source"
                                                   :description "Every word of it travels."}}}})
 
+(def ^:private salt "a-characters-share-salt")
+
 (defn- fail [e] (is false (str "rejected: " e)))
+
+(defn- link-of [made] (select-keys made [:share :key]))
 
 (deftest a-snapshot-opens-with-its-key-and-only-its-key
   (async done
-    (-> (share-url/build-snapshot bundle 42)
+    (-> (share-url/build-snapshot bundle 42 salt)
         (.then (fn [{:keys [share key blob]}]
                  (is (re-matches #"[A-Za-z0-9_-]{22}" share))
                  (is (re-matches #"[A-Za-z0-9_-]{43}" key))
@@ -24,24 +28,31 @@
         (.catch fail)
         (.finally done))))
 
-(deftest the-same-content-makes-the-same-snapshot
+(deftest the-same-homebrew-gives-the-same-link
   (async done
-    (-> (js/Promise.all #js [(share-url/build-snapshot bundle 42)
-                             (share-url/build-snapshot bundle 42)
-                             (share-url/build-snapshot bundle 43)])
-        (.then (fn [made]
-                 (is (= (select-keys (aget made 0) [:share :key]) (select-keys (aget made 1) [:share :key]))
-                     "the same link again, and the same snapshot id, so nothing new is stored")
-                 (is (not= (:key (aget made 0)) (:key (aget made 2))) "another character's has its own key")))
-        (.catch fail)
-        (.finally done))))
+    (let [;; The same fields, added in the opposite order.
+          reordered {"My Source" {:orcpub.dnd.e5/spells {:my-spell (array-map :description "Every word of it travels."
+                                                                              :option-pack "My Source"
+                                                                              :name "My Spell")}}}]
+      (-> (js/Promise.all #js [(share-url/build-snapshot bundle 42 salt)
+                               (share-url/build-snapshot bundle 42 salt)
+                               (share-url/build-snapshot reordered 42 salt)
+                               (share-url/build-snapshot bundle 43 salt)
+                               (share-url/build-snapshot bundle 42 "a-new-salt")])
+          (.then (fn [made]
+                   (is (= (link-of (aget made 0)) (link-of (aget made 1))) "built again, the same link")
+                   (is (= (link-of (aget made 0)) (link-of (aget made 2))) "field order does not matter")
+                   (is (not= (:share (aget made 0)) (:share (aget made 3))) "another character has its own link")
+                   (is (not= (link-of (aget made 0)) (link-of (aget made 4))) "a new salt, a new link")))
+          (.catch fail)
+          (.finally done)))))
 
 (deftest a-bundle-over-the-cap-makes-no-snapshot
   (async done
     (-> (share-url/build-snapshot
          {"S" {:orcpub.dnd.e5/spells {:big {:name "Big" :option-pack "S"
                                             :description (apply str (repeat (inc share-url/max-snapshot-edn-bytes) "x"))}}}}
-         42)
+         42 salt)
         (.then (fn [made] (is (= {:error :too-large} made))))
         (.catch fail)
         (.finally done))))
@@ -53,7 +64,7 @@
     (async done
       (-> (share-url/build-snapshot {"S" {:orcpub.dnd.e5/spells {:noise {:name "Noise" :option-pack "S"
                                                                         :description noise}}}}
-                                    42)
+                                    42 salt)
           (.then (fn [made] (is (= {:error :too-large} made))))
           (.catch fail)
           (.finally done)))))
