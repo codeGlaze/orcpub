@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, reagent, rendering, screenshot, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -218,7 +218,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, background, builders, conditionals, creatures, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, type, widgets
+**topics:** ---, 2026, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -278,7 +278,7 @@ _built-character-representation · built character representation_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, replacement, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -290,7 +290,7 @@ _character-validation · character validation_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, extraction, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, divine, extraction, features, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -353,7 +353,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, decision, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
+**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -366,7 +366,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -503,6 +503,20 @@ _data-safety-layers · data safety layers_
 - Anti-patterns
 - Tracked follow-ups
 - See also
+
+## decision-already-held-resolution.md
+
+_decision-already-held-resolution · decision already held resolution_
+
+**topics:** 2024, already-held-grants, compiler, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, srd, xphb
+
+- The question
+- What the published rules actually do
+- Decision
+- Pseudocode
+- Before and after
+- What that actually moves
+- Open
 
 ## decision-vocabulary.md
 
@@ -690,7 +704,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -860,7 +874,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -919,7 +933,7 @@ _source-tagged-keys · source tagged keys_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, primitive, primitives, races, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
