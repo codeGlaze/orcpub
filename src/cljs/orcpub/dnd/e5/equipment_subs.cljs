@@ -265,9 +265,8 @@
 ;; views/item-page at [::mi5e/item key]. Today that page reads ::mi/custom-item from the
 ;; logged-in user's own list, so /items/<id> for another owner's item shows "not found".
 ;;
-;; GET /api/dnd/e5/items/:id (routes/get-item) has no check-auth: it returns any owned item,
-;; owner included, to anyone who asks. Decide who may see, edit or copy another owner's items
-;; before wiring this up.
+;; GET /dnd/5e/items/:id (routes/get-item) answers the item's owner only; anyone else gets
+;; a 404. Decide who may see, edit or copy another owner's items before wiring this up.
 ;;
 ;; The original guard read (:token (:user db)), which is always nil, so the fetch never fired;
 ;; the copy below reads get-auth-token.
