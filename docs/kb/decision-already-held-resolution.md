@@ -109,6 +109,76 @@ that homebrew prereqs are never raw fns applies here too.
 condition, and the selection's `(and srcs (not (srcs background-nm)))` prereq. Both need `owner`,
 because both ask *"did someone who is not me already give me this?"*
 
+## Terseness: `:keys`, not a row per key
+
+A row per granted thing is worse than what it replaces. Criminal, today:
+
+```clojure
+:profs {:skill {:deception true, :stealth true}
+        :tool  {:thieves-tools true}
+        :tool-options {:gaming-set 1}}
+```
+
+as one-row-per-key — four rows, and the two skills read as unrelated:
+
+```clojure
+:grants [{:pool :skills :key :deception}
+         {:pool :skills :key :stealth}
+         {:pool :tools  :key :thieves-tools}
+         {:pool :tools  :count 1 :filter #{:gaming-set}}]
+```
+
+with `:keys` — three rows, one per concept, same count as the shape it replaces:
+
+```clojure
+:grants [{:pool :skills :keys #{:deception :stealth}}
+         {:pool :tools  :keys #{:thieves-tools}}
+         {:pool :tools  :count 1 :filter #{:gaming-set}}]
+```
+
+**`:keys` plural, never `:key` accepting a set.** One field with two types is the
+string-vs-keyword footgun in another costume (`dropdown-value-coercion.md`). `:key` stays
+singular; `:keys` takes a set; a row carrying both is malformed.
+
+Precedent: D33 chose terse authored shapes for `:ability-increases` for exactly this reason, and
+§3c′ of the framework doc settles that authored shape is never a runtime cost — so this is a
+readability decision and nothing else.
+
+Worth stating because it changes what "verbose" costs: **nobody hand-writes these.** The builder
+emits them, and the SRD backgrounds keep `:profs` through the shim. Terseness buys a readable
+diff, not an easier authoring experience.
+
+## `:prereq-fn` — the same field, needed twice
+
+`grant-selection` is **four fields short** of expressing what `skill-selection-2` already does:
+
+```clojure
+;; what skill-selection-2 accepts
+{:keys [options num min max order key prereq-fn]}
+
+;; what grant-selection emits
+{:name … :tags … :multiselect? true :min n :max n :options …}
+;;   missing: :key  :order  :prereq-fn  and min ≠ max
+```
+
+Three are plain data. `:prereq-fn` is a function, so it is **internal-only** — built-in callers
+pass one, authored content never can (the PINS rule again).
+
+It is wanted twice over, which is the argument for adding it early rather than filing it as
+cleanup:
+
+| wanted for | why |
+| --- | --- |
+| class multiclass rows (19, 20) | `class-skill-selection … first-class?` gates the pick today; a grant-compiled version drops it |
+| a resolution's replacement pick | the pick appears only while the duplicate does — that gate *is* a `prereq-fn` |
+
+With it, the seven skill/tool selection builders become expressible as grants and the collapse
+stops being hypothetical. Without it, neither the class rows nor the resolutions can be built.
+
+**This is not the E3/E4 question.** Those are about what *writes* the data — the builder node and
+its rows. This is about what *compiles* it. Related, and frequently confused in this
+investigation.
+
 ## Before and after
 
 **Before** — `background-option` carries its own compiler:

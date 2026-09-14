@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** 2026-09-14, builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -103,7 +103,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, unknown, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, harness, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -366,7 +366,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -482,7 +482,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -508,12 +508,14 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, already-held-grants, background, behaviour, courtier, edition-drift, elegant, expertise, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, skill, xphb
+**topics:** 2024, background, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
 
 - The question
 - What the published rules actually do
 - Decision
 - Pseudocode
+- Terseness: :keys, not a row per key
+- :prereq-fn — the same field, needed twice
 - Before and after
 - What that actually moves
 - The addressing gate — RUN, and it passes
@@ -706,7 +708,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -723,6 +725,20 @@ _handoff-grant-rows · handoff grant rows_
 - Rules that bit this session — do not re-learn them
 - Don'ts
 - Commands
+
+## hidden-selection-picks.md
+
+_hidden-selection-picks · hidden selection picks_
+
+**topics:** already-held-grants, background, decision-already-held-resolution, fighter, hidden, multi-tab-character-contamination, multiclass, nine, offers, pick, prereq, replacement, selection, sites, skill, template, unreachable, whatever
+
+- The mechanism
+- What is NOT broken
+- What is broken
+- Exposed sites
+- Why it has been hard to find
+- Fixing it
+- Related
 
 ## homebrew-content-merge.md
 
@@ -822,7 +838,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -896,7 +912,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wants, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"

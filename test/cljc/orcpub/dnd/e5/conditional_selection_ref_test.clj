@@ -112,3 +112,45 @@
     (println "\n=== a pick saved in a replacement selection, after the duplicate is removed ===")
     (println "  with duplicate:   " (pr-str (char5e/skill-proficiencies (build true replacement-pick))))
     (println "  duplicate removed:" (pr-str (char5e/skill-proficiencies (build false replacement-pick))))))
+
+;; ---------------------------------------------------------------------------
+;; The general case: does a pick made under one race survive swapping to another?
+;;
+;; `language-selection-aux` carries `:ref [:languages]` (options.cljc:1069) — a TOP-LEVEL ref. So
+;; a language chosen because your race offered the choice is not stored under the race at all.
+;; Swap the race and the pick has nothing to be orphaned from.
+;; ---------------------------------------------------------------------------
+
+(def ^:private chatty-race
+  {:name "Chattyfolk" :key :chattyfolk
+   :profs {:language-options {:choose 1 :options {:elvish true :dwarvish true}}}})
+
+(def ^:private quiet-race {:name "Quietfolk" :key :quietfolk})
+
+(defn- two-race-template []
+  (t5e/template
+   (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                            sl5e/spell-lists spells5e/spell-map
+                            [bg] [chatty-race quiet-race] [] []
+                            (common/map-by-key [{:name "Common" :key :common}
+                                                {:name "Elvish" :key :elvish}
+                                                {:name "Dwarvish" :key :dwarvish}])
+                            pools)))
+
+(defn- build-race [race-key opts]
+  (entity/build
+   {:orcpub.entity/options
+    (merge {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
+            :race {:orcpub.entity/key race-key}
+            :background {:orcpub.entity/key :testbound}}
+           opts)}
+   (two-race-template)))
+
+;; the pick a player makes while Chattyfolk — stored at the TOP LEVEL, by the :ref
+(def ^:private language-pick {:languages [{:orcpub.entity/key :elvish}]})
+
+(deftest ^:diagnostic report-pick-survival-across-a-race-swap
+  (println "\n=== a language chosen as Chattyfolk, then the race is swapped ===")
+  (println "  as Chattyfolk:" (pr-str (char5e/languages (build-race :chattyfolk language-pick))))
+  (println "  as Quietfolk: " (pr-str (char5e/languages (build-race :quietfolk language-pick))))
+  (println "  Quietfolk, no pick:" (pr-str (char5e/languages (build-race :quietfolk {})))))
