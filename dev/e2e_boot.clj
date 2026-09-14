@@ -25,7 +25,10 @@
    :orcpub.dnd.e5.magic-items/description (str nm " — seeded by e2e-boot.")})
 
 (defn -main [& _]
-  (let [sys  (component/start (s/system :dev))
+  ;; The :dev system pins port 8890; run.sh passes E2E_PORT through as PORT.
+  (let [port (some-> (System/getenv "PORT") Integer/parseInt)
+        sys  (component/start (cond-> (s/system :dev)
+                                port (assoc-in [:service-map :io.pedestal.http/port] port)))
         conn (get-in sys [:conn :conn])]
     ;; TWO accounts, each with its OWN items. One account cannot show isolation:
     ;; a bug that returned every user's items would look identical to correct
