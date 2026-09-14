@@ -21,8 +21,9 @@
 
    Custom magic items, weapons and armor are not plugins: each account's are
    stored on the server, so this closure skips them. used-custom-items below
-   picks the ones the character equips, and the link carries their fields
-   without the database ids or the owner."
+   picks the ones a character equips, without database ids or owner, for the
+   server to send with the character (routes/get-character-for-id). Links made
+   before that carry them, and whitelist-shared still accepts those."
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [orcpub.entity :as entity]
@@ -291,9 +292,9 @@
 (def ^:private raw-item-owner-key :orcpub.dnd.e5.magic-items/owner)
 
 (defn- shareable-item
-  "A raw item as a share link carries it: no :db/id at any depth and no owner. The
-   recipient draws the item from its fields and needs neither, and both point back at
-   the sharer's account."
+  "A raw item as it may leave its owner's account: no :db/id at any depth and no owner.
+   The viewer draws the item from its fields and needs neither, and both point back at
+   the owner's account."
   [raw]
   (walk/postwalk #(if (map? %) (dissoc % :db/id) %) (dissoc raw raw-item-owner-key)))
 

@@ -3212,3 +3212,14 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
                     (if (get clean type)
                       (disj clean type)
                       (conj clean type))))))))
+
+(defn shared-custom-items
+  "Custom items on the sheet in view that are not the viewer's own: the ones a share link carried,
+   then the ones the server sent with the character on this page, which win a name clash as the
+   current copy. The server's are kept per character id, so another character's never apply."
+  [db]
+  (let [id (get-in db [:route :route-params :id])]
+    (concat (:shared-custom-items db)
+            (when id
+              (get-in db [:character-custom-items #?(:cljs (js/parseInt id)
+                                                     :clj (parse-long (str id)))])))))

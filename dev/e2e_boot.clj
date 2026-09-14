@@ -12,6 +12,9 @@
   (:require [com.stuartsierra.component :as component]
             [datomic.api :as d]
             [orcpub.system :as s]
+            [orcpub.routes :as routes]
+            [orcpub.entity.strict :as se]
+            [orcpub.dnd.e5.character :as char5e]
             [user :as dev]))
 
 (defn- item
@@ -23,6 +26,23 @@
    :orcpub.dnd.e5.magic-items/type        :wondrous-item
    :orcpub.dnd.e5.magic-items/rarity      :rare
    :orcpub.dnd.e5.magic-items/description (str nm " — seeded by e2e-boot.")})
+
+(defn- fighter-carrying
+  "A level 1 fighter with one of its owner's custom items equipped, so a browser check can open a
+   character whose sheet needs an item from another account."
+  [character-name item-key]
+  {::se/summary    {::char5e/character-name character-name
+                    ::char5e/classes        [{::char5e/class-name "Fighter" ::char5e/level 1}]}
+   ::se/selections [{::se/key    :ability-scores
+                     ::se/option {::se/key       :standard-scores
+                                  ::se/map-value {::char5e/str 15 ::char5e/dex 14 ::char5e/con 13
+                                                  ::char5e/int 12 ::char5e/wis 10 ::char5e/cha 8}}}
+                    {::se/key     :class
+                     ::se/options [{::se/key        :fighter
+                                    ::se/selections [{::se/key     :levels
+                                                      ::se/options [{::se/key :level-1}]}]}]}
+                    {::se/key     :other-magic-items
+                     ::se/options [{::se/key item-key}]}]})
 
 (defn -main [& _]
   ;; The :dev system pins port 8890; run.sh passes E2E_PORT through as PORT.
@@ -46,6 +66,11 @@
                        (item "kaylee" "Kaylee Seeded Beta")
                        (item "kaylee" "Kaylee Seeded Gamma")
                        (item "zoe"    "Zoe Seeded Only")])
+    ;; Printed so a check can open the character without logging in.
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (fighter-carrying "Bree Tinker" :kaylee-seeded-alpha)
+                                                          {:user "kaylee"})]
+      (println "E2E-CHARACTER" status (:db/id body)))
     (println "E2E-READY")
     (flush)
     @(promise)))
