@@ -22,6 +22,10 @@ comes with a check that fails without it.
   custom items it has equipped, as they are now. Share links no longer carry items, so they are
   shorter; homebrew still travels in the link, and older links still open (`7f375829`).
 
+- **Short share links** — a character's owner gets a link of about 130 characters instead of one
+  that carries all its homebrew; the homebrew is stored on the server encrypted, with the key only in
+  the link, and anyone else's link, or a browser that cannot encrypt, still embeds it (`20179535`).
+
 ## Fixed
 
 - **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
@@ -88,6 +92,11 @@ comes with a check that fails without it.
 - **Logins, API calls and PDF downloads go to the server that served the page** — every
   http://localhost page sent them to port 8890, which broke the Docker setup opened at
   http://localhost and a server on any other local port (`d72bcc39`).
+
+- **Copy link shares the character it sits beside** — on the character page and in the character list
+  it carried the homebrew of whatever character was open in the builder (`a92b47b7`).
+- **Pasted images and video are left out of shared homebrew** — a data: URI in any text field is
+  emptied before sharing and again when a link is opened (`ac2e45bf`).
 
 ## Changed
 
