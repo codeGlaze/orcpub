@@ -8,7 +8,7 @@
 
    Layer: re-frame events through `dispatch-sync`, not the DOM. The save path is event logic, and
    the browser adds nothing to it. The builder FORM is pinned separately by test/e2e/*.js."
-  (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+  (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5 :as e5]
