@@ -164,42 +164,40 @@
   []
   (boolean (some-> js/navigator .-share)))
 
-(defn- share-salt-url [id]
-  (event-utils/url-for-route routes/dnd-e5-char-share-salt-route :id id))
+(defn- share-token-url [id]
+  (event-utils/url-for-route routes/dnd-e5-char-share-token-route :id id))
 
 (defn- with-login
   "fetch options carrying the login token."
   [opts]
   (clj->js (update opts :headers merge (event-utils/auth-headers @re-frame.db/app-db))))
 
-(defn- store-snapshot!
-  "Promise of the link fragment \"<share id>.<key>\" for this character's homebrew. Fetches the
-   character's share salt, builds the snapshot, and uploads it unless the server already has it.
-   Resolves nil when the browser cannot encrypt, the bundle is too big or a request fails, and the
-   caller then embeds the bundle in the link."
+(defn- store-share!
+  "Promise of this character's share token, after sending its homebrew to the server, which keeps the
+   current copy for the link; the token is made the first time, and its response carries the server's
+   caps. Resolves nil when the browser cannot compress, the homebrew is over the caps or a request
+   fails, and the caller then embeds the bundle in the link."
   [id bundle]
-  (-> (js/fetch (share-salt-url id) (with-login {}))
-      (.then (fn [resp] (if (.-ok resp) (.text resp) (throw (js/Error. "no share salt")))))
-      (.then (fn [salt] (share-url/build-snapshot bundle id salt)))
-      (.then (fn [{:keys [share key blob error]}]
-               (when-not error
-                 (let [url      (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :share share)
-                       fragment (str share "." key)]
-                   (-> (js/fetch url)
-                       (.then (fn [resp]
-                                (if (.-ok resp)
-                                  fragment
-                                  (-> (js/fetch url (with-login {:method  "PUT"
-                                                                 :headers {"Content-Type" "application/octet-stream"}
-                                                                 :body    blob}))
-                                      (.then #(when (.-ok %) fragment)))))))))))
+  (-> (js/fetch (share-token-url id) (with-login {}))
+      (.then (fn [resp]
+               (when (.-ok resp)
+                 (-> (js/Promise.all #js [(.text resp) (share-url/encode-share bundle (share-url/share-caps-from resp))])
+                     (.then (fn [got]
+                              (let [token                 (aget got 0)
+                                    {:keys [bytes error]} (aget got 1)]
+                                (when-not error
+                                  (-> (js/fetch (event-utils/url-for-route routes/dnd-e5-char-share-route :id id :token token)
+                                                (with-login {:method  "PUT"
+                                                             :headers {"Content-Type" "application/octet-stream"}
+                                                             :body    bytes}))
+                                      (.then #(when (.-ok %) token)))))))))))
       (.catch (fn [_] nil))))
 
 (defn- new-link!
-  "Asks the server for a new share salt, which deletes this character's snapshots, so every link made
-   before stops loading the homebrew. Promise of true when it worked."
+  "Asks the server for a new share token, which deletes the character's shared homebrew, so every link
+   made before loads nothing. Promise of true when it worked."
   [id]
-  (-> (js/fetch (share-salt-url id) (with-login {:method "POST"}))
+  (-> (js/fetch (share-token-url id) (with-login {:method "POST"}))
       (.then #(.-ok %))
       (.catch (fn [_] false))))
 
@@ -241,24 +239,24 @@
           (let [plugins-bundle (sb/extract-bundle character plugins)
                 container {:plugins plugins-bundle}]
             (if (empty? plugins-bundle)
-              (swap! state assoc :tier :plain :url base :snapshot? false)
+              (swap! state assoc :tier :plain :url base :short-link? false)
               (do
                 (swap! state assoc :tier :working :url base)
-                ;; The owner's link names an encrypted snapshot on the server and stays short. Anyone
-                ;; else, or a browser that cannot encrypt, embeds the bundle in the link as before.
+                ;; The owner's link carries a token for the homebrew the server keeps, and stays short and
+                ;; the same. Anyone else, or a browser that cannot compress, embeds the bundle as before.
                 (-> (if (and username (= username (::entity/owner character)))
-                      (store-snapshot! id plugins-bundle)
+                      (store-share! id plugins-bundle)
                       (js/Promise.resolve nil))
                     (.then (fn [fragment]
                              (if fragment
-                               {:tier :full :url (str base "#s=" fragment) :snapshot? true}
+                               {:tier :full :url (str base "#s=" fragment) :short-link? true}
                                (-> (share-url/build-share-payload container)
                                    (.then (fn [{:keys [tier payload]}]
                                             {:tier      tier
-                                             :snapshot? false
+                                             :short-link? false
                                              :url       (if payload (str base "#c=" payload) base)}))))))
                     (.then #(swap! state merge %)))))))
-        (let [{:keys [tier url copied? snapshot?]} @state
+        (let [{:keys [tier url copied? short-link?]} @state
               url  (or url base)
               working? (= tier :working)
               owner? (and username (= username (::entity/owner character)))
@@ -297,7 +295,7 @@
                        (note)
                        (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
            ;; Only a short link can be revoked; an embedded link carries the homebrew itself.
-           (when (and owner? snapshot?)
+           (when (and owner? short-link?)
              (btn "fa-refresh" "New link"
                   "Make a new link. Links you shared before will stop showing this character's homebrew."
                   (fn [_]
@@ -305,9 +303,9 @@
                       (swap! state assoc :tier :working)
                       (-> (new-link! id)
                           (.then (fn [ok?]
-                                   ;; Forget the last inputs, so the link is built again with the new salt.
+                                   ;; Forget the last inputs, so the homebrew is sent again under the new token.
                                    (reset! prev {})
-                                   (swap! state assoc :tier :plain :snapshot? false)
+                                   (swap! state assoc :tier :plain :short-link? false)
                                    (dispatch [:show-message
                                               (if ok?
                                                 "New link made. Links you shared before no longer show this character's homebrew."

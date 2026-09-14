@@ -249,6 +249,28 @@
    "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
    "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
+(defn get-share-max-upload-kb
+  "Largest compressed homebrew one short share link keeps, in KB, from ORCPUB_SHARE_MAX_UPLOAD_KB.
+
+   Measured 2026-09-13 on the MegaPak: a packed level 20 character's homebrew compresses to 12 to 25 KB,
+   and a wizard holding every subclass and spell in it to 40 KB. Over the cap, the owner's link carries
+   the homebrew itself instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_UPLOAD_KB"] 64))
+
+(defn get-share-max-text-kb
+  "Largest that homebrew may be unpacked, in KB, from ORCPUB_SHARE_MAX_TEXT_KB. The same measurement:
+   34 to 112 KB for a packed level 20 character, 175 KB for the everything wizard. It also bounds what a
+   viewer's browser will unpack."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_TEXT_KB"] 256))
+
+(defn get-share-max-account-kb
+  "Shared homebrew one account keeps across all its characters, in KB, from ORCPUB_SHARE_MAX_ACCOUNT_KB.
+   1024 is about 40 wizard-sized shares; a share over it carries the homebrew in its link instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_ACCOUNT_KB"] 1024))
+
 (def settings
   "Everything the boot banner reports, in print order.
 
@@ -287,7 +309,13 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
      :note "spellcasting sections one sheet may grow to"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}]))
+     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
+     :note "compressed homebrew one share link keeps"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
+     :note "that homebrew unpacked"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
+     :note "shared homebrew one account keeps in all"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."

@@ -1988,13 +1988,13 @@
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
         {:get `get-character}]
-       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :share ":share") ^:interceptors [parse-id]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [parse-id]
         {:get `share/get-share}]
-       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :share ":share") ^:interceptors [check-auth parse-id]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [check-auth parse-id]
         {:put `share/put-share}]
-       [(route-map/path-for route-map/dnd-e5-char-share-salt-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:get `share/get-salt
-         :post `share/new-salt}]
+       [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
+        {:get `share/get-token
+         :post `share/new-token}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
