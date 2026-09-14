@@ -247,3 +247,19 @@
         "the key lands on the list once per copy")
     (is (= #{:wizard :cleric} (set (keys lists)))
         "and membership is the union, so an override can add a class but not remove one")))
+
+(deftest editing-your-own-item-works-even-when-another-source-answers-to-its-key
+  ;; The messy library: two sources already hold :tideward, from an import where someone chose
+  ;; "keep both". The duplicate is real and the health card reports it — but it is not created by
+  ;; THIS save, and refusing the save fixes nothing. It only traps the item: the key is minted
+  ;; once, so renaming is not a way out either — a rename no longer moves the key.
+  (swap! app-db assoc :plugins
+         {SRC {ct {:tideward (assoc (draft "Tideward") :key :tideward)}}
+          "Someone Else's Pak" {ct {:tideward {:key :tideward :name "Tideward"
+                                               :option-pack "Someone Else's Pak"}}}})
+  (open! (assoc (get-in @app-db [:plugins SRC ct :tideward]) :description "edited"))
+  (save!)
+  (is (= "edited" (get-in (stored) [:tideward :description])) "the edit landed")
+  (is (empty? (:builder-field-errors @app-db)) "and nothing was flagged")
+  (is (= "Tideward" (get-in @app-db [:plugins "Someone Else's Pak" ct :tideward :name]))
+      "the other source is untouched"))
