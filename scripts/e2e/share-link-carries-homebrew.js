@@ -109,6 +109,29 @@ async function open(browser, link, who) {
       `${BASE}/dnd/5e/characters/${ID}/shares/${match[1]}`);
     check(stored.startsWith('2') && !stored.includes(LANGUAGE), 'what the server stores is not readable', stored.slice(0, 40));
   }
+
+  // The character list's Copy link is the same button. It used to pack whatever character was open in
+  // the builder, which in this fresh browser is none, so its link must match the character page's.
+  console.log('\nkaylee copies it from the character list:');
+  await owner.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'networkidle', timeout: 120000 });
+  await owner.evaluate(id => {
+    window.__copied = '';
+    const c = window.cljs.core;
+    window.re_frame.core.dispatch(c.PersistentVector.fromArray(
+      [c.keyword(null, 'toggle-character-expanded'), parseInt(id)], true));
+  }, ID);
+  let listLink = '';
+  try {
+    await owner.waitForFunction(
+      () => [...document.querySelectorAll('button')].some(b => b.textContent.includes('Copy link') && !b.disabled),
+      null, { timeout: 60000 });
+    await owner.locator('button', { hasText: 'Copy link' }).first().click();
+    await owner.waitForTimeout(500);
+    listLink = await owner.evaluate(() => window.__copied || '');
+  } catch (e) {
+    listLink = `(no Copy link in the expanded row: ${e.message.split('\n')[0]})`;
+  }
+  check(Boolean(match) && listLink === link, "the list row's link is the character page's link", listLink);
   await ownerCtx.close();
 
   if (match) {
