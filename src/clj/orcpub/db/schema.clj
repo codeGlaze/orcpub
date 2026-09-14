@@ -432,7 +432,13 @@
    {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
    ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
    {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
-    :db/noHistory true}])
+    :db/noHistory true}
+   ;; The pruner's last beat, on the entity :orcpub.share/clock, and the stretches between beats that show
+   ;; the server was off or its clock jumped ahead; see orcpub.routes.share/record-beat!.
+   {:db/ident :orcpub.share/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share-outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.share-outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
 
 (def all-schemas
   (concat
