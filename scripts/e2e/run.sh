@@ -88,6 +88,12 @@ if grep -q BindException "$LOG" 2>/dev/null; then
   exit 1
 fi
 
+# The server answers before e2e-boot has finished seeding, so wait until it says it has.
+for _ in $(seq 1 60); do grep -q E2E-READY "$LOG" && break; sleep 1; done
+# The seeded character that carries one of kaylee's custom items, for suites that open it.
+E2E_CHARACTER_ID=$(grep -o "E2E-CHARACTER 200 [0-9]*" "$LOG" | awk '{print $3}')
+export E2E_CHARACTER_ID
+
 E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/$SUITE"
 NODE_RC=$?
 
