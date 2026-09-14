@@ -1,6 +1,6 @@
 # Short share links: encrypted homebrew snapshots
 
-Built on `integration-local` on 2026-09-13: `20179535`, with `a92b47b7` (the share button packs the
+Built on `integration-local` on 2026-09-13: `20179535`, stored as bytes with the caps below in `19d25c5c`, with `a92b47b7` (the share button packs the
 character it belongs to) and `ac2e45bf` (pasted media is stripped). Custom items do not travel in links
 at all; a character read brings them (`7f375829`).
 
@@ -21,10 +21,11 @@ IP always gets the embedded link.
    and empties any `data:` URI in its text.
 2. `share-url/build-snapshot` compresses the EDN, derives the key as SHA-256 of
    `"orcpub share v1 <character id>\n"` followed by the EDN, derives the IV as the first 12 bytes of
-   SHA-256(key + `"iv"`), and encrypts with AES-GCM. The blob is `"2"` plus the ciphertext in base64url.
-   The snapshot id is the first 22 characters of the blob's SHA-256 in base64url.
-3. The share button GETs `/dnd/5e/characters/:id/shares/:share`; on a 404 it PUTs the blob as
-   `text/plain` with the login token. `routes.share/put-share` recomputes the id and refuses a blob
+   SHA-256(key + `"iv"`), and encrypts with AES-GCM. The snapshot is one version byte (2) followed by
+   the ciphertext, and it is uploaded, stored and served as bytes; base64 would add a third. The
+   snapshot id is the first 22 characters of the snapshot's SHA-256 in base64url.
+3. The share button GETs `/dnd/5e/characters/:id/shares/:share`; on a 404 it PUTs the bytes as
+   `application/octet-stream` with the login token. `routes.share/put-share` recomputes the id and refuses a blob
    that does not hash to it.
 4. Opening the link, the `:route` handler sees `#s=` and dispatches `::e5/load-shared-snapshot`, which
    fetches the blob, decrypts it with the key (`share-url/decode-snapshot`), and hands the result to
@@ -44,29 +45,37 @@ nothing, and snapshot ids repeat across test runs.
 
 ## Limits, and why these numbers
 
-Measured on 2026-09-13 against `all-content.orcbrew`, 12 sources, 2,107 KB as stored and 419 KB
-compressed:
+Measured on 2026-09-13. "Stored" is the compressed, encrypted snapshot as the server keeps it: the
+compressed size plus 17 bytes.
 
-| character | text | compressed | stored |
-|---|---|---|---|
-| Artificer 20: class, largest subclass, largest race, subrace, background, 5 largest feats | 61 KB | 16 KB | 21 KB |
-| same with all 3 artificer subclasses | 79 KB | 19 KB | 26 KB |
-| Wizard 20: largest homebrew subclass, 40 largest homebrew wizard spells, same extras | 110 KB | 24 KB | 32 KB |
+`MegaPak - WotC Books.orcbrew`, 12 sources, 2,316 KB as stored and 437 KB compressed:
 
-So: **256 KB stored** per snapshot (`routes.share/max-blob-chars`, mirrored by
-`share-url/max-snapshot-blob-chars`), **1 MB of text** (`max-snapshot-edn-bytes`, which is also what a
-viewer's browser will decompress), **the newest 10** per character, **5 MB** per account. Deleting a
-character deletes its snapshots.
+| character | text | stored |
+|---|---|---|
+| Divine Soul Sorcerer 20: class, largest subclass, largest race, subrace, background, 5 largest feats | 34 KB | 12 KB |
+| Artificer 20, same picks | 62 KB | 16 KB |
+| Cleric, paladin, ranger, bard 20: largest subclass, 40 largest homebrew spells, same picks | 64 to 76 KB | 17 to 20 KB |
+| Wizard 20, same | 112 KB | 25 KB |
+| Wizard holding every subclass (11) and every spell (119) in the pack | 175 KB | 40 KB |
 
-That pack is mostly published books; its only homebrew classes are Artificer and Divine Soul Sorcerer.
-Measure again with a pack of heavy homebrew classes (Blood Hunter, classes with big tables) before
-treating the caps as settled. The script is simple: load the pack (strip the byte-order mark first),
-build a character map of selected keys, run `extract-bundle`, and gzip `bundle->edn`.
+`all-content.orcbrew` gave the same picture (artificer 16 KB, wizard with 40 spells 24 KB).
+
+So, halved from the first guess on the user's call: **128 KB stored** per snapshot
+(`routes.share/max-blob-bytes`, mirrored by `share-url/max-snapshot-blob-bytes`), **512 KB of text**
+(`max-snapshot-edn-bytes`, which also bounds what a viewer's browser decompresses), **the newest 5** per
+character, **2.5 MB** per account. A snapshot over the cap, or an account over its quota, gets the
+embedded link instead. Deleting a character deletes its snapshots.
+
+Both packs are mostly published books; their only homebrew classes are Artificer and Divine Soul
+Sorcerer. Measure again with a pack of heavy homebrew classes (Blood Hunter, classes with big tables)
+before treating the caps as settled. The script is simple: load the pack (strip the byte-order mark
+first), build a character map of selected keys, run `extract-bundle`, and gzip `bundle->edn`.
 
 ## Open
 
-- **No way to revoke a link.** Changing the homebrew makes a new snapshot; older links keep working
-  until their snapshot falls out of the newest 10 or the character is deleted.
+- **No way to revoke a link.** Pressing Copy link again with unchanged homebrew gives the same link, since
+  key and id come from the content. Changing the homebrew makes a new snapshot; older links keep
+  working until theirs falls out of the newest 5 or the character is deleted.
 - **A report-and-remove process** for stored snapshots. Being unable to read them and able to delete
   them is a better position than hosting homebrew openly, but they are still stored and served. Take
   the details to a lawyer.
