@@ -62,7 +62,8 @@ edit").
 A share nobody uses for `ORCPUB_SHARE_PRUNE_DAYS` days while the server runs (default 180; 0 keeps shares
 forever; 1 to 29 count as 30, so a typo cannot delete links a day old) expires. Its token and stored copy
 are deleted; the character, a party's entry for it, and the homebrew in the owner's library are never
-touched, and the owner can share again at any time.
+touched, and the owner can share again at any time. A value that is not a whole number of days, 0 or
+more, is ignored for the default and called out in the startup banner's `(!)` lines.
 
 Use is a request that could see the share: the link opened with its current token, the owner's page
 refreshing the copy, or a party page loading it. It is recorded in `:orcpub.share/used` at most once a
@@ -103,8 +104,9 @@ loaded the character with no homebrew. Now:
   (`routes.share/token-current?`), and lists only tokens that still work.
 - Opening that character's row on the party page dispatches `::party5e/load-shared-homebrew`, which loads
   the homebrew into the shared overlay beside other rows' (no banner) and counts as use of the share.
-- New link or pruning leaves the party listing no token, so the row loads nothing. Removing the character
-  from the party drops its token.
+- New link, Stop sharing, expiry or deleting the character deletes the tokens parties saved for it
+  (`party-token-retractions`), since they load nothing; the character stays in each party and its row
+  loads nothing. Removing the character from the party drops its token too.
 - Only characters can join a party. Adding checked nothing before, so any entity id could be added.
 
 Limits: rows share one overlay, so two characters whose homebrew uses the same key show the later row's;
