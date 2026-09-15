@@ -4585,7 +4585,7 @@
                      owner
                      (= owner username))
               {:title "Edit"
-               :icon "pencil"
+               :icon "pencil-alt"
                :on-click (make-event-handler :edit-character character)})
             {:title "Export"
              :icon "download"
@@ -4640,7 +4640,7 @@
           :on-click (delete-item-handler item-key)})
        (when owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler ::mi/edit-custom-item item)})])
      [:div.p-10.main-text-color
       [item-component item]
@@ -9358,7 +9358,7 @@
           :on-click (delete-item-handler item-key)})
        (if owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler [::mi/edit-custom-item item])})])
      [:div.p-10.main-text-color
       [item-component item]]]))

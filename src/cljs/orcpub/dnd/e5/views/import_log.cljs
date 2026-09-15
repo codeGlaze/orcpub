@@ -36,7 +36,7 @@
       " at " [:code {:style code-style-sm} (str path)]]
 
      :replaced-nil
-     [:span [:i.fa.fa-exchange.m-r-5 {:style {:color "#47eaf8"}}]
+     [:span [:i.fa.fa-exchange-alt.m-r-5 {:style {:color "#47eaf8"}}]
       "Replaced " [:code {:style code-style} (str (name field) " nil")]
       " \u2192 " [:code {:style code-style} (str to)]]
 
@@ -64,7 +64,7 @@
      :filled-required-fields
      (let [details (:details change)]
        [:div
-        [:span [:i.fa.fa-pencil.m-r-5 {:style {:color "#f0a100"}}]
+        [:span [:i.fa.fa-pencil-alt.m-r-5 {:style {:color "#f0a100"}}]
          (or description "Filled missing required fields with placeholders")]
         (when (seq details)
           [:div {:style {:margin-top "4px" :padding-left "20px"}}
@@ -135,7 +135,7 @@
              [:div {:style {:padding "2px 0" :font-size "11px"
                             :color "rgba(255,255,255,0.6)"}}
               [:i {:class (str "fa m-r-5 "
-                               (if (= type :dedup-renamed) "fa-pencil" "fa-minus-circle"))
+                               (if (= type :dedup-renamed) "fa-pencil-alt" "fa-minus-circle"))
                    :style {:color "rgba(255,255,255,0.45)"}}]
               d-desc
               (when content-type
@@ -247,7 +247,7 @@
                                      (if (pos? detail-count)
                                        (str "Field Fixes (" detail-count " items)")
                                        (str "Field Fixes (" (count items) ")"))))
-                       :icon "fa-pencil" :icon-color "#f0a100"
+                       :icon "fa-pencil-alt" :icon-color "#f0a100"
                        :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
                       {:types #{:export-missing-fields}
                        :title-fn (fn [items]
