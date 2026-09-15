@@ -52,6 +52,21 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
 
+### Share links
+
+A character's owner can share it with a short link. The server keeps one copy of that character's share
+data, checked when it is uploaded.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ORCPUB_SHARE_MAX_UPLOAD_KB` | `64` | Largest compressed share data one character's link keeps. Over it, the owner's link carries the data itself instead. A packed level 20 character measured 12 to 25 KB. |
+| `ORCPUB_SHARE_MAX_TEXT_KB` | `256` | Largest that share data may be once unpacked. This also bounds what a viewer's browser unpacks. |
+| `ORCPUB_SHARE_MAX_ACCOUNT_KB` | `1024` | Share data one account keeps across all its characters. |
+| `ORCPUB_SHARE_PRUNE_DAYS` | `180` | Days a share link may go unused, counting only time the server is running, before the link and its share data are deleted. The character is never deleted, and its owner's page says the link expired. `0` keeps links forever; `1` to `29` count as `30`, so a typo cannot delete links a day old. |
+
+The size limits reach the browser in response headers, so changing one needs no rebuild. Pruning runs
+hourly, after the server's heartbeat, which records when the server was off so that time never counts.
+
 ### What the server prints at boot
 
 Every start prints what it resolved, so you never have to guess whether a change was
