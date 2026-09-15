@@ -329,11 +329,16 @@
     {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
      :note "share data one account keeps in all"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
+     :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
+
+(defn- positive-int-text? [raw]
+  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+    (boolean (and n (pos? n)))))
 
 (defn report
   "What each setting resolved to, and whether that came from the environment.
@@ -342,16 +347,16 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix]} settings]
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects]} settings]
     (let [raw      (env-raw env-var)
           tunable? (some? (some #(= env-var (:var %)) tunables))
-          parsed   (when (and raw tunable?)
-                     (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
-          ignored? (boolean (and raw tunable? (not (and parsed (pos? parsed)))))
+          ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
+          accepts  (or accepts (when tunable? positive-int-text?))
+          ignored? (boolean (and raw accepts (not (accepts raw))))
           value    (cond secret? nil
                          getter  (getter)
                          :else   raw)]
-      {:var env-var :group group :note note :critical? critical? :fix fix
+      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -400,9 +405,9 @@
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
-              (for [{env-var :var raw :raw} bad]
-                (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
-                        env-var raw))))
+              (for [{env-var :var raw :raw expects :expects} bad]
+                (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
+                        env-var raw (or expects "a positive integer")))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.
