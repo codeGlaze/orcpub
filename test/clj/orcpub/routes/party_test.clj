@@ -82,7 +82,10 @@
       (add! conn party-id {:character-id bard :share-token token})
       (share/new-token {:db (d/db conn) :conn conn :identity {:user "bob"} :path-params {:id bard}})
       (is (every? #(nil? (:orcpub.party-share/token %)) (listed conn))
-          "after New link the party lists no token, so the row loads no homebrew"))))
+          "after New link the party lists no token, so the row loads no homebrew")
+      (is (= #{bard rogue} (set (map :db/id (listed conn)))) "both characters stay in the party")
+      (is (empty? (d/q '[:find [?t ...] :where [?t :orcpub.party-share/token]] (d/db conn)))
+          "and the token it saved for the bard is deleted"))))
 
 (deftest removing-a-character-drops-its-token
   (with-conn conn
