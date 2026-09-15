@@ -355,7 +355,7 @@
                        (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
            ;; Only a short link can be revoked; an embedded link carries its custom content itself.
            (when (and owner? short-link?)
-             (btn "fa-refresh" "New link"
+             (btn "fa-sync-alt" "New link"
                   "Make a new link. Links you shared before stop showing this character's custom content."
                   (fn [_]
                     (when (js/confirm "Links you shared before will stop showing this character's custom content. Make a new link?")
