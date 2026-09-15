@@ -159,6 +159,25 @@
         (.catch #(on-done (exec-copy-fallback! text))))
     (on-done (exec-copy-fallback! text))))
 
+(defn- copy-when-ready!
+  "Copy the link a promise resolves to, from inside the click that started it, then call (on-done ok?).
+   Safari only finishes a clipboard write begun during the click, so where the browser has ClipboardItem
+   the pending link goes in as one; elsewhere the text is written when it arrives."
+  [link-promise on-done]
+  (if (and (exists? js/ClipboardItem) (some-> js/navigator .-clipboard .-write))
+    (-> (.write js/navigator.clipboard
+                #js [(js/ClipboardItem.
+                      #js {"text/plain" (.then link-promise
+                                               (fn [link]
+                                                 (if link
+                                                   (js/Blob. #js [link] #js {:type "text/plain"})
+                                                   (throw (js/Error. "no link to copy")))))})])
+        (.then #(on-done true))
+        (.catch #(on-done false)))
+    (-> link-promise
+        (.then (fn [link] (if link (copy-to-clipboard! link on-done) (on-done false))))
+        (.catch #(on-done false)))))
+
 (defn- native-share?
   "True when the browser exposes the OS share sheet."
   []
@@ -252,11 +271,12 @@
 
    Rendered as one line (.share-line in styles/core.clj): for the owner of a character with homebrew, a
    status pill (Not shared, Shared, Link expired) and text-button actions that grow from Share link to
-   Copy link, New link and Stop sharing once a link exists; for everyone else, Copy link."
-  [id]
+   Copy link, New link and Stop sharing once a link exists; for everyone else, Copy link. `mode` :line
+   draws that line; :row draws the character list row's single Copy link button."
+  [id mode]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]
-    (fn [id]
+    (fn [id mode]
       ;; The character this button shares, by id. [:character] is the builder's working copy, which on the
       ;; character page and in the character list is some other character or none.
       (let [character @(subscribe [::char5e/character id])
@@ -310,29 +330,35 @@
                          :class (when tone (str "share-action-" (name tone)))}
                         [:i.fa {:class icon}]
                         [:span label]])
+              ;; Makes the share and settles the state on its link. Promise of the link, or nil.
+              start-link (fn []
+                           (swap! state assoc :tier :working)
+                           (let [bundle (sb/extract-bundle character plugins)]
+                             (-> (start-share! id bundle)
+                                 (.then (fn [token]
+                                          (if token
+                                            (let [link (str base "#s=" token)]
+                                              (swap! state assoc :tier :full :url link :short-link? true
+                                                     :expired-on nil)
+                                              link)
+                                            (-> (embedded-link base {:plugins bundle})
+                                                (.then (fn [s] (swap! state merge s) (:url s))))))))))
+              ;; After a copy; `made?` when that press also made the share, as the list row's button does.
+              copied (fn [ok? made?]
+                       (if ok?
+                         (do (swap! state assoc :copied? true)
+                             (if made?
+                               (dispatch [:show-message "Link copied. This character is now shared; its page has New link and Stop sharing."])
+                               (note))
+                             (js/setTimeout #(swap! state assoc :copied? false) 1800))
+                         (dispatch [:show-message "The link could not be copied. Try Copy link again."])))
               share-link (action "fa-link" "Share link"
                                  "Make a short link to this character, custom content included."
-                                 (fn [_]
-                                   (swap! state assoc :tier :working)
-                                   (let [bundle (sb/extract-bundle character plugins)]
-                                     (-> (start-share! id bundle)
-                                         (.then (fn [token]
-                                                  (if token
-                                                    (swap! state assoc :tier :full :url (str base "#s=" token)
-                                                           :short-link? true :expired-on nil)
-                                                    (-> (embedded-link base {:plugins bundle})
-                                                        (.then #(swap! state merge %))))))))))
+                                 (fn [_] (start-link)))
               copy-link (action (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
                                 (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
                                 "Copy a link to this character (custom content included)"
-                                (fn [_]
-                                  (copy-to-clipboard!
-                                   url
-                                   (fn [ok]
-                                     (when ok
-                                       (swap! state assoc :copied? true)
-                                       (note)
-                                       (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
+                                (fn [_] (copy-to-clipboard! url #(copied % false))))
               native (when (native-share?)
                        (action "fa-share-alt" "Share"
                                "Share this character (custom content included)"
@@ -343,6 +369,17 @@
                                      (.then (fn [_] (note)))
                                      ;; user-cancelled / permission rejections are expected — swallow.
                                      (.catch (fn [_] nil))))))]
+          (if (= mode :row)
+            ;; The character list has no room for the line: one button that copies the link, making the share
+            ;; first when there is none. The status, New link and Stop sharing stay on the character page.
+            [:button.form-button.m-r-5
+             {:type "button" :disabled working?
+              :title "Copy a link to this character (custom content included)"
+              :on-click (fn [_]
+                          (if (= tier :unshared)
+                            (copy-when-ready! (start-link) #(copied % (:short-link? @state)))
+                            (copy-to-clipboard! url #(copied % false))))}
+             (cond copied? "Copied!" working? "Preparing…" :else "Copy link")]
           [:div.share-line
            (cond
              ;; Shown on every visit until the owner shares again or dismisses it, so it cannot be missed once.
@@ -399,9 +436,14 @@
               native]
 
              :else
-             [:<> copy-link native])])))))
+             [:<> copy-link native])]))))))
 
 (defn share-line
-  "A character's share line, under its page title and under its row in the character list."
+  "A character's share line, under its page title."
   [id]
-  [share-controls id])
+  [share-controls id :line])
+
+(defn share-copy-button
+  "The character list row's Copy link button, which makes the share first when there is none."
+  [id]
+  [share-controls id :row])

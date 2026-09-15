@@ -9485,6 +9485,7 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
+      [integrations/share-copy-button id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
@@ -9528,7 +9529,6 @@
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}
          "delete"])]
-     [integrations/share-line id]
      (when @(subscribe [::char/delete-confirmation-shown? id])
        [:div.p-20.flex.justify-cont-end
         [:div

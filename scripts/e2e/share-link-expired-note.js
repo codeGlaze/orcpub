@@ -5,8 +5,8 @@
 // e2e-boot seeds a character for kaylee that knows the homebrew language and whose last share link expired,
 // as the pruner leaves it: a note of the character and the date. run.sh passes its id on as
 // E2E_EXPIRED_CHARACTER_ID. The share line's status must say the link expired, with Share link beside it, on
-// her character page, again after a reload, and in the character list. Dismiss must remove it for good
-// without storing a share.
+// her character page and again after a reload. The character list row has only its Copy link button, so
+// the status stays on the page. Dismiss must remove it for good without storing a share.
 const { chromium } = require('playwright');
 const { BASE, EXECUTABLE, HOMEBREW, newContext, login, watchShares, waitForButton, tokenStatus,
         checker } = require('./lib');
@@ -60,7 +60,8 @@ const noteShowing = page => page.evaluate(t => document.body.innerText.toLowerCa
     window.re_frame.core.dispatch(c.PersistentVector.fromArray(
       [c.keyword(null, 'toggle-character-expanded'), parseInt(id)], true));
   }, ID);
-  check(Boolean(await note(page)), "the character's row says so too");
+  await waitForButton(page, 'Copy link');
+  check(!(await noteShowing(page)), "the character's row has its Copy link button and leaves the status to the page");
 
   console.log('\nshe dismisses it:');
   await page.goto(characterPage, { waitUntil: 'networkidle', timeout: 120000 });
