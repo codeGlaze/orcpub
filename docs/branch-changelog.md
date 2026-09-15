@@ -31,10 +31,10 @@ comes with a check that fails without it.
 - **A party keeps a shared character's homebrew** — a character added to a party from its share link
   shows its homebrew on the party page, until its owner makes a new link (`c69dcf9d`).
 - **Unused share links expire** — a share link nobody opens for 180 days of the server running is
-  deleted with the server's copy of its homebrew; the character and the owner's homebrew stay, the owner
-  can share again, and `ORCPUB_SHARE_PRUNE_DAYS` sets the window, 30 days at least. A request without
-  the link's token does not count as use, and time the server was off does not count against a link
-  (`59400455`, `110569dc`, `3895027b`).
+  deleted with its share data; the character stays, the owner can share again, and
+  `ORCPUB_SHARE_PRUNE_DAYS` sets the window, 30 days at least. A request without the link's token does
+  not count as use, and time the server was off does not count against a link (`59400455`, `110569dc`,
+  `3895027b`).
 - **Stop sharing** — a character's owner can stop sharing it at any time: every link made before stops
   showing its custom content, and nothing is stored again until Share link is pressed (`e3aa6d07`).
 - **The owner is told when a share link expired** — the character page and list show the date beside
@@ -45,6 +45,11 @@ comes with a check that fails without it.
 
 ## Fixed
 
+- **Blank icons show again** — the Edit button on character and item pages, New link and three
+  import-log lines used Font Awesome 4 names the app does not serve, so on a phone they were empty
+  buttons (`b50783d6`).
+- **A mistyped `ORCPUB_SHARE_PRUNE_DAYS` is called out at boot** — it showed as set while the default
+  was in use (`04cb322b`).
 - **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
   a keyword, or whose traits or options held something other than cards, crashed the
   import or later the export; it now imports with what can be kept (`c0b757c7`).
@@ -123,6 +128,10 @@ comes with a check that fails without it.
 - **Share wording** — the startup log's share settings speak of share data, the Share link button no
   longer describes server storage, and What's New describes short links, New link and Stop sharing
   (`e3aa6d07`, `567f4bdb`).
+- **A party forgets a character's link when its share ends** — New link, Stop sharing, expiry and
+  deleting the character delete the token the party saved; the character stays in the party
+  (`3cacef7f`).
+- **The share settings are documented** in `docs/ENVIRONMENT.md` (`0940636e`).
 - **Browser probes share one way to find Chromium** — they find Playwright's
   current install without setting four variables by hand, and the runner reports
   a missing browser once as a skip (`b48d312c`).
