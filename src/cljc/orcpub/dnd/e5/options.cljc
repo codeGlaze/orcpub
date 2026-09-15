@@ -1,4 +1,30 @@
 (ns orcpub.dnd.e5.options
+  "Authored content -> template pieces. The layer that turns a race, class, background or feat —
+   built-in or homebrew, same path either way — into the `option-cfg`s and `selection-cfg`s that
+   `template.cljc` assembles into the builder. 4k lines, ~160 fns; this docstring is a map, not
+   an index.
+
+   ENTRY POINTS, one per silo. Each takes that silo's authored map and returns one `option-cfg`:
+     `race-option`  `subrace-option`  `class-option`  `subclass-option`  `background-option`
+     `feat-option-from-cfg`
+   Everything else exists to be called by one of these. Start at the silo you are changing.
+
+   NAMING, which is the fastest way to navigate:
+     `*-option`      one choosable thing — carries `:modifiers`, `:selections`, `:prereqs`
+     `*-selection`   a pick among options — carries `:options`, `:min`/`:max`, `:prereq-fn`
+     `*-modifiers`   authored data -> `mod5e/*` primitives, no choice involved
+   The bare `def`s are closed vocabularies (`abilities`, `alignments`, `damage-types`, `levels`)
+   and a few prebuilt options.
+
+   GOTCHA: a selection's `:prereq-fn` gates whether the BUILDER OFFERS it, never whether a stored
+   pick applies — `entity/build` does not consult it. A pick saved while the gate passed keeps
+   applying after it stops, with no control on screen to remove it. See
+   docs/kb/hidden-selection-picks.md.
+
+   Layering: below `template.cljc` (which requires this), above `modifiers.cljc` and
+   `entity_spec.cljc`. Also consumed directly by `views.cljs`, `spell_subs.cljs` and `pdf.clj`.
+
+   docs/kb/decision-vocabulary.md maps which authored keys each silo reads."
   (:require [clojure.string :as s]
             [clojure.set :as sets]
             [orcpub.common :as common]
