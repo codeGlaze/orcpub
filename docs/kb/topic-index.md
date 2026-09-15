@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, feat, fixed, floating, increment, mental, pool, race, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, feat, fixed, floating, increment, mental, pool, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -340,7 +340,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, field, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** ---, assets, beside, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -1688,15 +1688,16 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-02-25, cljs, cohesive, decomposition, domain, domain-based, focused, low, monolith, phase, separation, sorted-map, split, splitting, tier, todo, views
+**topics:** -------, 150, 2026-09-15, 623, cljs, cohesive, domain, domain-based, incrementally, monolith, phase, separation, sorted-map, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
-- Tier 1: Data/logic separation (high impact, low risk) — DONE
+- Tier 1: Data/logic separation (high impact, low risk) — proven, not merged
+- What builder generation would actually take off views.cljs
 - Tier 2: Domain decomposition (medium impact, medium risk)
 - Tier 3: Not worth splitting
 - 3. Order of Precedence
-- Phase A: Data extraction (Tier 1) — DONE
+- Phase A: Data extraction (Tier 1) — proven on a branch, to be redone incrementally
 - Phase B: Events decomposition
 - Phase C: Remaining views + options
 - 4. Branching Strategy
@@ -1809,7 +1810,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, drawn, field, fields, foot, page, pages, pdfbox, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, drawn, field, fields, foot, icons, page, pages, pdfbox, sheet, stream, streams
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2193,7 +2194,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** adding, bits, boon, boon-like, builder-form, copy-pasted, damage-type, draconic-ancestry, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type
+**topics:** adding, bits, boon, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -2332,7 +2333,7 @@ _rescued/ui-ux-plan · rescued/ui ux plan_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, d29, feat, grant, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, track
+**topics:** 2026-09-05, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, registry, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)

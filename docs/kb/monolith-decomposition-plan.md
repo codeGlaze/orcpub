@@ -1,8 +1,14 @@
 # Monolith Decomposition Plan
 
-> **Status check 2026-09-15.** Tier 1 below is marked DONE, and it is — on
-> `refactor/data-extraction`, which is still unmerged (15 commits ahead of `agents/develop`, last
-> touched 2026-02-25). No `*_data.cljc` file exists on `agents/develop`.
+> **Status and plan, 2026-09-15.** Tier 1 below is marked DONE, and it is — on
+> `refactor/data-extraction`, which is unmerged and staying that way. No `*_data.cljc` file exists
+> on `agents/develop`.
+>
+> **That branch is not being merged.** It was weeks of work and became unmaintainable to keep in
+> step with bug fixes landing on the live branch at the same time. The plan is to redo the
+> extractions incrementally alongside the Fall Update, **using that branch's docs as the
+> guideline** — the research and sequencing below is the part worth keeping, so the idea does not
+> have to be paid for twice. Treat Tier 1 as a proven recipe, not as work already in the tree.
 
 Post-builders-split analysis: what to break down next, in what order, and how.
 
@@ -18,7 +24,7 @@ The split also exposed that `classes.cljs` at 740 lines is the largest child —
 
 ## 2. What Files Can or Should Be Broken Down?
 
-### Tier 1: Data/logic separation (high impact, low risk) — DONE
+### Tier 1: Data/logic separation (high impact, low risk) — proven, not merged
 
 Completed on `refactor/data-extraction` branch (5 commits, 2026-02-25).
 
@@ -33,6 +39,32 @@ Completed on `refactor/data-extraction` branch (5 commits, 2026-02-25).
 - `:as-alias` (Clojure 1.11+) is the right tool when data entries use `::` qualified keywords from the parent namespace. Avoids circular deps without changing keyword identity.
 - `class-level` had to move to the data file (not stay in logic) because class option functions call it internally. Re-exported from the logic file for external consumers.
 - Pre-existing issue surfaced: `item-saving-throw-bonuses` dropdown in item builder is a dead control (logged in docs/TODO.md).
+
+### What builder generation would actually take off `views.cljs`
+
+Measured 2026-09-15 on `agents/develop`, because "the Fall Update should cut views.cljs down" is
+worth a number rather than a hope.
+
+Of its 10,821 lines, **~3,623 (33%) is the homebrew builder UI** — a near-contiguous run from
+about L5000 to L8400, plus the page wrappers near the end.
+
+Two things that change what to expect:
+
+- **The page wrappers are already 3 lines each.** Fourteen `*-builder-page` fns, ~45 lines total.
+  Generating page code wins nothing there; the bulk is the per-type field-editing UI.
+- **The schema-driven path already exists and already works.** `simple-content-builder` +
+  `render-builder-field`, fed by the type's declarative field schema, serves 6 of the 16 builders
+  today: language, spell, boon, invocation, draconic-ancestry, fighting-style. All small types.
+
+The 10 still hand-written are ~1,150 lines: class (268), monster (233), race (152), subrace (129),
+subclass (105), selection (80), feat (66), item (53), background (35), encounter (25). Converting
+all of them is roughly a **10% cut** to `views.cljs` — real, but not the thing that fixes 10,821
+lines. The shared widgets underneath (`render-builder-field`, `rows-node`, `vector-rows-node`,
+`group-toggles`) are the framework and stay.
+
+**Generation and extraction are different wins.** Generation removes ~1,150 lines; moving the
+builder UI out of `views.cljs` relocates all 3,623. Do not expect the first to substitute for the
+second.
 
 ### Tier 2: Domain decomposition (medium impact, medium risk)
 
@@ -64,10 +96,12 @@ repo, not the third, so Phase C below is arguably ahead of Phase B.*
 
 ## 3. Order of Precedence
 
-### Phase A: Data extraction (Tier 1) — DONE
+### Phase A: Data extraction (Tier 1) — proven on a branch, to be redone incrementally
 **monsters → spells → magic_items → classes**
 
-Completed 2026-02-25 on `refactor/data-extraction`. All 4 files extracted, 206 tests passing, 0 CLJS warnings.
+Completed 2026-02-25 on `refactor/data-extraction`: all 4 files extracted, 206 tests passing, 0
+CLJS warnings. Not merged and not going to be — redo these incrementally during the Fall Update,
+following the recipe and order above.
 
 ### Phase B: Events decomposition
 **events.cljs → subs.cljs** (mirror the same domain boundaries)
