@@ -22,15 +22,12 @@
 (def ^:private out-file "docs/kb/topic-index.md")
 
 (defn- docs []
-  ;; Path RELATIVE to kb-dir, not just the name: file-seq descends into subdirectories
-  ;; (docs/kb/rescued/), and a bare name rebuilds a path that isn't there.
-  (let [root (.toPath (io/file kb-dir))]
-    (->> (file-seq (io/file kb-dir))
-         (filter #(.isFile %))
-         (map #(str (.relativize root (.toPath %))))
-         (filter #(str/ends-with? % ".md"))
-         (remove #(contains? #{"README.md" "topic-index.md"} (.getName (io/file %))))
-         sort)))
+  (->> (file-seq (io/file kb-dir))
+       (filter #(.isFile %))
+       (map #(.getName %))
+       (filter #(str/ends-with? % ".md"))
+       (remove #{"README.md" "topic-index.md"})
+       sort))
 
 (defn- headings [f]
   (->> (str/split-lines (slurp (io/file kb-dir f)))
