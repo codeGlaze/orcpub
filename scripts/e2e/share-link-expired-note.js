@@ -4,18 +4,19 @@
 //
 // e2e-boot seeds a character for kaylee that knows the homebrew language and whose last share link expired,
 // as the pruner leaves it: a note of the character and the date. run.sh passes its id on as
-// E2E_EXPIRED_CHARACTER_ID. The note must show on her character page with Share link beside it, again after
-// a reload, and in the character list. Dismiss must remove it for good without storing a share.
+// E2E_EXPIRED_CHARACTER_ID. The share line's status must say the link expired, with Share link beside it, on
+// her character page, again after a reload, and in the character list. Dismiss must remove it for good
+// without storing a share.
 const { chromium } = require('playwright');
 const { BASE, EXECUTABLE, HOMEBREW, newContext, login, watchShares, waitForButton, tokenStatus,
         checker } = require('./lib');
 
 const ID = process.env.E2E_EXPIRED_CHARACTER_ID;
-const NOTE = 'Your last share link expired on';
+const NOTE = 'Link expired';
 
-// The note's text once it shows, or null when it does not within 30 seconds. innerText is what is on
-// screen, so a hidden note does not count, but the character list's row is set in capitals: compare
-// ignoring case.
+// The status text once it shows, or null when it does not within 30 seconds. innerText is what is on
+// screen, so a hidden status does not count; the comparison ignores case in case a container sets
+// capitals.
 async function note(page) {
   const shown = await page.waitForFunction(t => document.body && document.body.innerText.toLowerCase().includes(t),
     NOTE.toLowerCase(), { timeout: 30000 }).then(() => true, () => false);
