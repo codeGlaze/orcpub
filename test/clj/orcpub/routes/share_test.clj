@@ -306,10 +306,11 @@
           "a share with no recorded use counts from when it was made")
       (let [db (d/db conn)]
         (is (= "alice" (::se/owner (d/pull db [::se/owner] id))) "the character stays")
-        (is (= [token] (d/q '[:find [?t ...] :where [_ :orcpub.party-share/token ?t]] db)) "the party's entry stays")
-        (is (nil? (->> (party-routes/parties {:db db :identity {:user "bob"}})
-                       :body first ::party/character-ids first :orcpub.party-share/token))
-            "but lists no token, so the party page loads no homebrew")
+        (let [listed (->> (party-routes/parties {:db db :identity {:user "bob"}}) :body first ::party/character-ids first)]
+          (is (= id (:db/id listed)) "the party keeps the character")
+          (is (nil? (:orcpub.party-share/token listed)) "but lists no token, so the party page loads no homebrew"))
+        (is (empty? (d/q '[:find [?t ...] :where [_ :orcpub.party-share/token ?t]] db))
+            "and the token it saved, which loads nothing now, is deleted")
         (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] db)))
         (is (= #{id 42} (set (d/q '[:find [?c ...] :where [_ :orcpub.share-expiry/character ?c]] db)))
             "each leaves only a note of its character and the date")))))

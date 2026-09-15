@@ -120,12 +120,20 @@
   (map (fn [e] [:db/retractEntity e])
        (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share-expiry/character ?c]] db character-id)))
 
+(defn- party-token-retractions
+  "The tokens parties saved for the character, which load nothing once its share is gone. The parties
+   keep the character."
+  [db character-id]
+  (map (fn [e] [:db/retractEntity e])
+       (d/q '[:find [?t ...] :in $ ?c :where [?t :orcpub.party-share/character ?c]] db character-id)))
+
 (defn prune!
   "Expires the shares unused for longer than the prune window: each is deleted, leaving a note of its
    character and the date for the owner's page, and a note still there after another window is deleted
    too. A day more is allowed because use is recorded at most daily, a share with no recorded use counts
-   from when its record was made, and time the server was off does not count. Only share records and
-   notes go, never a character or a party's entry for it. Returns {:expired n :forgotten n}."
+   from when its record was made, and time the server was off does not count. Only share records, notes
+   and the tokens parties saved go, never a character or its place in a party. Returns
+   {:expired n :forgotten n}."
   [conn]
   (let [db        (d/db conn)
         at        (now)
@@ -146,8 +154,9 @@
                                :when (and (unused? on) (not (expiring c)))]
                            e)))]
     (when (or (seq stale) (seq forgotten))
-      @(d/transact conn (concat (mapcat (fn [[e c]] [[:db/retractEntity e]
-                                                     {:orcpub.share-expiry/character c :orcpub.share-expiry/on at}])
+      @(d/transact conn (concat (mapcat (fn [[e c]] (concat [[:db/retractEntity e]
+                                                             {:orcpub.share-expiry/character c :orcpub.share-expiry/on at}]
+                                                            (party-token-retractions db c)))
                                         stale)
                                 (map (fn [e] [:db/retractEntity e]) forgotten))))
     {:expired (count stale) :forgotten (count forgotten)}))
@@ -167,12 +176,13 @@
 (defn- text [s] {:status 200 :headers (merge {"Content-Type" "text/plain; charset=utf-8"} (cap-headers)) :body s})
 
 (defn retractions-for-character
-  "Transaction data that deletes a character's share and any note that its last link expired, for Stop
-   sharing, New link, and when the character goes."
+  "Transaction data that deletes a character's share, any note that its last link expired, and the tokens
+   parties saved for it, for Stop sharing, New link, and when the character goes."
   [db character-id]
   (concat (map (fn [e] [:db/retractEntity e])
                (d/q '[:find [?e ...] :in $ ?c :where [?e :orcpub.share/character ?c]] db character-id))
-          (expiry-retractions db character-id)))
+          (expiry-retractions db character-id)
+          (party-token-retractions db character-id)))
 
 (defn get-token
   "The character's share token, for its owner. Otherwise 404, or 410 with the date when the character's
