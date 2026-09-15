@@ -113,6 +113,17 @@
    [:.flex-basis-50-p
     {:flex-basis "50%"}]
 
+   ;; With .order-last, a line of its own below the other items of a wrapping flex row.
+   [:.flex-basis-100-p
+    {:flex-basis "100%"}]
+
+   [:.order-last
+    {:order 99}]
+
+   ;; Space between the lines of a wrapping row whose buttons carry no vertical margin.
+   [:.row-gap-5
+    {:row-gap "5px"}]
+
    [:.i
     {:font-style :italic}]
 

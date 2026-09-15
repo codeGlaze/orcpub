@@ -333,9 +333,10 @@
                                     (-> (embedded-link base {:plugins bundle})
                                         (.then #(swap! state merge %))))))))))
             ;; Shown on every visit until the owner shares again or dismisses it, so it cannot be missed once.
+            ;; On its own line below the whole button row: inline, it split the buttons on a phone.
             (when expired-on
               [:<>
-               [:span.f-s-12.orange.m-l-5.m-r-5
+               [:span.f-s-12.orange.t-a-r.flex-basis-100-p.order-last.m-t-5.m-r-5
                 (str "Your last share link expired on " (reader-date expired-on) " after going unused.")]
                (btn "fa-times" "Dismiss" "Hide this note. Share link makes a new link."
                     (fn [_]
