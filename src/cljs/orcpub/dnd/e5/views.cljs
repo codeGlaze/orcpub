@@ -1040,7 +1040,7 @@
 
 (def confirm-handler (memoize confirm-fn))
 
-(defn header [title button-cfgs & {:keys [frame?]}]
+(defn header [title button-cfgs & {:keys [frame? subheader]}]
   (let [device-type @(subscribe [:device-type])]
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
@@ -1068,6 +1068,9 @@
              [:span.m-l-5.header-button-text title]]
               ))
         button-cfgs)]]
+     ;; A full-width line under the title and buttons, such as a character's share line.
+     (when subheader
+       [:div.m-l-10.m-r-10.m-b-10 subheader])
      (when @(subscribe [:confirmation-shown?])
        [:div.flex.justify-cont-end.m-r-10.m-b-20.m-l-10
         (let [cfg @(subscribe [:confirmation-cfg])]
@@ -1570,7 +1573,7 @@
                                   (.disconnect obs)
                                   (reset! observer nil)))
       :reagent-render
-      (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
+      (fn [title button-cfgs content & {:keys [hide-header-message? frame? subheader]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
@@ -1590,7 +1593,7 @@
              [app-header])
            (when orcacle-open?
              [orcacle])
-           (let [hdr [header title button-cfgs :frame? frame?]]
+           (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
               ;; One header, sticky, rather than a fixed copy of it above an
               ;; inline one. Two copies meant every control in the header --
@@ -4575,8 +4578,7 @@
         [content-page
          (when (not frame?)
            "Character Page")
-         (into
-          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+         (vec
           (remove nil?
            [#_[:div.m-l-5.hover-shadow.pointer
                {:on-click #(swap! expanded? not)}
@@ -4602,7 +4604,8 @@
                                "?frame=true"))}]]))
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?])))))
+         :frame? frame?
+         :subheader [integrations/share-line id]])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -9482,7 +9485,6 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
-      [integrations/share-link-www id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
@@ -9526,6 +9528,7 @@
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}
          "delete"])]
+     [integrations/share-line id]
      (when @(subscribe [::char/delete-confirmation-shown? id])
        [:div.p-20.flex.justify-cont-end
         [:div

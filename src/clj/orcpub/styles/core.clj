@@ -113,13 +113,6 @@
    [:.flex-basis-50-p
     {:flex-basis "50%"}]
 
-   ;; With .order-last, a line of its own below the other items of a wrapping flex row.
-   [:.flex-basis-100-p
-    {:flex-basis "100%"}]
-
-   [:.order-last
-    {:order 99}]
-
    ;; Space between the lines of a wrapping row whose buttons carry no vertical margin.
    [:.row-gap-5
     {:row-gap "5px"}]
@@ -1449,6 +1442,52 @@
                [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
                [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
 
+    ;; ── Share line ───────────────────────────────────────────────────────────
+    ;; A character's sharing, under its page title and under its row in the character list: a status
+    ;; pill, which is a label and never looks tappable, then the actions as text buttons. Before a link
+    ;; exists the line is the pill and Share link; after, Copy link, New link and Stop sharing. Actions
+    ;; are 40px tall so a thumb can land on them. Light-theme colours are under .app.light-theme below.
+    [:.share-line
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :column-gap "18px"
+      :text-transform :none}]
+    [:.share-pill
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :font-weight 600
+      :line-height 1.4
+      :padding "3px 10px"
+      :border-radius "999px"
+      :white-space :nowrap}]
+    [:.share-pill-neutral {:background-color "rgba(255,255,255,0.08)" :color "rgba(255,255,255,0.75)"}]
+    [:.share-pill-shared {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}]
+    [:.share-pill-expired {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}]
+    [:.share-action
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :min-height "40px"
+      :padding 0
+      :border :none
+      :background :none
+      :cursor :pointer
+      :font-family "inherit"
+      :font-size "13px"
+      :font-weight 600
+      :color orange
+      :white-space :nowrap}
+     [:.fa {:font-size "14px"}]]
+    ;; Only where a pointer hovers: a phone keeps :hover after a tap, leaving the action underlined.
+    (at-media {:hover "hover"} [:.share-action:hover {:text-decoration :underline}])
+    [:.share-action:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px" :border-radius "3px"}]
+    [:.share-action:disabled {:opacity 0.6 :cursor :default :text-decoration :none}]
+    [:.share-action-danger {:color "#ef8592"}]
+    [:.share-action-quiet {:color "rgba(255,255,255,0.7)"}]
+    (at-media xs-query [:.share-line {:column-gap "16px"}])
+
     [:.roll-button
      {:color :white
       :min-width "68px"
@@ -1854,6 +1893,15 @@
      [:.lib-badge-compat
       {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}
       [:.lib-dot {:background-color "#b47800"}]]
+
+     ;; Share line: the same meanings on a light ground, with the light theme's blue for actions.
+     [:.share-pill-neutral {:background-color "rgba(0,0,0,0.06)" :color "#4a4a4a"}]
+     [:.share-pill-shared {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+     [:.share-pill-expired {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}]
+     [:.share-action {:color "#33658A"}]
+     [:.share-action:focus-visible {:outline-color "#33658A"}]
+     [:.share-action-danger {:color "#9a031e"}]
+     [:.share-action-quiet {:color "#4a4a4a"}]
 
      [:.builder-option-dropdown
       (merge
