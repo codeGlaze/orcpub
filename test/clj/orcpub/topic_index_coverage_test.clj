@@ -11,20 +11,32 @@
             [clojure.java.io :as io]))
 
 (defn- kb-docs []
+  ;; Path RELATIVE to docs/kb, not just the name — file-seq descends into subdirectories
+  ;; (docs/kb/rescued/) and a bare name matches the wrong thing, or nothing.
+  (let [root (.toPath (io/file "docs/kb"))]
+    (->> (file-seq (io/file "docs/kb"))
+         (filter #(.isFile %))
+         (map #(str (.relativize root (.toPath %))))
+         (filter #(str/ends-with? % ".md"))
+         (remove #(contains? #{"README.md" "topic-index.md"} (.getName (io/file %))))
+         sort)))
+
+(defn- readmes []
+  ;; Every README under docs/kb. A doc in a subdirectory is reachable through that
+  ;; subdirectory's own index — rescued/README.md is itself linked from the top one.
   (->> (file-seq (io/file "docs/kb"))
-       (filter #(.isFile %))
-       (map #(.getName %))
-       (filter #(str/ends-with? % ".md"))
-       (remove #{"README.md" "topic-index.md"})
-       sort))
+       (filter #(and (.isFile %) (= "README.md" (.getName %))))
+       (map slurp)
+       (apply str)))
 
 (deftest every-kb-document-is-reachable
-  (let [readme (slurp (io/file "docs/kb/README.md"))
+  (let [readme (readmes)
         topics (slurp (io/file "docs/kb/topic-index.md"))]
     (doseq [d (kb-docs)]
       (testing d
-        (is (str/includes? readme (str "(" d ")"))
-            (str d " is not linked from docs/kb/README.md — an unlinked document is one nobody finds"))
+        (is (or (str/includes? readme (str "(" d ")"))
+                (str/includes? readme (str "(" (.getName (io/file d)) ")")))
+            (str d " is not linked from any docs/kb README — an unlinked document is one nobody finds"))
         (is (str/includes? topics (str "## " d))
             (str d " is missing from docs/kb/topic-index.md — regenerate it: "
                  "lein with-profile +tools run -m orcpub.topic-index"))))))
