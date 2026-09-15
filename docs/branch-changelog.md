@@ -125,6 +125,10 @@ comes with a check that fails without it.
 
 ## Changed
 
+- **A character's sharing is one line under its title** — a status (Not shared, Shared, or Link expired
+  and the date) with its actions as text buttons: Share link until a link exists, then Copy link, New
+  link and Stop sharing. It replaces the share buttons in the page header and the character list row,
+  which split into extra rows or ran off the screen on a phone (`f1852203`, `5e417137`).
 - **Share wording** — the startup log's share settings speak of share data, the Share link button no
   longer describes server storage, and What's New describes short links, New link and Stop sharing
   (`e3aa6d07`, `567f4bdb`).
