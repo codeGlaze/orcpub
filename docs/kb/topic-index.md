@@ -482,13 +482,13 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _content-to-character-pipeline · content to character pipeline_
 
-**topics:** 157, 1588, 197, 2026-09-15, 4143, assembly, built-character-representation, cell, content-extensibility-framework, decision-vocabulary, fns, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
+**topics:** 091, 157, 1588, 2026-09-15, assembly, attributed, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
 
 - The five stages
 - What each file actually is
 - Where to make a change
 - Two things that bite across stages
-- Correction to namespace-architecture.md
+- A note on the namespace inventory
 - Related
 
 ## custom-content-lifecycle.md
@@ -619,7 +619,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, hook, learned, push, reminder, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -739,7 +739,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order

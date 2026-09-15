@@ -79,12 +79,14 @@ mistake was made and retracted in this repo; see `already_held_grant_test.clj`'s
 pick. `entity/build` never consults it, so a pick saved while the gate passed keeps applying after
 it stops. See [hidden-selection-picks.md](hidden-selection-picks.md).
 
-## Correction to `namespace-architecture.md`
+## A note on the namespace inventory
 
-That doc lists `dnd.e5.options` at **3,483 lines**; it is **4,143**. It also describes it as
-"Option builder helpers: `option-cfg`, `spell-option`, `feat-option`" — but `option-cfg` lives in
-`orcpub/template.cljc`, not `options.cljc`. The inventory is stale on both counts, and it lives on
-`agents/develop` where a code-branch session cannot see it.
+`namespace-architecture.md` (on `agents/develop`) listed `options.cljc` at 3,483 lines and
+attributed `option-cfg` to it. Both were wrong — it is 4,143 here, 4,091 on `agents/develop`, and
+`option-cfg` lives in `orcpub/template.cljc`. That doc was re-measured on 2026-09-15; 69 of its 89
+counts were wrong and two sections described unmerged refactors as done. It is corrected now, but
+the habit it came from is worth naming: **a line count in a doc is a measurement with a date on
+it, not a fact.** Re-run `wc -l` before you rely on one.
 
 ## Related
 
