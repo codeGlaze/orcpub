@@ -1,4 +1,20 @@
 (ns orcpub.template
+  "The template vocabulary — two constructors and the specs behind them. Content-neutral: nothing
+   here knows about D&D.
+
+   `option-cfg`     ONE choosable thing. Carries `::modifiers`, `::selections`, `::prereqs`.
+   `selection-cfg`  a PICK among options. Carries `::options`, `::min`/`::max`, `::prereq-fn`.
+
+   Both take a plain map and return a namespaced one, filling defaults — `::key` from the name,
+   `::source :phb`, `::min 1`, and `::max` 1 unless `multiselect?`. Callers pass unqualified keys;
+   everything downstream reads the `::t/`-qualified ones.
+
+   `make-modifier-map` turns an assembled template into the path-keyed index `entity/build` looks
+   chosen options up in (`entity.cljc:760`). `::ref` selections are hoisted and addressed by their
+   ref path instead of nesting under their parent — that is the whole mechanism behind a selection
+   appearing somewhere other than where it was declared.
+
+   docs/kb/content-to-character-pipeline.md"
   (:require [clojure.spec.alpha :as spec]
             [clojure.spec.test.alpha :as stest]
             [orcpub.modifiers :as modifiers]

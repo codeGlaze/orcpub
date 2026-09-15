@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -332,7 +332,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, payload, rollback, selection, selection-key
+**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safety, selection, strict
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -405,7 +405,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, spa, type
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -431,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, preconditions, require, revert, route, snapshots, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -477,6 +477,19 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 - 6. Move / copy content between sources (DESIGN)
 - 7. Suggested branch decomposition (DESIGN)
 - Open decisions
+
+## content-to-character-pipeline.md
+
+_content-to-character-pipeline · content to character pipeline_
+
+**topics:** 157, 1588, 197, 2026-09-15, 4143, assembly, built-character-representation, cell, content-extensibility-framework, decision-vocabulary, fns, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
+
+- The five stages
+- What each file actually is
+- Where to make a change
+- Two things that bite across stages
+- Correction to namespace-architecture.md
+- Related
 
 ## custom-content-lifecycle.md
 
@@ -526,7 +539,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** caller-supplied, concatenation, condition, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** concatenation, condition, construction, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -574,7 +587,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, cha, churning, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level
+**topics:** agreed, cantrips, cha, compound, dependent, descriptive, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, repeatable, select, spell, spells, two-level
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -606,7 +619,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, hook, learned, push, reminder, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -624,7 +637,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, d32, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -726,7 +739,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -800,7 +813,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, key, membership, override, plugin, predictable, rename, returning, same-key, save, spell, wins
+**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, item, key, override, plugin, predictable, rename, returning, same-key, save, spell, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -1028,7 +1041,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1074,7 +1087,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, mistype, neither, not-melee, ranged, ranged-only, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, neither, not-melee, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

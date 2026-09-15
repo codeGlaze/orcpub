@@ -1,4 +1,21 @@
 (ns orcpub.dnd.e5.template
+  "The 5e template: the selection tree the builder shows, assembled.
+
+   Despite the size this is DATA, not machinery — 1588 lines and 9 functions. The assembly logic
+   lives in `orcpub.dnd.e5.options`; what is here is the built-in content laid out as nested
+   `selection-cfg`/`option-cfg` calls, plus a handful of local helpers for magic items and
+   inventory.
+
+   PUBLIC SURFACE, both at the bottom of the file:
+     `template-selections`  everything choosable, given the content maps (spells, races, classes,
+                            backgrounds, feats, magic items, languages). Homebrew arrives through
+                            those same arguments, so built-in and plugin content take one path.
+     `template`             wraps them with `template-base`, producing the second argument to
+                            `entity/build`.
+
+   Layer direction is one way: this namespace requires `options`, never the reverse.
+
+   docs/kb/content-to-character-pipeline.md"
   (:require [clojure.string :as s]
             [clojure.set :as sets]
             [orcpub.entity :as entity]

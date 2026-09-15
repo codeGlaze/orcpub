@@ -31,6 +31,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 ### Verified topic / reference
 | Document | Topic | Source quality |
 |----------|-------|---------------|
+| [content-to-character-pipeline.md](content-to-character-pipeline.md) | **Start here for "where do I change this?"** The five stages from authored content to a read value, what each file in the chain actually is (options.cljc is 164 fns of machinery; e5/template.cljc is 1588 lines and 9 fns of *data*), and a where-to-make-a-change table. | High — measured |
 | [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo emits and which assembly fn compiles them. Includes the verified A/B grant-vocabulary comparison (shared primitive, B is level-gated, cljc/cljs layer split). | Medium-High — call-graph verified; key claims now test-backed |
 | [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def). | High — code |
 | [handoff-integration-branches.md](handoff-integration-branches.md) | For the agent merging the three branches waiting on `integration`: what each is, the order to merge them, the gates as measured, what a reviewer has to consciously accept, what no test covers, and the traps that cost this session time. | Current — 2026-09-14 |
