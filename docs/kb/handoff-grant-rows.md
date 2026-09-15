@@ -25,6 +25,11 @@ still write their legacy keys. They come out only behind the shim registry (step
 
 ## The work, in order
 
+**Status lives in [`docs/TODO.md`](../TODO.md), not here.** That file is this branch's granular
+list — which steps are done, what was added since this handoff was written (the hidden-pick defect
+and its two-part plan), and a reference copy of the central backlog. This page keeps the spec and
+the acceptance test for each step; read both.
+
 Each step is its own commit with its acceptance test green before the next. Docs sync per commit
 (`documentation-discipline.md`); reversals go in a Corrections section, never overwritten.
 
