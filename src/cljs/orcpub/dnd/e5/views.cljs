@@ -9481,7 +9481,7 @@
         current-folder-id (get char-folder-map id)]
     [:div
      {:style character-display-style}
-     [:div.flex.justify-cont-end.uppercase.align-items-c
+     [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
       [integrations/share-link-www id]
       (when (= username owner)
         [:button.form-button
