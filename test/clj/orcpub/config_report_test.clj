@@ -102,6 +102,20 @@
       (is (some #(str/includes? % "[SECURITY]") out))
       (is (some #(str/includes? % "[CAPACITY]") out)))))
 
+(deftest a-rejected-share-prune-window-is-called-out
+  (testing "the prune window takes 0, so it has its own check, and the line says what it wanted"
+    (let [row (fn [raw]
+                (with-redefs-fn {#'config/env-raw (fn [n] (when (= n "ORCPUB_SHARE_PRUNE_DAYS") raw))}
+                  #(first (filter (comp #{"ORCPUB_SHARE_PRUNE_DAYS"} :var) (config/report)))))
+          bad (row "oops")]
+      (is (:ignored? bad))
+      (is (not (:set? bad)) "a typo does not read as SET")
+      (is (some #(str/includes? % "ORCPUB_SHARE_PRUNE_DAYS=oops was ignored: not a whole number of days, 0 or more")
+                (lines [bad])))
+      (is (:ignored? (row "-5")))
+      (is (:set? (row "0")) "0 keeps links, a choice rather than a typo")
+      (is (:set? (row "45"))))))
+
 (deftest every-documented-tunable-is-reported
   (testing "adding a knob without adding it to the banner fails here"
     (let [reported (set (map :var (config/report)))]
@@ -109,7 +123,9 @@
                  "ORCPUB_PDF_QUEUE_TIMEOUT_MS" "ORCPUB_PDF_MAX_RETRIES"
                  "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
                  "PORT" "DEV_MODE" "DATOMIC_URL" "DATOMIC_PASSWORD" "SIGNATURE"
-                 "CSP_POLICY" "EMAIL_FROM_ADDRESS" "EMAIL_SECRET_KEY" "LOAD_HOMEBREW_URL"]]
+                 "CSP_POLICY" "EMAIL_FROM_ADDRESS" "EMAIL_SECRET_KEY" "LOAD_HOMEBREW_URL"
+                 "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
+                 "ORCPUB_SHARE_PRUNE_DAYS"]]
         (is (contains? reported v) (str v " is not in config/settings")))))
   (testing "no secret's value survives into the report data, not merely into the printing"
     (doseq [r (config/report)]
