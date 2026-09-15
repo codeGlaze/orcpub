@@ -606,7 +606,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, css, docstring, documentation, dotfiles, goes, history, hook, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -624,7 +624,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -705,7 +705,7 @@ _fonts · fonts_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, tray, var, workaround
+**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, themes, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms

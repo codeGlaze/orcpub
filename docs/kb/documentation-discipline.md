@@ -67,6 +67,21 @@ top saying so. A namespace docstring should ORIENT: what this is, what the publi
 are, the one rule that bites. It is the thing an editor shows on hover, so it is the cheapest
 documentation in the codebase.
 
+**Verify a docstring actually landed.** A string in the wrong position — after the arg vector
+rather than before it — compiles fine and is silently discarded as a no-op body expression. An
+editor reads `:doc` off the var's metadata, so the check is `(:doc (meta #'the-fn))`, not reading
+the source. Same for a namespace: `(:doc (meta (find-ns 'the.ns)))`.
+
+**Document the public surface before the internals.** Measured in this repo: `entity_spec.cljc`'s
+four private helpers were documented while all eight of its MACROS — `modifier`, `vec-mod`,
+`set-mod`, `map-mod`, `cum-sum-mod`, `q`, `dependencies`, `conditions`, the symbols in every
+modifier in the codebase — had nothing. Hover value is proportional to how often a symbol is
+typed, not how hard it was to understand.
+
+**`spec/def` cannot carry a docstring.** There is nowhere to put one, so a spec's meaning has to
+live in its namespace docstring or a comment at the definition. Not a gap anyone can close in the
+usual way.
+
 **Markers mean one thing.** `LOAD-BEARING` in this repo marks *behaviour that must not change* —
 `entity.cljc`'s sort order, `armor_class.cljc`'s max, `entity_spec.cljc`'s macroexpansion
 rewrite. Do not use it to mean "do not delete this text"; a marker that means two things stops
