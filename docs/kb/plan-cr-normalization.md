@@ -109,7 +109,25 @@ now runs in the browser too, character build included). Both 0 failures. `lein f
 `views.cljs:1394` (hardcoded `case`) and `views.cljs:8374` (computed) both call
 `display/cr->label`. The builder dropdown's `:on-change` keeps parsing to a number.
 
-**Acceptance:** `lein fig:build` clean; the monster-builder e2e gallery shot unchanged.
+**Acceptance — met 2026-09-16.** `views.cljs` already required `display :as disp`, so both sites
+became `(disp/cr->label …)`. No formatter left in the file.
+
+Verified against the **running app** rather than a screenshot diff: `lein garden once` +
+`lein e2e-server`, then Playwright read the CR dropdown's rendered option labels out of the live
+monster builder at `/pages/dnd/5e/monster-builder`:
+
+```
+["0","1/8","1/4","1/2","1","2","3","4","5","6"] … 34 options, zero page errors
+```
+
+That is the book's notation, from one shared function. Reading the DOM beats a screenshot here:
+it asserts the text, not a pixel hash, and it says which values are wrong when it fails.
+
+Suites: JVM 733 / 5491; CLJS 426 / 1905 (`node scripts/test/run-cljs-tests.js`). Both 0 failures.
+`lein fig:build` clean.
+
+Note for anyone repeating this: the builder route is `/pages/dnd/5e/<seg>`, not `/dnd/e5/<seg>` —
+the latter serves "Not Found" with no error, which looks like a broken page rather than a wrong URL.
 
 ## Step 4 — the character side
 

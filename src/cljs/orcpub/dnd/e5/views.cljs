@@ -1391,11 +1391,7 @@
      (when senses (spell-field "Senses" senses))
      (when languages (spell-field "Languages" languages))
      (when challenge (spell-field "Challenge" (str
-                                             (case challenge
-                                               0.125 "1/8"
-                                               0.25 "1/4"
-                                               0.5 "1/2"
-                                               challenge)
+                                             (disp/cr->label challenge)
                                              " ("
                                              (monsters/challenge-ratings challenge)
                                              " XP)")))
@@ -8370,11 +8366,7 @@
       [labeled-dropdown
        ""
        {:items (map
-                 (fn [v]
-                   {:title (if (< 0 v 1)
-                             (clojure.core/str "1/" (/ 1 v))
-                             v)
-                    :value v})
+                 (fn [v] {:title (disp/cr->label v) :value v})
                  @(subscribe [::monsters/challenge-ratings]))
         :value (or challenge 0)
         :on-change #(dispatch [::monsters/set-monster-prop :challenge (js/parseFloat %)])}]]]
