@@ -146,3 +146,35 @@
                 (when frequency (str "use " (frequency-description frequency)))
                 #_(if page (source-description source page))]))
       ")"))))
+
+;; ---------------------------------------------------------------- challenge rating
+;; CR is stored as ONE NUMBER and formatted here. See docs/kb/decision-cr-representation.md:
+;; the book's "1/4" notation is a display concern, and keeping it in storage forked the value
+;; by runtime (a Ratio on the JVM, a double in CLJS, from the same `.cljc` source).
+
+(defn cr->label
+  "A challenge rating as the books print it: `0.25` -> `\"1/4\"`, `2` -> `\"2\"`.
+   The only fractional CRs 5e uses are 1/8, 1/4 and 1/2.
+
+   Accepts a Ratio as well as a double, so it reads the SRD data both before and after that
+   data is converted — this is not coupled to the conversion. Non-numbers give nil."
+  [cr]
+  (when (number? cr)
+    (if (< 0 cr 1)
+      (str "1/" (long (/ 1 cr)))
+      (str (long cr)))))
+
+(defn label->cr
+  "The inverse of `cr->label`: `\"1/4\"` -> `0.25`. A number passes through as a double, so it is
+   safe on a value that has already been parsed. Anything unreadable gives nil rather than
+   throwing — the caller is a text field or an import."
+  [x]
+  (cond
+    (number? x) (double x)
+    (not (string? x)) nil
+    (s/includes? x "/") (let [[n d] (s/split x #"/")
+                              n (parse-double n)
+                              d (parse-double d)]
+                          (when (and n d (not (zero? d)))
+                            (/ n d)))
+    :else (parse-double x)))

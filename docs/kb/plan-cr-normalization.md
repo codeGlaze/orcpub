@@ -37,9 +37,26 @@ require it without a cycle (checked).
 
 No callers yet.
 
-**Acceptance:** unit tests over all 28 distinct CRs, including round-trip
-`(= cr (label->cr (cr->label cr)))`. Verified in a REPL against the real data before writing this
-plan: all 28 round-trip, labels come out `0 1/8 1/4 1/2 1 2 3 ...`.
+**Acceptance — met 2026-09-16.** `cr_label_test.cljc`, 5 tests / 29 assertions. All 28 distinct
+SRD CRs round-trip; unreadable input (`nil`, `""`, `"abc"`, `"1/0"`, a keyword, a vector) gives
+nil rather than throwing, because the callers are a text field and an import.
+
+Run in **both** runtimes, which is the point of putting it in `.cljc`:
+
+- JVM: 733 tests / 5491 assertions, 0 failures.
+- CLJS via `lein fig:test` + `node test/e2e/cljs-harness.js`: 417 tests / 1887 assertions, 0
+  failures. `long` and `parse-double` behave identically there, which was the open question —
+  a missing var in CLJS is a warning, not an error, so compiling proves nothing on its own.
+
+**`cr->label` accepts a Ratio as well as a double**, so it reads the SRD data before *and* after
+step 2. Step 3 is therefore not order-coupled to step 2 and either can land first.
+
+Two process notes worth keeping:
+
+- The test was written `.clj` first, so it would never have run in CLJS at all. `.cljc` plus a
+  line in `test/cljs/orcpub/test_runner.cljs`.
+- Adding the `:require` there is not enough — `-main` runs an explicit `run-tests` list, and a
+  namespace missing from it is silently skipped. The count going 412 -> 417 is how you know.
 
 ## Step 2 — convert the data
 
