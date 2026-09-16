@@ -366,6 +366,13 @@ Whether `homebrew-spell`'s spec is as open as the others — it is
 `(spec/and ::spell ...)` rather than a bare `spec/keys`, so bucket B may need more than an
 additive key. Verify before assuming B is as cheap as A.
 
+> ⚠️ **Stale ordering — 09-08 draft content.** The two slice sequences below still read as if
+> Wild Shape leads. The domain map above (09-10, "the layer that was missing") supersedes that:
+> **A and B carry nearly all the value and share one mechanism**, the constrained creature query,
+> and **G (Wild Shape) must not share their storage**. Build the query for A and B; Wild Shape
+> consumes it. The slice *contents* still hold — only their priority is superseded.
+> *(Noted 2026-09-16, after the ordering misled a reader.)*
+
 ## Slices: the Wild Shape half
 
 1. **CR as one comparable type.** Characterize `?wild-shape-cr` first, then change it.

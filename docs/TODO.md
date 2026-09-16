@@ -29,47 +29,65 @@ before extending the plan.
 
 **Nothing here is built.**
 
+### Order — settled by the domain map, not the slice lists
+
+The **domain map** (plan §"The domain map: seven kinds", written 2026-09-10 and called there
+"the layer that was missing") supersedes the two "Slices" sequences further down that doc, which
+are 09-08 draft content. What it settles:
+
+- **A. Bonded and B. Conjured carry nearly all the value, and share one mechanism** — a
+  constrained creature query (CR bound + type + size). Built once it serves Find Familiar, Find
+  Steed, Pact of the Chain, Beast Master, all five Conjure spells **and** Wild Shape.
+- **G. Transformation (Wild Shape, Polymorph) is a separate kind and must not share their
+  storage.** Becoming a creature replaces your statblock; having one adds a second actor. The
+  plan calls this "the oldest finding in this doc."
+- C (Raised), D (Bound/NPC), E (People) are long tail. F (Property) stays on the list as a shape,
+  out of scope until A and B exist.
+
+**So the work starts at the creature query, for A and B. Wild Shape is a consumer of it, not the
+opening move.** ⚠️ The plan's own "Slices: the Wild Shape half" section still reads as if Wild
+Shape leads. It is stale against the domain map above it — fix or mark it before anyone follows it.
+
 ### Blockers
 
-- ☐ **CR is two different types** — a string on the character, a number on the monster. Wild Shape
-  slice 1 is exactly this, and everything else queues behind it.
+- ☐ **CR is two different types** — a string on the character, a number on the monster. The
+  creature query cannot be written until CR is one comparable type, so this is first regardless.
 - ☑ ~~Nothing lets content declare that a feature grants a creature~~ — **retracted** `0a7fd4df`.
-  True of `integration`, false here: a creature pool is one `grant_pools.cljc` registry entry whose
-  `:options-fn` reads monster data.
+  A creature pool is one `grant_pools.cljc` registry entry whose `:options-fn` reads monster data.
+  Per that retraction: a form list is a **rule** (CR bound, no fly/swim), never an enumeration —
+  it is the case filter-as-a-predicate was parked waiting for.
 - **Edition is not a blocker.** Both rulesets ship and mix; only the default is open.
+- ⚠️ **Compatibility, from the 09-10 revision:** `:companion` and `:summons` belong in
+  `detect-incompatible-features`. The v2 envelope exists so an old build *bounces off* content it
+  cannot handle; a companion grant silently dropped is that failure.
 
-### Wild Shape half — first, it builds the beast query
+### The work
 
-| | slice | status |
+| | | status |
 |---|---|---|
-| 1 | CR as one comparable type — characterize `?wild-shape-cr`, then change it | ☐ |
-| 2 | CR + speed dimensions on `filter-monsters` | ☐ |
-| 3 | Prepared forms on the character, following the prepared-spells shape | ☐ |
-| 4 | Picker + per-form view in the sheet | ☐ |
-| 5 | Beast cards in the PDF, reusing the card frame | ☐ |
-| 6 | Moon's CR rule — plugin data, not base (SRD boundary) | ☐ |
+| 1 | **CR as one comparable type** — characterize `?wild-shape-cr` (`template.cljc:706`), then change it. Gates everything | ☐ |
+| 2 | **The constrained creature query** — CR bound + type + size, as a pool whose filter is a predicate, not an enumeration. The shared mechanism for A and B | ☐ |
+| 3 | **A plugin subclass can declare it grants a companion** — the only step with no existing machinery to copy; nothing in bucket A can start before it | ☐ |
+| 4 | **A character can reference a creature** — `character.cljc` references none today. Copy-on-adopt, decided in `extras-definitions.md` | ☐ |
+| 5 | **Count as a formula for bucket B** — Conjure Animals trades quantity against CR at cast time. Any "how many slots" model is wrong | ☐ |
+| 6 | **Parameterisation** — `bonuses` as formulas over the owner, `match` flags for inheritance | ☐ |
+| 7 | **Views and cards** — companion view in `details-tabs`, then cards off the existing card frame | ☐ |
+| — | *Wild Shape (bucket G) consumes steps 1–2 but stores separately. Sequence it after A/B land, not before.* | ☐ |
 
-Slices 1–2 are also the summoning substrate: Find Familiar, Find Steed and the Summon spells are
-the same query.
+**Deliberately deferred: sidekicks** (bucket E) — gains class levels, so character-lite, not a
+parameterised monster. Needs the builder, not this.
 
-### Companion half — starts after Wild Shape 1–2
+### Two things the map found that are easy to lose
 
-| | slice | status |
-|---|---|---|
-| 1 | A plugin subclass can declare that it grants a companion. **Nothing else can start before it**, and it is the only step with no existing machinery to copy | ☐ |
-| 2 | A character can reference a creature — `character.cljc` references none today | ☐ |
-| 3 | Parameterisation: `bonuses` as formulas over the owner, `match` flags for inheritance | ☐ |
-| 4 | A companion view in `details-tabs` | ☐ |
-| 5 | Companion cards, once beast cards land | ☐ |
-
-**Deliberately deferred: sidekicks.** A sidekick gains class levels — character-lite, not a
-parameterised monster. It needs the builder, not this.
+- **The app ships 13 creature-granting spells and models none as creatures.** All spell text.
+- **RAW the DM chooses the creatures** for the 2014 conjure spells, so a picker cannot simply be
+  offered — it wants suggest-or-defer. Tasha's summons removed this; another place 2014-vs-2024 bites.
 
 ### Depends on `feature/grant-rows`
 
-That branch is the base and is still moving. Its step 6 (E3 proper — creatures and traits) is the
-one this silo needs; `vector-rows-node`-shaped work there is the companion declaration's substrate.
-Merge it down as it lands rather than diverging. Its own worklist stays in its `docs/TODO.md`.
+That branch is the base and still moving — its step 6 (E3, creatures and traits) is the one this
+silo needs. It is now merged into `refactor/content-extensibility`, so both lines are synced.
+Merge down as its work lands rather than diverging.
 
 ## Part 2 — central backlog (copy from `agents/develop` `24c2657b`, reference only)
 

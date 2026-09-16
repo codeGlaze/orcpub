@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, spreads, standalone, terse, widget
 
 - The format
 - Examples
@@ -882,7 +882,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
+**topics:** beast, card, cards, companion, companions, creature, discarded, druid, familiar, foundry, master, moon, per-form, query, retainers, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
