@@ -37,16 +37,33 @@ Loads figwheel's auto-test runner. Reports to the DOM (the body lists ALL tests 
   `<body><div id="app-auto-testing"></div><script src="js/test-auto-testing.js"></script></body>`
   (the `app-auto-testing` div is required or it throws.)
 
-**Driver (node, `/tmp/pw/run.js`):** a ~15-line `http` static server rooted at
+**Driver — now in the repo: `test/e2e/cljs-harness.js`** (`node test/e2e/cljs-harness.js` after
+`lein fig:test`; it picks Chromium out of `PLAYWRIGHT_BROWSERS_PATH`, serves `target/test/`, runs
+mode **B**, and prints the totals plus the distinct `FAIL in`/`ERROR in` names). It was rebuilt from
+scratch three times in `/tmp` before being committed. Described below for when it needs changing: a ~15-line `http` static server rooted at
 `target/test/`, then Playwright Chromium navigates to the HTML, captures `console` +
 `pageerror`, waits for `/Ran \d+ tests/`, and prints the console + body. Grep the output for
 `Ran .* tests`, `FAIL in`, `ERROR in`.
 
-## Known-good baseline (as of this branch)
-Full suite ≈ **150 tests, 10 failures, 2 errors**. The 2 errors are the dead
-`character_test.cljc` (retire per `character-validation.md`). After the import fixes, the
-import-validation failures are gone; remaining real failure is `user-stale-user` (subs auth
-guard — separate, not triaged).
+## Known-good baseline — 2026-09-12: **370 tests / 1742 assertions, 0 failures, 0 errors**
+
+(The earlier baseline on this page, "≈150 tests, 10 failures, 2 errors", was measured while the
+harness was mis-serving the build. See below — the failures were not real.)
+
+### Two things had the suite reporting nonsense, and neither was a test
+
+**The harness served JS without a charset.** A classic `<script>` with no `charset` on its
+Content-Type is decoded as windows-1252, so `orcpub/common.js`'s `#"[^a-z0-9À-ɏ]+"` arrived as
+`/[^a-z0-9Ã€-É]+/` — *"Invalid regular expression: Range out of order in character class"*. The
+whole `orcpub.common` namespace then failed to parse and every test touching it threw
+`Cannot read properties of undefined`: **271 distinct errors, no summary line, nothing wrong with
+the code.** `cljs-harness.js` now sends `; charset=utf-8`. If this page ever reports a mass of
+undefined-namespace errors again, check the Content-Type before believing any of them.
+
+**A JVM-only test in `test/cljc` stopped the test build compiling at all.**
+`builder_class_names_test.cljc` reads files with `clojure.java.io`; the cljs build compiles
+everything under `test/cljc`, so it failed with *"No such namespace: clojure.java.io"* and produced
+no JS. Moved to `test/clj`. A test that reaches for the filesystem belongs there, not in `cljc`.
 
 ## Gotchas worth remembering
 - **JVM-isms bite only here.** `(int char)` = code point on JVM, but `(int "é")` = 0 in cljs
@@ -131,3 +148,37 @@ the widget now coerces each dropdown's emitted string via lookup maps (`views.cl
   closure still holds the pre-dispatch state and clobbers an earlier pick. Pause (~150ms) between.
 - When in doubt about what the page actually is, **take a screenshot** — it settles "which input/
   overlay is this" in one shot instead of repeated wrong hypotheses.
+
+## Driving the character builder — three gotchas that each cost a debugging pass
+
+From `test/e2e/homebrew-grand-tour.js`, which drives the builder end to end. Every one of these
+looked like a bug in the app and was not.
+
+**1. A selection's `:tags` decide which TAB it renders on, not the thing that granted it.** This is
+the big one, and it caught me three times in one script:
+
+| selection | granted by | renders on |
+|---|---|---|
+| Fighting Style | Fighter, level 1 | Class / Level |
+| Pact Boon | Warlock, level 3 | Class / Level |
+| **Eldritch Invocations** | Warlock, level 2 | **Spells** — `:tags #{:spells}` |
+| **Languages** | the Acolyte background | **Proficiencies** — `:tags #{:profs :language-profs}` |
+
+Looking for a warlock's invocations on its class panel finds nothing and looks exactly like
+"homebrew invocations are not offered". Check the `selection-cfg`'s `:tags` in `options.cljc`
+before concluding anything is missing.
+
+**2. Tab clicks must be CASE-SENSITIVE.** The builder's tabs are capitalised (`Spells`), the
+character sheet's own tabs on the right are lowercase (`spells`), and the site header nav is
+lowercase too. A case-insensitive shortest-match click lands on the header link and navigates out
+of the character builder entirely — after which every later check fails for the wrong reason, with
+no error. `lib.js/clickTab` is case-sensitive for this reason.
+
+**3. The builder mixes cards and dropdowns.** Race, background and fighting style are clickable
+cards; **class and level are `<select>`s** and the builder seeds Barbarian by default. A
+`:text("Fighter")` locator matches hidden nodes and times out. `lib.js` has `clickText` (visible
+only) and `pickFromAnySelect` for the dropdowns; the distinction is real and not worth papering
+over.
+
+Also: the SRD background list the builder offers is short — Acolyte, a demo background, and Custom.
+Sage is not there.

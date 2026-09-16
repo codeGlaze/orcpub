@@ -1,0 +1,1096 @@
+# Topic index — what has already been looked at
+
+**GENERATED — do not edit.** `lein with-profile +tools run -m orcpub.topic-index`
+
+## Grep the corpus first
+
+```
+grep -ril "<term>" docs/kb/
+```
+
+**That is the search.** This file is for orientation — what each document is about, and
+which one owns a topic — not for recall. Measured against fourteen realistic queries the
+corpus answered **all fourteen**; this index answered **nine**. It cannot match multi-word
+phrases (`import conflict`, `spell list`) because it is built from single words, and a
+topic mentioned once loses its place to one discussed throughout. Use it to find the right
+document, then read that document; use grep to find out whether anyone has been there.
+
+Each document is listed with its filename (hyphenated **and** spaced, because queries are
+typed with spaces), the words that most distinguish it from the rest of the corpus, and
+every section heading it contains.
+
+---
+
+## ability-increase-spreads.md
+
+_ability-increase-spreads · ability increase spreads_
+
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, terse, toggle, widget
+
+- The format
+- Examples
+- Save proficiencies
+- How it compiles (opt5e/compile-ability-increases, options.cljc)
+- How it renders (ability-bag-assigner, characterbuilder.cljs)
+- Authoring
+- Backward compatibility (D9)
+- Containment across silos (multi-source)
+- Tests
+
+## already-held-grants.md
+
+_already-held-grants · already held grants_
+
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+
+- The rule being modelled
+- The four paths
+- Consequence for the pool work
+- Expertise-instead-of-proficiency is not an SRD pattern — confirmed in the text
+- RETRACTED — the race :props "bug" was my broken fixture
+- Related
+
+## armor-class-computation.md
+
+_armor-class-computation · armor class computation_
+
+**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+
+- Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
+- The model — VERIFIED (templatebase.cljc:35-88)
+- The channels a feature can use — VERIFIED
+- Where each kind of custom AC goes — VERIFIED mechanism
+- Known friction — VERIFIED facts (the "issues" are analysis)
+- Design proposal — DESIGN, not built
+
+## armor-class-refactor.md
+
+_armor-class-refactor · armor class refactor_
+
+**topics:** armor, barbarian, bracers, calculation, channel, defense, leather, magic, monk, natural, plate, ring, scalar, shield, sum, tie-break, unarmored, worn
+
+- Current state — read this first
+- The channel trim — DONE. 18 attributes → 10
+- How the built-ins moved
+- The one shim: ?natural-ac-bonus
+- LANDED: the AC engine moved to orcpub.dnd.e5.armor-class
+- DECIDED: bucketing rejected, best-ac deleted
+- Two things the rejection does NOT mean
+- The Bracers fix is portable to integration on its own
+- Hazard to characterize BEFORE trimming ?unarmored-ac-bonus
+- The approach, and why it changed
+- Landed
+- The authored shape
+- Parameters are not calculations
+- Custom armor
+- LANDED: :lizardfolk-ac compiles to the universal shape — parity sweep at 0
+- :tortle-ac split into a calculation and an AC suppression
+- LANDED: shield and character magic moved into ?ac-bonus-fns
+- Two kinds of magic — name them differently
+- Three mechanisms for one job (the D29 problem, concretely)
+- Natural armor: which :armor? tag, measured
+- Traced: what :lizardfolk-ac actually computes
+- What the migration must not drop
+- A gap in the tag set
+- Remaining
+- Channel count is going the wrong way
+- Attribution, since this refactor keeps circling the same model
+- REVISED: extract the AC namespace instead of deleting it
+- Ledger
+- Corrections
+
+## authoring-vocabulary.md
+
+_authoring-vocabulary · authoring vocabulary_
+
+**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+
+- The syntax first
+- Why the map can't be derived
+- The shared semantics: three-state, unknown-ignored
+- What the values are, and why they differ
+- When to build one of these (and when not)
+- Growing one
+- A predicate is not the same as a spec — prefer the spec
+- Where these live
+
+## backfill-ledger.md
+
+_backfill-ledger · backfill ledger_
+
+**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, delete, deleted, deprecated, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep
+
+- When something lands here
+- Migration recipe (per item)
+- Ledger
+- Watch-list (candidates — pool/grant doesn't fully subsume them yet)
+
+## before-you-start.md
+
+_before-you-start · before you start_
+
+**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, review, screenshot, vanished, writing
+
+- Already enforced — you do not have to remember these
+- Judgement calls — no test can catch these
+- Changing what a content item STORES (a new key, a renamed key, a widget that writes differently)
+- Before designing anything (a control, a palette, a layout)
+- Before borrowing a value from a mock or another branch
+- Before converting a builder
+- Before passing a data map as a Reagent component's first argument
+- Before de-emphasising a control
+- Before writing an explanation onto the form
+- Before believing a CSS change worked
+- Before reporting a UI change as done
+- How this page stays small
+
+## builder-conversion-gallery.md
+
+_builder-conversion-gallery · builder conversion gallery_
+
+**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+
+- Pair 1 — Language builder (tier 1): 21 lines → 1
+- The code
+- Pair 2 — Fighting Style builder (tier 2): flat fields → :rows
+- Empty
+- The same style authored — +1 AC, +2 attack, +2 damage
+- Measured, not eyeballed
+- What the comparison caught in my own work
+- Pair 3 — Spell builder: 86 lines → 12, and the first :boolean
+- What it needed that did not exist
+- What the pin caught, which the form hid
+- The regression this conversion shipped first, and the design pass
+- Vertical rhythm, and the class-name collision behind it
+- The layout is a GRID, because flexbox cannot align columns
+- Two bugs this round, and one was in the measurement
+- Re-measured like for like, on the corrected metric
+- Three additions, each deliberate
+- Balance pass
+- On a phone
+- The combo was invisible
+- Every toggle is a chip
+- Page stays beside the flags
+- Still open on this pair
+- Pair 4 — what a bespoke rows widget costs (not yet converted)
+- Every builder — converted, and what the rest actually need
+- The four things that would unlock all nine
+- Encounter is not the tier-3 proof, and that is worth recording
+- See also
+- The design pass — three gaps, and the grouping question
+- Does grouping help? Yes — one heading, not more boxes
+- The three gaps
+- What it looks like as effects are removed
+- The grand tour — every content type, authored to used
+- How much of this is reusable?
+- Was the "easy render register" actually easy? — an accounting
+- For a simple builder: yes, unambiguously
+- For spell: no, and the line count says so
+- What it cost the framework
+- Was it confusing? In one specific place, yes
+- What that implies for the remaining nine
+
+## builder-disposition-audit.md
+
+_builder-disposition-audit · builder disposition audit_
+
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
+
+- Legend
+- Race — 152 lines, 19 widgets
+- Subrace — 129 lines, 15 widgets
+- Class — 268 lines, 15 widgets
+- Subclass — 105 lines, 13 widgets
+- Background — 46 lines, 11 widgets
+- Monster — 233 lines, 12 widgets — a stat block, not a character
+- ⚠️ REFRAMING (2026-09-08) — most of these are TEMPLATES with frozen parameters
+- A THIRD shim class: frozen boolean → parameterized shape
+- Templates carry the SENTENCE, and that is the PDF path
+- OPEN — the scenario vocabulary: port tag->flag, do not invent
+- What the six tables add up to
+- Can the pools be registered? Yes — all four, today. Are they extensible? No, and that is fine.
+- The 35 deletions — replacement and shim, one row each
+- ⛔ Row 31 is not fixed-class-safe — measured 2026-09-13
+- ⛔ And the fixed class is gated by silo too — measured 2026-09-13
+- OMV (port/redesign-on-refactor)
+
+## builder-form-schemas.md
+
+_builder-form-schemas · builder form schemas_
+
+**topics:** ---, 2026, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
+
+- 0. Three tiers of content type
+- 1–2a. The model and the field node
+- 2b. Group node — PROPOSED, not built
+- 3. HOW TO — only what is not in content-extensibility-framework.md §2e
+- 4. Triggers are not conditions
+- Conditions — the app evaluates these
+- Triggers — the app CANNOT evaluate these
+- 5. Reconstructing the existing builders
+- Two gaps the survey found before any code was written
+- Converting the rest
+- 5b. The OVERLAP map — measured 2026-09-06
+- The widgets that are already shared
+- CORRECTION (2026-09-07): "implemented twice" conflated NAME with SHAPE
+- The original finding: 27% understates it
+- Per builder: how much is already shared
+- What this changes about the plan
+- 6. Track E — the plan (pulled forward 2026-09-05; status lives in roadmap.md)
+- The unifying observation
+- The :rows node — BUILT 2026-09-05 (this section kept as the design record)
+- The :rows node — original design
+- Phases (E0–E5) — the roadmap carries status; the acceptance tests are here
+- The feat builder, proposed — code and picture
+- What "good UX" means here, concretely
+- 7. What this does NOT solve
+- 8. Open questions
+
+## building-a-class-from-builders.md
+
+_building-a-class-from-builders · building a class from builders_
+
+**topics:** artificer, builders, cfg, companion, d28, dead, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
+
+- The capability witness — VERIFIED
+- What a homebrew class/subclass can already express — VERIFIED
+- Infusions ≈ the invocation/boon pool pattern — VERIFIED
+- Feature-to-mechanism map (what's data entry vs a real gap)
+- Validation rule (D28)
+
+## built-character-representation.md
+
+_built-character-representation · built character representation_
+
+**topics:** -ref, accessor, body, character-validation, computed, contains, deferred, entity, flat, function, literally, macro, plain, predicates, realized, symbol, test-suite-state, writing
+
+- One-liner
+- How it actually works (verified)
+- What this means for you
+- The other half — WRITING against it, and why it needs a MACRO
+- ?attr is not a variable — it is rewritten at compile time
+- The consequence: a plain fn cannot read ?attrs
+- The rules that follow
+- Where it bit us (this session)
+- Anchored in code
+
+## character-validation.md
+
+_character-validation · character validation_
+
+**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
+
+- The intent worth keeping (do not lose this)
+- History (verified)
+- Why it can't be revived verbatim (verified)
+- Charter — the modern replacement (PROPOSAL)
+- Disposition of the broken test
+
+## class-feature-catalogue.md
+
+_class-feature-catalogue · class feature catalogue_
+
+**topics:** arcanum, arts, attack, aura, auto-features, divine, extraction, features, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
+
+- The 12 classes (option fn line; distinct auto-features; notable shape)
+- Cross-cutting findings — the "odd cases" the registry/compiler must handle
+- What this means for the build order (refines the roadmap)
+- NOT-EXPLORED (flagged)
+
+## class-features-and-mechanization.md
+
+_class-features-and-mechanization · class features and mechanization_
+
+**topics:** attack, cfg, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, summary, surge, user-reported, wind
+
+- How a class + its features are structured — VERIFIED (fighter, rogue read)
+- Two kinds of feature "mechanics" — VERIFIED
+- The rolling layer — VERIFIED (corrects an earlier wrong claim)
+- Use/resource counters — VERIFIED
+- The mechanization ceiling (where "make it real, not text" stops)
+- The code-capture catch — VERIFIED (the thing that makes the registry non-trivial)
+- Design direction for centralizing features — DESIGN (not built)
+- NOT-EXPLORED / to verify before sizing
+
+## cljs-headless-harness.md
+
+_cljs-headless-harness · cljs headless harness_
+
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
+
+- Build it
+- Two ways to run (they differ — pick deliberately)
+- Known-good baseline — 2026-09-12: 370 tests / 1742 assertions, 0 failures, 0 errors
+- Two things had the suite reporting nonsense, and neither was a test
+- Gotchas worth remembering
+- Full-app headless E2E — render and drive the REAL app UI (not the test build)
+- Full content round-trip through the real UI (test/e2e/export-import-use.js)
+- Driving interactions (done — committed as test/e2e/race-builder-asi.js)
+- Driving the character builder — three gotchas that each cost a debugging pass
+
+## content-extensibility-compatibility.md
+
+_content-extensibility-compatibility · content extensibility compatibility_
+
+**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safety, selection, strict
+
+- 1. Persisted formats (verified)
+- 1a. orcbrew / plugins (homebrew libraries)
+- 1b. Character (strict entity)
+- 1c. localStorage
+- 1d. Backend
+- 2. Who owns what
+- 3. Hard invariants (non-negotiable)
+- 4. Proposal assessment against the invariants
+- Layer 1 — content-type registry: compatibility-neutral
+- Layer 2 — catalogs/grants: safe if derived, not reformatted
+- 5. Specific risk surfaces (verified)
+- 6. Existing safety nets (lean on these, don't reinvent)
+- 7. Migration & rollback posture
+- Related
+
+## content-extensibility-decisions.md
+
+_content-extensibility-decisions · content extensibility decisions_
+
+**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, part, pool, re-derivation, readability, rejected
+
+- Status at a glance
+- Part 1 — How the thinking evolved (audit)
+- Part 2 — Decision summary
+- Part 3 — Late decisions (deflation; these scaled back D2/D3 — but were themselves RE-CENTERED by Part 4)
+- Part 4 — Re-centering (these restore the capability D12–D16 over-deflated)
+- Part 5 — Mechanization, class features, spell slots (the expansion)
+
+## content-extensibility-direction.md
+
+_content-extensibility-direction · content extensibility direction_
+
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
+
+- Why the re-centering (don't misread the deflation)
+- The one principle (a constraint, not a ceiling)
+- The engine ALREADY supports mix-and-match. The gap is the AUTHORING layer.
+- The spine: two words — POOL and GRANT
+- Variants — designed in NOW, built LATER (a real pin with a real constraint)
+- Maintainability — the GATING requirement (easier to add tooling, not harder)
+- Sequencing — flat pools before rich pools
+- Next steps (goal: STABILIZE while adding features)
+- Validation against official expansion (Fizban's Treasury of Dragons, FTD)
+- Builder FORMS are data, not "irreducible per-type work" (109b5dd0)
+- Draconic-ancestry builder — DONE end-to-end (0aca6113)
+- Foundation: registry DRIVES the layers (the real "fewer files" fix)
+- NEXT levers (pick per value)
+- PINS (designed-in-now, built-later — do not let these get refactored away)
+- Landed since this doc's last revision (2026-09) — read these, don't re-derive
+- What already stands (don't redo)
+- Deferred — own branch (surface at branch close)
+
+## content-extensibility-e2e.md
+
+_content-extensibility-e2e · content extensibility e2e_
+
+**topics:** appears, backend, checklist, checks, confirm, console, datomic, dev, environment, errors, fail, loads, name-keyword, phase, phases, read-seams, setup, spell-selection
+
+- Setup (use the project's standard dev flow)
+- Checks
+- A. ClojureScript test suite (the JVM gate skips this)
+- B. Catalog read-seams — behavior must be UNCHANGED (Phases 1–3b)
+- C. name-keyword fix (merged in)
+- D. Backward compatibility (non-negotiable — do not skip)
+- Feedback format
+- What is NOT in scope here
+
+## content-extensibility-framework.md
+
+_content-extensibility-framework · content extensibility framework_
+
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, spa, type
+
+- 1. The mental model (start here)
+- 2. The Builder Framework (registry-driven wiring)
+- 2a. The single source: contenttypes
+- 2b. What's generated from the registry — CURRENT STATUS
+- 2c. The wiring HOFs (the trusted thick parts the loops compose)
+- 2d. Conventions (agents: follow these exactly)
+- 2e. HOW TO ADD A HOMEBREW CONTENT TYPE (current state)
+- 3. The Composition layer (pool + grant)
+- 3a. Pool
+- 3b. Grant
+- 3c. Mechanics as data
+- 3c′. Where the cost lives — authored-data shape is never a runtime cost
+- 3d. Worked example — draconic ancestry (the proven slice)
+- 3e. How to add a pool / a grant
+- 4. Invariants & gotchas (agents: violating these breaks user data or the framework)
+- 5. Verifying changes
+- 6. Map of the docs
+- MEASURED: the macro does not affect reactivity
+- Route trees: /pages/ vs root
+
+## content-extensibility-plan.md
+
+_content-extensibility-plan · content extensibility plan_
+
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+
+- Golden rules (read before doing anything)
+- The verification gate (exact commands)
+- Phase 0 — Build the safety net (no production code)
+- Phase 1 — Generic option injector, proven on subraces
+- Phase 2 — Migrate subclasses onto the injector
+- Phase 3 — Boons and invocations onto grants (the risky migration)
+- Phase 4 — Layer 1 content-type registry (independent track; micro-steps)
+- Phase 5 — New capability: dragonborn lineage (only after 1–4)
+- Stop-and-ask triggers (summary)
+- Two standing rules for the catalog/grant phases (3c onward)
+- Do NOT
+- References
+
+## content-extensibility.md
+
+_content-extensibility · content extensibility_
+
+**topics:** 8-input, 945, boons, bucket-by-key, catalog, catalogs, child, content-extensibility-compatibility, content-extensibility-plan, entity-options-architecture, homebrew-builders, parent, positional, route-registration, spa-routing-architecture, srd-vs-plugin-content, views-builders-split, warlock
+
+- The problem
+- Current cross-links (verified from code)
+- Proposed direction (design — not implemented)
+- Layer 1 — content-type registry
+- Layer 2 — type-addressed option catalogs + grants
+- Suggested next step
+- Related
+
+## content-tiers-and-key-resolution.md
+
+_content-tiers-and-key-resolution · content tiers and key resolution_
+
+**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, library, management, override, owned, per-account, same-key, user, variant, versioned, warn
+
+- 0. The one idea that ties it together
+- 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
+- Should the pool types be "fixed" to dedup by key? (answer: no)
+- 2. Duplicate-key resolution mechanism (DESIGN)
+- 3. Content provenance tiers (DESIGN)
+- 4. Example content: versioned, self-updating (DESIGN)
+- Version reconciliation of a forked variant (DESIGN — build LAST)
+- 5. Library-management UX (DESIGN — the "next important part")
+- 6. Move / copy content between sources (DESIGN)
+- 7. Suggested branch decomposition (DESIGN)
+- Open decisions
+
+## content-to-character-pipeline.md
+
+_content-to-character-pipeline · content to character pipeline_
+
+**topics:** 091, 157, 1588, 2026-09-15, assembly, attributed, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
+
+- The five stages
+- What each file actually is
+- Where to make a change
+- Two things that bite across stages
+- A note on the namespace inventory
+- Related
+
+## custom-content-lifecycle.md
+
+_custom-content-lifecycle · custom content lifecycle_
+
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
+
+- A — Inline "Custom" option (name-only, per-character)
+- B — Full builders (real, reusable, exportable library entries)
+- C — Magic items (server-backed, a third store)
+- Missing-content reconciliation and why inline :custom was false-flagged
+- Known weakness (follow-up)
+- Code map
+
+## data-safety-layers.md
+
+_data-safety-layers · data safety layers_
+
+**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+
+- The four layers (preference order)
+- The rule that picks between them
+- Worked examples (this codebase)
+- Anti-patterns
+- Tracked follow-ups
+- See also
+
+## decision-already-held-resolution.md
+
+_decision-already-held-resolution · decision already held resolution_
+
+**topics:** 2024, background, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
+
+- The question
+- What the published rules actually do
+- Decision
+- Pseudocode
+- Terseness: :keys, not a row per key
+- :prereq-fn — the same field, needed twice
+- Before and after
+- What that actually moves
+- The addressing gate — RUN, and it passes
+- But the pick outlives its justification
+- Open
+
+## decision-gate-hidden-picks.md
+
+_decision-gate-hidden-picks · decision gate hidden picks_
+
+**topics:** concatenation, condition, construction, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+
+- Decision
+- The trace closes: there is no unknown family
+- The real diagnosis: the same rule, implemented twice, one of them wrong
+- Where the gate goes — REVISED
+- The efficiency this branch already buys
+- It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
+- The mug does not cover this
+- The paper trail: a new attribute, not an existing text field
+- Scope
+- Related
+
+## decision-vocabulary.md
+
+_decision-vocabulary · decision vocabulary_
+
+**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
+
+- Compile paths (load-time: decision data → content), verified
+- :props has TWO sides
+- :ability-increases → ASI (fixed OR choice) — FEAT ✅
+- :prereqs / :path-prereqs → feat-prereqs — FEAT, LIMITED vocab ✅
+- :spells → spell-modifiers — FIXED known spells ✅
+- :spellcasting → spellcasting-template — CLASSES, full caster, custom list ✅
+- :level-modifiers → level-modifier — SECOND grant vocabulary (classes/subclasses), incl. :spell ✅
+- ⚠️ CORRECTION (this doc was wrong before) — subclass spellcasting IS gated
+- TWO PARALLEL grant vocabularies — overlapping, divergent (the real duplication) ⚠️
+- :level-selections → level-selection — TEXT-trait choices only ⚠️
+- Resources (Axis B) — NO homebrew data path ✅ (confirmed gap)
+- Backward trace (the CORRECT method) — verified per silo: builder form → assembly fn
+- Feat — feat-builder (views :5264) → feat-option-from-cfg (options.cljc:3396) ✅ rich
+- Race — race-builder (views :6219) → race-option (options.cljc:2210) ✅ rich
+- Subclass — subclass-builder (views :5946) → make-levels (spellsubs.cljs:382) ✅ rich
+- Class — class-builder (views :5643) → level-option (options.cljc:2771) ✅ rich (with a plugin gap)
+- Subrace — subrace-builder (views :6090) → subrace-option (options.cljc:1984) ✅ rich (≈ race)
+- Background — background-builder (views :6368) → background-option (options.cljc:2456) ✅ minimal
+- Simple types (boon/invocation/language/…) → simple-content-builder (views :6547) ✅ descriptive
+- SHARPENED duplication finding — grant types live in up to FOUR places
+- Cross-silo capability table — REBUILT from the backward builder→assembly trace ✅
+- What's genuinely missing (the creator vision → gaps)
+- Sustainability note
+- Status / next cycles
+
+## declarative-grant-vocabulary.md
+
+_declarative-grant-vocabulary · declarative grant vocabulary_
+
+**topics:** agreed, cantrips, cha, compound, dependent, descriptive, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, repeatable, select, spell, spells, two-level
+
+- Two layers, kept separate (agreed)
+- The vocabulary (DESIGN)
+- Analysis — does it work for the real spell patterns?
+- Compound grants — "pick 2 cantrips and a 1st-level spell" (the canonical case)
+- Scope decisions
+- Backward compatibility (hard requirement)
+- Sequencing (agreed)
+- Status of the earlier flags (updated)
+- Idiomatic check (Clojure/Reagent)
+
+## demo-content-tier.md
+
+_demo-content-tier · demo content tier_
+
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, recipe, tier, user, variant, viable
+
+- Goal
+- Builds on the current content model
+- Decision: copy-on-edit + a provenance breadcrumb (NOT a live diff)
+- Why copy, not a diff/override
+- Status — Phase 1 built and verified
+- Build mechanism (settled)
+- Decided (were open)
+- Still open
+- Separate, bigger feature — variant rules (do NOT fuse this in)
+
+## documentation-discipline.md
+
+_documentation-discipline · documentation discipline_
+
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
+
+- Write a doc when the work produced knowledge
+- Update in place; record reversals separately
+- Structure: current truth first, audit trail last
+- Docstrings are SPEC, not prose
+- Docstring what you touch
+- Claims must be proven, not asserted
+- The push reminder hook
+- Audit history
+- 2026-09-05 — full KB audit (45 docs, ~7,700 lines)
+- Surfacing review lessons where they are needed (2026-09-07)
+- The two obvious objections, answered
+
+## dropdown-value-coercion.md
+
+_dropdown-value-coercion · dropdown value coercion_
+
+**topics:** asi, bug, cleanup, coerce, coercion, d32, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
+
+- The discrepancy (what bit us)
+- Root cause (general, not specific to ASI)
+- This bug class has bitten this branch TWICE (provenance, git-verified)
+- The fix — :typed? (the template that makes the mistake impossible)
+- Numbers already have a typed input — number-field
+- Guard / convergence rule
+
+## edition-drift.md
+
+_edition-drift · edition drift_
+
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, property, stow, two-weapon, weapon, wielder
+
+- Two-weapon fighting, side by side
+- What each difference costs us
+- Two data traps found while checking
+- The general lesson
+- Provenance
+
+## feat-builder-audit.md
+
+_feat-builder-audit · feat builder audit_
+
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
+
+- 1. Not "one verb per silo" — FIVE storage shapes for one question
+- 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
+- ✅ LANDED — the registry (see content-extensibility-direction.md §4 for the full record)
+- 2. The AC work landed a general vocabulary. The feat builder never got it.
+- 3. Dead control
+- 4. Hardcoded UI ranges the compiler does not impose
+- 5. Full widget map
+- 6. What this changes about sequencing
+- 7. A THIRD grant vocabulary — the Custom Feat option list
+- Corrections
+
+## fighting-style-authoring.md
+
+_fighting-style-authoring · fighting style authoring_
+
+**topics:** backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, styles, tick, watch-list, whitelist
+
+- Status — 2026-09-05: BUILT
+- The divvying rule (decided) — which classes can take a homebrew style
+- Verified findings — don't re-derive these
+- Where it maps in the design record
+- Phase B — in-app builder (remaining)
+- References
+
+## fighting-style-vocabulary-gap.md
+
+_fighting-style-vocabulary-gap · fighting style vocabulary gap_
+
+**topics:** archery, attack, blindsight, damage, dueling, end, fighting, great, interception, prop, property, protection, style, styles, thrown, unarmed, warrior, weapon
+
+- The shapes, grouped
+- :ranged? is a real flag, not the negation of :melee?
+- The recurring need: a WIELDING predicate
+- This is SHARED vocabulary work, not fighting-style work
+- Order of work, cheapest first
+- What driving the real app caught
+- Verified end to end in the real app
+- GAP: an imported style cannot be picked by the class that has the feature
+
+## fonts.md
+
+_fonts · fonts_
+
+**topics:** browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, vietnamese, visitor
+
+- Why
+- What is checked in
+- Regenerating
+- CSP
+
+## frontend-redesign-parallel-work.md
+
+_frontend-redesign-parallel-work · frontend redesign parallel work_
+
+**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, themes, tray, workaround
+
+- What is on the branch (last commit 2026-07-15)
+- The part that directly affects the builder forms
+- What is NOT aligned yet, and is a real follow-up
+- How the OMV elements meet the generated builder — the actual question
+- select-menu replaces :enum, and removes a documented bug class
+- option-menu covers :multi-enum at scale, and one blocking primitive
+- :combo survives, narrowly
+- Is OMV's markup better or worse for a generated form?
+- :enum now uses select-menu — done 2026-09-06
+- Section cards — optionmenuviews/card, done 2026-09-06
+- What would have to give
+- The strategic point
+- Overlap worth reconciling before either branch merges
+- How this was missed
+
+## handoff-grant-rows.md
+
+_handoff-grant-rows · handoff grant rows_
+
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
+
+- Where you are
+- The work, in order
+- 1. Re-record the gallery baseline — 5 minutes
+- ⛔ Steps 2 and 4 are interleaved — measured 2026-09-13
+- 2. legacyshims.cljc — fixed-class keys normalize at import
+- 3. The :ref decision — unblocks the choice class
+- 4. grant-rows on the other silos — one line each
+- 5. Effect kinds feat is missing
+- 6. E3 proper — creatures and traits
+- 7. content-builder :feat — the one-liner
+- 8. Spells as a pool — last
+- ⚠️ Read before step 5 — the template tier (added 2026-09-08)
+- Rules that bit this session — do not re-learn them
+- Don'ts
+- Commands
+
+## handoff-integration-branches.md
+
+_handoff-integration-branches · handoff integration branches_
+
+**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
+
+- The branches, and the order
+- Gates, as measured on each branch
+- What a reviewer has to consciously accept
+- Not covered by any test — check by hand
+- Traps in this repo that will cost you time
+- When integration later merges back into feature/grant-rows
+
+## hidden-selection-picks.md
+
+_hidden-selection-picks · hidden selection picks_
+
+**topics:** athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, nine, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
+
+- The mechanism
+- What is NOT broken
+- What is broken
+- Exposed sites — by what is gated, not by where the code lives
+- Starting equipment is the most visible case
+- The multiclass case — REPRODUCED
+- Why it has been hard to find## Why it has been hard to find
+- Fixing it
+- Related
+
+## homebrew-content-merge.md
+
+_homebrew-content-merge · homebrew content merge_
+
+**topics:** -commented, -ed, built-in, built-ins, commented, concat, def, feats, grappler, homebrew-extensible, merge, mostly, nearly, plugin, srd-minimal, static, sub, supported
+
+- The trap, concretely (feats)
+- The general pattern (applies to most content types)
+- Verification recipe — "is homebrew X supported, and where does it merge?"
+- TL;DR
+
+## homebrew-override.md
+
+_homebrew-override · homebrew override_
+
+**topics:** attached, attaches, constraints, enforcement, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
+
+- Where it is
+- It is already per-thing
+- The mechanism
+- What it does NOT do — the part that matters for design
+- Proposed extension: per-item overrides
+
+## key-collision-behavior.md
+
+_key-collision-behavior · key collision behavior_
+
+**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, item, key, override, plugin, predictable, rename, returning, same-key, save, spell, wins
+
+- TL;DR
+- The map (VERIFIED)
+- Why the override is "plugin wins" (the load-bearing semantics) — VERIFIED by test
+- Open: tagging every minted key with its source
+- The builder's own save gate (2026-09-12)
+- The builder's save: a key is minted once (2026-09-13)
+- What the save refuses
+- The rename history — :former-keys (2026-09-12)
+- Notes / boundaries
+
+## keyword-trap-name-repair.md
+
+_keyword-trap-name-repair · keyword trap name repair_
+
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, falls, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
+
+- Principle (why this exists)
+- The repair chain (least-destructive first)
+- Number→word translator (bounded on purpose)
+- UI wiring — Manual vs Auto (DESIGN — not yet built)
+
+## library-management-and-conflicts.md
+
+_library-management-and-conflicts · library management and conflicts_
+
+**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, same-key, twin, winner
+
+- Data model
+- Why a duplicate key is a problem
+- Enable / disable model
+- Duplicate-key resolution
+- Opinionated default (import) vs. the advanced panel
+- Mutual exclusion — one enabled twin at a time
+- Disable hierarchy
+- Move / copy content between sources
+- Health status — surfacing problems without a screen of red
+- Where the code lives
+- Related
+
+## orcbrew-format-versioning.md
+
+_orcbrew-format-versioning · orcbrew format versioning_
+
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, version, versioning, won
+
+- Why this exists
+- The mechanism (three parts)
+- Still open (besides the name)
+- Related
+
+## plan-hidden-pick-fix-and-grant-fields.md
+
+_plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
+
+**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, owner, part, per-pool, pool, wrapper
+
+- Position, stated once
+- Part A — the bug fix
+- Why it cuts from integration
+- The change
+- Blast radius
+- Order
+- Part B — completing the grant compiler
+- Are the new fields ornaments?
+- Derived helpers, or more fields?
+- Related
+
+## plan-next.md
+
+_plan-next · plan next_
+
+**topics:** advanced, armour, cap, capabilities, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+
+- 0. Standing, do these first
+- 1. Grants on the remaining four silos
+- 2. The mechanics the feat builder still can't author
+- 3. Damage and attack bonuses reach the requirements registry
+- 4. Convert the remaining builder forms
+- 5. entity-spec / ?attr — analysis, not a rewrite
+- 6. Vector rows, generalised
+- Also open, smaller
+
+## pool-grant-map.md
+
+_pool-grant-map · pool grant map_
+
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
+
+- In four sentences
+- The three layers
+- REAL — built, tested, on this branch
+- AIR — decided in a doc, not built
+- How the open pieces constrain each other
+- Spells: closer than it looks
+- A registered pool cannot see who is granting from it
+- Provisional — set by one agent, not decided
+- Where the confusion came from (so it does not recur)
+- The path — four items, then wait for a case
+
+## registry-before-after.md
+
+_registry-before-after · registry before after_
+
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
+
+- 1. Event wiring
+- BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
+- AFTER — nothing per type. One loop (written ONCE) wires every type:
+- 2. DB draft state
+- BEFORE — a def, a key, a fn, and a slot, in db.cljs
+- AFTER — nothing per type. The slots generate from the registry:
+- 3. The builder form
+- BEFORE — a bespoke input-field wrapper + a hand-built form, in views.cljs
+- AFTER — one line (the generic form is data):
+- 4. So what do you actually WRITE to add a type now?
+
+## requirements-registry.md
+
+_requirements-registry · requirements registry_
+
+**topics:** accessor, acquisition, alias, archmagi, bonuses, channels, context, contributors, distinguishable, effect, fact, gates, macro, prereq, registry, requirement, spellings, trigger
+
+- An entry
+- Three-state, and unknown keys are ignored
+- Why entries hold predicates, not condition forms
+- Adding a requirement
+- Scope today
+- Not to be confused with prereqs
+- Why: the same fact is hand-written in three places today
+- The naming, and what lost
+- Kinship with prereqs — same shape, different gate
+- The blocker that was not one
+- What landed
+- The registry now REPLACES something (2026-09-08)
+- Still to do
+
+## roadmap.md
+
+_roadmap · roadmap_
+
+**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+
+- The arc (two phases — both real, one branch)
+- Status ledger (anchored to commits; detail in the linked docs)
+- BUILT — Phase 1 (verified by git + BRANCH.md)
+- BUILT — Phase 2 (this session)
+- BUILT — Pool registry + second grant silo (2026-09-07) — pool-grant-map.md
+- BUILT — AC engine + authored mechanics (this branch, 2026-09-04/05) — armor-class-refactor.md
+- BUILT — Content-library management (parallel branch feature/content-library-management, PR #30)
+- DECIDED (design settled; don't re-litigate)
+- OPEN — Phase 1 levers & pins (from direction.md)
+- Tracks — Phase 2 (the expansion, layered on Phase 1)
+- Flagged conflicts (need a call — do not silently resolve)
+- Doc map (so there's one place to look)
+- Critical path
+
+## rules-override-layer.md
+
+_rules-override-layer · rules override layer_
+
+**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+
+- What it is
+- Why it can't just be "make a feat for it"
+- Naming
+- Design constraints, from the discussion that produced this
+- It should ride the shared :props vocabulary
+- The mechanical hook that already exists
+
+## runtime-toggles-and-conditional-modifiers.md
+
+_runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
+
+**topics:** armor, benefit, bloodied, build-state, computes, condition, deferred, entity, equipped, flag, play-state, player, positioning, roll, rolling, sheet, static, toggle
+
+- The mechanism
+- Armor (build-state condition) works similarly but auto-evaluated
+- What this means for conditional / "while active" features
+- Boundaries (what this does NOT do)
+- Design implication (the condition/benefit registry idea)
+
+## source-tagged-keys.md
+
+_source-tagged-keys · source tagged keys_
+
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, srd, stone, tag, tidewater, untagged, words
+
+- What exists today
+- The proposal
+- What it would buy
+- Settled
+- Still to be said out loud, but not blocking
+- As built
+- A source carries its own tag (built 2026-09-13)
+
+## spell-granting-across-silos.md
+
+_spell-granting-across-silos · spell granting across silos_
+
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, primitive, primitives, races, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
+
+- The two core primitives (what every bespoke spell function wraps)
+- Fixed spell — the chain per silo
+- Spell choice — the chain per silo
+- Why some work and some don't
+- The sustainable fix (and the trap to avoid)
+- A sixth spell "source": magic items — text-only (VERIFIED)
+- Usage limits / "once per long rest" — fragmented, not creator-declarable (VERIFIED)
+- Limitations / open
+
+## spell-slot-progression.md
+
+_spell-slot-progression · spell slot progression_
+
+**topics:** agreed, artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, slots, solo, sorcerer, table, tables, warlock
+
+- How slots are computed today — VERIFIED
+- The overload — why Artificer can't be expressed — VERIFIED
+- Warlock vs sorcerer when multiclassing — VERIFIED
+- Agreed design — DESIGN (this thread, not built)
+- Relation to other docs
+
+## starting-equipment.md
+
+_starting-equipment · starting equipment_
+
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+
+- The one thing that makes this cheap
+- Two ways to express equipment on a class map
+- 1. Shorthand keys — plain data, serializable, the UI target
+- 2. The full "(a) or (b)+(c)" form — serializable, and IS a UI target
+- How consumption works (what to expect on the character)
+- Vocabulary a builder UI picks from
+- Save / validation
+- Builder UI (where it slots in)
+- Start from an SRD class + the override delta
+- On-disk delta format (data integrity)
+
+## test-suite-state.md
+
+_test-suite-state · test suite state_
+
+**topics:** 2016, assertions, backdrop, browser, cljs, debt, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun
+
+- 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
+- 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
+- 1. What runs where (the gate reality)
+- 2. Pre-existing cljs failures (10 failures / 3 errors)
+- 3. The ::character spec / character-test.cljc saga (verified via unshallowed git)
+- 4. The built/computed character has no validation spec (verified)
+- 5. Open decisions / recommendations (so we don't re-litigate)
+
+## verification-discipline.md
+
+_verification-discipline · verification discipline_
+
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, number, optimisation, shown, single-function, unverified, upgrade
+
+- Lessons (each with the concrete miss that taught it)
+- Comparing the existing codebase to a proposed upgrade (the method)
+- Search the dead/old code too, not just the live surface
+- A green (or red) number proves nothing if the FIXTURE doesn't match real content
+- The rule
+- A test whose contributors share a magnitude proves nothing
+- A comparison is only as good as its baseline — verify the baseline by CONTENT
+- Benchmark rules: warm up, and measure cost not proxies
+
+## weapon-data-model.md
+
+_weapon-data-model · weapon data model_
+
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, neither, not-melee, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+
+- Fields
+- Traps
+- Invariants, verified against the data
+- Authoring against these
+

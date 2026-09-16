@@ -37,8 +37,9 @@
   [nonce & {:keys [dev-mode? extra-connect-src extra-frame-src]}]
   (str "default-src 'self'; "
        "script-src 'strict-dynamic' 'nonce-" nonce "'; "
-       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' https://fonts.gstatic.com; "
+       ;; Fonts are self-hosted (docs/kb/fonts.md) — no CDN hosts needed here.
+       "style-src 'self' 'unsafe-inline'; "
+       "font-src 'self'; "
        "img-src 'self' data: https:; "
        "connect-src 'self'"
        (when (seq extra-connect-src) (str " " (str/join " " extra-connect-src)))

@@ -15,7 +15,10 @@
    Pure/leaf: requires spec only."
   (:require #?(:clj  [clojure.spec.alpha :as spec])
             #?(:cljs [cljs.spec.alpha :as spec])
-            [orcpub.common :as common]))
+            [clojure.string :as str]
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.weapons :as weapons5e]
+            [orcpub.dnd.e5.requirements :as reqs]))
 
 (defn field-value-pred
   "Predicate a field's STORED value must satisfy WHEN PRESENT. :enum → the set of its option
@@ -24,19 +27,27 @@
   [{:keys [type options]}]
   (case type
     :enum   (set (map :value options))
+    ;; a SET of declared option values — "which of these apply". Rejects a value outside the
+    ;; declared options exactly as :enum does, elementwise.
+    :multi-enum (let [allowed (set (map :value options))]
+                  (fn [v] (and (coll? v) (every? allowed v))))
     :number number?
     :text   string?
+    ;; a combo offers suggestions but accepts anything typed, so it validates as free text — the
+    ;; option list is a convenience, not a constraint (that is what :enum is for)
+    :combo  string?
+    ;; a present non-boolean is REJECTED at save; absent is fine (optional-by-default), so a
+    ;; toggle that was never touched does not have to store anything
+    :boolean boolean?
     (constantly true)))
 
-;; CONVERGENCE NOTE — boolean/toggle field type (deferred, do NOT build a parallel mechanism).
-;; A hardened toggle needs BOTH halves; each branch built one, so the merged primitive combines them:
-;;   - path-safe traversal + self-heal of a collapsed intermediate  (claude/custom-class-source-error-2k5ykd:
-;;     common/toggle-in / common/toggle-flag) — a toggle whose path lands on a MAP must NOT `(not map)`
-;;     it (collapse); a stray false/nil intermediate heals into a map instead of crashing.
-;;   - defensive leaf read `(not (true? v))` + `:boolean → boolean?` save-validation (this branch,
-;;     backed out here to avoid a parallel fn) — nil/absent/garbage read as OFF; a present non-boolean
-;;     is rejected at save. Collection-preservation alone still reads garbage as "on"; leaf-read alone
-;;     still collapses a map — you need both.
+;; BOOLEAN/TOGGLE field type — BUILT 2026-09-06, from the convergence note this replaces.
+;; The note said a hardened toggle needs BOTH halves and each branch had built only one. It now
+;; routes through the ONE combined primitive: common/toggle-in (path-safe traversal, heals a
+;; collapsed intermediate) whose leaf is common/toggle-flag (leaves a collection alone AND reads
+;; only `true` as ON, so nil/absent/garbage are OFF). Validation is `:boolean -> boolean?` above.
+;; There is no second toggle fn and no second validator; a builder gets a toggle by declaring
+;; `:type :boolean`, which dispatches the generated toggle-<base>-prop event.
 ;; Plus `strip-export-blanks` (theirs) keeps exports terse, and the save ⊆ load guard (theirs: anything
 ;; that SAVES must LOAD). When the branches meet: add a `:boolean` type here + in render-builder-field
 ;; routing through the ONE combined primitive above — never a fresh toggle fn, never a second validator.
@@ -48,17 +59,162 @@
 (spec/def ::key (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::option-pack string?)
 
-(defn fields->spec
-  "Build a save-validation spec (a predicate) from a field schema. The universal
-   name/key/option-pack are required (unchanged from the prior hand-written specs); every other
-   field is OPTIONAL unless :required?. A present value must satisfy its type predicate. :key may
-   be a nested path, so nested sub-maps (e.g. :breath-weapon) validate without registering a
-   spec per key.
+;; ── Shared :props field fragments ─────────────────────────────────────────────────────────────
+;; The :props vocabulary compiles into SEVEN silos through one function (races, subraces, classes,
+;; subclasses, draconic ancestries, feats, fighting styles), so a fragment defined once can be
+;; dropped into any of their builders' extra-fields and that silo can author the prop. The compiler
+;; is already shared; only the form fields were missing.
 
-   ⚠️ HIGH-PRIORITY TODO — CONDITIONAL-REQUIRED (:required-when) IS NOT ENFORCED YET. A field
-   that is required only given another field's value (e.g. line-width is required when shape =
-   line, but meaningless for a cone) is currently treated as plain optional. This is a known gap;
-   see docs/kb/content-extensibility-direction.md PINS. DO NOT let it get lost."
+(def fighting-style-class-options
+  ;; Only the classes that HAVE a fighting-style feature. Offering Wizard here would let an author
+  ;; write a restriction that can never be satisfied.
+  [{:value :fighter :title "Fighter"}
+   {:value :paladin :title "Paladin"}
+   {:value :ranger  :title "Ranger"}])
+
+(def fighting-style-classes-field
+  ;; The authoring half of the divvying rule (`fighting-style-authoring.md`): pick none and the
+  ;; style is open to every class that has the feature — the documented fallback, which is why
+  ;; this is not :required?.
+  [{:key :classes
+    :type :multi-enum
+    :section "Available to"
+    :label "Classes that may take this style"
+    :options fighting-style-class-options}])
+
+(def ac-bonus-fields
+  "Authors {:ac-bonus {:bonus N :armor? b :shield? b}} — a flat bonus applied to whichever AC
+  calculation wins, rather than to a particular one. The two tags are THREE-state: pick a value to
+  require or forbid that equipment, or leave blank for either way. Defense fighting style is
+  exactly {:bonus 1 :armor? true}."
+  (let [has-bonus? #(get-in % [:props :ac-bonus :bonus])]
+    ;; :short-label / :short-title are used ONLY where the field renders inside a titled group
+    ;; (see render-builder-field's :compact?). Flat forms keep the long text, which is the whole
+    ;; reason both exist rather than one being edited into the other.
+    [{:key [:props :ac-bonus :bonus] :type :number :label "AC Bonus"}
+     {:key [:props :ac-bonus :armor?] :type :enum :label "Armor requirement" :when has-bonus?
+      :short-label "Armor"
+      :options [{:value nil   :title "Both"}
+                {:value true  :title "Only while wearing armor"  :short-title "Only while wearing"}
+                {:value false :title "Only while NOT wearing armor" :short-title "Not wearing"}]}
+     {:key [:props :ac-bonus :shield?] :type :enum :label "Shield requirement" :when has-bonus?
+      :short-label "Shield"
+      :options [{:value nil   :title "Both"}
+                {:value true  :title "Only while wielding a shield" :short-title "Only while wielding"}
+                {:value false :title "Only while NOT wielding a shield" :short-title "Not wielding"}]}
+     ;; The first weapon-aware requirement an author can reach. It was unauthorable until
+     ;; mod5e/ac-bonus assembled the wielded weapons into the contributor's context, which is why
+     ;; the Dual Wielder feat had to be hand-written. Registering a requirement and exposing it are
+     ;; still separate steps (weapons.cljc documents the rule) — this one is exposed because
+     ;; published content wants it.
+     {:key [:props :ac-bonus :dual-wielding?] :type :enum :label "Weapon requirement" :when has-bonus?
+      :short-label "Weapons"
+      :options [{:value nil   :title "Both"}
+                {:value true  :title "Only while wielding two weapons" :short-title "Two weapons"}
+                {:value false :title "Only while NOT wielding two weapons" :short-title "Not two"}]}]))
+
+(defn- weapon-tag-field
+  "One three-state weapon tag as an :enum field. Shown only once a bonus has been entered, since a
+  tag on no bonus means nothing."
+  [prop-key tag label yes no]
+  {:key [:props prop-key tag] :type :enum :label label
+   :when #(get-in % [:props prop-key :bonus])
+   ;; An explicit nil option FIRST. A <select> with no matching value shows its first option, so
+   ;; without this the form displays "Melee weapons only" for a field that is actually unset — it
+   ;; would lie about a three-state value in a two-option control.
+   :options [{:value nil :title "Both"}
+             ;; Under a header reading ATTACK BONUS the word "weapons" is already said, and it is
+             ;; what makes the select page-wide — so the grouped layout drops it ("Ranged only").
+             ;; Derived rather than passed: every long form here IS the short one plus that word,
+             ;; and two more positional args on a five-arg fn would cost more than it saves.
+             {:value true  :title yes :short-title (str/replace yes " weapons" "")}
+             ;; the negatives are already short ("Exclude melee", "Non-thrown only")
+             {:value false :title no}]})
+
+(defn- weapon-bonus-fields
+  "Fields for one conditional weapon bonus: the number, then the tags that gate it. The tags are
+  three-state — pick a value to require or forbid the property, leave blank for either way."
+  [prop-key number-label]
+  (into [{:key [:props prop-key :bonus] :type :number :label number-label}]
+        ;; The predicate supports every weapon flag (weapons/tag->flag); the form exposes the ones
+        ;; authors actually reach for. The rest stay hand-authorable in an .orcbrew file.
+        [(weapon-tag-field prop-key :melee?      "Melee"    "Melee weapons only"  "Exclude melee")
+         (weapon-tag-field prop-key :ranged?     "Ranged"   "Ranged weapons only" "Exclude ranged")
+         (weapon-tag-field prop-key :heavy?      "Heavy"    "Heavy weapons only"  "Exclude heavy")
+         (weapon-tag-field prop-key :thrown?     "Thrown"   "Thrown weapons only" "Non-thrown only")
+         (weapon-tag-field prop-key :finesse?    "Finesse"  "Finesse weapons only" "Non-finesse only")
+         (weapon-tag-field prop-key :light?      "Light"    "Light weapons only"   "Non-light only")
+         (weapon-tag-field prop-key :two-handed? "Handedness" "Two-handed only"    "One-handed only")]))
+
+(def attack-bonus-fields
+  "Authors {:attack-bonus {:bonus N <tags>}} — Archery is {:bonus 2 :ranged? true}."
+  (weapon-bonus-fields :attack-bonus "Attack Bonus"))
+
+(def damage-bonus-fields
+  "Authors {:damage-bonus {:bonus N <tags>}} — Thrown Weapon Fighting is {:bonus 2 :thrown? true}."
+  (weapon-bonus-fields :damage-bonus "Damage Bonus"))
+
+(defn effect-rows
+  "The `:rows` node for authored mechanics: one titled row per effect the content actually has.
+
+  `:at` is the subtree a row occupies and presence in the data is what makes a row appear, so
+  nothing extra is stored and an item authored by the older flat form renders unchanged (D9).
+  Removing a row clears its subtree with no confirm."
+  []
+  [{:rows      :effects
+    :title     "Effects"
+    :add-label "Add an effect"
+    :kinds     [{:kind :ac-bonus     :title "AC Bonus"     :at [:props :ac-bonus]
+                 :hint "added to whichever AC calculation wins"
+                 :tag-header "Applies when"
+                 :fields ac-bonus-fields}
+                {:kind :attack-bonus :title "Attack Bonus" :at [:props :attack-bonus]
+                 :hint "to attack rolls with matching weapons"
+                 :tag-header "Only with weapons that are"
+                 :fields attack-bonus-fields}
+                {:kind :damage-bonus :title "Damage Bonus" :at [:props :damage-bonus]
+                 :hint "to damage rolls with matching weapons"
+                 :tag-header "Only with weapons that are"
+                 :fields damage-bonus-fields}]}])
+
+(defn grant-rows
+  "The `:rows` node for `:grants` — one row per entry, `:as :vector`. Names no pool: the add-bar
+   is every registered pool whose `:offerable-by` includes `silo`."
+  [silo]
+  [{:rows      :grants
+    :as        :vector
+    :at        [:grants]
+    :silo      silo
+    :title     "Grants"
+    :add-label "Add a grant"}])
+
+(defn flatten-fields
+  "A schema is a vector of NODES. Today every node is a field, so this is identity; once group nodes
+  land (docs/kb/builder-form-schemas.md) a group contributes its lead field plus its tags.
+
+  Everything that walks a schema for its FIELDS — save-spec construction, import verification,
+  drift tests — goes through here, so adding a node kind does not mean hunting down every walker."
+  [schema]
+  (mapcat (fn [node]
+            (cond
+              ;; a :rows node contributes every field of every kind it can hold. The kinds' fields
+              ;; carry absolute paths, so validation is unchanged by the grouping — which is the
+              ;; point: :rows is an arrangement, not a second storage model.
+              ;; a VECTOR rows node (grant-rows) derives its kinds from the pool registry at render
+              ;; time and its rows own their fields; it contributes nothing static to validate.
+              (and (:rows node) (= :vector (:as node))) []
+              (:rows node)  (mapcat :fields (:kinds node))
+              (:group node) (cons (:lead node) (:tags node))
+              :else         [node]))
+          schema))
+
+(defn fields->spec
+  "Build a save-validation predicate from a field schema. name/key/option-pack are required; every
+   other field is optional unless :required?. A present value must satisfy its type predicate.
+   :key may be a nested path.
+
+   GOTCHA: :required-when (required only given another field's value) is NOT enforced — such a
+   field is treated as plain optional. High-priority PIN in content-extensibility-direction.md."
   [fields]
   (let [checks (mapv (fn [{:keys [key required?] :as f}]
                        (let [path (if (sequential? key) key [key])
@@ -110,3 +266,42 @@
                             :enum   (:value (first options))
                             :number 0
                             "")}])))
+
+;; ── Authoring-time guard for unrecognised tags ────────────────────────────────────
+;; At the end of the file because it derives from the field fragments above rather than
+;; restating which props carry tags — the fact lives in one place, the schemas.
+
+(def ^:private legacy-value-keys
+  "Value keys a prop has shipped with that are NOT declared fields. :ac-bonus's value key was once
+   :ac-bonus before it became :bonus; ac-bonus-modifiers still reads it (D9)."
+  {:ac-bonus #{:ac-bonus}})
+
+(defn- declared-prop-keys
+  "prop -> the keys its shared field fragment declares. DERIVED, so adding a field to a fragment
+   cannot drift from what counts as a legitimate key."
+  [fragments]
+  (reduce (fn [m {:keys [key]}]
+            (let [[root prop k] key]
+              (cond-> m (and (= :props root) prop k) (update prop (fnil conj #{}) k))))
+          {}
+          (mapcat flatten-fields fragments)))
+
+(defn unknown-tag-problems
+  "Human-readable problems for keys in `item`'s :props that no vocabulary recognises.
+
+   GOTCHA: this is the only guard. weapons/matches? and requirements/meets-all? both IGNORE an
+   unrecognised tag, so a typo fails OPEN — the effect applies with no condition rather than
+   erroring, and nothing at runtime can tell a typo from a tag a newer build knows."
+  ([item] (unknown-tag-problems item [ac-bonus-fields attack-bonus-fields damage-bonus-fields]))
+  ([item fragments]
+   (let [known    (into (set (keys weapons5e/tag->flag)) (keys reqs/requirements))
+         declared (declared-prop-keys fragments)]
+     (for [[prop own] declared
+           :let [v (get-in item [:props prop])]
+           :when (map? v)
+           tag (keys v)
+           :when (not (or (contains? own tag)
+                          (contains? known tag)
+                          (contains? (get legacy-value-keys prop #{}) tag)))]
+       (str prop " has an unrecognised tag " tag
+            " — it is IGNORED, so this applies with no condition. Check the spelling.")))))

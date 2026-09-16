@@ -67,7 +67,7 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 | **events** | `events.cljs` | ✅ generated | `doseq` over `:homebrew-builder?` → `register-homebrew-content!` |
 | **db draft slots** | `db.cljs` | ✅ generated | builder-item `default-value` slots from `:builder-item`+`:default` |
 | **routes** | `route_map.cljc`, `routes.clj` | ✅ generated | bidi segs + `my-content` set + SPA allowlist from `:route-seg`/`:route-kw` (registry is now a pure-data leaf; guarded by `content_types_routes_test`). `route_map` keeps only the one route-keyword `def` per type (D6). |
-| **core page-map** | `core.cljs` | ⚠️ won't generate | a view *fn* can't be derived from data in cljs — the route→view binding is irreducible (best co-located with the form) |
+| **core page-map** | `core.cljs` | ✅ generated | `orcpub.dnd.e5.page-map/builder-pages`, a COMPILE-TIME macro over the registry emitting `views/<route-seg>-page`. Previously listed here as "won't generate — irreducible"; that was wrong (see below) |
 | **spec** | per-type ns | ✅ generated (draconic) | `bf/fields->spec` over the field schema — optional-by-default, required name/key/option-pack + `:required?` fields, enum values validated. 🔴 conditional-required (`:required-when`) NOT yet enforced — high-priority pin. |
 | **builder form** | `views.cljs` | ✅ collapsed (not generated) | `simple-content-builder` makes it a one-liner; custom fields via `extra-fields` |
 
@@ -100,8 +100,8 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 3. **Builder form** in `views.cljs` — `(defn <type>-builder [] (simple-content-builder <item-sub>
    <set-prop> [extra-fields…]))` + `(defn <type>-builder-page [] (builder-page "..." <reset>
    <save> <type>-builder))`; add the my-content menu entry.
-4. **Routes** (until the routes pass lands): `route_map.cljc` (def + route-set + bidi seg),
-   `routes.clj` (allowlist), `core.cljs` (route→page).
+4. **Routes**: one route-keyword `def` in `route_map.cljc` (D6). The bidi seg, route sets, SPA
+   allowlist and the `core.cljs` route→page binding are all generated.
 5. **Game-rule wiring** — if the type is *granted* by other content, register a **pool** and a
    **grant** (§3); if it stands alone in its own list, nothing more.
 6. **Update `content_types_test`** count + builder-item set.
@@ -109,6 +109,21 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 
 > The irreducible per-type work is the **field schema** (the form's custom fields), the **spec**,
 > and **how it plugs into game rules**. Everything else is generated or a one-liner (D22).
+
+**The page-map was NOT irreducible — corrected 2026-09-04.** This table said "won't generate — a
+view *fn* can't be derived from data in cljs". That conflates deriving a fn from data at RUNTIME
+(genuinely impossible, cljs has no `resolve`) with emitting the symbol at COMPILE TIME (routine).
+All 15 registry entries already bound exactly `views/<route-seg>-page`, so the map was fully
+derivable; `orcpub.dnd.e5.page-map/builder-pages` now generates it. Step 4 of §2e drops `core.cljs`.
+
+D22 warns about exactly this — "irreducible" is a claim to be proven against the code, not
+asserted — and it happened again, in the same table that records D22's own lesson.
+
+**What it does NOT buy:** a registry entry whose view fn is missing is a cljs *warning*
+(`Use of undeclared Var …`), not an error — verified by adding a bogus entry and building; the
+build still succeeded. So the hard guard is a test, not the compiler:
+`every-registered-type-has-a-builder-page-view` reads `views.cljs` from the JVM and fails if the
+`defn` is absent.
 
 ---
 
@@ -142,6 +157,30 @@ Content carries real mechanics declaratively via a `:props` map compiled by the 
 `opt5e/plugin-modifiers` / `make-feat-modifiers` vocabulary (speed, flying-speed,
 saving-throw-advantage, skill-prof, language, …). Built-ins with no `:props` are unchanged.
 
+### 3c′. Where the cost lives — authored-data shape is never a runtime cost
+
+Recorded because it was re-derived during a vocabulary decision (`:grant {…}` vs `:grants [{…}]`,
+2026-09-07) and an agent raised "objects in arrays are a performance hit" as if it applied.
+
+**Three layers, one hot:**
+
+| layer | what it is | how often it runs |
+|---|---|---|
+| authored data | the `.orcbrew` / `:plugins` maps — `:props`, `:grants`, `:ability-increases` | read **once**, when the template assembles |
+| compiled template | `selection-cfg`s / `option-cfg`s — persistent vectors of persistent maps, thousands of them | built once per content change (`::char5e/template-selections` is a memoized sub, D11) |
+| character build | walks the compiled template against one character's choices | **this is the hot path** |
+
+The hot path runs over the *compiled* layer, whose shape is fixed regardless of how the source
+was spelled: every authored collection is already a vector of maps — `:selections [{…}]`,
+`:options [{…}]`, `:modifiers [{…}]`, `:traits [{…}]`. So a one-element `[{…}]` in authored data
+costs one PersistentVector and one `mapcat` at assembly, not per render and not per recompute. If
+vectors-of-maps were a cost that mattered here, the template would already be paying it ten
+thousand times over.
+
+**Consequence for vocabulary decisions:** choose authored shapes for readability, uniformity and
+the wire-format (D9, D33) — never for runtime performance. The one performance rule that *does*
+apply is D11: derive pools as layered memoized subs, never inline inside a hot sub.
+
 ### 3d. Worked example — draconic ancestry (the proven slice)
 - Pool: `::races5e/draconic-ancestry-pool` = built-in colours `++` `::e5/draconic-ancestries`
   homebrew (`content_pools/pool`). Dragonborn's "Draconic Ancestry" choice grants from it.
@@ -152,15 +191,33 @@ saving-throw-advantage, skill-prof, language, …). Built-ins with no `:props` a
   (cljs) + `extensibility_golden_test.cljc` (JVM round-trip).
 
 ### 3e. How to add a pool / a grant
-- **New pool:** `(reg-sub ::x-pool :<- [::e5/plugin-vals] (fn [pv _] (pool pv ::e5/<key> <built-in>)))`.
-- **New grant:** a `selection-cfg` whose `:options` map a per-entry compiler over the pool sub.
-  Pass each entry's stored `:key` through (D10). Keep the compiler thin; pool-kind logic lives
-  in the pool, never as a `cond` inside a shared grant fn (D14 god-function trap).
+- **New GRANTABLE pool (2026-09-07):** one entry in `src/cljc/orcpub/dnd/e5/grant_pools.cljc` —
+  `{:name … :offerable-by #{…} :options-fn (fn [plugin-vals] -> [option-cfg …])}`. Nothing else
+  changes: `::e5/grantable-pools` assembles the registry and `template-selections` passes it to every
+  assembly fn that compiles a `:grants`. The entry's fn absorbs its own shape (raw built-ins vs
+  pre-compiled, open vs closed); `assemble`/`grant-selection` never branch on pool kind (D21).
+  Measured: the third pool cost one entry — the D21 gate.
+- **A pool that is consumed only by a hardcoded caller** (the draconic pool → `dragonborn-option-cfg`)
+  still uses the older form: `(reg-sub ::x-pool :<- [::e5/plugin-vals] (fn [pv _] (pool pv ::e5/<key>
+  <built-in>)))`. Register it in `grant_pools.cljc` when something needs to *grant* from it.
+- **Grants, as data:** `:grants [{:pool <k> :count n} {:pool <k> :key <entry>} …]` — one key,
+  always a vector, on any content an assembly fn compiles (feat, race today). Each entry compiles
+  through `opt5e/grant-selection`; unregistered pools drop out as nil. A pack carrying `:grants`
+  exports as format v2 (`orcbrew_format.cljc`). Pass each entry's stored `:key` through (D10).
 
 ---
 
 ## 4. Invariants & gotchas (agents: violating these breaks user data or the framework)
 
+- **Authored data NAMES things; only code can reference `?attr`.** `?foo` is rewritten at
+  macroexpansion, so a `?`-ref only exists where a macro put it — a form assembled at runtime can
+  never contain one. Every layer that works obeys this: `grant_pools` registers pools by keyword,
+  `requirements.cljc` holds predicates over a plain-data context rather than condition forms, and
+  `:props` maps keywords to macro-built modifiers. **Do not propose a runtime registry of
+  condition forms**; it is unbuildable, and has been rediscovered the hard way twice (the
+  requirements registry, and Dual Wielder being hand-written for years). Detail:
+  `built-character-representation.md` §"The rules that follow"; the engine's own docstring is
+  marked LOAD-BEARING.
 - **D10 — identity from stable keys, never display names.** Saved characters reference content
   by key. Re-deriving a key from a mutated name orphans characters.
 - **D14 — don't force heterogeneous kinds through one pattern.** Magic items (server-persisted)
@@ -204,3 +261,50 @@ component preview (mount + Playwright screenshot) can show a form renders correc
   The recurring `feat-options` trap (static `*-options` defs are SRD-minimal/`#_`-commented *by
   design*; homebrew is merged at the `concat` assembly point, not in the static def). Feats ARE
   extensible; fighting styles genuinely are NOT (no plugin path — the one real gap).
+
+## MEASURED: the macro does not affect reactivity
+
+The page-map macro emits a **symbol referencing the view fn** — the identical value the hand-written
+map held. `main-view` then mounts it as `[view …]`, a hiccup vector, and `builder-page` ends in
+`[builder]`. Nothing is precomputed, inlined or frozen: the macro generates the route→component
+lookup table, not the components.
+
+Measured while typing 12 characters into a builder form (`render_granularity_probe.js`):
+
+| | |
+|---|---|
+| DOM mutations page-wide | 12 |
+| of those, inside the form subtree | 12 |
+| **outside the form** | **0** |
+| `simple-content-builder` invocations | 4 (the 500 ms build debounce batches them) |
+
+**A concern that did not survive testing.** The builders call `(simple-content-builder …)` rather
+than mounting `[simple-content-builder …]`, so the form's subscription deref registers in the
+enclosing component's reactive context. That sounds like it should re-render the whole page. It
+does not matter: changing it to a mounted component produced **identical** numbers — 12 mutations,
+0 outside the form, 1753 ms vs 1747 ms. React's reconciliation already keeps the DOM work minimal
+and the debounce absorbs the rest. Reverted rather than kept as churn.
+
+*Caveat on the instrumentation:* patching a namespace fn to count invocations only intercepts call
+sites that resolve through the namespace object. Reagent captures a reference when it mounts a
+component, so counts for `builder-page` and `fighting-style-builder` read 0 whether or not they ran
+— those zeroes are artifacts, not evidence. Only `simple-content-builder`'s count is trustworthy.
+
+## Route trees: `/pages/` vs root
+
+Two trees, and `dnd/` exists in **both** — which is a real trap when constructing a URL.
+
+`/pages/` namespaces **SPA views** so they do not collide with same-named **server endpoints**:
+`/login` is the server login action, `/pages/login-page` is the SPA view that renders the form.
+Same pairing for register, reset-password and send-password-reset.
+
+But the split is historical, not principled:
+
+| under `/pages/dnd/5e/` | under `/dnd/5e/` |
+|---|---|
+| every builder page (generated from the content-types registry) | `my-content`, character lists, spell / monster / item pages |
+
+So a builder is `/pages/dnd/5e/<route-seg>` while My Content is `/dnd/5e/my-content`. Guessing the
+wrong prefix returns the server's plain `Not Found`, which reads like a broken page rather than a
+bad URL — it cost a browser-test debugging round. `/pages/` is long-standing: it is on `master`,
+`develop` and `integration`, not something this refactor introduced.

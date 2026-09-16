@@ -1,4 +1,15 @@
 (ns orcpub.dnd.e5.template-base
+  "The blank 5e character — the attribute cells every build starts from, before a single option is
+   applied. Pure data, no functions.
+
+   `template-base` is one `es/make-entity` form: each `?attr` is a cell whose body may read other
+   cells, and modifiers from chosen options overwrite or accumulate onto them. A default declared
+   here is what a character has when nothing grants otherwise; a formula here is the rule content
+   plugs into. Adding a `?attr` is how you give modifiers something to write to.
+
+   `warlock-spell-slot-schedule` is a lookup table, here only because the base references it.
+
+   docs/kb/built-character-representation.md, docs/kb/content-to-character-pipeline.md"
   (:require [orcpub.entity-spec :as es]
             [orcpub.template :as t]
             [orcpub.common :as common]
@@ -8,6 +19,7 @@
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.armor-class :as ac]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]))
 
 (def warlock-spell-slot-schedule
@@ -35,65 +47,49 @@
 (def template-base
   (es/make-entity
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
-    ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
-                         ;; Checks whether barbarian unarmored bonus exists (or is higher) than natural AC/Draconic Bloodline AC
-                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus)
-                         ?magical-ac-bonus)
     ?levels {}
-    ?ac-bonus 0
+    ;; DEPRECATED 2026-09 — kept as a compatibility channel, not part of the design. Natural armor
+    ;; is a calculation now (mod5e/ac-formula); nothing in this repo writes this any more. It stays
+    ;; declared so content that still sets it keeps working, adapted into ?ac-fns below. Retire it
+    ;; once no branch writes it — see the AC refactor doc's ledger.
     ?natural-ac-bonus 0
-    ?unarmored-ac-bonus 0
-    ?unarmored-with-shield-ac-bonus 0
-    ?armored-ac-bonus 0
-    ?max-medium-armor-bonus 2
-    ?magical-ac-bonus 0
+    ;; Dex allowance per armor TYPE. nil = uncapped. Features RAISE entries — Medium Armor Master
+    ;; is {:medium 3} — and an item may declare its own :max-dex-mod; the more permissive of the
+    ;; two wins. Per-type rather than a lone medium scalar, so "heavy armor lets you add 2 Dex" is
+    ;; expressible: nothing about the rule is specific to medium.
+    ?armor-dex-caps {:light nil :medium 2 :heavy 0}
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
     ?armor-dex-bonus (fn [armor]
-                       (let [dex-bonus (?ability-bonuses ::char5e/dex)]
-                         (case (:type armor)
-                           :light dex-bonus
-                           :medium (min ?max-medium-armor-bonus dex-bonus)
-                           0)))
-    ?shield-ac-bonus (fn [shield]
-                       (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
-    ;; Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are competing
-    ;; "AC = 10 + Dex + X" bases — take the BETTER, never both. ?base-armor-class already
-    ;; drops natural when unarmored wins; these must drop unarmored when natural wins, or a
-    ;; character with both (e.g. Draconic Sorcerer / Barbarian, Lizardfolk Barbarian) STACKS
-    ;; them. The two `if`s are the two halves of one symmetric max.
-    ?unarmored-armor-class (+ ?base-armor-class
-                             (if (> ?unarmored-ac-bonus ?natural-ac-bonus) ?unarmored-ac-bonus 0)
-                             ?ac-bonus)
-    ?unarmored-with-shield-armor-class (fn [shield]
-                                         (+ ?base-armor-class
-                                            (if (> ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
-                                              ?unarmored-with-shield-ac-bonus 0)
-                                            ?ac-bonus
-                                            (?shield-ac-bonus shield)))
-    ?dual-wield-weapon? weapon5e/light-melee-weapon?
-    ?armor-class-with-armor-base (fn [armor & [shield]]
-                                   (cond (and (nil? armor)
-                                              (nil? shield)) ?unarmored-armor-class
-                                         (nil? armor) (?unarmored-with-shield-armor-class shield)
-                                         ;; Flattened nested (+ ...) — semantically equivalent
-                                         :else (+ (if shield (?shield-ac-bonus shield) 0)
-                                                  (?armor-dex-bonus armor)
-                                                  (or ?armored-ac-bonus 0)
-                                                  (:base-ac armor)
-                                                  (::mi5e/magical-ac-bonus armor)
-                                                  ?ac-bonus
-                                                  ?magical-ac-bonus)))
+                       (ac/armor-dex-bonus (?ability-bonuses ::char5e/dex) ?armor-dex-caps armor))
+    ?shield-ac-bonus (fn [shield] (ac/shield-bonus shield))
+    ;; What counts as dual-wieldable, as DATA — a vector of tag specs, ANY of which qualifies.
+    ;; Was a predicate FN (weapon5e/light-melee-weapon?): no homebrew could author one, nothing
+    ;; could print it, and a second source would have silently replaced the first.
+    ;; The 2014 base rule: "a light melee weapon that you're holding in one hand".
+    ?dual-wield-weapon-specs [{:light? true :melee? true}]
+    ;; "You can't wear armor" (a tortle's shell, a construct chassis). A RESTRICTION, not an AC
+    ;; rule: worn armor simply contributes nothing, so the character is treated as unarmored no
+    ;; matter what is equipped. Deliberately not a cap on AC — ?ac-fns is a max and can raise a
+    ;; floor but not impose a ceiling, and a ceiling would be the wrong model anyway.
+    ?armor-ac-suppressed? false
+    ?armor-class-with-armor-base (fn [armor & [_shield]]
+                                   (ac/worn-armor-ac (?ability-bonuses ::char5e/dex)
+                                                     ?armor-dex-caps
+                                                     (when-not ?armor-ac-suppressed? armor)))
     ?armor-class-with-armor (fn [armor & [shield]]
-                              (let [max-ac (apply max
-                                                  (?armor-class-with-armor-base armor shield)
-                                                  (map #(% armor shield) ?ac-fns))
-                                    bonuses (map #(% armor shield) ?ac-bonus-fns)]
-                                (apply +
-                                       max-ac
-                                       bonuses)))
-    ?ac-bonus-fns []
-    ?ac-fns []
+                              (ac/reconcile (?armor-class-with-armor-base armor shield)
+                                            ?ac-fns
+                                            ?ac-bonus-fns
+                                            armor
+                                            shield))
+    ?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))]
+    ;; Seeded with the ?natural-ac-bonus compatibility adapter (see above). Content-registered
+    ;; calculations from mod5e/ac-formula are appended to this.
+    ?ac-fns [(fn [_armor _shield]
+               (if (pos? ?natural-ac-bonus)
+                 (+ 10 (?ability-bonuses ::char5e/dex) ?natural-ac-bonus)
+                 0))]
     ?abilities (reduce
                 (fn [m k]
                   (let [overrides (filter

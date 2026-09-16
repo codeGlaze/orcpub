@@ -81,6 +81,32 @@ The question "is the upgrade equivalent / better / preserving the good?" is answ
   regressions outside it. So coverage must reach the load-bearing behavior *before* the refactor
   it guards — which is precisely why "the foundation net gates refactors."
 
+## Search the dead/old code too, not just the live surface
+
+"Is X extensible?" / "How was X done before?" is not answered by the live `*-options` def or
+`develop` alone. Old and dead worked examples live as `#_`-commented forms — notably in
+`src/cljc/orcpub/dnd/e5/templates/ua_*.cljc` (the pre-refactor UA content). Twice this session a
+fighting-style claim was made without checking there: first "fighting styles aren't extensible"
+(the concat pattern was just at a different assembly point), then "no old fighting-style pipeline
+exists" (Mariner is in `ua_base.cljc:690`, `#_`-commented). Before concluding a mechanism is
+absent, grep the whole tree including `templates/` and `#_`-struck forms — the answer is often in
+the dead code.
+
+## A green (or red) number proves nothing if the FIXTURE doesn't match real content
+
+A test builds synthetic inputs; if the synthetic path differs from how real content works, the
+number characterizes the fixture, not the engine. *Miss (this session):* I reported an "A3 bug" —
+two natural-armor sources stacking to 18 — from a test whose synthetic classes used the cum-sum
+constructor `mod5e/natural-ac-bonus`. But ALL real content sets `?natural-ac-bonus` via
+`mod/modifier` (a SET; `es/modifier` replaces, doesn't accumulate). With the fixture switched to the
+real SET mechanism the "bug" vanished (15, no stacking) — there was nothing to fix. The user caught
+it ("is that even in integration, or something you introduced?"). The tell I ignored: I checked the
+output number without checking the MECHANISM that produced the input — which constructor, SET vs
+cum-sum. Before calling a characterized number a bug, confirm the fixture uses the SAME modifier
+primitives real content uses; grep who actually writes the channel in `src/`. (Companion to the
+"same name, different registries" lesson — here it was "same channel, two accumulation semantics,
+one live and one a trap.")
+
 ## The rule
 
 Before asserting a load-bearing claim — especially **"X is broken"** or **"X is fine"** —
@@ -94,3 +120,61 @@ backing it with a falsifiable test (or showing the full caller→fn→primitive 
 each). A single-function read is a hypothesis, not a finding.* Behavioral claims that the plan
 rests on become characterization tests, not prose; that test is simultaneously the check on my
 reading and the baseline an upgrade is compared against.
+
+## A test whose contributors share a magnitude proves nothing
+
+Bracers of Defense (+2, no armor and no shield) was "verified" against a plain shield (+2):
+
+```
+unarmored        14   ; 10 + Dex(2) + bracers(2)
+unarmored+shield 14   ; 10 + Dex(2) + shield(2)
+```
+
+Two 14s, and the second was read as "the bracers were correctly excluded". It is equally
+consistent with the bracers applying and the shield being dropped, or with both applying and
+something else vanishing. The assertion cannot attribute the number to a cause.
+
+Two fixes, use both: **vary the magnitudes** so each contributor is identifiable (a +1 shield
+contributes 3, so the answer is 15 if excluded and 17 if not), and **assert the delta** against the
+same character without the feature rather than the absolute total. The delta is what the feature
+actually claims.
+
+Applies past AC: whenever a test pins one number produced by summing several sources, check that no
+two of them are equal before believing it.
+
+## A comparison is only as good as its baseline — verify the baseline by CONTENT
+
+The Bracers/natural-armor defect was called shipped, then retracted as "our own regression, siloed
+to the refactor branch", then un-retracted. It is shipped. The retraction came from comparing
+against `agents/develop` — assumed to be the integration branch because the name looked right. The
+integration branch is `origin/integration`, and it has the defect.
+
+Two failures, both cheap to avoid:
+
+1. **The baseline was assumed, not checked.** One `git branch -r` would have shown
+   `origin/integration` sitting there. Never name a comparison baseline from a branch's name.
+2. **`git merge-base --is-ancestor <sha> <branch>` said "no" and that was believed.** The commit had
+   reached integration under a different SHA (merge or cherry-pick). Ancestry answers "is this
+   commit an ancestor", never "does this branch have this change". **Compare the content** — read
+   the file on the target branch, or run the test against it.
+
+The empirical method itself was right: swap in the other branch's file, run the one test, read the
+number. It just ran against the wrong file. Running it against two branches would have shown the
+disagreement immediately, since `agents/develop` and `origin/integration` do not agree here.
+
+## Benchmark rules: warm up, and measure cost not proxies
+
+Two failures in one afternoon, on the same benchmark:
+
+1. **No JIT warmup.** The first run reported 0.82x / 1.96x / 1.10x across three scenarios of
+   increasing size. A non-monotonic curve over a monotonic workload is a measurement artifact, not
+   a finding — the first scenario measured was paying for compilation. With warmup it read
+   0.64x / 0.68x / 1.19x, monotonic and believable, and the conclusion reversed.
+2. **Counting operations instead of timing them.** An earlier benchmark counted formula
+   evaluations, found 396 vs 102, and concluded the optimisation was worthwhile. The counts were
+   right. But the optimisation allocates a state map, and that costs more than the evaluations it
+   saves until the input is far larger than anything real — so the version doing 4x the work is
+   *faster* at realistic sizes.
+
+Also: always locate the crossover. "Faster at size N" is not a result; "slower below ~8 armors,
+faster above, and the app never exceeds 3" is.

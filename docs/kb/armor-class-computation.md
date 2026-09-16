@@ -1,5 +1,10 @@
 # Armor Class computation
 
+> **⚠️ HISTORICAL (2026-06-19).** This describes the engine **before** the 2026-09 refactor — the seven
+> scalar channels, the natural-vs-unarmored tie-break, the shield inside the base. All of that is gone.
+> **The current model is `armor-class-refactor.md`** ("Current state — read this first"). Keep this
+> file for the characterization numbers it records and the reasoning that led to the refactor.
+
 How AC is calculated, the channels a feature can plug into, and what that means for
 custom AC (natural armor, unarmored defense). Markers: **VERIFIED** = read from code,
 file:line cited. **DESIGN** = proposal, not built.

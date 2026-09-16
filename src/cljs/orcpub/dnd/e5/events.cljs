@@ -66,7 +66,6 @@
                                       health-dismissed->local-store
                                       demo-hidden->local-store
                                       whats-new-seen->local-store
-                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -171,44 +170,9 @@
 
 (def demo-hidden->local-store-interceptor
   (after (fn [db] (demo-hidden->local-store (:demo-hidden? db)))))
-(def ^:private hold-ceiling-ms
-  "How long the release panel waits on the cookie notice before showing anyway.
-   Long enough to let someone dismiss the notice first, short enough that ignoring
-   it costs them the panel for a few seconds rather than forever."
-  10000)
 
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
-
-(reg-fx
- ::e5/watch-cookie-notice
- ;; The release panel is held while the cookie notice is up so a first visit gets
- ;; one overlay, not two. The hold is BOUNDED in both directions, because a hold
- ;; with no bound is the same as never showing it:
- ;;
- ;;   * the notice only goes away on a click on its own button, so re-check after
- ;;     any click and release as soon as it has gone — waiting for a reload the
- ;;     visitor has no reason to perform means they never see the release;
- ;;   * a notice that is ignored rather than dismissed never goes away, and it
- ;;     comes back every visit, so release anyway after hold-ceiling-ms.
- ;;
- ;; Takes the flag, since an effect map entry runs its handler whatever the value.
- (fn [watch?]
-   (when watch?
-     (let [handler (atom nil)
-           done? (atom false)
-           release! (fn []
-                      (when-not @done?
-                        (reset! done? true)
-                        (when-let [h @handler]
-                          (js/document.removeEventListener "click" h true))
-                        (dispatch [::e5/release-whats-new])))]
-       (reset! handler
-               (fn [_]
-                 ;; after the notice's own fade-out, so the two don't cross
-                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
-       (js/document.addEventListener "click" @handler true)
-       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -270,13 +234,13 @@
                             subclass->local-store-interceptor])
 
 (def ^:private builder-wip-store-key
-  "app-db builder-item key -> its localStorage draft slot. `db/builder-wip-stores`, inverted."
-  (reduce-kv (fn [m store-key item-key] (assoc m item-key store-key)) {} builder-wip-stores))
+  "app-db builder-item key -> its localStorage draft slot, from the content-type registry."
+  (into {} (map (juxt :builder-item :local-storage-key)) ct/content-types))
 
 (reg-fx
  ::persist-builder-wip
- ;; The per-builder ->local-store interceptors only fire on edit events, so a write the SAVE makes
- ;; to the builder item (the :key stamp) would be lost on refresh.
+ ;; The per-builder ->local-store interceptors only fire on edit events, so a write
+ ;; the SAVE makes to the builder item (the :key stamp) would be lost on refresh.
  (fn [[item-key item]]
    (when-let [store-key (builder-wip-store-key item-key)]
      (set-item store-key (str item)))))
@@ -322,9 +286,7 @@
               ::e5/whats-new-seen
               ::e5/dev-mode
               ::combat/tracker-item]} _]
-   {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                  (cookie-banner-pending?))
-    :db (if (seq db)
+   {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
@@ -335,10 +297,12 @@
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
             (some? dev-mode) (assoc :dev-mode? dev-mode)
             ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id. Reading the stamp here (not at render) keeps it
-            ;; to one showing per browser rather than one per page view.
-            (and (whats-new/unseen? whats-new-seen)
-                 (not (cookie-banner-pending?)))
+            ;; first sees a new id — at launch, not on a later trigger. Reading the
+            ;; stamp here (not at render) keeps it to one showing per browser rather
+            ;; than one per page view. It shares the screen with the cookie notice
+            ;; rather than queueing behind it: the panel measures the notice and
+            ;; stops above it (views/whats_new.cljs).
+            (whats-new/unseen? whats-new-seen)
             (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
@@ -830,12 +794,11 @@
    clear.
 
    `assoc-in` cannot tell replacing yourself from replacing somebody else, so this
-   asks before the write:
+   asks before the write. Both kinds are about MINTING a key something else holds:
+   an item that already owns the key gets nil, whatever else is in the library.
 
      :overwrite  the key already holds a DIFFERENT item in this same source, so
-                 saving would silently discard it. `:key` on the item being saved
-                 is what distinguishes an edit returning to its own slot from a
-                 rename landing on an occupied one.
+                 saving would silently discard it.
      :cross      the key exists in ANOTHER source. Not data loss, but not benign:
                  the combines that dedupe by key pick their winner by the hash
                  order of source names, and the ones that don't show both copies.
@@ -844,17 +807,21 @@
   [plugins option-pack plugin-key key item]
   (let [occupant (get-in plugins [option-pack plugin-key key])
         self?    (= key (:key item))]
-    (cond
-      (and occupant (not self?))
-      {:kind :overwrite :source option-pack :name (:name occupant)}
-
-      :else
-      (when-let [[src occ] (first (for [[src plugin] plugins
-                                        :when (and (not= src option-pack) (map? plugin))
-                                        :let [occ (get-in plugin [plugin-key key])]
-                                        :when occ]
-                                    [src occ]))]
-        {:kind :cross :source src :name (:name occ)}))))
+    ;; An item that already answers to this key is returning to its own slot, and neither kind
+    ;; applies to it -- INCLUDING :cross. A library can already hold the same key in two sources
+    ;; (an import where someone chose "keep both"), and that duplicate is not created by this save.
+    ;; Refusing it fixed nothing and trapped the item: under mint-once the author cannot rename
+    ;; their way out either, because renaming no longer moves the key. The library health card is
+    ;; where a standing duplicate is reported; the save is not.
+    (when-not self?
+      (if occupant
+        {:kind :overwrite :source option-pack :name (:name occupant)}
+        (when-let [[src occ] (first (for [[src plugin] plugins
+                                          :when (and (not= src option-pack) (map? plugin))
+                                          :let [occ (get-in plugin [plugin-key key])]
+                                          :when occ]
+                                      [src occ]))]
+          {:kind :cross :source src :name (:name occ)})))))
 
 (defn save-into-plugins
   "Write `item` at `key`, and remove whatever sat under `renamed-from`.
@@ -897,11 +864,14 @@
      event-key
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
-             ;; MINTED ONCE. The key is an address, not a label: derived from the name at
-             ;; creation, then fixed. Renaming is a name edit, and every character holding the key
-             ;; still resolves. Changing a key is a separate, deliberate act -- import conflict
-             ;; resolution, the manual relink -- and those record :former-keys.
-             key (or (:key item) (common/name-to-kw name))
+             ;; MINTED ONCE (D10a), TAGGED WITH ITS SOURCE (D10b). The key is an address, not a
+             ;; label: derived from the name at creation, carrying the source's abbreviation, then
+             ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
+             ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
+             ;; is a separate, deliberate act that records :former-keys.
+             key (or (:key item)
+                     (common/source-tagged-key name option-pack
+                                               (get-in db [:plugins option-pack :abbreviation])))
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
@@ -909,25 +879,18 @@
              normalized-item (orcbrew-val/normalize-text-in-data item)
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
-             explanation (spec/explain-data spec-key item-with-key)]
-         (if-let [{:keys [kind source] twin-name :name}
-                  (and (nil? explanation)
-                       (save-collision plugins option-pack plugin-key key item))]
-           ;; Both kinds stop the save. They differ in what is at stake, so they
-           ;; differ in what they say, but neither should happen quietly.
-           ;;
-           ;; The cross-source case is the common one -- 27 of the conflicts in one
-           ;; shipped pak are a key held by more than one source -- and it is not
-           ;; harmless. Two sources claiming a key is a mutual-exclusion pair: only
-           ;; one can be on, the library health card reports it until somebody
-           ;; resolves it, and which one wins is not obvious from the builder.
-           ;; Creating that state as a side effect of pressing Save, and mentioning
-           ;; it afterwards, is how a library accumulates dozens of them.
-           ;;
-           ;; Wanting both copies IS legitimate -- a published class and its
-           ;; playtest version -- but that arrives through IMPORT, where the
-           ;; conflict modal asks and "keep both" is a choice someone made. It does
-           ;; not arrive by authoring a class here that happens to collide.
+             explanation (spec/explain-data spec-key item-with-key)
+             {:keys [kind source] twin-name :name}
+             (when (nil? explanation)
+               (save-collision plugins option-pack plugin-key key item))]
+         (cond
+           ;; A key is an ADDRESS, and it is global. Two items answering to one key is the same
+           ;; problem wherever the second one lives: the combines that dedupe pick a winner by the
+           ;; hash-iteration order of source names, and the ones that don't show both. Neither is
+           ;; something to create by pressing Save. (Wanting both copies is legitimate -- a
+           ;; published class and its playtest -- and it arrives through IMPORT, where the conflict
+           ;; modal asks and "keep both" is a choice someone made.)
+           (some? kind)
            {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
                          [:show-error-message
                           (if (= :overwrite kind)
@@ -935,41 +898,40 @@
                                  "\"" name "\". Saving would replace it. Give this one a "
                                  "different name, or edit the existing entry instead.")
                             (str "\"" source "\" already has a " (s/lower-case type-name)
-                                 " named \"" twin-name "\". Two sources with the same name can't "
-                                 "both be switched on — give this one a different name, or turn "
-                                 "one off in My Content."))
+                                 " under this key (\"" twin-name "\"). Two items answering to one "
+                                 "key collide wherever they live — give this one a different name, "
+                                 "or edit the existing entry."))
                           builder-error-ttl]]}
-           (if (nil? explanation)
-             (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                  item-with-key nil)]
-               ;; Stamp the key back onto the item still open in the builder: `save-collision`
-               ;; reads it to tell an edit returning to its own slot from a name landing on
-               ;; somebody else's, and a restored draft must carry it too.
-               {:db (assoc db item-key item-with-key)
-                ::persist-builder-wip [item-key item-with-key]
-                :dispatch-n [[::e5/set-plugins new-plugins]
-                             [:set-builder-field-errors {}]
-                             [:show-warning-message
-                              ;; Headline carries the point — it is saved, and only
-                              ;; here. The caveat and the way out sit under it. It
-                              ;; used to be one 200-character sentence that opened
-                              ;; with IMPORTANT! and buried the export link at the
-                              ;; end, which is a thing people scroll past.
-                              {:title (str type-name " saved — in this browser only")
-                               :details [[:span
-                                          "Clearing browser data loses it. "
-                                          [:span.pointer.underline
-                                           ;; stop the click: the banner closes on
-                                           ;; any click that reaches it, so exporting
-                                           ;; used to pull the card out from under
-                                           ;; the reader mid-action.
-                                           {:on-click (fn [e]
-                                                        (.stopPropagation e)
-                                                        (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
-                                           "Export this source"]
-                                          " to keep a copy."]]}
-                              60000]]})
-  (builder-field-error-fx type-name explanation item error-message anyway-event-key))))))
+
+           (some? explanation)
+           (builder-field-error-fx type-name explanation item error-message anyway-event-key)
+
+           :else
+           (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
+                                                item-with-key nil)]
+             ;; Stamp the key back onto the item still open in the builder: `save-collision` reads
+             ;; it to tell an edit returning to its own slot from a name landing on somebody
+             ;; else's, and a restored draft must carry it too.
+             {:db (assoc db item-key item-with-key)
+              ::persist-builder-wip [item-key item-with-key]
+              :dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            ;; Headline carries the point -- it is saved, and only here. The
+                            ;; caveat and the way out sit under it.
+                            {:title (str type-name " saved — in this browser only")
+                             :details [[:span
+                                        "Clearing browser data loses it. "
+                                        [:span.pointer.underline
+                                         ;; stop the click: the banner closes on any click that
+                                         ;; reaches it, so exporting used to pull the card out from
+                                         ;; under the reader mid-action.
+                                         {:on-click (fn [e]
+                                                      (.stopPropagation e)
+                                                      (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                         "Export this source"]
+                                        " to keep a copy."]]}
+                            60000]]})))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
     ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
@@ -986,7 +948,16 @@
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-             item-with-key (assoc sanitized :option-pack src)
+             ;; minted once, like the ordinary save: sanitizing a name must not re-address an
+             ;; item that already has a key
+             item-with-key (cond-> (assoc sanitized
+                                          :option-pack src
+                                          ;; the placeholder source tags too -- "dflt" exists for
+                                          ;; exactly this landing spot
+                                          :key (common/source-tagged-key
+                                                (:name sanitized) src
+                                                (get-in db [:plugins src :abbreviation])))
+                             (:key item) (assoc :key (:key item)))
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -1047,7 +1018,9 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (or (:key item) (common/name-to-kw name))      ; minted once
+         key (or (:key item)                                               ; minted once, tagged
+                 (common/source-tagged-key name option-pack
+                                           (get-in db [:plugins option-pack :abbreviation])))
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1116,7 +1089,8 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (common/name-to-kw (:name filled-item))
+         key (or (:key item) (common/source-tagged-key (:name filled-item) src
+                                                       (get-in db [:plugins src :abbreviation])))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
      {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -2158,7 +2132,7 @@
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (:token (:user-data db))
+   (if (event-utils/get-auth-token db)
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
@@ -2611,15 +2585,17 @@
    (fn [db [_ response]]
      (assoc-in db [:dnd :e5 :characters] (:body response))))
 
-(defn get-auth-token [db]
-  (-> db :user-data :token))
+;; get-auth-token lives in orcpub.dnd.e5.event-utils alongside auth-headers
+;; and the handle-api-response HOF. See event_utils.cljc for the canonical
+;; docstring describing its dual use (retrieval + predicate) and why it's
+;; the single source of truth for the auth token path.
 
 #_ ;; never dispatched — character loading uses :load-user-data flow
   (reg-event-fx
    :load-characters
    (fn [{:keys [db]} [_ params]]
      {:http {:method :get
-             :auth-token (get-auth-token db)
+             :auth-token (event-utils/get-auth-token db)
              :url (backend-url (routes/path-for routes/dnd-e5-char-list-route))
              :on-success [:load-characters-success]}}))
 
@@ -2782,7 +2758,7 @@
                 (fn [chars]
                   (remove #(-> % :db/id (= id)) chars)))
     :http {:method :delete
-           :auth-token (get-auth-token db)
+           :auth-token (event-utils/get-auth-token db)
            :url (backend-url (routes/path-for routes/dnd-e5-char-route :id id))
            :on-success [:delete-character-success]}}))
 
@@ -2917,11 +2893,12 @@
 
 #_ ;; orphaned re-export alias — callers use compute/compute-plugin-vals directly
   (def compute-plugin-vals compute/compute-plugin-vals)
-(def compute-sorted-spells compute/compute-sorted-spells)
-(def compute-sorted-items compute/compute-sorted-items)
+;; Only filter-by-name-xform is still used locally (in search-results below).
+;; compute-sorted-{spells,items} and filter-{spells,items} aliases were
+;; dropped when ::char5e/filter-spells and ::char5e/filter-items became
+;; reactive subs (P1 / #669) — the handlers no longer compute anything
+;; here, they just store the filter text for the reactive sub to pick up.
 (def filter-by-name-xform compute/filter-by-name-xform)
-(def filter-spells compute/filter-spells)
-(def filter-items compute/filter-items)
 
 (defn search-results [text]
   (let [search-text (s/lower-case text)
@@ -3008,28 +2985,23 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/monster-text-filter filter-text)))
 
-;; Filter spell list by name. Computes sorted spells from db directly
-;; (avoids subscribe outside reactive context).
+;; Filter spell list by name. Only stores the filter text — the
+;; ::char5e/filtered-spells sub reactively recomputes from sorted-spells
+;; + this text. Previously this handler snapshotted the filtered result
+;; into db, which froze the list against future changes to the underlying
+;; spells (see #669 regression for items).
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
-   (let [sorted (compute-sorted-spells db)]
-     (assoc db
-            ::char5e/spell-text-filter filter-text
-            ::char5e/filtered-spells (if (>= (count filter-text) 3)
-                                       (filter-spells filter-text sorted)
-                                       sorted)))))
+   (assoc db ::char5e/spell-text-filter filter-text)))
 
-;; Filter magic item list by name. Computes sorted items from db directly.
+;; Filter magic item list by name. Same reactive pattern as filter-spells.
+;; Do NOT write ::char5e/filtered-items into db — the sub composes
+;; sorted-items + item-text-filter reactively.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
-   (let [sorted (compute-sorted-items db)]
-     (assoc db
-            ::char5e/item-text-filter filter-text
-            ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                      (filter-items filter-text sorted)
-                                      sorted)))))
+   (assoc db ::char5e/item-text-filter filter-text)))
 
 (reg-event-db
  ::char5e/toggle-selected
@@ -3321,10 +3293,16 @@
                  (toggle-set value)
                  set-any-attunement))))
 
-(reg-event-db
- ::mi/add-remote-item
- (fn [db [_ item]]
-   (assoc-in db [::mi/remote-items (:db/id item)] item)))
+;; ORPHANED: see equipment_subs.cljs — ::mi5e/remote-item block-comment.
+;; This event is the handler for ::mi5e/remote-item's success response:
+;; stores a single fetched item into db[::mi/remote-items][id]. It's
+;; commented out as part of the orphaned cross-user item fetch chain
+;; (roadmap: item sharing, not yet prioritized). Do NOT remove in
+;; isolation — restore it together with the rest of the chain.
+#_(reg-event-db
+    ::mi/add-remote-item
+    (fn [db [_ item]]
+      (assoc-in db [::mi/remote-items (:db/id item)] item)))
 
 (reg-event-db
  ::mi/set-item-name
@@ -3335,14 +3313,21 @@
 (reg-event-db
  ::spells/set-spell-prop
  spell-interceptors
+ ;; prop-key may be a single key or a PATH vector, matching the generated set-<base>-prop events.
+ ;; A declarative field always sends a path, so a plain assoc here stored the KEY VECTOR itself —
+ ;; [:school] "abjuration" sitting next to :school — and the form looked like it worked. Caught by
+ ;; the characterization pin, which reads back what was saved rather than what was typed.
  (fn [spell [_ prop-key prop-value]]
-   (assoc spell prop-key prop-value)))
+   (assoc-in spell (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 (reg-event-db
  ::spells/toggle-spell-prop
  spell-interceptors
+ ;; was (update spell prop-key not) — the bare-not toggle the boolean convergence note warns
+ ;; about: no path support, garbage reads as ON, and a path landing on a map collapses it. Routed
+ ;; through the one hardened primitive, which ::spells/toggle-component already used.
  (fn [spell [_ prop-key]]
-   (update spell prop-key not)))
+   (common/toggle-in spell (if (sequential? prop-key) prop-key [prop-key]))))
 
 (reg-event-db
  ::monsters/set-monster-prop
@@ -3791,7 +3776,10 @@
  ::feats5e/set-feat-prop
  feat-interceptors
  (fn [feat [_ prop-key prop-value]]
-   (assoc feat prop-key prop-value)))
+   ;; prop-key may be a single key or a PATH vector — the same contract the generated
+   ;; set-<base>-prop handlers have, so a schema node (grant-rows writes [:grants i :count])
+   ;; can drive this builder too. Plain (assoc feat [:grants] …) stored the vector AS the key.
+   (assoc-in feat (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 #_ ;; never dispatched from UI
   (reg-event-db
@@ -4498,6 +4486,66 @@
 (doseq [[save-event [item-key content-type]] builder-drafts]
   (reg-export-draft (draft-event-for save-event) item-key content-type))
 
+(reg-event-fx
+ ::e5/set-source-abbreviation
+ ;; The tag a source mints its keys with, when the derivation's guess is not what the author would
+ ;; write. Stored on the source beside :disabled?, normalized on the way in so an explicit tag and a
+ ;; derived one travel the same path. Blank clears it and the derivation takes over again.
+ ;;
+ ;; GOTCHA: keys already minted do NOT move (D9). This decides what the NEXT one gets.
+ (fn [{:keys [db]} [_ source abbr]]
+   (let [normalized (common/normalize-abbreviation abbr)
+         plugins    (cond-> (:plugins db)
+                      normalized       (assoc-in [source :abbreviation] normalized)
+                      (nil? normalized) (update source dissoc :abbreviation))]
+     {:dispatch [::e5/set-plugins plugins]})))
+
+(reg-event-fx
+ ::e5/change-builder-item-key
+ ;; The ONE way an author changes a key. Keys are minted once and then fixed (D10a), so the name
+ ;; field no longer re-addresses anything -- which leaves this, for a key that was minted from a
+ ;; typo or that someone wants to read differently.
+ ;;
+ ;; It is the same move import conflict resolution makes: rename-key-in-plugin carries the item,
+ ;; rewrites the references other content holds to it, and records :former-keys, so characters
+ ;; rebind on load. The item open in the builder follows, since it is the same item.
+ (fn [{:keys [db]} [_ save-event new-key]]
+   (let [[item-key plugin-key] (get builder-drafts save-event)
+         {:keys [option-pack] :as item} (get db item-key)
+         old-key (:key item)
+         plugins (:plugins db)]
+     (cond
+       (or (nil? old-key) (nil? (get-in plugins [option-pack plugin-key old-key])))
+       {:dispatch [:show-error-message
+                   "Save this first — a key is only assigned once the item is in your library."
+                   builder-error-ttl]}
+
+       (or (nil? new-key) (= new-key old-key))
+       {:dispatch [:set-builder-field-errors {}]}
+
+       ;; Free ANYWHERE, not just here: a key is a global address (key-collision-behavior.md).
+       (save-collision plugins option-pack plugin-key new-key {})
+       (let [{:keys [source] twin-name :name} (save-collision plugins option-pack plugin-key new-key {})]
+         {:dispatch [:show-error-message
+                     (str "\"" twin-name "\" in \"" source "\" already answers to "
+                          new-key ". A key can only belong to one item.")
+                     builder-error-ttl]})
+
+       :else
+       (let [renamed (orcbrew-val/rename-key-in-plugin (get plugins option-pack)
+                                                       plugin-key old-key new-key)
+             new-plugins (assoc plugins option-pack renamed)
+             moved (get-in renamed [plugin-key new-key])]
+         {:db (assoc db item-key moved)
+          ::persist-builder-wip [item-key moved]
+          :dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
+                       [:show-warning-message
+                        {:title (str "Key changed to " new-key)
+                         :details [(str "Characters that stored " old-key
+                                        " are rebound when they next load.")]}
+                        10000]]})))))
+
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
     (js/console.warn
@@ -4937,15 +4985,6 @@
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
-
-(reg-event-db
- ::e5/release-whats-new
- ;; The end of a hold, not a request to open: if the reader has meanwhile opened
- ;; and closed the panel from the footer, the release is stamped and there is
- ;; nothing left to show.
- (fn [db _]
-   (cond-> db
-     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
@@ -6087,7 +6126,7 @@
    Every event keyword is passed explicitly (not derived) so it stays greppable."
   [{:keys [type-name save-error
            save-event delete-event edit-event new-event
-           set-event set-prop-event reset-event
+           set-event set-prop-event remove-prop-event toggle-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
   ;; persistence + builder lifecycle — the existing, trusted factories.
   ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
@@ -6104,6 +6143,14 @@
                   ;; declarative builder field can target nested data (e.g. [:breath-weapon
                   ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
                   (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
+  (when remove-prop-event
+    (reg-event-db remove-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/dissoc-in item (if (sequential? prop-key) prop-key [prop-key])))))
+  (when toggle-prop-event
+    (reg-event-db toggle-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/toggle-in item (if (sequential? prop-key) prop-key [prop-key])))))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
 ;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
@@ -6120,7 +6167,13 @@
         ev   #(keyword ns (str % base))]
     {:save-event (ev "save-")   :delete-event (ev "delete-") :edit-event (ev "edit-")
      :new-event  (ev "new-")    :set-event    (ev "set-")    :reset-event (ev "reset-")
-     :set-prop-event (keyword ns (str "set-" base "-prop"))}))
+     :set-prop-event (keyword ns (str "set-" base "-prop"))
+     ;; assoc-in's counterpart. A :rows form needs to REMOVE a row, and assoc-in nil is not the
+     ;; same thing — it leaves the key present holding nil, which the :props compiler then reads.
+     :remove-prop-event (keyword ns (str "remove-" base "-prop"))
+     ;; a :boolean field flips through common/toggle-in — never assoc-in with (not v), which
+     ;; collapses a map if the path lands on one (builder_fields.cljc's boolean note)
+     :toggle-prop-event (keyword ns (str "toggle-" base "-prop"))}))
 
 ;; The localStorage draft interceptor, built generically from the registry's
 ;; :local-storage-key + :builder-item — no per-type ->local-store fn needed.

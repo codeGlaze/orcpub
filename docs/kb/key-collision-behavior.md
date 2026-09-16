@@ -39,6 +39,115 @@ this: a `{::t/key :fighter}` plugin option placed before a built-in `:fighter` y
 containing the **plugin** one; distinct keys both survive; a plain `concat` (the pool/list shape) keeps
 **both** same-key entries.
 
+## Open: tagging every minted key with its source
+
+A key carrying its source's abbreviation at MINT time — `:stone-elf-tc` rather than `:stone-elf` —
+instead of only when a collision forces it, with deleting the tag being how an author says they mean
+to override an SRD item. Decided, not built; the default source tags as `dflt`.
+**`source-tagged-keys.md`.**
+
+## The builder's own save gate (2026-09-12)
+
+`save-collision` (`events.cljs`) runs before every homebrew save and blocks two cases: `:overwrite`
+(the key in THIS source already holds a different item) and `:cross` (another source holds it). It
+tells "an edit returning to its own slot" from "a name landing on somebody else's" by comparing the
+key it is about to write with `:key` on the item open in the builder.
+
+**Therefore the builder item must carry its key after a save.** It did not: saving stamped `:key`
+into the copy written to `:plugins` and left the builder's copy bare, so pressing Save twice on one
+item reported *"already uses the name … Saving would replace it"* against itself. Fixed by returning
+the stamped item in `:db` and persisting it to the builder's WIP slot (`::persist-builder-wip`, keyed
+off `db/builder-wip-stores` so the refresh-restored copy carries it too). Pinned by
+`test/e2e/spell-builder.js` (save → add a field → save again) and `test/e2e/feat-grants.js`
+(save → remove a grant row → save again).
+
+## The builder's save: a key is minted once (2026-09-13)
+
+`key (or (:key item) (name-to-kw name))`. The key is derived from the name when the item is
+created and then fixed; editing the Name field changes the name and nothing else. This is D10 —
+`name-to-kw` is a creation-time default, and re-running it on a display name is the footgun that
+orphaned saved characters before.
+
+What that removes, rather than what it adds:
+
+- a rename cannot orphan the old entry (there is no old entry — nothing moved);
+- a rename cannot collide, so it cannot be refused;
+- a character holding the key keeps resolving, with nothing to heal.
+
+**The key and the name can therefore diverge** — "Tidewall" living at `:tideward`. That is the
+point: the key is an address, the name is display text. Exports show it.
+
+Changing a key is a separate, deliberate act, and there are three ways in — all through
+`rename-key-in-plugin`, all recording `:former-keys`:
+
+| | |
+|---|---|
+| the builder's **key row** | `::e5/change-builder-item-key`, wired for every builder from `builder-drafts` |
+| import conflict resolution | the modal's rename |
+| the manual relink | `::char5e/relink-content` |
+
+The builder's row sits **after the form**, under a hairline, and appears only once the item has a
+key (an unsaved one has none yet). A key is an address the app mints, not a field an author fills
+in, so it reads as a footnote to the form rather than part of it. It refuses a key any other item
+already answers to, and it changes the key alone — the NAME is left as it is, because a key change
+is not a rename.
+
+It was a collapsed "Advanced" disclosure first, and that was worse: a thing visibly trying not to
+be seen is a thing you look at. `.bf-meta` uses the hairline and muted label colour the builder CSS
+already defines (`rgba(255,255,255,0.14)` / `rgba(255,255,255,0.55)`) and `var(--accent, …)` for the
+link, rather than a bespoke grey — which is what made an earlier attempt read as unstyled.
+
+### What the save refuses
+
+**Only a MINT.** An item that already answers to the key it is saving to is returning to its own
+slot, and the check does not run for it at all — whatever else the library holds. That matters for
+a library that already has the same key in two sources (an import where someone chose "keep both"):
+the duplicate is real and the health card reports it, but this save did not create it, and refusing
+the save fixed nothing while trapping the item. Under mint-once the author could not even rename
+their way out, because renaming no longer moves the key. Pinned by
+`editing-your-own-item-works-even-when-another-source-answers-to-its-key`.
+
+
+**Minting a key something else already holds — in any source.** A key is an address and the address
+space is global: the combines that dedupe by key pick their winner by the hash-iteration order of
+source names (see the CORRECTION below), and the ones that don't show both copies. Neither is a
+state to create by pressing Save. Changing the name is a real fix, because the key has not been
+minted yet.
+
+Wanting both copies is legitimate — a published class and its playtest version — and it arrives
+through **import**, where the conflict modal asks and "keep both" is something someone chose.
+
+An item that already owns the key it is saving to is returning to its own slot, and is never
+refused however crowded the rest of the library is.
+
+#### Correction (2026-09-13)
+
+This was briefly changed so a key held by another source was reported rather than refused, on the
+strength of `save-collision`'s docstring ("informs rather than blocks") over the behaviour two
+sections down this page. Reverted the same day. The docstring was the thing that was wrong, and it
+now says what the combines actually do. **A duplicate key is a duplicate key; the source it sits in
+does not change that.**
+
+## The rename history — `:former-keys` (2026-09-12)
+
+A key move is recorded on the item that moved, and `former-key-index` turns every record into
+`{former → current}` so a character's stored key is rewritten on load (once; it persists on the
+next save). Both writers use it: the builder's save and `rename-key-in-plugin` (import conflict
+resolution and the manual relink).
+
+It was **one slot** (`:former-key`), so a chain kept only its last link: A→B→C healed B and
+stranded anyone still on A. It is now a vector, oldest first, capped at
+`content-reconciliation/former-key-cap` (4):
+
+- **the first entry is never dropped** — it is the key the item was minted under, and a character
+  nobody has opened since then still points at it;
+- **overflow comes out of the middle**, the links least likely to be anyone's stored key;
+- **`:former-key` is still read** (`former-keys`) — every item already in a library has one — and
+  is folded into the vector the next time that item is renamed.
+
+The index's two exclusions are unchanged and do the rest: a former key claimed by more than one
+item is dropped, and so is one that is some item's live key.
+
 ## Notes / boundaries
 - **The import conflict-handling is recent, and its EDGE CASES are explicitly OUT OF SCOPE for this
   branch.** Significant time has already been spent circling them (partial-conflict resolution, how
@@ -58,12 +167,18 @@ containing the **plugin** one; distinct keys both survive; a plain `concat` (the
   source-name strings** — deterministic for a fixed set of source names, but arbitrary and NOT
   "last-imported" or user-controllable. "Plugin overrides built-in" is predictable; "which plugin wins
   a plugin-vs-plugin key" is effectively a coin flip. Do not build reliable override behavior on it.
-- **Spell → spell-list is a genuine misbehavior, not clean coexistence.** A spell's class-list
-  membership lives on the spell (`:spell-lists {class-key true}`), and `plugin-spell-lists` reduces
-  over the **non-deduped** spell seq. So a duplicate-key spell (a) gets `conj`-ed once per copy →
-  **duplicate membership entries**, and (b) has its membership **unioned across all copies** — meaning
-  you **cannot narrow** a spell's class access by overriding it, and the spell *data* (single winner)
-  and its *list membership* (union) disagree. No exception; just wrong.
+- **Spell data and spell-list membership resolve differently for the same key.** A spell's class
+  membership lives on the spell (`:spell-lists {class-key true}`). `::spells5e/plugin-spell-lists`
+  (`spell_subs.cljs:1495`) reduces over `plugin-spells`, which is **not deduped by key**, while the
+  spell itself comes from a set that **is** (`:1228`). For two spells sharing a key:
+  - the key is `conj`-ed onto a class list once per copy that names that class — **duplicate
+    entries in the list**;
+  - membership is the **union** of every copy's `:spell-lists`, so an override can add a class but
+    **cannot remove one**;
+  - the spell's data is one winner, its membership is all of them.
+
+  Pinned by `two-spells-sharing-a-key-resolve-inconsistently`
+  (`homebrew_save_lifecycle_test.cljs`).
 - **Design direction (see `content-tiers-and-key-resolution.md`):** the clean fix for all of the above
   is not per-type dedup but a single invariant — **≤1 *enabled* item per key** — enforced by a
   disable-based resolution (disable one side of a collision rather than relying on implicit last-wins).

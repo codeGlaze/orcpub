@@ -653,7 +653,7 @@
 (def ^:private spec-descriptions
   "Plain-English descriptions for orcpub domain specs, keyed by the leaf spec
    name from a problem's `:via` (the most specific spec that failed)."
-  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled?). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
+  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled? / :abbreviation). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
    "option-pack" "must be a text string naming the source/pack"
    "homebrew-item" "is missing the required :option-pack field"
    "homebrew-items" "must be a map of content items"
@@ -948,6 +948,16 @@
 ;; Pre-Export Validation
 ;; ============================================================================
 
+(defn unknown-tag-warnings
+  "Export-side wrapper over bf/unknown-tag-problems, naming the item each problem is on."
+  [plugin-data]
+  (for [[content-key items] plugin-data
+        :when (and (qualified-keyword? content-key) (map? items))
+        [item-key item] items
+        :when (map? item)
+        problem (bf/unknown-tag-problems item)]
+    (str "Item " (name content-key) "/" (name item-key) " :props " problem)))
+
 (defn validate-before-export
   "Validates plugin data before export to catch bugs early.
 
@@ -968,7 +978,9 @@
                                                   (= "" (:option-pack item))))]
                                (str "Item " (name content-key) "/" (name item-key)
                                     " has missing option-pack"))
-        warnings (into (vec nil-warnings) option-pack-warnings)]
+        warnings (-> (vec nil-warnings)
+                     (into option-pack-warnings)
+                     (into (unknown-tag-warnings plugin-data)))]
 
     ;; Check for required field issues
     (if (not (:valid required-field-validation))

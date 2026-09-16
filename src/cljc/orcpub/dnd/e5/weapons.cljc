@@ -436,3 +436,37 @@
 
 (defn one-handed-weapon? [{:keys [::two-handed?]}]
   (not two-handed?))
+
+(def tag->flag
+  "Authored tag -> the weapon field it tests. Explicit, not derived: three of the fields are spelled
+  without the question mark. See docs/kb/authoring-vocabulary.md.
+
+  GOTCHA: :melee? and :ranged? are both real fields, not aliases. Prefer the positive tag — a
+  homebrew weapon declaring neither correctly fails {:ranged? true}, where {:melee? false} matches."
+  {:melee? ::melee?       :ranged? ::ranged?     :thrown? ::thrown
+   :finesse? ::finesse?   :light? ::light?       :heavy? ::heavy?
+   :two-handed? ::two-handed? :versatile? ::versatile :reach? ::reach
+   :loading? ::loading?   :ammunition? ::ammunition? :special? ::special?})
+
+(defn matches?
+  "Does `weapon` satisfy every tag in `tags`? Three-state: true = only weapons with it,
+  false = only without, absent = either way.
+
+  GOTCHA: an unrecognised tag is IGNORED, not failed — this fails OPEN, so a typo matches every
+  weapon. Forward-compat for content from newer builds; guard specs with a test."
+  [tags weapon]
+  (every? (fn [[tag want]]
+            (cond
+              ;; nil = the third state, "either way". It reaches here when a builder dropdown
+              ;; stores an explicit blank; without this it would coerce to false and silently
+              ;; invert into "must NOT have this property".
+              (nil? want) true
+              (tag->flag tag) (= (boolean want) (boolean (get weapon (tag->flag tag))))
+              :else true))
+          tags))
+
+(defn matches-any?
+  "Does `weapon` satisfy ANY of `specs`? Each spec is one way to qualify, so sources compose.
+   Empty/nil specs qualify nothing."
+  [specs weapon]
+  (boolean (some #(matches? % weapon) specs)))

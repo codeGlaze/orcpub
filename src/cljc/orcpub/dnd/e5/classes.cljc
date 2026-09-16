@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.template-base :as t-base]
+            [orcpub.dnd.e5.builder-fields :as bf]
             [clojure.string :as s]))
 
 (spec/def ::name (spec/and string? common/starts-with-letter?))
@@ -26,6 +27,19 @@
 (spec/def ::homebrew-invocation (spec/keys :req-un [::name ::key ::option-pack]))
 
 (spec/def ::homebrew-boon (spec/keys :req-un [::name ::key ::option-pack]))
+
+;; Fighting-style FIELD SCHEMA — the single source for both the builder form and
+;; the save spec. A style is name/key/option-pack (base) + an optional description;
+;; its mechanic rides the shared :props vocabulary (validated by the loose load
+;; floor, like homebrew races/feats), so the strict schema stays light.
+(def fighting-style-fields
+  ;; :text, not :string — :string is not a declared field type, so field-value-pred fell through to
+  ;; (constantly true) and the description was never validated.
+  ;; The AC fragment is shared vocabulary, not a fighting-style field: the same :props key works in
+  ;; a race, a subclass or a feat, and Defense is {:bonus 1 :armor? true}.
+  (into [{:key :description :type :text :label "Description"}]
+        (concat bf/ac-bonus-fields bf/attack-bonus-fields bf/damage-bonus-fields)))
+(spec/def ::homebrew-fighting-style (bf/fields->spec fighting-style-fields))
 
 (def base-class-keys
   "SRD built-in class keys. Source-code constants; never rename, never collide.
@@ -67,15 +81,14 @@
                                 :simple 1}}]
     :weapons {:javelin 4}
     :equipment {:explorers-pack 1}
-    :modifiers [(mod/vec-mod ?unarmored-defense :barbarian)
-                (mod/cum-sum-mod ?unarmored-ac-bonus (?ability-bonuses ::char5e/con)
-                                 nil
-                                 nil
-                                 [(= :barbarian (first ?unarmored-defense))])
-                (mod/cum-sum-mod ?unarmored-with-shield-ac-bonus (?ability-bonuses ::char5e/con)
-                                 nil
-                                 nil
-                                 [(= :barbarian (first ?unarmored-defense))])
+    ;; Unarmored Defense. One calculation instead of a tag plus two gated scalars: ?ac-fns already
+    ;; takes the best calculation, so nothing needs to arbitrate. A shield is allowed (unlike the
+    ;; Monk's), and it lands as a bonus on top of whichever calculation wins.
+    :modifiers [(mod5e/ac-formula
+                 (fn [armor _shield]
+                   (if armor
+                     0
+                     (+ 10 (?ability-bonuses ::char5e/dex) (?ability-bonuses ::char5e/con)))))
                 (mod5e/bonus-action
                  {:name "Rage"
                   :page 48
@@ -1049,7 +1062,8 @@
       :max num}))
 
 
-(defn fighter-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn fighter-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1103,7 +1117,7 @@
              20 {:modifiers [(mod5e/num-attacks 4)]}}
     :subclass-level 3
     :subclass-title "Martial Archetype"
-    :selections [(opt5e/fighting-style-selection :fighter)
+    :selections [(opt5e/fighting-style-selection :fighter nil homebrew-fighting-styles)
                  (opt5e/new-starting-equipment-selection
                   :fighter
                   {:name "Armor"
@@ -1169,7 +1183,7 @@
                                                           " to STR, DEX, or CON checks that don't already include prof bonus; running long jump increases by "
                                                           (?ability-bonuses ::char5e/str)
                                                           " ft.")})]}
-                           10 {:selections [(opt5e/fighting-style-selection :fighter)]}
+                           10 {:selections [(opt5e/fighting-style-selection :fighter nil homebrew-fighting-styles)]}
                            15 {:modifiers [(mod5e/critical 18)]}
                            18 {:modifiers [(mod5e/dependent-trait
                                             {:page 73
@@ -1259,12 +1273,13 @@
                                 (if (monk-weapon? weapon)
                                   (get ?ability-bonuses ::char5e/dex)
                                   0)))
-                 (mod/vec-mod ?unarmored-defense :monk)
-                 (mod/cum-sum-mod ?unarmored-ac-bonus
-                                  (?ability-bonuses ::char5e/wis)
-                                  nil
-                                  nil
-                                  [(= :monk (first ?unarmored-defense))])
+                 ;; Unarmored Defense. States "no armor and no shield" directly, where it used to
+                 ;; be implied by writing ?unarmored-ac-bonus and not the with-shield channel.
+                 (mod5e/ac-formula
+                  (fn [armor shield]
+                    (if (or armor shield)
+                      0
+                      (+ 10 (?ability-bonuses ::char5e/dex) (?ability-bonuses ::char5e/wis)))))
                  (mod/modifier ?martial-arts-die (mod5e/level-val
                                                   (?class-level :monk)
                                                   {5 6
@@ -1422,7 +1437,8 @@
                                :summary "create minor elemental effect"}]}]})))
 
 
-(defn paladin-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn paladin-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1453,7 +1469,7 @@
                           :options {:priests-pack 1
                                     :explorers-pack 1}}]
      :armor {:chain-mail 1}
-     :levels {2 {:selections [(opt5e/fighting-style-selection :paladin #{:defense :dueling :great-weapon-fighting :protection})]}
+     :levels {2 {:selections [(opt5e/fighting-style-selection :paladin #{:defense :dueling :great-weapon-fighting :protection} homebrew-fighting-styles)]}
               3 {:modifiers [(mod5e/immunity :disease)
                              (mod5e/trait-cfg
                               {:name "Divine Health"
@@ -1768,7 +1784,8 @@
    15 1
    17 1})
 
-(defn ranger-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn ranger-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1831,7 +1848,7 @@
                                                :max 2})]})]})
                   (favored-enemy-selection language-map 1)
                   (favored-terrain-selection 1)]
-     :levels {2 {:selections [(opt5e/fighting-style-selection :ranger #{:archery :defense :dueling :two-weapon-fighting})]}
+     :levels {2 {:selections [(opt5e/fighting-style-selection :ranger #{:archery :defense :dueling :two-weapon-fighting} homebrew-fighting-styles)]}
               3 {:modifiers [(mod5e/action
                               {:name "Primeval Awareness"
                                :level 3
@@ -2267,7 +2284,13 @@
                   :modifiers [(mod/map-mod ?class-hit-point-level-bonus
                                            :sorcerer
                                            1)
-                              (mod/modifier ?natural-ac-bonus 3)
+                              ;; Draconic Resilience: "while you aren't wearing armor, your AC
+                              ;; equals 13 + your Dexterity modifier". Unlike the lizardfolk-style
+                              ;; natural armor it has no clause letting it substitute for worse
+                              ;; worn armor, so it self-excludes when armor is worn.
+                              (mod5e/ac-formula
+                               (fn [armor _shield]
+                                 (if armor 0 (+ 13 (?ability-bonuses ::char5e/dex)))))
                               (mod5e/language :draconic)]
                   :selections [(t/selection-cfg
                                 {:name "Draconic Ancestry Type"

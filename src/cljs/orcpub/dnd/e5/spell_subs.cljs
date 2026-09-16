@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.content-pools :as pools]
+            [orcpub.dnd.e5.grant-pools :as grant-pools]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -780,39 +781,9 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
+;; The built-in language list moved to languages.cljc so a cljc pool registry can read it.
+;; This var is kept as an alias: existing readers here are unchanged.
+(def languages langs5e/languages)
 
 (reg-sub
  ::langs5e/languages
@@ -1054,6 +1025,36 @@
  (fn [plugin-vals _]
    (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
 
+;; The open fighting-style pool a feat's :grants {:pool :fighting-styles} draws from:
+;; the built-in styles ++ any homebrew styles an orcbrew pack adds under
+;; ::e5/fighting-styles. Unlike the draconic pool, the built-ins are ALREADY option
+;; cfgs (opt5e/fighting-style-options) while homebrew arrive as raw data, so the
+;; constructor is mapped over the homebrew entries only, then concatenated built-in
+;; first. Reads through ::e5/plugin-vals like every plugin pool.
+(reg-sub
+ ::classes5e/homebrew-fighting-styles
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))
+
+;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
+;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
+;; THE grantable-pool registry, resolved. One sub for every pool: registering a pool is an entry in
+;; grant_pools.cljc and nothing here, which is the acceptance gate the direction doc sets. Derives
+;; from ::e5/plugin-vals — the single resolved-content seam every pool must read through.
+(reg-sub
+ ::e5/grantable-pools
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (grant-pools/assemble plugin-vals)))
+
+(reg-sub
+ ::classes5e/fighting-style-pool
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [homebrew _]
+   (concat opt5e/fighting-style-options
+           (map opt5e/fighting-style-option homebrew))))
+
 
 (def gnome-option-cfg
   {:name "Gnome"
@@ -1195,15 +1196,19 @@
         tiefling-option-cfg]))))))
 
 
-(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                          & [homebrew-fighting-styles]]
   [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
+   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
@@ -1219,10 +1224,13 @@
  :<- [::classes5e/invocations]
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
- (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map
+       homebrew-fighting-styles] _]
    ;; Defensive handling: ensure base classes always render even if plugin classes fail
    (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
+                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                                            homebrew-fighting-styles)
                         (catch js/Error e
                           (js/console.error "Failed to build base classes:" e)
                           []))

@@ -19,6 +19,7 @@
             [orcpub.dnd.e5.selections :as selections]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.grant-pools :as gp]
             [orcpub.dnd.e5.classes :as classes]
             [orcpub.dnd.e5.feats :as feats]
             [orcpub.dnd.e5.units :as units]
@@ -602,6 +603,8 @@
              :route routes/dnd-e5-boon-builder-page-route}
             {:name "Draconic Ancestry Builder"
              :route routes/dnd-e5-draconic-ancestry-builder-page-route}
+            {:name "Fighting Style Builder"
+             :route routes/dnd-e5-fighting-style-builder-page-route}
             {:name "Selection Builder"
              :route routes/dnd-e5-selection-builder-page-route}]]]]]]))
 
@@ -2221,7 +2224,7 @@
                       (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
               spell-slots))])]))))
 
-(defn dropdown [{:keys [items value on-change typed?]}]
+(defn dropdown [{:keys [items value on-change typed? class-name]}]
   ;; Dedup items by :value as a safety net — duplicate option values from
   ;; homebrew plugins can slip through if imported before dedup was added.
   (let [unique-items (->> items
@@ -2239,7 +2242,8 @@
     (if typed?
       (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
         [:select.builder-option.builder-option-dropdown.m-t-0
-         {:value (if idx (str idx) "")
+         {:class class-name
+          :value (if idx (str idx) "")
           :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
          (doall
           (map-indexed
@@ -2251,7 +2255,8 @@
               title])
            unique-items))])
       [:select.builder-option.builder-option-dropdown.m-t-0
-       {:value (or value "")
+       {:class class-name
+        :value (or value "")
         :on-change #(on-change (event-value %))}
        (doall
         (map-indexed
@@ -3612,7 +3617,8 @@
           main-hand-weapon-kw @(subscribe [::char/main-hand-weapon id])
           main-hand-weapon (all-weapons-map main-hand-weapon-kw)
           off-hand-weapon-kw @(subscribe [::char/off-hand-weapon id])
-          dual-wield-weapon? @(subscribe [::char/dual-wield-weapon-fn id])]
+          dw-specs @(subscribe [::char/dual-wield-weapon-specs id])
+          dual-wield-weapon? #(weapon/matches-any? dw-specs %)]
       [:div.flex.flex-wrap
        [equipped-section-dropdown
         "Main Hand Weapon"
@@ -4703,7 +4709,10 @@
    (fn [v]
      (on-change
       (when (re-matches #"\d+" v) (js/parseInt v))))
-   {:class "input"
+   ;; h-40 to match every other builder control. Without it a :number field renders 38px tall
+   ;; against a text input's 40px, which reads as a misaligned row wherever the two sit side by side
+   ;; — measured on the spell form, Page's box sat 2px short of Level and School.
+   {:class "input h-40"
     :type :number
     :maxLength (:number branding/field-limits)}])
 
@@ -5151,9 +5160,6 @@
 
 (defn encounter-input-field [title prop encounter & [class-names type]]
   (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
-
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
 
 (defn selection-input-field [title prop selection & [class-names]]
   (builder-input-field title prop selection ::selections/set-selection-prop class-names))
@@ -6061,6 +6067,9 @@
       ]
        )))
 
+(declare vector-rows-node)   ; defined with the other builder nodes, after render-builder-field
+(declare meta-edit-row)      ; defined with builder-page, which is its other caller
+
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
@@ -6096,7 +6105,11 @@
      [:div [feat-misc-modifiers feat]]
      [:div [feat-spellcasting feat]]
      [:div [option-skill-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
-     [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]]))
+     [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
+     ;; E4 — the grant node, first consumer. Sits beside the bespoke widgets it will replace;
+     ;; those are struck only after the shim registry normalizes their keys out of reach
+     ;; (builder-disposition-audit.md, "The 35 deletions").
+     [vector-rows-node feat ::feats/set-feat-prop (first (bf/grant-rows :feat))]]))
 
 ;; dead — zero callers
 #_(defn selection-selector [index selection-cfg value-change-event]
@@ -7281,15 +7294,21 @@
 (defn optional-builder-section
   "Opt-in builder section: a toggle that reveals `body`. Keeps non-standard fields out of the default
    form (less clutter); starts OPEN when `has-content?` so editing existing data isn't hidden. The data
-   only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export."
-  [_label has-content? _body]
+   only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export.
+
+   `{:compact? true}` renders the trigger a size down from a section heading and drops the
+   \"click to add\" nudge — for a section that is rarely wanted and never needs advertising. Quieter,
+   not dimmer: 12px at half opacity was unreadable."
+  [_label has-content? _body & [_opts]]
   (let [open? (r/atom (boolean has-content?))]
-    (fn [label _has-content? body]
-      [:div.m-b-20
+    (fn [label _has-content? body & [{:keys [compact?]}]]
+      [:div {:class (if compact? "m-b-10" "m-b-20")}
        [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
-        [:i.fa.m-r-5 {:class (if @open? "fa-caret-down" "fa-caret-up")}]
-        [:span.f-s-18.f-w-b label]
-        (when-not @open? [:span.m-l-10.f-s-12.i.orange "click to add"])]
+        [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
+                                  (when compact? " f-s-12"))}]
+        [:span {:class (if compact? "f-s-14" "f-s-18 f-w-b")} label]
+        (when (and (not @open?) (not compact?))
+          [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
 
 (defn ability-increase-choices
@@ -7671,26 +7690,180 @@
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
          options))]]]))
 
-(defn language-builder []
-  (let [language @(subscribe [::langs/builder-item])]
-    [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [language-input-field
-       "Name"
-       :name
-       language
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       language
-       ::langs/set-language-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get language :description)
-        :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
+(def ^:private theme-chevron
+  ;; verbatim from option_menu_views.cljs on port/redesign-on-refactor (3384d4c5)
+  [:svg {:width "12" :height "12" :viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+         :stroke-width "2.5" :stroke-linecap "round" :stroke-linejoin "round"}
+   [:polyline {:points "6 9 12 15 18 9"}]])
+
+(defn select-menu
+  "Custom button+popover select — alignment-controllable, unlike a native <select> whose
+   popup is OS-positioned and can't be styled/aligned. `options` is [[value label] …];
+   `on-change` receives the chosen value. Dismisses on an outside click.
+
+   PORTED VERBATIM from `orcpub.dnd.e5.option-menu-views` on `port/redesign-on-refactor`
+   (commit 3384d4c5). Kept byte-identical so that when that branch merges this is a delete,
+   not a reconciliation — the OMV namespace becomes the one true copy. See
+   docs/kb/frontend-redesign-parallel-work.md."
+  [_opts]
+  (let [open?    (r/atom false)
+        wrap-ref (atom nil)
+        on-doc   (fn [e] (let [n @wrap-ref]
+                           (when (and n (not (.contains n (.-target e)))) (reset! open? false))))]
+    (r/create-class
+     {:component-did-mount    (fn [_] (js/document.addEventListener "mousedown" on-doc))
+      :component-will-unmount (fn [_] (js/document.removeEventListener "mousedown" on-doc))
+      :reagent-render
+      (fn [{:keys [value options on-change placeholder]}]
+        (let [cur (some (fn [[v l]] (when (= v value) l)) options)]
+          [:div.select-menu {:ref #(reset! wrap-ref %)}
+           [:button.select-menu-btn
+            {:type "button" :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+            [:span (or cur placeholder "Select…")]
+            [:span.select-menu-chev {:class (when @open? "open")} theme-chevron]]
+           (when @open?
+             [:div.select-menu-pop
+              (doall
+               (for [[v l] options]
+                 ^{:key (str v)}
+                 [:button.select-menu-opt
+                  {:type "button" :class (when (= v value) "active")
+                   :on-click (fn [] (reset! open? false) (on-change v))}
+                  l]))])]))})))
+
+(defn- verb-prop-event
+  "set-<base>-prop -> <verb>-<base>-prop. The generated events follow one naming convention
+   (events.cljs/homebrew-event-keys), so a row's ✕ can find its counterpart without every caller
+   threading a second event keyword through."
+  [verb set-prop]
+  (keyword (namespace set-prop)
+           (clojure.string/replace (name set-prop) #"^set-" (str verb "-"))))
+
+(def ^:private remove-prop-event (partial verb-prop-event "remove"))
+(def ^:private toggle-prop-event (partial verb-prop-event "toggle"))
+
+(declare render-builder-field vector-rows-node)
+
+(defn rows-node
+  "Render a `:rows` node: an add-bar of the kinds not yet present, then one titled group per
+   present kind. A kind is 'present' when the item HAS data under its `:at` path, or when the
+   author has just added it in this session — so nothing extra is stored to mark an empty row,
+   and an item authored by the older flat form renders here unchanged.
+
+   This replaces a form where every field of every effect was on screen at once and seven labels
+   appeared twice with nothing saying which bonus they belonged to."
+  [_item _set-prop _node]
+  (let [opened (r/atom #{})]
+    (fn [item set-prop {:keys [title add-label kinds]}]
+      (let [has-data? (fn [{:keys [at]}] (seq (remove nil? (vals (get-in item at)))))
+            present?  (fn [{:keys [kind] :as k}] (or (contains? @opened kind) (has-data? k)))
+            absent    (remove present? kinds)]
+        [:div.w-100-p.m-t-20
+         [:div.f-s-24.f-w-b.m-b-10 title]
+         (when (seq absent)
+           [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
+            [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
+            (doall
+             (for [{:keys [kind title]} absent]
+               ^{:key (str kind)}
+               [:button.chip.m-r-5.m-b-5
+                {:on-click #(swap! opened conj kind)}
+                (str "+ " title)]))])
+         (doall
+          (for [{:keys [kind title at hint tag-header fields] :as k} (filter present? kinds)]
+            ^{:key (str kind)}
+            ;; .b-1/.b-b-1 are deliberately NOT used here: they set the `border` shorthand with no
+            ;; colour, which resets it to currentColor (white), and they are declared later in the
+            ;; stylesheet than any border-color a class of ours could set. The row owns its border.
+            [:div.m-b-15.effect-row
+             [:div.flex.justify-cont-s-b.align-items-c.effect-row-header
+              [:span.f-w-b.uppercase title]
+              [:i.fa.fa-times.pointer.opacity-5
+               {:title (str "Remove " title)
+                ;; Clears the row's data outright. See the note on effect-rows: a confirm on every
+                ;; ✕ costs more than the mistake it prevents.
+                :on-click #(do (swap! opened disj kind)
+                               (dispatch [(remove-prop-event set-prop) at]))}]]
+             ;; Inside a row the fields are NOT a stack of full-width blocks. The lead is a
+             ;; number, so it gets a number's width with the hint beside it; the tags that gate it
+             ;; are short and wrap inline under one sub-heading. Stacking them full-width is what
+             ;; made the flat form a scroll.
+             (let [lead-key (conj (vec at) :bonus)
+                   lead     (first (filter #(= (:key %) lead-key) fields))
+                   tags     (remove #(= (:key %) lead-key) fields)
+                   shown    (filter #(or (not (:when %)) ((:when %) item)) tags)]
+               [:div.effect-row-body
+                [:div.flex.align-items-end.flex-wrap
+                 [:div.row-lead-num
+                  ;; The row header already says "AC Bonus"; repeating it on the number inside is
+                  ;; noise the comparison measurement caught. Relabelled by PATH, not position —
+                  ;; the fragments are shared with other builders' flat forms.
+                  [render-builder-field item set-prop (assoc lead :label "Bonus")]]
+                 (when hint [:div.m-l-15.m-b-15.opacity-5.f-s-12 hint])]
+                (when (seq shown)
+                  [:div
+                   [:div.when-label (or tag-header "Applies when")]
+                   [:div.flex.flex-wrap.tags
+                    (doall
+                     (for [f shown]
+                       ^{:key (str (:key f))}
+                       [:div.tag
+                        [render-builder-field item set-prop (assoc f :compact? true)]]))]])])]))]))))
+
+(defn vector-rows-node
+  "Render a `:rows :as :vector` node (grant-rows): one row per element at `:at`. Kinds come from
+   the pool registry filtered by the node's `:silo` — the add-bar IS the registry — and every
+   pool may be added more than once. Each row is a fixed grant (`:key`, the creator chose) or a
+   choice (`:count` + optional `:filter`); the toggle rewrites the row so only one shape is ever
+   stored. Reuses render-builder-field for every control and the effect-row chrome for the box."
+  [item set-prop {:keys [at title add-label silo]}]
+  (let [rows  (vec (get-in item at))
+        pools @(subscribe [::e5/grantable-pools])]
+    [:div.w-100-p.m-t-20
+     [:div.f-s-24.f-w-b.m-b-10 title]
+     [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
+      [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
+      (doall
+       (for [{:keys [pool name]} (gp/offerable-pools silo)]
+         ^{:key (str pool)}
+         [:button.chip.m-r-5.m-b-5
+          {:on-click #(dispatch [set-prop at (conj rows {:pool pool :count 1})])}
+          (str "+ " name)]))]
+     (doall
+      (map-indexed
+       (fn [i {:keys [pool] :as row}]
+         (let [path   (conj at i)
+               pname  (get-in pools [pool :name] (name pool))
+               opts   (mapv (fn [o] {:value (::template/key o) :title (::template/name o)}) (get-in pools [pool :options]))
+               fixed? (contains? row :key)]
+           ^{:key i}
+           [:div.m-b-15.effect-row
+            [:div.flex.justify-cont-s-b.align-items-c.effect-row-header
+             [:span.f-w-b.uppercase pname]
+             [:i.fa.fa-times.pointer.opacity-5
+              {:title (str "Remove " pname)
+               :on-click #(dispatch [set-prop at (vec (concat (subvec rows 0 i) (subvec rows (inc i))))])}]]
+            [:div.effect-row-body
+             [:div.flex.flex-wrap.align-items-c.m-b-10
+              [:button.chip.chip-toggle.m-r-5
+               {:class (when fixed? "chip-on")
+                :on-click #(dispatch [set-prop path {:pool pool :key nil}])}
+               "a specific one"]
+              [:button.chip.chip-toggle
+               {:class (when-not fixed? "chip-on")
+                :on-click #(dispatch [set-prop path {:pool pool :count (or (:count row) 1)}])}
+               "let the player choose"]]
+             (if fixed?
+               [render-builder-field item set-prop
+                {:key (conj path :key) :type :enum :label "Which" :compact? true
+                 :options (into [{:value nil :title "choose…"}] opts)}]
+               [:div.flex.flex-wrap.align-items-end
+                [:div.row-lead-num
+                 [render-builder-field item set-prop {:key (conj path :count) :type :number :label "How many"}]]
+                [:div.m-l-15
+                 [render-builder-field item set-prop
+                  {:key (conj path :filter) :type :multi-enum :label "From (any, if none chosen)" :options opts}]]])]]))
+       rows))]))
 
 (defn render-builder-field
   "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
@@ -7709,18 +7882,156 @@
     (let [path (if (sequential? key) key [key])
           v    (get-in item path)]
       [:div.m-b-10
-       [:div.f-w-b.m-b-5 label (when required? [:span.red " *"])]
+       ;; The field declares its own KIND on the element so the flow container can size it. Without
+       ;; this every field was a page-wide block in one column: the generated spell form ran 100px
+       ;; TALLER than the hand-written one it replaced while showing one control fewer, because the
+       ;; bespoke page paired Level+School and Casting Time+Range on single rows and ran the
+       ;; checkboxes inline. A declarative form has to carry that, or it trades cohesion for brevity.
+       ;; bf- prefixed: the app already has a global `.field {margin-top:30px}` (styles/core.clj),
+       ;; and naming these `field` inherited it — every row gained 30px it never asked for and the
+       ;; stacked toggle pair became a 106px box holding two 16px rows. Measured, not guessed.
+       {:class (str "bf-field bf-field-" (name (or type :text))
+                    (case (:span field)
+                      :full " bf-field-full"
+                      :wide " bf-field-wide"
+                      ""))}
+       ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
+       ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
+       ;; Inside a titled group the words the group already says are noise, and they are what
+       ;; makes a select page-wide: "Armor requirement" under a header reading AC BONUS is just
+       ;; "Armor". The long form stays the default because these fragments are advertised as
+       ;; droppable into any builder's flat extra-fields, where no header supplies the context.
+       ;; (Today the fighting-style builder is their only rendered consumer, and it is grouped.)
+       (when-not (= type :boolean)          ; a checkbox carries its own label
+         [:div.f-w-b.m-b-5 {:class (when (:compact? field) "tag-label")}
+          (or (when (:compact? field) (:short-label field)) label)
+          (when required? [:span.red " *"])])
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
-         :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))]
-                   [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (:title o)}) options)
-                              :value (when idx (str idx))
-                              :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
+         ;; select-menu takes REAL values and hands the real value back, so the index dance this
+         ;; used to do — {:value (str i)} and (nth options (js/parseInt %)) — is gone with the class
+         ;; of bug behind it. A <select>'s value is always a string, which is why a keyword or int
+         ;; could not round-trip and why a shipped breath weapon was broken (D32,
+         ;; dropdown-value-coercion.md). A popover has no string round-trip at all.
+         :enum   (let [opt-title (if (:compact? field)
+                                   (fn [o] (or (:short-title o) (:title o)))
+                                   :title)]
+                   ;; `set` marks a field that CAN be unset and currently is not — i.e. a
+                   ;; three-state tag carrying an actual restriction, so the "Both" majority around
+                   ;; it recedes. Keyed on the field offering a nil option, not merely on having a
+                   ;; value: Level and School always have one, so highlighting them lit up two
+                   ;; controls permanently and stole the emphasis from the tag that meant something.
+                   ;; It rides a wrapper rather than the button, keeping select-menu byte-identical
+                   ;; to the OMV original.
+                   [:div.bf-enum
+                    {:class (when (and (some? v) (some #(nil? (:value %)) options)) "set")}
+                    [select-menu
+                     {:value v
+                      :options (mapv (fn [o] [(:value o) (opt-title o)]) options)
+                      :placeholder (:placeholder field)
+                      :on-change #(dispatch [set-prop path %])}]])
+         ;; number-field has ALREADY parsed: it hands us an int, or nil when the box is cleared.
+         ;; This used to re-parse with (when (seq %) (js/parseInt %)), and (seq 1) throws
+         ;; "1 is not ISeqable" — so typing a digit threw inside the handler and the value never
+         ;; reached app-db, while the input still SHOWED it via input-field's local buffer. Clearing
+         ;; worked, since (seq nil) is nil. Broken for every :number field in every declarative
+         ;; builder, draconic ancestry included; caught by driving the real app.
+         ;; "which of these apply" — a SET, so the control is checkboxes. A <select multiple> is
+         ;; worse on every axis here: it hides options behind a scroll, needs a modifier key to
+         ;; deselect, and reads back a DOMStringList.
+         ;; Toggle chips rather than checkboxes: this form already says "a thing carrying a value
+         ;; is orange" (the add-bar chips, and select.set on a tag), and a row of bare checkboxes
+         ;; squeezed against their labels was the one control not speaking that language.
+         :multi-enum (let [chosen (set v)]
+                       [:div.flex.flex-wrap.chip-row
+                        (doall
+                         (for [{:keys [value title]} options]
+                           ^{:key (str value)}
+                           [:button.chip.chip-toggle
+                            {:class (when (contains? chosen value) "chip-on")
+                             :on-click #(dispatch [set-prop path
+                                                   (if (contains? chosen value)
+                                                     (disj chosen value)
+                                                     (conj chosen value))])}
+                            title]))])
+         ;; A toggle, routed through the generated toggle event so it uses common/toggle-in — the
+         ;; ONE hardened primitive. Never assoc-in with (not v) here: if the path lands on a map
+         ;; that collapses it and every child read then returns nil.
+         ;; A chip, not a bare checkbox. The form already says "a thing carrying a value is orange"
+         ;; — the add-bar, select.set, the :multi-enum toggles — and loose checkbox clusters were
+         ;; the one control still speaking a different language. Same rule, one look, and the
+         ;; clusters (components, spell lists) stop reading as ragged text.
+         :boolean [:button.chip.chip-toggle
+                   {:class (when (true? v) "chip-on")
+                    :on-click #(dispatch [(toggle-prop-event set-prop) path])}
+                   (or (:checkbox-label field) label)]
+         ;; A COMBO: type anything, or pick from the values the shipped data actually uses. This is
+         ;; what casting time / range / duration want — a short canonical list with real outliers —
+         ;; and it is a plain <input list=…>, the same control plugin-datalist already uses for the
+         ;; option pack, so it degrades to a text box wherever datalists are unsupported.
+         :combo (let [id (str "combo-" (clojure.string/join "-" (map name path)))]
+                  [:div
+                   [:input.input.h-40
+                    {:type "text"
+                     :list id
+                     :value (or v "")
+                     :placeholder (:placeholder field)
+                     :on-change #(dispatch [set-prop path (event-value %)])}]
+                   (into [:datalist {:id id}]
+                         (map (fn [o] [:option {:value (if (map? o) (:value o) o)}]) options))])
          :number [number-field {:value v
-                                :on-change #(dispatch [set-prop path (when (seq %) (js/parseInt %))])}]
+                                :on-change #(dispatch [set-prop path %])}]
          ;; :text
-         [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
+         [comps/input-field :input v #(dispatch [set-prop path %])
+          (cond-> {:class-name "input"}
+            (:placeholder field) (assoc :placeholder (:placeholder field)))])])))
+
+(defn- group-toggles
+  "Collapse a RUN of adjacent `:boolean` fields into one `{:bools [...]}` unit, so it lays out as a
+   single stacked column beside its neighbours — which is what the hand-written spell form did with
+   Ritual? / Requires Attack Roll? next to Level and School.
+
+   Not when the whole group is toggles: the same form ran verbal / somatic / material INLINE under
+   the Components heading, because there they are the row rather than a column in one. Stacking
+   those would be copying the mechanism instead of the layout."
+  [fields]
+  (let [field? #(and (map? %) (:type %))
+        bool?  #(and (field? %) (= :boolean (:type %)))
+        ;; a :span :full field takes its own line, so it never shares a row with the toggles and
+        ;; must not be what makes them stack — that is what stacked verbal/somatic/material under
+        ;; Components, where the only other field is the full-width Material Component
+        shares-row? #(and (field? %) (not (bool? %)) (not= :full (:span %)))]
+    (if (not-any? shares-row? fields)
+      ;; Nothing to sit beside: the toggles ARE the row, so they hug each other on one line rather
+      ;; than taking a grid track each — on a four-track grid that put ~280px between Verbal and
+      ;; Somatic, where the hand-written form had them adjacent.
+      (let [bools (filterv bool? fields)
+            rest' (filterv (complement bool?) fields)]
+        (into [{:bools-inline bools}] rest'))
+      (->> fields
+           (reduce (fn [acc f]
+                     (let [prev (peek acc)]
+                       (if (and (bool? f) (map? prev) (:bools prev))
+                         (conj (pop acc) (update prev :bools conj f))
+                         (if (bool? f) (conj acc {:bools [f]}) (conj acc f)))))
+                   [])
+           vec))))
+
+(defn- field-sections
+  "Split a field list into [section-title fields] pairs. A field carrying `:section` STARTS a
+   section; everything after it belongs to that section until the next one. The first pair has a
+   nil title — the fields before any heading."
+  [fields]
+  (->> fields
+       (reduce (fn [acc f]
+                 (if (and (map? f) (:section f))
+                   (conj acc [(:section f) [f]])
+                   (if (seq acc)
+                     (update-in acc [(dec (count acc)) 1] conj f)
+                     [[nil [f]]])))
+               [])
+       (into [])))
 
 (defn simple-content-builder
   "Generic builder form for a 'simple' homebrew content type: Name + Option Source +
@@ -7736,31 +8047,109 @@
   (let [item     @(subscribe [item-sub])
         ;; live validation over the declarative field specs (maps) — the SAME validate-fields
         ;; used for import/export verification, so the form and the file agree on what's required
-        problems (bf/validate-fields (filter map? extra-fields) item)]
+        ;; flatten-fields expands a :rows node into the fields it can hold, so validation sees the
+        ;; same field set whether the form is flat or grouped.
+        problems (bf/validate-fields (bf/flatten-fields (filter #(and (map? %) (:type %)) extra-fields)) item)
+        description-slot? (some #(and (map? %) (= :description (:slot %))) extra-fields)]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [builder-input-field
-       "Name"
-       :name
-       item
-       set-prop
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       item
-       set-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get item :description)
-        :on-change #(dispatch [set-prop :description %])}]]
+     ;; Equal columns. Both fields were .flex-grow-1 with an auto basis, so the one with the longer
+     ;; label (Option Source Name carries an italic example) simply took more room — the widths were
+     ;; an accident of the label text, not a decision.
+     [:div.flex.w-100-p.flex-wrap.form-head
+      [:div.form-col
+       [builder-input-field
+        "Name"
+        :name
+        item
+        set-prop
+        "m-b-20"]]
+      [:div.form-col
+       [plugin-datalist
+        option-source-name-label
+        item
+        set-prop]]]
+     ;; Description renders HERE unless the schema declares where it goes with
+     ;; {:slot :description}. The hand-written spell form put it near the bottom under its own
+     ;; heading, and a converted form that cannot express that is not a faithful conversion.
+     (when-not description-slot?
+       [:div.w-100-p
+        [:div.f-s-24.f-w-b "Description"]
+        [textarea-field
+         {:value (get item :description)
+          :on-change #(dispatch [set-prop :description %])}]])
+     ;; A field may open a SECTION, and the fields AFTER it belong to that section until the next
+     ;; one starts. Rendering only the declaring field under the heading put "Verbal" alone under
+     ;; COMPONENTS while Somatic and Material leaked out below it — a heading that lies about what
+     ;; it covers is worse than no heading.
      (when (seq extra-fields)
        (into [:div.w-100-p]
-             ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
-             (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))
+             ;; EXPLICIT keys, everywhere in this render. Reagent takes a component's React key
+             ;; from the :key of its FIRST ARGUMENT when that argument is a map — and the first
+             ;; argument here is the item being edited, which carries :key once it has been saved
+             ;; or opened for editing. Without a key of its own every field in a section then
+             ;; renders under the item's key, and React sees a list of identical keys.
+             (map (fn [[section fields]]
+                    ^{:key (str section)}
+                    [:div
+                     ;; A carded section must NOT also be w-100-p: width:100% plus the card's 22px
+                     ;; padding overflows its container, which pushed the Material Component and
+                     ;; Description boxes off the right edge. A block-level card fills naturally.
+                     ;; A titled section is an OMV card (option_menu_views/card): accent tab +
+                     ;; title on a flat elevated panel. The untitled lead group stays plain — in
+                     ;; the suggested page the identity and stat fields sit above the cards, and
+                     ;; wrapping those too would make the whole form a stack of boxes.
+                     {:class (if section "bf-section opt-section" "w-100-p")}
+                     (when section
+                       [:div.opt-section-head
+                        [:span.opt-section-accent]
+                        [:span.opt-section-title section]])
+                     (into [:div.flex.flex-wrap.bf-flow]
+                           ;; a field spec (map) renders declaratively; raw hiccup passes through
+                           (map-indexed
+                            ;; keyed by the field's own path (unique within a form), index only
+                            ;; as a fallback for raw hiccup
+                            (fn [i f]
+                              (when-let [el (cond
+                                              (= :description (:slot f))
+                                              [:div.bf-break
+                                               [textarea-field
+                                                {:value (get item :description)
+                                                 :on-change #(dispatch [set-prop :description %])}]]
+                                              ;; a heading-only marker contributes its title and no
+                                              ;; control. It MUST list every synthetic node kind it
+                                              ;; is not, or it swallows them: {:bools-inline [...]}
+                                              ;; is a map with no :type and matched here, and the
+                                              ;; three component checkboxes silently disappeared
+                                              ;; from the form.
+                                              (and (map? f) (not (:type f)) (not (:rows f))
+                                                   (not (:bools f)) (not (:bools-inline f)))
+                                              nil
+                                              (and (:rows f) (= :vector (:as f)))
+                                              [:div.bf-break [vector-rows-node item set-prop f]]
+                                              (:rows f)
+                                              [:div.bf-break [rows-node item set-prop f]]
+                                              (:bools-inline f)   ;; the toggles ARE the row: one line, hugging
+                                              (into [:div.bf-bool-row]
+                                                    (map (fn [b] ^{:key (str (:key b))}
+                                                           [render-builder-field item set-prop b])
+                                                         (:bools-inline f)))
+                                              (:bools f)   ;; a run of toggles sharing a row: one stacked column
+                                              (into [:div.bf-bool-stack]
+                                                    (map (fn [b] ^{:key (str (:key b))}
+                                                           [render-builder-field item set-prop b])
+                                                         (:bools f)))
+                                              (map? f)     [render-builder-field item set-prop f]
+                                              :else        [:div.bf-break f])]
+                                (with-meta el {:key (str (or (:key f) (:slot f) i))})))
+                            (group-toggles fields)))])
+                  (field-sections extra-fields))))
      [builder-notes problems {:severity :error}]]))
+
+(defn language-builder []
+  ;; Tier 1 — a name, a source, a description, and nothing else. It was 19 lines of hiccup that
+  ;; the generic form already renders identically; pinned by test/e2e/language-builder.js before
+  ;; and after the swap (same three fields, same saved :plugins shape).
+  (simple-content-builder ::langs/builder-item ::langs/set-language-prop))
 
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
@@ -7775,6 +8164,15 @@
 
 (defn invocation-builder []
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))
+
+(defn fighting-style-builder []
+  ;; Description is rendered by simple-content-builder itself, so only the AC fragment is passed —
+  ;; passing the whole schema would render Description twice. bf/ac-bonus-fields is shared :props
+  ;; vocabulary and can be dropped into any other builder's extra-fields unchanged.
+  (simple-content-builder ::classes/fighting-style-builder-item
+                          ::classes/set-fighting-style-prop
+                          (concat bf/fighting-style-classes-field
+                                  (bf/effect-rows))))
 
 (defn monster-builder []
   (let [{:keys [name
@@ -8523,90 +8921,37 @@
       [:div.m-t-10
        [creature-selector (count creatures) {}]]]]))
 
-(defn spell-builder []
-  (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
-    [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [spell-input-field
-       "Name"
-       :name
-       spell
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       spell
-       ::spells/set-spell-prop]
-      ]
+(defn spell-lists-field
+  "The one part of the spell form no field type describes: the class list comes from a live
+   subscription (::spells/spellcasting-classes) and the value is a MAP keyed by class, not a set.
+   Passed through simple-content-builder as hiccup — the escape hatch exists precisely so that one
+   bespoke control does not force a whole builder to stay bespoke."
+  [spell]
+  ;; the heading is the schema's section marker now, so the widget draws only its checkboxes
+  [:div.m-b-20
+   [:div.flex.flex-wrap.chip-row.p-5.b-rad-5
+    {:class (builder-field-cue :spell-lists)}
+    (doall
+     (map
+      (fn [{:keys [key name]}]
+        ^{:key key}
+        [:button.chip.chip-toggle
+         {:class (when (get-in spell [:spell-lists key]) "chip-on")
+          :on-click #(do (dispatch [::spells/toggle-spell-list key])
+                         (dispatch [:clear-builder-field-error :spell-lists]))}
+         name])
+      @(subscribe [::spells/spellcasting-classes])))]])
 
-     [:div.flex.w-100-p.flex-wrap
-      [:div.flex-grow-1.m-b-20
-       [labeled-dropdown
-        "Level"
-        {:items (map
-                 (fn [level] {:title (if (zero? level)
-                                       "Cantrip"
-                                       (str (common/ordinal level) "-level"))
-                              :value level})
-                 (range 10))
-         :value level
-         :on-change #(dispatch [::spells/set-spell-level %])}]]
-      [:div.flex-grow-1.m-l-5
-       [labeled-dropdown
-        "School"
-        {:items (map
-                 (fn [school] {:title school
-                               :value school})
-                 (sort spells/schools))
-         :value school
-         :on-change #(dispatch [::spells/set-spell-prop :school %])}]]
-      [
-       :div.flex-grow-1.m-l-5
-       [:div.m-t-20.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         "Ritual?"
-         (get spell :ritual)
-         false
-         #(dispatch [::spells/toggle-spell-prop :ritual])]]
-       [:div.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         "Requires Attack Roll?"
-         (get spell :attack-roll?)
-         false
-         #(dispatch [::spells/toggle-spell-prop :attack-roll?])]]]]
-     [:div.flex.w-100-p.flex-wrap
-      [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
-      [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
-     [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
-     [:div.flex.w-100-p.flex-wrap
-      [component-checkbox :verbal spell]
-      [component-checkbox :somatic spell]
-      [component-checkbox :material spell]]
-     [:div.m-b-20
-      [textarea-field
-       {:value (get-in spell [:components :material-component])
-        :on-change #(dispatch [::spells/set-material-component %])}]]
-     [:div.m-b-20
-      [spell-input-field "Duration" :duration spell "m-b-20"]]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [:div.m-b-20
-       [textarea-field
-        {:value (get spell :description)
-         :on-change #(dispatch [::spells/set-spell-prop :description %])}]]]
-     [:div.m-b-20
-      [:div.f-w-b.m-b-10 "Add This Spell to Which Class Spell Lists?"]
-      [:div.flex.flex-wrap.p-5.b-rad-5
-       {:class (builder-field-cue :spell-lists)}
-       (map
-        (fn [{:keys [key name]}]
-          ^{:key key}
-          [:div.m-r-10.pointer.m-b-10
-           {:on-click #(do (dispatch [::spells/toggle-spell-list key])
-                           (dispatch [:clear-builder-field-error :spell-lists]))}
-           [comps/checkbox (get-in spell [:spell-lists key])]
-           [:span.m-l-5 name]])
-        @(subscribe [::spells/spellcasting-classes]))]]]))
+(defn spell-builder []
+  ;; Was 86 lines of hiccup. The typed fields are now spells/spell-fields — including the first
+  ;; users of :type :boolean (Ritual, Requires Attack Roll, and the three components, which live at
+  ;; nested paths like [:components :verbal] and are why the toggle needed path support).
+  ;; Description is rendered by simple-content-builder itself.
+  (let [spell @(subscribe [::spells/builder-item])]
+    (simple-content-builder ::spells/builder-item
+                            ::spells/set-spell-prop
+                            (concat spells/spell-fields
+                                    [(spell-lists-field spell)]))))
 
 (defn validate-name [name]
   (if (nil? name)
@@ -9009,6 +9354,19 @@
               [:button.form-button.m-l-5
                {:on-click (make-event-handler ::e5/delete-plugin name)}
                "delete"]]]
+            ;; The tag this source mints its keys with — the same quiet line as the item's key,
+            ;; because it is the same kind of thing. Blank means the derivation decides, and the
+            ;; derived value shows muted rather than being stored, so improving the rule reaches
+            ;; every source that never set one.
+            [meta-edit-row
+             {:label "key tag"
+              :value (or (:abbreviation plugin) (common/source-abbreviation name))
+              :derived? (nil? (:abbreviation plugin))
+              :placeholder (or (:abbreviation plugin) (common/source-abbreviation name))
+              :on-save #(dispatch [::e5/set-source-abbreviation name %])
+              :help (str "Keys minted in this source from now on end with this tag. "
+                         "Keys already minted keep the tag they have. "
+                         "Leave it blank to use the one derived from the source's name.")}]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
@@ -9511,10 +9869,71 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
+(defn meta-edit-row
+  "A quiet `label value change` line that swaps in an input when `change` is clicked.
+
+   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
+   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
+   same `.bf-meta` register.
+
+     :value        what to show at rest; nil renders nothing at all
+     :derived?     the value is the app's guess rather than a stored choice, shown muted
+     :placeholder  seeds the input
+     :on-save      called with the raw string typed; blank is the caller's to interpret
+     :help         a line a `?` opens beneath the row"
+  [_]
+  (let [editing? (r/atom false)
+        draft    (r/atom "")]
+    (fn [{:keys [label value derived? placeholder on-save help]}]
+      (when value
+        (let [row [:div.bf-meta.f-s-14.flex.align-items-c.flex-wrap
+                   [:span.m-r-5 label]
+                   [:span.m-r-10 {:class (when-not derived? "bf-meta-value")} value]
+                   (if @editing?
+                     [:<>
+                      [:input.input.h-32.bf-meta-input.m-r-5
+                       {:type "text"
+                        :value @draft
+                        :auto-focus true
+                        :placeholder placeholder
+                        :on-change #(reset! draft (-> % .-target .-value))}]
+                      [:span.pointer.bf-meta-action.m-r-10
+                       {:on-click #(do (on-save @draft) (reset! editing? false))}
+                       "save"]
+                      [:span.pointer.bf-meta-action
+                       {:on-click #(reset! editing? false)}
+                       "cancel"]]
+                     [:span.pointer.bf-meta-action
+                      {:on-click #(do (reset! draft (or placeholder "")) (reset! editing? true))}
+                      "change"])]]
+          (if help
+            [with-help row help]
+            row))))))
+
+(defn item-key-row
+  "The saved item's key, and the one control that changes it.
+
+   Keys are minted once (D10a) — the Name field no longer re-addresses an item — so this is the
+   only way an author fixes a key minted from a typo. Renders nothing until the item has one."
+  [item save-event]
+  (when-let [k (:key item)]
+    [meta-edit-row
+     {:label "key"
+      :value (str k)
+      :placeholder (name k)
+      :on-save #(dispatch [::e5/change-builder-item-key save-event (common/name-to-kw %)])}]))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered
   ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  (let [export-draft-event (events/draft-event-for save-event)]
+  ;; The unrecognised-tag advisory rides the same derivation: builder-drafts already maps the save
+  ;; event to the builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  ;; It belongs on the page, not in simple-content-builder, because the builders that most need it
+  ;; are the ones not yet converted to a field schema.
+  (let [export-draft-event (events/draft-event-for save-event)
+        [item-sub] (get events/builder-drafts save-event)
+        item       (when item-sub @(subscribe [item-sub]))
+        tag-notes  (when item (bf/unknown-tag-problems item))]
     [content-page
      (or title (str item-title " Builder"))
      [{:title (str "New " item-title)
@@ -9528,7 +9947,17 @@
       {:title "Export draft"
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
-     [builder]]))
+     [:div
+      ;; :error, not :advisory — bold "Fix before saving:" rather than a 12px italic line. Measured:
+      ;; the advisory rendered 1300x12px at y=407 of a long form, which is present but not visible.
+      ;; :error is styling and wording only; it does not block saving.
+      [builder-notes tag-notes {:severity :error}]
+      [builder]
+      ;; The key is the item's address, not a field an author fills in — so it sits after the form,
+      ;; under a hairline, in the muted label colour the rest of the builder CSS uses. It was a
+      ;; collapsed "Advanced" line above the form, which drew MORE attention: a thing visibly
+      ;; trying not to be seen is a thing you look at.
+      [item-key-row item save-event]]]))
 
 (defn combat-tracker-page []
   [content-page
@@ -9662,6 +10091,10 @@
 
 (defn subclass-builder-page []
   (builder-page "Subclass" ::classes/reset-subclass ::classes/save-subclass subclass-builder))
+
+(defn fighting-style-builder-page []
+  (builder-page "Fighting Style" ::classes/reset-fighting-style ::classes/save-fighting-style
+                fighting-style-builder))
 
 (defn class-builder-page []
   (builder-page "Class" ::classes/reset-class ::classes/save-class class-builder))

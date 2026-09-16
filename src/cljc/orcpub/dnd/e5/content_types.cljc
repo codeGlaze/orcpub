@@ -146,6 +146,18 @@
     :route-kw :subclass-builder-5e-page
     :route-seg "subclass-builder"
     :local-storage-key "subclass"}
+   ;; The style's MECHANIC rides the shared :props vocabulary rather than a bespoke field, which
+   ;; is why the strict spec is just base + an optional description (classes.cljc:34).
+   {:id :fighting-style
+    :type-name "Fighting Style"
+    :builder-item :orcpub.dnd.e5.classes/fighting-style-builder-item
+    :spec :orcpub.dnd.e5.classes/homebrew-fighting-style
+    :plugin-key :orcpub.dnd.e5/fighting-styles
+    :route-kw :fighting-style-builder-5e-page
+    :route-seg "fighting-style-builder"
+    :local-storage-key "fighting-style"
+    :homebrew-builder? true
+    :default {}}
    {:id :class
     :type-name "Class"
     :builder-item :orcpub.dnd.e5.classes/builder-item

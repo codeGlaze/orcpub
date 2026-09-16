@@ -129,19 +129,37 @@
           ac    ((char5e/armor-class-with-armor built) nil nil)]
       (is (= 15 ac) "ONE unarmored bonus applies (15), not both stacked (would be 18)"))))
 
-;; Natural-AC vocabulary A (:props) — VERIFIED the tortle/lizardfolk DUPLICATION (D31 / the user's call):
-;; two bespoke arms, each emitting a ?natural-ac-bonus AND its own ?armor-class-with-armor override.
+;; Natural-AC vocabulary A (:props). This pinned the tortle/lizardfolk DUPLICATION (D31): two
+;; bespoke arms, each emitting a ?natural-ac-bonus AND its own ?armor-class-with-armor override.
+;; RESOLVED 2026-09 — neither one overrides ?armor-class-with-armor any more.
+;;   :lizardfolk-ac compiles to the universal :ac shape, {:ac 13 :abilities [:dex]}.
+;;   :tortle-ac was two things welded together and is now both of them: {:ac 17 :abilities []}
+;;   plus (armor-gives-no-ac). Its old (+ 17 shield) replacement was a CEILING standing in for
+;;   "a tortle can't wear armor" — the app had no way to say that, so it faked it by making
+;;   armor unable to win. Modelled honestly the restriction is not a cap on AC at all; worn armor
+;;   simply contributes nothing, which composes with ?ac-fns' max instead of fighting it.
+;; Both verified behaviour-identical: the parity sweep (0 divergences) covers lizardfolk, and
+;; tortle-decomposes-into-a-calculation-and-a-restriction checks composed == welded in all 7
+;; equipment states.
 (defn- props-mod-keys [props]
   (->> (opt5e/plugin-modifiers props :t) (map :orcpub.modifiers/key) set))
 
 (deftest natural-ac-props-are-duplicated-bespoke
-  (testing ":lizardfolk-ac and :tortle-ac each emit a natural-ac-bonus + an armor-class-with-armor override"
+  (testing "both bespoke props are on the universal mechanism now — no AC-function overrides left"
     (let [liz (props-mod-keys {:lizardfolk-ac true})
           tor (props-mod-keys {:tortle-ac true})]
-      (is (contains? liz :natural-ac-bonus))
-      (is (contains? liz :armor-class-with-armor))
-      (is (= liz tor) "same shape, two hand-written arms — one parameterized :natural-ac handler should replace both")
-      ;; the natural-ac channel they feed is the SAME one the sorcerer Draconic Bloodline uses
-      ;; (classes.cljc:2270 `(mod/modifier ?natural-ac-bonus 3)`) — verified by source, shared channel.
-      (is (= [:natural-ac-bonus] (map :orcpub.modifiers/key [(mod5e/natural-ac-bonus 3)]))
-          "the shared primitive channel is ?natural-ac-bonus"))))
+      (is (contains? liz :ac-fns)
+          "a competing calculation registered on ?ac-fns, not an override of the AC function")
+      (is (= #{:ac-fns} liz)
+          "FLIPPED 2026-09: the ?natural-ac-bonus write is gone too. It only ever fed the
+           no-stacking tie-break in ?base-armor-class, and that tie-break is gone — ?ac-fns takes
+           the best calculation by max, so there is nothing left to arbitrate.")
+      (is (= #{:ac-fns :armor-ac-suppressed?} tor)
+          ":tortle-ac is exactly its two halves: the flat calculation, and the restriction")
+      (is (empty? (filter #{:armor-class-with-armor} (concat liz tor)))
+          "FLIPPED: neither hand-written override survives")
+      ;; Draconic Bloodline used to share the ?natural-ac-bonus channel with these props. It now
+      ;; registers its own calculation instead, so the shared channel — and its constructor — are
+      ;; gone. ?ac-fns is the one place every "your AC = ..." feature lands.
+      (is (= :ac-fns (:orcpub.modifiers/key (mod5e/ac-formula (fn [_ _] 0))))
+          "the shared primitive is now ?ac-fns"))))

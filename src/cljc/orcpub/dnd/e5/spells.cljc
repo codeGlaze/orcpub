@@ -4266,3 +4266,66 @@ An affected creature is aware of the spell and can thus avoid answering question
     k
     (let [target (get spell-key-aliases k)]
       (if (and target (get spells-map target)) target k))))
+
+;; ── suggestion lists for the builder's :combo fields ─────────────────────────────────────────
+;; Derived from the shipped spells, so they track the data instead of a hand-kept copy of it.
+(defn- distinct-vals [k]
+  (->> spells (map k) (remove nil?) (map str) distinct sort vec))
+
+(def casting-times (distinct-vals :casting-time))
+(def ranges        (distinct-vals :range))
+(def durations     (distinct-vals :duration))
+
+(def spell-fields
+  "Declarative field schema for the homebrew spell builder. Everything the bespoke form drew by
+   hand EXCEPT the \"add to which class spell lists\" checkboxes, which are built from a live
+   subscription and stay a passed-through widget — see the note at spell-builder in views.cljs.
+
+   The three components and the two flags are the first users of `:type :boolean`, which routes
+   through common/toggle-in; nested keys like [:components :verbal] are why the toggle needed path
+   support at all."
+  (let []
+    (concat
+     ;; NOT :required? — the marker would claim something the hand-written spell spec does not
+     ;; actually enforce, and a form that flags a field the save then accepts is worse than no flag.
+     [{:key :level :type :enum :label "Level"
+       :options (mapv (fn [l] {:value l
+                               :title (if (zero? l) "Cantrip" (str (common/ordinal l) "-level"))})
+                      (range 10))}
+      {:key :school :type :enum :label "School"
+       :options (mapv (fn [sc] {:value sc :title sc}) (sort schools))}
+      {:key :ritual :type :boolean :label "Ritual?"}
+      {:key :attack-roll? :type :boolean :label "Requires Attack Roll?"}
+      ;; Page sits beside the flags and squares the row. It is a minor, optional field — not part of
+      ;; the stat block an author transcribes — so it costs nothing to have it out of that reading
+      ;; order, and the row reads better filled.
+      {:key :page :type :number :label "Page"}
+      ;; Combos, not free text. Across the 319 SRD spells there are only 13 distinct casting
+      ;; times, 29 ranges and 29 durations — "standard with a few outliers" exactly. The suggestion
+      ;; lists are DERIVED from that data rather than typed out here, so they cannot fall behind it,
+      ;; and a :combo still accepts anything an author types.
+      {:key :casting-time :type :combo :label "Casting Time" :options casting-times}
+      {:key :range :type :combo :label "Range" :options ranges}
+      ;; Duration sits with the spell's own facts. It used to be declared after the components,
+      ;; which — once a :section groups the fields that FOLLOW it — put Duration inside Components.
+      ;; Duration takes two tracks: its values are the longest of the three ("Concentration, up to
+      ;; 10 minutes") and it squares the second row at four.
+      {:key :duration :type :combo :label "Duration" :options durations :span :wide}]
+     ;; components: three flags, then the material text that only means anything with Material on
+     [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}
+      {:key [:components :somatic] :type :boolean :label "Somatic"}
+      {:key [:components :material] :type :boolean :label "Material"}
+      ;; Always visible, as it was. Hiding it until Material is ticked is a defensible improvement
+      ;; and was made HERE, inside a conversion, which quietly turned 10 controls into 9 and made
+      ;; the before/after uncomparable. A conversion preserves behaviour; changes to it are their
+      ;; own step.
+      {:key [:components :material-component] :type :text :label "Material Component"
+       :span :full
+       ;; a real example beats the word "text": the field wants the cost and the odd ingredients,
+       ;; and nothing on screen said so
+       :placeholder "e.g. 100 gp of powdered rhubarb leaf and an adder's stomach, consumed by the spell"}]
+     ;; The hand-written form ended with Description under its own heading, then the spell-list
+     ;; widget under its own. Both are expressible now: a marker with :section and no :type is a
+     ;; heading, and {:slot :description} says where the description goes.
+     [{:section "Description" :slot :description}
+      {:section "Add This Spell to Which Class Spell Lists?"}])))

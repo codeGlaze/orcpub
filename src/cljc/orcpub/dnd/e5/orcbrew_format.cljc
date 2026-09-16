@@ -48,14 +48,15 @@
 
 (def incompatible-content-types
   "Whole content types old builds don't know — any content under these is v2."
-  #{:orcpub.dnd.e5/draconic-ancestries})
+  #{:orcpub.dnd.e5/draconic-ancestries
+    :orcpub.dnd.e5/fighting-styles})
 
 (defn- item-features
   "The non-backward-compatible feature markers a single content ITEM carries."
   [item]
   (when (map? item)
     (cond-> #{}
-      (contains? item :grant)                (conj :grant)
+      (seq (:grants item))                   (conj :grants)
       (seq (:save-proficiencies item))       (conj :save-proficiencies)
       ;; the ability-increase SPREAD is the vector form [[amount pool] ...]; the
       ;; legacy feat format is a set (#{:str}) and stays backward compatible.

@@ -54,6 +54,7 @@
 (def dnd-e5-boon-builder-page-route :boon-builder-5e-page)
 (def dnd-e5-draconic-ancestry-builder-page-route :draconic-ancestry-builder-5e-page)
 (def dnd-e5-feat-builder-page-route :feat-builder-5e-page)
+(def dnd-e5-fighting-style-builder-page-route :fighting-style-builder-5e-page)
 (def dnd-e5-selection-builder-page-route :selection-builder-5e-page)
 
 (def dnd-e5-spell-page-routes #{dnd-e5-spell-list-page-route
