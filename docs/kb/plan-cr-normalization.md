@@ -63,11 +63,46 @@ Two process notes worth keeping:
 `(/ 1 4)` -> `0.25` in the `challenge-ratings` keys and the 77 fractional monster rows. They are
 written as forms rather than `1/4` literals; the semantics and the per-runtime split are the same.
 
-**Acceptance:** step 0's test shows XP values and sort order **unchanged**, plus a new assertion
-that a JVM lookup by double now succeeds where it returned `nil`.
+**Acceptance — met 2026-09-16.** 77 rows converted (17 at 1/8, 32 at 1/4, 28 at 1/2 — matching
+the per-CR counts exactly), plus the three fractional keys in `challenge-ratings`. No ratio form
+left in the file.
 
-**This is the only step with real risk.** A typo in those rows changes a monster's XP with no
-error and no visible symptom. Everything before it exists to make that visible.
+Invariants re-measured against the converted data, all unchanged:
+
+| | before | after |
+| --- | --- | --- |
+| total XP over 317 monsters | 1355565 | 1355565 |
+| monsters with no XP | 0 | 0 |
+| distinct CRs | 28 | 28 |
+| first five by CR | Lemure, Shrieker, Homunculus, Awakened Shrub, Baboon | same |
+| `(challenge-ratings 0.125)` on the JVM | **nil** | **25** |
+
+The last row is the whole point: a homebrew CR is always a double, and it now finds the table in
+both runtimes.
+
+**A hole in the characterization surfaced here, and it is the useful part of this step.** The
+per-CR counts assertion compared a plain map against a `sorted-map`, and it PASSED the conversion
+when it should have failed. `=` on maps is not symmetric when one side is sorted: a plain map on
+the left looks its keys up with `compare`, and `(compare 1/8 0.125)` is 0. Measured:
+
+```clojure
+(= expected actual)  ; => true    the idiomatic clojure.test argument order
+(= actual expected)  ; => false
+```
+
+So the idiomatic order was the insensitive one. The assertion now compares plain map to plain map,
+verified type-sensitive. Worth carrying beyond CR: **a characterization that compares against a
+sorted collection may not be comparing what you think.**
+
+`cr-is-one-numeric-type` (was `ratio-keys-today`) is inverted rather than deleted, so the diff is
+the record of the change.
+
+**Also confirmed, by the ClojureScript compiler:** `1/8` is not a valid CLJS constant at all —
+*"clojure.lang.Ratio is not a valid ClojureScript constant"*. That assertion is `#?(:clj)`-guarded
+for that reason, and the compiler's refusal is the premise of this whole decision, demonstrated.
+
+Suites: JVM 733 tests / 5491 assertions; CLJS 423 tests / 1902 assertions (the characterization
+now runs in the browser too, character build included). Both 0 failures. `lein fig:build` clean.
 
 ## Step 3 — collapse the two formatters
 

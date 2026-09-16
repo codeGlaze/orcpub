@@ -69,7 +69,7 @@ Shape leads. It is stale against the domain map above it — fix or mark it befo
 
 | | | status |
 |---|---|---|
-| 1 | **CR as one number** — one `double`, one formatter, one parser. Shape: [decision-cr-representation.md](kb/decision-cr-representation.md). Execution: [plan-cr-normalization.md](kb/plan-cr-normalization.md), six steps. **Steps 0-1 done** — `cr_characterization_test.clj` (proven able to fail against the real data) and `cr_label_test.cljc` (green on JVM *and* CLJS). Blast radius checked — encounters reference creatures by keyword, the monster builder already writes doubles, real `.orcbrew` content is already decimal | ☐ |
+| 1 | **CR as one number** — one `double`, one formatter, one parser. Shape: [decision-cr-representation.md](kb/decision-cr-representation.md). Execution: [plan-cr-normalization.md](kb/plan-cr-normalization.md), six steps. **Steps 0-2 done** — data converted, all invariants held (total XP 1355565 unchanged, JVM double lookup now resolves). Remaining: 3 collapse the two formatters, 4 the character side, 5 the spec. Blast radius checked — encounters reference creatures by keyword, the monster builder already writes doubles, real `.orcbrew` content is already decimal | ☐ |
 | 2 | **The constrained creature query** — CR bound + type + size, as a pool whose filter is a predicate, not an enumeration. The shared mechanism for A and B | ☐ |
 | 3 | **A plugin subclass can declare it grants a companion** — the only step with no existing machinery to copy; nothing in bucket A can start before it | ☐ |
 | 4 | **A character can reference a creature** — `character.cljc` references none today. Copy-on-adopt, decided in `extras-definitions.md` | ☐ |

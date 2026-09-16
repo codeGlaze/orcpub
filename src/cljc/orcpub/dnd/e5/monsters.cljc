@@ -41,7 +41,7 @@
    :large "Large"
    :small "Small"})
 
-(def challenge-ratings {0 10, (/ 1 8) 25, (/ 1 4) 50, (/ 1 2) 100, 1 200, 2 450, 3 700, 4 1100, 5 1800, 6 2300, 7 2900, 8 3900, 9 5000, 10 5900, 11 7200, 12 8400, 13 10000, 14 11500, 15 13000, 16 15000, 17 18000, 18 20000, 19 22000, 20 25000, 21 33000, 22 41000, 23 50000, 24 62000, 25 75000, 26 90000, 27 105000, 28 120000, 29 135000, 30 155000})
+(def challenge-ratings {0 10, 0.125 25, 0.25 50, 0.5 100, 1 200, 2 450, 3 700, 4 1100, 5 1800, 6 2300, 7 2900, 8 3900, 9 5000, 10 5900, 11 7200, 12 8400, 13 10000, 14 11500, 15 13000, 16 15000, 17 18000, 18 20000, 19 22000, 20 25000, 21 33000, 22 41000, 23 50000, 24 62000, 25 75000, 26 90000, 27 105000, 28 120000, 29 135000, 30 155000})
 
 (def monsters-raw [
 {
@@ -251,7 +251,7 @@ At will: detect evil and good, invisibility (self only)
   :damage-immunities "poison, psychic"
   :condition-immunities "blinded, charmed, deafened, frightened, paralyzed, petrified, poisoned"
   :senses "blindsight 60 ft. (blind beyond this radius), passive Perception 7"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Antimagic Susceptibility" :description "The sword is incapacitated while in the area of an antimagic field. If targeted by dispel magic, the sword must succeed on a Constitution saving throw against the caster's spell save DC or fall unconscious for 1 minute."}
            {:name "False Appearance" :description "While the sword remains motionless and isn't flying, it is indistinguishable from a normal sword."}]
@@ -574,7 +574,7 @@ A duplicate has the cloaker's AC and uses its saving throws. If an attack hits a
   :cha 5
 
   :senses "darkvision 60 ft., passive Perception 11"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 3 (1d4 + 1) piercing damage, and the target must succeed on a DC 11 Constitution saving throw against being magically petrified. On a failed save, the creature begins to turn to stone and is restrained. It must repeat the saving throw at the end of its next turn. On a success, the effect ends. On a failure, the creature is petrified for 24 hours."}]
 }{
@@ -631,7 +631,7 @@ In a new form, the couatl retains its game statistics and ability to speak, but 
 
   :skills {:stealth 3}
   :senses "blindsight 60 ft., passive Perception 10"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Echolocation" :description "The darkmantle can't use its blindsight while deafened."}
            {:name "False Appearance" :description "While the darkmantle remains motionless, it is indistinguishable from a cave formation such as a stalactite or stalagmite."}]
@@ -699,7 +699,7 @@ Darkvision can't penetrate this darkness, and no natural light can illuminate it
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 9"
   :languages "Abyssal, telepathy 60 ft. (works only with creatures that understand Abyssal)"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Multiattack" :description "The dretch makes two attacks: one with its bite and one with its claws."}
             {:name "Bite" :description "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 3 (1d6) piercing damage."}
@@ -3021,7 +3021,7 @@ The elemental can grapple one Large creature or up to two Medium or smaller crea
   :skills {:perception 2, :stealth 4}
   :senses "darkvision 120 ft., passive Perception 12"
   :languages "Elvish, Undercommon"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Fey Ancestry" :description "The drow has advantage on saving throws against being charmed, and magic can't put the drow to sleep."}
            {:name "Innate Spellcasting" :description "The drow's spellcasting ability is Charisma (spell save DC 11). 
@@ -3130,7 +3130,7 @@ At will: dancing lights
 
   :condition-immunities "blinded, deafened, frightened"
   :senses "blindsight 30 ft. (blind beyond this radius), passive Perception 6"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "False Appearance" :description "While the violet fungus remains motionless, it is indistinguishable from an ordinary fungus."}]
 
@@ -3540,7 +3540,7 @@ At will: detect magic, feather fall, levitate, light
   :cha 7
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Gnoll"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Rampage" :description "When the gnoll reduces a creature to 0 hit points with a melee attack on its turn, the gnoll can take a bonus action to move up to half its speed and make a bite attack."}]
 
@@ -3568,7 +3568,7 @@ At will: detect magic, feather fall, levitate, light
   :skills {:investigation 3, :perception 2, :stealth 4}
   :senses "darkvision 120 ft., passive Perception 12"
   :languages "Gnomish, Terran, Undercommon"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Stone Camouflage" :description "The gnome has advantage on Dexterity (Stealth) checks made to hide in rocky terrain."}
            {:name "Gnome Cunning" :description "The gnome has advantage on Intelligence, Wisdom, and Charisma saving throws against magic."}
@@ -3634,7 +3634,7 @@ If no creature is near enough to move to and attack, the golem attacks an object
   :skills {:stealth 6}
   :senses "darkvision 60 ft., passive Perception 9"
   :languages "Common, Goblin"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Nimble Escape" :description "The goblin can take the Disengage or Hide action as a bonus action on each of its turns."}]
 
@@ -3833,7 +3833,7 @@ The golem's creator, if within 60 feet of the berserk golem, can try to calm it 
   :condition-immunities "blinded"
   :senses "blindsight 30 ft. or 10 ft. while deafened (blind beyond this radius), passive Perception 13"
   :languages "Undercommon"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Blind Senses" :description "The grimlock can't use its blindsight while deafened and unable to smell.
 Keen Hearing and Smell. The grimlock has advantage on Wisdom (Perception) checks that rely on hearing or smell."}
@@ -4064,7 +4064,7 @@ A target that successfully saves is immune to this harpy's song for the next 24 
 
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Common, Goblin"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Martial Advantage" :description "Once per turn, the hobgoblin can deal an extra 7 (2d6) damage to a creature it hits with a weapon attack if that creature is within 5 feet of an ally of the hobgoblin that isn't incapacitated."}]
 
@@ -4174,7 +4174,7 @@ At the end of its turn, it grows two heads for each of its heads that died since
 
   :senses "darkvision 60 ft., passive Perception 8"
   :languages "Common, Draconic"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Sunlight Sensitivity" :description "While in sunlight, the kobold has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight."}
            {:name "Pack Tactics" :description "The kobold has advantage on an attack roll against a creature if at least one of the kobold's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
@@ -4324,7 +4324,7 @@ Cantrips (at will): mage hand, prestidigitation, ray of frost
   :skills {:perception 3, :stealth 4, :survival 5}
   :senses "passive Perception 13"
   :languages "Draconic"
-  :challenge (/ 1 2)
+  :challenge 0.5
   :traits [{:name "Hold Breath" :description "The lizardfolk can hold its breath for 15 minutes."}]
 
   :actions [{:name "Multiattack" :description "The lizardfolk makes two melee attacks, each one with a different weapon."}
@@ -4511,7 +4511,7 @@ Keen Hearing and Smell. The werewolf has advantage on Wisdom (Perception) checks
   :damage-immunities "fire"
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Ignan"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Death Burst" :description "When the magmin dies, it explodes in a burst of fire and magma. Each creature within 10 feet of it must make a DC 11 Dexterity saving throw, taking 7 (2d6) fire damage on a failed save, or half as much damage on a successful one. Flammable objects that aren't being worn or carried in that area are ignited."}
            {:name "Ignited Illumination" :description "As a bonus action, the magmin can set itself ablaze or extinguish its flames. While ablaze, the magmin sheds bright light in a 10-foot radius and dim light for an additional 10 feet."}]
@@ -4596,7 +4596,7 @@ If the medusa sees itself reflected on a polished surface within 30 feet of it a
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 12"
   :languages "Auran, Terran"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Death Burst" :description "When the mephit dies, it explodes in a burst of dust. Each creature within 5 feet of it must then succeed on a DC 10 Constitution saving throw or be blinded for 1 minute. A blinded creature can repeat the saving throw on each of its turns, ending the effect on itself on a success."}
            {:name "Innate Spellcasting" :notes "1/Day" :description "The mephit can innately cast sleep, requiring no material components. Its innate spellcasting ability is Charisma."}]
@@ -4625,7 +4625,7 @@ If the medusa sees itself reflected on a polished surface within 30 feet of it a
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 12"
   :languages "Aquan, Auran"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Death Burst" :description "When the mephit dies, it explodes in a burst of jagged ice. Each creature within 5 feet of it must make a DC 10 Dexterity saving throw, taking 4 (1d8) slashing damage on a failed save, or half as much damage on a successful one."}
            {:name "False Appearance" :description "While the mephit remains motionless, it is indistinguishable from an ordinary shard of ice."}
@@ -4655,7 +4655,7 @@ If the medusa sees itself reflected on a polished surface within 30 feet of it a
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Ignan, Terran"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Death Burst" :description "When the mephit dies, it explodes in a burst of lava. Each creature within 5 feet of it must make a DC 11 Dexterity saving throw, taking 7 (2d6) fire damage on a failed save, or half as much damage on a successful one."}
            {:name "False Appearance" :description "While the mephit remains motionless, it is indistinguishable from an ordinary mound of magma."}
@@ -4683,7 +4683,7 @@ If the medusa sees itself reflected on a polished surface within 30 feet of it a
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Aquan, Ignan"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Death Burst" :description "When the mephit dies, it explodes in a cloud of steam. Each creature within 5 feet of the mephit must succeed on a DC 10 Dexterity saving throw or take 4 (1d8) fire damage"}
            {:name "Innate Spellcasting" :notes "1/Day" :description "The mephit can innately cast blur, requiring no material components. Its innate spellcasting ability is Charisma."}]
@@ -4710,7 +4710,7 @@ If the medusa sees itself reflected on a polished surface within 30 feet of it a
   :skills {:perception 2}
   :senses "passive Perception 12"
   :languages "Aquan, Common"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Amphibious" :description "The merfolk can breathe air and water."}]
 
@@ -5117,7 +5117,7 @@ An engulfed creature can try to escape by taking an action to make a DC 12 Stren
   :damage-resistances "acid, cold, fire"
   :condition-immunities "blinded, charmed, deafened, exhaustion, frightened, prone"
   :senses "blindsight 60 ft. (blind beyond this radius), passive Perception 8"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Amorphous" :description "The ooze can move through a space as narrow as 1 inch wide without squeezing."}
            {:name "Corrode Metal" :description "Any nonmagical weapon made of metal that hits the ooze corrodes. After dealing damage, the weapon takes a permanent and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the ooze is destroyed after dealing damage.
@@ -5174,7 +5174,7 @@ The ooze can eat through 2-inch-thick, nonmagical metal in 1 round."}
   :skills {:intimidation 2}
   :senses "darkvision 60 ft., passive Perception 10"
   :languages "Common, Orc"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Aggressive" :description "As a bonus action, the orc can move up to its speed toward a hostile creature that it can see."}]
 
@@ -5278,7 +5278,7 @@ The ooze can eat through 2-inch-thick, nonmagical metal in 1 round."}
   :skills {:perception 3, :stealth 4}
   :senses "blindsight 10 ft., darkvision 60 ft., passive Perception 13"
   :languages "understands Common and Draconic but can't speak"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Senses" :description "The pseudodragon has advantage on Wisdom (Perception) checks that rely on sight, hearing, or smell."}
            {:name "Magic Resistance" :description "The pseudodragon has advantage on saving throws against spells and other magical effects."}
@@ -5447,7 +5447,7 @@ Destroying a tendril deals no damage to the roper, which can extrude a replaceme
     :cha 6
 
     :senses "darkvision 60 ft., passive Perception 11"
-    :challenge (/ 1 2)
+    :challenge 0.5
 
     :traits [{:name "Iron Scent" :description "The rust monster can pinpoint, by scent, the location of ferrous metal within 30 feet of it."}
              {:name "Rust Metal" :description "Any nonmagical weapon made of metal that hits the rust monster corrodes. After dealing damage, the weapon takes a permanent and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition made of metal that hits the rust monster is destroyed after dealing damage."}]
@@ -5476,7 +5476,7 @@ If the object touched is either metal armor or a metal shield being worn or carr
   :skills {:perception 5}
   :senses "darkvision 120 ft., passive Perception 15"
   :languages "Sahuagin"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Blood Frenzy" :description "The sahuagin has advantage on melee attack rolls against any creature that doesn't have all its hit points."}
            {:name "Limited Amphibiousness" :description "The sahuagin can breathe air and water, but it needs to be submerged at least once every 4 hours to avoid suffocating."}
@@ -5536,7 +5536,7 @@ If the object touched is either metal armor or a metal shield being worn or carr
   :skills {:perception 2, :performance 6, :stealth 5}
   :senses "passive Perception 12"
   :languages "Common, Elvish, Sylvan"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Magic Resistance" :description "The satyr has advantage on saving throws against spells and other magical effects."}]
 
@@ -5565,7 +5565,7 @@ If the object touched is either metal armor or a metal shield being worn or carr
     :damage-immunities "necrotic, poison"
     :condition-immunities "exhaustion, frightened, grappled, paralyzed, petrified, poisoned, prone, restrained"
     :senses "darkvision 60 ft., passive Perception 10"
-    :challenge (/ 1 2)
+    :challenge 0.5
 
     :traits [{:name "Amorphous" :description "The shadow can move through a space as narrow as 1 inch wide without squeezing."}
              {:name "Shadow Stealth" :description "While in dim light or darkness, the shadow can take the Hide action as a bonus action."}
@@ -5654,7 +5654,7 @@ If the object touched is either metal armor or a metal shield being worn or carr
   :condition-immunities "exhaustion, poisoned"
   :senses "darkvision 60 ft., passive Perception 9"
   :languages "understands all languages it knew in life but can't speak"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Shortsword" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."}
             {:name "Shortbow" :description "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."}]
@@ -5679,7 +5679,7 @@ If the object touched is either metal armor or a metal shield being worn or carr
   :damage-immunities "poison"
   :condition-immunities "exhaustion, poisoned"
   :senses "darkvision 60 ft., passive Perception 9"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :actions [{:name "Hooves" :description "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."}]
 }{
@@ -5846,7 +5846,7 @@ Cantrips (at will): mage hand, minor illusion, prestidigitation
   :skills {:perception 3, :stealth 8}
   :senses "passive Perception 13"
   :languages "Common, Elvish, Sylvan"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Longsword" :description "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 1 slashing damage."}
             {:name "Shortbow" :description "Ranged Weapon Attack: +6 to hit, range 40/160 ft., one target. Hit: 1 piercing damage, and the target must succeed on a DC 10 Constitution saving throw or become poisoned for 1 minute. If its saving throw result is 5 or lower, the poisoned target falls unconscious for the same duration, or until it takes damage or another creature takes an action to shake it awake."}
@@ -5870,7 +5870,7 @@ Cantrips (at will): mage hand, minor illusion, prestidigitation
   :cha 6
                                                                                                                                                                                                                                                               
   :senses "darkvision 60 ft., passive Perception 9"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Blood Drain" :description "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 5 (1d4 + 3) piercing damage, and the stirge attaches to the target. While attached, the stirge doesn't attack. Instead, at the start of each of the stirge's turns, the target loses 5 (1d4 + 3) hit points due to blood loss.
 The stirge can detach itself by spending 5 feet of its movement. It does so after it drains 10 hit points of blood from the target or the target dies. A creature, including the target, can use its action to detach the stirge."}]
@@ -6299,7 +6299,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :condition-immunities "poisoned"
   :senses "darkvision 60 ft., passive Perception 8"
   :languages "understands the languages it knew in life but can't speak"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Undead Fortitude" :description "If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead."}]
 
@@ -6348,7 +6348,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:athletics 5, :perception 3}
   :senses "passive Perception 13	 	"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :actions [{:name "Multiattack" :description "The ape makes two fist attacks."}
             {:name "Fist" :description "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) bludgeoning damage."}
@@ -6425,7 +6425,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 5
 
   :senses "passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Beak" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) slashing damage."}]
 
@@ -6517,7 +6517,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:perception 3}
   :senses "passive Perception 13"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Keen Smell" :description "The bear has advantage on Wisdom (Perception) checks that rely on smell."}]
 
@@ -6541,7 +6541,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :skills {:perception 3, :stealth 5}
   :senses "passive Perception 13"
   :languages "Blink Dog, understands Sylvan but can't speak it"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Hearing and Smell" :description "The dog has advantage on Wisdom (Perception) checks that rely on hearing or smell."}]
 
@@ -6565,7 +6565,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:perception 4}
   :senses "passive Perception 14"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Keen Sight" :description "The hawk has advantage on Wisdom (Perception) checks that rely on sight."}
            {:name "Pack Tactics" :description "The hawk has advantage on an attack roll against a creature if at least one of the hawk's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
@@ -6589,7 +6589,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 5
                                                                                                                                        
   :senses "passive Perception 9"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Charge" :description "If the boar moves at least 20 feet straight toward a target and then hits it with a tusk attack on the same turn, the target takes an extra 3 (1d6) slashing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."}
            {:name "Relentless" :notes "Recharges after a Short or Long Rest" :description "If the boar takes 7 damage or less that would reduce it to 0 hit points, it is reduced to 1 hit point instead."}]
@@ -6639,7 +6639,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:perception 3}
   :senses "passive Perception 13"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage."}]
 }{
@@ -6683,7 +6683,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 3
                                                                                                                               
   :senses "blindsight 10 ft., passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) piercing damage."}
             {:name "Constrict" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 6 (1d8 + 2) bludgeoning damage, and the target is grappled (escape DC 14). Until this grapple ends, the creature is restrained, and the snake can't constrict another target."}]
@@ -6732,7 +6732,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:stealth 2}
   :senses "passive Perception 10"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 7 (1d10 + 2) piercing damage, and the target is grappled (escape DC 12). Until this grapple ends, the target is restrained, and the crocodile can't bite another target."}]
 }{
@@ -6823,7 +6823,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 7
 
   :senses "passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Hooves" :description "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (2d4 + 4) bludgeoning damage."}]
 }{
@@ -6890,7 +6890,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 6
 
   :senses "passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Charge" :description "If the elk moves at least 20 feet straight toward a target and then hits it with a ram attack on"}]
 
@@ -6913,7 +6913,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 5
 
   :senses "blindsight 10 ft., passive Perception 11"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :trait [{:name "Flyby" :description "The snake doesn't provoke opportunity attacks when it flies out of an enemy's reach."}]
 
@@ -6984,7 +6984,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :senses "darkvision 30 ft., passive Perception 11"
 
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Smell" :description "The badger has advantage on Wisdom (Perception) checks that rely on smell."}]
 
@@ -7008,7 +7008,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 6
 
   :senses "blindsight 60 ft., passive Perception 11"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Echolocation" :description "The bat can't use its blindsight while deafened."}
            {:name "Keen Hearing" :description "The bat has advantage on Wisdom (Perception) checks that rely on hearing."}]
@@ -7056,7 +7056,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :cha 3
 
   :senses "blindsight 30 ft., passive Perception 8"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 4 (1d4 + 2) piercing damage,and the target must succeed on a DC 11 Constitution saving throw or take 10 (3d6) poison damage. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way."}]
 }{
@@ -7100,7 +7100,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:stealth 4}
   :senses "blindsight 30 ft., passive Perception 9"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Amphibious" :description "The crab can breathe air and water."}]
 
@@ -7227,7 +7227,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
 
   :skills {:perception 2, :stealth 3}
   :senses "darkvision 30 ft., passive Perception 12"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Amphibious" :description "The frog can breathe air and water."}
            {:name "Standing Leap" :description "The frog's long jump is up to 20 feet and its high jump is up to 10 feet, with or without a running start."}]
@@ -7253,7 +7253,7 @@ If the frog dies, a swallowed creature is no longer restrained by it and can esc
   :cha 6
                                                                                                                                                  
   :senses "passive Perception 11"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Charge" :description "If the goat moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the target takes an extra 5 (2d4) bludgeoning damage. If the target is a creature, it must succeed on a DC 13 Strength saving throw or be knocked prone.
 Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made against effects that would knock it prone."}]
@@ -7300,7 +7300,7 @@ Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made
   :cha 5
                                                                                                                                         
   :senses "darkvision 30 ft., passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) piercing damage."}]
   :description "A giant lizard can be ridden or used as a draft animal. Lizardfolk also keep them as pets, and subterranean giant lizards are used as mounts and pack animals by drow, duergar, and others."
@@ -7349,7 +7349,7 @@ Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made
   :skills {:perception 5, :stealth 4}
   :senses "darkvision 120 ft., passive Perception 15"
   :languages "Giant Owl, understands Common, Elvish, and Sylvan but can't speak them"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Flyby" :description "The owl doesn't provoke opportunity attacks when it flies out of an enemy's reach. Keen Hearing and Sight. The owl has advantage on Wisdom (Perception) checks that rely on hearing or sight."}]
 
@@ -7373,7 +7373,7 @@ Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made
 
   :skills {:perception 2}
   :senses "blindsight 10 ft., passive Perception 12"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 6 (1d4 + 4) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one."}]
 }{
@@ -7416,7 +7416,7 @@ Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made
   :cha 4
 
   :senses "darkvision 60 ft., passive Perception 10"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Keen Smell" :description "The rat has advantage on Wisdom (Perception) checks that rely on smell."}
            {:name "Pack Tactics" :description "The rat has advantage on an attack roll against a creature if at least one of the rat's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
@@ -7440,7 +7440,7 @@ Sure-Footed. The goat has advantage on Strength and Dexterity saving throws made
   :cha 5
 
   :senses "passive Perception 11"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Charge" :description "If the sea horse moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the target takes an extra 7 (2d6) bludgeoning damage. It the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."}
            {:name "Water Breathing" :description "The sea horse can breathe only underwater."}]
@@ -7572,7 +7572,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :cha 3
 
   :senses "passive Perception 10"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :actions [{:name "Sting" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way."}]
 }{
@@ -7616,7 +7616,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
 
   :skills {:perception 3, :stealth 7}
   :senses "blindsight 10 ft., darkvision 60 ft., passive Perception 13"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Spider Climb" :description "The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."}
            {:name "Web Sense" :description "While in contact with a web, the spider knows the exact location of any other creature in contact with the same web."}
@@ -7860,7 +7860,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
 
   :skills {:perception 3}
   :senses "passive Perception 13"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Keen Hearing and Smell." :description "The mastiff has advantage on Wisdom (Perception) checks that rely on hearing or smell."}]
 
@@ -7884,7 +7884,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :cha 5
 
   :senses "passive Perception 10"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Beast of Burden" :description "The mule is considered to be a Large animal for the purpose of determining its carrying capacity. Sure-Footed. The mule has advantage on Strength and Dexterity saving throws made against effects that would knock it prone."}]
 
@@ -7933,7 +7933,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
 
   :skills {:perception 4, :stealth 6}
   :senses "passive Perception 14"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Smell" :description "The panther has advantage on Wisdom (Perception) checks that rely on smell."}
            {:name "Pounce" :description "If the panther moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn, that target must succeed on a DC 12 Strength saving throw or be knocked prone. If the target is prone, the panther can make one bite attack against it as a bonus action."}]
@@ -8009,7 +8009,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :cha 3
 
   :senses "blindsight 10 ft., passive Perception 10"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 1 piercing damage, and the target must make a DC 10 Constitution saving throw, taking 5 (2d4) poison damage on a failed save, or half as much damage on a successful one."}]
 }{
@@ -8054,7 +8054,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :wis 11
   :cha 7
   :senses "passive Perception 10"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Hooves" :description "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) bludgeoning damage."}]
 }{
@@ -8219,7 +8219,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :cha 7
 
   :senses "passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :actions [{:name "Hooves" :description "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (2d4 + 3) bludgeoning damage."}]
 }{
@@ -8307,7 +8307,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :damage-resistances "bludgeoning, piercing, slashing"
   :condition-immunities "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned"
   :senses "blindsight 60 ft., passive Perception 11"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Echolocation" :description "The swarm can't use its blindsight while deafened."}
            {:name "Keen Hearing" :description "The swarm has advantage on Wisdom (Perception) checks that rely on hearing."}
@@ -8334,7 +8334,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :damage-resistances "bludgeoning, piercing, slashing"
   :condition-immunities "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned"
   :senses "blindsight 10 ft., passive Perception 8"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Swarm" :description "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny insect. The swarm can't regain hit points or gain temporary hit points."}]
 
@@ -8408,7 +8408,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :damage-resistances "bludgeoning, piercing, slashing"
   :condition-immunities "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned"
   :senses "darkvision 30 ft., passive Perception 10"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Smell" :description "The swarm has advantage on Wisdom (Perception) checks that rely on smell."}
            {:name "Swarm" :description "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny rat. The swarm can't regain hit points or gain temporary hit points."}]
@@ -8434,7 +8434,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :damage-resistances "bludgeoning, piercing, slashing"
   :condition-immunities "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned"
   :senses "passive Perception 15"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Swarm" :description "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny raven. The swarm can't regain hit points or gain temporary hit points."}]
 
@@ -8505,7 +8505,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :cha 7
 
   :senses "passive Perception 11"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Trampling Charge" :description "If the horse moves at least 20 feet straight toward a creature and then hits it with a hooves attack on the same turn, that target must succeed on a DC 14 Strength saving throw or be knocked prone. If the target is prone, the horse can make another attack with its hooves against it as a bonus action."}]
 
@@ -8583,7 +8583,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
 
   :skills {:perception 3, :stealth 4}
   :senses "passive Perception 13"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Keen Hearing and Smell." :description "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."}
            {:name "Pack Tactics" :description "The wolf has advantage on attack rolls against a creature if at least one of the wolf's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
@@ -8609,7 +8609,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :skills {:perception 4}
   :senses "darkvision 60 ft., passive Perception 14"
   :languages "Goblin, Worg"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Keen Hearing and Smell." :description "The worg has advantage on Wisdom (Perception) checks that rely on hearing or smell."}]
 
@@ -8636,7 +8636,7 @@ If the toad dies, a swallowed creature is no longer restrained by it and can esc
   :skills {:medicine 4, :religion 2}
   :senses "passive Perception 12"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 4)
+  :challenge 0.25
 
   :traits [{:name "Spellcasting" :description "The acolyte is a 1st-level spellcaster. Its spellcasting ability is Wisdom (spell save DC 12, +4 to hit with spell attacks). 
 The acolyte has following cleric spells prepared:
@@ -8740,7 +8740,7 @@ Cantrips (at will): fire bolt, light, mage hand, prestidigitation,  shocking gra
 
   :senses "passive Perception 10"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Scimitar" :description "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage."}
             {:name "Light Crossbow" :description "Ranged Weapon Attack: +3 to hit, range 80 ft./320 ft., one target. Hit: 5 (1d8 + 1) piercing damage."}]
@@ -8852,7 +8852,7 @@ More than treasure, a bandit captain or pirate captain craves infamy. A prisoner
   :skills {:deception 2, :religion 2}
   :senses "passive Perception 10"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Dark Devotion" :description "The cultist has advantage on saving throws against being charmed or frightened."}]
 
@@ -8980,7 +8980,7 @@ Cantrips (at will): druidcraft, produce flame, shillelagh
   :skills {:perception 2}
   :senses "passive Perception 12"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Spear" :description "Melee or Ranged Weapon Attack: +3 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d6 + piercing damage, or 5 (1d8 + 1) piercing damage if used with two hands to make a melee attack."}]
 
@@ -9075,7 +9075,7 @@ Cantrips (at will): fire bolt, light, mage hand, prestidigitation
   :skills {:deception 5, :insight 4, :persuasion 5}
   :senses "passive Perception 12"
   :languages "any two languages"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :actions [{:name "Rapier" :description "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 5 (1d8 + 1) piercing damage."}]
 
@@ -9139,7 +9139,7 @@ A priest typically has one or more acolytes to help with religious ceremonies an
   :skills {:nature 4, :perception 5, :stealth 6, :survival 5}
   :senses "passive Perception 15"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Keen Hearing and Sight" :description "The scout has advantage on Wisdom (Perception) checks that rely on hearing or sight."}]
 
@@ -9200,7 +9200,7 @@ A priest typically has one or more acolytes to help with religious ceremonies an
   :skills {:intimidation 2}
   :senses "passive Perception 10"
   :languages "any one language (usually Common)"
-  :challenge (/ 1 2)
+  :challenge 0.5
 
   :traits [{:name "Pack Tactics" :description "The thug has advantage on an attack roll against a creature if at least one of the thug's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
 
@@ -9229,7 +9229,7 @@ A priest typically has one or more acolytes to help with religious ceremonies an
 
   :senses "passive Perception 10"
   :languages "any one language"
-  :challenge (/ 1 8)
+  :challenge 0.125
 
   :traits [{:name "Pack Tactics" :description "The warrior has advantage on an attack roll against a creature if at least one of the warrior's allies is within 5 feet of the creature and the ally isn't incapacitated."}]
 

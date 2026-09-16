@@ -934,7 +934,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-cr-normalization · plan cr normalization_
 
-**topics:** 2026-09-16, 417, acceptance, assertions, crs, decision-cr-representation, double, failures, formatters, met, monster, probe, questions, require, sort, step, string, summary
+**topics:** 1355565, 2026-09-16, 317, 417, 5491, 733, acceptance, assertions, crs, decision-cr-representation, double, formatters, per-cr, probe, ratio, require, runtimes, step
 
 - Step 0 — characterize
 - Step 1 — the formatter pair

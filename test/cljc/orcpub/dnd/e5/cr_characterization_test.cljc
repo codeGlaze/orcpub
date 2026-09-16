@@ -11,9 +11,9 @@
    INVARIANT — must NOT change. Total XP, the per-CR monster counts, the sort order, and the
    rendered Wild Shape sentence. If any of these move, the conversion is wrong.
 
-   EXPECTED TO CHANGE — the raw CR keys are ratio literals today, so on the JVM they are
-   `clojure.lang.Ratio`. After step 2 they are doubles. `ratio-keys-today` is the pin that is
-   SUPPOSED to go red, and its failure is the signal the conversion landed, not a regression.
+   CONVERTED AT STEP 2 — `cr-is-one-numeric-type`. It was written to assert the JVM `Ratio` and
+   the nil lookup by double; step 2 inverted it, and that inversion IS the record of the change.
+   The counts and totals above did not move, which is what made the conversion safe.
 
    See docs/kb/decision-cr-representation.md for why, and plan-cr-normalization.md for the order."
   (:require [clojure.test :refer [deftest testing is]]
@@ -34,11 +34,17 @@
 ;; ---------------------------------------------------------------- the monster data
 
 (deftest monster-cr-counts-are-invariant
+  ;; Compared as PLAIN maps, deliberately. An earlier version compared against a `sorted-map`
+  ;; and silently lost its teeth: a plain map on the left looks keys up in a sorted map with
+  ;; `compare`, and `(compare 1/8 0.125)` is 0, so the ratio-to-decimal conversion slipped
+  ;; straight through. `=` on maps is not symmetric when one side is sorted —
+  ;; `(= expected actual)` was true while `(= actual expected)` was false, and the idiomatic
+  ;; clojure.test argument order is the insensitive one.
   (testing "how many monsters sit at each CR — sensitive to any single row changing"
-    (is (= {0 29, 1/8 17, 1/4 32, 1/2 28, 1 27, 2 41, 3 20, 4 11, 5 25, 6 10, 7 6, 8 10,
+    (is (= {0 29, 0.125 17, 0.25 32, 0.5 28, 1 27, 2 41, 3 20, 4 11, 5 25, 6 10, 7 6, 8 10,
             9 8, 10 6, 11 7, 12 2, 13 6, 14 3, 15 4, 16 5, 17 4, 19 1, 20 3, 21 4, 22 2,
             23 3, 24 2, 30 1}
-           (into (sorted-map) (frequencies (map :challenge monsters5e/monsters-raw))))))
+           (frequencies (map :challenge monsters5e/monsters-raw)))))
   (testing "317 monsters, 28 distinct CRs"
     (is (= 317 (count monsters5e/monsters-raw)))
     (is (= 28 (count (distinct (map :challenge monsters5e/monsters-raw)))))))
@@ -59,15 +65,21 @@
 
 ;; ---------------------------------------------------------------- the runtime split
 
-(deftest ratio-keys-today
-  (testing "EXPECTED TO CHANGE at step 2. Fractional CRs are ratio literals, so a Ratio on the
-            JVM and a double in CLJS — the divergence the normalization removes."
-    (is (= clojure.lang.Ratio
+(deftest cr-is-one-numeric-type
+  ;; This assertion was inverted at step 2, and that inversion is the point. Before the
+  ;; conversion it read: type is Ratio, lookup by 1/8 gives 25, lookup by 0.125 gives nil.
+  (testing "fractional CRs are doubles in both runtimes now — the `.cljc` split is gone"
+    (is (= #?(:clj java.lang.Double :cljs js/Number)
            (type (first (filter #(and (number? %) (< 0 % 1))
                                 (map :challenge monsters5e/monsters-raw))))))
-    (is (= 25 (monsters5e/challenge-ratings 1/8)))
-    (is (nil? (monsters5e/challenge-ratings 0.125))
-        "a homebrew CR — always a double — misses the table on the JVM today")))
+    (is (= 25 (monsters5e/challenge-ratings 0.125))
+        "a homebrew CR — always a double — now finds the table on the JVM too")
+    ;; JVM-only, and not for tidiness: `1/8` is not a valid ClojureScript constant at all
+    ;; ("clojure.lang.Ratio is not a valid ClojureScript constant" — the compiler's words).
+    ;; That is the premise of this whole change, demonstrated by the reader.
+    #?(:clj
+       (is (nil? (monsters5e/challenge-ratings 1/8))
+           "and the ratio no longer resolves, which is correct: nothing writes one any more"))))
 
 ;; ---------------------------------------------------------------- the character side
 
