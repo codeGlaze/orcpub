@@ -16,8 +16,17 @@ New test pinning current behaviour, before anything moves:
 - both formatters' output for every one of the 28 distinct CRs
 - the rendered druid Wild Shape action summary, as a literal string, at levels 2/4/8
 
-**Acceptance:** green on today's code, **and** demonstrably red if a CR value is altered. A
-characterization that cannot fail pins nothing — prove it fails before trusting it.
+**Acceptance — met 2026-09-16.** `cr_characterization_test.clj`, 6 tests / 16 assertions, green.
+Proven able to fail: flipping one monster's `:challenge` from `(/ 1 4)` to `(/ 1 2)` in the real
+data turns it red on two independent assertions (per-CR counts, total XP), then restored clean.
+
+Two things the sensitivity probe exposed while writing it, both recorded rather than smoothed over:
+
+- **The sort pin only guards the ends of the list.** Perturbing a mid-CR monster moves the totals
+  but not the first five, so the first attempt at the probe passed when it should not have. The
+  counts and total-XP assertions are what actually catch a mistyped row.
+- **`ratio-keys-today` is SUPPOSED to go red at step 2.** It pins the JVM `Ratio` type and the
+  `nil` lookup by double. Its failure is the signal the conversion landed, not a regression.
 
 ## Step 1 — the formatter pair
 
@@ -34,7 +43,8 @@ plan: all 28 round-trip, labels come out `0 1/8 1/4 1/2 1 2 3 ...`.
 
 ## Step 2 — convert the data
 
-`1/4` -> `0.25` in the `challenge-ratings` keys and the 77 fractional monster rows.
+`(/ 1 4)` -> `0.25` in the `challenge-ratings` keys and the 77 fractional monster rows. They are
+written as forms rather than `1/4` literals; the semantics and the per-runtime split are the same.
 
 **Acceptance:** step 0's test shows XP values and sort order **unchanged**, plus a new assertion
 that a JVM lookup by double now succeeds where it returned `nil`.

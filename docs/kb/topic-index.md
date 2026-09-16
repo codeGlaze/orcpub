@@ -539,7 +539,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** book, double, doubles, formatter, formatters, fractional, jvm, monster, monsters, moon, numeric, parser, query, ratio, ratios, representations, sentence, sort
+**topics:** book, double, doubles, formatter, formatters, fractional, jvm, literals, monster, monsters, moon, numeric, query, ratio, ratios, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -934,7 +934,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-cr-normalization · plan cr normalization_
 
-**topics:** acceptance, altered, creature-query, crs, decision-cr-representation, display-strings, double, execution, formatters, monster, monster-builder, questions, require, returned, step, string, summary, synced
+**topics:** 2026-09-16, acceptance, assertions, creature-query, crs, decision-cr-representation, double, formatters, mid-cr, monster, perturbing, probe, questions, require, sort, step, string, summary
 
 - Step 0 — characterize
 - Step 1 — the formatter pair

@@ -18,7 +18,7 @@ parser in a shared namespace.** Change it once, now, before the query is written
 
 | where | representation | read by |
 | --- | --- | --- |
-| SRD monster data (`monsters.cljc`) | ratio literal `1/4` — a **Ratio on the JVM**, a **double in CLJS** | the sort and the XP lookup |
+| SRD monster data (`monsters.cljc`) | the form `(/ 1 4)` — evaluates to a **Ratio on the JVM**, a **double in CLJS** | the sort and the XP lookup |
 | `challenge-ratings` (CR -> XP, `monsters.cljc:44`) | keyed the same way, `(/ 1 8)` etc. | display, the builder dropdown |
 | Homebrew monster (`views.cljs:8380`) | `(js/parseFloat %)` — always a **double** | same |
 | Character side, `?wild-shape-cr` (`classes.cljc:801`) | a **string**, `"1/4"` | nothing but prose |
@@ -105,7 +105,8 @@ which is the point of keeping a formatter rather than pushing the display form i
 (= (/ 1 8) 0.125)            ; => false
 ```
 
-**The 77 monster rows**: `:challenge 1/8` -> `:challenge 0.125`.
+**The 77 monster rows**: `:challenge (/ 1 8)` -> `:challenge 0.125`. (They are written as
+forms, not as `1/8` literals — same semantics, and the same per-runtime split.)
 
 **Two formatters become one.** Today `views.cljs:1394` hardcodes
 `(case challenge 0.125 "1/8" ...)` and `views.cljs:8374` computes
