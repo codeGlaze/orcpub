@@ -1,4 +1,4 @@
-# TODO — `feature/grant-rows`
+# TODO — `feature/extras-companions`
 
 Two halves, and they are not the same document.
 
@@ -16,51 +16,60 @@ Status: ☐ not started · ◐ partly done · ☑ done
 
 ## Part 1 — this branch
 
-`docs/kb/handoff-grant-rows.md` has the spec and acceptance test for each numbered step; this is
-the status board, not a second copy of it.
+The Extras silo: companions, summons, Wild Shape, retinue. Cut from `feature/grant-rows` on
+2026-09-16 — `BRANCH.md` says this leaf belongs there, not beside it, because the grant vocabulary
+a companion needs (`:grants`, `grant-selection`, `grant_pools.cljc`) is built there, and
+`feature/grant-rows` also contains `refactor/content-extensibility`, the refactor trunk.
 
-### The eight steps
+Research: [`plan-companions-and-wild-shape.md`](kb/plan-companions-and-wild-shape.md) (574 lines,
+revised twice) and [`extras-definitions.md`](kb/extras-definitions.md). Written before the KB merge,
+so they do not cite `pool-grant-map.md`, `authoring-vocabulary.md`, `edition-drift.md`,
+`requirements-registry.md` or `rules-override-layer.md` — all five are on this branch. Read them
+before extending the plan.
 
-| | step | status |
+**Nothing here is built.**
+
+### Blockers
+
+- ☐ **CR is two different types** — a string on the character, a number on the monster. Wild Shape
+  slice 1 is exactly this, and everything else queues behind it.
+- ☑ ~~Nothing lets content declare that a feature grants a creature~~ — **retracted** `0a7fd4df`.
+  True of `integration`, false here: a creature pool is one `grant_pools.cljc` registry entry whose
+  `:options-fn` reads monster data.
+- **Edition is not a blocker.** Both rulesets ship and mix; only the default is open.
+
+### Wild Shape half — first, it builds the beast query
+
+| | slice | status |
 |---|---|---|
-| 1 | Re-record the gallery baseline | ☐ — `test/e2e/builder-baseline.json` last moved 2026-09-12 (`2efffadb`), before the Grants card landed |
-| 2 | `legacy_shims.cljc` — fixed-class keys normalize at import | ◐ — characterized (`legacy_shim_equivalence_test.clj`, 179 lines). **`legacy_shims.cljc` does not exist.** Blocked per step 4: only feat and race compile `:grants` |
-| 3 | The `:ref` decision | ◐ — gate run and **passed** (`conditional_selection_ref_test.clj`, `4b7dc0e6`): the replacement selection is nested, not a top-level `:ref`. `:blocked-on-ref` not yet lifted |
-| 4 | `grant-rows` on the other silos | ☐ — subrace, background, class, subclass do not compile `:grants`. Do this per silo *before* shimming that silo |
-| 5 | Effect kinds feat is missing | ☐ — read the template-tier warning first; some of these are frozen templates, not generic rows |
-| 6 | E3 proper — creatures and traits | ☐ — also the Extras dependency (`0a7fd4df`: a creature pool is one registry entry) |
-| 7 | `content-builder :feat` — the one-liner | ☐ — only after 2 and 5 |
-| 8 | Spells as a pool | ☐ — last |
+| 1 | CR as one comparable type — characterize `?wild-shape-cr`, then change it | ☐ |
+| 2 | CR + speed dimensions on `filter-monsters` | ☐ |
+| 3 | Prepared forms on the character, following the prepared-spells shape | ☐ |
+| 4 | Picker + per-form view in the sheet | ☐ |
+| 5 | Beast cards in the PDF, reusing the card frame | ☐ |
+| 6 | Moon's CR rule — plugin data, not base (SRD boundary) | ☐ |
 
-### Added since the handoff was written (2026-09-08)
+Slices 1–2 are also the summoning substrate: Find Familiar, Find Steed and the Summon spells are
+the same query.
 
-**The hidden-pick defect.** A selection's `prereq-fn` gates whether the builder OFFERS a pick, never
-whether a stored pick applies — so drop a class and its skill stays on the sheet with no control to
-remove it. Reproduced for class skills and starting equipment.
+### Companion half — starts after Wild Shape 1–2
 
-- ☑ Reproduced — `multiclass_hidden_pick_test.clj` (`ec04da1b`)
-- ☑ Scoped — nine gated sites, five of them starting equipment (`f4837afd`)
-- ☑ Planned — `plan-hidden-pick-fix-and-grant-fields.md` (`292c200c`), two parts
-- ☐ **Part A, the fix** — thread `cls-kw` through `class-skill-selection` → `skill-selection` →
-  `skill-selection-2`, attach per-arm conditions. Cuts from `integration`; verified byte-identical
-  there (`0b493f6e`)
-- ☐ **Part B** — the four dropped `grant-selection` fields (`:key`, `:order`, `:prereq-fn`,
-  min≠max) plus `:if-held` as a multimethod
+| | slice | status |
+|---|---|---|
+| 1 | A plugin subclass can declare that it grants a companion. **Nothing else can start before it**, and it is the only step with no existing machinery to copy | ☐ |
+| 2 | A character can reference a creature — `character.cljc` references none today | ☐ |
+| 3 | Parameterisation: `bonuses` as formulas over the owner, `match` flags for inheritance | ☐ |
+| 4 | A companion view in `details-tabs` | ☐ |
+| 5 | Companion cards, once beast cards land | ☐ |
 
-**The already-held rule.** ☑ Measured across pools and checked against SRD text — it is general and
-covers tools (`6c1d0075`); ☑ decided it lives on the grant, not the pool (`b6d9d03d`).
+**Deliberately deferred: sidekicks.** A sidekick gains class levels — character-lite, not a
+parameterised monster. It needs the builder, not this.
 
-**`:grants` is specced.** ☑ `src/cljc/orcpub/dnd/e5/grants.cljc` + 17 assertions (`2448c95c`).
+### Depends on `feature/grant-rows`
 
-### Picked up from the central backlog
-
-- **Homebrew fighting-style authoring — never wired.** Part 2 §"Homebrew fighting-style authoring".
-  Directly this branch's area: `template.cljc` hard-codes the feat's grantable pool to built-in
-  styles and its own comment calls that a "BRIDGE PROTOTYPE". Note that entry still describes the
-  old `:grant {:from :choose}` vocabulary, which this branch's Don'ts retired — fix the wording
-  when the work is done, not before.
-
----
+That branch is the base and is still moving. Its step 6 (E3 proper — creatures and traits) is the
+one this silo needs; `vector-rows-node`-shaped work there is the companion declaration's substrate.
+Merge it down as it lands rather than diverging. Its own worklist stays in its `docs/TODO.md`.
 
 ## Part 2 — central backlog (copy from `agents/develop` `24c2657b`, reference only)
 

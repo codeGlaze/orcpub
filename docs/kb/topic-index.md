@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, terse, toggle, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, reader, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, review, screenshot, vanished, writing
+**topics:** block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, page, react, review, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -218,7 +218,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
+**topics:** 2026, builders, conditionals, creatures, description, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -250,7 +250,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, d28, dead, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
+**topics:** artificer, builders, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, pool, profs, reaction, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
+**topics:** auth, backend, chromium, cljs, errors, failures, floating-asi, gotchas, harness, headless, html, overlay, per-test, playwright, race-builder, recipe, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -431,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, preconditions, require, revert, route, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -495,7 +495,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -508,7 +508,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -521,7 +521,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, background, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
+**topics:** 2024, background, courtier, elegant, expertise, investigation, iron, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, srd, terseness, xphb
 
 - The question
 - What the published rules actually do
@@ -556,7 +556,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
+**topics:** asi, caster, choices, cross-silo, custom, feat-only, fixed, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -587,7 +587,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, compound, dependent, descriptive, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, repeatable, select, spell, spells, two-level
+**topics:** agreed, cantrips, cha, churning, compound, dependent, descriptive, filters, idiomatic, layer-a, mis-attribution, multiple, qualifiers, repeatable, select, spell, spells, two-level
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -619,7 +619,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, learned, push, reminder, scripts, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -650,13 +650,26 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, property, stow, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
 - Two data traps found while checking
 - The general lesson
 - Provenance
+
+## extras-definitions.md
+
+_extras-definitions · extras definitions_
+
+**topics:** beneath, bounds, capabilities, copy, copy-on-adopt, creature, disjoint, instance, local, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
+
+- One record, capabilities toggled
+- Copy-on-adopt, not reference
+- What each kind needs
+- Where state lives
+- Decided here
+- Still open
 
 ## feat-builder-audit.md
 
@@ -707,7 +720,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, vietnamese, visitor
+**topics:** blocks, browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -739,7 +752,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -761,7 +774,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
+**topics:** 374, 3816, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, panel, running, scripts, tag, waiting, worktree
 
 - The branches, and the order
 - Gates, as measured on each branch
@@ -801,7 +814,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, expressed, icon, legal, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -829,7 +842,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, falls, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, quarantine, repair, restore, suggestion, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -840,7 +853,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, problem, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -865,11 +878,45 @@ _orcbrew-format-versioning · orcbrew format versioning_
 - Still open (besides the name)
 - Related
 
+## plan-companions-and-wild-shape.md
+
+_plan-companions-and-wild-shape · plan companions and wild shape_
+
+**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
+
+- The domain map: seven kinds
+- What this reveals
+- Priority
+- The druid flow, and what it maps onto
+- The blocker: CR is two different types
+- Circle of the Moon
+- Merging druid onto beast
+- What gets printed, and what gets a view
+- The card
+- The digital view
+- What feature/grant-rows already built
+- Homebrew: buckets A and B
+- Base branch and dependency
+- The specs permit it — but permitting is not the model
+- The spec shapes
+- A: bonded — a key on the granting feature
+- B: conjured — count is a table, not a number
+- The real risk is reference integrity, not schema
+- What is not yet checked
+- Slices: the Wild Shape half
+- Slices: the companion half
+- Companions are a second system
+- Foundry's summon model — module/data/activity/summon-data.mjs
+- The taxonomy a companion feature has to cover
+- The SRD boundary decides where this ships
+- Open questions
+- Revisions
+
 ## plan-hidden-pick-fix-and-grant-fields.md
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, owner, part, per-pool, pool, wrapper
+**topics:** arms, bug, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, part, per-pool, pool, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -886,7 +933,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, cap, capabilities, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** advanced, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -901,7 +948,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, shaped, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers
@@ -935,7 +982,7 @@ _registry-before-after · registry before after_
 
 _requirements-registry · requirements registry_
 
-**topics:** accessor, acquisition, alias, archmagi, bonuses, channels, context, contributors, distinguishable, effect, fact, gates, macro, prereq, registry, requirement, spellings, trigger
+**topics:** accessor, acquisition, alias, bonuses, channels, context, contributors, distinguishable, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -955,7 +1002,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track, widgets
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -975,7 +1022,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, authorship, campaign, computation, dispensations, everyone, expressed, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -1000,7 +1047,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -1087,7 +1134,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, neither, not-melee, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, longsword, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
