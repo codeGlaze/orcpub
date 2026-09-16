@@ -1,11 +1,38 @@
 # Headless ClojureScript test harness (how to run cljs tests in a container)
 
-**Why:** CI runs only `lein lint`/`lein test` (JVM). The cljs suite (subs, events,
-import-validation, content-reconciliation, …) only runs under a JS runtime. This recipe
-runs it **headless** so cljs changes are verifiable without the full webapp (no backend,
-no Datomic — those aren't needed; HTTP calls just `ERR_CONNECTION_REFUSED` harmlessly).
+**Why:** the cljs suite (subs, events, orcbrew-validation, content-reconciliation, …) only
+runs under a JS runtime. This runs it **headless** so cljs changes are verifiable without the
+full webapp (no backend, no Datomic — those aren't needed; HTTP calls just
+`ERR_CONNECTION_REFUSED` harmlessly).
+
+> **Updated 2026-09-16.** The runner is committed now — `scripts/test/run-cljs-tests.js` — and
+> most of what follows describes how it was built rather than how to use it. **To run the suite:**
+>
+> ```bash
+> lein fig:test && node scripts/test/run-cljs-tests.js
+> ```
+>
+> That is what `docs/CONTRIBUTING.md` means by "the node runner". It serves its own HTML, runs
+> **both** passes (see below), and exits non-zero on any failure. Prefer it over
+> `test/e2e/cljs-harness.js`, which predates it, needs a hand-made `target/test/runner-all.html`,
+> and always exits 0.
+
+### Why it is not in CI — measured 2026-09-16, because "deferred" was all this page said
+
+Two separate items had been bundled into one deferral:
+
+- **The cljs unit suite is cheap.** `lein fig:test` 44s warm + the node runner 13s = **~1 minute**
+  for 426 tests. Its only blocker is that the workflow has **no JS runtime at all** — no
+  `setup-node`, no npm, no Playwright, no browser. Four missing lines, not a cost problem.
+- **The full-app E2E is the expensive one** — 29 scripts in `test/e2e/`, needing a built app, a
+  running `lein e2e-server` and a database. That is a different order of setup.
+
+CI's "ClojureScript" step is `lein fig:build` — a **compile**, not a run. Worth knowing why that
+is weak cover: a missing var in CLJS is a *warning*, not an error, so that step goes green on code
+that breaks at runtime.
+
 **The harness is built in `/tmp` + the gitignored `target/` — both ephemeral, so rebuild
-from this recipe.** It's also the prototype for the deferred "cljs tests in CI" item.
+from this recipe.**
 
 ## Build it
 
@@ -37,15 +64,28 @@ Loads figwheel's auto-test runner. Reports to the DOM (the body lists ALL tests 
   `<body><div id="app-auto-testing"></div><script src="js/test-auto-testing.js"></script></body>`
   (the `app-auto-testing` div is required or it throws.)
 
-**Driver — now in the repo: `test/e2e/cljs-harness.js`** (`node test/e2e/cljs-harness.js` after
-`lein fig:test`; it picks Chromium out of `PLAYWRIGHT_BROWSERS_PATH`, serves `target/test/`, runs
-mode **B**, and prints the totals plus the distinct `FAIL in`/`ERROR in` names). It was rebuilt from
-scratch three times in `/tmp` before being committed. Described below for when it needs changing: a ~15-line `http` static server rooted at
+**Use `scripts/test/run-cljs-tests.js`.** It serves its own HTML containing *both* mains, so it
+runs A and B in one pass, keeps every summary, requires each to be clean, and **exits non-zero**.
+Nothing to hand-create.
+
+Consequence worth knowing, because it is easy to get wrong: pass B loads **every test namespace the
+build loaded**, so adding a `:require` to `test_runner.cljs` is enough for a new test to run and to
+fail the build. The `-main` list only decides what pass A reports per-test. (This page previously
+implied a namespace missing from `-main` is skipped entirely. It is not.)
+
+**Older driver — `test/e2e/cljs-harness.js`** (`node test/e2e/cljs-harness.js` after
+`lein fig:test`; picks Chromium out of `PLAYWRIGHT_BROWSERS_PATH`, serves `target/test/`, runs
+mode **B** only, needs `target/test/runner-all.html` to exist, and **always exits 0**). Kept
+because it is described here; reach for the committed runner instead. Described for when it needs
+changing: a ~15-line `http` static server rooted at
 `target/test/`, then Playwright Chromium navigates to the HTML, captures `console` +
 `pageerror`, waits for `/Ran \d+ tests/`, and prints the console + body. Grep the output for
 `Ran .* tests`, `FAIL in`, `ERROR in`.
 
-## Known-good baseline — 2026-09-12: **370 tests / 1742 assertions, 0 failures, 0 errors**
+## Known-good baselines
+
+- **2026-09-16: 426 tests / 1905 assertions, 0 failures, 0 errors** (`scripts/test/run-cljs-tests.js`).
+- 2026-09-12: 370 tests / 1742 assertions, 0 failures, 0 errors.
 
 (The earlier baseline on this page, "≈150 tests, 10 failures, 2 errors", was measured while the
 harness was mis-serving the build. See below — the failures were not real.)

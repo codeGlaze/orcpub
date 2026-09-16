@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, page, react, review, screenshot, vanished
+**topics:** blind, block, check, control, css, fires, forever, form, invented, item, lesson, machine, page, react, reagent, review, screenshot, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -316,11 +316,12 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, chromium, cljs, errors, failures, floating-asi, gotchas, harness, headless, html, overlay, per-test, playwright, race-builder, recipe, runs, totals
+**topics:** auth, backend, chromium, cljs, errors, exits, failures, harness, headless, html, page, per-test, playwright, race-builder, run, runner, runs, suite
 
+- Why it is not in CI — measured 2026-09-16, because "deferred" was all this page said
 - Build it
 - Two ways to run (they differ — pick deliberately)
-- Known-good baseline — 2026-09-12: 370 tests / 1742 assertions, 0 failures, 0 errors
+- Known-good baselines
 - Two things had the suite reporting nonsense, and neither was a test
 - Gotchas worth remembering
 - Full-app headless E2E — render and drive the REAL app UI (not the test build)
@@ -637,7 +638,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, hook, learned, push, reminder, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -871,7 +872,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, problem, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, disable, disabled, dismissal, enabled, global, import, item, library, modal, off, overlay, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -998,7 +999,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type
+**topics:** 000, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
