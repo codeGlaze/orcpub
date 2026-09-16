@@ -50,8 +50,12 @@ Shape leads. It is stale against the domain map above it — fix or mark it befo
 
 ### Blockers
 
-- ☐ **CR is two different types** — a string on the character, a number on the monster. The
-  creature query cannot be written until CR is one comparable type, so this is first regardless.
+- ◐ **CR is two different types** — a string on the character, a number on the monster.
+  **Measured 2026-09-16: this is not a live defect.** Nothing compares them; `?wild-shape-cr` is
+  interpolated into prose and read by nothing else. The real issue is three representations, two
+  formatters, and ratio literals in `.cljc` that are a `Ratio` on the JVM and a double in CLJS —
+  latent, because nothing JVM-side reads CR today. Shape decided in
+  [decision-cr-representation.md](kb/decision-cr-representation.md); still to build.
 - ☑ ~~Nothing lets content declare that a feature grants a creature~~ — **retracted** `0a7fd4df`.
   A creature pool is one `grant_pools.cljc` registry entry whose `:options-fn` reads monster data.
   Per that retraction: a form list is a **rule** (CR bound, no fly/swim), never an enumeration —
@@ -65,7 +69,7 @@ Shape leads. It is stale against the domain map above it — fix or mark it befo
 
 | | | status |
 |---|---|---|
-| 1 | **CR as one comparable type** — characterize `?wild-shape-cr` (`template.cljc:706`), then change it. Gates everything | ☐ |
+| 1 | **CR as one number** — decided: one `double`, one formatter, one parser. See [decision-cr-representation.md](kb/decision-cr-representation.md). Characterize the XP lookup and sort across all 317 monsters, *then* convert the 77 ratio literals | ☐ |
 | 2 | **The constrained creature query** — CR bound + type + size, as a pool whose filter is a predicate, not an enumeration. The shared mechanism for A and B | ☐ |
 | 3 | **A plugin subclass can declare it grants a companion** — the only step with no existing machinery to copy; nothing in bucket A can start before it | ☐ |
 | 4 | **A character can reference a creature** — `character.cljc` references none today. Copy-on-adopt, decided in `extras-definitions.md` | ☐ |

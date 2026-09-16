@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, spreads, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, race, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, pool, race, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -218,7 +218,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** 2026, builders, conditionals, creatures, description, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
+**topics:** 2026, builders, conditionals, creatures, description, feat, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -301,7 +301,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, summary, surge, user-reported, wind
+**topics:** attack, cfg, dice, feature, features, heal, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -431,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, preconditions, require, revert, route, snapshots, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, gate, goal, golden, green, phase, phases, require, revert, route, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -495,7 +495,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -521,7 +521,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, background, courtier, elegant, expertise, investigation, iron, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, srd, terseness, xphb
+**topics:** 2024, background, courtier, edition-drift, elegant, expertise, investigation, iron, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
 
 - The question
 - What the published rules actually do
@@ -534,6 +534,21 @@ _decision-already-held-resolution · decision already held resolution_
 - The addressing gate — RUN, and it passes
 - But the pick outlives its justification
 - Open
+
+## decision-cr-representation.md
+
+_decision-cr-representation · decision cr representation_
+
+**topics:** -discarded, 317, compares, double, extras, formatter, formatters, fractional, jvm, lower, monster, monsters, numeric, parser, query, ratio, representations, sort
+
+- The short answer
+- What exists — VERIFIED, not recalled
+- The trap, which is latent rather than live
+- The recommendation, and why
+- What changes
+- What does not change
+- Risk
+- What this does not settle
 
 ## decision-gate-hidden-picks.md
 
@@ -637,7 +652,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, d32, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -752,7 +767,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, handoff, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -774,7 +789,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, panel, running, scripts, tag, waiting, worktree
+**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, integration, merging, panel, running, scripts, tag, waiting, worktree
 
 - The branches, and the order
 - Gates, as measured on each branch
@@ -882,7 +897,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** beast, card, cards, companion, companions, creature, discarded, druid, familiar, foundry, master, moon, per-form, query, retainers, summon, taxonomy, wild
+**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -933,7 +948,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** advanced, armour, capabilities, control, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -1047,7 +1062,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -1088,7 +1103,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1119,7 +1134,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, number, optimisation, shown, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, optimisation, session, shown, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
@@ -1134,7 +1149,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, longsword, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
