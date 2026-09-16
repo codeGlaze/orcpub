@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, heavy, mail, max, monk, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -103,7 +103,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, predicate, spec, specs, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, boolean, crossbow, dual, equipped, feat, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, page, react, review, screenshot, vanished, writing
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, page, react, review, screenshot, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, pool, race, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -250,7 +250,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, pool, profs, reaction, scaling, tool
+**topics:** artificer, builders, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, pool, profs, reaction, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -278,7 +278,7 @@ _built-character-representation · built character representation_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, crash, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -508,7 +508,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface
+**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -539,7 +539,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** -discarded, 317, compares, double, extras, formatter, formatters, fractional, jvm, lower, monster, monsters, numeric, parser, query, ratio, representations, sort
+**topics:** book, double, doubles, formatter, formatters, fractional, jvm, monster, monsters, moon, numeric, parser, query, ratio, ratios, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -547,6 +547,9 @@ _decision-cr-representation · decision cr representation_
 - The recommendation, and why
 - What changes
 - What does not change
+- Spelled out, site by site
+- Why the current encoding exists - VERIFIED from history
+- Knock-on effects - checked, not assumed
 - Risk
 - What this does not settle
 
@@ -789,7 +792,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, integration, merging, panel, running, scripts, tag, waiting, worktree
+**topics:** 374, 3816, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, panel, running, scripts, tag, waiting, worktree
 
 - The branches, and the order
 - Gates, as measured on each branch
@@ -802,7 +805,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, nine, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
+**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -927,6 +930,21 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 - Open questions
 - Revisions
 
+## plan-cr-normalization.md
+
+_plan-cr-normalization · plan cr normalization_
+
+**topics:** acceptance, altered, creature-query, crs, decision-cr-representation, display-strings, double, execution, formatters, monster, monster-builder, questions, require, returned, step, string, summary, synced
+
+- Step 0 — characterize
+- Step 1 — the formatter pair
+- Step 2 — convert the data
+- Step 3 — collapse the two formatters
+- Step 4 — the character side
+- Step 5 — spec it
+- Blast radius
+- Out of scope
+
 ## plan-hidden-pick-fix-and-grant-fields.md
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
@@ -963,7 +981,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, shaped, spells, styles, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, entry, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers

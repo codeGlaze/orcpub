@@ -69,7 +69,7 @@ Shape leads. It is stale against the domain map above it — fix or mark it befo
 
 | | | status |
 |---|---|---|
-| 1 | **CR as one number** — decided: one `double`, one formatter, one parser. See [decision-cr-representation.md](kb/decision-cr-representation.md). Characterize the XP lookup and sort across all 317 monsters, *then* convert the 77 ratio literals | ☐ |
+| 1 | **CR as one number** — one `double`, one formatter, one parser. Shape: [decision-cr-representation.md](kb/decision-cr-representation.md). Execution: [plan-cr-normalization.md](kb/plan-cr-normalization.md), six steps, characterization first. Blast radius checked — encounters reference creatures by keyword, the monster builder already writes doubles, real `.orcbrew` content is already decimal | ☐ |
 | 2 | **The constrained creature query** — CR bound + type + size, as a pool whose filter is a predicate, not an enumeration. The shared mechanism for A and B | ☐ |
 | 3 | **A plugin subclass can declare it grants a companion** — the only step with no existing machinery to copy; nothing in bucket A can start before it | ☐ |
 | 4 | **A character can reference a creature** — `character.cljc` references none today. Copy-on-adopt, decided in `extras-definitions.md` | ☐ |

@@ -87,6 +87,81 @@ so it would miss the XP table on the JVM and print nothing — a silent wrong an
 The XP table's values, the sort, and every rendered sentence — "CR 1/4" still reads "CR 1/4",
 which is the point of keeping a formatter rather than pushing the display form into storage.
 
+## Spelled out, site by site
+
+**The CR -> XP table** (`monsters.cljc:44`):
+
+```clojure
+;; BEFORE - ratio literals. Two different values depending on runtime.
+(def challenge-ratings {0 10, (/ 1 8) 25, (/ 1 4) 50, (/ 1 2) 100, 1 200, ...})
+;; AFTER
+(def challenge-ratings {0 10, 0.125 25, 0.25 50, 0.5 100, 1 200, ...})
+```
+
+```clojure
+;; on the JVM, today
+(challenge-ratings (/ 1 8))  ; => 25     works
+(challenge-ratings 0.125)    ; => nil    where a homebrew CR lands
+(= (/ 1 8) 0.125)            ; => false
+```
+
+**The 77 monster rows**: `:challenge 1/8` -> `:challenge 0.125`.
+
+**Two formatters become one.** Today `views.cljs:1394` hardcodes
+`(case challenge 0.125 "1/8" ...)` and `views.cljs:8374` computes
+`(if (< 0 v 1) (str "1/" (/ 1 v)) v)`. Both become `display/cr->label`.
+
+**The character side** (`classes.cljc:801`):
+
+```clojure
+;; BEFORE - a string, so it can only ever be printed
+(mod/modifier ?wild-shape-cr
+  (mod5e/level-val (?class-level :druid) {1 "1/4"  4 "1/2"  8 "1"}))
+;; AFTER - a number, printed through the formatter
+(mod/modifier ?wild-shape-cr
+  (mod5e/level-val (?class-level :druid) {1 0.25  4 0.5  8 1}))
+```
+
+The rendered sentence is byte-identical either way. That is the point of a formatter.
+
+**What it unlocks** - this is a type error today and merely true afterwards:
+
+```clojure
+(filter #(<= (:challenge %) ?wild-shape-cr) beasts)
+```
+
+## Why the current encoding exists - VERIFIED from history
+
+**`?wild-shape-cr` as a string is not a decision.** Commit `3946ce60` (2017-05-23) introduced
+the attribute and gave it two types **in the same commit**: the base druid got strings
+`{1 "1/4" 4 "1/2" 8 "1"}` because its value feeds a sentence, and Circle of the Moon got
+`(max 1 (int (/ (?class-level :druid) 3)))` because its value comes from a formula. Nobody was
+choosing a type; each site was filled in with whatever its blank needed. It survived nine years
+because nothing ever compared the value to anything.
+
+**The ratio literals are a half-decent reason.** `f4db712c` (2017-06-23), a bulk
+"add a bunch of missing monster fields" commit. `1/8` reads like the source book, is exact, and
+is quicker to transcribe than `0.125` — real advantages for someone entering 300 statblocks. The
+flaw is not the notation, it is that `monsters.cljc` is `.cljc` and ClojureScript has no ratios.
+`cr->label` keeps the book's notation at the display layer, where a runtime cannot fork it.
+
+## Knock-on effects - checked, not assumed
+
+| consumer | touches CR? | effect |
+| --- | --- | --- |
+| **Encounter builder** | **No.** Stores `[:creatures n :creature :monster]` as a **keyword reference** plus a count (`views.cljs`, `creature-selector`). No stats copied | none |
+| `encounters.cljc` | spec is `::name ::key ::option-pack` only | none |
+| **Custom monster builder** | Yes — writes `(js/parseFloat %)`, already a double | none; it is already the target shape |
+| Monster stat block display | Yes — the `case` formatter and the XP lookup | replaced by `cr->label`; output unchanged |
+| Monster list sort | Yes — `sort-by :challenge` (`spell_subs.cljs:1412`) | unchanged; doubles sort as ratios did |
+| PDF / anything JVM | **No** — checked `pdf.clj` and `pdf_spec.cljc`, no hits | none today; this is the latent trap the change removes |
+
+**Real user content is already decimal.** Measured against a 636-monster `.orcbrew` pack: every
+`:challenge` is a plain number, fractional ones written `0.5`, `0.25`, `0.125` — no strings, no
+ratios, no nils. So the wire format already uses the shape being adopted, and the SRD's in-source
+ratio literal is the outlier rather than the norm. **No user-data migration, and nothing breaks
+for existing homebrew.**
+
 ## Risk
 
 Low, and it is all in step 1. The exposure is the 77 SRD rows: a typo there changes a monster's XP

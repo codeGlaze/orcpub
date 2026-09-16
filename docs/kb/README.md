@@ -19,6 +19,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [handoff-grant-rows.md](handoff-grant-rows.md) | **Taking over `feature/grant-rows`? Start here.** Where the branch is, what is proven, and the eight steps in order with an acceptance test each — shim registry, the `:ref` decision, the other silos, effect kinds, E3, the one-liner, spells. Plus the rules that bit and the don'ts. | High — written at handoff |
+| [plan-cr-normalization.md](plan-cr-normalization.md) | **How to execute the CR change.** Six steps, characterization first, with the blast radius checked: encounters store keyword references so they never see a CR, and real `.orcbrew` content is already decimal. |
 | [decision-cr-representation.md](decision-cr-representation.md) | **CR is one number.** Three representations and two formatters exist today; nothing compares character CR to monster CR, so there is no live defect — but ratio literals in `.cljc` read differently on JVM and JS. Recommends one double, one formatter, one parser. |
 | [plan-companions-and-wild-shape.md](plan-companions-and-wild-shape.md) | **The Extras leaf.** Companions, summons and Wild Shape: the seven-kind domain map, the CR-is-two-types blocker, the druid flow, and two ordered slice sequences. Researched, unbuilt. |
 | [extras-definitions.md](extras-definitions.md) | What each kind of Extra needs to function, and the reference-vs-copy decision (copy-on-adopt). |
