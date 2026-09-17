@@ -81,6 +81,29 @@ value check rather than a blind swap.
    the warning below.
 4. **Decide the remaining shapes** integration added after the split, fresh.
 
+### Check the utility classes exist before using them
+
+The branch generates `m-t-*`, `m-l-*`, `w-*`, `min-w-*` and `max-w-*` from `px-prop` value lists,
+NOT as individual class forms — so harvesting "every `[:.class {...}]` the branch added" silently
+misses them. Two conversions reached for `.m-t-100` and `.min-w-53`, which compiled fine and
+produced **no CSS at all**: integration's `margin-tops` list stops at 25 and it has no
+`min-widths` list. The result renders with the margin and the width simply gone.
+
+Both were caught by diffing the classes the conversion references against the compiled stylesheet,
+which is the check to run after every batch:
+
+```
+classes referenced by the conversion vs. selectors present in styles.css -> missing: []
+```
+
+Fixed on `refactor/garden-harvest` by adding `100` to `margin-tops` and a `min-widths` list of
+`[53 120 160]`, wired into the `concat` — the generator has no effect until it is in that list.
+
+Also surfaced, and NOT fixed here: **`.h-full` is referenced twice in integration's `views.cljs`
+and defined nowhere** — in neither integration's nor the branch's `core.clj`. A pre-existing dead
+class. Giving it a real `height: 100%` would change how `registration-page` lays out, which a
+no-visual-change refactor must not do.
+
 ### Do not automate the call-site mapping
 
 Three attempts to build a shape → class table automatically all produced wrong answers:
