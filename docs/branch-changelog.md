@@ -44,3 +44,9 @@ Reviewer context and the full measurement:
   sideways.
 
 ## Changed
+
+- **The registration, login and password pages use named classes instead of inline styles** —
+  28 of the 75 inline style maps in the views are gone, replaced by the classes harvested above:
+  the success and heading text, the submit buttons, the password-strength bars and their label,
+  the updates checkbox, the social icon and several layout wrappers. The password meter keeps an
+  inline width, because that width IS the measurement. Nothing renders differently.
