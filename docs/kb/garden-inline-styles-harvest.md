@@ -181,6 +181,28 @@ before and after through `scripts/e2e/run.sh`. **The only permitted visual diffe
 mobile header.** Everything else must be pixel-identical: this is a no-visual-change refactor and
 anything that moves is a bug.
 
+### Result of the first conversion batch (`2c9c553d`)
+
+`refactor/garden-harvest` and `integration-local` were shot through the same harness, same seeded
+user, five pages at desktop 1280 and Pixel 7 widths:
+
+| | |
+|---|---|
+| byte-identical | **9 of 10** |
+| differing | 1 — `desktop-strength`, by **10 bytes** (0.0%), viewed side by side and visually indistinguishable; the phone shot of the same page is byte-identical. JPEG variance around the focused password field. |
+
+The register page is the strongest single check: it exercises the heading, all four
+password-strength elements including the meter's computed width, the checkbox border and the
+submit button at once, and renders pixel-for-pixel as integration does.
+
+**Gap in this evidence, recorded rather than glossed:** `/pages/reset-password-page` is
+token-gated and answers "Key is required" without one, so its converted SUBMIT button was never
+seen rendered. Its pair compares identical, but that only proves both branches show the same
+guard page. The button is covered by the compiled-CSS class check alone.
+
+Lint 0 errors / 0 warnings; garden and CLJS both exit 0. Inline `:style` maps: **71 on
+integration → 43** on the branch.
+
 ### Harness traps (cost several turns to rediscover)
 
 - `agents/develop`'s `scripts/e2e` is the OLDER two-file variant (`run.sh` + bundled `run.js`, one
