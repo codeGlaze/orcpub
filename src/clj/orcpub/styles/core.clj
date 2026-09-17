@@ -1038,11 +1038,19 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
+      :overflow-x :hidden}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     ;; A full-width child plus its padding measures wider than the bar without this.
+     [:.w-100-p {:box-sizing :border-box}]
+     ;; The logo is sized for the desktop header and crowds the search row here.
+     [:img {:max-height "40px"}]]
+    [:.import-log-panel
+     {:max-width "100vw"}]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
