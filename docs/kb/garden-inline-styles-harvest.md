@@ -70,13 +70,30 @@ value check rather than a blind swap.
 
 ## The plan
 
-1. **Append the CSS.** 303 lines / 54 selectors extracted from the branch. Only **4** collide with
-   integration (`.app-header-bar`, `.character-builder-header`, `.registration-image`, `.w-100-p`)
-   and are reconciled by hand; the other 50 append cleanly.
-2. **Convert the 54 known call sites** by lookup against the extracted shape → class table.
-3. **Decide the 13 new shapes** fresh.
-4. **Port `bbe1f710`'s four mobile-header rules** by hand into integration's existing `xs-query`
-   block.
+1. **Append the CSS.** 54 selectors exist on the branch that integration lacks. **4** collide
+   (`.app-header-bar`, `.character-builder-header`, `.registration-image`, `.w-100-p`) and are left
+   alone; **49** are appended to `(def props)` and **1** (`.import-log-panel`) belongs inside the
+   `xs-query` media block, not at top level. DONE: `47bb73f4`.
+2. **Port `bbe1f710`'s four mobile-header rules** by hand into integration's existing `xs-query`
+   block. DONE: `0a089349`.
+3. **Convert the call sites** in `views.cljs`, one reviewable batch at a time, reading each
+   replacement out of `views-conversion.diff`. **Do NOT drive these edits from a script** — see
+   the warning below.
+4. **Decide the remaining shapes** integration added after the split, fresh.
+
+### Do not automate the call-site mapping
+
+Three attempts to build a shape → class table automatically all produced wrong answers:
+
+- Matching on the SET OF PROPERTY NAMES collapses distinct rules: `{:min-width "53px"}` mapped onto
+  `.close-btn-posn` because both are single-property maps in the same diff hunk.
+- Taking the class from "any class mentioned in the hunk" yields the enclosing element's whole
+  class list, not the class that replaced the style.
+- Matching on exact style TEXT is better (44 exact hits) but still attributes the wrong class for
+  one- and two-property maps.
+
+The multi-property matches are reliable (`.form-submit-btn`, `.success-header`,
+`.password-strength-*`, `.checkbox-border`); the short ones are noise. Read the diff per site.
 
 Artifacts live in the session scratchpad `garden-check/salvage/`: `core-new-css.clj` (the CSS
 block), `solved-map.json` (shape → class), `views-conversion.diff` (the original conversion, as
@@ -120,6 +137,19 @@ the reference for how each site was rewritten).
 The character-list row. The expanded row renders **identically** on both branches, which is
 correct for a no-visual-change refactor — and means the July row's phone overflow (the `WWW`
 button clipped off the left edge) is untouched. That is the Fall row redesign's job.
+
+### Check scope against the COMPILED stylesheet, not the source
+
+Lifting a rule out of a media query silently changes when it applies. Two source-level audits of
+which harvested rules were media-scoped gave contradictory answers — the first missed that a
+`#_(at-media ...)` block is a reader DISCARD and not live code (the trap
+`documentation-discipline` warns about); the second, after stripping discards, claimed 48 of 50
+were media-scoped, which is plainly false for utilities like `.z-1` and `.svg-stroke`.
+
+The reliable check is the branch's own compiled `styles.css`: find each `@media` block's span by
+brace-matching and ask whether a selector falls inside one. That gave the true answer — **49 top
+level, 1 (`.import-log-panel`) media-only, 0 in both** — and it matched the independent evidence
+already in hand. Compiled output is ground truth; source-level paren-walking is not.
 
 ## Verification
 
