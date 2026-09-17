@@ -2,7 +2,11 @@
 
 *The execution plan for [decision-cr-representation.md](decision-cr-representation.md). Six steps,
 each its own commit with its acceptance green before the next, docs synced per commit. Written
-2026-09-16 on `feature/extras-companions`. Nothing here is built.*
+2026-09-16 on `feature/extras-companions`.*
+
+> **DONE 2026-09-17.** All six steps landed. Final gates: JVM 735 tests / 5502 assertions, CLJS
+> 428 tests / 1916 assertions, `lein fig:build` clean. CR is one number, formatted at display,
+> and a druid's Wild Shape bound now filters the monster list.
 
 This is step 1 of the Extras silo (`docs/TODO.md` Part 1). It exists because the creature query
 buckets A and B share needs a CR that can be compared, and today it cannot be.
@@ -133,16 +137,33 @@ the latter serves "Not Found" with no error, which looks like a broken page rath
 
 `?wild-shape-cr` becomes numeric; the druid action summary calls `cr->label`.
 
-**Acceptance:** the summary string pinned in step 0 is byte-identical. The `#_`-discarded Circle
-of the Moon, which already sets this attribute to an integer, stops being the odd one out — note
-it in the commit, do not un-discard it (it is non-SRD, licensing not incompleteness).
+**Acceptance — met 2026-09-17.** The level table is `{1 0.25  4 0.5  8 1}` and the summary calls
+`disp/cr->label`. All three sentences pinned in step 0 are byte-identical.
+
+Added the assertion this whole plan exists for — it was a string-vs-number type error before:
+
+```clojure
+(filter #(<= (:challenge %) (wild-shape-cr 2)) beasts)   ; now just works
+```
+
+`character-cr-is-comparable-to-monster-cr` builds a level-2 druid, reads `?wild-shape-cr` (0.25),
+and filters the beast list: some qualify, some are excluded, every survivor is <= 1/4. The
+`#_`-discarded Circle of the Moon already set this attribute to an integer, so it stops being the
+odd one out — left discarded, it is non-SRD (licensing, not incompleteness).
 
 ## Step 5 — spec it
 
 A CR spec so homebrew cannot carry a string, wired into the monster save/load specs in
 `content_specs.cljc`. There is no spec for `:challenge` today (checked).
 
-**Acceptance:** generative test — a string CR fails, a double passes, and `save ⊆ load` still holds.
+**Acceptance — met 2026-09-17.** `::monsters5e/challenge` is `(spec/and number? #(<= 0 % 30))`,
+added to `::homebrew-monster` as `:opt-un` so monsters without a CR still load. A string `"1/4"`
+fails, `0.25` and `5` pass, `-1` and `99` fail.
+
+Deliberately a range rather than the 34 known CRs. Real homebrew stays inside the set — measured
+against a 636-monster pack, every CR is one of the standard values — but rejecting an odd-yet-
+numeric CR on SAVE is a different policy than this change is making, and inventing it here would
+be scope creep.
 
 ## Blast radius
 

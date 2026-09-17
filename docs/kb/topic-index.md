@@ -148,7 +148,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, page, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -540,7 +540,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** book, double, doubles, formatter, formatters, fractional, jvm, literals, monster, monsters, moon, numeric, query, ratio, ratios, representations, sentence, sort
+**topics:** double, doubles, formatter, formatters, fractional, jvm, literals, monster, monsters, moon, numeric, parser, query, ratio, ratios, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -935,7 +935,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-cr-normalization · plan cr normalization_
 
-**topics:** 1355565, 2026-09-16, 317, 417, 5491, 733, acceptance, assertions, crs, decision-cr-representation, double, formatters, per-cr, probe, ratio, require, runtimes, step
+**topics:** 1355565, 2026-09-16, 2026-09-17, 5491, 733, acceptance, assertions, crs, decision-cr-representation, failures, met, monster, monsters, per-cr, probe, ratio, runtimes, step
 
 - Step 0 — characterize
 - Step 1 — the formatter pair

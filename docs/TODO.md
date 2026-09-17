@@ -69,7 +69,7 @@ Shape leads. It is stale against the domain map above it — fix or mark it befo
 
 | | | status |
 |---|---|---|
-| 1 | **CR as one number** — one `double`, one formatter, one parser. Shape: [decision-cr-representation.md](kb/decision-cr-representation.md). Execution: [plan-cr-normalization.md](kb/plan-cr-normalization.md), six steps. **Steps 0-3 done** — data converted, all invariants held (total XP 1355565 unchanged, JVM double lookup now resolves). **Step 3 done** — both `views.cljs` formatters now call `disp/cr->label`, verified against the running app. Remaining: 4 the character side, 5 the spec. Blast radius checked — encounters reference creatures by keyword, the monster builder already writes doubles, real `.orcbrew` content is already decimal | ☐ |
+| 1 | ~~**CR as one number**~~ — **DONE 2026-09-17.** One `double`, formatted by `disp/cr->label`, spec'd. All six steps of [plan-cr-normalization.md](kb/plan-cr-normalization.md); shape in [decision-cr-representation.md](kb/decision-cr-representation.md). A druid's Wild Shape bound now filters the monster list | ☑ |
 | 2 | **The constrained creature query** — CR bound + type + size, as a pool whose filter is a predicate, not an enumeration. The shared mechanism for A and B | ☐ |
 | 3 | **A plugin subclass can declare it grants a companion** — the only step with no existing machinery to copy; nothing in bucket A can start before it | ☐ |
 | 4 | **A character can reference a creature** — `character.cljc` references none today. Copy-on-adopt, decided in `extras-definitions.md` | ☐ |

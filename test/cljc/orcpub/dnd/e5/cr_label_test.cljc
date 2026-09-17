@@ -4,6 +4,8 @@
    No callers yet — the two existing formatters in views.cljs are replaced at step 3. These
    pin the pair's own behaviour so that replacement is a swap rather than a rewrite."
   (:require [clojure.test :refer [deftest testing is]]
+            #?(:clj [clojure.spec.alpha :as spec])
+            #?(:cljs [cljs.spec.alpha :as spec])
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.monsters :as monsters5e]))
 
@@ -46,3 +48,16 @@
     (doseq [x [nil "" "abc" "1/0" :keyword [1]]]
       (is (nil? (disp/cr->label x)) (str "cr->label " (pr-str x)))
       (is (nil? (disp/label->cr x)) (str "label->cr " (pr-str x))))))
+
+(deftest homebrew-cr-must-be-a-number
+  (testing "plan-cr-normalization.md step 5 — a string CR is what this keeps out"
+    (let [base {:name "Probe" :key :probe :option-pack "P"
+                :hit-points {:die 8 :die-count 2}}]
+      (is (spec/valid? ::monsters5e/homebrew-monster (assoc base :challenge 0.25)))
+      (is (spec/valid? ::monsters5e/homebrew-monster (assoc base :challenge 5)))
+      (is (spec/valid? ::monsters5e/homebrew-monster base)
+          "CR stays optional — monsters without one still load")
+      (is (not (spec/valid? ::monsters5e/homebrew-monster (assoc base :challenge "1/4")))
+          "the display form is not a storage form")
+      (is (not (spec/valid? ::monsters5e/homebrew-monster (assoc base :challenge -1))))
+      (is (not (spec/valid? ::monsters5e/homebrew-monster (assoc base :challenge 99)))))))

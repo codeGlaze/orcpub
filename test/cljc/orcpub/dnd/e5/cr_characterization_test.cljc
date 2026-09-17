@@ -128,6 +128,27 @@
     (is (= "You can transform into a beast you have seen with CR 1"
            (wild-shape-summary 8)))))
 
+(defn- wild-shape-cr [n]
+  (es/entity-val
+   (entity/build
+    {::entity/options
+     {:ability-scores {::entity/key :standard-roll ::entity/value abilities}
+      :class [{::entity/key :druid ::entity/options {:levels (mapv lvl (range 1 (inc n)))}}]}}
+    @the-template)
+   :wild-shape-cr))
+
+(deftest character-cr-is-comparable-to-monster-cr
+  (testing "the point of the whole change: a druid's Wild Shape bound can now filter the
+            monster list. This expression was a string-vs-number type error before step 4."
+    (let [bound (wild-shape-cr 2)
+          beasts (filter #(= :beast (:type %)) monsters5e/monsters-raw)
+          allowed (filter #(<= (:challenge %) bound) beasts)]
+      (is (number? bound))
+      (is (= 0.25 bound) "a level-2 druid: CR 1/4")
+      (is (pos? (count allowed)) "some beasts qualify")
+      (is (< (count allowed) (count beasts)) "and the bound actually excludes some")
+      (is (every? #(<= (:challenge %) 0.25) allowed)))))
+
 ;; ---------------------------------------------------------------- the pin must be able to fail
 
 (deftest the-characterization-is-sensitive

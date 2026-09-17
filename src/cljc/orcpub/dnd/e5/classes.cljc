@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
@@ -801,9 +802,9 @@
                              ?wild-shape-cr
                              (mod5e/level-val
                               (?class-level :druid)
-                              {1 "1/4"
-                               4 "1/2"
-                               8 "1"}))
+                              {1 0.25
+                               4 0.5
+                               8 1}))
                             (mod/modifier
                              ?wild-shape-limitation
                              (mod5e/level-val
@@ -817,7 +818,7 @@
                               :frequency (units5e/rests 2)
                               :duration (units5e/hours (int (/ (?class-level :druid) 2)))
                               :summary (str "You can transform into a beast you have seen with CR "
-                                            ?wild-shape-cr
+                                            (disp/cr->label ?wild-shape-cr)
                                             (when ?wild-shape-limitation (str " and " ?wild-shape-limitation)))})]}}
     :selections [(opt5e/new-starting-equipment-selection
                   :druid
