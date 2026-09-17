@@ -48,7 +48,14 @@
   (px-prop
    :margin-top
    :m-t
-   (concat (range 0 10) [21] (range 10 30 5))))
+   ;; 100 drops a success message clear of the registration panel's heading.
+   (concat (range 0 10) [21] (range 10 30 5) [100])))
+
+(def min-widths
+  (px-prop
+   :min-width
+   :min-w
+   [53 120 160]))
 
 (def widths
   (px-prop
@@ -2959,6 +2966,7 @@
 ];concat-bracket
    margin-lefts
    margin-tops
+   min-widths
    widths
    font-sizes
    props

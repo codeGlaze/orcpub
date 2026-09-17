@@ -389,10 +389,9 @@
   [:a.p-5.opacity-5.hover-opacity-full.main-text-color
    {:style social-icon-style
     :href link :target :_blank}
-   [:svg {:xmlns "http://www.w3.org/2000/svg"
-          :viewBox "0 0 568 501"
-          :width "20" :height "18"
-          :style {:vertical-align "middle" :fill "currentColor"}}
+   [:svg.svg-icon-inline {:xmlns "http://www.w3.org/2000/svg"
+                          :viewBox "0 0 568 501"
+                          :width "20" :height "18"}
     [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
 
 (def search-input-style
@@ -483,8 +482,7 @@
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
-          [:div
-           {:style {:min-width "53px"}}
+          [:div.min-w-53
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -625,8 +623,7 @@
   (dispatch [:route :default]))
 
 (defn registration-page [content]
-  [:div.sans.h-full.flex
-   {:style {:flex-direction :column}}
+  [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
      {:style registration-content-style}
@@ -659,8 +656,7 @@
   (let [params (r/atom {})]
     (fn []
       (registration-page
-       [:div.flex.justify-cont-s-b {:style {:text-align :center
-                           :flex-direction :column}}
+       [:div.flex.justify-cont-s-b.t-a-c.flex-column
         [:div.p-20
          [:div.f-w-b.f-s-24.p-b-10
           "Your key has expired."]
@@ -672,12 +668,8 @@
            :placeholder "Email"
            :style default-input-style
            :on-change (partial set-value params :email)}]
-         [:button.form-button.m-l-20.m-t-10
-          {:style {:height "40px"
-                   :width "174px"
-                   :font-size "16px"
-                   :font-weight "600"}
-           :on-click (make-event-handler :re-verify @params)}
+         [:button.form-button.form-submit-btn.m-l-20.m-t-10
+          {:on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
 
@@ -690,9 +682,7 @@
       (let [email (:email @params)
             bad-email? (registration/bad-email? email)]
         (registration-page
-         [:div.flex.justify-cont-s-b.w-100-p
-          {:style {:text-align :center
-                   :flex-direction :column}}
+         [:div.flex.justify-cont-s-b.w-100-p.t-a-c.flex-column
           [:div.p-t-10
            (when error-message [:div.red.m-b-20 error-message])
            [:div.f-w-b.f-s-24.p-b-10
@@ -713,12 +703,8 @@
                :error
                @(subscribe [:login-message])
                hide-login-message]])
-           [:button.form-button.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when bad-email? "disabled opacity-5 hover-no-shadow")
+           [:button.form-button.form-submit-btn.m-t-10
+            {:class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
            [:div.m-t-20
@@ -746,8 +732,7 @@
             invalid? (or (seq password-messages)
                          different?)]
         (registration-page
-         [:div.flex.justify-cont-s-b {:style {:text-align :center
-                                              :flex-direction :column}}
+         [:div.flex.justify-cont-s-b.t-a-c.flex-column
           [:div.p-20
            [:div.f-w-b.f-s-24.p-b-10
             "Reset Password"]
@@ -769,12 +754,8 @@
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
-           [:button.form-button.m-l-20.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
+           [:button.form-button.form-submit-btn.m-l-20.m-t-10
+            {:class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
              :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
             "SUBMIT"]]])))))
 
@@ -785,52 +766,32 @@
 
 (defn verify-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Success! Registration is complete"]
     [:div.m-t-20 "You can now"]
     [login-link]]))
 
 (defn password-reset-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Your password has been successfully reset"]
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
 (defn unsubscribe-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Unsubscribed"]
     [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
     [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
 
 (defn email-sent [text]
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Check your email"]
     [:div.p-20
      text]]))
@@ -856,13 +817,8 @@
         send-updates? (not= false (:send-updates? registration-form))
         password-strength (registration/password-strength (:password registration-form))]
     (registration-page
-     [:div {:style {:text-align :center}}
-      [:div {:style {:color orange
-                     :font-weight :bold
-                     :font-size "36px"
-                     :text-transform :uppercase
-                     :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                     :margin-top "20px"}}
+     [:div.t-a-c
+      [:div.success-header.m-t-20
        "join for free"]
       [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
       [:div.m-t-10
@@ -896,40 +852,20 @@
                 (< 1 password-strength 5) ["bg-orange" "Moderate"]
                 :else ["bg-red" "Weak"])]
          [:div.p-r-10.p-l-10.p-t-5
-          [:div
-           {:style {:position :relative
-                    :height "30px"}}
-           [:div.b-rad-5
-            {:style {:top 0
-                     :left 0
-                     :height "30px"
-                     :opacity "0.7"
-                     :width "100%"
-                     :position :absolute}
-             :class color}]
+          [:div.password-strength-container
+           [:div.b-rad-5.password-strength-bg
+            {:class color}]
+           ;; The width is the measurement itself, so it stays inline; everything
+           ;; else about the bar lives in .password-strength-meter.
            [:div.b-rad-5.password-strength-meter
-            {:style {:top 0
-                     :left 0
-                     :position :absolute
-                     :height "30px"
-                     :transition "width 1s"
-                     :width (str (* 100 (float (/ password-strength 5))) "%")}
+            {:style {:width (str (* 100 (float (/ password-strength 5))) "%")}
              :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5
-            {:style {:position :absolute
-                     :padding-top "6px"}}
+           [:div.main-text-color.p-l-10.b-rad-5.password-strength-label
              [:span "Password Strength:"]
              [:span.f-w-b.m-l-5 text]]]])
-       [:div.m-t-20
-        {:style {:text-align :left
-                 :margin-left "15px"}}
-        [:i.fa.fa-check.f-s-14.pointer
+       [:div.m-t-20.t-a-l.m-l-15
+        [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
-          :style {:margin-top "-3px"
-                  :border-color "#f0a100"
-                  :border-style :solid
-                  :border-width "1px"
-                  :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
        [:div.m-t-10
@@ -937,12 +873,8 @@
          [:span "Already have an account?"]
          (login-link)]
         [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button
-         {:style {:height "40px"
-                  :width "174px"
-                  :font-size "16px"
-                  :font-weight "600"}
-          :class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
+        [:button.form-button.form-submit-btn
+         {:class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
           :on-click #(when (empty? registration-validation)
                        (dispatch [:register]))}
          "JOIN"]]]
@@ -967,13 +899,8 @@
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
         (registration-page
-         [:div {:style {:text-align :center}}
-          [:div {:style {:color orange
-                         :font-weight :bold
-                         :font-size "36px"
-                         :text-transform :uppercase
-                         :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                         :margin-top "20px"}}
+         [:div.t-a-c
+          [:div.success-header.m-t-20
            "LOGIN"]
           [:div.m-t-10]
           [:div.login-form-inputs
@@ -994,12 +921,8 @@
                                       hide-login-message]])
            [:div.m-t-10
             
-            [:button.form-button
-             {:style {:height "40px"
-                      :width "174px"
-                      :font-size "16px"
-                      :font-weight "600"}
-              :on-click #(dispatch [:login @params true])}
+            [:button.form-button.form-submit-btn
+             {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
             [:div.m-t-20
              [:span "Don't have a login? "][:br][:br]
