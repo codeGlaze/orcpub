@@ -923,36 +923,27 @@
    `replace-event` and the decision is theirs. `:elsewhere` and `:ambiguous` get no such button:
    nothing sits in the way to replace, and saving would MAKE the duplicate rather than resolve it.
 
-   GOTCHA: the banner closes on any click that reaches it, so the offer needs no cancel -- but it
-   also means an action must be the thing the reader wants, not a step on the way to it."
+   GOTCHA: the banner closes on any click that reaches it, so the offer needs no cancel."
   [type-name option-pack key {:keys [reason occupant holders]} replace-event]
   (let [lower (s/lower-case type-name)
         in-sources (s/join " and " (map pr-str (sort holders)))
         message
         (case reason
           :occupied
-          {:title (str "\"" option-pack "\" already has a " lower " at " key ".")
-           :details [(str "That is \"" (:name occupant) "\". Replacing it discards that entry for "
-                          "good, and every character using it gets this " lower " instead.")
-                     [:span.pointer.underline.f-w-b
+          {:title (str "\"" option-pack "\" already has a " lower " called \""
+                       (:name occupant) "\".")
+           :details [[:span.pointer.underline.f-w-b
                       {:on-click #(dispatch replace-event)}
                       "Replace it"]
-                     "Or dismiss this and give this one a different name or key."]}
+                     "Or rename this one."]}
 
           :elsewhere
-          {:title (str key " already answers in " in-sources ".")
-           :details [(str "A key is one address for the whole library, so two " lower "s holding it "
-                          "collide wherever they live — a character storing that key resolves to "
-                          "one of them, and which one is not up to you.")
-                     (str "Nothing here is in the way to replace. Give this one a different name, "
-                          "or change its key.")]}
+          {:title (str in-sources " already uses the key " key ".")
+           :details ["Keys are shared across your whole library. Rename this one, or change its key."]}
 
           :ambiguous
-          {:title (str key " answers in " in-sources ".")
-           :details [(str "From here there is no telling which of them this one is, so saving could "
-                          "overwrite the wrong entry.")
-                     (str "Open it from My Content and save again — that records which one you "
-                          "have.")]})]
+          {:title (str "Two sources have a " lower " with the key " key ".")
+           :details ["Open this one from My Content and save again."]})]
     {:dispatch-n [[:set-builder-field-errors (if (= :ambiguous reason) {} {:name :invalid})]
                   [:show-error-message message builder-error-ttl]]}))
 

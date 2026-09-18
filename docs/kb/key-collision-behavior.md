@@ -101,9 +101,15 @@ The other two refusals pass through it unchanged, and that asymmetry is the poin
 
 | reason | what is in the way | the banner |
 |---|---|---|
-| `:occupied` | ONE item, in this source, named on screen | explains what replacing discards, offers **Replace it** |
-| `:elsewhere` | nothing here — the key answers in another library | explains that a key is one address for the whole library. No offer |
-| `:ambiguous` | two entries the save cannot tell apart | says to reopen it from My Content. No offer |
+| `:occupied` | ONE item, in this source | *"Tide Pak" already has a language called "Tideward."* → **Replace it** / Or rename this one. |
+| `:elsewhere` | nothing here — another source holds the key | *"Tide Pak" already uses the key :tideward-tepk.* → Rename this one, or change its key. No offer |
+| `:ambiguous` | two entries the save cannot tell apart | *Two sources have a language with the key …* → Open this one from My Content and save again. No offer |
+
+**A headline and one line, and no word the author has to learn.** These fire mid-task, on somebody
+who wants to get back to authoring — an explanation of why keys are global belongs behind the key
+row's `?`, not in the way. Pinned by length assertions in `replace-or-refuse.js`, because copy grows
+back. Words to keep out: an address "answering", an item "resolving" — internal vocabulary for what
+the reader sees as a name clash.
 
 **Consent is to discarding one named thing.** For `:elsewhere` there is nothing in the way to
 replace, so a yes would not resolve the collision — it would *create* it, which is the state that

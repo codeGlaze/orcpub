@@ -97,13 +97,15 @@ ability, +1 to another) work across races, backgrounds, and subclasses the way o
 - **A taken key now asks instead of only refusing, and every save path checks** (`7854cc91`)
   Landing on a key another item holds in the SAME source offers **Replace it**, which discards that
   entry and — for an item that came from elsewhere — moves onto the slot rather than leaving a copy.
-  A key that answers in ANOTHER source gets a different message and no offer: nothing there is in
+  A key held by ANOTHER source gets a different message and no offer: nothing there is in
   the way to replace, so a yes would create the duplicate rather than resolve it. Three save paths
   that wrote with a bare `assoc-in` now go through the same gate — "Save anyway with placeholders"
   and both selection saves; `::selections5e/save-selection` had no collision check of any kind, so a
   selection could replace another silently on an ordinary save. Save-anyway also stamps the key back
   onto the builder item, without which the next save minted a second key and refused as a collision
-  with its own entry. `docs/kb/key-collision-behavior.md`.
+  with its own entry. Both notices are a headline and one line — no internal vocabulary, and length
+  assertions in `replace-or-refuse.js` so the copy does not grow back.
+  `docs/kb/key-collision-behavior.md`.
 
 - **Spell-selection key reconciliation** (`fe549631`)
   Derive spell-selection keys from the class key, not the display name, and reconcile orphaned keys on

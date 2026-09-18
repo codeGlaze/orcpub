@@ -107,9 +107,11 @@ const addFrom = async (page, source) => {
     await page.waitForTimeout(1200);
 
     const occupied = await bannerText(page);
-    check('the save was refused', /already has a language at/.test(occupied), occupied.slice(0, 200));
-    check('the banner NAMES what would be lost', /That is "Tideward"/.test(occupied));
+    check('the save was refused', /already has a language called/.test(occupied), occupied.slice(0, 200));
+    check('the banner NAMES what is in the way', /"Tide Pak" already has a language called "Tideward"/.test(occupied));
     check('and offers the way through', /Replace it/.test(occupied));
+    check('in one line plus the offer', occupied.replace(/\s*✕?\s*$/, '').length < 110,
+          `${occupied.length} chars`);
     await shot(page, 'collision-occupied.png');
 
     const held = await dbAt(page, `[:plugins "${A}" ${ct}]`);
@@ -133,12 +135,13 @@ const addFrom = async (page, source) => {
     await page.waitForTimeout(1200);
 
     const elsewhere = await bannerText(page);
-    check('refused as a cross-source duplicate', /already answers in/.test(elsewhere), elsewhere.slice(0, 220));
-    check('it explains that a key is one address for the whole library',
-          /one address for the whole library/.test(elsewhere));
-    check('it says there is nothing here to replace', /Nothing here is in the way/.test(elsewhere));
+    check('refused as a cross-source duplicate', /already uses the key/.test(elsewhere), elsewhere.slice(0, 220));
+    check('it names the source holding the key', /"Tide Pak" already uses the key :tideward-tepk/.test(elsewhere));
+    check('and says what to do about it', /Rename this one, or change its key/.test(elsewhere));
     check('and offers NO replace button — a yes here would only make the duplicate',
           !/Replace it/.test(elsewhere));
+    check('two lines, not a lecture', elsewhere.replace(/\s*✕?\s*$/, '').length < 140,
+          `${elsewhere.length} chars`);
     await shot(page, 'collision-elsewhere.png');
 
     const nothingInB = await dbAt(page, `[:plugins "${B}" ${ct}]`);
