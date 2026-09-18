@@ -21,6 +21,12 @@ signup down with it.
   row, runs like `1234`, `abcd` or `qwerty` in either direction, and passwords carrying the
   account's own username or email. Shared by the browser and the server, so both agree.
 
+- **A new password is checked against known breaches** — the password itself never leaves the
+  server: it is hashed here and only the first five characters of that hash are sent, so the
+  service answers with a few hundred candidates and the match is made locally. A slow or missing
+  service is not an objection — signup carries on. `ORCPUB_PWNED_CHECK=off` turns the call off
+  entirely.
+
 ## Changed
 
 - **The minimum password length is eight, not six** — and it is named once, so raising it later is

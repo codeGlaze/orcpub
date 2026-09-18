@@ -39,6 +39,7 @@
             [orcpub.pdf :as pdf]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
+            [orcpub.pwned :as pwned]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -359,6 +360,24 @@
                         {:error :verification-failed}
                         e))))))
 
+
+(defn- breach-message
+  "Wording for a password the breach corpus already knows. The number is the
+   argument -- 'appeared in a breach' sounds survivable, fifty million times
+   does not."
+  [n]
+  (if (= 1 n)
+    "This password has appeared in a known data breach. Please choose a different one."
+    (format "This password has appeared in %,d known data breaches. Please choose a different one." n)))
+
+(defn- breach-errors
+  "A validation map for a breached password, or nil. Only a positive answer
+   counts: an unreachable service must read as no objection, never as a block."
+  [password]
+  (let [result (pwned/check password)]
+    (when (and (number? result) (pos? result))
+      {:password [(breach-message result)]})))
+
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
@@ -368,7 +387,12 @@
                     json-params
                     (seq (d/q email-query db email))
                     (seq (d/q username-query db username)))
-        now (java.util.Date.)]
+        now (java.util.Date.)
+        ;; Checked only once the form is otherwise valid: no reason to ask a third
+        ;; party about a password attached to a malformed signup.
+        validation (if (seq validation)
+                     validation
+                     (or (breach-errors password) validation))]
     (try
       (if (seq validation)
         {:status 400
@@ -573,10 +597,16 @@
   (try
     (let [{:keys [password verify-password]} json-params
           username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)]
+          {:keys [:db/id] :as user} (first-user-by db username-query username)
+          ;; Asked once. Only reached when the password is otherwise acceptable,
+          ;; so a rejected reset never costs a call.
+          breached (when (and (= password verify-password)
+                              (empty? (registration/validate-password password)))
+                     (first (:password (breach-errors password))))]
       (cond
         (not= password verify-password) {:status 400 :message "Passwords do not match"}
         (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
+        breached {:status 400 :message breached}
         :else (do-password-reset conn id password)))
     (catch Throwable t (prn t) (throw t))))
 
