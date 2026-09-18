@@ -185,6 +185,11 @@ jobs:
           " &
           sleep 5
           source scripts/common.sh
+          # check_port_available lives in start.sh, and start.sh cannot be run
+          # end to end here (it exits at the Leiningen prereq before reaching
+          # the port guard), so lift the real function body out and test that.
+          SCRIPT_DIR="$PWD/scripts"
+          source <(sed -n '/^check_port_available()/,/^}/p' scripts/start.sh)
           set +e
           out="$(check_port_available 8890 server false 2>&1)"; rc=$?
           set -e
