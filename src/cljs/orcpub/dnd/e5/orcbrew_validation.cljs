@@ -631,7 +631,7 @@
 (def ^:private spec-descriptions
   "Plain-English descriptions for orcpub domain specs, keyed by the leaf spec
    name from a problem's `:via` (the most specific spec that failed)."
-  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled?). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
+  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled? / :abbreviation). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
    "option-pack" "must be a text string naming the source/pack"
    "homebrew-item" "is missing the required :option-pack field"
    "homebrew-items" "must be a map of content items"
