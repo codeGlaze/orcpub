@@ -369,6 +369,12 @@ check_datomic_installed() {
 signal_pid() {
     local pid="$1" sig="${2:-TERM}"
     if is_windows; then
+        # A pid here can be either kind: find_service_pids checks the PID FILE
+        # first, which holds an MSYS pid (written from $! by start.sh), and only
+        # falls back to netstat -ano, which yields a native Windows pid. `kill`
+        # handles the first, taskkill the second, and neither handles both — so
+        # try kill, then taskkill.
+        kill "-$sig" "$pid" 2>/dev/null && return 0
         if [[ "$sig" == "KILL" ]]; then
             taskkill //PID "$pid" //F >/dev/null 2>&1
         else
@@ -383,6 +389,8 @@ signal_pid() {
 pid_alive() {
     local pid="$1"
     if is_windows; then
+        # Same two-kinds-of-pid problem as signal_pid: ask both.
+        kill -0 "$pid" 2>/dev/null && return 0
         tasklist //FI "PID eq $pid" 2>/dev/null | grep -qE "[[:space:]]${pid}[[:space:]]"
     else
         kill -0 "$pid" 2>/dev/null
@@ -396,12 +404,11 @@ pid_alive() {
 # as free to every listing tool, right up until bind fails.
 explain_bind_failure() {
     local port="$1"
-    echo ""
-    log_error "The server could not bind port $port."
-
     local pids
     pids="$(find_pids_by_port "$port")"
     if [[ -n "${pids// /}" ]]; then
+        echo ""
+        log_error "The server could not bind port $port."
         log_error "Something is already listening on it (PID: $pids)."
         if is_windows; then
             log_error "  Stop it with:  taskkill /PID ${pids%% *} /F"
@@ -420,6 +427,8 @@ explain_bind_failure() {
             if (( port >= lo && port <= hi )); then reserved="$lo-$hi"; fi
         done <<< "$ranges"
         if [[ -n "$reserved" ]]; then
+            echo ""
+            log_error "The server could not bind port $port."
             log_error "Nothing is listening, but Windows has RESERVED $port (range $reserved)."
             log_error "  Hyper-V/WSL2/Docker take these ranges. In an admin terminal:"
             log_error "      net stop winnat && net start winnat"
@@ -427,8 +436,11 @@ explain_bind_failure() {
         fi
     fi
 
-    log_error "Nothing appears to be listening on it, which is unusual."
-    log_error "  For a full report run:  bash scripts/diagnostics/orcpub-port-doctor.sh"
+    # Nothing holds the port and it is not reserved, so there is no evidence
+    # this was a bind failure at all — lein exits non-zero for ordinary reasons
+    # too, Ctrl+C among them. Saying "could not bind" here would be crying wolf
+    # after a normal shutdown, so say nothing.
+    return 0
 }
 
 # Which REPL mode should the server start in?
