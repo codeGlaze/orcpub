@@ -250,7 +250,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, cfg, companion, d28, dead, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, scaling, tool
+**topics:** artificer, builders, cfg, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, piece, pool, profs, reaction, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -606,7 +606,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, typed, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -730,8 +730,9 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 382, 493, believing, branches, browser, click, cut, duplicate-key, feature, integration, merging, running, scripts, tag, waiting, worktree
+**topics:** 374, 3816, 493, became, believing, branch, branches, cut, integration, item, library, merge, merging, minted, outcome, running, scripts, source
 
+- Outcome
 - The branches, and the order
 - Gates, as measured on each branch
 - What a reviewer has to consciously accept
@@ -950,7 +951,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, address, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
