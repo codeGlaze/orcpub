@@ -240,7 +240,14 @@ jobs:
           # a bind failure after a normal shutdown would be crying wolf.
           set -u
           source scripts/common.sh
-          out="$(explain_bind_failure 8890 2>&1)"
+          # Use a port no other step touches. Earlier steps leave their python
+          # listeners alive (they sleep well past the end of the step), so 8890
+          # is NOT free by the time we get here.
+          FREE_PORT=8123
+          if port_in_use "$FREE_PORT"; then
+            echo "SETUP FAIL: $FREE_PORT is unexpectedly in use"; exit 1
+          fi
+          out="$(explain_bind_failure "$FREE_PORT" 2>&1)"
           echo "output: [$out]"
           if [ -n "$out" ]; then
             echo "FAIL: reported a bind failure for a port nothing is using"; exit 1
