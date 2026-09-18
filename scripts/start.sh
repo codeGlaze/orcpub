@@ -406,13 +406,19 @@ start_server() {
     cd "$REPO_ROOT"
 
     # Use headless mode if not running interactively (background/nohup)
-    if [[ -t 0 ]]; then
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
         log_info "Starting REPL with server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl
+        lein with-profile +dev,+start-server repl || rc=$?
     else
         log_info "Starting headless server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl :headless
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
     fi
+    # The REPL held the terminal until now; this is the first chance to explain
+    # a bind failure, and the only place the reserved-port case is visible.
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 start_figwheel() {
@@ -628,7 +634,15 @@ start_all() {
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
     cd "$REPO_ROOT"
-    lein with-profile +dev,+start-server repl
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
+        lein with-profile +dev,+start-server repl || rc=$?
+    else
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
+    fi
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 # -----------------------------------------------------------------------------

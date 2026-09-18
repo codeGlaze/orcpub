@@ -140,9 +140,28 @@ log_error() {
 # -----------------------------------------------------------------------------
 
 # Check if a port is in use (returns 0 if in use, 1 if free)
+# True under Git Bash / MSYS2 / Cygwin, where `netstat` is Windows' netstat.exe.
+is_windows() {
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Windows netstat.exe has no -l flag, so the GNU-style `netstat -tln` below
+# exits with "Invalid argument" and prints nothing to stdout. With stderr
+# discarded that reads as "no match" — i.e. every port looks free, the
+# pre-flight check never warns, and the JVM is the first thing to discover the
+# conflict (BindException: Address already in use). Ask Windows its own way.
 port_in_use() {
     local port="$1"
-    if command -v lsof >/dev/null 2>&1; then
+    if is_windows; then
+        # Match on the LOCAL ADDRESS column, not the state word: netstat.exe
+        # prints "LISTENING" where the docs say "LISTEN", and a non-English
+        # Windows translates it outright. Column 2 is the local address on
+        # every row; the last column is the PID.
+        [ -n "$(netstat -ano 2>/dev/null | awk -v p="[:.]${port}\$" '$2 ~ p {print; exit}')" ]
+    elif command -v lsof >/dev/null 2>&1; then
         lsof -i ":${port}" >/dev/null 2>&1
     elif command -v ss >/dev/null 2>&1; then
         ss -tln 2>/dev/null | grep -q ":${port}\b"
@@ -215,6 +234,15 @@ wait_for_port_free() {
 find_pids_by_port() {
     local port="$1"
     local pids=""
+
+    if is_windows; then
+        # Last column of a LISTENING row is the owning PID.
+        pids=$(netstat -ano 2>/dev/null \
+               | awk -v p="[:.]${port}\$" '$2 ~ p && $NF ~ /^[0-9]+$/ {print $NF}' \
+               | sort -u || true)
+        echo "$pids" | tr '\n' ' ' | xargs
+        return
+    fi
 
     if command -v lsof >/dev/null 2>&1; then
         pids=$(lsof -t -i ":${port}" 2>/dev/null || true)
@@ -334,23 +362,109 @@ check_datomic_installed() {
 # Process Management
 # -----------------------------------------------------------------------------
 
+# Signal a process. On Windows the PIDs we discover come from netstat -ano and
+# are native Windows PIDs, which Git Bash's `kill` cannot reliably signal — so
+# stop.sh would report success while the process kept holding the port. The
+# leading `//` stops MSYS rewriting /PID into a path.
+signal_pid() {
+    local pid="$1" sig="${2:-TERM}"
+    if is_windows; then
+        if [[ "$sig" == "KILL" ]]; then
+            taskkill //PID "$pid" //F >/dev/null 2>&1
+        else
+            taskkill //PID "$pid" >/dev/null 2>&1
+        fi
+    else
+        kill "-$sig" "$pid" 2>/dev/null
+    fi
+}
+
+# Is this PID still alive?
+pid_alive() {
+    local pid="$1"
+    if is_windows; then
+        tasklist //FI "PID eq $pid" 2>/dev/null | grep -qE "[[:space:]]${pid}[[:space:]]"
+    else
+        kill -0 "$pid" 2>/dev/null
+    fi
+}
+
+# When the JVM dies with "Address already in use", say why in terms the user can
+# act on. This runs AFTER lein exits, which is the only moment it can: the REPL
+# holds the terminal while it lives, so nothing downstream runs until it stops.
+# The pre-flight check cannot cover this case — a port RESERVED by Windows reads
+# as free to every listing tool, right up until bind fails.
+explain_bind_failure() {
+    local port="$1"
+    echo ""
+    log_error "The server could not bind port $port."
+
+    local pids
+    pids="$(find_pids_by_port "$port")"
+    if [[ -n "${pids// /}" ]]; then
+        log_error "Something is already listening on it (PID: $pids)."
+        if is_windows; then
+            log_error "  Stop it with:  taskkill /PID ${pids%% *} /F"
+        else
+            log_error "  Stop it with:  kill ${pids%% *}"
+        fi
+        return
+    fi
+
+    if is_windows && command -v netsh >/dev/null 2>&1; then
+        local ranges reserved=""
+        ranges="$(netsh interface ipv4 show excludedportrange protocol=tcp 2>/dev/null | tr -d '\r')"
+        while read -r lo hi _rest; do
+            [[ "$lo" =~ ^[0-9]+$ ]] || continue
+            [[ "$hi" =~ ^[0-9]+$ ]] || continue
+            if (( port >= lo && port <= hi )); then reserved="$lo-$hi"; fi
+        done <<< "$ranges"
+        if [[ -n "$reserved" ]]; then
+            log_error "Nothing is listening, but Windows has RESERVED $port (range $reserved)."
+            log_error "  Hyper-V/WSL2/Docker take these ranges. In an admin terminal:"
+            log_error "      net stop winnat && net start winnat"
+            return
+        fi
+    fi
+
+    log_error "Nothing appears to be listening on it, which is unusual."
+    log_error "  For a full report run:  bash scripts/diagnostics/orcpub-port-doctor.sh"
+}
+
+# Which REPL mode should the server start in?
+#
+# Git Bash reports stdin as a terminal, so the old `[[ -t 0 ]]` test chose the
+# interactive REPL there — but its terminal is not a Windows console. The REPL
+# prints its prompt, exits immediately, and takes the already-bound server down
+# with it ("Subprocess failed (exit code: 1)" / "Bye for now!"). Headless is the
+# same server without that passenger, so Windows always gets headless.
+repl_mode() {
+    if is_windows; then
+        echo headless
+    elif [[ -t 0 ]]; then
+        echo interactive
+    else
+        echo headless
+    fi
+}
+
 # Graceful shutdown with SIGKILL fallback
 kill_gracefully() {
     local pid="$1"
     local wait_secs="${2:-$KILL_WAIT}"
 
     # Try SIGTERM first
-    kill -TERM "$pid" 2>/dev/null || return 0
+    signal_pid "$pid" TERM || return 0
 
     # Wait for process to exit
     for ((i=0; i<wait_secs; i++)); do
-        kill -0 "$pid" 2>/dev/null || return 0
+        pid_alive "$pid" || return 0
         sleep 1
     done
 
     # Process still running - escalate to SIGKILL
     log_warn "Process $pid didn't stop gracefully, sending SIGKILL"
-    kill -KILL "$pid" 2>/dev/null || true
+    signal_pid "$pid" KILL || true
 }
 
 # Clean up stale PID files
