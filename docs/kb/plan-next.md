@@ -17,6 +17,55 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 
 ---
 
+## 0b. Carry over from the September support session
+
+Two threads that produced working code and a diagnosis but are **not merged**. Both came out of one
+self-hoster failing to start the app, then failing to see the ability-score arrows.
+
+### Windows/boot scripts — branch `fix/windows-port-detection`, green on CI
+
+☐ **Merge it.** Four files, ~351 insertions, no new user-facing scripts. `port_in_use` and
+`find_pids_by_port` never worked on Git Bash (`netstat -tln` is a GNU invocation; Windows netstat
+has no `-l`, so every port read as free). That one dead function caused five separate symptoms: the
+BindException with no warning, `stop.sh` finding nothing to stop, a false "Failed to start Datomic"
+30s after a good start, `init-db` refusing with "Datomic is not running", and `--idempotent`
+starting duplicates — which is what [AGENT-DEV-LOOP.md](../AGENT-DEV-LOOP.md) is built on. A
+`windows-latest` job asserts the behaviour on every push. Unix is unchanged by construction.
+
+☐ **Exercise the `start_all` Ctrl+C path.** The one seam not covered: `start_server`/`start_all` now
+`return $rc` explicitly, and `start_all` runs under `trap cleanup_on_exit INT TERM`. Reasoned about,
+never run — no Leiningen on the runner.
+
+☐ **Decide on a first-run path.** `start.sh server` requires Datomic already running, which is
+documented ([GETTING-STARTED.md](../GETTING-STARTED.md) steps 4–7) but bites every newcomer;
+`init-db` and `menu add` are likewise documented manual steps. `init-db` is safe to re-run (it
+re-transacts identical schema), and `create-user!` throws a recognisable "already exists", so a
+single idiot-proof `--fresh` path is feasible if wanted.
+
+☐ **Bump `actions/checkout@v4` → v5** across all workflows. Node 20 is deprecated and every run
+warns.
+
+### Icons — see [icon-font-failure.md](icon-font-failure.md)
+
+☐ **Add `<meta name="darkreader-lock">`** to `index.clj`'s `<head>`. One line. The app ships its own
+dark theme, so Dark Reader (~7M users) re-darkening it is pure downside — it shifted `#f0a100` to
+`#e89b00` on the reporter's machine and the icon font stopped rendering.
+
+☐ **Detect a missing icon font and say so.** `document.fonts.load(...)` resolving to an empty array
+is a reliable signal (`fonts.check()` is not — it returns `true` for fonts that do not exist). Add
+`no-icon-font` to `<body>` and give `.no-icon-font .fa` an outline and a minimum size, so a failure
+looks broken instead of looking like nothing.
+
+☐ **`title` + `aria-label` on icon-only controls**, starting with the two ability-score arrows,
+which have neither. Independent of any font bug: an icon-only button with no label is unreachable
+by screen reader.
+
+☐ **Consider SVG for interactive icons.** Icon fonts are legacy; an icon that *is* a button should
+not depend on a webfont, because when it fails the user loses the capability entirely. Decoration
+can stay. Not a wholesale migration — a rule for new work and for controls that matter.
+
+---
+
 ## 1. Grants on the remaining four silos
 
 ☐ `subrace-option` · `background-option` · `level-option` (class and subclass)
