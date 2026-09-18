@@ -215,3 +215,34 @@ jobs:
           echo "$out" | grep -qi "already listening" || { echo "FAIL: did not identify the listener"; exit 1; }
           echo "$out" | grep -qi "taskkill"        || { echo "FAIL: did not give the Windows stop command"; exit 1; }
           echo "OK: a bind failure is explained in place"
+
+      - name: ASSERT signal_pid handles an MSYS pid, not just a Windows pid
+        run: |
+          # find_service_pids checks the PID FILE first, and that pid came from
+          # $! — an MSYS pid, which taskkill cannot see. Using taskkill alone
+          # would make stop.sh report success while the process kept running.
+          set -u
+          source scripts/common.sh
+          sleep 120 &
+          MSYS_PID=$!
+          echo "msys pid   : $MSYS_PID"
+          pid_alive "$MSYS_PID" || { echo "FAIL: pid_alive cannot see an MSYS pid"; exit 1; }
+          signal_pid "$MSYS_PID" KILL || true
+          sleep 2
+          if pid_alive "$MSYS_PID"; then
+            echo "FAIL: signal_pid did not stop an MSYS pid"; exit 1
+          fi
+          echo "OK: both pid kinds are handled"
+
+      - name: ASSERT explain_bind_failure stays quiet when the port is free
+        run: |
+          # lein exits non-zero for ordinary reasons, Ctrl+C included. Announcing
+          # a bind failure after a normal shutdown would be crying wolf.
+          set -u
+          source scripts/common.sh
+          out="$(explain_bind_failure 8890 2>&1)"
+          echo "output: [$out]"
+          if [ -n "$out" ]; then
+            echo "FAIL: reported a bind failure for a port nothing is using"; exit 1
+          fi
+          echo "OK: silent when there is no evidence of a port problem"
