@@ -28,6 +28,11 @@ Review also found and fixed, in `feat/source-tagged-keys` before merging:
   became `:unnamed-<hash>` and `"@@@"` became `:-`, which is a keyword trap the import pipeline
   quarantines. The one place in the app that sets a key by hand now checks the same invariant.
 
+**Fixes made on a cut branch have to come back.** The key-less-stored-item fix below was made on
+`feat/source-tagged-keys` during review and never landed on `feature/grant-rows`, which carried the
+bug for five days — and it then blocked the port of the save-gate work, because a naive
+"take mine" would have deleted it from integration. Check both directions before porting.
+
 Still open, recorded but not fixed: other key-minting paths ignore a source's `:abbreviation`
 (`relocate-content`, import conflict resolution), `coerce-invalid-names` re-derives untagged keys
 for every item in a repaired source, and an import conflict "rename" can now be a no-op because the

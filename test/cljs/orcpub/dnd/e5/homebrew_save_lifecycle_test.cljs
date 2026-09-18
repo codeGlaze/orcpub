@@ -688,3 +688,67 @@
   (dispatch! [::selections5e/save-selection])
   (is (= #{(k "Fighting Style")} (set (keys (get-in @app-db [:plugins SRC sct]))))
       "one entry after both saves"))
+
+;; ---------------------------------------------------------------------------
+;; Libraries authored before keys were stored
+;; ---------------------------------------------------------------------------
+
+;; `:key` is OPTIONAL on a stored item. Older libraries do not carry one and the read path derives
+;; it from the NAME -- untagged, because the tag is newer than they are. Minting a tagged key on
+;; the next save wrote a SECOND entry and left the original holding the pre-edit data, with no
+;; :former-keys to heal it and nothing on screen to say it had happened.
+(def ^:private old-key (common/name-to-kw "Tideward"))
+
+(defn- with-legacy-item! []
+  (swap! app-db assoc :plugins {SRC {ct {old-key {:name "Tideward" :option-pack SRC}}}}))
+
+(deftest an-old-item-keeps-the-address-it-is-already-stored-under
+  (is (not= old-key (k "Tideward")) "the minted key today is tagged; the stored one is not")
+  (with-legacy-item!)
+  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (swap! app-db assoc-in [::langs5e/builder-item :description] "edited")
+  (save!)
+  (is (= #{old-key} (set (keys (stored)))) "one entry, at the address it already had")
+  (is (= "edited" (get-in (stored) [old-key :description])) "carrying the edit"))
+
+(deftest an-old-item-is-its-own-slot-not-a-collision
+  ;; The first fix for this landed the item; the second save then read as a NEW item minting a key
+  ;; something already holds, and was refused.
+  (with-legacy-item!)
+  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (save!)
+  (save!)
+  (is (= #{old-key} (set (keys (stored)))))
+  (is (empty? (:builder-field-errors @app-db)) "and nothing flagged on either save"))
+
+(deftest save-anyway-also-keeps-an-old-address
+  (with-legacy-item!)
+  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (dispatch! [::langs5e/save-language-anyway])
+  (is (= #{old-key} (set (keys (stored)))) "placeholders do not re-address it either"))
+
+(deftest a-selection-also-keeps-an-old-address
+  (let [old (common/name-to-kw "Fighting Style")]
+    (swap! app-db assoc :plugins
+           {SRC {sct {old {:name "Fighting Style" :option-pack SRC
+                           :options [{:name "Archery"}]}}}})
+    (swap! app-db assoc ::selections5e/builder-item (get-in @app-db [:plugins SRC sct old]))
+    (dispatch! [::selections5e/save-selection])
+    (is (= #{old} (set (keys (get-in @app-db [:plugins SRC sct]))))
+        "one entry, at the address it already had")))
+
+(deftest a-name-that-matches-nothing-still-mints-a-tagged-key
+  ;; The guard is "this address is ALREADY answering", not "drop the tag whenever there is no key".
+  (open! (draft "Tideward"))
+  (save!)
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "a new item is tagged as usual"))
+
+(deftest an-old-item-in-another-source-does-not-capture-a-new-one
+  ;; The probe is scoped to the source being saved to. An untagged entry of the same name in a
+  ;; DIFFERENT library must not pull a new item onto its address.
+  (swap! app-db assoc-in [:plugins OTHER ct old-key]
+         {:name "Tideward" :option-pack OTHER})
+  (open! (draft "Tideward"))
+  (save!)
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "the new one mints its own tagged key")
+  (is (= "Tideward" (get-in @app-db [:plugins OTHER ct old-key :name])) "and the old one is untouched"))

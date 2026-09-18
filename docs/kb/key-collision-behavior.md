@@ -93,6 +93,28 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### A stored item may have no `:key` (2026-09-18)
+
+`:key` is OPTIONAL on a stored item — libraries authored before keys were stored do not carry one,
+and the read path derives it from the NAME, untagged. Minting a tagged key for such an item on its
+next save wrote a SECOND entry and left the original holding the pre-edit data, with no
+`:former-keys` to heal it and nothing on screen to say so.
+
+`address-for` resolves this once for all four save paths: the item's own key, else **the address it
+is already stored under in this source**, else a freshly minted tagged one. It hands
+`save-destination` the item carrying that key, so a legacy item reads as an edit in place rather
+than a new item landing on a taken address — and a genuinely new item stays keyless, so the mint
+refusals still fire.
+
+The probe is scoped to the source being saved to. An untagged entry of the same name in a different
+library must not capture a new item onto its address.
+
+**This fix was made on `feat/source-tagged-keys` during review and never came back to
+`feature/grant-rows`**, so the branch carried the bug for five days while the cut branch did not.
+Anything found on a cut branch has to land on both. Pinned by the four
+`an-old-item-*` / `*-keeps-an-old-address` tests plus two negative controls, verified by removing
+the branch and watching exactly those four fail.
+
 ### Replacing on purpose, and the two refusals (2026-09-18)
 
 A refusal with no way through is a trap, so `:occupied` asks instead of just saying no. `replacing`

@@ -876,6 +876,32 @@
       ;; it from My Content records that, which is the way out.
       :else                    {:action :refuse :reason :ambiguous :holders holders})))
 
+(defn address-for
+  "Where `item` saves to: `[key item']`, where `item'` is what `save-destination` judges.
+
+   `item'` carries `:key` only when the item is ALREADY stored under that address, so a fresh mint
+   stays keyless and the destination can still tell a new item from an edit.
+
+   `mint-name` is the name a fresh key derives from; `(:name item)` is what an already-stored one
+   is found by. The two differ when a save sanitizes the name.
+
+   GOTCHA: `:key` is OPTIONAL on a stored item -- older libraries do not carry one and the read
+   path derives it from the name. Minting a tagged key for such an item writes a SECOND entry and
+   leaves the original holding the pre-edit data, with no `:former-keys` to heal it."
+  [plugins plugin-key option-pack item mint-name]
+  (let [stored (when-not (s/blank? (:name item)) (common/name-to-kw (:name item)))]
+    (cond
+      (:key item)
+      [(:key item) item]
+
+      (and stored (some? (get-in plugins [option-pack plugin-key stored])))
+      [stored (assoc item :key stored)]
+
+      :else
+      [(common/source-tagged-key mint-name option-pack
+                                 (get-in plugins [option-pack :abbreviation]))
+       item])))
+
 (defn replacing
   "The same destination with the author's consent to discard the occupant applied.
 
@@ -969,9 +995,7 @@
              ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
              ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
              ;; is a separate, deliberate act that records :former-keys.
-             key (or (:key item)
-                     (common/source-tagged-key name option-pack
-                                               (get-in db [:plugins option-pack :abbreviation])))
+             [key keyed-item] (address-for (:plugins db) plugin-key option-pack item name)
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
@@ -988,7 +1012,7 @@
              {:keys [action from] :as destination}
              (when (nil? explanation)
                (cond-> (save-destination plugins (:builder-origin db) plugin-key option-pack key
-                                         item)
+                                         keyed-item)
                  replace? replacing))]
          (cond
            (= :refuse action)
@@ -1044,23 +1068,14 @@
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-             ;; minted once, like the ordinary save: sanitizing a name must not re-address an
-             ;; item that already has a key
-             item-with-key (cond-> (assoc sanitized
-                                          :option-pack src
-                                          ;; the placeholder source tags too -- "dflt" exists for
-                                          ;; exactly this landing spot
-                                          :key (common/source-tagged-key
-                                                (:name sanitized) src
-                                                (get-in db [:plugins src :abbreviation])))
-                             (:key item) (assoc :key (:key item)))
-             ;; Placeholders fill the FIELDS; they do not buy an address. The key is decided after
-             ;; sanitizing, because sanitizing a blank name is what mints one, and it lands under
-             ;; the same rules the ordinary save follows.
-             final-key (:key item-with-key)
+             ;; Placeholders fill the FIELDS; they do not buy an address. Sanitizing a name must
+             ;; not re-address an item that already has one, so a fresh key is minted from the
+             ;; sanitized name and everything else keeps the address it has.
+             [final-key keyed-item] (address-for (:plugins db) plugin-key src item (:name sanitized))
+             item-with-key (assoc sanitized :option-pack src :key final-key)
              {:keys [action from] :as destination}
              (cond-> (save-destination (:plugins db) (:builder-origin db) plugin-key src final-key
-                                       item)
+                                       keyed-item)
                replace? replacing)]
          (if (= :refuse action)
            (collision-error-fx type-name src final-key destination
@@ -1133,9 +1148,7 @@
  ::selections5e/save-selection
  (fn [{:keys [db]} [_ {:keys [replace?]}]]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (or (:key item)                                               ; minted once, tagged
-                 (common/source-tagged-key name option-pack
-                                           (get-in db [:plugins option-pack :abbreviation])))
+         [key keyed-item] (address-for (:plugins db) ::e5/selections option-pack item name)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1158,7 +1171,7 @@
          {:keys [action from] :as destination}
          (when (nil? explanation)
            (cond-> (save-destination plugins (:builder-origin db) ::e5/selections option-pack key
-                                     item)
+                                     keyed-item)
              replace? replacing))]
      (cond
        ;; Reject empty option names
@@ -1218,11 +1231,11 @@
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (or (:key item) (common/source-tagged-key (:name filled-item) src
-                                                       (get-in db [:plugins src :abbreviation])))
+         [key keyed-item] (address-for (:plugins db) ::e5/selections src item (:name filled-item))
          item-with-key (assoc filled-item :key key :option-pack src)
          {:keys [action from] :as destination}
-         (cond-> (save-destination (:plugins db) (:builder-origin db) ::e5/selections src key item)
+         (cond-> (save-destination (:plugins db) (:builder-origin db) ::e5/selections src key
+                                   keyed-item)
            replace? replacing)]
      (if (= :refuse action)
        (collision-error-fx "Selection" src key destination
