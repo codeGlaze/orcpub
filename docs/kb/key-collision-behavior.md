@@ -54,10 +54,11 @@ the origin the builder recorded, the target source, the key, and the item:
 | the item | the target slot | verdict |
 |---|---|---|
 | no key yet | free, key answers nowhere | **create** |
-| no key yet | taken, here or in another source | **refuse** — a key is a global address |
+| no key yet | taken **here** | **refuse** — offers *Replace it* |
+| no key yet | taken **in another source** | **refuse**, no offer — a key is a global address |
 | came from here | — | **in place** |
 | came from another source | free | **move** — write here, remove there |
-| came from another source | taken | **refuse** — the author has not said replace or keep both |
+| came from another source | taken | **refuse** — offers *Replace it*, which moves onto the slot |
 | origin unknown, key answers nowhere | — | **create** |
 | origin unknown, key answers in 2+ sources | — | **refuse** — reopen it from My Content |
 
@@ -91,6 +92,40 @@ honest answer, so the save refuses and says to reopen the item from My Content, 
 Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
+
+### Replacing on purpose, and the two refusals (2026-09-18)
+
+A refusal with no way through is a trap, so `:occupied` asks instead of just saying no. `replacing`
+is the pure re-decision: consent turns that refusal into the `:move` or `:create` it would have been.
+The other two refusals pass through it unchanged, and that asymmetry is the point.
+
+| reason | what is in the way | the banner |
+|---|---|---|
+| `:occupied` | ONE item, in this source, named on screen | explains what replacing discards, offers **Replace it** |
+| `:elsewhere` | nothing here — the key answers in another library | explains that a key is one address for the whole library. No offer |
+| `:ambiguous` | two entries the save cannot tell apart | says to reopen it from My Content. No offer |
+
+**Consent is to discarding one named thing.** For `:elsewhere` there is nothing in the way to
+replace, so a yes would not resolve the collision — it would *create* it, which is the state that
+used to make both copies uneditable. For `:ambiguous` the save cannot say which of two entries the
+author is looking at, and consent to an unnamed one of two is not consent. Neither gets a button.
+
+**Replacing still moves.** Consent is to the occupant going, not to a copy being left behind: an
+item that came from another source is removed there, exactly as an unobstructed move would.
+
+**All four save paths go through this gate.** The ordinary save, its "Save anyway with
+placeholders", and both selection saves — the last three used to write with a bare `assoc-in`.
+`::selections5e/save-selection` had no collision check of any kind, so a selection could replace
+another silently, on an ordinary save, with no banner. `save-anyway` also stamps the key back onto
+the builder item now; without it the next save minted a second key and refused as a collision with
+its own entry.
+
+"Save anyway" is the **missing-fields** escape hatch, not a collision one — it is offered only from
+the spec-validation branch, and placeholders fill the fields, not the address.
+
+Pinned by `consent-only-re-decides-the-refusal-that-named-what-would-be-lost` and the eight
+scenario tests after it, and by `test/e2e/replace-or-refuse.js` end to end (both banners, the
+replace, and that a refusal writes nothing).
 
 ## The builder's own save gate (2026-09-12)
 
