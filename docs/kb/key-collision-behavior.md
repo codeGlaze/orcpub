@@ -46,6 +46,52 @@ instead of only when a collision forces it, with deleting the tag being how an a
 to override an SRD item. Decided, not built; the default source tags as `dflt`.
 **`source-tagged-keys.md`.**
 
+## Where a save lands — `save-destination` (2026-09-18)
+
+One pure function decides, and the save handler only carries out the verdict. It takes the library,
+the origin the builder recorded, the target source, the key, and the item:
+
+| the item | the target slot | verdict |
+|---|---|---|
+| no key yet | free, key answers nowhere | **create** |
+| no key yet | taken, here or in another source | **refuse** — a key is a global address |
+| came from here | — | **in place** |
+| came from another source | free | **move** — write here, remove there |
+| came from another source | taken | **refuse** — the author has not said replace or keep both |
+| origin unknown, key answers nowhere | — | **create** |
+| origin unknown, key answers in 2+ sources | — | **refuse** — reopen it from My Content |
+
+**Option Source Name is an instruction.** Retyping it moves the item. Before this, the save could
+only ever `assoc-in`, because it did not know where the item had been — so retyping the source left
+a COPY, one key answering in two libraries, and that state then refused every later save of either
+copy as a collision with its twin. Three bugs, one missing fact.
+
+**A move does not touch the key**, so characters are unaffected and there is no `:former-keys`
+breadcrumb to leave: they store the address, not the library. The source the item left is emptied,
+and an emptied source drops out of My Content the same way it does when its last item is deleted.
+
+### The origin, and why it is checked rather than trusted
+
+`reg-edit-homebrew` records `{:source :key}` when an item is opened; `reg-new-homebrew` clears it;
+the save re-stamps it to where the item now lives. It is **verified against the library before
+use** — the recorded address must still answer to that key for that content type. Three reasons,
+each a way the record goes stale:
+
+- it survives the move that invalidates it (the next save would dissoc an entry already gone, and
+  leave the copy it just made);
+- it survives a walk to another builder, and two content types in one source share a key for one
+  name (a race and a subrace both called Aarakocra), so an unverified record can name an item
+  nobody opened — and the save would delete it;
+- the source may have been deleted meanwhile, in which case the dissoc would resurrect it as an
+  empty shell.
+
+With no usable record the single source holding the key is the origin. With several there is no
+honest answer, so the save refuses and says to reopen the item from My Content, which records one.
+
+Pinned by `save-destination-decides-by-where-the-item-came-from`,
+`save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
+and `test/e2e/move-between-sources.js` end to end.
+
 ## The builder's own save gate (2026-09-12)
 
 `save-collision` (`events.cljs`) runs before every homebrew save and blocks two cases: `:overwrite`

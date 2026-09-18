@@ -619,7 +619,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, hook, learned, push, reminder, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -814,12 +814,14 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, item, key, override, plugin, predictable, rename, returning, same-key, save, spell, wins
+**topics:** address, answers, coexist, combines, copy, create, item, key, library, origin, override, plugin, predictable, rename, returning, same-key, save, wins
 
 - TL;DR
 - The map (VERIFIED)
 - Why the override is "plugin wins" (the load-bearing semantics) — VERIFIED by test
 - Open: tagging every minted key with its source
+- Where a save lands — save-destination (2026-09-18)
+- The origin, and why it is checked rather than trusted
 - The builder's own save gate (2026-09-12)
 - The builder's save: a key is minted once (2026-09-13)
 - What the save refuses

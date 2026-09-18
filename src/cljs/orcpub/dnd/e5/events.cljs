@@ -823,6 +823,58 @@
                                       [src occ]))]
           {:kind :cross :source src :name (:name occ)})))))
 
+(defn- sources-holding
+  "Every source whose `plugin-key` map answers to `key`."
+  [plugins plugin-key key]
+  (for [[src plugin] plugins
+        :when (and (map? plugin) (some? (get-in plugin [plugin-key key])))]
+    src))
+
+(defn save-destination
+  "Where a save lands, and whether it may land there.
+
+     {:action :create}                      a key nothing answers to yet
+     {:action :in-place}                    the item's own address
+     {:action :move :from <source>}         Option Source Name was retyped; the old entry goes
+     {:action :refuse :reason .. :occupant/:holders ..}
+
+   `recorded` is the `[source key]` the builder opened the item from, or nil.
+
+   GOTCHA: the record is trusted only when that address STILL answers to this key for this content
+   type. It survives a move, a delete and a walk to another builder, and two content types in one
+   source share a key for one name (a race and a subrace both called Aarakocra), so an unverified
+   record can name an item nobody opened.
+
+   With no usable record the one source holding the key is the origin. With several there is no
+   honest answer: an in-place save is still allowed, since it cannot create a duplicate, and a
+   retyped source is refused rather than guessed at."
+  [plugins recorded plugin-key option-pack key item]
+  (let [occupant (get-in plugins [option-pack plugin-key key])
+        holders  (set (sources-holding plugins plugin-key key))
+        origin   (cond
+                   (and (= key (:key recorded))
+                        (contains? holders (:source recorded)))       (:source recorded)
+                   (= 1 (count holders))                              (first holders))]
+    (cond
+      ;; Minting: no key of its own yet, so anything already answering belongs to somebody else --
+      ;; here or in another library, since a key is a global address.
+      (nil? (:key item))
+      (cond
+        occupant      {:action :refuse :reason :occupied :occupant occupant}
+        (seq holders) {:action :refuse :reason :elsewhere :holders holders}
+        :else         {:action :create})
+
+      (= origin option-pack)   {:action :in-place}
+      (and origin occupant)    {:action :refuse :reason :occupied :occupant occupant}
+      origin                   {:action :move :from origin}
+
+      ;; No origin. Nothing answers to the key, so nothing can be duplicated or replaced:
+      (empty? holders)         {:action :create}
+
+      ;; ...or several sources do, and which entry this one IS cannot be told from here. Reopening
+      ;; it from My Content records that, which is the way out.
+      :else                    {:action :refuse :reason :ambiguous :holders holders})))
+
 (defn save-into-plugins
   "Write `item` at `key`, and remove whatever sat under `renamed-from`.
 
@@ -880,39 +932,52 @@
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)
-             {:keys [kind source] twin-name :name}
+             {:keys [action reason from occupant holders]}
              (when (nil? explanation)
-               (save-collision plugins option-pack plugin-key key item))]
+               (save-destination plugins (:builder-origin db) plugin-key option-pack key item))]
          (cond
-           ;; A key is an ADDRESS, and it is global. Two items answering to one key is the same
-           ;; problem wherever the second one lives: the combines that dedupe pick a winner by the
-           ;; hash-iteration order of source names, and the ones that don't show both. Neither is
-           ;; something to create by pressing Save. (Wanting both copies is legitimate -- a
-           ;; published class and its playtest -- and it arrives through IMPORT, where the conflict
-           ;; modal asks and "keep both" is a choice someone made.)
-           (some? kind)
+           ;; Minting a key something else answers to, or moving onto one. A key is an ADDRESS and
+           ;; it is global: two items answering to one is the same problem wherever the second one
+           ;; lives, since the combines that dedupe pick their winner by the hash order of source
+           ;; names and the ones that do not show both copies. (Wanting both IS legitimate and
+           ;; arrives through IMPORT, where the conflict modal asks.)
+           (and (= :refuse action) (= :occupied reason))
            {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
                          [:show-error-message
-                          (if (= :overwrite kind)
-                            (str "\"" twin-name "\" in \"" source "\" already uses the name "
-                                 "\"" name "\". Saving would replace it. Give this one a "
-                                 "different name, or edit the existing entry instead.")
-                            (str "\"" source "\" already has a " (s/lower-case type-name)
-                                 " under this key (\"" twin-name "\"). Two items answering to one "
-                                 "key collide wherever they live — give this one a different name, "
-                                 "or edit the existing entry."))
+                          (str "\"" option-pack "\" already has a " (s/lower-case type-name)
+                               " answering to " key " (\"" (:name occupant) "\"). Saving here would "
+                               "replace it. Give this one a different name, or edit that entry "
+                               "instead.")
+                          builder-error-ttl]]}
+
+           ;; The key already answers elsewhere. For a new item that is a duplicate in the making;
+           ;; for a restored draft it means this one cannot be told apart from its twin.
+           (= :refuse action)
+           {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
+                         [:show-error-message
+                          (str key " already answers in "
+                               (s/join " and " (map pr-str (sort holders)))
+                               (if (= :elsewhere reason)
+                                 ". Two entries at one address collide wherever they live — give
+ this one a different name."
+                                 ". Open this one from My Content and try again — from here there
+ is no telling which of the two it is."))
                           builder-error-ttl]]}
 
            (some? explanation)
            (builder-field-error-fx type-name explanation item error-message anyway-event-key)
 
            :else
-           (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                item-with-key nil)]
-             ;; Stamp the key back onto the item still open in the builder: `save-collision` reads
-             ;; it to tell an edit returning to its own slot from a name landing on somebody
-             ;; else's, and a restored draft must carry it too.
-             {:db (assoc db item-key item-with-key)
+           (let [new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key key
+                                                        item-with-key nil)
+                               ;; a move, not a copy: the entry it came from goes
+                               (= :move action) (update-in [from plugin-key] dissoc key))]
+             ;; The key goes back onto the item still open in the builder, and the origin is
+             ;; re-stamped to where it now lives: leaving the old address recorded would make the
+             ;; next save read as another move, off an entry that has already gone.
+             {:db (assoc db
+                         item-key item-with-key
+                         :builder-origin {:source option-pack :key key})
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -2679,7 +2744,11 @@
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ item]]
-     {:dispatch-n [[set-event item]
+     ;; Where the item came from, so the save can tell its own slot from somebody else's. The item
+     ;; arrives straight out of :plugins, so its :option-pack IS the source holding it. One slot:
+     ;; a builder is a page, and only one is open at a time.
+     {:db (assoc db :builder-origin {:source (:option-pack item) :key (:key item)})
+      :dispatch-n [[set-event item]
                    [:route route]]})))
 
 (reg-edit-homebrew
@@ -6106,8 +6175,10 @@
 (defn reg-new-homebrew [event set-event default-val route]
   (reg-event-fx
    event
-   (fn [_ [_ option-pack option]]
-     {:dispatch-n [[set-event (-> default-val
+   (fn [{:keys [db]} [_ option-pack option]]
+     ;; a new item came from nowhere, so it has no origin to return to
+     {:db (dissoc db :builder-origin)
+      :dispatch-n [[set-event (-> default-val
                                   (assoc :option-pack option-pack)
                                   (merge option))]
                    [:route route]]})))
