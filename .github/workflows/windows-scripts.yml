@@ -1,0 +1,212 @@
+# Validates the Windows/Git Bash assumptions the port-detection code is built
+# on. Everything about the Windows path was reasoned about and tested against
+# hand-written stubs — which is circular, because the same author wrote the stub
+# and the parser. This runs it on a real Windows machine instead.
+#
+# Deliberately does NOT need Java, Leiningen or Datomic: it binds a port with
+# python and asks the shell functions what they see. That keeps it ~1 minute so
+# it can run on every push to the branch.
+#
+# It ASSERTS rather than reports. If an assumption is wrong, this job goes red.
+
+name: Windows scripts
+
+on:
+  push:
+    branches: [fix/windows-port-detection, develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Git Bash platform facts + port detection
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash          # on windows-latest this is Git Bash (MSYS2)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # FACTS — printed whether or not they match what we assumed
+      # ---------------------------------------------------------------------
+      - name: Platform and tool inventory
+        run: |
+          echo "uname -s : $(uname -s)"
+          echo "OSTYPE   : ${OSTYPE:-<unset>}"
+          for t in lsof ss netstat tasklist taskkill netsh python; do
+            printf '  %-10s %s\n' "$t" "$(command -v "$t" 2>/dev/null || echo '(absent)')"
+          done
+
+      - name: ASSERT uname reports MINGW/MSYS
+        run: |
+          case "$(uname -s)" in
+            MINGW*|MSYS*|CYGWIN*) echo "OK: $(uname -s)" ;;
+            *) echo "FAIL: is_windows() would not fire — uname says '$(uname -s)'"; exit 1 ;;
+          esac
+
+      - name: ASSERT lsof and ss are absent
+        run: |
+          # If either exists, port_in_use takes a different branch than assumed
+          # and the Windows branch is dead code. Not fatal to users, but it means
+          # the whole diagnosis was wrong, so fail and make us look.
+          rc=0
+          command -v lsof >/dev/null 2>&1 && { echo "FAIL: lsof EXISTS"; rc=1; }
+          command -v ss   >/dev/null 2>&1 && { echo "FAIL: ss EXISTS";   rc=1; }
+          [ $rc -eq 0 ] && echo "OK: neither lsof nor ss present"
+          exit $rc
+
+      - name: ASSERT 'netstat -tln' fails and prints nothing to stdout
+        run: |
+          # This is THE load-bearing claim: the old code ran exactly this, threw
+          # stderr away, and read the empty stdout as "the port is free".
+          set +e
+          out="$(netstat -tln 2>/tmp/err.txt)"; rc=$?
+          err="$(cat /tmp/err.txt)"
+          echo "exit code : $rc"
+          echo "stdout    : [$out]"
+          echo "stderr    : [$err]"
+          if [ -n "$out" ]; then
+            echo "FAIL: netstat -tln produced stdout — this netstat understands GNU flags"
+            exit 1
+          fi
+          echo "OK: stdout empty, so the old check reads every port as free"
+
+      - name: Show real 'netstat -ano' output shape
+        run: netstat -ano | head -15
+
+      # ---------------------------------------------------------------------
+      # THE ACTUAL TEST — bind a port for real, then ask both implementations
+      # ---------------------------------------------------------------------
+      - name: Old vs new detection against a real listener
+        run: |
+          set -u
+          python -c "
+          import socket, time
+          s = socket.socket()
+          s.bind(('127.0.0.1', 8890)); s.listen(5)
+          time.sleep(180)
+          " &
+          LISTENER=$!
+          sleep 5
+
+          # independent truth: can we actually connect?
+          if (exec 3<>/dev/tcp/127.0.0.1/8890) 2>/dev/null; then
+            echo "truth      : port 8890 IS listening"
+          else
+            echo "SETUP FAIL : could not bind 8890 on the runner"; exit 1
+          fi
+
+          old_port_in_use() {   # verbatim from develop, pre-fix
+            local port="$1"
+            if command -v lsof >/dev/null 2>&1; then lsof -i ":${port}" >/dev/null 2>&1
+            elif command -v ss >/dev/null 2>&1; then ss -tln 2>/dev/null | grep -q ":${port}\b"
+            elif command -v netstat >/dev/null 2>&1; then netstat -tln 2>/dev/null | grep -q ":${port}\b"
+            else timeout 1 bash -c "</dev/tcp/localhost/$port" 2>/dev/null; fi
+          }
+
+          source scripts/common.sh          # the fixed implementation
+
+          old_port_in_use 8890 && O=in-use || O=free
+          port_in_use     8890 && N=in-use || N=free
+          PIDS="$(find_pids_by_port 8890)"
+          echo "old check  : $O"
+          echo "new check  : $N   (fixed)"
+          echo "pids       : ${PIDS:-<none>}"
+
+          fail=0
+          [ "$N" = "in-use" ] || { echo "FAIL: fixed port_in_use missed a real listener"; fail=1; }
+          [ -n "${PIDS// /}" ] || { echo "FAIL: find_pids_by_port returned nothing"; fail=1; }
+          port_in_use 8891 && { echo "FAIL: reported an unused port as busy"; fail=1; }
+          [ "$O" = "free" ] && echo "CONFIRMED: the old check reports 'free' for a port that is in use"
+          kill $LISTENER 2>/dev/null || true
+          exit $fail
+
+      - name: ASSERT taskkill can stop a process we found by port
+        run: |
+          set -u
+          source scripts/common.sh
+          python -c "
+          import socket, time
+          s = socket.socket()
+          s.bind(('127.0.0.1', 8899)); s.listen(5)
+          time.sleep(180)
+          " &
+          sleep 5
+          PIDS="$(find_pids_by_port 8899)"
+          echo "found pids : ${PIDS:-<none>}"
+          [ -n "${PIDS// /}" ] || { echo "FAIL: could not find the listener"; exit 1; }
+          for p in $PIDS; do signal_pid "$p" KILL || true; done
+          sleep 3
+          STILL="$(find_pids_by_port 8899)"
+          if [ -n "${STILL// /}" ]; then
+            echo "FAIL: taskkill did not stop it (still $STILL)"; exit 1
+          fi
+          echo "OK: signal_pid/taskkill stopped the process and freed the port"
+
+      - name: Reserved port ranges (informational)
+        run: |
+          netsh interface ipv4 show excludedportrange protocol=tcp || true
+          echo "--- is 8890 inside a reserved range on this runner? ---"
+          netsh interface ipv4 show excludedportrange protocol=tcp 2>/dev/null | tr -d '\r' \
+            | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && 8890 >= $1 && 8890 <= $2 {print "  RESERVED: " $1 "-" $2; found=1}
+                   END { if (!found) print "  not reserved here" }'
+
+      - name: ASSERT repl_mode picks headless on Windows
+        run: |
+          set -u
+          source scripts/common.sh
+          m="$(repl_mode)"
+          echo "repl_mode : $m"
+          if [ "$m" != "headless" ]; then
+            echo "FAIL: Windows must not get the interactive REPL — it exits and kills the server"
+            exit 1
+          fi
+          echo "OK: Windows takes the headless path"
+
+      - name: ASSERT start.sh's own port guard sees a busy port
+        run: |
+          # This is what replaces a bespoke launcher: with port_in_use fixed,
+          # check_port_available detects the conflict, names the PID, and (when
+          # interactive) offers to stop it. CI is non-interactive, so the
+          # expected outcome is a clean refusal naming the port.
+          set -u
+          python -c "
+          import socket, time
+          s = socket.socket()
+          s.bind(('127.0.0.1', 8890)); s.listen(5)
+          time.sleep(120)
+          " &
+          sleep 5
+          source scripts/common.sh
+          set +e
+          out="$(check_port_available 8890 server false 2>&1)"; rc=$?
+          set -e
+          echo "$out"
+          echo "exit: $rc"
+          [ "$rc" -ne 0 ] || { echo "FAIL: guard allowed a busy port through"; exit 1; }
+          echo "$out" | grep -qi "in use" || { echo "FAIL: did not say the port was in use"; exit 1; }
+          echo "OK: the existing guard catches it — no separate launcher needed"
+
+      - name: ASSERT explain_bind_failure names the holder
+        run: |
+          set -u
+          source scripts/common.sh
+          python -c "
+          import socket, time
+          s = socket.socket()
+          s.bind(('127.0.0.1', 8890)); s.listen(5)
+          time.sleep(60)
+          " &
+          sleep 5
+          out="$(explain_bind_failure 8890 2>&1)"
+          echo "$out"
+          echo "$out" | grep -qi "already listening" || { echo "FAIL: did not identify the listener"; exit 1; }
+          echo "$out" | grep -qi "taskkill"        || { echo "FAIL: did not give the Windows stop command"; exit 1; }
+          echo "OK: a bind failure is explained in place"
