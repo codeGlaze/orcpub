@@ -94,6 +94,13 @@ ability, +1 to another) work across races, backgrounds, and subclasses the way o
 - **Import dedup + non-ASCII count** (`86eb5cc4`)
   Dedup homebrew-selection options on import; fix a cljs non-ASCII counting bug.
 
+- **A stored item with no `:key` keeps the address it already has** (`430db211`)
+  Libraries authored before keys were stored don't carry one, and the read path derives it from the
+  name. Minting a tagged key on the next save wrote a SECOND entry and left the original holding the
+  pre-edit data, with no `:former-keys` to heal it. `address-for` now resolves the address once for
+  all four save paths. The fix was made on `feat/source-tagged-keys` during review and never came
+  back to this branch. `docs/kb/key-collision-behavior.md`.
+
 - **A taken key now asks instead of only refusing, and every save path checks** (`7854cc91`)
   Landing on a key another item holds in the SAME source offers **Replace it**, which discards that
   entry and — for an item that came from elsewhere — moves onto the slot rather than leaving a copy.
