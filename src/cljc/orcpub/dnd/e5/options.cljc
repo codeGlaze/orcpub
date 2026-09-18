@@ -1,4 +1,30 @@
 (ns orcpub.dnd.e5.options
+  "Authored content -> template pieces. The layer that turns a race, class, background or feat —
+   built-in or homebrew, same path either way — into the `option-cfg`s and `selection-cfg`s that
+   `template.cljc` assembles into the builder. 4k lines, ~160 fns; this docstring is a map, not
+   an index.
+
+   ENTRY POINTS, one per silo. Each takes that silo's authored map and returns one `option-cfg`:
+     `race-option`  `subrace-option`  `class-option`  `subclass-option`  `background-option`
+     `feat-option-from-cfg`
+   Everything else exists to be called by one of these. Start at the silo you are changing.
+
+   NAMING, which is the fastest way to navigate:
+     `*-option`      one choosable thing — carries `:modifiers`, `:selections`, `:prereqs`
+     `*-selection`   a pick among options — carries `:options`, `:min`/`:max`, `:prereq-fn`
+     `*-modifiers`   authored data -> `mod5e/*` primitives, no choice involved
+   The bare `def`s are closed vocabularies (`abilities`, `alignments`, `damage-types`, `levels`)
+   and a few prebuilt options.
+
+   GOTCHA: a selection's `:prereq-fn` gates whether the BUILDER OFFERS it, never whether a stored
+   pick applies — `entity/build` does not consult it. A pick saved while the gate passed keeps
+   applying after it stops, with no control on screen to remove it. See
+   docs/kb/hidden-selection-picks.md.
+
+   Layering: below `template.cljc` (which requires this), above `modifiers.cljc` and
+   `entity_spec.cljc`. Also consumed directly by `views.cljs`, `spell_subs.cljs` and `pdf.clj`.
+
+   docs/kb/decision-vocabulary.md maps which authored keys each silo reads."
   (:require [clojure.string :as s]
             [clojure.set :as sets]
             [orcpub.common :as common]
@@ -1108,7 +1134,13 @@
 (defn proficiency-help [num singular plural]
   (str "Select additional " (if (> num 1) plural singular) " for which you are proficient."))
 
-(defn skill-selection-2 [{:keys [options num min max order key prereq-fn]}]
+(defn skill-selection-2
+  "A skill-proficiency pick. `options` is a seq of skill keywords, `num` sets min and max unless
+   they are given separately, and `prereq-fn` decides whether the builder OFFERS it.
+
+   GOTCHA: `prereq-fn` gates DISPLAY only. `entity/build` never consults it, so a pick saved
+   while it passed keeps applying after it stops — see docs/kb/hidden-selection-picks.md."
+  [{:keys [options num min max order key prereq-fn]}]
   (t/selection-cfg
    {:name "Skill Proficiency"
     :key key
@@ -2630,7 +2662,11 @@
     :prereq-fn prereq-fn
     :tags #{:tool-profs :profs}}))
 
-(defn tool-prof-selection [tool-options & [key prereq-fn]]
+(defn tool-prof-selection
+  "A tool-proficiency pick from `tool-options` ({tool-key count}). Collapses to a single nested
+   selection when there is one tool with sub-values (an instrument, a gaming set); otherwise one
+   selection listing them. `prereq-fn` gates DISPLAY only — same caveat as `skill-selection-2`."
+  [tool-options & [key prereq-fn]]
   (let [[first-key first-num] (-> tool-options first)
         first-option (equipment/tools-map first-key)]
     (if (and (= 1 (count tool-options))
@@ -2843,7 +2879,16 @@
             :options (mapv #(equipment-selection-option class-kw weapon-map %) options)}))
         equipment-selections))
 
-(defn background-skills-cfg [background-nm skill-kws]
+(defn background-skills-cfg
+  "A background's fixed skills, plus the SRD replacement rule: grant each skill unless the
+   character already has it, and when another source already granted it, offer a free pick from
+   the whole skill list instead.
+
+   The `background-nm` source recorded on the modifier is what makes \"someone other than me
+   already granted this\" askable. Only place in the app implementing the rule; the rule itself is
+   general (SRD backgrounds: \"the same proficiency from two different sources\"), so see
+   docs/kb/already-held-grants.md before copying it per silo."
+  [background-nm skill-kws]
   {:modifiers (map
                (fn [skill-kw]
                  (modifiers/skill-proficiency skill-kw
@@ -3259,7 +3304,14 @@
 
 
 
-(defn class-skill-selection [{skill-num :choose options :options skill-select-order :order} key prereq-fn]
+(defn class-skill-selection
+  "A class's skill pick, from its `:skill-options` or `:multiclass-skill-options`. `key`
+   distinguishes the two arms and `prereq-fn` is the `first-class?` gate (or its complement) that
+   decides which one the builder shows.
+
+   GOTCHA: only the GATE is per-arm; the modifiers the options carry are identical and carry no
+   condition, which is why a stale multiclass pick survives a class reorder."
+  [{skill-num :choose options :options skill-select-order :order} key prereq-fn]
   (let [skill-kws (if (:any options) (map :key skills/skills) (keys options))]
     (skill-selection skill-kws skill-num skill-select-order key prereq-fn)))
 

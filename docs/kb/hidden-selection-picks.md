@@ -50,26 +50,88 @@ duplicate removed: {:athletics {"Testbound" true}, :insight {nil true}}
 The background's own skill comes back **and** the replacement stays. A free extra skill, with no
 control on screen to remove it.
 
-## Exposed sites
+## Exposed sites — by what is gated, not by where the code lives
 
-Every selection carrying a `prereq-fn` is in this class — nine live sites in `options.cljc`:
+**VERIFIED.** Nine `prereq-fn` sites in `options.cljc`, but the useful grouping is what they gate.
+Five of them are **starting equipment**, which an earlier version of this doc missed by counting
+definitions instead of callers.
 
-| site | gate | the scenario |
-| --- | --- | --- |
-| `background-skills-cfg` replacement (`:2845`) | held by another source | change race after taking the background |
-| `class-skill-selection` (`:2672`, `:2682`) | `first-class?` | **change class order** |
-| the multiclass variants (`:2735`, `:2798`, `:2811`) | `(complement first-class?)` | same |
-| `tool-prof-selection` / `-aux` (`:2630`, `:2655`) | caller's prereq | as above |
-| `skill-selection-2` (`:1127`), `tool-proficiency-selection-2` (`:1183`) | caller's prereq | as above |
+| what is gated | sites | gate | status |
+| --- | --- | --- | --- |
+| class skills, first-class arm | `class-skill-selection … :skill-proficiency` (`:3347`) | `first-class?` | **reproduced** |
+| class skills, multiclass arm | `… :multiclass-skill-proficiency` (`:3351`) | `(complement first-class?)` | **reproduced** |
+| class starting equipment | `:2672`, `:2682`, `:2735`, `:2798`, `:2811` | `first-class?` | **reproduced** |
+| class tools | `tool-prof-selection … :tool-selection` (`:3339`), `:multiclass-tool-selection` (`:3341`) | both arms | untested |
+| background replacement skill | `background-skills-cfg` (`:2845`) | held by another source | **reproduced** |
 
-**UNTESTED, and the likely real-world one: multiclassing.** Take Rogue 1, add Fighter 2 — Fighter
-offers its *multiclass* skill options, and you pick one. Drop the Rogue level and Fighter becomes
-your first class: the multiclass selection's prereq now fails so it is hidden, but its pick still
-applies — while Fighter's full first-class `skill-options` also applies. Two sets of skills. This
-follows from the mechanism above but has not been built and measured. **Do that before quoting
-it.**
+`does-not-have-feat-prereq` (`:1319`) is a **different mechanism** — `::t/prereq-fn` inside an
+option's `::t/prereqs`, read by `meets-prereqs?`, not a selection gate. Not in this class.
 
-## Why it has been hard to find
+## Starting equipment is the most visible case
+
+**VERIFIED** (`multiclass_hidden_pick_test.clj`). Fighter 1 / Rogue 1 with the fighter's
+Explorer's Pack chosen:
+
+```
+fighter first
+  equipment: (:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen :tinderbox :torch :waterskin)
+  offered:   [:class :fighter :starting-equipment-equipment-pack]  (and 3 more fighter selections)
+
+rogue first, fighter 2nd
+  equipment: (:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen :tinderbox :torch :waterskin)
+             ← identical, still there
+  offered:   [:class :rogue :starting-equipment-equipment-pack]    (fighter's: GONE)
+```
+
+The character keeps the fighter's whole starting pack, has no control to remove it, **and** the
+rogue's starting equipment opens on top — so they can hold two classes' starting gear. Eight items
+in the inventory is considerably easier to notice than one extra skill, which may be why this gets
+reported as "an option I can't uncheck" rather than as a rules error.
+
+## The multiclass case — REPRODUCED
+
+**VERIFIED 2026-09-14** (`multiclass_hidden_pick_test.clj`). This is the shape users report as
+*"an option I can't uncheck or get to."*
+
+`class-option` gives every class two mutually exclusive skill selections, both always present in
+the template:
+
+```
+:skill-proficiency             gated  first-class?               rogue: choose 4
+:multiclass-skill-proficiency  gated  (complement first-class?)  rogue: choose 1
+```
+
+Fighter 1 / Rogue 1, rogue multiclassed, Athletics picked from the rogue's multiclass option:
+
+```
+skills:  (:athletics :intimidation :survival)
+offered: Skill Proficiency   at [:class :fighter :skill-proficiency]
+         Expertise           at [:class :rogue :expertise]
+         Skill Proficiency   at [:class :rogue :multiclass-skill-proficiency]   ← holds Athletics
+```
+
+Drop the fighter level. Rogue is now the first class:
+
+```
+skills:  (:athletics)                                              ← still there
+offered: Expertise           at [:class :rogue :expertise]
+         Skill Proficiency   at [:class :rogue :skill-proficiency] ← EMPTY, choose 4
+                                                       (multiclass selection: GONE)
+```
+
+Three things at once, and together they are the reported symptom:
+
+1. **The fighter's skills vanish correctly** — Intimidation and Survival go, because the whole
+   fighter class left the template.
+2. **Athletics stays**, because the rogue did *not* leave. Only its selection's gate flipped.
+3. **Nothing on screen can remove it.** The control holding Athletics is filtered out by its own
+   `(complement first-class?)` prereq, while the first-class "choose 4" selection opens beside it
+   — so the character can reach **five** rogue skills and cannot get back to four.
+
+That is the precise rule: **remove the piece and the pick dies; keep the piece and flip a gate
+and the pick persists, uncontrollable.**
+
+## Why it has been hard to find## Why it has been hard to find
 
 The evidence is invisible everywhere a person would look. The control is gone from the builder, so
 there is nothing to notice; the skill just sits on the sheet looking legitimate. And the *stored*

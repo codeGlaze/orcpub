@@ -209,6 +209,15 @@ apply is D11: derive pools as layered memoized subs, never inline inside a hot s
 
 ## 4. Invariants & gotchas (agents: violating these breaks user data or the framework)
 
+- **Authored data NAMES things; only code can reference `?attr`.** `?foo` is rewritten at
+  macroexpansion, so a `?`-ref only exists where a macro put it — a form assembled at runtime can
+  never contain one. Every layer that works obeys this: `grant_pools` registers pools by keyword,
+  `requirements.cljc` holds predicates over a plain-data context rather than condition forms, and
+  `:props` maps keywords to macro-built modifiers. **Do not propose a runtime registry of
+  condition forms**; it is unbuildable, and has been rediscovered the hard way twice (the
+  requirements registry, and Dual Wielder being hand-written for years). Detail:
+  `built-character-representation.md` §"The rules that follow"; the engine's own docstring is
+  marked LOAD-BEARING.
 - **D10 — identity from stable keys, never display names.** Saved characters reference content
   by key. Re-deriving a key from a mutated name orphans characters.
 - **D14 — don't force heterogeneous kinds through one pattern.** Magic items (server-persisted)

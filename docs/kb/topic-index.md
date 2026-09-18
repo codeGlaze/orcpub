@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, str, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, terse, toggle, widget
 
 - The format
 - Examples
@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, retracted, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, implements, option-prereq, pool-grant-map, porting, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, rendering, screenshot, vanished, writing
+**topics:** block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, page, react, rendering, screenshot, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, navigates, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -332,7 +332,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, selection, selection-key
+**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safety, selection, strict
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -353,7 +353,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, live, part, pool, re-derivation, readability, rejected
+**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -366,7 +366,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
+**topics:** allowlist, ancestry, descriptor, event, flight, ftd, gem, maintainability, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -405,7 +405,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, hot, irreducible, loops, performance, pool, registry, routes, spa, type
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -431,7 +431,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, dwarf, goal, golden, green, phase, phases, require, revert, route, snapshots, steps, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -478,6 +478,19 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 - 7. Suggested branch decomposition (DESIGN)
 - Open decisions
 
+## content-to-character-pipeline.md
+
+_content-to-character-pipeline · content to character pipeline_
+
+**topics:** 091, 157, 1588, 2026-09-15, assembly, attributed, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
+
+- The five stages
+- What each file actually is
+- Where to make a change
+- Two things that bite across stages
+- A note on the namespace inventory
+- Related
+
 ## custom-content-lifecycle.md
 
 _custom-content-lifecycle · custom content lifecycle_
@@ -522,6 +535,23 @@ _decision-already-held-resolution · decision already held resolution_
 - But the pick outlives its justification
 - Open
 
+## decision-gate-hidden-picks.md
+
+_decision-gate-hidden-picks · decision gate hidden picks_
+
+**topics:** concatenation, condition, construction, decision-already-held-resolution, fifth, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+
+- Decision
+- The trace closes: there is no unknown family
+- The real diagnosis: the same rule, implemented twice, one of them wrong
+- Where the gate goes — REVISED
+- The efficiency this branch already buys
+- It is a filter for 7 of 9 sites — RETRACTED fixed-point claim
+- The mug does not cover this
+- The paper trail: a new attribute, not an existing text field
+- Scope
+- Related
+
 ## decision-vocabulary.md
 
 _decision-vocabulary · decision vocabulary_
@@ -557,7 +587,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, cha, churning, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level
+**topics:** agreed, cantrips, cha, compound, dependent, descriptive, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, repeatable, select, spell, spells, two-level
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -589,12 +619,13 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, dotfiles, goes, history, hook, irreducible, learned, push, reminder, scripts, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, learned, push, reminder, session, stale, violated
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
+- Docstring what you touch
 - Claims must be proven, not asserted
 - The push reminder hook
 - Audit history
@@ -606,7 +637,7 @@ _documentation-discipline · documentation discipline_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, bug, cleanup, coerce, coercion, dropdown, floating-asi, forget, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, prior, string, upstream, widget
+**topics:** asi, bug, cleanup, coerce, coercion, d32, dropdown, floating-asi, forget, index-round-trip, merge-base, numeric, occurrence, per-caller, prior, string, upstream, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -631,7 +662,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, five, gaps, hardcoded, hook, language, map-of-flags, modifiers, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -687,7 +718,7 @@ _fonts · fonts_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, tray, var, workaround
+**topics:** accent, card, cards, chip, chrome, css, dark, menu, menus, mock, omv, popover, redesign, switcher, theme, themes, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -730,7 +761,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branch, branches, cut, integration, item, library, merge, merging, minted, outcome, running, scripts, source
+**topics:** 374, 3816, 493, became, believing, branches, browser, cut, integration, item, library, merge, merging, minted, outcome, running, scripts, source
 
 - Outcome
 - The branches, and the order
@@ -744,13 +775,15 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, background, decision-already-held-resolution, fighter, hidden, multi-tab-character-contamination, multiclass, nine, offers, pick, prereq, replacement, selection, sites, skill, template, unreachable, whatever
+**topics:** athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, nine, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
 
 - The mechanism
 - What is NOT broken
 - What is broken
-- Exposed sites
-- Why it has been hard to find
+- Exposed sites — by what is gated, not by where the code lives
+- Starting equipment is the most visible case
+- The multiclass case — REPRODUCED
+- Why it has been hard to find## Why it has been hard to find
 - Fixing it
 - Related
 
@@ -781,7 +814,7 @@ _homebrew-override · homebrew override_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, key, membership, override, plugin, predictable, rename, returning, same-key, save, spell, wins
+**topics:** address, built-in, coexist, combines, conflict, copy, duplicate, item, key, override, plugin, predictable, rename, returning, same-key, save, spell, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -833,11 +866,28 @@ _orcbrew-format-versioning · orcbrew format versioning_
 - Still open (besides the name)
 - Related
 
+## plan-hidden-pick-fix-and-grant-fields.md
+
+_plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
+
+**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, owner, part, per-pool, pool, wrapper
+
+- Position, stated once
+- Part A — the bug fix
+- Why it cuts from integration
+- The change
+- Blast radius
+- Order
+- Part B — completing the grant compiler
+- Are the new fields ornaments?
+- Derived helpers, or more fields?
+- Related
+
 ## plan-next.md
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, capabilities, control, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** advanced, armour, cap, capabilities, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -852,7 +902,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, grant, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -906,7 +956,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -951,7 +1001,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, srd, stone, tag, tidewater, untagged, words
 
 - What exists today
 - The proposal
@@ -992,7 +1042,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1009,7 +1059,7 @@ _starting-equipment · starting equipment_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, backdrop, browser, cljs, debt, diagnosis, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved
+**topics:** 2016, assertions, backdrop, browser, cljs, debt, errors, failures, figwheel, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
@@ -1023,7 +1073,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, concluded, confident, faster, integration, intended, miss, optimisation, shown, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, number, optimisation, shown, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
@@ -1038,7 +1088,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, neither, not-melee, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
