@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""kb — answer "has this been looked at, and where?" without reading the corpus.
+
+    kb find <query>     rank documents matching a word or phrase
+    kb terms <doc>      the words that most distinguish one document
+    kb vocab <prefix>   corpus vocabulary, to find the word you didn't know
+
+Why this exists. The KB is the group memory, and consulting it used to mean
+reading docs/kb/topic-index.md (104KB, ~26k tokens) or docs/kb/README.md (40KB,
+~10k tokens) into context. `kb find` answers the same question in a few hundred
+bytes, ranked, and supports phrases -- which the generated index cannot, because
+it is built from single words and says so in its own header.
+
+Descriptions are read from each document's own H1 at query time. Nothing is
+generated, so nothing goes stale, and there is no second copy to disagree with
+the document.
+
+`terms` and `vocab` exist for the case grep cannot serve: you know the concept
+but not the word this corpus uses for it. `vocab` lists the vocabulary that
+exists; `terms` shows what a document is about once you have found it. Both
+reuse the tokeniser and TF-IDF in topic_index.py rather than reimplementing
+them, so there is one definition of "topic word".
+
+Honest limit: this is substring matching. It will not find "locale" from
+"i18n". Neither will the generated index -- TF-IDF ranks only words that are
+literally present -- so nothing is lost, but do not mistake either for
+synonym search. `vocab` is the workaround: look up the corpus's own word first.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import topic_index as ti  # tokeniser, stoplist and TF-IDF live there  # noqa: E402
+
+KB = ti.KB_DIR
+MAX_HITS = 8
+MAX_HEADINGS = 2
+DESC_CHARS = 72
+MAX_VOCAB = 20
+
+
+def describe(text):
+    """The document's own one-liner: its H1, else its opening sentence."""
+    title = None
+    for line in text.splitlines():
+        if title is None:
+            if line.startswith("# "):
+                title = ti.re.sub(r"[*_`]", "", line[2:]).strip()
+            continue
+        s = line.strip()
+        if not s or s.startswith(("#", ">", "|", "-", "*", "```")):
+            continue
+        return title or ti.re.sub(r"[*_`]", "", s).strip()
+    return title
+
+
+def corpus():
+    """[(rel, text)] for every KB document."""
+    return [(rel, ti.read(rel)) for rel in ti.docs()]
+
+
+def cmd_find(query):
+    q = query.lower()
+    hits = []
+    for rel, text in corpus():
+        body = text.lower().count(q)
+        named = q in rel.lower().replace("-", " ") or q in rel.lower()
+        heads = [h for h in ti.headings(text) if q in h.lower()]
+        if not (body or named or heads):
+            continue
+        hits.append(((100 if named else 0) + 10 * len(heads) + body, rel, body, heads, text))
+
+    if not hits:
+        print(f'no KB document contains "{query}"')
+        near = [w for w in vocabulary() if q in w][:8]
+        if near:
+            print(f"  corpus vocabulary containing it: {', '.join(near)}")
+        else:
+            print(f"  try:  kb vocab {q[:4]}     (the corpus may use a different word)")
+        return 1
+
+    hits.sort(key=lambda h: (-h[0], h[1]))
+    for _, rel, body, heads, text in hits[:MAX_HITS]:
+        desc = describe(text) or ""
+        if len(desc) > DESC_CHARS:
+            desc = desc[:DESC_CHARS - 1] + "…"
+        print(rel)
+        if desc:
+            print(f"    {desc}")
+        if heads:
+            more = f" (+{len(heads) - MAX_HEADINGS})" if len(heads) > MAX_HEADINGS else ""
+            print("    " + " · ".join(f"§{h}" for h in heads[:MAX_HEADINGS]) + more)
+        print(f"    {body} mention{'' if body == 1 else 's'}")
+    if len(hits) > MAX_HITS:
+        print(f'... {len(hits) - MAX_HITS} more (grep -ril "{query}" docs/kb/)')
+    return 0
+
+
+def cmd_terms(name):
+    """What one document is about, by TF-IDF against the corpus."""
+    ds = ti.docs()
+    matches = [d for d in ds if d == name or Path(d).name == name or name in d]
+    if not matches:
+        print(f'no KB document matches "{name}"')
+        return 1
+    freqs = {rel: ti.frequencies(ti.words(ti.read(rel))) for rel in ds}
+    for rel in matches[:3]:
+        print(rel)
+        print("    " + ", ".join(ti.distinctive_terms(freqs, len(ds), rel)))
+    return 0
+
+
+def vocabulary():
+    """Every topic word in the corpus, most widely used first."""
+    df = {}
+    for rel in ti.docs():
+        for w in set(ti.words(ti.read(rel))):
+            df[w] = df.get(w, 0) + 1
+    return [w for w, _ in sorted(df.items(), key=lambda p: (-p[1], p[0]))]
+
+
+def cmd_vocab(prefix):
+    p = prefix.lower()
+    words = [w for w in vocabulary() if p in w]
+    if not words:
+        print(f'no corpus vocabulary contains "{prefix}"')
+        return 1
+    print(", ".join(words[:MAX_VOCAB]))
+    if len(words) > MAX_VOCAB:
+        print(f"... {len(words) - MAX_VOCAB} more")
+    return 0
+
+
+USAGE = "usage: kb find <query> | kb terms <doc> | kb vocab <prefix>"
+
+
+def main(argv):
+    if not KB.is_dir():
+        sys.stderr.write("error: run from the repository root\n")
+        return 2
+    if len(argv) < 2:
+        sys.stderr.write(USAGE + "\n")
+        return 2
+    cmd, rest = argv[0], " ".join(argv[1:])
+    if cmd == "find":
+        return cmd_find(rest)
+    if cmd == "terms":
+        return cmd_terms(rest)
+    if cmd == "vocab":
+        return cmd_vocab(rest)
+    sys.stderr.write(USAGE + "\n")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
