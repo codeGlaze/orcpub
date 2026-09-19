@@ -10,12 +10,15 @@ run in — so the one tool meant to keep the KB navigable was the one nobody cou
 The index went stale for that reason. The script needs nothing but the standard
 library, in any language: it reads markdown and counts words.
 
-Run it with the dispatcher, which picks whatever runtime is present:
+This is the canonical implementation. Run it with the dispatcher:
 
     docs/kb/tools/topic-index.sh            # regenerate
     docs/kb/tools/topic-index.sh --check    # exit 1 if the index is out of date
 
 Or directly:  python3 docs/kb/tools/topic_index.py
+
+dev/orcpub/topic_index.clj predates this and produces identical output; the
+dispatcher falls back to it, and `--parity` proves the two agree.
 
 Two deliberate differences from the original Clojure:
 
