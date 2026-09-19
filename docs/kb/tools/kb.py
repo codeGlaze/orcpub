@@ -4,6 +4,7 @@
     kb find <query>     rank documents matching a word or phrase
     kb terms <doc>      the words that most distinguish one document
     kb vocab <prefix>   corpus vocabulary, to find the word you didn't know
+    kb lint             check the KB for the things that actually rot
 
 Why this exists. The KB is the group memory, and consulting it used to mean
 reading docs/kb/topic-index.md (104KB, ~26k tokens) or docs/kb/README.md (40KB,
@@ -27,6 +28,7 @@ literally present -- so nothing is lost, but do not mistake either for
 synonym search. `vocab` is the workaround: look up the corpus's own word first.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -132,13 +134,73 @@ def cmd_vocab(prefix):
     return 0
 
 
-USAGE = "usage: kb find <query> | kb terms <doc> | kb vocab <prefix>"
+def reachable():
+    """Docs reachable from README.md by following .md links, transitively.
+
+    Transitive on purpose. docs/kb/rescued/ is linked from rescued/README.md,
+    which README.md links -- reachable, just not directly. The coverage test
+    checks direct linkage by basename and has been red on those three files
+    since they were added, which is what a false failure does to a guard.
+    """
+    seen, queue = set(), ["README.md"]
+    while queue:
+        rel = queue.pop()
+        if rel in seen:
+            continue
+        seen.add(rel)
+        f = KB / rel
+        if not f.is_file():
+            continue
+        base = Path(rel).parent
+        for target in re.findall(r"\]\(([^)#]+\.md)[^)]*\)", f.read_text(encoding="utf-8")):
+            if target.startswith(("http://", "https://", "/")):
+                continue
+            try:
+                nxt = str((KB / base / target).resolve().relative_to(KB.resolve()))
+            except ValueError:
+                continue
+            if nxt not in seen:
+                queue.append(nxt)
+    return seen
+
+
+def cmd_lint():
+    """The things that actually rot. Quiet when clean, specific when not."""
+    problems = []
+
+    ds = ti.docs()
+    for rel in ds:
+        text = ti.read(rel)
+        h1 = next((l[2:].strip() for l in text.splitlines() if l.startswith("# ")), None)
+        if not h1:
+            problems.append(f"{rel}: no H1 — kb find has no description to show")
+
+    reach = reachable()
+    for rel in ds:
+        if rel not in reach:
+            problems.append(f"{rel}: not reachable from README.md — nobody will find it")
+
+    if ti.OUT_FILE.exists() and ti.OUT_FILE.read_text(encoding="utf-8") != ti.render():
+        problems.append("topic-index.md is out of date — docs/kb/tools/topic-index.sh")
+
+    if problems:
+        for p in problems:
+            print(p)
+        print(f"\n{len(problems)} problem{'' if len(problems) == 1 else 's'}")
+        return 1
+    print(f"kb lint: clean ({len(ds)} documents)")
+    return 0
+
+
+USAGE = "usage: kb find <query> | kb terms <doc> | kb vocab <prefix> | kb lint"
 
 
 def main(argv):
     if not KB.is_dir():
         sys.stderr.write("error: run from the repository root\n")
         return 2
+    if argv and argv[0] == "lint":
+        return cmd_lint()
     if len(argv) < 2:
         sys.stderr.write(USAGE + "\n")
         return 2

@@ -10,5 +10,17 @@ if git diff --cached --name-only | grep -qE '^docs/'; then
     echo "  Fix the links/index, or bypass once with: git commit --no-verify" >&2
     exit 1
   }
+  # kb lint covers what check-docs.sh does not: a doc with no H1 (kb find has
+  # nothing to show for it), a doc unreachable from README.md by any link path,
+  # and a stale topic-index.md. Skipped when python3 is absent rather than
+  # blocking a commit over a missing interpreter.
+  if command -v python3 >/dev/null 2>&1 && [ -f "$root/docs/kb/tools/kb.py" ]; then
+    ( cd "$root" && python3 docs/kb/tools/kb.py lint ) || {
+      echo "" >&2
+      echo "  commit blocked: kb lint failed (see above)." >&2
+      echo "  Bypass once with: git commit --no-verify" >&2
+      exit 1
+    }
+  fi
 fi
 exit 0
