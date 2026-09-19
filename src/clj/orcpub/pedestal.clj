@@ -11,7 +11,8 @@
             [orcpub.config :as config]
             [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           [java.util Locale]))
 
 (defn test?
   [service-map]
@@ -37,7 +38,11 @@
   nil)
 
 (def rfc822-formatter
-  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z"))
+  ;; Locale/ENGLISH is load-bearing. HTTP dates are always English (RFC 7231),
+  ;; but ofPattern without a locale parses using the JVM default, which follows
+  ;; the OS regional settings. On a non-English machine "Mon" is not a day name
+  ;; and parse-date throws, which used to blank the response entirely.
+  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z" Locale/ENGLISH))
 
 (defn parse-date [date content-length]
   (when date
@@ -100,7 +105,12 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+              ;; Return the context. Without it the catch yields log/error's
+              ;; value, discarding the response: the client gets 200 with an
+              ;; empty body and no headers, and nothing reports a problem.
+              (catch Throwable t
+                (log/error :msg "ETag interceptor error" :exception t)
+                context)))}))
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 

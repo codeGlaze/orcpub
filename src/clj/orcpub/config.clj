@@ -1,7 +1,8 @@
 (ns orcpub.config
   (:require [environ.core :refer [env]]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import [java.util Locale]))
 
 (def default-datomic-uri "datomic:dev://localhost:4334/orcpub")
 
@@ -71,14 +72,22 @@
   (let [policy (or (env :csp-policy)
                    (System/getenv "CSP_POLICY")
                    "strict")]
-    (str/lower-case policy)))
+    ;; Locale/ROOT, not str/lower-case: this is an ASCII config token, not
+    ;; prose. str/lower-case folds using the default locale, so on a Turkish
+    ;; machine "STRICT" becomes "strıct" (dotless i), misses every comparison
+    ;; below, and silently falls through to the permissive policy.
+    (.toLowerCase ^String policy Locale/ROOT)))
 
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
    must compare against the string \"true\" explicitly."
   []
-  (= "true" (str/lower-case (or (env :dev-mode) ""))))
+  ;; equalsIgnoreCase compares per character rather than by locale casing
+  ;; rules, so it is immune to the Turkish-I problem described above. Note the
+  ;; receiver order: the literal is first so a nil env var returns false
+  ;; instead of throwing.
+  (.equalsIgnoreCase "true" (or (env :dev-mode) "")))
 
 (defn strict-csp?
   "Returns true when CSP_POLICY=strict (regardless of dev mode).
