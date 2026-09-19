@@ -362,13 +362,13 @@
 
 
 (def breach-explanation
-  "For a \"how do you know?\" affordance beside the message, if the design wants
-   one. No mention of lists, breaches or attackers -- it answers the mechanical
-   question plainly for whoever asks it, and stays quiet for everyone else."
-  (str "Your password is never stored or sent anywhere in readable form. It is "
-       "scrambled here, and only the first few characters of the scrambled "
-       "version are used to check how common it is. Nobody on either end can "
-       "work out what you typed."))
+  "One line, for a help page if anyone ever asks. Not for the form.
+
+   The verdict reads as analysis -- too common, the same shape as too short --
+   and nobody asks how we know a password is too short. Explaining the
+   mechanism unprompted invites the suspicion it is trying to settle, so the
+   long version about scrambling and character prefixes is gone."
+  "We can tell how common a password is without ever seeing it.")
 
 (defn- breach-message
   "Why this reads as a strength verdict rather than a security warning.
