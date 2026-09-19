@@ -290,9 +290,10 @@
            {:email (:orcpub.user/email user-for-username)
             :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
             :user-agent (get (:headers request) "user-agent")})))
-      (login-error (if (:db/id user-for-username)
-                     errors/bad-credentials
-                     errors/no-account)))))
+      ;; One answer for both. Telling somebody the username does not exist made
+      ;; the login form the same membership test the reset endpoint was, and a
+      ;; cheaper one, since it needs no mail to be sent.
+      (login-error errors/bad-credentials))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -336,11 +337,8 @@
                 :else
                 (create-login-response db conn user id))))))
 
-(defn login [{:keys [json-params db] :as request}]
-  (try
-    (let [resp (login-response request)]
-      resp)
-    (catch Throwable e (prn "E" e) (throw e))))
+(defn login [request]
+  (login-response request))
 
 
 (defn user-for-email [db email]
@@ -422,24 +420,22 @@
         validation (if (seq validation)
                      validation
                      (or (breach-errors password) validation))]
-    (try
-      (if (seq validation)
-        {:status 400
-         :body validation}
-        (do-verification
-         request
-         json-params
-         conn
-         (merge
-          {:orcpub.user/email email
-           :orcpub.user/username username
-           :orcpub.user/password (hashers/encrypt password)
-           :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created now}
-          (when auth/record-last-login-at-registration?
-            {:orcpub.user/last-login now})
-          (user-data/registration-defaults))))
-      (catch Throwable e (prn e) (throw e)))))
+    (if (seq validation)
+      {:status 400
+       :body validation}
+      (do-verification
+       request
+       json-params
+       conn
+       (merge
+        {:orcpub.user/email email
+         :orcpub.user/username username
+         :orcpub.user/password (hashers/encrypt password)
+         :orcpub.user/send-updates? send-updates?
+         :orcpub.user/created now}
+        (when auth/record-last-login-at-registration?
+          {:orcpub.user/last-login now})
+        (user-data/registration-defaults))))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -593,7 +589,7 @@
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
-(defn send-password-reset [{:keys [query-params db conn] :as request}]
+(defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
         {:keys [:db/id]} (user-for-email db email)]
     ;; The answer is the same whether or not that address has an account. It
@@ -601,7 +597,11 @@
     ;; free membership test: ask it about any address and it told you. A list
     ;; of addresses confirmed to have accounts here is precisely the input to
     ;; the stuffing runs the per-address throttle now turns away.
-    (when id
+    ;; The limit is checked AFTER the lookup and changes nothing about the
+    ;; answer, because an endpoint that responds differently once throttled is
+    ;; an oracle for whether the limit was reached -- which on this endpoint is
+    ;; the membership test the uniform 200 exists to close.
+    (when (and id (security/reset-email-allowed? email remote-addr))
       (try
         (do-send-password-reset id email conn request)
         (catch Exception e
