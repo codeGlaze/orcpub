@@ -361,14 +361,28 @@
                         e))))))
 
 
+(def breach-explanation
+  "For a \"how do you know?\" affordance beside the message. Kept here so the
+   wording lives next to the check it describes rather than drifting in a view."
+  (str "Your password is never sent anywhere. It is scrambled here, and only the "
+       "first few characters of the scrambled version are used to ask whether any "
+       "password starting that way is on the list. Nobody on either end can work "
+       "out what you typed."))
+
 (defn- breach-message
-  "Wording for a password the breach corpus already knows. The number is the
-   argument -- 'appeared in a breach' sounds survivable, fifty million times
-   does not."
-  [n]
-  (if (= 1 n)
-    "This password has appeared in a known data breach. Please choose a different one."
-    (format "This password has appeared in %,d known data breaches. Please choose a different one." n)))
+  "Why this says nothing about breaches.
+
+   The corpus tells us a password is common, not that this person was breached,
+   and \"appeared in a data breach\" is read as the second thing -- either as a
+   claim their account is compromised or as a suggestion we keep passwords in a
+   list. Both are wrong and both cost a support message. Commonness is the true
+   part and the actionable part, so that is what it says.
+
+   The count stays out for the same reason. Fifty million is a number that
+   alarms rather than informs at the moment someone is trying to sign up; it
+   belongs in a password manager's audit, not here."
+  [_n]
+  "Choose a different password — this one is on the lists attackers try first.")
 
 (defn- breach-errors
   "A validation map for a breached password, or nil. Only a positive answer
