@@ -13,6 +13,30 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
+            "timeout": 15,
+            "statusMessage": "Arming this repo's git hooks"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-audit-reminder.sh",
+            "timeout": 15,
+            "statusMessage": "Checking whether this session's findings were written down"
+          }
+        ]
+      }
     ]
   }
 }
