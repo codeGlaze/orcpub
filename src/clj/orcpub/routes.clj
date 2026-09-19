@@ -288,7 +288,8 @@
           (email/send-sign-in-attempts-email
            (base-url request)
            {:email (:orcpub.user/email user-for-username)
-            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)})))
+            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+            :user-agent (get (:headers request) "user-agent")})))
       (login-error (if (:db/id user-for-username)
                      errors/bad-credentials
                      errors/no-account)))))

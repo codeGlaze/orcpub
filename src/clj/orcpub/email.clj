@@ -229,13 +229,48 @@
                        :username username}
                       e)))))
 
-(defn sign-in-attempts-email-html [first-and-last-name reset-url]
+(defn describe-browser
+  "A user agent in the words a person would use. Deliberately coarse: this goes
+   in front of somebody deciding whether an attempt was their own, and \"Chrome on
+   Windows\" answers that where the raw header does not. Order matters -- Edge and
+   Opera both claim to be Chrome, and Chrome claims to be Safari."
+  [ua]
+  (if (s/blank? ua)
+    "an unrecognised browser"
+    (let [browser (cond
+                    (re-find #"(?i)edg/" ua) "Edge"
+                    (re-find #"(?i)opr/|opera" ua) "Opera"
+                    (re-find #"(?i)firefox/" ua) "Firefox"
+                    (re-find #"(?i)chrome/|crios/" ua) "Chrome"
+                    (re-find #"(?i)safari/" ua) "Safari"
+                    :else nil)
+          platform (cond
+                     (re-find #"(?i)iphone|ipad|ipod" ua) "iOS"
+                     (re-find #"(?i)android" ua) "Android"
+                     (re-find #"(?i)windows" ua) "Windows"
+                     (re-find #"(?i)mac os x|macintosh" ua) "a Mac"
+                     (re-find #"(?i)linux" ua) "Linux"
+                     :else nil)]
+      (cond
+        (and browser platform) (str browser " on " platform)
+        browser browser
+        platform (str "a browser on " platform)
+        :else "an unrecognised browser"))))
+
+(defn- attempt-time []
+  (.format (java.time.format.DateTimeFormatter/ofPattern "d MMMM yyyy 'at' HH:mm 'UTC'")
+           (java.time.ZonedDateTime/now java.time.ZoneOffset/UTC)))
+
+(defn sign-in-attempts-email-html [first-and-last-name reset-url browser when-str]
   (into
    [:div
     (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
     [:br]
     [:br]
     "Someone tried to sign in to your account several times just now, from more than one place at once."
+    [:br]
+    [:br]
+    (str "The last of those attempts was on " when-str ", from " browser ".")
     [:br]
     [:br]
     "Usually this is nothing. A phone and a laptop both signed out at the same time will do it, as will a password you half remember. Nobody got in, nothing has changed, and your account is not locked."
@@ -253,9 +288,10 @@
     (str "The " branding/email-sender-name)]
    (social-links-footer)))
 
-(defn sign-in-attempts-email [first-and-last-name reset-url]
+(defn sign-in-attempts-email [first-and-last-name reset-url browser when-str]
   [{:type "text/html"
-    :content (str (hiccup/html (sign-in-attempts-email-html first-and-last-name reset-url)))}])
+    :content (str (hiccup/html (sign-in-attempts-email-html
+                                first-and-last-name reset-url browser when-str)))}])
 
 (defn send-sign-in-attempts-email
   "Tells an account holder that failed sign-ins arrived from several places at once.
@@ -265,7 +301,7 @@
    or timing -- may reach the response. The link goes to the reset PAGE rather
    than carrying a token, because an unexpected mail that contains a working
    credential teaches people to click exactly what a phishing mail sends them."
-  [base-url {:keys [email first-and-last-name]}]
+  [base-url {:keys [email first-and-last-name user-agent]}]
   (try
     (postal/send-message (email-cfg)
                          {:from (str branding/email-sender-name " <" (emailfrom) ">")
@@ -273,7 +309,9 @@
                           :subject (str branding/app-name " sign-in attempts")
                           :body (sign-in-attempts-email
                                  first-and-last-name
-                                 (str base-url (routes/path-for routes/send-password-reset-page-route)))})
+                                 (str base-url (routes/path-for routes/send-password-reset-page-route))
+                                 (describe-browser user-agent)
+                                 (attempt-time))})
     (catch Exception e
       (println "ERROR: could not send a sign-in attempts notice:" (.getMessage e)))))
 

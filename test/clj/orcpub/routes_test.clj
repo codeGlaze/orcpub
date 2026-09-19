@@ -1,6 +1,6 @@
 (ns orcpub.routes-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing are]]
    [clojure.set :refer [intersection]]
    [datomic.api :as d]
    [datomock.core :as dm]
@@ -453,3 +453,16 @@
     (is (false? (security/claim-sign-in-notice! who)))
     (is (true? (security/claim-sign-in-notice! (str who "-other")))
         "a different account has its own window")))
+
+
+(deftest a-user-agent-is-described-the-way-a-person-would
+  ;; Order matters in describe-browser: Edge and Opera both claim to be Chrome,
+  ;; and Chrome claims to be Safari, so the checks run most-specific first.
+  (are [expected ua] (= expected (email/describe-browser ua))
+    "Chrome on Windows"       "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+    "Edge on Windows"         "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0"
+    "Safari on iOS"           "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Version/17.0 Safari/604.1"
+    "Firefox on Linux"        "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Firefox/121.0"
+    "an unrecognised browser" "curl/8.4.0"
+    "an unrecognised browser" ""
+    "an unrecognised browser" nil))
