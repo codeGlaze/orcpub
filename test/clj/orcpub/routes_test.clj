@@ -15,6 +15,7 @@
    [orcpub.entity.strict :as se]
    [orcpub.errors :as errors]
    [orcpub.security :as security]
+   [orcpub.email :as email]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
@@ -402,3 +403,53 @@
                     routes/do-send-password-reset
                     (fn [& _] (throw (ex-info "smtp is down" {})))]
         (is (= {:status 200} (routes/send-password-reset request)))))))
+
+
+(deftest the-owner-is-told-when-one-account-is-tried-from-several-places
+  (let [posted (promise)
+        request {:scheme :https :headers {"host" "example.test"}}
+        call #(routes/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
+    (with-redefs [routes/find-user-by-username-or-email
+                  (constantly {:db/id 17
+                               :orcpub.user/email "kaylee@serenity.example"
+                               :orcpub.user/first-and-last-name "Kaylee"})
+                  email/send-sign-in-attempts-email
+                  (fn [base to] (deliver posted [base to]))]
+
+      (testing "the response says bad credentials either way, as it did before"
+        (with-redefs [security/multiple-ip-attempts-to-same-account? (constantly true)
+                      security/claim-sign-in-notice! (constantly true)]
+          (is (= errors/bad-credentials (-> (call) :body :error)))))
+
+      (testing "and the notice reaches the address on the account"
+        (let [[base to] (deref posted 2000 :never-sent)]
+          (is (= "https://example.test" base))
+          (is (= "kaylee@serenity.example" (:email to)))))))
+
+  (testing "a spread of addresses that never happened sends nothing"
+    (let [posted (atom [])]
+      (with-redefs [routes/find-user-by-username-or-email (constantly {:db/id 17})
+                    security/multiple-ip-attempts-to-same-account? (constantly false)
+                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+        (routes/bad-credentials-response nil "kaylee" "1.2.3.4" {})
+        (Thread/sleep 60)
+        (is (empty? @posted)))))
+
+  (testing "an address with no account here is told nothing at all"
+    (let [posted (atom [])]
+      (with-redefs [routes/find-user-by-username-or-email (constantly nil)
+                    security/multiple-ip-attempts-to-same-account? (constantly true)
+                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+        (routes/bad-credentials-response nil "nobody" "1.2.3.4" {})
+        (Thread/sleep 60)
+        (is (empty? @posted))))))
+
+(deftest a-sign-in-notice-is-claimed-once-per-window
+  ;; Without this an attacker who can trigger the condition can trigger it on a
+  ;; loop, turning the warning into a way to mail-bomb any account by username.
+  (let [who (str "claim-test-" (System/nanoTime))]
+    (is (true? (security/claim-sign-in-notice! who)))
+    (is (false? (security/claim-sign-in-notice! who)))
+    (is (false? (security/claim-sign-in-notice! who)))
+    (is (true? (security/claim-sign-in-notice! (str who "-other")))
+        "a different account has its own window")))
