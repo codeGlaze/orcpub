@@ -21,6 +21,7 @@
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
+            ;; the fx registry, to put the real :http handler back after stubbing it
             [re-frame.registrar :as registrar]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
@@ -838,3 +839,29 @@
          "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
   (is (re-find #"^Reconnected 2 references"
                (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
+
+;; ---------------------------------------------------------------------------
+;; :report-character-problem — the auth token reaches the request
+;; ---------------------------------------------------------------------------
+
+(deftest report-character-problem-sends-the-auth-token
+  ;; The handler called a bare `get-auth-token` that no longer resolves, so it threw the moment the
+  ;; button was pressed. The fix is one namespace qualifier; this is here so the next move does not
+  ;; put it back.
+  ;;
+  ;; GOTCHA: the :http stub is restored afterwards. reg-fx is GLOBAL and the file's fixture only
+  ;; resets app-db, so a stub left registered would quietly serve every later namespace that
+  ;; dispatches :http.
+  (let [sent (atom nil)
+        real (get-in @registrar/kind->id->handler [:fx :http])]
+    (try
+      (rf/reg-fx :http (fn [cfg] (reset! sent cfg)))
+      (reset! app-db {:user-data {:token "tok-123"}})
+      (rf/dispatch-sync [:report-character-problem 42 "boom" "{:raw 1}"])
+      (is (= "tok-123" (:auth-token @sent)) "the request carries the token")
+      (is (= :sending (get-in @app-db [:character-report-status 42]))
+          "and the button reflects that it is in flight")
+      (finally
+        (if real
+          (rf/reg-fx :http real)
+          (rf/clear-fx :http))))))

@@ -2928,7 +2928,7 @@
  (fn [{:keys [db]} [_ char-id error raw]]
    {:db (assoc-in db [:character-report-status char-id] :sending)
     :http {:method :post
-           :auth-token (get-auth-token db)
+           :auth-token (event-utils/get-auth-token db)
            :url (backend-url (routes/path-for routes/dnd-e5-char-report-route))
            :transit-params {:char-id char-id :error error :raw raw}
            :on-success [:report-character-result char-id]
@@ -4667,10 +4667,17 @@
  ;; It is the same move import conflict resolution makes: rename-key-in-plugin carries the item,
  ;; rewrites the references other content holds to it, and records :former-keys, so characters
  ;; rebind on load. The item open in the builder follows, since it is the same item.
- (fn [{:keys [db]} [_ save-event new-key]]
+ ;; `typed` is the raw string from the control, not a keyword: blank and junk have to be
+ ;; distinguishable here, and `name-to-kw` turns "" into :unnamed-<hash> and "@@@" into :- rather
+ ;; than nil. A key that does not start with a letter is a keyword trap -- the import pipeline
+ ;; quarantines items carrying one -- so this is the one place in the app that sets a key and it
+ ;; checks the same invariant.
+ (fn [{:keys [db]} [_ save-event typed]]
    (let [[item-key plugin-key] (get builder-drafts save-event)
          {:keys [option-pack] :as item} (get db item-key)
          old-key (:key item)
+         trimmed (s/trim (str typed))
+         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))
          plugins (:plugins db)]
      (cond
        (or (nil? old-key) (nil? (get-in plugins [option-pack plugin-key old-key])))
@@ -4678,7 +4685,18 @@
                    "Save this first — a key is only assigned once the item is in your library."
                    builder-error-ttl]}
 
-       (or (nil? new-key) (= new-key old-key))
+       (nil? new-key)
+       {:dispatch [:show-error-message
+                   "Type a key, or press cancel to keep the one it has."
+                   builder-error-ttl]}
+
+       (not (common/keyword-starts-with-letter? new-key))
+       {:dispatch [:show-error-message
+                   (str "\"" trimmed "\" does not make a usable key. A key has to start with a "
+                        "letter — content keyed otherwise is quarantined when the library loads.")
+                   builder-error-ttl]}
+
+       (= new-key old-key)
        {:dispatch [:set-builder-field-errors {}]}
 
        ;; Free ANYWHERE, not just here: a key is a global address (key-collision-behavior.md).

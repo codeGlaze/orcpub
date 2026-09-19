@@ -237,8 +237,11 @@
   (is (nil? (stored)) "nothing saved into this source")
   (is (= :invalid (:name (:builder-field-errors @app-db))) "and the name field says why"))
 
-(defn- change-key! [new-key]
-  (dispatch! [::e5/change-builder-item-key ::langs5e/save-language new-key]))
+(defn- change-key!
+  "What the control sends: the raw string an author typed, not a keyword. The event needs blank
+   and junk to stay distinguishable, and `name-to-kw` turns both into something keyword-shaped."
+  [typed]
+  (dispatch! [::e5/change-builder-item-key ::langs5e/save-language typed]))
 
 (defn- set-abbr! [abbr]
   (dispatch! [::e5/set-source-abbreviation SRC abbr]))
@@ -254,7 +257,7 @@
   (save!)
   ;; the author TYPES this one, so it is exactly what they typed -- no tag appended. Deleting the
   ;; tag is how an SRD override is asked for, so the control must not put one back.
-  (change-key! :tideward)
+  (change-key! "tideward")
   (is (= #{:tideward} (set (keys (stored)))) "moved, not copied")
   (is (= [(k "Tidewrad")] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
   (is (= :tideward (:key (in-builder))) "the open form follows its own item")
@@ -267,13 +270,13 @@
           "Someone Else's Pak" {ct {:tideward {:key :tideward :name "Tideward"
                                                :option-pack "Someone Else's Pak"}}}})
   (open! (get-in @app-db [:plugins SRC ct (k "Tidewrad")]))
-  (change-key! :tideward)
+  (change-key! "tideward")
   (is (= #{(k "Tidewrad")} (set (keys (stored)))) "nothing moved")
   (is (= (k "Tidewrad") (:key (in-builder)))))
 
 (deftest an-unsaved-item-has-no-key-to-change
   (open! (draft "Tideward"))
-  (change-key! :something-else)
+  (change-key! "something else")
   (is (nil? (stored)))
   (is (nil? (:key (in-builder)))))
 
@@ -752,3 +755,17 @@
   (save!)
   (is (= #{(k "Tideward")} (set (keys (stored)))) "the new one mints its own tagged key")
   (is (= "Tideward" (get-in @app-db [:plugins OTHER ct old-key :name])) "and the old one is untouched"))
+
+;; ---------------------------------------------------------------------------
+;; The typed key, from the cut branch
+;; ---------------------------------------------------------------------------
+
+(deftest a-key-the-author-types-has-to-start-with-a-letter
+  ;; This is the only place in the app that sets a key by hand. A key that does not start with a
+  ;; letter is a keyword trap: the import pipeline quarantines content carrying one.
+  (open! (draft "Tideward"))
+  (save!)
+  (doseq [junk ["" "   " "@@@" "123"]]
+    (change-key! junk)
+    (is (= #{(k "Tideward")} (set (keys (stored)))) (str "refused: " (pr-str junk)))
+    (is (= (k "Tideward") (:key (in-builder))))))
