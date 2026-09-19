@@ -361,15 +361,6 @@
                         e))))))
 
 
-(def breach-explanation
-  "One line, for a help page if anyone ever asks. Not for the form.
-
-   The verdict reads as analysis -- too common, the same shape as too short --
-   and nobody asks how we know a password is too short. Explaining the
-   mechanism unprompted invites the suspicion it is trying to settle, so the
-   long version about scrambling and character prefixes is gone."
-  "We can tell how common a password is without ever seeing it.")
-
 (defn- breach-message
   "Why this reads as a strength verdict rather than a security warning.
 
