@@ -14,6 +14,7 @@
    [orcpub.entity :as entity]
    [orcpub.entity.strict :as se]
    [orcpub.errors :as errors]
+   [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
@@ -355,3 +356,27 @@
             body (routes/user-body db user)]
         (is (true? (:send-updates? body))
             "user-body should include send-updates? field")))))
+
+
+(deftest a-sprayed-address-is-refused-before-the-credentials
+  ;; :db is nil deliberately. lookup-user would throw on it, so these only pass
+  ;; if the address is judged before any credential work is attempted -- which
+  ;; is the point of the check: stuffing ends on the account it guesses RIGHT,
+  ;; and a check that runs only after a failed lookup never sees that attempt.
+  (let [request {:json-params {:username "kaylee" :password "whatever"}
+                 :db nil
+                 :remote-addr "1.2.3.4"}]
+    (testing "an address that sprayed five accounts is turned away"
+      (with-redefs [security/multiple-account-access? (constantly true)]
+        (let [{:keys [status body]} (routes/login-response request)]
+          (is (= 401 status))
+          (is (= errors/too-many-attempts (:error body))))))
+    (testing "an ordinary address still reaches the credential check"
+      (with-redefs [security/multiple-account-access? (constantly false)]
+        (is (thrown? Exception (routes/login-response request)))))
+    (testing "a blank field is still answered before the address is consulted"
+      (with-redefs [security/multiple-account-access?
+                    (fn [_] (throw (AssertionError. "consulted too early")))]
+        (is (= errors/username-required
+               (-> (routes/login-response (assoc-in request [:json-params :username] ""))
+                   :body :error)))))))

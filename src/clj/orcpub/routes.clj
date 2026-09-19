@@ -294,6 +294,15 @@
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
+
+      ;; Checked before the credentials, not on the failure path: stuffing ends
+      ;; on the one account it guesses right, and a check that only runs after a
+      ;; failed lookup never sees that attempt. Tripping it takes five DISTINCT
+      ;; usernames failing from this address inside a minute, so one person
+      ;; across several devices cannot -- only a spray across accounts can.
+      (security/multiple-account-access? remote-addr)
+      (login-error errors/too-many-attempts)
+
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
                   {:keys [:orcpub.user/verified?
