@@ -578,18 +578,24 @@
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
-(defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
-  (try
-    (let [email (:email query-params)
-          {:keys [:orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset
-                  :db/id] :as user} (user-for-email db email)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (if id
+(defn send-password-reset [{:keys [query-params db conn] :as request}]
+  (let [email (:email query-params)
+        {:keys [:db/id]} (user-for-email db email)]
+    ;; The answer is the same whether or not that address has an account. It
+    ;; used to be {:error :no-account} with a 400, which made this endpoint a
+    ;; free membership test: ask it about any address and it told you. A list
+    ;; of addresses confirmed to have accounts here is precisely the input to
+    ;; the stuffing runs the per-address throttle now turns away.
+    (when id
+      (try
         (do-send-password-reset id email conn request)
-        {:status 400 :body {:error :no-account}}))
-    (catch Throwable e (prn e) (throw e))))
+        (catch Exception e
+          ;; Swallowed on purpose. Letting this escape would restore the oracle
+          ;; in a subtler form -- only a real account can fail to be emailed,
+          ;; so an error response would mark the address as registered.
+          (println "ERROR: password reset for a known address could not be sent:"
+                   (.getMessage e)))))
+    {:status 200}))
 
 (defn do-password-reset [conn user-id password]
   (try

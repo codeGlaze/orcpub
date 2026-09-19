@@ -380,3 +380,25 @@
         (is (= errors/username-required
                (-> (routes/login-response (assoc-in request [:json-params :username] ""))
                    :body :error)))))))
+
+
+(deftest password-reset-says-the-same-thing-about-every-address
+  ;; The endpoint used to answer 400 {:error :no-account} for an address with no
+  ;; account, which turned it into a membership test anyone could run.
+  (let [sent (atom [])
+        request {:query-params {:email "someone@example.com"} :db nil :conn nil}]
+    (with-redefs [routes/do-send-password-reset
+                  (fn [id email _ _] (swap! sent conj [id email]) {:status 200})]
+      (testing "an address with no account"
+        (with-redefs [routes/user-for-email (constantly nil)]
+          (is (= {:status 200} (routes/send-password-reset request)))
+          (is (empty? @sent) "no mail for an address we do not know")))
+      (testing "an address with an account gets the identical answer"
+        (with-redefs [routes/user-for-email (constantly {:db/id 17})]
+          (is (= {:status 200} (routes/send-password-reset request)))
+          (is (= [[17 "someone@example.com"]] @sent)))))
+    (testing "a send that fails does not mark the address as registered"
+      (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                    routes/do-send-password-reset
+                    (fn [& _] (throw (ex-info "smtp is down" {})))]
+        (is (= {:status 200} (routes/send-password-reset request)))))))
