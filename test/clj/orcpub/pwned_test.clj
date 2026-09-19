@@ -5,6 +5,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [clj-http.client :as client]
             [clojure.string :as str]
+            [orcpub.config :as config]
             [orcpub.pwned :as pwned]))
 
 ;; "password" -> 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
@@ -59,3 +60,27 @@
       (is (= :unknown (pwned/check "")))
       (is (= :unknown (pwned/check nil)))
       (is (false? @called) "no request for an empty password"))))
+
+
+(deftest a-quiet-hour-says-nothing
+  ;; A line every hour reading all zeroes is how a log stops being read.
+  (is (nil? (pwned/summary-line {:asked 0 :common 0 :clear 0 :unavailable 0})))
+  (is (= "pwned: 14 checked, 2 common, 11 clear, 1 unavailable"
+         (pwned/summary-line {:asked 14 :common 2 :clear 11 :unavailable 1}))))
+
+(deftest the-tally-counts-what-happened
+  (pwned/take-stats!)
+  (with-redefs [config/pwned-check-enabled? (constantly true)]
+    (with-redefs [client/get (responding (str password-suffix ":7"))]
+      (pwned/check "password"))
+    (with-redefs [client/get (responding "0000000000000000000000000000000000A:3")]
+      (pwned/check "password"))
+    (with-redefs [client/get (constantly {:status 503 :body ""})]
+      (pwned/check "password")))
+  (let [{:keys [asked common clear unavailable]} (pwned/take-stats!)]
+    (is (= 3 asked))
+    (is (= 1 common))
+    (is (= 1 clear))
+    (is (= 1 unavailable)))
+  (is (= {:asked 0 :common 0 :clear 0 :unavailable 0} (pwned/stats))
+      "taking the stats resets them, so each hour reports its own period"))

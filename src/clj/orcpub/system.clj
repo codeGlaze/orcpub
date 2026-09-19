@@ -7,6 +7,7 @@
             [orcpub.datomic :as datomic]
             [orcpub.heartbeat :as heartbeat]
             [orcpub.routes.share :as share]
+            [orcpub.pwned :as pwned]
             [orcpub.config :as config]
             [orcpub.pdf :as pdf]
             [environ.core :as environ])
@@ -108,7 +109,11 @@
 
     :heartbeat
     (component/using
-      (heartbeat/new-heartbeat {"share link pruning" share/prune-job})
+      (heartbeat/new-heartbeat {"share link pruning" share/prune-job
+                                ;; Says nothing on a quiet hour. A line every
+                                ;; hour reading all zeroes is how a log stops
+                                ;; being read.
+                                "breach check summary" pwned/summary-job})
       [:conn])))
 
 (rrepl/set-init! #(system :prod))
