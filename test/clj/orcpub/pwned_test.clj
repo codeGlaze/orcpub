@@ -4,6 +4,7 @@
    someone signing up."
   (:require [clojure.test :refer [deftest testing is]]
             [clj-http.client :as client]
+            [clojure.string :as str]
             [orcpub.pwned :as pwned]))
 
 ;; "password" -> 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
@@ -23,7 +24,7 @@
     (is (false? (pwned/breached? "password")))))
 
 (deftest suffix-match-is-case-insensitive
-  (with-redefs [client/get (responding (str (clojure.string/lower-case password-suffix) ":7"))]
+  (with-redefs [client/get (responding (str (str/lower-case password-suffix) ":7"))]
     (is (= 7 (pwned/check "password")))))
 
 (deftest every-failure-is-survivable
@@ -49,7 +50,7 @@
         ;; Whole-URL equality, not a substring search: the host is
         ;; api.pwnedpasswords.com, which contains the word "password" itself.
         (is (= "https://api.pwnedpasswords.com/range/5BAA6" @sent))
-        (is (not (clojure.string/includes? @sent password-suffix))
+        (is (not (str/includes? @sent password-suffix))
             "the rest of the hash stays here")))))
 
 (deftest blank-input-asks-nobody
