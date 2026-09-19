@@ -46,6 +46,115 @@ instead of only when a collision forces it, with deleting the tag being how an a
 to override an SRD item. Decided, not built; the default source tags as `dflt`.
 **`source-tagged-keys.md`.**
 
+## Where a save lands — `save-destination` (2026-09-18)
+
+One pure function decides, and the save handler only carries out the verdict. It takes the library,
+the origin the builder recorded, the target source, the key, and the item:
+
+| the item | the target slot | verdict |
+|---|---|---|
+| no key yet | free, key answers nowhere | **create** |
+| no key yet | taken **here** | **refuse** — offers *Replace it* |
+| no key yet | taken **in another source** | **refuse**, no offer — a key is a global address |
+| came from here | — | **in place** |
+| came from another source | free | **move** — write here, remove there |
+| came from another source | taken | **refuse** — offers *Replace it*, which moves onto the slot |
+| origin unknown, key answers nowhere | — | **create** |
+| origin unknown, key answers in 2+ sources | — | **refuse** — reopen it from My Content |
+
+**Option Source Name is an instruction.** Retyping it moves the item. Before this, the save could
+only ever `assoc-in`, because it did not know where the item had been — so retyping the source left
+a COPY, one key answering in two libraries, and that state then refused every later save of either
+copy as a collision with its twin. Three bugs, one missing fact.
+
+**A move does not touch the key**, so characters are unaffected and there is no `:former-keys`
+breadcrumb to leave: they store the address, not the library. The source the item left is emptied,
+and an emptied source drops out of My Content the same way it does when its last item is deleted.
+
+### The origin, and why it is checked rather than trusted
+
+`reg-edit-homebrew` records `{:source :key}` when an item is opened; `reg-new-homebrew` clears it;
+the save re-stamps it to where the item now lives. It is **verified against the library before
+use** — the recorded address must still answer to that key for that content type. Three reasons,
+each a way the record goes stale:
+
+- it survives the move that invalidates it (the next save would dissoc an entry already gone, and
+  leave the copy it just made);
+- it survives a walk to another builder, and two content types in one source share a key for one
+  name (a race and a subrace both called Aarakocra), so an unverified record can name an item
+  nobody opened — and the save would delete it;
+- the source may have been deleted meanwhile, in which case the dissoc would resurrect it as an
+  empty shell.
+
+With no usable record the single source holding the key is the origin. With several there is no
+honest answer, so the save refuses and says to reopen the item from My Content, which records one.
+
+Pinned by `save-destination-decides-by-where-the-item-came-from`,
+`save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
+and `test/e2e/move-between-sources.js` end to end.
+
+### A stored item may have no `:key` (2026-09-18)
+
+`:key` is OPTIONAL on a stored item — libraries authored before keys were stored do not carry one,
+and the read path derives it from the NAME, untagged. Minting a tagged key for such an item on its
+next save wrote a SECOND entry and left the original holding the pre-edit data, with no
+`:former-keys` to heal it and nothing on screen to say so.
+
+`address-for` resolves this once for all four save paths: the item's own key, else **the address it
+is already stored under in this source**, else a freshly minted tagged one. It hands
+`save-destination` the item carrying that key, so a legacy item reads as an edit in place rather
+than a new item landing on a taken address — and a genuinely new item stays keyless, so the mint
+refusals still fire.
+
+The probe is scoped to the source being saved to. An untagged entry of the same name in a different
+library must not capture a new item onto its address.
+
+**This fix was made on `feat/source-tagged-keys` during review and never came back to
+`feature/grant-rows`**, so the branch carried the bug for five days while the cut branch did not.
+Anything found on a cut branch has to land on both. Pinned by the four
+`an-old-item-*` / `*-keeps-an-old-address` tests plus two negative controls, verified by removing
+the branch and watching exactly those four fail.
+
+### Replacing on purpose, and the two refusals (2026-09-18)
+
+A refusal with no way through is a trap, so `:occupied` asks instead of just saying no. `replacing`
+is the pure re-decision: consent turns that refusal into the `:move` or `:create` it would have been.
+The other two refusals pass through it unchanged, and that asymmetry is the point.
+
+| reason | what is in the way | the banner |
+|---|---|---|
+| `:occupied` | ONE item, in this source | *"Tide Pak" already has a language called "Tideward."* → **Replace it** / Or rename this one. |
+| `:elsewhere` | nothing here — another source holds the key | *"Tide Pak" already uses the key :tideward-tepk.* → Rename this one, or change its key. No offer |
+| `:ambiguous` | two entries the save cannot tell apart | *Two sources have a language with the key …* → Open this one from My Content and save again. No offer |
+
+**A headline and one line, and no word the author has to learn.** These fire mid-task, on somebody
+who wants to get back to authoring — an explanation of why keys are global belongs behind the key
+row's `?`, not in the way. Pinned by length assertions in `replace-or-refuse.js`, because copy grows
+back. Words to keep out: an address "answering", an item "resolving" — internal vocabulary for what
+the reader sees as a name clash.
+
+**Consent is to discarding one named thing.** For `:elsewhere` there is nothing in the way to
+replace, so a yes would not resolve the collision — it would *create* it, which is the state that
+used to make both copies uneditable. For `:ambiguous` the save cannot say which of two entries the
+author is looking at, and consent to an unnamed one of two is not consent. Neither gets a button.
+
+**Replacing still moves.** Consent is to the occupant going, not to a copy being left behind: an
+item that came from another source is removed there, exactly as an unobstructed move would.
+
+**All four save paths go through this gate.** The ordinary save, its "Save anyway with
+placeholders", and both selection saves — the last three used to write with a bare `assoc-in`.
+`::selections5e/save-selection` had no collision check of any kind, so a selection could replace
+another silently, on an ordinary save, with no banner. `save-anyway` also stamps the key back onto
+the builder item now; without it the next save minted a second key and refused as a collision with
+its own entry.
+
+"Save anyway" is the **missing-fields** escape hatch, not a collision one — it is offered only from
+the spec-validation branch, and placeholders fill the fields, not the address.
+
+Pinned by `consent-only-re-decides-the-refusal-that-named-what-would-be-lost` and the eight
+scenario tests after it, and by `test/e2e/replace-or-refuse.js` end to end (both banners, the
+replace, and that a refusal writes nothing).
+
 ## The builder's own save gate (2026-09-12)
 
 `save-collision` (`events.cljs`) runs before every homebrew save and blocks two cases: `:overwrite`

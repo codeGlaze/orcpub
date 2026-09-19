@@ -9921,7 +9921,8 @@
      {:label "key"
       :value (str k)
       :placeholder (name k)
-      :on-save #(dispatch [::e5/change-builder-item-key save-event (common/name-to-kw %)])}]))
+      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered

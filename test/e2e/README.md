@@ -44,6 +44,21 @@ Exit 0 = pass.
   keyed otherwise applies on a built character but does NOT render for the player to choose
   (the bug this test caught; see roadmap A4).
 
+### The homebrew save gate
+
+Four scripts cover one subject between them — where a save lands, and what an author is told when
+it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
+
+- **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`change-item-key.js`** — the key control: what it accepts, and that a change records
+  `:former-keys` so characters rebind.
+- **`source-key-tag.js`** — a source's own abbreviation, and that keys already minted do not move
+  when it changes.
+- **`replace-or-refuse.js`** — the two refusals and the difference between them: a key taken in THIS
+  source offers *Replace it*; one that answers in another source explains why there is nothing to
+  replace and offers nothing. Also pins that replacing moves rather than copies, and that a refusal
+  writes nothing. Captures both banners to `target/e2e-shots/collision-*.png`.
+
 ## Gotchas these scripts encode (verified)
 
 - Input `[1]` is the **Orcacle search box** (`placeholder="search"`); typing there opens an
@@ -51,6 +66,10 @@ Exit 0 = pass.
   (`input.input.h-40`) / placeholder, never by index-into-all-`input`s.
 - "Save to Browser Storage" exists **twice** in the DOM (hidden mobile twin + visible desktop);
   select with `button:visible`.
+- **A message-banner action is an inline `span` inside a full-width detail row, and the row reports
+  the same text.** `lib.js/clickText` picks the shortest match and ties go to the ancestor, so a
+  click by text lands on the row — which only dismisses the banner, silently doing nothing. Click
+  `#app .message span.pointer` by its exact text instead (`replace-or-refuse.js`).
 - reagent re-renders async after each dispatch — pause between successive `selectOption`s so
   each on-change closure sees the latest state.
 

@@ -823,6 +823,98 @@
                                       [src occ]))]
           {:kind :cross :source src :name (:name occ)})))))
 
+(defn- sources-holding
+  "Every source whose `plugin-key` map answers to `key`."
+  [plugins plugin-key key]
+  (for [[src plugin] plugins
+        :when (and (map? plugin) (some? (get-in plugin [plugin-key key])))]
+    src))
+
+(defn save-destination
+  "Where a save lands, and whether it may land there.
+
+     {:action :create}                      a key nothing answers to yet
+     {:action :in-place}                    the item's own address
+     {:action :move :from <source>}         Option Source Name was retyped; the old entry goes
+     {:action :refuse :reason .. :occupant/:holders ..}
+
+   `recorded` is the `[source key]` the builder opened the item from, or nil.
+
+   GOTCHA: the record is trusted only when that address STILL answers to this key for this content
+   type. It survives a move, a delete and a walk to another builder, and two content types in one
+   source share a key for one name (a race and a subrace both called Aarakocra), so an unverified
+   record can name an item nobody opened.
+
+   With no usable record the one source holding the key is the origin. With several there is no
+   honest answer: an in-place save is still allowed, since it cannot create a duplicate, and a
+   retyped source is refused rather than guessed at."
+  [plugins recorded plugin-key option-pack key item]
+  (let [occupant (get-in plugins [option-pack plugin-key key])
+        holders  (set (sources-holding plugins plugin-key key))
+        origin   (cond
+                   (and (= key (:key recorded))
+                        (contains? holders (:source recorded)))       (:source recorded)
+                   (= 1 (count holders))                              (first holders))]
+    (cond
+      ;; Minting: no key of its own yet, so anything already answering belongs to somebody else --
+      ;; here or in another library, since a key is a global address.
+      (nil? (:key item))
+      (cond
+        occupant      {:action :refuse :reason :occupied :occupant occupant}
+        (seq holders) {:action :refuse :reason :elsewhere :holders holders}
+        :else         {:action :create})
+
+      (= origin option-pack)   {:action :in-place}
+      (and origin occupant)    {:action :refuse :reason :occupied :occupant occupant
+                                :origin origin}
+      origin                   {:action :move :from origin}
+
+      ;; No origin. Nothing answers to the key, so nothing can be duplicated or replaced:
+      (empty? holders)         {:action :create}
+
+      ;; ...or several sources do, and which entry this one IS cannot be told from here. Reopening
+      ;; it from My Content records that, which is the way out.
+      :else                    {:action :refuse :reason :ambiguous :holders holders})))
+
+(defn address-for
+  "Where `item` saves to: `[key item']`, where `item'` is what `save-destination` judges.
+
+   `item'` carries `:key` only when the item is ALREADY stored under that address, so a fresh mint
+   stays keyless and the destination can still tell a new item from an edit.
+
+   `mint-name` is the name a fresh key derives from; `(:name item)` is what an already-stored one
+   is found by. The two differ when a save sanitizes the name.
+
+   GOTCHA: `:key` is OPTIONAL on a stored item -- older libraries do not carry one and the read
+   path derives it from the name. Minting a tagged key for such an item writes a SECOND entry and
+   leaves the original holding the pre-edit data, with no `:former-keys` to heal it."
+  [plugins plugin-key option-pack item mint-name]
+  (let [stored (when-not (s/blank? (:name item)) (common/name-to-kw (:name item)))]
+    (cond
+      (:key item)
+      [(:key item) item]
+
+      (and stored (some? (get-in plugins [option-pack plugin-key stored])))
+      [stored (assoc item :key stored)]
+
+      :else
+      [(common/source-tagged-key mint-name option-pack
+                                 (get-in plugins [option-pack :abbreviation]))
+       item])))
+
+(defn replacing
+  "The same destination with the author's consent to discard the occupant applied.
+
+   Only an `:occupied` refusal is negotiable: it names one item, in this source, that the author
+   can see on screen. `:elsewhere` and `:ambiguous` pass through unchanged -- nothing is in the
+   way there to replace, so consenting would create the duplicate rather than resolve it."
+  [{:keys [action reason origin] :as destination}]
+  (if (and (= :refuse action) (= :occupied reason))
+    (if origin
+      {:action :move :from origin}
+      {:action :create})
+    destination))
+
 (defn save-into-plugins
   "Write `item` at `key`, and remove whatever sat under `renamed-from`.
 
@@ -849,6 +941,38 @@
       {:dispatch-n [[:set-builder-field-errors {}]
                     [:show-error-message fallback-message builder-error-ttl]]})))
 
+(defn collision-error-fx
+  "Effects for a save the destination refused: one message per reason, and an offer only where
+   there is something to offer.
+
+   `:occupied` names ONE item, in this source, that the author can see -- so it offers
+   `replace-event` and the decision is theirs. `:elsewhere` and `:ambiguous` get no such button:
+   nothing sits in the way to replace, and saving would MAKE the duplicate rather than resolve it.
+
+   GOTCHA: the banner closes on any click that reaches it, so the offer needs no cancel."
+  [type-name option-pack key {:keys [reason occupant holders]} replace-event]
+  (let [lower (s/lower-case type-name)
+        in-sources (s/join " and " (map pr-str (sort holders)))
+        message
+        (case reason
+          :occupied
+          {:title (str "\"" option-pack "\" already has a " lower " called \""
+                       (:name occupant) "\".")
+           :details [[:span.pointer.underline.f-w-b
+                      {:on-click #(dispatch replace-event)}
+                      "Replace it"]
+                     "Or rename this one."]}
+
+          :elsewhere
+          {:title (str in-sources " already uses the key " key ".")
+           :details ["Keys are shared across your whole library. Rename this one, or change its key."]}
+
+          :ambiguous
+          {:title (str "Two sources have a " lower " with the key " key ".")
+           :details ["Open this one from My Content and save again."]})]
+    {:dispatch-n [[:set-builder-field-errors (if (= :ambiguous reason) {} {:name :invalid})]
+                  [:show-error-message message builder-error-ttl]]}))
+
 (defn reg-save-homebrew [type-name
                          event-key
                          item-key
@@ -862,16 +986,16 @@
                                   (str (name event-key) "-anyway"))]
     (reg-event-fx
      event-key
-     (fn [{:keys [db]} _]
+     ;; `replace?` is the author answering the :occupied banner's offer. It is not a force flag:
+     ;; `replacing` only re-decides the refusal that named what would be lost.
+     (fn [{:keys [db]} [_ {:keys [replace?]}]]
        (let [{:keys [name option-pack] :as item} (item-key db)
              ;; MINTED ONCE (D10a), TAGGED WITH ITS SOURCE (D10b). The key is an address, not a
              ;; label: derived from the name at creation, carrying the source's abbreviation, then
              ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
              ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
              ;; is a separate, deliberate act that records :former-keys.
-             key (or (:key item)
-                     (common/source-tagged-key name option-pack
-                                               (get-in db [:plugins option-pack :abbreviation])))
+             [key keyed-item] (address-for (:plugins db) plugin-key option-pack item name)
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
              ;; never silently save under a placeholder. Placeholder-filling +
@@ -880,39 +1004,35 @@
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)
-             {:keys [kind source] twin-name :name}
+             ;; A key is an ADDRESS and it is global: two items answering to one is the same
+             ;; problem wherever the second one lives, since the combines that dedupe pick their
+             ;; winner by the hash order of source names and the ones that do not show both
+             ;; copies. (Wanting both IS legitimate and arrives through IMPORT, where the conflict
+             ;; modal asks.)
+             {:keys [action from] :as destination}
              (when (nil? explanation)
-               (save-collision plugins option-pack plugin-key key item))]
+               (cond-> (save-destination plugins (:builder-origin db) plugin-key option-pack key
+                                         keyed-item)
+                 replace? replacing))]
          (cond
-           ;; A key is an ADDRESS, and it is global. Two items answering to one key is the same
-           ;; problem wherever the second one lives: the combines that dedupe pick a winner by the
-           ;; hash-iteration order of source names, and the ones that don't show both. Neither is
-           ;; something to create by pressing Save. (Wanting both copies is legitimate -- a
-           ;; published class and its playtest -- and it arrives through IMPORT, where the conflict
-           ;; modal asks and "keep both" is a choice someone made.)
-           (some? kind)
-           {:dispatch-n [[:set-builder-field-errors {:name :invalid}]
-                         [:show-error-message
-                          (if (= :overwrite kind)
-                            (str "\"" twin-name "\" in \"" source "\" already uses the name "
-                                 "\"" name "\". Saving would replace it. Give this one a "
-                                 "different name, or edit the existing entry instead.")
-                            (str "\"" source "\" already has a " (s/lower-case type-name)
-                                 " under this key (\"" twin-name "\"). Two items answering to one "
-                                 "key collide wherever they live — give this one a different name, "
-                                 "or edit the existing entry."))
-                          builder-error-ttl]]}
+           (= :refuse action)
+           (collision-error-fx type-name option-pack key destination
+                               [event-key {:replace? true}])
 
            (some? explanation)
            (builder-field-error-fx type-name explanation item error-message anyway-event-key)
 
            :else
-           (let [new-plugins (save-into-plugins plugins option-pack plugin-key key
-                                                item-with-key nil)]
-             ;; Stamp the key back onto the item still open in the builder: `save-collision` reads
-             ;; it to tell an edit returning to its own slot from a name landing on somebody
-             ;; else's, and a restored draft must carry it too.
-             {:db (assoc db item-key item-with-key)
+           (let [new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key key
+                                                        item-with-key nil)
+                               ;; a move, not a copy: the entry it came from goes
+                               (= :move action) (update-in [from plugin-key] dissoc key))]
+             ;; The key goes back onto the item still open in the builder, and the origin is
+             ;; re-stamped to where it now lives: leaving the old address recorded would make the
+             ;; next save read as another move, off an entry that has already gone.
+             {:db (assoc db
+                         item-key item-with-key
+                         :builder-origin {:source option-pack :key key})
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -938,7 +1058,7 @@
     ;; adds only a placeholder option source.
     (reg-event-fx
      anyway-event-key
-     (fn [{:keys [db]} _]
+     (fn [{:keys [db]} [_ {:keys [replace?]}]]
        (let [{:keys [name option-pack] :as item} (item-key db)
              normalized-item (orcbrew-val/normalize-text-in-data item)
              {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
@@ -948,23 +1068,33 @@
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-             ;; minted once, like the ordinary save: sanitizing a name must not re-address an
-             ;; item that already has a key
-             item-with-key (cond-> (assoc sanitized
-                                          :option-pack src
-                                          ;; the placeholder source tags too -- "dflt" exists for
-                                          ;; exactly this landing spot
-                                          :key (common/source-tagged-key
-                                                (:name sanitized) src
-                                                (get-in db [:plugins src :abbreviation])))
-                             (:key item) (assoc :key (:key item)))
-             new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
-         {:dispatch-n [[::e5/set-plugins new-plugins]
-                       [:set-builder-field-errors {}]
-                       [:show-warning-message
-                        (str type-name " saved to My Content under \"" src
-                             "\" with placeholders for missing fields. Review it "
-                             "and re-export before sharing.")]]})))))
+             ;; Placeholders fill the FIELDS; they do not buy an address. Sanitizing a name must
+             ;; not re-address an item that already has one, so a fresh key is minted from the
+             ;; sanitized name and everything else keeps the address it has.
+             [final-key keyed-item] (address-for (:plugins db) plugin-key src item (:name sanitized))
+             item-with-key (assoc sanitized :option-pack src :key final-key)
+             {:keys [action from] :as destination}
+             (cond-> (save-destination (:plugins db) (:builder-origin db) plugin-key src final-key
+                                       keyed-item)
+               replace? replacing)]
+         (if (= :refuse action)
+           (collision-error-fx type-name src final-key destination
+                               [anyway-event-key {:replace? true}])
+           (let [new-plugins (cond-> (save-into-plugins (:plugins db) src plugin-key final-key
+                                                        item-with-key nil)
+                               (= :move action) (update-in [from plugin-key] dissoc final-key))]
+             ;; Same stamp the ordinary save makes: without it the item in the builder still has
+             ;; no key, so saving again mints a second one and lands on its own entry.
+             {:db (assoc db
+                         item-key item-with-key
+                         :builder-origin {:source src :key final-key})
+              ::persist-builder-wip [item-key item-with-key]
+              :dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            (str type-name " saved to My Content under \"" src
+                                 "\" with placeholders for missing fields. Review it "
+                                 "and re-export before sharing.")]]})))))))
 
 (reg-save-homebrew
  "Spell"
@@ -1016,11 +1146,9 @@
 ;; checks for empty names and duplicate option names within :options.
 (reg-event-fx
  ::selections5e/save-selection
- (fn [{:keys [db]} _]
+ (fn [{:keys [db]} [_ {:keys [replace?]}]]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
-         key (or (:key item)                                               ; minted once, tagged
-                 (common/source-tagged-key name option-pack
-                                           (get-in db [:plugins option-pack :abbreviation])))
+         [key keyed-item] (address-for (:plugins db) ::e5/selections option-pack item name)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
@@ -1039,7 +1167,12 @@
                            (filter #(and (not (s/blank? %))
                                          (contains? dupe-keys (common/name-to-kw %))))
                            distinct
-                           sort))]
+                           sort))
+         {:keys [action from] :as destination}
+         (when (nil? explanation)
+           (cond-> (save-destination plugins (:builder-origin db) ::e5/selections option-pack key
+                                     keyed-item)
+             replace? replacing))]
      (cond
        ;; Reject empty option names
        empty-names?
@@ -1060,12 +1193,21 @@
        (builder-field-error-fx "Selection" explanation item
                                "You must specify 'Name', 'Option Source Name'"
                                ::selections5e/save-selection-anyway)
+       ;; The key is taken, here or elsewhere. Same rules as every other builder.
+       (= :refuse action)
+       (collision-error-fx "Selection" option-pack key destination
+                           [::selections5e/save-selection {:replace? true}])
        ;; All good — save
        :else
-       (let [new-plugins (assoc-in plugins
-                                   [option-pack ::e5/selections key]
-                                   item-with-key)]
-         {:dispatch-n [[::e5/set-plugins new-plugins]
+       (let [new-plugins (cond-> (save-into-plugins plugins option-pack ::e5/selections key
+                                                    item-with-key nil)
+                           (= :move action)
+                           (update-in [from ::e5/selections] dissoc key))]
+         {:db (assoc db
+                     ::selections5e/builder-item item-with-key
+                     :builder-origin {:source option-pack :key key})
+          ::persist-builder-wip [::selections5e/builder-item item-with-key]
+          :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
                         {:title "Selection saved — in this browser only"
@@ -1084,21 +1226,33 @@
 ;; placeholder-fill the missing fields and land the flagged selection in My Content.
 (reg-event-fx
  ::selections5e/save-selection-anyway
- (fn [{:keys [db]} _]
+ (fn [{:keys [db]} [_ {:keys [replace?]}]]
    (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
-         key (or (:key item) (common/source-tagged-key (:name filled-item) src
-                                                       (get-in db [:plugins src :abbreviation])))
+         [key keyed-item] (address-for (:plugins db) ::e5/selections src item (:name filled-item))
          item-with-key (assoc filled-item :key key :option-pack src)
-         new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
-     {:dispatch-n [[::e5/set-plugins new-plugins]
-                   [:set-builder-field-errors {}]
-                   [:show-warning-message
-                    (str "Selection saved to My Content under \"" src
-                         "\" with placeholders for missing fields. Review it "
-                         "and re-export before sharing.")]]})))
+         {:keys [action from] :as destination}
+         (cond-> (save-destination (:plugins db) (:builder-origin db) ::e5/selections src key
+                                   keyed-item)
+           replace? replacing)]
+     (if (= :refuse action)
+       (collision-error-fx "Selection" src key destination
+                           [::selections5e/save-selection-anyway {:replace? true}])
+       (let [new-plugins (cond-> (save-into-plugins (:plugins db) src ::e5/selections key
+                                                    item-with-key nil)
+                           (= :move action) (update-in [from ::e5/selections] dissoc key))]
+         {:db (assoc db
+                     ::selections5e/builder-item item-with-key
+                     :builder-origin {:source src :key key})
+          ::persist-builder-wip [::selections5e/builder-item item-with-key]
+          :dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
+                       [:show-warning-message
+                        (str "Selection saved to My Content under \"" src
+                             "\" with placeholders for missing fields. Review it "
+                             "and re-export before sharing.")]]})))))
 
 (reg-save-homebrew
  "Feat"
@@ -2679,7 +2833,11 @@
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ item]]
-     {:dispatch-n [[set-event item]
+     ;; Where the item came from, so the save can tell its own slot from somebody else's. The item
+     ;; arrives straight out of :plugins, so its :option-pack IS the source holding it. One slot:
+     ;; a builder is a page, and only one is open at a time.
+     {:db (assoc db :builder-origin {:source (:option-pack item) :key (:key item)})
+      :dispatch-n [[set-event item]
                    [:route route]]})))
 
 (reg-edit-homebrew
@@ -2770,7 +2928,7 @@
  (fn [{:keys [db]} [_ char-id error raw]]
    {:db (assoc-in db [:character-report-status char-id] :sending)
     :http {:method :post
-           :auth-token (get-auth-token db)
+           :auth-token (event-utils/get-auth-token db)
            :url (backend-url (routes/path-for routes/dnd-e5-char-report-route))
            :transit-params {:char-id char-id :error error :raw raw}
            :on-success [:report-character-result char-id]
@@ -4509,10 +4667,17 @@
  ;; It is the same move import conflict resolution makes: rename-key-in-plugin carries the item,
  ;; rewrites the references other content holds to it, and records :former-keys, so characters
  ;; rebind on load. The item open in the builder follows, since it is the same item.
- (fn [{:keys [db]} [_ save-event new-key]]
+ ;; `typed` is the raw string from the control, not a keyword: blank and junk have to be
+ ;; distinguishable here, and `name-to-kw` turns "" into :unnamed-<hash> and "@@@" into :- rather
+ ;; than nil. A key that does not start with a letter is a keyword trap -- the import pipeline
+ ;; quarantines items carrying one -- so this is the one place in the app that sets a key and it
+ ;; checks the same invariant.
+ (fn [{:keys [db]} [_ save-event typed]]
    (let [[item-key plugin-key] (get builder-drafts save-event)
          {:keys [option-pack] :as item} (get db item-key)
          old-key (:key item)
+         trimmed (s/trim (str typed))
+         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))
          plugins (:plugins db)]
      (cond
        (or (nil? old-key) (nil? (get-in plugins [option-pack plugin-key old-key])))
@@ -4520,7 +4685,18 @@
                    "Save this first — a key is only assigned once the item is in your library."
                    builder-error-ttl]}
 
-       (or (nil? new-key) (= new-key old-key))
+       (nil? new-key)
+       {:dispatch [:show-error-message
+                   "Type a key, or press cancel to keep the one it has."
+                   builder-error-ttl]}
+
+       (not (common/keyword-starts-with-letter? new-key))
+       {:dispatch [:show-error-message
+                   (str "\"" trimmed "\" does not make a usable key. A key has to start with a "
+                        "letter — content keyed otherwise is quarantined when the library loads.")
+                   builder-error-ttl]}
+
+       (= new-key old-key)
        {:dispatch [:set-builder-field-errors {}]}
 
        ;; Free ANYWHERE, not just here: a key is a global address (key-collision-behavior.md).
@@ -6106,8 +6282,10 @@
 (defn reg-new-homebrew [event set-event default-val route]
   (reg-event-fx
    event
-   (fn [_ [_ option-pack option]]
-     {:dispatch-n [[set-event (-> default-val
+   (fn [{:keys [db]} [_ option-pack option]]
+     ;; a new item came from nowhere, so it has no origin to return to
+     {:db (dissoc db :builder-origin)
+      :dispatch-n [[set-event (-> default-val
                                   (assoc :option-pack option-pack)
                                   (merge option))]
                    [:route route]]})))

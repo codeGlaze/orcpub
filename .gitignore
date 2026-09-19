@@ -22,7 +22,9 @@ pom.xml
 /classes/
 /out/
 /target/
-/node_modules/
+# no trailing slash: the e2e tooling is run by symlinking this to a sibling checkout's copy,
+# and a trailing slash matches only a real directory
+/node_modules
 .clj-kondo
 .calva
 .lein-deps-sum

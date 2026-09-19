@@ -9,11 +9,43 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 
 ## 0. Standing, do these first
 
-☐ **Re-run the browser tests.** 401 commits of UI arrived with the integration merge and every
-`test/e2e/*.js` was written before it. Until they run, none of them is evidence.
+☑ **Re-run the browser tests.** Done 2026-09-18: `homebrew-grand-tour` 69/69, `spell-builder`
+40/40, `move-between-sources` 10/10, `change-item-key` 11/11, `source-key-tag` 11/11,
+`replace-or-refuse` 20/20, `builder-gallery` no drift.
 
 ☐ **Move `docs/kb` to `agents/develop`** before this branch merges anywhere. Integration carries no
-`docs/kb`; the KB lives on `agents/develop`. This is branch hygiene, not a code change.
+`docs/kb`; the KB lives on `agents/develop`. This is branch hygiene, not a code change. Does NOT
+block the branch reconciliation below — those merges are downward, and the port up to integration
+deliberately leaves docs behind.
+
+---
+
+## 0b. Converge the save path across the four branches (2026-09-18)
+
+☐ The homebrew save exists in **three variants**, and the newest is the one to converge on:
+
+| branch | save path | missing |
+|---|---|---|
+| `feature/grant-rows` | `address-for` + `save-destination` + `replacing` + `collision-error-fx` | — |
+| `integration` | `save-collision` + `legacy?` | the move fix, the replace offer, three guarded save paths |
+| `refactor/content-extensibility` (trunk) | `save-collision`, tagged keys, **no** `legacy?` | all of the above |
+| `feature/extras-companions` | as trunk | as trunk |
+
+Agreed order: `integration` → trunk → `feature/grant-rows`; then a port branch built from the
+POST-MERGE state (not the original commits, since the resolution may differ from what they carry)
+gated and reviewed, merged to `integration`; then `integration` back down through the trunk into
+both `feature/grant-rows` and `feature/extras-companions`. Convergence is asserted, not assumed:
+the save region of `events.cljs` and `homebrew_save_lifecycle_test.cljs` identical across all four,
+`save-collision` gone from every save handler.
+
+☐ **Delete `fix/duplicate-key-traps-its-owner`** once this lands. It is marked do-not-merge in
+`handoff-integration-branches.md`; the trap it was written for is now fixed properly, so the branch
+is only a repro test with a broken fix attached.
+
+**A fix made on a cut branch has to come back to the branch it was cut from.** The key-less-item
+fix was made on `feat/source-tagged-keys` during review and never returned to `feature/grant-rows`,
+which carried the bug for five days — and it then nearly got deleted from `integration` by a naive
+port in the other direction. Check both directions.
 
 ---
 
@@ -148,5 +180,29 @@ template is a parameter sheet over the same `:props` (the template tier,
 ☐ `plugin-datalist` (the Option Source Name field) keeps the source name in a component-local atom
 that **NEW does not reset**, so after New the field still shows the previous source while the item
 has none — and typing the same value back fires no change, so the save is refused for a field that
-looks filled. Worked around in `test/e2e/source-key-tag.js` with a reload; the fix is for the
-component to follow the item it is given.
+looks filled. Worked around in `test/e2e/source-key-tag.js` with a reload.
+
+**Settled 2026-09-18:** this is not sticky-source working, it is the DISPLAY being sticky while the
+data is not. Two paths, only one of which works — My Content's per-source *add* passes the source
+into the new item and is fine; the builder's own *New* gives the item no source at all. The fix is
+both halves: the component follows the item it is given, and New carries `:option-pack` forward as
+real data, so sticky source becomes true rather than cosmetic. **No toggle** — the source is visible
+in the field and one edit overrides it, so a hidden setting would govern something already on screen.
+
+☐ **Other key-minting paths ignore a source's `:abbreviation`** — `relocate-content` and import
+conflict resolution both mint through the derivation rather than the stored tag, so a source that
+set one gets untagged keys from those paths.
+
+☐ **`coerce-invalid-names` re-derives untagged keys for every item in a repaired source**, so
+repairing one bad name can re-address its siblings.
+
+☐ **An import-conflict "rename" can now be a no-op**, because the key it suggests is the one the
+item was already minted with.
+
+☐ **`:disable-overlay` sections are keyed by source name and are not updated by a move**, so an
+item that changed source can leave a stale disable entry behind.
+
+☐ **Should a move onto an occupied slot offer keep-both as well as replace?** Replace and cancel
+ship (`key-collision-behavior.md`); keep-both was deliberately not offered, because two entries at
+one address is the state that makes both uneditable. It arrives legitimately through IMPORT, where
+the conflict modal asks. Revisit only if authors ask for it.
