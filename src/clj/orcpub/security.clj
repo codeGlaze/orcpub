@@ -1,7 +1,7 @@
 (ns orcpub.security
   "Login attempt tracking and rate limiting.
    See orcpub.time for date/time utilities."
-  (:require [orcpub.time :as time :refer [minutes ago]]))
+  (:require [orcpub.time :as time :refer [minutes hours ago]]))
 
 (defn compare-dates [attempt-1 attempt-2]
   (compare (:date attempt-1) (:date attempt-2)))
@@ -96,3 +96,26 @@
   (multiple-ip-attempts-to-same-account-aux
    username
    @failed-login-attempts-by-username))
+
+
+;; One notice per account per window. An attacker who can trigger the condition
+;; can trigger it repeatedly, and without this the defence would be a way to
+;; mail-bomb any account whose username you know.
+(def notice-cooldown-hours 24)
+
+(def ^:private notices-sent (atom {}))
+
+(defn claim-sign-in-notice!
+  "True the first time it is asked about a username inside the cooldown window,
+   false every time after. The slot is claimed in the same swap that answers, so
+   two simultaneous failures cannot both come away with a yes and send twice."
+  [username]
+  (let [cutoff (-> notice-cooldown-hours hours ago)
+        [before _] (swap-vals! notices-sent
+                               (fn [sent]
+                                 (-> (into {}
+                                           (remove (fn [[_ at]] (.isBefore at cutoff)))
+                                           sent)
+                                     (assoc username (time/now)))))
+        previous (get before username)]
+    (or (nil? previous) (.isBefore previous cutoff))))

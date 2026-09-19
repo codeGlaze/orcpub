@@ -267,11 +267,28 @@
     (:orcpub.user/pending-email user)
     (assoc :pending-email (:orcpub.user/pending-email user))))
 
-(defn bad-credentials-response [db username ip]
+(defn base-url [{:keys [scheme headers]}]
+  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
+
+(defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
   (if (security/too-many-attempts-for-username? username)
     (login-error errors/too-many-attempts)
     (let [user-for-username (find-user-by-username-or-email db username)]
+      ;; Several addresses failing against ONE account inside a minute is what
+      ;; this predicate was written for, and it is also what a person with a
+      ;; phone, a laptop and a tablet looks like -- so it tells the owner rather
+      ;; than locking them out. On another thread, and its outcome can never
+      ;; reach the response: whoever is failing these logins must not be able to
+      ;; learn from a status or a delay whether mail went anywhere.
+      (when (and (:db/id user-for-username)
+                 (security/multiple-ip-attempts-to-same-account? username)
+                 (security/claim-sign-in-notice! username))
+        (future
+          (email/send-sign-in-attempts-email
+           (base-url request)
+           {:email (:orcpub.user/email user-for-username)
+            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)})))
       (login-error (if (:db/id user-for-username)
                      errors/bad-credentials
                      errors/no-account)))))
@@ -312,7 +329,7 @@
                   unverified? (not verified?)
                   expired? (and verification-sent (verification-expired? verification-sent))]
               (cond
-                (nil? id) (bad-credentials-response db username remote-addr)
+                (nil? id) (bad-credentials-response db username remote-addr request)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
@@ -334,9 +351,6 @@
                                        ?email]]}
                             (s/lower-case email))]
     user))
-
-(defn base-url [{:keys [scheme headers]}]
-  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
