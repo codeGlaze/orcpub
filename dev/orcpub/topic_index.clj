@@ -13,7 +13,7 @@
    spaced, because a query is typed with spaces and a filename is not, which is exactly why
    `starting equipment` missed.
 
-   Regenerate:  lein with-profile +tools run -m orcpub.topic-index
+   Regenerate:  docs/kb/tools/topic-index.sh   (picks python3, node, clojure or lein)
    The coverage gate (topic_index_test) fails if a document is missing from the generated file."
   (:require [clojure.string :as str]
             [clojure.java.io :as io]))
@@ -21,13 +21,21 @@
 (def ^:private kb-dir "docs/kb")
 (def ^:private out-file "docs/kb/topic-index.md")
 
-(defn- docs []
-  (->> (file-seq (io/file kb-dir))
-       (filter #(.isFile %))
-       (map #(.getName %))
-       (filter #(str/ends-with? % ".md"))
-       (remove #{"README.md" "topic-index.md"})
-       sort))
+(defn- docs
+  "Every KB document, keyed by path RELATIVE to kb-dir, sorted.
+
+   The relative path matters: file-seq recurses, so taking (.getName) discarded the
+   directory and the later slurp looked for docs/kb/<basename>. That threw
+   FileNotFoundException on everything under docs/kb/rescued/, which is why this
+   generator stopped running on 2026-09-12 and the index went stale."
+  []
+  (let [root (.toPath (io/file kb-dir))]
+    (->> (file-seq (io/file kb-dir))
+         (filter #(.isFile %))
+         (filter #(str/ends-with? (.getName %) ".md"))
+         (remove #(contains? #{"README.md" "topic-index.md"} (.getName %)))
+         (map #(str (.relativize root (.toPath %))))
+         sort)))
 
 (defn- headings [f]
   (->> (str/split-lines (slurp (io/file kb-dir f)))
@@ -55,7 +63,10 @@
   (->> (-> text
            (str/replace #"```[\s\S]*?```" " ")   ; code blocks carry identifiers, not topics
            (str/replace #"`[^`]*`" " ")
-           str/lower-case
+           ;; Locale/ROOT, not str/lower-case: str/lower-case folds using the JVM
+           ;; default locale, so on a Turkish machine "I" becomes dotless "ı" and the
+           ;; generated index differs by operator. See docs/kb/locale-safety.md.
+           (.toLowerCase java.util.Locale/ROOT)
            (str/split #"[^a-z0-9-]+"))
        (remove str/blank?)
        (filter #(>= (count %) 3))
@@ -71,7 +82,9 @@
         df (fn [w] (count (filter #(contains? (get freqs %) w) (keys freqs))))]
     (->> tf
          (map (fn [[w c]] [w (* c (Math/log (/ (double n-docs) (max 1 (df w)))))]))
-         (sort-by (comp - second))
+         ;; Break ties on the word. Sorting by score alone left equal scores in
+         ;; hash-map order, so two runs -- or two implementations -- could disagree.
+         (sort-by (juxt (comp - second) first))
          (take k)
          (map first)
          sort)))
@@ -85,7 +98,7 @@
         freqs (into {} (for [f ds] [f (frequencies (words (slurp (io/file kb-dir f))))]))
         n     (count ds)]
     (str "# Topic index — what has already been looked at\n\n"
-         "**GENERATED — do not edit.** `lein with-profile +tools run -m orcpub.topic-index`\n\n"
+         "**GENERATED — do not edit.** `docs/kb/tools/topic-index.sh`\n\n"
          "## Grep the corpus first\n\n"
          "```\ngrep -ril \"<term>\" docs/kb/\n```\n\n"
          "**That is the search.** This file is for orientation — what each document is about, and\n"

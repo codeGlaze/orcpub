@@ -1,6 +1,6 @@
 # Topic index — what has already been looked at
 
-**GENERATED — do not edit.** `lein with-profile +tools run -m orcpub.topic-index`
+**GENERATED — do not edit.** `docs/kb/tools/topic-index.sh`
 
 ## Grep the corpus first
 
@@ -55,7 +55,7 @@ _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
 _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
-**topics:** 2-jre, automated, backward, com, compatibility, cves, dependency, fasterxml, github, guava, jackson, libraries, maintains, outdated, pedestal, pre-upgrade, security, vulnerabilities
+**topics:** 2-jre, automated, backward, com, compatibility, cves, dependencies, dependency, fasterxml, github, guava, jackson, libraries, maintains, outdated, pedestal, pre-upgrade, vulnerabilities
 
 - Summary
 - Changes Made
@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, development, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, xss
+**topics:** allows, clojurescript, closure, csp, dev, development, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, feat, fixed, floating, increment, mental, pool, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, feat, fixed, floating, increment, mental, pool, race, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -312,7 +312,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, 2026-12-08, bespoke, d29, d34, deleted, deprecated, grant, job, ledger, naive, parity, pool, re-pointed, requirements, retained, struck, sweep
+**topics:** 2026-09-04, 2026-12-08, bespoke, converged, d29, d34, deleted, deprecated, grant, job, ledger, naive, parity, pool, re-pointed, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -468,7 +468,7 @@ _built-character-representation · built character representation_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, curl, host, hosts, image, picture, pinterest, proxy, serve, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -483,7 +483,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** blank, descriptive, dice, dwarf, elf, fallback, generator, halfling, helper, human, label, manual, name, party, races, random, rashemi, sex
+**topics:** aasimar, blank, descriptive, dice, dwarf, elf, fallback, generator, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -532,7 +532,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** abandoned, big-bang, builder, class-builder-first, class-builder-only, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** abandoned, big-bang, class-builder-first, class-builder-only, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -547,7 +547,7 @@ _class-builder-extraction-plan · class builder extraction plan_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, divinity, inspiration, lay, level, monk, multi-part, scaling, sorcery, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -610,7 +610,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, categories, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -680,7 +680,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, boon, catalog, checklist, confirm, console, dev, errors, fail, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, boon, catalog, checklist, checks, confirm, console, errors, fail, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -721,7 +721,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, phase, phases, preconditions, registry, revert, snapshots, stop
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, loosen, phase, phases, registry, revert, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -815,7 +815,7 @@ _datomic-crash-analysis · datomic crash analysis_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -846,7 +846,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, repeatable, select, spell, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, repeatable, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -878,7 +878,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 3449, 9500, cli, config, consolidation, csp, datomic, figwheel, incorrectly, init, java, orchestrates, organizational, port, profile, repl, responsibilities, start
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, configures, consolidation, csp, datomic, dev-setup, figwheel, init, java, port, profile, repl, start
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -896,7 +896,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email, email-preferences-implementation, fork, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, production
+**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email, email-preferences-implementation, hotfix-integrations, license, matomo, meta, nginx, passwords, patron, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -944,7 +944,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-infrastructure · docker infrastructure_
 
-**topics:** 128m, 512m, alpine, build-time, busybox, datomic, docker, envsubst, gnu, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
+**topics:** 128m, 1gb, 512m, alpine, build-time, busybox, datomic, docker, envsubst, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
 
 - Key Decisions
 - host=datomic (not 0.0.0.0)
@@ -1082,7 +1082,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, coerce, coercion, d32, floating-asi, forget, free, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, typed, widget
+**topics:** asi, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, typed, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1161,7 +1161,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** added, datomic, dmv, email, emails, endpoint, jwt, links, marketing, modifies, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, jwt, links, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1180,7 +1180,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, docstring, edn, handoff, keyword-trap-name-repair, loader, readable, rescued, root-caused, throw, token, unfindable
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, decoder, defences, defends, docstring, edn, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1193,7 +1193,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, equipment-subs, feat, feats, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, sword, vector, weapons
+**topics:** autosave-fx, coast, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, sword, vector, weapons
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1222,7 +1222,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, jwt, prod, profile, project, report-only, signature, token, var, vars
+**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, jwt, prod, profile, project, signature, token, username, var, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -1245,6 +1245,7 @@ _env-and-auth · env and auth_
 - Gotcha: (boolean "false") Is Truthy in Clojure
 - Auth Token Canonical Path
 - Key files
+- The placeholder SIGNATURE is easy to leave in place (field report, 2026-09)
 
 ## equipment-option-picker.md
 
@@ -1290,7 +1291,7 @@ _error-handling-import-validation · error handling import validation_
 
 _extras-definitions · extras definitions_
 
-**topics:** capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, instance, kind, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
+**topics:** beneath, bounds, capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, kind, per-creature, pet, plan-companions-and-wild-shape, promotion, ribbon, sidekick, statblock, wolf
 
 - One record, capabilities toggled
 - Copy-on-adopt, not reference
@@ -1303,7 +1304,7 @@ _extras-definitions · extras definitions_
 
 _fail-soft-rendering · fail soft rendering_
 
-**topics:** bad, boundaries, boundary, coerce, comparator, datum, evasion, hunter, hunters, isolation, leave-one-out, modifier-vs-trait-slots, non-string, sort, tab, throw, throws, trace
+**topics:** app-root, bad, boundaries, boundary, coerce, comparator, culprit, datum, evasion, hunter, hunters, isolation, non-string, sort, tab, throw, throws, trace
 
 - The goals, in priority order (this ordering drove the design)
 - Layered error boundaries — why three, not one
@@ -1367,7 +1368,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, fighting, great, pool, predicate, prop, property, protection, style, styles, thrown, two-weapon, vocabulary, weapon
+**topics:** archery, attack, blindsight, damage, dueling, fighting, great, interception, pool, predicate, prop, property, protection, style, styles, thrown, vocabulary, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1397,7 +1398,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, error, evolution, folder, folders, handler, hardening, http, optimistic, problem, re-fetch, re-fetches, request, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, problem, re-fetch, request, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -1411,7 +1412,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, cyrillic, external, font, fonts, google, gstatic, hosts, latin, latin-ext, ofl, re-add, sans, subset, subsets, vietnamese, visitor
+**topics:** 118, 800, csp, cyrillic, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1444,7 +1445,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, switcher, theme, title, tray, workaround
+**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -1521,7 +1522,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _homebrew-class-spellcasting · homebrew class spellcasting_
 
-**topics:** ------, --------, 435, class, compilation, custom, dropdown, expansion, generic, homebrew, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
+**topics:** ------, --------, 435, caster, class, compilation, custom, dropdown, generic, homebrew, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
 
 - Builder UI
 - Not exposed in builder
@@ -1579,6 +1580,21 @@ _http-fx-patterns · http fx patterns_
 - Auth headers
 - Key files
 
+## icon-font-failure.md
+
+_icon-font-failure · icon font failure_
+
+**topics:** 22px, arrows, awesome, cause, discriminate, font, fonts, glyph, hours, icon, locale-safety, sent, separates, server, stylesheet, svg, webjar, width
+
+- 1. The failure mode
+- 2. Diagnosing it
+- Detection methods that do NOT work
+- 3. What actually broke it
+- 4. What would have caught it in seconds
+- 5. The durable fix is not a fallback
+- 6. Order of questions, next time
+- Provenance
+
 ## input-field-debounce.md
 
 _input-field-debounce · input field debounce_
@@ -1624,7 +1640,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _lein-uberjar-hang · lein uberjar hang_
 
-**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, hooks, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar, wipes
+**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, hooks, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
 
 - Summary
 - Final Working Solution: Three-Step Docker Build
@@ -1646,7 +1662,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, sources, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -1659,6 +1675,20 @@ _library-management-and-conflicts · library management and conflicts_
 - Health status — surfacing problems without a screen of red
 - Where the code lives
 - Related
+
+## locale-safety.md
+
+_locale-safety · locale safety_
+
+**topics:** 7231, awesome, case-folding, dates, dotless, english, english-locale, etag, formatter, linguistic, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, turkish, webjar
+
+- 1. The ETag crash
+- Why only /assets/
+- The fix
+- 2. The Turkish-I problem in config
+- 3. The rule
+- 4. How this was found, and how long it took
+- Provenance
 
 ## memoize-antipattern-scan.md
 
@@ -1677,7 +1707,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _modifier-vs-trait-slots · modifier vs trait slots_
 
-**topics:** 1342, black-screen, breath, distinguish, dragon, entity-options-architecture, evasion, evasions, features-tab, fiery, hunter, inert, monk, plain, rogue, succeed, trait, vector
+**topics:** 1342, 1925, 2040, black-screen, breath, distinguish, dragon, entity-options-architecture, evasion, features-tab, fiery, hunter, inert, monk, plain, rogue, trait, vector
 
 - The mechanism
 - Worked example: opt5e/evasion and the three Evasions
@@ -1688,7 +1718,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 150, 2026-09-15, 623, cljs, cohesive, domain, domain-based, incrementally, monolith, phase, separation, sorted-map, split, splitting, tier, todo, views
+**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -1709,7 +1739,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** apparently-empty, characters, clone, defence, entity-options-architecture, investigation, localstorage, rehydrates, reported, server-side, single-slot, slot, spa-routing-architecture, sub-entity, symbols, symptom, tab, tabs
+**topics:** -time, apparently-empty, characters, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, reported, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -1754,7 +1784,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, previous, revision, server-rendered, split
+**topics:** 148, 2026-09-15, 638, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, namespace, namespaces, nonce, previous, revision, server-rendered, split
 
 - Directory Layout
 - Entry Points
@@ -1810,7 +1840,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, drawn, field, fields, foot, icons, page, pages, pdfbox, sheet, stream, streams
+**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -1860,7 +1890,7 @@ _pdf-form-techniques · pdf form techniques_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** blank, byte, card, color, fillable, firefox, flatten, page, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
+**topics:** byte, card, color, fillable, firefox, flatten, page, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, walk, widget, widgets
 
 - Overview
 - Template Selection
@@ -1919,7 +1949,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, cache, casters, chunking, freeze, growth, heap, lazy, library, longest, measured, mega-64, pack, paint, parse, per-source, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, growth, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -1987,7 +2017,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, probe, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, sharing, stage, stages, subs, suite, unit
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2080,9 +2110,10 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, capabilities, contributor, control, damage, macro, natural-armor, number, picked, requirements, row, templates, tier, understood, wants, warforged, whichever
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, item, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
+- 0b. September support sessions — tracked separately
 - 1. Grants on the remaining four silos
 - 2. The mechanics the feat builder still can't author
 - 3. Damage and attack bonuses reach the requirements registry
@@ -2095,7 +2126,7 @@ _plan-next · plan next_
 
 _plan-npc-statblock-customizer · plan npc statblock customizer_
 
-**topics:** adjust, attack, calculator, dcs, derivation, extras, humanoid, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
+**topics:** adjust, attack, averaged, botched, dcs, derivation, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
 
 - The cascade
 - What the app has
@@ -2106,7 +2137,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, entry, fighting, grant, grants, irregularity, membership, pieces, pool, pools, spells, styles, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, entry, fighting, grant, grants, irregularity, membership, pieces, pool, pools, registered, spells, styles, vector
 
 - In four sentences
 - The three layers
@@ -2155,7 +2186,7 @@ _re-frame-subscribe-refactor · re frame subscribe refactor_
 
 _reagent-architecture-tenets · reagent architecture tenets_
 
-**topics:** 200, cache, caching, chunked, freeze, hand-rolled, instant, keyed, memoize, paint, react, rebuilds, screen, spell, subscription, task, tenets, virtualise
+**topics:** 200, cache, caching, chunked, freeze, hand-rolled, hiccup, instant, keyed, memoize, paint, react, rebuilds, spell, subscription, task, tenets, virtualise
 
 - 1. Build view markup in the view, never in the data layer
 - 2. Derive lazily; do not materialise the world and filter afterwards
@@ -2194,7 +2225,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** adding, bits, boon, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -2246,7 +2277,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, grant, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, class, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -2283,7 +2314,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, hover, icons, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
+**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, hover, navigation, orcpub, polish, responsive, search, sort, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
@@ -2303,7 +2334,7 @@ _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
 _rescued/ui-ux-plan · rescued/ui ux plan_
 
-**topics:** ------, -------, char, clj, core, css, descriptions, focus, inline, polish, priority, splash, theme, themes, tier, veterans, views, visual
+**topics:** ------, -------, char, clj, core, css, descriptions, focus, polish, priority, splash, theme, themes, tier, tiers, veterans, views, visual
 
 - Context
 - In-Flight Branches (Critical Context)
@@ -2333,7 +2364,7 @@ _rescued/ui-ux-plan · rescued/ui ux plan_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, registry, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, background, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, registry, remaining, round-trip, silo, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -2366,7 +2397,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, rolling, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, rage, recomputes, roll, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -2378,7 +2409,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** aggregator, banner, blanket, boot, column, credential, database, leak, log, logged, logs, password, print, query, redact, redacting, scrollback, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, leak, log, logged, logs, password, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -2450,7 +2481,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes
@@ -2477,7 +2508,7 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, define, editions, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, define, editions, extraction, fireball, granularity, introduce, logic, mixing, modifier, precedence, reorder, revised, shells, srd, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -2497,7 +2528,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-vs-plugin-content · srd vs plugin content_
 
-**topics:** acolyte, battle, comes, content, discarded, folk, gnome, grappler, hardcoded, hero, master, non-srd, phb, plugin-classes, plugins, races, srd, valor
+**topics:** acolyte, base-class-options, battle, college, comes, content, discarded, folk, gnome, grappler, hardcoded, hero, master, non-srd, phb, plugins, races, srd
 
 - The Distinction
 - What's Hardcoded (SRD)
@@ -2509,7 +2540,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _starting-equipment-override-ledger · starting equipment override ledger_
 
-**topics:** addressing, base, bases, blank, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, srd, stable, sub-choice
+**topics:** addressing, base, bases, blank, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, minted, option, srd, stable, sub-choice
 
 - The shape (what a ledger addresses)
 - The missing shape: groups/options have no stable id
@@ -2558,7 +2589,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** caller, chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** caller, cljc, low, pdf, phase, plugin-data, prereq, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
@@ -2573,6 +2604,20 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 - Verification
 - Pattern 10: Top-level def with partial → defn
 - Lessons
+
+## support-session-ledger.md
+
+_support-session-ledger · support session ledger_
+
+**topics:** ability-score, arrows, character-load, character-rescue-console, dark, env-and-auth, font, getting-started, hotfix, icon-font-failure, locale, locale-safety, macos, pre-merged, rescue, self-hoster, topic-index, windows
+
+- Shipped
+- About hotfix/locale-safety
+- Built, in no branch
+- Open — needs a decision, not just work
+- Open — small, self-contained
+- Unverified — do not report these as done
+- Corrections worth keeping
 
 ## test-suite-state.md
 
@@ -2592,7 +2637,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** assertions, auto-run, browser, classpath, cljs-headless-harness, conditionals, effects, extracting, handlers, jvm, karma, re-frame, re-frame-test, reader, reg-event-db, returned, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, returned, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -2619,7 +2664,7 @@ _testing-infrastructure · testing infrastructure_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, branches, claude-branch-triage, conclusions, knowledge, multi-tab, nine, non-, phrase, prunable, ranked, searching, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, 217, absent, branches, claude-branch-triage, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
@@ -2677,7 +2722,7 @@ _views-builders-split · views builders split_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, mapping, melee, mistype, not-melee, predicate, ranged, ranged-only, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** authored-tag, boolean, dart, deals, firearm, flags, handaxe, infer, javelin, mapping, melee, predicate, ranged, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
