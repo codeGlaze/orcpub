@@ -562,13 +562,29 @@
              :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
       {:status 400 :body {:error "User not found"}})))
 
+(defn hash-reset-key
+  "What goes in the database. The emailed key is the secret; storing it verbatim
+   made anyone who can read the user table able to complete a reset on any
+   account with one outstanding. Only the digest is kept, so a stolen table
+   yields nothing that can be mailed back in."
+  [key]
+  (->> (.getBytes ^String key "UTF-8")
+       (.digest (java.security.MessageDigest/getInstance "SHA-256"))
+       (map #(format "%02x" %))
+       (apply str)))
+
+;; Two hours. One is the usual choice and is a one-line change here; two leaves
+;; room for mail that takes a while to arrive and for somebody who reads it on
+;; the way home, on a site whose worst case is a character sheet.
+(def password-reset-valid-hours 2)
+
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
       @(d/transact
         conn
         [{:db/id user-id
-          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-key (hash-reset-key key)
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
@@ -584,7 +600,8 @@
                         e))))))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent
+       (before? (instant password-reset-sent) (-> password-reset-valid-hours hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
@@ -1287,7 +1304,8 @@
                   :orcpub.user/password-reset-key
                   :orcpub.user/password-reset-sent
                   :orcpub.user/password-reset] :as user}
-          (first-user-by db user-by-password-reset-key-query key)
+          ;; The link carries the key; the table holds only its digest.
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key))
           expired? (password-reset-expired? password-reset-sent)
           already-reset? (password-already-reset? password-reset password-reset-sent)]
       (cond

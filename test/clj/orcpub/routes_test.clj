@@ -466,3 +466,13 @@
     "an unrecognised browser" "curl/8.4.0"
     "an unrecognised browser" ""
     "an unrecognised browser" nil))
+
+
+(deftest the-reset-key-is-stored-as-a-digest
+  (let [key "0a5f8e2c-1111-2222-3333-444455556666"
+        digest (routes/hash-reset-key key)]
+    (is (= 64 (count digest)) "SHA-256 as hex")
+    (is (re-matches #"[0-9a-f]{64}" digest))
+    (is (not= key digest) "the emailed secret is not what the table holds")
+    (is (= digest (routes/hash-reset-key key)) "and the lookup can reproduce it")
+    (is (not= digest (routes/hash-reset-key (str key "x"))))))
