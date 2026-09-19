@@ -362,27 +362,27 @@
 
 
 (def breach-explanation
-  "For a \"how do you know?\" affordance beside the message. Kept here so the
-   wording lives next to the check it describes rather than drifting in a view."
-  (str "Your password is never sent anywhere. It is scrambled here, and only the "
-       "first few characters of the scrambled version are used to ask whether any "
-       "password starting that way is on the list. Nobody on either end can work "
-       "out what you typed."))
+  "For a \"how do you know?\" affordance beside the message, if the design wants
+   one. No mention of lists, breaches or attackers -- it answers the mechanical
+   question plainly for whoever asks it, and stays quiet for everyone else."
+  (str "Your password is never stored or sent anywhere in readable form. It is "
+       "scrambled here, and only the first few characters of the scrambled "
+       "version are used to check how common it is. Nobody on either end can "
+       "work out what you typed."))
 
 (defn- breach-message
-  "Why this says nothing about breaches.
+  "Why this reads as a strength verdict rather than a security warning.
 
-   The corpus tells us a password is common, not that this person was breached,
-   and \"appeared in a data breach\" is read as the second thing -- either as a
-   claim their account is compromised or as a suggestion we keep passwords in a
-   list. Both are wrong and both cost a support message. Commonness is the true
-   part and the actionable part, so that is what it says.
+   The corpus is a commonness measure: a password in it fifty million times is
+   common, and that is the whole of what we learn. Saying \"breach\" implies this
+   person was breached; saying \"attackers try this first\" conjures someone
+   coming for them. Neither is what happened, and both frighten someone who is
+   trying to sign up for a character builder.
 
-   The count stays out for the same reason. Fifty million is a number that
-   alarms rather than informs at the moment someone is trying to sign up; it
-   belongs in a password manager's audit, not here."
+   So it speaks the way the strength meter speaks, because it is the same kind
+   of judgement -- too common, here is the better move -- and the count stays out."
   [_n]
-  "Choose a different password — this one is on the lists attackers try first.")
+  "Too common. A few words strung together are harder to guess and easier to remember.")
 
 (defn- breach-errors
   "A validation map for a breached password, or nil. Only a positive answer

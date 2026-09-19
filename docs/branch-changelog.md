@@ -25,10 +25,11 @@ signup down with it.
   server: it is hashed here and only the first five characters of that hash are sent, so the
   service answers with a few hundred candidates and the match is made locally. A slow or missing
   service is not an objection — signup carries on. `ORCPUB_PWNED_CHECK=off` turns the call off
-  entirely. The message says the password is common rather than that it was breached: the list
-  says nothing about this person's account, and saying "breach" is read either as "you were
-  hacked" or as "this site keeps passwords in a list". An explanation of how the check works
-  without sending the password is available for anyone who wants it.
+  entirely. The result is worded as a
+  strength verdict — "too common" — not a security warning. The corpus only tells us a password
+  is common; saying "breach" implies this person was breached, and naming attackers conjures
+  someone coming for them. Neither happened. An explanation of how the check runs without the
+  password leaving in readable form is available for anyone who asks.
 
 ## Changed
 
