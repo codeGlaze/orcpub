@@ -845,10 +845,14 @@
     [:span "Remember to check your spam folder."]]))
 
 (defn password-reset-sent []
+  ;; Conditional on purpose. The endpoint now answers identically for an address
+  ;; with no account, so this page is no longer in a position to claim that an
+  ;; email went out -- and claiming it would hand back the membership test the
+  ;; server stopped answering.
   (email-sent
-   (str "We sent an email to "
+   (str "If "
         @(subscribe [:temp-email])
-        " with a link to reset your password.")))
+        " has an account, a link to reset your password is on its way.")))
 
 (defn register-form []
   (let [registration-validation @(subscribe [:registration-validation])
