@@ -162,6 +162,34 @@
      :asset/label "Bangs 03"
      :asset/file  "l9_bangs_03.png"}]})
 
+(def gap-inventory
+  "Pieces the illustrator has planned but not drawn yet, per layer.
+
+   Her convention is a `no <name>.txt` file sitting in the layer folder beside
+   the art. Both asset scripts already read those and report them, so filling
+   this in is a transcription job, not a guess -- run either one and it prints
+   the gaps it found.
+
+   The picker shows these as inert \"coming\" swatches. Empty is fine and means
+   only that nothing is marked pending; it is not a claim that the set is
+   finished."
+  {}
+  ;; shape, when there is something to record:
+  ;;   {:head  [{:gap/id :l2-head-04 :gap/label "Head 04"}]
+  ;;    :shirt [{:gap/id :l3-shirt-04 :gap/label "Shirt 04"}]}
+  )
+
+(defn gaps-for-layer
+  "Planned-but-undrawn pieces for `layer-key`, or an empty vector."
+  [layer-key]
+  (get gap-inventory layer-key []))
+
+(defn any-gaps?
+  "Whether anything at all is marked pending, so a surface can skip the
+   whole affordance rather than render an empty one."
+  []
+  (boolean (some (comp seq val) gap-inventory)))
+
 (defn- assets-for
   [layer-key entries]
   (mapv (fn [{:asset/keys [id label file]}]

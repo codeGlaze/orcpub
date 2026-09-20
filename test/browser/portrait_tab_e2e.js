@@ -140,6 +140,22 @@ async function openBuilder(ctx, width) {
     document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check('no horizontal overflow on the phone', overflow <= 1, `${overflow}px`);
 
+  // ---------- pieces marked not-yet-drawn ----------
+  // gap-inventory is empty in the committed registry, so this is an invariant
+  // guard rather than a demonstration: it fires the moment real `no *.txt`
+  // markers are recorded. The count is printed so a reader can see that.
+  const gaps = await page.locator('.pl-sw-gap').count();
+  console.log(`  note gap swatches currently rendered: ${gaps}`);
+  const gapShapes = await page.locator('.pl-sw-gap').evaluateAll(
+    els => els.map(e => ({ tag: e.tagName, title: e.getAttribute('title'),
+                           selected: e.classList.contains('selected') })));
+  check('a not-yet-drawn piece is never a pressable swatch',
+        gapShapes.every(g => g.tag !== 'BUTTON' && !g.selected),
+        JSON.stringify(gapShapes));
+  check('and always says what it is',
+        gapShapes.every(g => g.title && /not drawn yet/.test(g.title)),
+        JSON.stringify(gapShapes));
+
   check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
 
   await browser.close();

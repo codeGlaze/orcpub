@@ -211,3 +211,31 @@
           forged {:head {:artist/id :somebody-else
                          :asset/id (:asset/id asset)}}]
       (is (= [(:artist/id pa/house-pack)] (pa/all-artists-for-layers forged))))))
+
+;; ---------- gaps: pieces marked planned-but-not-drawn ----------
+
+(deftest gaps-default-to-nothing-rather-than-blowing-up
+  (doseq [layer-key pa/layer-order]
+    (is (vector? (pa/gaps-for-layer layer-key))
+        (str layer-key " must answer with a collection, not nil")))
+  (is (= [] (pa/gaps-for-layer :no-such-layer))))
+
+(deftest any-gaps?-tracks-the-inventory
+  (is (= (boolean (some (comp seq val) pa/gap-inventory)) (pa/any-gaps?))))
+
+(deftest a-gap-never-collides-with-a-real-asset
+  (testing "a gap id matching a drawn asset would put a 'coming' swatch next
+            to the finished piece it refers to"
+    (doseq [[layer-key gaps] pa/gap-inventory
+            {:keys [:gap/id]} gaps]
+      (is (nil? (pa/asset-by-id layer-key id))
+          (str id " is listed as not-yet-drawn but exists in " layer-key)))))
+
+(deftest gaps-are-shaped-the-way-the-picker-reads-them
+  (doseq [[layer-key gaps] pa/gap-inventory
+          gap gaps]
+    (is (some #{layer-key} pa/layer-order)
+        (str layer-key " is not a known layer"))
+    (is (keyword? (:gap/id gap)) (str "gap needs an id: " (pr-str gap)))
+    (is (or (nil? (:gap/label gap)) (string? (:gap/label gap)))
+        (str "gap label must be a string when present: " (pr-str gap)))))

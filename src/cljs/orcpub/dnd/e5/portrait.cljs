@@ -492,6 +492,31 @@
   background: repeating-linear-gradient(45deg, #131924 0 5px, transparent 5px 10px);
   color: #616a7a; font: italic 10px/1 Georgia, serif;
 }
+/* A piece the illustrator has planned but not drawn. Deliberately unlike a
+   swatch you can press: dashed, no hover, no pointer. */
+.pl-sw-gap {
+  cursor: default;
+  border: 1px dashed rgba(139, 149, 165, 0.32);
+  background: repeating-linear-gradient(-45deg,
+    rgba(139, 149, 165, 0.10) 0 3px,
+    rgba(139, 149, 165, 0.02) 3px 6px);
+}
+.pl-sw-gap:hover { border-color: rgba(139, 149, 165, 0.32); }
+.pl-sw-gap-badge {
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(139, 149, 165, 0.16);
+  border: 1px solid rgba(139, 149, 165, 0.4);
+  color: #8b95a5;
+  font: 700 8px/1 'Open Sans', system-ui, sans-serif;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.pl-root.light-theme .pl-sw-gap {
+  border-color: rgba(54,54,54,0.28);
+  background: repeating-linear-gradient(-45deg,
+    rgba(54,54,54,0.08) 0 3px, rgba(54,54,54,0.02) 3px 6px);
+}
+.pl-root.light-theme .pl-sw-gap:hover { border-color: rgba(54,54,54,0.28); }
+.pl-root.light-theme .pl-sw-gap-badge { color: #6b6b6b; }
 .pl-empty-registry {
   padding: 8px; color: #616a7a;
   font: italic 11px/1.4 Georgia, serif; text-align: center;
@@ -838,7 +863,8 @@
 (defn- category-picker [portrait layer-key open-layer]
   (let [selected       (get-in portrait [:layers layer-key])
         selected-asset (when selected (pa/asset-by-id layer-key (:asset/id selected)))
-        assets         (pa/assets-for-layer layer-key)]
+        assets         (pa/assets-for-layer layer-key)
+        gaps           (pa/gaps-for-layer layer-key)]
     [:div.pl-picker
      [:div.pl-picker-head
       [:span.pl-cat
@@ -848,7 +874,7 @@
        [layer-tint-chip portrait layer-key open-layer]]
       (when selected
         [:span.pl-picker-sel (or (:asset/label selected-asset) "picked")])]
-     (if (empty? assets)
+     (if (and (empty? assets) (empty? gaps))
        [:div.pl-empty-registry "no art here yet"]
        [:div.pl-swatches
         [:button.pl-sw.pl-sw-none
@@ -866,7 +892,16 @@
             :on-click #(dispatch [:portrait/pick-layer layer-key asset-id])
             :title (or (:asset/label asset) (name asset-id))}
            [:img {:src (:asset/url asset)
-                  :alt (or (:asset/label asset) "")}]])])
+                  :alt (or (:asset/label asset) "")}]])
+        ;; Pieces the illustrator has marked as not drawn yet. Inert on
+        ;; purpose -- the point is to say the set is still growing, so an
+        ;; empty-looking category is not mistaken for a finished one.
+        (for [{:keys [:gap/id :gap/label]} gaps]
+          ^{:key id}
+          [:div.pl-sw.pl-sw-gap
+           {:title (str (or label (name id)) " \u2014 not drawn yet")
+            :aria-label (str (or label (name id)) ", not drawn yet")}
+           [:span.pl-sw-gap-badge "soon"]])])
      (when (= open-layer layer-key)
        [:div.pl-layer-panel [sub-row portrait layer-key]])]))
 
