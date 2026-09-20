@@ -101,6 +101,21 @@
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
               (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+(defn- arm-boot-report!
+  "Print the boot banner when Jetty reports itself started.
+
+   Best effort: if the listener cannot be attached -- a different container, a Jetty API
+   change -- print immediately rather than lose the banner, since a missing report is worse
+   than one a few milliseconds early."
+  [created]
+  (let [server (get created ::http/server)]
+    (try
+      (.addEventListener
+       ^org.eclipse.jetty.util.component.LifeCycle server
+       (reify org.eclipse.jetty.util.component.LifeCycle$Listener
+         (lifeCycleStarted [_ _] (config/print-report! created))))
+      (catch Throwable _ (config/print-report! created)))))
+
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 
@@ -111,6 +126,11 @@
         ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
         true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
         true http/create-server
+        ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
+        ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first
+        ;; version printed nothing in the one configuration it exists for -- and printing
+        ;; before start would call it "started" while it is not yet listening.
+        (not (test? service-map)) (doto arm-boot-report!)
         (not (test? service-map)) http/start
         true ((partial assoc this :service)))))
 

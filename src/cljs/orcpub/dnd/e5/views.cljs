@@ -44,6 +44,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -288,6 +289,24 @@
 
 (def route-handler (memoize route-fn))
 
+(defn- fit-flyout!
+  "Cap an opening flyout at the room left below it, and let it scroll.
+
+   The menu is absolutely positioned under its tab, so its height has nothing to
+   do with the window's: My Content is eleven rows and ran off the bottom of a
+   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
+   pointer away to use the page scrollbar closes it. Measured in a frame, after
+   :hover has applied and the menu has a box to measure."
+  [e]
+  (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
+    (js/requestAnimationFrame
+     (fn []
+       (let [top (.-top (.getBoundingClientRect flyout))
+             room (- (.-innerHeight js/window) top 12)]
+         (when (pos? top)
+           (set! (.. flyout -style -maxHeight) (str (max 160 (js/Math.floor room)) "px"))
+           (set! (.. flyout -style -overflowY) "auto")))))))
+
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
     [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
@@ -304,7 +323,9 @@
               :class (str (if disabled "disabled" "pointer")
                           " "
                           (when (not mobile?) " w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -345,7 +366,9 @@
               :class-name (str (if disabled "disabled" "pointer")
                                " "
                                (when-not mobile? "w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class-name (when-not active
                      (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
@@ -1083,7 +1106,9 @@
      (when @(subscribe [::char/options-shown?])
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
-       [:div.p-b-10.p-r-10.p-l-10.white
+       ;; p-t-10 as well as p-b: without it the banner sits flush against whatever
+       ;; is above it, which on a phone means jammed under the page title.
+       [:div.p-t-10.p-b-10.p-r-10.p-l-10.white
         [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
@@ -1098,36 +1123,47 @@
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
-      [:div.t-a-r
-       [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
-         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download-alt]]
-       [:div.orange.pointer.underline
-        {:on-click #(swap! expanded? not)
-         :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class (when @expanded? "white")}]]
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (str {:browser (user-agent/browser)
-                        :browser-version (user-agent/browser-version)
-                        :device-type (user-agent/device-type)
-                        :platform (user-agent/platform)
-                        :platform-version (user-agent/platform-version)
-                        :character (char/to-strict @(subscribe [:character]))})}])
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (clj->json {:browser (user-agent/browser)
-                              :browser-version (user-agent/browser-version)
-                              :device-type (user-agent/device-type)
-                              :platform (user-agent/platform)
-                              :platform-version (user-agent/platform-version)
-                              :character (char/to-strict @(subscribe [:character]))})}])
-       ])))
+      (let [dev? @(subscribe [::e5/dev-mode?])]
+        [:div.t-a-r
+         ;; The switch is always visible and named. The tools behind it are for
+         ;; getting content out when the app is misbehaving, so hiding the way to
+         ;; reach them would defeat the point — what the toggle removes is two
+         ;; unlabelled icons sitting in the footer of every page.
+         [:div.dev-mode-row
+          [:span.dev-mode-switch
+           {:class (when dev? "on")
+            :role "switch"
+            :aria-checked (str (boolean dev?))
+            :tabIndex 0
+            :title "Show diagnostic tools for getting your content out"
+            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+          [:span.dev-mode-label
+           {:on-click (make-event-handler ::e5/toggle-dev-mode)}
+           "Developer mode"]]
+         (when dev?
+           [:div.dev-mode-tools
+            [:span.dev-mode-tool
+             {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+              :title "Downloads every source exactly as stored, skipping the export checks. Large libraries take a while — click once and wait."}
+             [:i.fa.fa-cloud-download-alt.m-r-5]
+             "Dump library"]
+            [:span.dev-mode-tool
+             {:on-click #(swap! expanded? not)
+              :title "Browser and build details, for a bug report"}
+             [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
+             "Debug info"]])
+         ;; One box, not the two identical ones that were here: the same map was
+         ;; rendered twice, once with str and once with clj->json.
+         (when (and dev? @expanded?)
+           [:textarea.m-t-5
+            {:read-only true
+             :style debug-data-style
+             :value (clj->json {:browser (user-agent/browser)
+                                :browser-version (user-agent/browser-version)
+                                :device-type (user-agent/device-type)
+                                :platform (user-agent/platform)
+                                :platform-version (user-agent/platform-version)
+                                :character (char/to-strict @(subscribe [:character]))})}])]))))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
   [:div.white.f-s-32.flex.align-items-c
@@ -1521,6 +1557,7 @@
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
 (declare library-health-status)
+(declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Whether the header has reached the top of the viewport. position: sticky
@@ -1633,7 +1670,8 @@
                      [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
+                   [whats-new-view/footer-link]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
                    (for [{:keys [label href]} splash/legal-footer-links]
@@ -1646,7 +1684,9 @@
                      branding/copyright-holder)]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                  [:p.pointer.underline
+                   {:on-click #(dispatch [::e5/open-whats-new])}
+                   "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -2926,7 +2966,17 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [built-char @(subscribe [:built-character id])
+  (let [;; The builder renders character-display with an explicit nil id, so this
+        ;; was [:built-character nil] -- a different query vector from the
+        ;; builder's own [:built-character], hence a second debounced-build-sub
+        ;; over the same character (2 builds per click). Collapse only that case.
+        ;; The non-nil path is left exactly as it was: [:built-character id]
+        ;; ignores id and returns the builder's character, which looks wrong on a
+        ;; character page, but ::char/built-character id fetches over HTTP, so
+        ;; changing it needs its own verification.
+        built-char @(subscribe (if id
+                                 [:built-character id]
+                                 [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
         race @(subscribe [::char/race id])
@@ -3971,6 +4021,11 @@
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
   [_error _stack _retry]
+  ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
+  ;; took it away, then this page threw. Getting homebrew out matters most in
+  ;; exactly the state where the app has stopped being able to export it.
+  (when-let [rescue (aget js/window "orcpubBootRescue")]
+    (rescue))
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
@@ -4237,6 +4292,26 @@
      :pointer-events "none"}))
 
 
+(defn capture-images
+  "Reads the character's pictures in the browser when this mounts, so their bytes
+   are in hand before the export button is clicked. Renders nothing.
+
+   Kept off the click handler on purpose: the export is a synchronous form submit
+   into a new tab, and any await between the click and .submit() spends the
+   transient user activation that keeps that tab from being blocked. Each request
+   is idempotent, so re-rendering costs one read per URL and no more.
+
+   `urls` comes through the argv rather than a subscription so that a URL edited
+   while this is mounted is picked up by the update."
+  [_urls]
+  (let [ask (fn [this]
+              (doseq [url (second (r/argv this))
+                      :when (seq url)]
+                (dispatch [::char/capture-image url])))]
+    (r/create-class
+     {:component-did-mount ask
+      :reagent-render (fn [_] nil)})))
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
@@ -4250,12 +4325,19 @@
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
         spell-layout @(subscribe [::char/spell-layout])
+        ;; Read off built-char, not [::char/image-url id]: a character still being
+        ;; built has no id yet, and the id-keyed subscription answers nil for it.
+        ;; This is the same accessor pdf-spec uses to put the URL in the export.
+        image-url (char/image-url built-char)
+        faction-image-url (char/faction-image-url built-char)
+        image-bytes @(subscribe [::char/image-bytes])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes image-bytes}
         has-spells? (seq (char/spells-known built-char))
         ;; Only a multiclass caster on a style that can be renumbered has a
         ;; choice to make, so the control is not shown to anyone else.
@@ -4269,12 +4351,18 @@
                        ;; fits, and packing anyway would print without it.
                        (packing/fits? print-character-sheet-style?
                                       (packing/packing-shape casting-classes)))
-        print-button-enabled (if (or (= print-character-sheet-style? nil)
-                                     (= (str print-character-sheet-style?) "NaN"))
-                               false true)
+        ;; Exporting mid-read would send the address and let the server fetch what
+        ;; the browser was already holding. A read ends either way -- capture has
+        ;; its own deadline -- so this waits at most that long.
+        reading-pictures? (boolean (some #(= :pending (get image-bytes %))
+                                         (remove nil? [image-url faction-image-url])))
+        print-button-enabled (and (not reading-pictures?)
+                                  (not (or (nil? print-character-sheet-style?)
+                                           (= (str print-character-sheet-style?) "NaN"))))
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
+      [capture-images [image-url faction-image-url]]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
@@ -4391,6 +4479,8 @@
              (str "Prints the back logo as a pale colour wash rather than in "
                   "solid black.")]])])
 
+      (when reading-pictures?
+        [:div.f-s-12.m-b-5 "Reading the character's picture..."])
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -6371,7 +6461,7 @@
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
 ;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;; opt5e/class-option with no extra wiring:
 ;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
 ;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
 ;;                    [{:name .. :options {item-key qty}}]
@@ -8627,7 +8717,7 @@
    for them; it lists exactly the types the source is currently missing."
   [source-name missing-specs]
   [:div.p-t-10
-   [:select.m-l-5.p-5
+   [:select.m-l-5.p-5.builder-option-dropdown.w-auto
     {:value ""
      :on-change (fn [e]
                   (let [v (.. e -target -value)
@@ -8635,11 +8725,11 @@
                     (set! (.. e -target -value) "")
                     (when spec
                       (dispatch [(:add-event spec) source-name]))))}
-    [:option {:value ""} "+ add content…"]
+    [:option.builder-dropdown-item {:value ""} "+ add content…"]
     (doall
      (for [{:keys [type-name type-key]} missing-specs]
        ^{:key type-name}
-       [:option {:value (name type-key)} (str "add " type-name)]))]])
+       [:option.builder-dropdown-item {:value (name type-key)} (str "add " type-name)]))]])
 
 (defn source-disabled-count
   "Total disabled items across every content type in one source — the number shown
@@ -8708,29 +8798,43 @@
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-              "export"]
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler ::e5/delete-plugin name)}
-              "delete"]]
-            ;; One toolbar filters every category below: a name search and a
-            ;; show-disabled toggle whose (N) is the source's disabled count, so
-            ;; disabled content (which will grow once duplicate-key resolution
-            ;; disables a colliding side) stays discoverable, not buried.
-            (when has-content?
-              [:div.flex.align-items-c.flex-wrap.m-b-10
-               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+            ;; One row for the whole source: the search that filters every category
+            ;; below, the show-disabled toggle whose (N) is this source's disabled
+            ;; count, and the source's own actions. It wraps on a narrow screen —
+            ;; search first, then the toggle and the buttons.
+            [:div.mc-source-toolbar
+             (when has-content?
+               [:input.input.h-40.p-l-10.f-s-14.mc-source-search
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}]
+                 :on-change #(reset! search (.. % -target -value))}])
+             (when has-content?
                (let [dn (source-disabled-count plugin)]
-                 [:div.flex.align-items-c.pointer.f-s-14
+                 [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [comps/checkbox show? false]
-                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
+             [:div.flex.align-items-c.uppercase.mc-source-actions
+              [:button.form-button
+               {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+               "export"]
+              [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/delete-plugin name)}
+               "delete"]]]
+            ;; The tag this source mints its keys with — the same quiet line as the item's key,
+            ;; because it is the same kind of thing. Blank means the derivation decides, and the
+            ;; derived value shows muted rather than being stored, so improving the rule reaches
+            ;; every source that never set one.
+            [meta-edit-row
+             {:label "key tag"
+              :value (or (:abbreviation plugin) (common/source-abbreviation name))
+              :derived? (nil? (:abbreviation plugin))
+              :placeholder (or (:abbreviation plugin) (common/source-abbreviation name))
+              :on-save #(dispatch [::e5/set-source-abbreviation name %])
+              :help (str "Keys minted in this source from now on end with this tag. "
+                         "Keys already minted keep the tag they have. "
+                         "Leave it blank to use the one derived from the source's name.")}]
             [:div.item-list
              ;; Render every type; each my-content-type self-hides when it has no
              ;; items matching the search + show-disabled filter (so hide-empty and
@@ -9223,10 +9327,69 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
+(defn meta-edit-row
+  "A quiet `label value change` line that swaps in an input when `change` is clicked.
+
+   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
+   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
+   same `.bf-meta` register.
+
+     :value        what to show at rest; nil renders nothing at all
+     :derived?     the value is the app's guess rather than a stored choice, shown muted
+     :placeholder  seeds the input
+     :on-save      called with the raw string typed; blank is the caller's to interpret
+     :help         a line a `?` opens beneath the row"
+  [_]
+  (let [editing? (r/atom false)
+        draft    (r/atom "")]
+    (fn [{:keys [label value derived? placeholder on-save help]}]
+      (when value
+        (let [row [:div.bf-meta.f-s-14.flex.align-items-c.flex-wrap
+                   [:span.m-r-5 label]
+                   [:span.m-r-10 {:class (when-not derived? "bf-meta-value")} value]
+                   (if @editing?
+                     [:<>
+                      [:input.input.h-32.bf-meta-input.m-r-5
+                       {:type "text"
+                        :value @draft
+                        :auto-focus true
+                        :placeholder placeholder
+                        :on-change #(reset! draft (-> % .-target .-value))}]
+                      [:span.pointer.bf-meta-action.m-r-10
+                       {:on-click #(do (on-save @draft) (reset! editing? false))}
+                       "save"]
+                      [:span.pointer.bf-meta-action
+                       {:on-click #(reset! editing? false)}
+                       "cancel"]]
+                     [:span.pointer.bf-meta-action
+                      {:on-click #(do (reset! draft (or placeholder "")) (reset! editing? true))}
+                      "change"])]]
+          (if help
+            [with-help row help]
+            row))))))
+
+(defn item-key-row
+  "The saved item's key, and the one control that changes it.
+
+   Keys are minted once (D10a) — the Name field no longer re-addresses an item — so this is the
+   only way an author fixes a key minted from a typo. Renders nothing until the item has one."
+  [item save-event]
+  (when-let [k (:key item)]
+    [meta-edit-row
+     {:label "key"
+      :value (str k)
+      :placeholder (name k)
+      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered
   ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  (let [export-draft-event (events/draft-event-for save-event)]
+  ;; The key row rides the same derivation: builder-drafts already maps the save event to the
+  ;; builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  (let [export-draft-event (events/draft-event-for save-event)
+        [item-sub] (get events/builder-drafts save-event)
+        item       (when item-sub @(subscribe [item-sub]))]
     [content-page
      (or title (str item-title " Builder"))
      [{:title (str "New " item-title)
@@ -9240,7 +9403,11 @@
       {:title "Export draft"
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
-     [builder]]))
+     [:div
+      [builder]
+      ;; The key is the item's address, not a field an author fills in — so it sits after the form,
+      ;; under a hairline, in a muted register.
+      [item-key-row item save-event]]]))
 
 (defn combat-tracker-page []
   [content-page
@@ -9308,7 +9475,14 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
+                      ;; NOT "Save to Browser Storage", which is what every other
+                      ;; builder's button says and does. A magic item is saved to
+                      ;; the database like a character is: ::mi/save-item posts to
+                      ;; /dnd/5e/items with an auth header, so the label was
+                      ;; promising local storage while requiring an account, and a
+                      ;; logged-out click landed on the login page having said
+                      ;; nothing about needing one.
+                      {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
@@ -9379,7 +9553,8 @@
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes @(subscribe [::char/image-bytes])}
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         current-folder-id (get char-folder-map id)]

@@ -1,6 +1,5 @@
 # Plan: generate pages on demand, and stop cropping text silently
 
-Techniques are proven and written up in `docs/kb/pdf-form-techniques.md`.
 Findings and false starts are in `docs/issues/pdf-export-size.md`. This is the
 build plan.
 
@@ -110,7 +109,7 @@ code-only and matches behaviour the sheet already has elsewhere.
 - Fixtures: the three characters in `dev/sample_character.clj` (level 20 single
   class, four classes, eight classes) each build with zero dropped names.
 - A long-text fixture that overflows every small box, to prove spill works.
-- Compare against `docs/kb/pdf-form-techniques.md` capacities so drift is caught.
+- Compare against the capacities in `docs/PDF-EXPORT-CAPACITY.md` so drift is caught.
 
 ---
 
@@ -795,8 +794,7 @@ Note also that nothing in production calls `relabel-spell-level!` or
 `reuse-cantrips-box!` yet -- grep finds them only in tests. The mechanism works and
 waits on item 8 to decide when to use it.
 
-The method is written down in `docs/kb/pdf-form-techniques.md` under "Place a
-patch by measuring the artwork" — PDFTextStripper for positions and size, a high
+The method is fixed: PDFTextStripper for positions and size, a high
 DPI render for colour, printed landmarks for the offsets between blocks — so this
 is measurement rather than design. Style 1 is the only public sheet, which is why
 it went first.

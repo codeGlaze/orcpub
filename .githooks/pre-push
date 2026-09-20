@@ -19,6 +19,7 @@ while read -r _local_ref local_sha remote_ref _remote_sha; do
   [ "$local_sha" = "$zero" ] && continue                    # branch deletion — skip
   case "$remote_ref" in
     refs/heads/integration|refs/heads/develop|refs/heads/main)
+      guarded=1
       if git cat-file -e "${local_sha}:docs/branch-changelog.md" 2>/dev/null; then
         target="${remote_ref#refs/heads/}"
         echo "" >&2
@@ -35,5 +36,21 @@ while read -r _local_ref local_sha remote_ref _remote_sha; do
       ;;
   esac
 done
+
+# Same rules CI applies, run here so a style problem is a local message rather than
+# a red build after the merge. Skipped when python3 is absent; CI still catches it.
+if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-changelog.py ] && command -v python3 >/dev/null 2>&1; then
+  if ! scripts/lint-changelog.py >/dev/null 2>&1; then
+    echo "" >&2
+    echo "  pre-push blocked: CHANGELOG.md does not follow the house style." >&2
+    echo "" >&2
+    scripts/lint-changelog.py 2>&1 | sed -E 's/^::error [^:]*::/    /; s/^/  /' >&2
+    echo "" >&2
+    echo "  House style: docs/branch-changelog.template.md" >&2
+    echo "  (To bypass once: git push --no-verify.)" >&2
+    echo "" >&2
+    status=1
+  fi
+fi
 
 exit $status

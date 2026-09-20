@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
+            [re-frame.db]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -9,7 +10,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route
                                                                     show-generic-error mod-cfg
                                                                     default-mod-set
                                                                     handle-api-response]]
@@ -25,6 +26,8 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.compute :as compute]
+            [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
@@ -143,6 +146,22 @@
  :loading
  (fn [db _]
    (get db :loading)))
+
+(reg-sub
+ :character-binding-report
+ ;; {:unbound-classes [...] :subclass-mismatches [...]}, or nil when the character's
+ ;; classes all bind cleanly. Unlike :character-healed this is not a prompt to
+ ;; save -- nothing was repaired, and nothing can be without a person choosing.
+ (fn [db _]
+   (get db :character-binding-report)))
+
+(reg-sub
+ :character-healed
+ ;; Set by :set-character when a reconciler repaired a stored key, cleared when it
+ ;; did not. The repair is in memory only, so this is what tells the save button
+ ;; the character is carrying a fix that will be lost if the page is left.
+ (fn [db _]
+   (get db :character-healed)))
 
 (reg-sub
  :active-tabs
@@ -350,33 +369,70 @@
    immediately; rapid changes batch until quiet for this many ms."
   500)
 
-(defn- debounced-build-sub
+(defn debounced-build-sub
   "reg-sub-raw handler: wraps entity/build with leading+trailing edge
-   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch.
+
+   Public for built-character-debounce-test."
   [char-sub tmpl-sub]
   (let [timeout-id (atom nil)
         last-run   (atom 0)
-        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        c0         @char-sub
+        t0         @tmpl-sub
+        ;; What `result` reflects, so a notification carrying no change is a
+        ;; no-op rather than a trailing rebuild of what was just built.
+        built-from (atom [c0 t0])
+        result     (ra/atom (built-character c0 t0))
         wk         (gensym "build-")
         do-build   (fn []
                      (reset! last-run (.now js/Date))
-                     (reset! result (built-character @char-sub @tmpl-sub)))
+                     (let [c @char-sub
+                           t @tmpl-sub]
+                       (reset! built-from [c t])
+                       (reset! result (built-character c t))))
+        ;; Both inputs are derived from app-db, so ONE interaction dirties both
+        ;; and this watch fires twice — but reagent updates them one at a time.
+        ;; Building on the first notification therefore paired the NEW character
+        ;; with the OLD template, and the corrected result only arrived from the
+        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
+        ;; settle first: one build, from values that agree. Still same-frame, so
+        ;; "dropdown changes compute instantly" is preserved.
+        pending    (atom false)
+        disposed?  (atom false)
+        settled    (fn []
+                     (reset! pending false)
+                     (when-not @disposed?
+                     (let [[bc bt] @built-from]
+                       ;; identical?, not =: reactions only notify on a real
+                       ;; change, and deep-comparing a template costs more than
+                       ;; the rebuild it would save.
+                       (when-not (and (identical? bc @char-sub)
+                                      (identical? bt @tmpl-sub))
+                         (when-let [tid @timeout-id] (js/clearTimeout tid))
+                         (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                           (do-build)
+                           (reset! timeout-id
+                                   (js/setTimeout do-build build-debounce-ms)))))))
         on-change  (fn [_ _ _ _]
-                     (when-let [tid @timeout-id] (js/clearTimeout tid))
-                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
-                       (do-build)
-                       (reset! timeout-id
-                               (js/setTimeout do-build build-debounce-ms))))]
+                     (when-not @pending
+                       (reset! pending true)
+                       (js/queueMicrotask settled)))]
     (add-watch char-sub wk on-change)
     (add-watch tmpl-sub wk on-change)
     (ra/make-reaction
      (fn [] @result)
      :on-dispose (fn []
+                   ;; A microtask queued just before disposal would otherwise
+                   ;; run against torn-down inputs.
+                   (reset! disposed? true)
                    (remove-watch char-sub wk)
                    (remove-watch tmpl-sub wk)
                    (when-let [tid @timeout-id]
                      (js/clearTimeout tid))))))
 
+;; The BUILDER's in-progress character. Ignores query args, so [:built-character]
+;; and [:built-character nil] are two cache keys for the same thing -- and that
+;; means two debounced builds per change. Always subscribe with no argument.
 (reg-sub-raw
  :built-character
  (fn [_ _]
@@ -419,52 +475,80 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-;; API-backed subscriptions — use handle-api-response for consistent
-;; status handling with sensible 401/500 defaults and catch-all logging.
-(reg-sub-raw
-  ::char5e/characters
-  (fn [app-db [_ login-optional?]]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::char5e/set-characters (:body response)])
-              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-              :context "fetch characters"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::char5e/characters [])))))
+;; API-backed subscriptions — use reg-api-sub for consistent guard, loading
+;; counter, auth headers, and handle-api-response wrapping. See
+;; orcpub.dnd.e5.api-subs for the HOF definition and the anti-pattern
+;; it replaces.
 
-(reg-sub-raw
-  ::party5e/parties
-  (fn [app-db [_ login-optional?]]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::party5e/set-parties (:body response)])
-              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-              :context "fetch parties"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::char5e/parties [])))))
+(reg-api-sub
+ {:sub-key    ::char5e/characters
+  :route      routes/dnd-e5-char-summary-list-route
+  :db-key     ::char5e/characters
+  :set-event  ::char5e/set-characters
+  :on-401     (fn [[_ login-optional?]]
+                (when-not login-optional? (dispatch [:route-to-login])))
+  :context    "fetch characters"})
 
-(reg-sub-raw
-  :user
-  (fn [app-db [_ required?]]
-    (when (:token (:user-data @app-db)) ;; guard: skip HTTP when not logged in
-     (go (let [hdrs (auth-headers @app-db)
-              response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
-          (handle-api-response response
-            (fn [])
-            :on-401 #(do (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
-                         (when required? (dispatch [:route-to-login])))
-            :on-500 #(when required? (dispatch (show-generic-error)))
-            :context "fetch user"))))
-    (ra/make-reaction
-     (fn [] (get @app-db :user [])))))
+(reg-api-sub
+ {:sub-key    ::party5e/parties
+  :route      routes/dnd-e5-char-parties-route
+  ;; NB: db-key is ::char5e/parties (historical naming, set by
+  ;; ::party5e/set-parties event handler). Do not "fix" to ::party5e/parties
+  ;; without also updating set-parties and its callers.
+  :db-key     ::char5e/parties
+  :set-event  ::party5e/set-parties
+  :on-401     (fn [[_ login-optional?]]
+                (when-not login-optional? (dispatch [:route-to-login])))
+  :context    "fetch parties"})
+
+;; :user sub helpers — extracted as named fns so the compound on-401
+;; logic (clear login state + conditionally bounce to login) is unit-
+;; testable. See subs-test.cljs for the regression tests that pin this
+;; behavior in place across the P5 reg-api-sub migration.
+
+(defn user-sub-on-401-actions
+  "Pure: returns the sequence of dispatch vectors the :user sub's 401
+   handler would produce, given the current `:user-data` map and the
+   subscription query-v.
+
+   Always clears the login credentials (via `:set-user-data` with
+   `:user-data` and `:token` dissoced — preserves `:theme` and any
+   other non-login fields). Additionally bounces to the login route
+   when the subscription was invoked with `required?` true.
+
+   Split from the side-effecting `user-sub-on-401` so tests can
+   assert on the action sequence without stubbing dispatch."
+  [user-data-map [_ required?]]
+  (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
+    required? (conj [:route-to-login])))
+
+(defn user-sub-on-401
+  "Side-effecting: dispatches the actions produced by
+   `user-sub-on-401-actions` against the current re-frame.db/app-db."
+  [query-v]
+  (doseq [action (user-sub-on-401-actions
+                  (:user-data @re-frame.db/app-db)
+                  query-v)]
+    (dispatch action)))
+
+(defn user-sub-on-500
+  "Conditional 500 handler for the :user sub: bounces to the generic
+   error toast only when the caller flagged the request as required."
+  [[_ required?]]
+  (when required? (dispatch (show-generic-error))))
+
+(reg-api-sub
+ {:sub-key    :user
+  :route      routes/user-route
+  :db-key     :user
+  ;; No :set-event / :on-success — the :user sub is fire-and-forget
+  ;; in the current design (the response is discarded on 200). Preserved
+  ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
+  ;; dead-storage cleanup follow-up in the investigation notes for
+  ;; context on why this is intentional today.
+  :on-401     user-sub-on-401
+  :on-500     user-sub-on-500
+  :context    "fetch user"})
 
 (reg-sub
  :following-users
@@ -484,19 +568,12 @@
  (fn [parties _]
    (common/map-by-id parties)))
 
-(reg-sub-raw
-  ::folder5e/folders
-  (fn [app-db _]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::folder5e/set-folders (:body response)])
-              :context "fetch folders"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::folder5e/folders [])))))
+(reg-api-sub
+ {:sub-key    ::folder5e/folders
+  :route      routes/dnd-e5-char-folders-route
+  :db-key     ::folder5e/folders
+  :set-event  ::folder5e/set-folders
+  :context    "fetch folders"})
 
 (reg-sub
  ::folder5e/folder-map
@@ -641,6 +718,8 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
+;; A SAVED character, by id. Not interchangeable with :built-character: its
+;; ::char5e/character input fetches over HTTP for a non-nil id.
 (reg-sub-raw
  ::char5e/built-character
  (fn [_ [_ id]]
@@ -1020,21 +1099,42 @@
  (fn [spells _]
    (common/aloof-sort-by :name spells)))
 
-(reg-sub
- ::char5e/filtered-spells
- :<- [:db]
- :<- [::char5e/sorted-spells]
- (fn [[db sorted-spells] _]
-   (or (::char5e/filtered-spells db)
-       sorted-spells)))
+(defn reg-filtered-sub
+  "Register a reactively-filtered sub composing a sorted input and a
+   text-filter input.
 
-(reg-sub
- ::char5e/filtered-items
- :<- [:db]
- :<- [::char5e/sorted-items]
- (fn [[db sorted-items] _]
-   (or (::char5e/filtered-items db)
-       sorted-items)))
+   When `filter-text` is absent or shorter than `min-length`, returns
+   the sorted input unchanged. Otherwise calls `filter-fn filter-text
+   sorted` to produce the filtered slice.
+
+   This replaced a `(or (::key db) sorted)` pattern where the filter
+   event handler computed a snapshot and wrote it to db, freezing the
+   list from that point forward — breaking reactivity whenever the
+   underlying data changed (#669). The reactive composition here
+   recomputes automatically when either input changes and re-frame's
+   sub memoization keeps the per-keystroke cost low: the upstream
+   sorted-sub is cached, so only the filter step re-runs."
+  [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
+  (reg-sub sub-key
+    (fn [_ _]
+      [(subscribe sorted-sub-vec)
+       (subscribe text-filter-sub-vec)])
+    (fn [[sorted filter-text] _]
+      (if (and filter-text (>= (count filter-text) min-length))
+        (filter-fn filter-text sorted)
+        sorted))))
+
+(reg-filtered-sub ::char5e/filtered-spells
+                  [::char5e/sorted-spells]
+                  [::char5e/spell-text-filter]
+                  compute/filter-spells
+                  3)
+
+(reg-filtered-sub ::char5e/filtered-items
+                  [::char5e/sorted-items]
+                  [::char5e/item-text-filter]
+                  compute/filter-items
+                  3)
 
 (reg-sub
   ::char5e/monster-sort-criteria
@@ -1657,3 +1757,17 @@
  :<- [::char5e/char-has-faction-pic?]
  (fn [[characters name-filter level-filters class-filters has-portrait? has-faction-pic?] _]
    (char-filter/filter-characters characters name-filter level-filters class-filters has-portrait? has-faction-pic?)))
+
+(reg-sub
+ ::char5e/image-bytes
+ (fn [db _]
+   ;; URL -> {:mime :data}, or :pending / :unavailable. See the capture events for
+   ;; why these are held here and not on the character.
+   (:image-bytes db)))
+
+(reg-sub
+ ::char5e/image-server-reach
+ (fn [db _]
+   ;; URL -> :asking / :yes / :no, for pictures the browser could not read. Only
+   ;; :no means nobody can fetch it, and only then does the builder speak up.
+   (:image-server-reach db)))

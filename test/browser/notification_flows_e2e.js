@@ -14,6 +14,13 @@
 //   3. Playwright module:   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install playwright
 // Run:  node test/browser/notification_flows_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     nothing. It serves resources/public from its own throwaway origin and expects NO backend,
+//            so connection-refused (and CORS, if an e2e-server happens to be up) is benign noise
+// Runs in:   ~5s.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -84,19 +91,19 @@ const check = (name, ok, detail='') => { results.push({ok}); console.log(`${ok?'
     await d('[:orcpub.dnd.e5/import-plugin "Bad Import" "{:oops (unbalanced"]');
     await page.waitForTimeout(500);
     check('import malformed → error message', (await dbAt('[:message-shown?]')) === 'true' && (await dbAt('[:message-type]')) === ':error');
-    check('  error banner renders red (notifications/message)', /bg-red/.test(await banner() || ''));
+    check('  error banner renders red (notifications/message)', /tone-error/.test(await banner() || ''));
 
     // Import valid content — real import flow → message.
     await d('[:hide-message]'); await page.waitForTimeout(100);
     await d('[:orcpub.dnd.e5/import-plugin "Good Import" "{\\"Good Import\\" {:orcpub.dnd.e5/classes {:e2e-imp {:name \\"E2E Imp\\" :key :e2e-imp :option-pack \\"Good Import\\" :hit-die 8}}}}"]');
     await page.waitForTimeout(500);
     check('import valid → message shown', (await dbAt('[:message-shown?]')) === 'true');
-    check('  banner renders (notifications/message)', /bg-(orange|green)/.test(await banner() || ''));
+    check('  banner renders (notifications/message)', /tone-(warning|success)/.test(await banner() || ''));
 
     // Direct success message → green (third severity).
     await d('[:hide-message]'); await page.waitForTimeout(100);
     await d('[:show-message "Saved."]'); await page.waitForTimeout(200);
-    check('success message renders green', /bg-green/.test(await banner() || ''));
+    check('success message renders green', /tone-success/.test(await banner() || ''));
     await page.evaluate(() => { const el = document.querySelector('.message'); if (el) el.parentElement.click(); });
     await page.waitForTimeout(200);
     check('clicking the banner closes it', (await dbAt('[:message-shown?]')) === 'false');
