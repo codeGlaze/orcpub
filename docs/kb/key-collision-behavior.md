@@ -93,6 +93,42 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### Identity is established when the builder FETCHES the item (2026-09-19)
+
+**Corrects the section below.** `address-for` originally identified a key-less stored item by
+probing the target source for `name-to-kw` of its name. A review pulled four bugs out of that one
+decision, all of them silent:
+
+| | |
+|---|---|
+| a NEW item whose name matched an untagged entry | was handed that entry's address and overwrote it in place — no banner, no offer |
+| renaming a key-less item | minted a key from the NEW name and left the original behind holding the pre-edit data |
+| a key-less item with a twin elsewhere | refused forever: the origin recorded `(:key item)`, which is nil, so it never validated |
+| an item whose `:option-pack` went stale | a no-op edit read as a move and relocated it |
+
+The common cause: **identity was re-derived at save time, from fields on the item.** A name matches
+any entry that happens to share it. `:option-pack` is what the item *declares*, which an import
+that renamed the source leaves stale. `:key` is absent on libraries authored before keys were
+stored. All three are guesses, and the save only needs to ask once.
+
+`reg-edit-homebrew` now takes the address of the ROW My Content took the item from, and **stamps it
+onto the item** — `:key` and `:option-pack` both. Everything downstream then falls out: the form
+shows the source that really holds it, a rename cannot re-address it, the save writes back where it
+came from, and the draft carries all of it across a refresh, which `:builder-origin` alone does not
+because it is not persisted. `address-for` is left with one rule — the item's own key, or a fresh
+tagged mint — and a key-less item is now, reliably, a new one.
+
+Two smaller corrections from the same review:
+
+- **A blank Option Source Name is a missing FIELD, not an instruction to move.** "Save anyway with
+  placeholders" substituted the placeholder source and handed that to `save-destination`, which read
+  the change as a retarget and deleted the item from the library it lived in. It now falls back to
+  the source the item came from; only an item from nowhere lands in the placeholder.
+- **A move is refused when a third library also answers.** Emptying the origin does not help when
+  another source already holds the key — the result is the duplicate refused everywhere else.
+
+Pinned by six regression tests, each verified by removing its fix and watching exactly it fail.
+
 ### A stored item may have no `:key` (2026-09-18)
 
 `:key` is OPTIONAL on a stored item — libraries authored before keys were stored do not carry one,

@@ -14,6 +14,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.selections :as selections5e]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.common :as common]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
@@ -52,9 +53,11 @@
              (rf/reg-fx :dispatch   (fn [ev] (rf/dispatch ev))))})
 
 (defn- open!
-  "Put `item` in the builder, the way every path into the form does."
+  "Put a NEW `item` in the builder -- what the New button does. It clears `:builder-origin`,
+   because every real path into the form either records where the item came from or says there
+   is nowhere; a stale record from a previous save is not a state the app can reach."
   [item]
-  (swap! app-db assoc ::langs5e/builder-item item))
+  (swap! app-db #(-> % (assoc ::langs5e/builder-item item) (dissoc :builder-origin))))
 
 (defn- dispatch! 
   "Dispatch `event` and run everything it queues, synchronously."
@@ -362,7 +365,9 @@
   "Open a stored item the way My Content's edit button does, so the builder records where it came
    from."
   [source k]
-  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct k])]))
+  ;; My Content passes the ROW's address alongside the item -- the source holding it and the key
+  ;; it answers to -- because neither is reliably on the item itself.
+  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct k]) source k]))
 
 (defn- retarget! [source]
   (swap! app-db assoc-in [::langs5e/builder-item :option-pack] source))
@@ -678,7 +683,8 @@
   (swap! app-db assoc ::selections5e/builder-item (selection "Fighting Style" SRC))
   (dispatch! [::selections5e/save-selection])
   (dispatch! [::selections5e/edit-selection
-              (get-in @app-db [:plugins SRC sct (k "Fighting Style")])])
+              (get-in @app-db [:plugins SRC sct (k "Fighting Style")])
+              SRC (k "Fighting Style")])
   (swap! app-db assoc-in [::selections5e/builder-item :option-pack] OTHER)
   (dispatch! [::selections5e/save-selection])
   (is (nil? (get-in @app-db [:plugins SRC sct (k "Fighting Style")])) "no copy left behind")
@@ -708,7 +714,7 @@
 (deftest an-old-item-keeps-the-address-it-is-already-stored-under
   (is (not= old-key (k "Tideward")) "the minted key today is tagged; the stored one is not")
   (with-legacy-item!)
-  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (open-from-library! SRC old-key)
   (swap! app-db assoc-in [::langs5e/builder-item :description] "edited")
   (save!)
   (is (= #{old-key} (set (keys (stored)))) "one entry, at the address it already had")
@@ -718,7 +724,7 @@
   ;; The first fix for this landed the item; the second save then read as a NEW item minting a key
   ;; something already holds, and was refused.
   (with-legacy-item!)
-  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (open-from-library! SRC old-key)
   (save!)
   (save!)
   (is (= #{old-key} (set (keys (stored)))))
@@ -726,7 +732,7 @@
 
 (deftest save-anyway-also-keeps-an-old-address
   (with-legacy-item!)
-  (open! (get-in @app-db [:plugins SRC ct old-key]))
+  (open-from-library! SRC old-key)
   (dispatch! [::langs5e/save-language-anyway])
   (is (= #{old-key} (set (keys (stored)))) "placeholders do not re-address it either"))
 
@@ -735,7 +741,8 @@
     (swap! app-db assoc :plugins
            {SRC {sct {old {:name "Fighting Style" :option-pack SRC
                            :options [{:name "Archery"}]}}}})
-    (swap! app-db assoc ::selections5e/builder-item (get-in @app-db [:plugins SRC sct old]))
+    (dispatch! [::selections5e/edit-selection
+                (get-in @app-db [:plugins SRC sct old]) SRC old])
     (dispatch! [::selections5e/save-selection])
     (is (= #{old} (set (keys (get-in @app-db [:plugins SRC sct]))))
         "one entry, at the address it already had")))
@@ -769,3 +776,94 @@
     (change-key! junk)
     (is (= #{(k "Tideward")} (set (keys (stored)))) (str "refused: " (pr-str junk)))
     (is (= (k "Tideward") (:key (in-builder))))))
+
+;; ---------------------------------------------------------------------------
+;; The negative controls that were missing (review, 2026-09-19)
+;; ---------------------------------------------------------------------------
+
+(deftest a-new-item-does-not-capture-an-untagged-entry-of-the-same-name
+  ;; The one that was never written. `a-new-item-may-not-take-a-key-another-item-in-this-source-
+  ;; holds` files the tenant under the TAGGED key, which an untagged address never matches, so it
+  ;; passed without exercising this at all.
+  ;;
+  ;; Untagged entries are ordinary: imported content keeps the keys it arrived with, and stripping
+  ;; the tag is how an author asks to override an SRD item. Identifying a keyless item by NAME
+  ;; handed this new item that entry's address, and the save then overwrote it in place -- no
+  ;; banner, no Replace offer, an item the author never opened.
+  (with-legacy-item!)
+  (open! (assoc (draft "Tideward") :description "a different language, same name"))
+  (save!)
+  (is (nil? (get-in (stored) [old-key :description])) "the entry already there is untouched")
+  (is (= "a different language, same name" (get-in (stored) [(k "Tideward") :description]))
+      "and the new one minted its own tagged key beside it")
+  (is (= #{old-key (k "Tideward")} (set (keys (stored)))) "both survive")
+  (is (empty? (:builder-field-errors @app-db)) "with nothing flagged — they do not collide"))
+
+(deftest save-anyway-with-a-blank-source-does-not-move-the-item-out-of-its-library
+  ;; A blank Option Source Name is the field the banner is complaining about. Substituting the
+  ;; placeholder source and handing THAT to the destination read as a retarget: the item was
+  ;; deleted from the library it lived in and relocated to "Default Option Source", with the
+  ;; banner mentioning only where it landed.
+  (open! (draft "Tideward"))
+  (save!)
+  (open-from-library! SRC (k "Tideward"))
+  (swap! app-db assoc-in [::langs5e/builder-item :option-pack] "")
+  (dispatch! [::langs5e/save-language-anyway])
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "still in the source it came from")
+  (is (nil? (get-in @app-db [:plugins orcbrew-val/default-option-source ct (k "Tideward")]))
+      "and did not land in the placeholder source"))
+
+(deftest a-keyless-item-with-a-twin-elsewhere-can-still-be-saved
+  ;; It could not be. `reg-edit-homebrew` recorded `(:key item)`, which is nil for a library
+  ;; authored before keys were stored, so the record never validated; two holders then meant
+  ;; :ambiguous, and the banner said to reopen it from My Content -- which recorded nil again.
+  ;; The key control refuses an item with no key, so there was no way out at all.
+  (with-legacy-item!)
+  (swap! app-db assoc-in [:plugins OTHER ct old-key]
+         {:name "Somebody Else's" :option-pack OTHER})
+  (open-from-library! SRC old-key)
+  (swap! app-db assoc-in [::langs5e/builder-item :description] "edited")
+  (save!)
+  (is (= "edited" (get-in (stored) [old-key :description])) "the edit landed")
+  (is (= "Somebody Else's" (get-in @app-db [:plugins OTHER ct old-key :name]))
+      "and the twin is untouched"))
+
+(deftest a-stale-option-pack-does-not-relocate-the-item
+  ;; An import where the author renamed the source at the modal files the content under the name
+  ;; they chose WITHOUT rewriting each item's :option-pack, so the item still declares the name it
+  ;; arrived with. Reading the origin off that field made a no-op edit-and-save look like a move,
+  ;; and the item was relocated out of the source the author had named.
+  (swap! app-db assoc :plugins
+         {SRC {ct {(k "Tideward") {:key (k "Tideward") :name "Tideward"
+                                   :option-pack "Name It Declared"}}}})
+  (open-from-library! SRC (k "Tideward"))
+  (save!)
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "still in the source that holds it")
+  (is (nil? (get-in @app-db [:plugins "Name It Declared" ct (k "Tideward")]))
+      "and no source was conjured from the stale declaration"))
+
+(deftest a-rename-does-not-fork-a-keyless-item
+  ;; Identifying the item by its NAME meant renaming one re-addressed it: a new entry was minted
+  ;; from the new name and the original was left behind holding the pre-edit data, with no
+  ;; :former-keys to heal it -- exactly the GOTCHA address-for exists to prevent.
+  (with-legacy-item!)
+  (open-from-library! SRC old-key)
+  (set-name! "Seawall")
+  (save!)
+  (is (= #{old-key} (set (keys (stored)))) "one entry, at the address it already had")
+  (is (= "Seawall" (get-in (stored) [old-key :name])) "carrying the new name"))
+
+(deftest a-move-is-refused-when-a-third-library-also-answers
+  ;; Emptying the origin does not help when another source already holds the key: the save would
+  ;; still leave two entries at one address, which is the state refused everywhere else.
+  (open! (draft "Tideward"))
+  (save!)
+  (swap! app-db assoc-in [:plugins "Third Pak" ct (k "Tideward")]
+         {:key (k "Tideward") :name "Somebody Else's" :option-pack "Third Pak"})
+  (open-from-library! SRC (k "Tideward"))
+  (retarget! OTHER)
+  (save!)
+  (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "it stayed where it was")
+  (is (nil? (get-in @app-db [:plugins OTHER ct (k "Tideward")])) "and did not arrive")
+  (is (= :invalid (:name (:builder-field-errors @app-db))) "with the reason on the form"))
+

@@ -1,4 +1,42 @@
-# Handoff — three branches waiting on `integration` (2026-09-14)
+# Handoff — branches for `integration` (2026-09-14, outcome recorded 2026-09-18)
+
+## Outcome
+
+Two of the three merged into `integration` at `1bb3eb28` after an independent review pass:
+`fix/get-auth-token-undeclared` and `feat/source-tagged-keys`.
+
+**`fix/duplicate-key-traps-its-owner` is NOT fit to merge.** Its change made `self?` mean "the item
+has a key" rather than "the item is in its own slot" — and since the save derives
+`key (or (:key item) …)`, that is always true for a saved item, so the `:overwrite` guard went dead
+for all of them. Retarget an item's Option Source Name to a library that already answers to its key
+and the item sitting there is silently destroyed, with no prompt and no undo. The old code blocked
+that by accident, via the `:cross` branch.
+
+The trap it was written for is real: with the same key in two sources, neither copy can be edited,
+and minting-once means renaming is no longer a way out. Fixing it properly needs the builder to
+record which `[source key]` the item was LOADED from — name is not a discriminator (a rename
+changes it) and key is not either (both items have the same one). That is a design change, not a
+patch. The branch is left pushed for its repro test; do not merge it as it stands.
+
+Review also found and fixed, in `feat/source-tagged-keys` before merging:
+
+- **a stored item with no `:key`** — older libraries do not carry one and the read path derives it
+  from the name. Minting a tagged key for such an item wrote a SECOND entry and left the original
+  holding the pre-edit data, with no `:former-keys` to heal it. Now an address that is already
+  answering is kept.
+- **a typed key was accepted blank or junk** — `name-to-kw` never returns nil for a string, so `""`
+  became `:unnamed-<hash>` and `"@@@"` became `:-`, which is a keyword trap the import pipeline
+  quarantines. The one place in the app that sets a key by hand now checks the same invariant.
+
+**Fixes made on a cut branch have to come back.** The key-less-stored-item fix below was made on
+`feat/source-tagged-keys` during review and never landed on `feature/grant-rows`, which carried the
+bug for five days — and it then blocked the port of the save-gate work, because a naive
+"take mine" would have deleted it from integration. Check both directions before porting.
+
+Still open, recorded but not fixed: other key-minting paths ignore a source's `:abbreviation`
+(`relocate-content`, import conflict resolution), `coerce-invalid-names` re-derives untagged keys
+for every item in a repaired source, and an import conflict "rename" can now be a no-op because the
+suggested key equals the one already minted.
 
 For the agent merging and testing them. All three are cut from `integration` at `18c28652`, all
 three were built and gated in a worktree of that commit, not on `feature/grant-rows`.
