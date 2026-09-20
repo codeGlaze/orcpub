@@ -121,12 +121,20 @@ the forgot-password lede and the monster sort bar — all accidental bold making
 ordinary text insist on itself. Logged-out pages, so the true count is higher,
 but the ratio holds.
 
-### Still open, and not blocking
+### The three that were open, now settled
 
-- **The heading's alignment** — centred as now, or left against the form's edge.
-- **The breach threshold** on `feature/password-rules` — refuses on ANY corpus
-  hit, which is a default rather than a decision.
-- **The registration throttle notice copy**, which has had no review.
+- **The heading is centred**, as built. No change.
+- **The breach threshold is 1000 appearances.** It refused on ANY corpus hit,
+  which was never the design: the design was local rules blocking the
+  low-effort, the meter dissuading from common shapes, and the corpus refusing
+  only the egregious. `pwned/check` already returned the count and both call
+  sites flattened it to a boolean, so the mechanism was built and nothing read
+  it. `password-!` measured 297 and now passes; it is the meter's to argue with.
+- **The registration throttle copy is reviewed** and stands as written.
+
+Still genuinely unbuilt, and the reason the sub-threshold case says nothing at
+submit: the **browser-side corpus lookup**, which is where a password between 1
+and 999 appearances is supposed to be questioned, while it can still be changed.
 
 ### The design record
 

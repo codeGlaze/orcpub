@@ -399,12 +399,31 @@
   [_n]
   "Too common. A few words strung together are harder to guess and easier to remember.")
 
+(def ^:private breach-refusal-threshold
+  "How many appearances in the corpus make a password common enough to refuse.
+
+   The corpus measures commonness, not danger to the person in front of us. A
+   password appearing once leaked in somebody else's dump years ago; one
+   appearing four figures of times ships inside every cracking wordlist there
+   is. Refusing on ANY appearance -- which this did until now -- reads a
+   commonness measure as a veto and turns away passwords nobody is realistically
+   guessing, on a site whose worst loss is a character sheet.
+
+   Below this line the corpus has an opinion rather than a verdict, and voicing
+   it is the strength meter's job: it says the same thing while someone is still
+   typing, where it can still be acted on. Refusing at submit is the last resort
+   and is kept for the egregious."
+  1000)
+
 (defn- breach-errors
-  "A validation map for a breached password, or nil. Only a positive answer
-   counts: an unreachable service must read as no objection, never as a block."
+  "A validation map for an egregiously common password, or nil.
+
+   Only a positive answer counts, and only one at or above the threshold: an
+   unreachable service must read as no objection, and nor must a handful of
+   appearances."
   [password]
   (let [result (pwned/check password)]
-    (when (and (number? result) (pos? result))
+    (when (and (number? result) (>= result breach-refusal-threshold))
       {:password [(breach-message result)]})))
 
 (def ^:private registration-throttled-message
