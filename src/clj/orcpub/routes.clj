@@ -75,7 +75,17 @@
   (environ/env :signature))
 
 (when-not jwt-secret
-  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+  (println (str "WARNING: " config/signature-missing-message)))
+
+(defn- signature-or-throw
+  "The JWT secret, or an error that says how to fix it.
+
+   The token-minting paths used to read the env var straight into jwt/sign, which fails deep
+   inside the library with nothing an operator can act on. check-auth already answered a
+   clear 500; these did not."
+  []
+  (or jwt-secret
+      (throw (ex-info config/signature-missing-message {:error :signature-not-set}))))
 
 (def backend (backends/jws {:secret jwt-secret}))
 
@@ -156,8 +166,10 @@
    {:name :check-auth
     :enter (fn [context]
              (if-not jwt-secret
+               ;; The full remedy, not just the symptom: whoever sees this 500 in a log is
+               ;; the person who can fix it.
                (terminate-request context 500
-                                  "Server misconfigured: SIGNATURE env var not set")
+                                  (str "Server misconfigured. " config/signature-missing-message))
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
@@ -235,7 +247,7 @@
 (defn create-token [username exp]
   (jwt/sign {:user username
              :exp exp}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn following-usernames [db ids]
   (map :orcpub.user/username
@@ -462,7 +474,7 @@
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
   (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -473,7 +485,7 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token (signature-or-throw))]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
             (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
@@ -649,12 +661,6 @@
                        n kind limit)))
     (take limit cards)))
 
-(def ^:private max-portrait-png-bytes
-  "Ceiling on a posted composed portrait. The client bakes a 600x750 PNG of
-   flat-tinted shapes, which lands well under 200 KB; 2 MB is generous
-   headroom that still refuses a request body pretending to be a picture."
-  (* 2 1024 1024))
-
 (defn pdf-safe-text
   "PDFBox's standard-14 fonts are WinAnsi: a name with a character outside it
    throws on showText and would take the whole sheet down. Drop what cannot be
@@ -690,28 +696,6 @@
         (.setKeywords info c)))
     (catch Exception e
       (println "pdf: could not stamp document info -" (.getMessage e)))))
-
-(defn decode-portrait-png
-  "Decode a base64 PNG posted with the export into {:data bytes :jpg? false},
-   or nil.
-
-   A composed portrait has no URL to fetch -- the client rasterizes its layers
-   and sends the bytes -- so this is the counterpart to pdf/fetch-image for
-   that path. Returns nil rather than throwing for the same reason fetch-image
-   does: a picture that will not decode must not cost the character their
-   sheet."
-  [b64]
-  (try
-    (when (and (string? b64) (not (s/blank? b64)))
-      ;; Base64 is 4 chars per 3 bytes, so the encoded length bounds the decode
-      ;; before any of it is allocated.
-      (when (<= (long (* 0.75 (count b64))) max-portrait-png-bytes)
-        (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
-          (when (pos? (alength data))
-            {:data data :jpg? false}))))
-    (catch Exception e
-      (println "pdf: composed portrait failed to decode -" (.getMessage e))
-      nil)))
 
 (defn add-spell-cards!
   "Appends spell card pages, nine to a sheet, each with its back.
@@ -810,7 +794,8 @@
   "Keys the client sends alongside the field values to steer the export. They name
    no field, so they are removed before write-fields!, which reports whatever it
    cannot place and would otherwise flag every one of these on every request."
-  #{:image-url :image-url-failed :faction-image-url :faction-image-url-failed
+  #{:image-url :image-url-failed :image-data
+    :faction-image-url :faction-image-url-failed :faction-image-data
     :spells-known :custom-spells :spell-save-dcs :spell-attack-mods
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
@@ -818,6 +803,75 @@
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
     :flatten?})
+
+(def ^:private image-url-shape
+  "Cheap shape check before any lookup: refuses file:// and ftp:// without
+   touching DNS. pdf/safe-image-bytes does the real address validation."
+  #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]")
+
+(defn- well-formed-image-url? [url]
+  (boolean (and (string? url) (re-matches image-url-shape url))))
+
+(def ^:private probe-ttl-ms
+  "How long a probe's answer stands. Long enough that the export following a
+   probe reuses it, short enough that a host having a bad minute is not written
+   off for the afternoon."
+  (* 10 60 1000))
+
+(def ^:private probe-max-entries
+  "Entries kept. These hold image bytes and the endpoint that fills them needs no
+   login, so the cache is bounded in count as well as in age: 64 x 128 KB."
+  64)
+
+(def ^:private probed-images
+  "url -> {:at ms :image {:data :jpg?} or nil}.
+
+   A nil :image is an answer too, and worth keeping: a host that would not serve
+   this server a moment ago will not serve the export either, and remembering it
+   is what stops the export repeating the fetch."
+  (atom {}))
+
+(defn- prune-probes [m now]
+  (let [fresh (into {} (remove (fn [[_ v]] (> (- now (:at v)) probe-ttl-ms)) m))]
+    (if (<= (count fresh) probe-max-entries)
+      fresh
+      (into {} (take-last probe-max-entries (sort-by (comp :at val) fresh))))))
+
+(defn- probed-outcome
+  "Fetches `url` once and remembers the outcome -- the picture, or why not -- so a
+   probe and the export that follows it cost the host one request rather than two."
+  [url]
+  (let [now (System/currentTimeMillis)]
+    (if-let [hit (get @probed-images url)]
+      (:outcome hit)
+      (let [outcome (pdf/fetch-image-outcome url)]
+        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
+        outcome))))
+
+(defn image-probe
+  "Whether this server can fetch the picture at the posted URL.
+
+   The builder asks before exporting, for a picture the BROWSER was not allowed to
+   read, so it can say something useful rather than print a sheet with a hole in
+   it. The bytes are kept for the export that follows, so asking costs the host
+   nothing extra.
+
+   Answers a boolean and never the picture: this endpoint needs no login, and
+   handing back fetched bytes would make it a general-purpose proxy for anything
+   inside the size limits."
+  [{:keys [transit-params]}]
+  (let [url (:url transit-params)
+        reason (if-not (well-formed-image-url? url)
+                 :blocked-address
+                 (let [{:keys [image reason]} (probed-outcome url)]
+                   (if image :ok (or reason :unknown))))]
+    ;; The HOST only, never the URL: an image address can carry a signed query
+    ;; string. This is how the genuinely unreachable set gets measured rather than
+    ;; guessed at.
+    (when (and (not= :ok reason) (well-formed-image-url? url))
+      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)
+               "-" (name reason)))
+    {:status 200 :body (name reason)}))
 
 (def ^:private export-slots
   "Permits for sheet generation, one per concurrent export.
@@ -987,7 +1041,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1102,7 +1156,8 @@
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))
 
-      ;; Both images are fetched BEFORE either is drawn, and concurrently.
+      ;; Both images are resolved BEFORE either is drawn, and any that has to be
+      ;; fetched is fetched concurrently with the other.
       ;;
       ;; Fetching is where an export's seconds go -- 10s to connect, 10s on the
       ;; socket and a 20s transfer deadline apiece -- and it happens holding an
@@ -1116,22 +1171,31 @@
       ;; The regex stays -- it costs nothing and refuses file:// and ftp://
       ;; without a lookup at all.
       (let [wanted (fn [url failed?]
-                     (and url (not failed?)
-                          (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
-                                      url)
-                          url))
-            ;; A composed (paper-doll) portrait arrives already rendered, as
-            ;; base64 PNG the client baked from its layers -- there is no URL to
-            ;; fetch, so it costs no network time inside the export slot. It
-            ;; takes precedence over image-url, matching how the character sheet
-            ;; and summary resolve the two. Malformed base64 degrades to "no
-            ;; portrait" rather than failing the export.
-            composed (when portrait-png (delay (decode-portrait-png portrait-png)))
-            portrait (or composed
-                         (some-> (wanted image-url image-url-failed)
-                                 (as-> u (future (pdf/fetch-image u)))))
-            faction (some-> (wanted faction-image-url faction-image-url-failed)
-                            (as-> u (future (pdf/fetch-image u))))]
+                     (and url (not failed?) (well-formed-image-url? url) url))
+            ;; Bytes the browser read beat the URL and skip the fetch entirely.
+            ;; Both arms deref, so nothing below has to know which it got.
+            image (fn [supplied url failed?]
+                    (if-let [bytes (pdf/decode-image-bytes supplied)]
+                      (delay bytes)
+                      ;; probed-outcome, not fetch-image: the builder usually
+                      ;; asked about this URL a moment ago, and that answer is
+                      ;; cached.
+                      (some-> (wanted url failed?)
+                              (as-> u (future (:image (probed-outcome u)))))))
+            ;; A composed (paper-doll) portrait has no URL that could produce
+            ;; it -- the client bakes its CSS-mask layers -- and it arrives
+            ;; larger than an uploaded picture may be, so it goes through
+            ;; decode-artwork-bytes, which fits it instead of refusing it.
+            ;;
+            ;; Decoded eagerly rather than in a delay: it is local CPU with no
+            ;; network in it, and a delay that derefs to nil would be truthy
+            ;; here, so a portrait that failed to decode would suppress the
+            ;; pasted image-url that should have taken over.
+            composed (pdf/decode-artwork-bytes portrait-png)
+            portrait (if composed
+                       (delay composed)
+                       (image image-data image-url image-url-failed))
+            faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
@@ -2027,6 +2091,8 @@
         {:post `login}]
        [(route-map/path-for route-map/character-pdf-route)
         {:post `character-pdf-2}]
+       [(route-map/path-for route-map/image-probe-route)
+        {:post `image-probe}]
        [(route-map/path-for route-map/verify-route)
         {:get `verify}]
        [(route-map/path-for route-map/re-verify-route)
