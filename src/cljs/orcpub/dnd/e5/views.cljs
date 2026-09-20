@@ -728,19 +728,20 @@
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
-      (registration-page
-       [:div.flex.justify-cont-s-b.t-a-c.flex-column
-        [:div.p-20
-         [:div.f-w-b.f-s-24.p-b-10
-          "Your key has expired."]
-         [:div "You must verify your email within 24 hours of registering. Send another verification email by submitting you address here:"]
+      (auth-page
+       "Your key has expired"
+       (str "You must verify your email within 24 hours of registering. "
+            "Send another verification email by submitting your address here.")
+       [:div
+        [:div.m-t-10.auth-form
          [base-input
           {:name :email
            :value (:email @params)
            :type :email
            :title "Email address"
-           :on-change (partial set-value params :email)}]
-         [:button.form-button.form-submit-btn.m-l-20.m-t-10
+           :on-change (partial set-value params :email)}]]
+        [:div.m-t-10.auth-tail
+         [:button.form-button.form-submit-btn
           {:on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
@@ -753,13 +754,12 @@
     (fn [error-message]
       (let [email (:email @params)
             bad-email? (registration/bad-email? email)]
-        (registration-page
-         [:div.flex.justify-cont-s-b.w-100-p.t-a-c.flex-column
-          [:div.p-t-10
+        (auth-page
+         "Reset your password"
+         "Submit your email address and we will send you a link to reset your password."
+         [:div
+          [:div.m-t-10.auth-form
            (when error-message [:div.red.m-b-20 error-message])
-           [:div.f-w-b.f-s-24.p-b-10
-            "Send Password Reset Email"]
-           [:div.m-b-10 "Submit your email address here and we will send you a link to reset your password."]
            [form-input
             {:title "Email"
              :key :email
@@ -775,7 +775,9 @@
                :error
                @(subscribe [:login-message])
                hide-login-message]])
-           [:button.form-button.form-submit-btn.m-t-10
+           ]
+          [:div.m-t-10.auth-tail
+           [:button.form-button.form-submit-btn
             {:class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
@@ -815,12 +817,11 @@
             different? (not= password verify-password)
             invalid? (or (seq password-messages)
                          different?)]
-        (registration-page
-         [:div.flex.justify-cont-s-b.t-a-c.flex-column
-          [:div.p-20
-           [:div.f-w-b.f-s-24.p-b-10
-            "Reset Password"]
-           [:div "Create a new password."]
+        (auth-page
+         "Choose a new password"
+         "This replaces the password on your account."
+         [:div
+          [:div.m-t-10.auth-form
            [form-input {:title "Password"
                         :key :password
                         :value password
@@ -838,7 +839,9 @@
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
-           [:button.form-button.form-submit-btn.m-l-20.m-t-10
+           ]
+          [:div.m-t-10.auth-tail
+           [:button.form-button.form-submit-btn
             {:class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
              :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
             "SUBMIT"]]])))))
