@@ -661,12 +661,6 @@
    :border "1px solid white"
    :color text-color})
 
-(def registration-page-style
-  {:background-image "url(/image/login-side.jpg)"
-   :background-clip :content-box
-   :width "350px"
-   :min-height "600px"})
-
 (def registration-left-column-style
   {:flex-direction :column
    :width "435px"})
@@ -679,7 +673,11 @@
 (defn route-to-default-page []
   (dispatch [:route :default]))
 
-(defn registration-page [content]
+(defn registration-page
+  "The shell every auth page renders through. `legal-links?` false suppresses the
+   footer's two links for a page that already carries them in its own consent copy."
+  ([content] (registration-page content true))
+  ([content legal-links?]
   [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
@@ -693,9 +691,8 @@
           :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
-       [views-2/legal-footer]]
-      [:div.registration-image
-       {:style registration-page-style}]]]]])
+       [views-2/legal-footer legal-links?]]
+      [:div.registration-image]]]]]))
 
 (defn auth-page
   "The auth shell with its heading. registration-page has always been shared --
@@ -705,14 +702,16 @@
 
    `lede` is the line under the rule and is optional; pages that are a single
    statement do not want one."
-  ([heading content] (auth-page heading nil content))
-  ([heading lede content]
+  ([heading content] (auth-page heading nil content nil))
+  ([heading lede content] (auth-page heading lede content nil))
+  ([heading lede content {:keys [legal-links?] :or {legal-links? true}}]
    (registration-page
     [:div
      [:h1.auth-heading.m-t-20 heading]
      [:div.auth-rule]
      (when lede [:div.auth-lede lede])
-     content])))
+     content]
+    legal-links?)))
 
 (def make-event-handler
   (memoize
@@ -781,7 +780,13 @@
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
            [:div.m-t-20
-            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
+            ;; The link text is the whole phrase, not the one word "whitelist" in
+            ;; the middle of it: a single word is a small target, and it is what a
+            ;; screen reader announces on its own, where it names no destination.
+            [:span "Didn't receive the reset email? Check your spam folder, or "]
+            [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+             "read how to let our email through"]
+            [:span ", then try again."]]
            ]])))))
 
 (defn password-reset-expired-page []
@@ -1090,12 +1095,15 @@
         [:div.m-t-20
          [:span "Already have an account?"]
          (login-link)]]]
+      ;; This page links both documents in its consent line, so the shell's
+      ;; footer keeps the copyright and drops its copies of the same two links.
       [:div.auth-fineprint
        "By joining you agree to our "
        [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
        " and confirm you have read our "
        [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-       "."]])))
+       "."]]
+     {:legal-links? false})))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
@@ -1145,7 +1153,10 @@
               "RESET PASSWORD"]]
             
             [:div.m-t-20
-             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
+             [:span "Didn't receive the validation email? Check your spam folder, or "]
+             [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+              "read how to let our email through"]
+             [:span "."]]]]])))))
 
 (def loading-style
   {:position :fixed

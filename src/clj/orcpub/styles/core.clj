@@ -668,6 +668,22 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+
+   ;; The gryphon panel beside the auth form. It had no background-repeat and no
+   ;; background-size, so the moment the form column grew taller than the image's
+   ;; own height the browser did what it is told to do by default and TILED it --
+   ;; a second gryphon appearing below the first, half cropped. The register form
+   ;; is the tallest of the nine pages and grew taller again with the confirm
+   ;; fields, so this is where it showed. cover keeps one copy filling the panel
+   ;; whatever the form's height turns out to be.
+   [:.registration-image
+    {:background-image "url(/image/login-side.jpg)"
+     :background-repeat :no-repeat
+     :background-size :cover
+     :background-position "center"
+     :background-clip :content-box
+     :width "350px"
+     :min-height "600px"}]
    ;; The auth card is white whatever theme the app is in, so anything inside it
    ;; needs the light-ground colours. .red otherwise resolves to red-on-dark,
    ;; which is a red chosen to carry on near-black and washes out to pink here
@@ -802,13 +818,20 @@
                     :font-weight "700"
                     :letter-spacing "0.12em"
                     :margin-top "4px"}]
+    ;; text-wrap balance on both: centred text in a 435px column breaks with a
+    ;; single orphaned word on the second line ("off." under the lede, "read our
+    ;; Privacy Policy." under the consent line), which reads as a mistake rather
+    ;; than a line break. Browsers without it fall back to the ragged wrap, which
+    ;; is what this looked like before.
     [:.auth-fineprint {:margin-top "16px"
                        :font-size "12.5px"
                        :color muted-on-light
                        :text-align :center
+                       :text-wrap :balance
                        :padding "0 16px"}]
     [:.auth-lede {:margin "0 0 22px"
                   :text-align :center
+                  :text-wrap :balance
                   :color text-color-light
                   :font-size "14.5px"}]
 
