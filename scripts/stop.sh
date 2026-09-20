@@ -40,7 +40,7 @@ show_status() {
         # Quiet mode: just exit codes
         local running=0
         for port in "$DATOMIC_PORT" "$SERVER_PORT" "$NREPL_PORT"; do
-            port_in_use "$port" && ((running++))
+            port_in_use "$port" && running=$((running + 1))
         done
         echo "$running"
         return

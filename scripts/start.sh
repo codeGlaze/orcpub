@@ -174,7 +174,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     echo -n "Leiningen: "
@@ -182,7 +182,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     # Target-specific checks
@@ -193,7 +193,7 @@ run_checks() {
                 echo -e "${GREEN}OK${NC}"
             else
                 echo -e "${RED}FAILED${NC}"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic config: "
@@ -209,7 +209,7 @@ run_checks() {
                 fi
             else
                 echo -e "${RED}FAILED${NC} (no config or template)"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic port ($DATOMIC_PORT): "
@@ -264,6 +264,9 @@ run_checks() {
             fi
             ;;
     esac
+
+    echo ""
+    print_env_config
 
     echo ""
     if [[ $failed -gt 0 ]]; then
@@ -438,6 +441,8 @@ start_figwheel() {
     # Clean up stale PID file
     cleanup_stale_pid "figwheel"
 
+    confirm_dev_mode || exit $EXIT_SUCCESS
+
     # ── Remote dev environment detection ──────────────────────────────
     # Figwheel's default connect URL (ws://localhost:PORT) only works when
     # the browser is on the same machine. In remote environments (Codespaces,
@@ -525,7 +530,7 @@ start_garden() {
             show_startup_failure "garden" "$LOG_DIR/garden.log" ""
             exit $EXIT_RUNTIME
         fi
-        ((checks++))
+        checks=$((checks + 1))
     done
     log_info "Garden is running"
 }
@@ -763,9 +768,8 @@ main() {
 
     target="${positional[0]:-all}"
 
-    # Surface configuration once, before any target runs. Every path through
-    # this script benefits: ports matter to all of them, CSP to the server.
-    report_env_config
+    # A prompt is read; a banner is not. Only the first-run offer goes here.
+    offer_env_file
 
     # Handle install flag (no prereq checks needed)
     if [[ "$do_install" == "true" ]]; then

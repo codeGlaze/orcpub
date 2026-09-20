@@ -31,72 +31,164 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
-# Show the configuration this run will actually use, and where it came from.
+# Configuration reporting and the DEV_MODE decision.
 #
-# A launcher is the one moment the operator is present and paying attention, so
-# it is the right place to surface configuration rather than let it be
-# discovered through a symptom. Two settings in particular fail silently:
-# CSP_POLICY/DEV_MODE (blocks Figwheel's websocket with no visible cause) and
-# the ports (a busy port used to be reported as free on Windows).
+# Deliberately NOT printed at the top of every run. Output at the start of a
+# script scrolls past before the REPL takes the terminal, and nobody reads it.
+# Attention exists in two places only: at a prompt, and in a command whose
+# output IS the product. So:
 #
-# Respects QUIET via log_info/log_warn. Never blocks a non-interactive run.
-report_env_config() {
-    local env_file="$REPO_ROOT/.env"
-    local example="$REPO_ROOT/.env.example"
+#   print_env_config   -> called from run_checks (--check), where it is the point
+#   offer_env_file     -> a prompt, which is a genuine pause
+#   confirm_dev_mode   -> a decision, raised at figwheel start where it bites
 
-    if [[ -f "$env_file" ]]; then
-        log_info "Config: .env  (edit it to change any of the below)"
+# The settings that fail silently: ports (a busy one used to read as free on
+# Windows) and CSP/DEV_MODE (blocks Figwheel's socket with no visible cause).
+print_env_config() {
+    if [[ -f "$REPO_ROOT/.env" ]]; then
+        echo -e "Config:      ${GREEN}.env${NC}  (edit it to change any of the below)"
     else
-        log_info "Config: built-in defaults — no .env  (see .env.example)"
+        echo -e "Config:      ${YELLOW}built-in defaults${NC}  (no .env — see .env.example)"
     fi
-
-    log_info "  ports    server=$SERVER_PORT datomic=$DATOMIC_PORT figwheel=$FIGWHEEL_PORT nrepl=$NREPL_PORT"
+    echo "  ports      server=$SERVER_PORT datomic=$DATOMIC_PORT figwheel=$FIGWHEEL_PORT nrepl=$NREPL_PORT"
 
     local policy="${CSP_POLICY:-strict}"
-    local dev="${DEV_MODE:-}"
-    local dev_on=false
-    case "$(printf '%s' "$dev" | tr '[:upper:]' '[:lower:]')" in true) dev_on=true ;; esac
-
-    if [[ "$policy" != "strict" || "$dev_on" == "true" ]]; then
-        log_info "  csp      policy=$policy DEV_MODE=${dev:-<unset>}"
-    elif [[ -n "$dev" ]]; then
-        # Explicitly set to something other than true: a decision, not an
-        # accident. State the consequence once, without the lecture.
-        log_info "  csp      strict, ENFORCING (DEV_MODE=$dev) — Figwheel hot reload will be blocked"
+    local dev="${DEV_MODE:-<unset>}"
+    if dev_mode_blocks_figwheel; then
+        echo -e "  csp        ${YELLOW}$policy, ENFORCING${NC} (DEV_MODE=$dev) — Figwheel hot reload blocked"
     else
-        # Unset: nobody chose this, and the symptom is a dead hot-reload socket
-        # with no visible cause. This is the case worth interrupting for.
-        log_warn "  csp      strict and ENFORCING (DEV_MODE unset, which means false)"
-        log_warn "           ws://localhost:$FIGWHEEL_PORT is not in connect-src, so Figwheel"
-        log_warn "           hot reload will be blocked. Set DEV_MODE=true in .env to develop."
+        echo "  csp        policy=$policy DEV_MODE=$dev"
+    fi
+}
+
+# True when the server will send an enforcing CSP whose connect-src omits the
+# Figwheel websocket. Matches the server's own comparison: case-insensitive,
+# exactly "true".
+dev_mode_blocks_figwheel() {
+    local policy="${CSP_POLICY:-strict}"
+    [[ "$policy" == "strict" ]] || return 1
+    case "$(printf '%s' "${DEV_MODE:-}" | tr '[:upper:]' '[:lower:]')" in
+        true) return 1 ;;
+        *)    return 0 ;;
+    esac
+}
+
+# Generate a random secret. Hex only, so it is safe to substitute into a file
+# without quoting concerns. Empty string if no source is available.
+random_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 24 2>/dev/null && return 0
+    fi
+    if [[ -r /dev/urandom ]] && command -v od >/dev/null 2>&1; then
+        od -An -tx1 -N24 /dev/urandom 2>/dev/null | tr -d ' \n' && return 0
+    fi
+    printf ''
+}
+
+# Replace KEY=... in a file, portably. sed -i differs between GNU and BSD, so
+# write to a temp file and move it into place instead.
+set_env_value() {
+    local file="$1" key="$2" value="$3" tmp
+    tmp="$(mktemp)" || return 1
+    awk -v k="$key" -v v="$value" '
+        $0 ~ "^" k "=" { print k "=" v; next }
+        { print }
+    ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+# First run: a short guided setup. A prompt is one of the two moments an
+# operator is actually reading, so this is where configuration is worth
+# raising -- and while they are here, the three change-me placeholders are
+# worth resolving, because each is a credential that otherwise ships as a
+# known string.
+#
+# Only when there is nothing to lose (no .env present) and someone is at the
+# keyboard. A non-interactive run is told what to do and never blocked.
+offer_env_file() {
+    local env_file="$REPO_ROOT/.env" example="$REPO_ROOT/.env.example"
+    [[ -f "$env_file" || ! -f "$example" ]] && return 0
+
+    if ! is_interactive; then
+        log_info "No .env — using built-in defaults. To configure: cp .env.example .env"
+        return 0
     fi
 
-    # First run: offer to start a .env from the example. Only when there is
-    # nothing to lose -- no .env present -- and only with someone at the
-    # keyboard to answer. A non-interactive run is told where to look instead.
-    if [[ ! -f "$env_file" && -f "$example" ]]; then
-        if is_interactive; then
-            local reply=""
-            if read -t 30 -p "Create .env from .env.example now? [y/N] " -n 1 -r reply; then
-                echo
-                if [[ "$reply" =~ ^[Yy]$ ]]; then
-                    if cp "$example" "$env_file"; then
-                        log_info "Wrote $env_file — review it (SIGNATURE especially) before going further."
-                        log_info "Re-run this script to pick it up; this run continues on defaults."
-                    else
-                        log_error "Could not write $env_file"
-                    fi
-                fi
+    echo ""
+    log_warn "No .env found. Defaults will be used, including CSP_POLICY=strict with"
+    log_warn "DEV_MODE unset, which silently blocks Figwheel's hot reload."
+
+    local reply=""
+    read -t 30 -p "Create .env from .env.example now? [y/N] " -n 1 -r reply || { echo; log_info "No answer — continuing on defaults."; return 0; }
+    echo
+    [[ "$reply" =~ ^[Yy]$ ]] || { log_info "Skipped. Continuing on defaults."; return 0; }
+
+    cp "$example" "$env_file" || { log_error "Could not write $env_file"; return 0; }
+    chmod 600 "$env_file" 2>/dev/null || true
+
+    # --- development or production -------------------------------------------
+    local mode=""
+    read -t 30 -p "Set up for [d]evelopment or [p]roduction? [D/p] " -n 1 -r mode || mode=""
+    echo
+    if [[ "$mode" =~ ^[Pp]$ ]]; then
+        set_env_value "$env_file" DEV_MODE false
+        log_info "  DEV_MODE=false — CSP enforcing. Figwheel hot reload will not work."
+    else
+        set_env_value "$env_file" DEV_MODE true
+        log_info "  DEV_MODE=true — no CSP header, so Figwheel works."
+    fi
+
+    # --- the three change-me credentials -------------------------------------
+    local gen=""
+    read -t 30 -p "Generate random values for the change-me passwords/secret? [Y/n] " -n 1 -r gen || gen=""
+    echo
+    if [[ "$gen" =~ ^[Nn]$ ]]; then
+        log_warn "  Left as-is. SIGNATURE, ADMIN_PASSWORD and DATOMIC_PASSWORD are"
+        log_warn "  published placeholders — change them before exposing this server."
+    else
+        local key secret failed=0
+        for key in SIGNATURE ADMIN_PASSWORD DATOMIC_PASSWORD; do
+            secret="$(random_secret)"
+            if [[ -n "$secret" ]]; then
+                set_env_value "$env_file" "$key" "$secret"
             else
-                echo
-                # read returns non-zero for both a 30s timeout and EOF, and
-                # they are not distinguishable here -- so do not claim either.
-                log_info "No answer — continuing on defaults."
+                failed=1
             fi
+        done
+        if [[ $failed -eq 0 ]]; then
+            # Deliberately not echoed. They are in the file; printing them puts
+            # them in scrollback and shell history exports.
+            log_info "  SIGNATURE, ADMIN_PASSWORD, DATOMIC_PASSWORD set to random values."
         else
-            log_info "  To configure: cp .env.example .env"
+            log_warn "  No random source (openssl / /dev/urandom) — placeholders left in place."
         fi
     fi
+
+    log_info "Wrote $env_file (mode 600). Review it, then re-run to pick it up;"
+    log_info "this run continues on the values it already loaded."
+}
+
+# Raised where it actually bites. Starting Figwheel with an enforcing CSP gives
+# a dev loop that looks fine and silently never reloads, so this is a decision,
+# not a line of output to scroll past.
+confirm_dev_mode() {
+    dev_mode_blocks_figwheel || return 0
+
+    log_warn "CSP is strict and ENFORCING (DEV_MODE=${DEV_MODE:-<unset>})."
+    log_warn "ws://localhost:$FIGWHEEL_PORT is not in connect-src, so hot reload"
+    log_warn "will silently not work. Set DEV_MODE=true in .env to develop."
+
+    is_interactive || { log_warn "Continuing anyway (non-interactive)."; return 0; }
+
+    local reply=""
+    if read -t 30 -p "Start Figwheel anyway? [y/N] " -n 1 -r reply; then
+        echo
+        [[ "$reply" =~ ^[Yy]$ ]] && return 0
+        log_info "Aborted. Set DEV_MODE=true in .env, then re-run."
+        return 1
+    fi
+    echo
+    log_info "No answer — not starting Figwheel."
+    return 1
 }
 
 # Defaults (used if not set in .env)
@@ -252,7 +344,7 @@ wait_for_port() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     return 1
 }
@@ -276,7 +368,7 @@ wait_for_port_or_die() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     log_error "Timeout waiting for port $port (process $pid still running)"
     return 1
@@ -293,7 +385,7 @@ wait_for_port_free() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     return 1
 }
@@ -367,11 +459,24 @@ get_uptime() {
 # -----------------------------------------------------------------------------
 
 check_java() {
-    local java_version
-    java_version=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+).*/\1/')
-
-    if [[ -z "$java_version" ]]; then
+    local raw java_version
+    if ! raw="$(java -version 2>&1)"; then
         log_error "Java not found. Please install Java $JAVA_MIN_VERSION or higher."
+        return 1
+    fi
+
+    # Find the version line wherever it is, rather than assuming line 1.
+    # JAVA_TOOL_OPTIONS and _JAVA_OPTIONS make the JVM print a "Picked up ..."
+    # preamble first, which is common behind a proxy and in CI images.
+    java_version="$(printf '%s\n' "$raw" | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -n1)"
+
+    # Guard the comparison below. [[ str -lt n ]] evaluates str as ARITHMETIC,
+    # so a non-numeric value is read as a variable name -- and under `set -u`
+    # an unset name is a FATAL error, not a false comparison. That killed this
+    # script outright, and silently, because callers use `check_java 2>/dev/null`.
+    if [[ ! "$java_version" =~ ^[0-9]+$ ]]; then
+        log_error "Could not read a Java version. First line of 'java -version':"
+        log_error "  $(printf '%s\n' "$raw" | head -n1)"
         return 1
     fi
 
