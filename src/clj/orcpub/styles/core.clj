@@ -650,6 +650,11 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+   [:.registration-notice
+    {:color red
+     :font-size "14px"
+     :line-height "1.5"}]
+
    [:.bg-orange
     {:background-color orange}]
    [:.bg-red

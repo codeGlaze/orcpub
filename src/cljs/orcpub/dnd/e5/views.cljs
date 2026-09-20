@@ -940,6 +940,9 @@
         [:div.p-10
          [:span "Already have an account?"]
          (login-link)]
+        (when-let [notice @(subscribe [:registration-notice])]
+          [:div.m-t-10.registration-notice
+           (for [line notice] ^{:key line} [:div line])])
         [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
         [:button.form-button
          {:style {:height "40px"
