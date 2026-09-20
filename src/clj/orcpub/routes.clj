@@ -1957,6 +1957,11 @@
    [route-map/login-page-route]
    [route-map/verify-sent-route]
    [route-map/password-reset-sent-route]
+   ;; Was the only one of these missing. The client routes here after a reset,
+   ;; so it renders inside a session -- but a refresh, a back button or a
+   ;; bookmark asked the server for it and got "Not Found", on the one page
+   ;; whose whole job is to confirm the password was changed.
+   [route-map/password-reset-success-route]
    [route-map/password-reset-expired-route]
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
