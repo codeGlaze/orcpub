@@ -15,6 +15,7 @@
    [orcpub.entity.strict :as se]
    [orcpub.errors :as errors]
    [orcpub.security :as security]
+   [orcpub.pwned :as pwned]
    [orcpub.email :as email]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
@@ -476,3 +477,23 @@
     (is (not= key digest) "the emailed secret is not what the table holds")
     (is (= digest (routes/hash-reset-key key)) "and the lookup can reproduce it")
     (is (not= digest (routes/hash-reset-key (str key "x"))))))
+
+
+(deftest the-corpus-refuses-only-the-egregious
+  ;; The corpus counts commonness, not danger to this person. A password seen a
+  ;; handful of times leaked in somebody else's dump; one seen four figures of
+  ;; times is in every cracking wordlist. Only the second is refused -- the
+  ;; first is the strength meter's to argue with while someone is still typing.
+  (doseq [[n refused?] {0 false, 1 false, 297 false, 999 false, 1000 true, 52372427 true}]
+    (with-redefs [pwned/check (constantly n)]
+      (is (= refused? (some? (#'routes/breach-errors "irrelevant")))
+          (str n " appearances"))))
+  (testing "a service that could not answer is not an objection"
+    (with-redefs [pwned/check (constantly :unknown)]
+      (is (nil? (#'routes/breach-errors "irrelevant")))))
+  (testing "the refusal speaks as a strength verdict and keeps the count out"
+    (with-redefs [pwned/check (constantly 52372427)]
+      (let [message (first (:password (#'routes/breach-errors "irrelevant")))]
+        (is (= "Too common. A few words strung together are harder to guess and easier to remember."
+               message))
+        (is (not (re-find #"\d" message)) "no count, no breach language")))))
