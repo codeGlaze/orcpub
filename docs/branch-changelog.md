@@ -188,6 +188,14 @@ comes with a check that fails without it.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **The last three auth pages join the shared heading** — `verify-failed`,
+  `send-password-reset-page` and `password-reset-page` were still drawing their own
+  bold heading inside the old shell, with no amber rule and no form gutter, so three
+  of the nine pages shipped visibly unredesigned. They were the three somebody locked
+  out of their account actually sees. The two reset pages also both read as "reset
+  password"; the one that mails a link is "Reset your password" and the one that takes
+  the new password is "Choose a new password".
+
 ## Changed
 
 - **A character's sharing is one line under its title** — a status (Not shared, Shared, or Link expired
