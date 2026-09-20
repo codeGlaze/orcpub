@@ -123,6 +123,11 @@ comes with a check that fails without it.
 - **Only characters can be added to a party** — adding checked nothing, so any id could be added
   (`c69dcf9d`).
 
+- **The mobile header no longer crowds itself** — on a phone the logo is capped, a
+  full-width child no longer measures wider than the bar it sits in, the import log
+  panel cannot exceed the screen, and a child that still outruns the bar is clipped
+  rather than scrolling the whole page sideways (`0a089349`).
+
 ## Changed
 
 - **Share wording** — the startup log's share settings speak of share data, the Share link button no
@@ -142,3 +147,10 @@ comes with a check that fails without it.
 - **A browser check that a character shows its owner's items to others** — it opens a seeded character
   logged out, as another account and as the owner, and checks the item reaches the sheet each time;
   run.sh now waits for the test accounts to be seeded before a suite starts (`359095b8`).
+- **Named Garden classes replace 28 inline style maps on the registration, login and
+  password pages** — 49 class definitions quarried off the stalled
+  `refactor/garden-inline-styles` branch without merging it, which is 648 commits behind
+  and conflicts in two files. Two of the classes it used are generated from value lists
+  rather than written out, so they emitted no CSS at all and are generated here. The
+  password meter keeps an inline width, because that width IS the measurement. Nothing
+  renders differently (`47bb73f4`, `2c9c553d`).
