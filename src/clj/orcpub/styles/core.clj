@@ -650,6 +650,59 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+   ;; Password meter. Four slots with one fill sweeping through them, so the
+   ;; movement is continuous while the milestones stay countable. The minimum
+   ;; length lands on the first slot's edge, so the gap between slots marks it
+   ;; and no separate notch is needed. Only the fill WIDTH is set inline, at the
+   ;; call site, because that width is the measurement itself.
+   ;;
+   ;; These are LIGHT-ground colours. registration-page puts its form on a white
+   ;; card with only the header bar dark, so the *-on-dark palette is wrong
+   ;; here: red-on-dark washes out to pink and muted-on-dark all but vanishes.
+   ;; The first cut used them and a screenshot is what caught it.
+   ;;
+   ;; Fill and label colours are separate families rather than one class reused
+   ;; through currentColor, because Legendary is a gradient -- correct behind a
+   ;; bar, wrong behind text.
+   [:.pw-slots {:display :flex
+                :gap "4px"
+                :height "10px"}]
+   [:.pw-slot {:flex "1"
+               :border-radius "2px"
+               :overflow :hidden
+               :background-color "rgba(0,0,0,0.12)"}]
+   [:.pw-fill {:height "100%"
+               :width "0"
+               :transition "width 0.22s cubic-bezier(0.4,0,0.2,1), background-color 0.2s"}]
+
+   ;; A broken rule takes every slot to the failure colour. The fill still
+   ;; reports the real length, so the bar never claims progress it has not made.
+   [:.pw-fill-fail {:background-color red}]
+   [:.pw-fill-0 {:background-color "#5d8c00"}]
+   [:.pw-fill-1 {:background-color "#2f6fb5"}]
+   [:.pw-fill-2 {:background-color purple}]
+   [:.pw-fill-3 {:background-image "linear-gradient(100deg,#b06d08,#e8b24a 42%,#ffe08a 52%,#e8b24a 62%,#b06d08)"}]
+
+   [:.pw-name-fail {:color red}]
+   [:.pw-name-0 {:color "#4a7000"}]
+   [:.pw-name-1 {:color "#2f6fb5"}]
+   [:.pw-name-2 {:color "#6f61b0"}]
+   [:.pw-name-3 {:color "#a2650c"}]
+
+   [:.pw-verdict {:display :flex
+                  :justify-content :space-between
+                  :align-items :center
+                  :gap "10px"
+                  :min-height "24px"
+                  :margin-top "9px"}]
+   [:.pw-tier-name {:font-size "13px"
+                    :font-weight :bold
+                    :letter-spacing "0.08em"
+                    :text-transform :uppercase}]
+   [:.pw-next {:font-size "12px"
+               :color "#6b7681"
+               :font-variant-numeric "tabular-nums"}]
+
    [:.registration-notice
     {:color red
      :font-size "14px"

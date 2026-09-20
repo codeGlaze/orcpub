@@ -858,7 +858,10 @@
   (let [registration-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
         send-updates? (not= false (:send-updates? registration-form))
-        password-strength (registration/password-strength (:password registration-form))]
+        {:keys [rung fills]} (registration/password-strength
+                              (:password registration-form)
+                              {:username (:username registration-form)
+                               :email (:email registration-form)})]
     (registration-page
      [:div {:style {:text-align :center}}
       [:div {:style {:color orange
@@ -894,36 +897,33 @@
                     :messages (:password registration-validation)
                     :type :password
                     :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
-       (let [[color text]
-              (cond
-                (= 5 password-strength) ["bg-green" "Strong"]
-                (< 1 password-strength 5) ["bg-orange" "Moderate"]
-                :else ["bg-red" "Weak"])]
+       ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
+       ;; vocabulary this site's readers already have, and Common is not a joke
+       ;; -- a password the corpus knows is exactly that.
+       (let [tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
+             reached? (and rung (not (neg? rung)))
+             suffix (cond (nil? rung) nil (neg? rung) "fail" :else rung)
+             remaining (when (and reached? (< rung 3))
+                         (- (nth registration/strength-rungs (inc rung))
+                            (count (:password registration-form))))]
          [:div.p-r-10.p-l-10.p-t-5
-          [:div
-           {:style {:position :relative
-                    :height "30px"}}
-           [:div.b-rad-5
-            {:style {:top 0
-                     :left 0
-                     :height "30px"
-                     :opacity "0.7"
-                     :width "100%"
-                     :position :absolute}
-             :class color}]
-           [:div.b-rad-5.password-strength-meter
-            {:style {:top 0
-                     :left 0
-                     :position :absolute
-                     :height "30px"
-                     :transition "width 1s"
-                     :width (str (* 100 (float (/ password-strength 5))) "%")}
-             :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5
-            {:style {:position :absolute
-                     :padding-top "6px"}}
-             [:span "Password Strength:"]
-             [:span.f-w-b.m-l-5 text]]]])
+          [:div.pw-slots
+           (doall
+            (for [[i percent] (map-indexed vector fills)]
+              ^{:key i}
+              [:div.pw-slot
+               ;; The only inline style on this widget. The width IS the
+               ;; measurement, so it cannot be a named class.
+               [:div.pw-fill {:class (when suffix (str "pw-fill-" suffix))
+                              :style {:width (str percent "%")}}]]))]
+          [:div.pw-verdict
+           [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
+            (when reached? (nth tier-names rung))]
+           [:span.pw-next
+            (cond
+              remaining (str (nth tier-names (inc rung)) " in " remaining)
+              (seq (:password registration-form))
+              (str (count (:password registration-form)) " characters"))]]])
        [:div.m-t-20
         {:style {:text-align :left
                  :margin-left "15px"}}

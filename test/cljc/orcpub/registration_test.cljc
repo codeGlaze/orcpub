@@ -97,3 +97,38 @@
   (is (= 12 reg/min-password-length))
   (is (seq (:password (reg/validate-password "elevenchar1"))))
   (is (empty? (:password (reg/validate-password "twelvechars1")))))
+
+
+(deftest the-meter-cannot-disagree-with-the-gate
+  ;; The property that matters, and the one nothing checked before: a rung of -1
+  ;; and a rejection are the same event. The two used to be written separately
+  ;; and drifted -- the meter scored Dragon7! five of five while the server
+  ;; refused it, and called a twenty-five character passphrase a two.
+  (doseq [password ["" "short" "Dragon7!" "elevenchar1" "twelvechars1"
+                    "tomato potato soup" "purple-lantern-quiet-road"
+                    "a lantern two quiet roads home" "55 5 5 5 5 5"
+                    "abababababab" "a-b-c-d-e-f-g" "correcthorsebatterystaple"]]
+    (let [{:keys [rung]} (reg/password-strength password)
+          rejected? (boolean (seq (:password (reg/validate-password password))))]
+      (is (= rejected? (not (and rung (not (neg? rung)))))
+          (str "meter and gate disagree about " (pr-str password))))))
+
+(deftest the-meter-reports-real-length-even-when-failing
+  ;; The fill is the truth about the string, the colour is the verdict on it.
+  ;; A failing password must not look like it has earned a whole slot.
+  (is (= [0.0 0.0 0.0 0.0] (:fills (reg/password-strength ""))))
+  (let [{:keys [rung fills]} (reg/password-strength "aaa")]
+    (is (= -1 rung))
+    (is (= 25.0 (first fills)) "three of twelve, not an empty bar and not a full one"))
+  (let [{:keys [rung fills]} (reg/password-strength "55 5 5 5 5 5")]
+    (is (= -1 rung))
+    (is (= 100.0 (first fills)) "twelve characters is twelve characters, even when refused")))
+
+(deftest the-rungs-are-all-reachable
+  ;; A bar with a rung nothing can reach is the bug that produced the last
+  ;; three revisions of this widget.
+  (are [expected password] (= expected (:rung (reg/password-strength password)))
+    0 "twelvechars1"
+    1 "sixteen chars ok"
+    2 "twenty two characters!"
+    3 "twenty eight characters long"))
