@@ -855,7 +855,12 @@
         ;; holds a race and a subrace under one key for one name, so a record left behind by
         ;; another builder would otherwise validate here.
         recorded-src (when (and (= key (:key recorded))
-                                (= plugin-key (:content-type recorded))
+                                ;; a record that names a content type must name THIS one: a
+                                ;; source holds a race and a subrace under one key for one name,
+                                ;; and `:builder-origin` is a single slot shared by every builder.
+                                ;; Absent is the older shape, no weaker than it ever was.
+                                (or (nil? (:content-type recorded))
+                                    (= plugin-key (:content-type recorded)))
                                 (contains? holders (:source recorded)))
                        (:source recorded))
         ;; where the item lives -- known from the record, or GUESSED when one library holds the
@@ -867,10 +872,13 @@
       ;; Minting: no key of its own yet, so anything already answering belongs to somebody else --
       ;; here or in another library, since a key is a global address.
       (nil? (:key item))
-      (cond
-        occupant      {:action :refuse :reason :occupied :occupant occupant}
-        (seq holders) {:action :refuse :reason :elsewhere :holders holders}
-        :else         {:action :create})
+      (let [elsewhere (disj holders option-pack)]
+        (cond
+          ;; before the occupied offer, for the same reason the move branch tests it first:
+          ;; replacing what is here cannot resolve a key another library also holds
+          (seq elsewhere) {:action :refuse :reason :elsewhere :holders elsewhere}
+          occupant        {:action :refuse :reason :occupied :occupant occupant}
+          :else           {:action :create}))
 
       (= lives-in option-pack) {:action :in-place}
 
@@ -900,7 +908,8 @@
    The same verification `save-destination` applies to a record; see its GOTCHA."
   [plugins recorded plugin-key key]
   (when (and (some? key) (= key (:key recorded))
-             (= plugin-key (:content-type recorded))
+             (or (nil? (:content-type recorded))
+                 (= plugin-key (:content-type recorded)))
              (some? (get-in plugins [(:source recorded) plugin-key key])))
     (:source recorded)))
 
@@ -2917,6 +2926,9 @@
      ;; later question easy: the form shows the source that really holds it, the save writes back
      ;; where it came from, a rename cannot re-address it, and the draft carries all of it across
      ;; a refresh -- which `:builder-origin` alone does not, since it is not persisted.
+     ;; Ten of the eleven edit buttons pass only the item -- the list pages and the
+     ;; character-builder pencil. They can, because `process-plugin-vals` stamps the address on
+     ;; the way out of `:plugins`; My Content passes it explicitly because it has it to hand.
      (let [located (cond-> item
                      source (assoc :option-pack source)
                      key    (assoc :key key))]

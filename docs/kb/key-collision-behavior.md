@@ -93,6 +93,32 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### The READ path stamps the address (2026-09-20)
+
+Third review round, and it found the hole under the section below. That one says identity is
+established when the builder fetches the item, and justified deleting the old name-probe on exactly
+that basis. **The premise was true at one of eleven doors.** `reg-edit-homebrew` stamps only what
+the caller passes, and only My Content passed it — the Spells and Monsters list pages and the
+character-builder pencil (background, race, subrace, subclass, feat, invocation, boon, spell) all
+dispatch the item alone. A key-less item edited from any of them minted a fresh key and **forked**:
+the original left holding the pre-edit data, no `:former-keys`, nothing on screen. Precisely what
+the deleted probe existed to prevent.
+
+Fixed one level down instead of at eleven call sites: **`process-plugin-vals` stamps `:key` and
+`:option-pack` onto every item on the way out of `:plugins`.** That map is the one place both are
+known for certain, so no reader has to guess and no caller has to remember. It also repairs a stale
+declared source for free, and it makes the delete button's fallback correct on the list pages, which
+otherwise still deleted a same-keyed entry in the wrong library.
+
+Also from that round: the **mint** branch of `save-destination` had the opposite ordering to the
+move branch, so it offered *Replace it* where another library also held the key — consent that
+destroys the entry here and leaves the duplicate standing. Both branches now test `:elsewhere`
+first.
+
+`:content-type` on the record is required only when present: the ten doors that pass the item alone
+cannot name it, and a record without one is no weaker than it was before it existed. Threading the
+content type through registration would let it be required everywhere — worth doing, not done.
+
 ### A move needs a RECORD, not a guess (2026-09-20)
 
 Second review round, on top of the section below. Five more, and the shape is the same one twice:
