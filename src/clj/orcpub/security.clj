@@ -156,8 +156,15 @@
   (and (under-limit? [:reset-address email] reset-per-address-hourly (hours 1))
        (under-limit? [:reset-host ip] reset-per-host-hourly (hours 1))))
 
-;; Generous for a household or a game night, useless for bulk signup.
-(def registrations-per-host-hourly 3)
+;; What this defends is NOT the account table. An unverified account cannot log
+;; in, so bulk signups sit there inert. What signup can be made to do is send
+;; mail to an address the person filling the form does not have to own -- the
+;; same cannon the reset endpoint was, pointed at whoever you name.
+;;
+;; So the number is set by the table it must not break, not by the attack. Eight
+;; people signing up at one game night, plus retries and a typo or two, has to
+;; fit. A bulk run wants thousands and is stopped by any of these numbers.
+(def registrations-per-host-hourly 10)
 
 (defn registration-allowed? [ip]
   (under-limit? [:register ip] registrations-per-host-hourly (hours 1)))
