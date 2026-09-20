@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.char-filter
   (:require [clojure.string :as s]
+            [orcpub.common :as common]
             [orcpub.dnd.e5.character :as char5e]))
 
 (defn char-matches?
@@ -14,8 +15,10 @@
   [char name-filter level-filters class-filters has-portrait? has-faction-pic?]
   (and
    (or (s/blank? name-filter)
-       (s/includes? (s/lower-case (or (::char5e/character-name char) ""))
-                    (s/lower-case name-filter)))
+       ;; ascii-lower-case: on a Turkish JVM "GIM" folds to "gım" and matches
+       ;; no character called Gimli.
+       (s/includes? (common/ascii-lower-case (or (::char5e/character-name char) ""))
+                    (common/ascii-lower-case name-filter)))
    (or (empty? level-filters)
        (some #(level-filters (::char5e/level %)) (::char5e/classes char)))
    (or (empty? class-filters)
