@@ -210,7 +210,7 @@ These are the variables you'll actually touch. Full reference in
 | `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Change to `datomic` for Swarm. |
 | `EMAIL_SERVER_URL` | No | *(empty)* | SMTP server. Leave empty to disable email (registration still works, just no verification emails). |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
-| `DEV_MODE` | No | *(empty)* | Set to `true` for CSP Report-Only mode (allows Figwheel hot-reload). |
+| `DEV_MODE` | No | *(empty)* | Set to `true` to send no CSP header at all, which is what allows Figwheel hot-reload. Not a Report-Only mode — that does not exist. |
 | `LOAD_HOMEBREW_URL` | No | *(empty)* | URL to fetch `.orcbrew` plugins on first page load. |
 
 `run` generates `DATOMIC_PASSWORD`, `ADMIN_PASSWORD`, and
