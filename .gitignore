@@ -78,6 +78,14 @@ cljs-test-runner-out
 .claude-data/
 .claude/
 
+# The agent entry point. Versioned on agents/develop, the agentic silo, and copied into a
+# working tree per environment by scripts/agent-setup.sh. Ignored here because this branch
+# ships to the public repo: an untracked copy is one `git add -A` away from being committed,
+# which is how it drifted onto code branches before, and why the restructure deleted it.
+# Note `.claude/` above does NOT cover this — that is a directory, and CLAUDE.md is a file
+# at the repo root.
+/CLAUDE.md
+
 # NewRelic (DMV-specific, contains license key)
 newrelic*
 
@@ -129,8 +137,3 @@ _*.js
 # Python bytecode from scripts/ (scripts/lint-changelog.py is run, not imported)
 __pycache__/
 *.pyc
-
-# Agent scratch notes. Integration dropped this from the tree on purpose
-# (6bc3dc8) -- the operational content lives in test/browser/README.md and
-# docs/CONTRIBUTING.md. Ignored so a local copy cannot wander back in.
-/CLAUDE.md
