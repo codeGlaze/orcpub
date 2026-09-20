@@ -82,6 +82,25 @@ def category_color(name):
     return "#" + "".join(f"{round(f(n) * 255):02x}" for n in (0, 8, 4))
 
 
+def piece_label(key, stem):
+    """"L2_head_04" in layer "head" -> "Head 04".
+
+    Strips the layer's own prefix so a gap reads like the asset it will
+    become, rather than repeating the folder name back at the reader.
+    """
+    s = re.sub(r"^l\d+_", "", stem.lower())
+    slug = key.replace("-", "_")
+    for p in (slug, slug.rstrip("s"), slug + "s"):
+        if s.startswith(p + "_"):
+            s = s[len(p) + 1:]
+            break
+    s = s.replace("_", " ").strip()
+    pretty = key.replace("-", " ").capitalize()
+    if not s or s.isdigit():
+        return f"{pretty} {s}".strip()
+    return s[0].upper() + s[1:]
+
+
 def resize_premultiplied(img, size, linear=False):
     """Lanczos downscale that does not halo.
 
@@ -275,6 +294,28 @@ def main():
 
     n = sum(l["count"] for l in manifest_layers)
     print(f"\n{n} assets, {total_bytes / 1024:.0f} KB total -> {args.out}")
+
+    # The `no <name>.txt` markers are the illustrator saying "this one is
+    # planned, not forgotten". Print them as the Clojure literal the picker
+    # reads so recording them is a paste rather than a transcription --
+    # otherwise they stay in the manifest and never reach the UI.
+    gapped = [l for l in manifest_layers if l["gaps"]]
+    if gapped:
+        total = sum(len(l["gaps"]) for l in gapped)
+        print(f"\n{total} piece{'' if total == 1 else 's'} marked not-yet-drawn."
+              f" Paste into portrait_assets.cljc/gap-inventory:\n")
+        print("  {" + "\n   ".join(
+            ":%s\n    [%s]" % (
+                l["key"],
+                "\n     ".join(
+                    '{:gap/id :%s :gap/label "%s"}' % (
+                        re.sub(r"[^a-z0-9]+", "-",
+                               g["filename"].rsplit(".", 1)[0].lower()).strip("-"),
+                        piece_label(l["key"], g["filename"].rsplit(".", 1)[0]),
+                    )
+                    for g in l["gaps"]),
+            )
+            for l in gapped) + "}")
     if warnings:
         print("\nwarnings:")
         for w in warnings:
