@@ -17,6 +17,17 @@
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+;; Field errors on the WHITE auth card. The site's own red is a wine that goes
+;; muddy over a tint, so this is GOV.UK's, measured in every position it takes:
+;; 4.86:1 as text on the card, 4.52:1 as a border against its own tint. It is
+;; never used for running text ON the tint -- that would be 4.52:1 as text,
+;; which scrapes AA rather than clearing it.
+;; Ink and muted ON the white auth card, the counterparts to muted-on-dark.
+;; 8.9:1 and 4.6:1 on white respectively.
+(def text-color-light "#4b545e")
+(def muted-on-light "#6b7681")
+(def error-red "#d4351c")
+(def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
@@ -657,7 +668,47 @@
    ;; .app.light-theme already does this; that selector just never matches here.
    [:.registration-content
     [:.red {:color red}
-     [:a :a:visited {:color red}]]]
+     [:a :a:visited {:color red}]]
+
+    ;; LIGHT-GROUND VARIANTS. .field-notice, .message and .callout are all toned
+    ;; for the dark app -- rgba(255,255,255,0.06) grounds, red-on-dark text,
+    ;; color:white. Dropped onto this card as they are, the sign-in banner puts
+    ;; white text on white. These re-tone them rather than fork them, so the auth
+    ;; pages use the same components as everywhere else.
+    [:.field-notice
+     {:background-color :transparent
+      :border-left :none
+      :padding "0"
+      :margin "0 2px 8px"
+      :font-size "13px"
+      :line-height "19px"
+      ;; The words are INK. Only the mark and the label carry the colour, because
+      ;; a wall of red text is most of what makes a form feel like it is shouting.
+      :color text-color-light}
+     [:&.is-error:before
+      {:content "\"!\""
+       :flex "0 0 auto"
+       :font-weight :bold
+       :color error-red}]
+     [:&.is-note {:color muted-on-light
+                  :margin "7px 2px 0"}]]
+    [:.field-notice-action {:color "#c98700"
+                            :font-size "13px"}]
+    [:.field-notice.is-error {:color text-color-light}]
+    [:.field-notice.is-warning {:color text-color-light}]
+
+    [:.message {:color text-color-light}]
+    [:.message.tone-error {:background-color "rgba(212, 53, 28, 0.08)"
+                           :border-color "rgba(212, 53, 28, 0.45)"}]
+    [:.message.tone-warning {:background-color "rgba(240, 161, 0, 0.10)"
+                             :border-color "rgba(240, 161, 0, 0.5)"}]
+    [:.message.tone-success {:background-color "rgba(74, 112, 0, 0.09)"
+                             :border-color "rgba(74, 112, 0, 0.45)"}]
+    [:.tone-error [:.message-icon {:color error-red}]]
+    [:.tone-success [:.message-icon {:color "#4a7000"}]]
+
+    [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
+    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]]
 
    ;; Password meter. Four slots with one fill sweeping through them, so the
    ;; movement is continuous while the milestones stay countable. The minimum
