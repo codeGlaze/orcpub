@@ -19,10 +19,19 @@
                     password-too-short?]))))
 
 (def min-password-length
-  "Eight is the floor both NIST SP 800-63B-4 and OWASP treat as the absolute
-   minimum, and OWASP asks for twelve. Raising it further is a product call, so
-   it lives here rather than being spelled out at each use."
-  8)
+  "NIST SP 800-63B-4 sets fifteen for a site with no second factor, and eight
+   only where one exists. Twelve is a deliberate shortfall for a site whose
+   worst case is a character sheet, chosen as a product call rather than a
+   reading of the standard."
+  12)
+
+(def min-distinct-characters
+  "Five. Repeats and runs both look at neighbours, so they never see a password
+   that is two characters taking turns -- ababababab has no triple and no
+   sequence. Counting how many DIFFERENT characters appear catches that whole
+   family at once, and five is low enough that a real passphrase never notices:
+   \"tomato potato\" already has six."
+  5)
 
 (def ^:private keyboard-rows
   ["qwertyuiop" "asdfghjkl" "zxcvbnm" "1234567890"])
@@ -40,16 +49,41 @@
   (when (and s (>= (count s) n))
     (map #(apply str %) (partition n 1 (s/lower-case s)))))
 
-(defn repeated-run?
-  "Three or more of the same character in a row: aaa, 111, !!!."
+(defn- undecorated
+  "The password with spaces and punctuation taken out. Both run checks below
+   look at neighbours, so anything wedged between two characters hides the
+   pattern from them: \"5 5 5 5 5 5\" has no three in a row and \"a-b-c-d\" does
+   not step by one, while both are exactly what they look like."
   [password]
-  (boolean (and password (re-find #"(.)\1{2,}" password))))
+  ;; Whitespace and ASCII punctuation, spelled out as ranges. \p{L} and \p{N}
+  ;; are Java-only -- JavaScript needs the u flag for them and a ClojureScript
+  ;; regex literal does not carry one, so the JVM stripped separators and the
+  ;; browser silently did not. Naming the separators keeps letters of every
+  ;; script, which "not a letter" would have thrown away in the browser.
+  (s/replace (or password "") #"[\s!-/:-@\[-`{-~]" ""))
+
+(defn repeated-run?
+  "Three or more of the same character in a row: aaa, 111, !!! -- and the same
+   once separators are removed, so spacing them out does not get past it."
+  [password]
+  (let [three-in-a-row? #(boolean (re-find #"(.)\1{2,}" %))]
+    (boolean (and password
+                  (or (three-in-a-row? password)
+                      (three-in-a-row? (undecorated password)))))))
+
+(defn too-few-distinct?
+  "Whether the password draws on fewer than min-distinct-characters different
+   characters. Separators do not count toward the variety they are hiding."
+  [password]
+  (let [bare (undecorated password)]
+    (and (seq bare) (< (count (set (s/lower-case bare))) min-distinct-characters))))
 
 (defn sequential-run?
   "Four or more characters that step by one either way -- abcd, 4321 -- or that
    trace a keyboard row, which is the same idea one layout removed."
   [password]
-  (let [codes (when password (map char-code (s/lower-case password)))
+  (let [password (when password (undecorated password))
+        codes (when (seq password) (map char-code (s/lower-case password)))
         steps-by-one? (fn [w] (let [d (map - (rest w) (butlast w))]
                                 (or (every? #(= 1 %) d) (every? #(= -1 %) d))))]
     (boolean
@@ -94,6 +128,9 @@
 
        (sequential-run? password)
        (update :password conj "Avoid runs like 1234, abcd or qwerty")
+
+       (and (not too-short?) (too-few-distinct? password))
+       (update :password conj "Mostly the same character over and over. Try a few different words")
 
        (and context (contains-identifier? password context))
        (update :password conj "Leave your username and email out of your password")))))

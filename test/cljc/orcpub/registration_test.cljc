@@ -1,5 +1,5 @@
 (ns orcpub.registration-test
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             [orcpub.registration :as reg]))
 
 (defn- messages [password & [context]]
@@ -7,7 +7,10 @@
 
 (deftest length-floor
   (testing "below the floor is rejected, at the floor is not"
-    (is (some #(re-find #"at least 8" %) (messages "Sh0rt!")))
+    ;; Reads the constant rather than the number, so raising the floor does not
+    ;; mean editing an assertion that was never about 8 in particular.
+    (is (some #(re-find (re-pattern (str "at least " reg/min-password-length)) %)
+              (messages "Sh0rt!")))
     (is (nil? (messages "vault of seven ravens")))
     (is (some? (messages nil)))
     (is (some? (messages "")))))
@@ -52,7 +55,7 @@
   (testing "NIST 800-63B-4: character-class requirements shall not be imposed"
     (is (nil? (messages "correct horse battery staple")))
     (is (nil? (messages "ALLUPPERCASELETTERS")))
-    (is (nil? (messages "9174620835")))))
+    (is (nil? (messages "917462083512")))))
 
 (deftest registration-threads-context-through
   (let [errs (reg/validate-registration
@@ -61,3 +64,36 @@
               false false)]
     (testing "the identifier rule fires through the registration path"
       (is (some #(re-find #"username and email" %) (:password errs))))))
+
+(deftest separators-do-not-hide-a-pattern
+  ;; Both run checks look at NEIGHBOURS, so anything wedged between two
+  ;; characters used to hide the pattern from them. "55 5 5 5 5 5" has no three
+  ;; in a row and passed every rule at thirteen characters.
+  (are [password] (seq (:password (reg/validate-password password)))
+    "55 5 5 5 5 5"
+    "5 5 5 5 5 5 5"
+    "55 55 55 55 55 5 5 5 55"
+    "a-b-c-d-e-f-g"
+    "tot tot tot tot"
+    "abababababab"))
+
+(deftest a-real-passphrase-is-left-alone
+  (are [password] (empty? (:password (reg/validate-password password)))
+    "correcthorsebatterystaple"
+    "purple-lantern-quiet-road"
+    "tomato potato soup"
+    "a lantern two quiet roads"))
+
+(deftest the-variety-floor-is-low-enough-not-to-bite
+  (is (reg/too-few-distinct? "ababababab"))
+  (is (reg/too-few-distinct? "5 5 5 5 5 5"))
+  (is (not (reg/too-few-distinct? "tomato potato"))
+      "six distinct characters, and nothing about it is contrived")
+  (is (not (reg/too-few-distinct? "correcthorsebatterystaple"))))
+
+(deftest the-minimum-is-twelve
+  ;; NIST SP 800-63B-4 asks fifteen without a second factor; twelve is the
+  ;; product call, and the test exists so the number cannot drift silently.
+  (is (= 12 reg/min-password-length))
+  (is (seq (:password (reg/validate-password "elevenchar1"))))
+  (is (empty? (:password (reg/validate-password "twelvechars1")))))
