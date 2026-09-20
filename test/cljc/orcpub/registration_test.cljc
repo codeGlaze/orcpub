@@ -132,3 +132,37 @@
     1 "sixteen chars ok"
     2 "twenty two characters!"
     3 "twenty eight characters long"))
+
+
+(deftest a-typo-is-offered-a-correction
+  ;; Only for a domain CLOSE to a common one. An unknown domain is somebody's
+  ;; own mail server, and suggesting they meant gmail would be an insult and a
+  ;; wrong answer at once.
+  (are [expected address] (= expected (reg/suggest-email-domain address))
+    "kaylee@gmail.com"   "kaylee@gmial.com"
+    "kaylee@gmail.com"   "kaylee@gmai.com"
+    "kaylee@gmail.com"   "kaylee@gmail.con"
+    "kaylee@hotmail.com" "kaylee@hotmial.com"
+    "kaylee@yahoo.co.uk" "kaylee@yahooo.co.uk"
+    nil                  "kaylee@gmail.com"
+    nil                  "kaylee@aol.com"
+    nil                  "kaylee@serenity.example"
+    nil                  "kaylee@my-own-mailserver.dev"
+    nil                  "kaylee@"
+    nil                  "kaylee"
+    nil                  ""
+    nil                  nil))
+
+(deftest edit-distance-counts-what-it-says
+  (are [n a b] (= n (reg/edit-distance a b))
+    0 "gmail.com" "gmail.com"
+    1 "gmai.com"  "gmail.com"
+    1 "gmail.con" "gmail.com"
+    ;; Three, not two: this is plain Levenshtein, where a transposition costs
+    ;; two edits rather than one. So "gmial.com" (one transposition) is offered
+    ;; a correction and "gmial.con" (transposition AND a wrong letter) is not --
+    ;; two independent typos in one domain is where guessing starts being wrong.
+    3 "gmial.con" "gmail.com"
+    2 "gmial.com" "gmail.com"
+    0 "" ""
+    3 "abc" ""))

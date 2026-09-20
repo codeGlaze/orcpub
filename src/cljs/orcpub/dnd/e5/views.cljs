@@ -118,12 +118,12 @@
 
    :messages, :hint and :reveal? are optional; everything else is passed to the
    input untouched."
-  [{:keys [title messages hint reveal? revealed? on-reveal] :as attrs}]
+  [{:keys [title messages hint action reveal? revealed? on-reveal] :as attrs}]
   (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
         message-id (str id "-message")
         wrong? (boolean (seq messages))
         input-attrs (-> attrs
-                        (dissoc :title :messages :hint :reveal? :revealed? :on-reveal :key)
+                        (dissoc :title :messages :hint :action :reveal? :revealed? :on-reveal :key)
                         (assoc :id id
                                ;; the selector the notch is driven by
                                :placeholder " "
@@ -142,8 +142,19 @@
                        :aria-pressed (boolean revealed?)
                        :on-click on-reveal}
          (if revealed? "Hide" "Show")])]
-     (when hint
-       [:div.field-notice.is-note [:span.field-notice-what hint]])]))
+     (when (or hint action)
+       [:div.field-notice.is-note
+        (when hint [:span.field-notice-what hint])
+        (when-let [{:keys [label on-choose]} action]
+          ;; on-mouse-down, NOT on-click. Pressing it blurs the field, the blur
+          ;; re-renders this notice, and the button is gone between mousedown and
+          ;; mouseup -- so the click never lands and the offer appears to do
+          ;; nothing. mouseDown fires first; preventDefault stops the focus moving
+          ;; at all.
+          [:button.field-notice-action
+           {:type "button"
+            :on-mouse-down (fn [e] (.preventDefault e) (on-choose))}
+           label])])]))
 
 (defn form-input []
   (let [blurred? (r/atom false)
@@ -151,7 +162,7 @@
     ;; show-errors? is how a submit reveals faults in fields nobody has visited.
     ;; Without it, pressing the button on a form with an untouched empty field
     ;; had nothing to say, which is why the button used to dim instead.
-    (fn [{:keys [title key value messages type on-change show-errors? hint reveal?]
+    (fn [{:keys [title key value messages type on-change show-errors? hint action reveal?]
           reveal-state :revealed? on-reveal :on-reveal}]
       ;; The reveal is usually this field's own business. A password and its
       ;; confirmation have to share one, so the caller can own it instead.
@@ -166,6 +177,7 @@
           :title title
           :messages shown
           :hint hint
+          :action action
           :reveal? reveal?
           :revealed? shown-as-text?
           :on-reveal flip
@@ -1015,13 +1027,18 @@
                     :show-errors? show-errors?
                     :type :username
                     :on-change (fn [e] (dispatch [:registration-username (event-value e)]))}]
-       [form-input {:title "Email"
-                    :key :email
-                    :value (:email registration-form)
-                    :messages (:email registration-validation)
-                    :show-errors? show-errors?
-                    :type :email
-                    :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}]
+       (let [suggestion (registration/suggest-email-domain (:email registration-form))]
+         [form-input {:title "Email"
+                      :key :email
+                      :value (:email registration-form)
+                      :messages (:email registration-validation)
+                      :show-errors? show-errors?
+                      :type :email
+                      :hint (when suggestion "That domain looks like a typo.")
+                      :action (when suggestion
+                                {:label (str "Use " suggestion)
+                                 :on-choose #(dispatch [:registration-email suggestion])})
+                      :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}])
        [form-input {:title "Verify Email"
                     :key :verify-email
                     :value (:verify-email registration-form)
