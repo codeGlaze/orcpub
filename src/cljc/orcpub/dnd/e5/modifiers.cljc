@@ -386,6 +386,31 @@
                  nil
                  ~conditions))
 
+(defn class-skill-proficiency
+  "A class's CHOSEN skill proficiency, carrying the condition of the ARM it came from.
+
+   `skill-selection` used to emit an unconditioned modifier for both arms and rely on the
+   selection's `prereq-fn` to decide which arm the builder showed. That gates DISPLAY only, so a
+   pick stored while the gate passed kept applying after it stopped — drop your first class and its
+   multiclass skill stayed on the sheet with no control to remove it.
+
+   Mirrors `tool-proficiency` / `weapon-proficiency`, which have carried their condition all along.
+   `first-class?` true = the class's own arm, false = its multiclass arm; the two take opposite
+   conditions, and swapping them costs every multiclassed character a skill.
+   See docs/kb/hidden-selection-picks.md."
+  [skill-kw cls-kw first-class?]
+  (if first-class?
+    (mods/modifier ?skill-profs
+                   (assoc-in ?skill-profs [skill-kw nil] true)
+                   (s/capitalize (-> skill-kw skill5e/skills-map :name))
+                   "proficiency"
+                   [(= cls-kw (first ?classes))])
+    (mods/modifier ?skill-profs
+                   (assoc-in ?skill-profs [skill-kw nil] true)
+                   (s/capitalize (-> skill-kw skill5e/skills-map :name))
+                   "proficiency"
+                   [(not= cls-kw (first ?classes))])))
+
 (defn tool-proficiency [key & [first-class? cls-kw source]]
   (if first-class?
     (mods/modifier ?tool-profs
