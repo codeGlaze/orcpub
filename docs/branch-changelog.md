@@ -100,3 +100,21 @@ here. Listed so it is tracked rather than remembered.
   usability but is a narrower version of the oracle closed elsewhere.
 - NIST asks that at least 64 characters be accepted and that nothing be
   truncated. Not audited.
+
+## Harness note: do not run another lein task while the e2e server boots
+
+`lein e2e-server` is `with-profile +e2e run`, and the `:e2e` profile supplies
+`:datomic-url "datomic:mem://orcpub"` through `lein-environ`. That plugin
+delivers profile env by writing **`.lein-env` at the project root**, and it
+rewrites that file on EVERY lein task. A `lein test` or `lein fig:build`
+running at the same time overwrites it WITHOUT `:datomic-url`, and a server
+that reads it in that window falls back to `datomic:dev://localhost:4334`,
+looks for a transactor that is not there, and dies with an h2
+`Connection refused: localhost:4335` that says nothing about profiles.
+
+It bit twice here, both times because the suites were deliberately being run in
+parallel with a boot. Two ways out:
+
+- Let the server finish booting before starting anything else, or
+- pass it explicitly, which is immune to the clobbering:
+  `DATOMIC_URL="datomic:mem://orcpub" lein e2e-server`
