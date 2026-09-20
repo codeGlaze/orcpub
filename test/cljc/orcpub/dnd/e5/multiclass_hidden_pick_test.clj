@@ -75,6 +75,53 @@
          (filter #(contains? (::t/tags %) :skill-profs))
          (map (fn [s] [(::t/name s) (::entity/path s)])))))
 
+(def ^:private rogue-first
+  "A rogue taken FIRST — four skills from its own arm."
+  {:orcpub.entity/key :rogue
+   :orcpub.entity/options {:skill-proficiency [{:orcpub.entity/key :stealth}
+                                               {:orcpub.entity/key :perception}
+                                               {:orcpub.entity/key :acrobatics}
+                                               {:orcpub.entity/key :deception}]
+                           :levels [(lvl 1)]}})
+
+(def ^:private rogue-both-arms
+  "The realistic wreck: a rogue carrying BOTH a first-class pick and a multiclass pick, because
+   the character was multiclassed and then the other class was dropped."
+  {:orcpub.entity/key :rogue
+   :orcpub.entity/options {:skill-proficiency [{:orcpub.entity/key :stealth}
+                                               {:orcpub.entity/key :perception}
+                                               {:orcpub.entity/key :acrobatics}
+                                               {:orcpub.entity/key :deception}]
+                           :multiclass-skill-proficiency [{:orcpub.entity/key :athletics}]
+                           :levels [(lvl 1)]}})
+
+(defn- skills-of [classes]
+  (set (keys (char5e/skill-proficiencies (build classes)))))
+
+(deftest class-skill-matrix-characterization
+  ;; Part A step 1 of plan-hidden-pick-fix-and-grant-fields.md. Pins every class configuration
+  ;; BEFORE the modifiers gain their per-arm conditions, so the fix shows as a diff in expected
+  ;; values. Only the two rows marked BUG may move.
+  ;;
+  ;; Fighter is the control: it has no :multiclass-skill-options at all (only bard, ranger and
+  ;; rogue do), so a fighter can never carry a stale multiclass pick.
+  (testing "single class, own arm — must not move"
+    (is (= #{:intimidation :survival} (skills-of [fighter-first])))
+    (is (= #{:stealth :perception :acrobatics :deception} (skills-of [rogue-first]))))
+
+  (testing "legitimately multiclassed — must not move"
+    (is (= #{:athletics :intimidation :survival} (skills-of [fighter-first rogue-multiclassed]))
+        "the rogue's multiclass skill applies on top of the fighter's two"))
+
+  (testing "FIXED — a multiclass pick stops applying once the rogue is the only class"
+    (is (= #{} (skills-of [rogue-multiclassed]))
+        "was #{:athletics}; the modifier now carries [(not= cls-kw (first ?classes))]"))
+
+  (testing "FIXED — both arms stored, rogue alone: the stale multiclass skill drops"
+    (is (= #{:stealth :perception :acrobatics :deception}
+           (skills-of [rogue-both-arms]))
+        "was that plus :athletics; the four first-class picks are untouched")))
+
 (deftest ^:diagnostic report-multiclass-reorder
   (println "\n=== a rogue's MULTICLASS skill pick, before and after rogue becomes first class ===")
   (doseq [[label classes] [["fighter first, rogue multiclassed" [fighter-first rogue-multiclassed]]
@@ -87,7 +134,7 @@
 (defn- offered-names [classes] (set (map first (offered classes))))
 (defn- offered-paths [classes] (set (map second (offered classes))))
 
-(deftest a-multiclass-skill-pick-survives-becoming-the-first-class
+(deftest a-multiclass-skill-pick-stops-applying-when-it-becomes-the-first-class
   (let [multiclassed [fighter-first rogue-multiclassed]
         rogue-only   [rogue-multiclassed]]
 
@@ -100,13 +147,16 @@
       (is (not (contains? (set (keys (char5e/skill-proficiencies (build rogue-only))))
                           :intimidation))))
 
-    (testing "but the rogue's multiclass pick stays, because the rogue did not leave"
-      (is (contains? (set (keys (char5e/skill-proficiencies (build rogue-only)))) :athletics)))
+    (testing "FIXED — the rogue's multiclass pick no longer applies once rogue is first"
+      (is (not (contains? (set (keys (char5e/skill-proficiencies (build rogue-only)))) :athletics))
+          "before the fix this was the defect: the skill stayed with no control to remove it"))
 
-    (testing "and the control that holds it is GONE — nothing on screen can remove Athletics"
+    (testing "the control is still gone, and that is now harmless"
       (is (not (contains? (offered-paths rogue-only)
                           [:class :rogue :multiclass-skill-proficiency]))
-          "the multiclass selection is filtered out by its (complement first-class?) prereq"))
+          "the multiclass selection is still filtered out by its (complement first-class?) prereq
+           — but the stored pick it held no longer reaches the sheet, so there is nothing
+           stranded behind the missing control"))
 
     (testing "meanwhile the first-class selection opens, on top of the skill already held"
       (is (contains? (offered-paths rogue-only) [:class :rogue :skill-proficiency])

@@ -66,12 +66,31 @@ That asymmetry — universal path, narrow intended change — is why characteriz
 
 ### Order
 
-1. **Characterize** current skills across single-class, multiclass, and reordered configurations.
-   `multiclass_hidden_pick_test.clj` has the reorder case; extend it to the matrix.
-2. **Thread `cls-kw`** through `class-skill-selection` → `skill-selection` → `skill-selection-2`.
-3. **Attach the conditions**, per arm.
-4. **Diff** the characterization. Only stale picks should move.
-5. **Repeat for equipment and tools**, same shape, one commit each.
+1. ~~**Characterize**~~ **DONE 2026-09-20** — `class-skill-matrix-characterization` pins six
+   configurations. Fighter is the control: it has no `:multiclass-skill-options` at all (only bard,
+   ranger and rogue do), so it can never carry a stale multiclass pick.
+2. ~~**Thread `cls-kw`**~~ **DONE** — plus `first-class?`, through `class-skill-selection` →
+   `skill-selection` → `skill-selection-2` → a new `class-skill-option`. Non-class callers
+   (background, feat, race) keep the unconditioned `skill-option`.
+3. ~~**Attach the conditions**~~ **DONE** — `modifiers/class-skill-proficiency`, mirroring
+   `tool-proficiency`/`weapon-proficiency`, which have carried theirs all along.
+4. ~~**Diff**~~ **DONE** — exactly two rows moved, both defects:
+   `[rogue-multiclassed]` `#{:athletics}` → `#{}`, and `[rogue-both-arms]` lost `:athletics` while
+   keeping its four first-class picks. Single-class and legitimately-multiclassed rows did not move.
+5. **Repeat for equipment and tools**, same shape, one commit each. ← NEXT
+
+### Two things worth carrying forward
+
+**The conditions ARE enforced, and not where the code suggests.** `entity.cljc` never mentions
+`::mods/conditions`, and the `modifier` macro's applied fn is `(es/modifier ~prop ~body)` with no
+wrapper — reading it, the whole mechanism looks inert. It is not: enforcement is
+`modifiers.cljc:102-106`, `passes-conds? (every? #(% e) conditions)`. Proven before building
+anything by multiclassing a rogue second and watching its saving throws correctly not apply.
+
+**Conditions must be literal at the macro call site.** `es/conditions` → `es/condition` rewrites
+`?classes` at macroexpansion, so a condition cannot be built from data at runtime. That is why
+`class-skill-proficiency` is an `if` over two literal `mods/modifier` calls rather than one call
+with a computed condition — the same shape `tool-proficiency` already uses.
 
 **Characterizing class tools is not a prerequisite.** It is the same shape as the skills case and
 would confirm rather than discover. Do it as part of step 5, not before step 1.

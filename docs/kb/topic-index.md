@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, race, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, spreads, standalone, terse, widget
 
 - The format
 - Examples
@@ -103,7 +103,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, boolean, crossbow, dual, equipped, feat, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, boolean, crossbow, dual, equipped, ignored, iterating, melee, obvious, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -950,7 +950,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** arms, bug, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, part, per-pool, pool, wrapper
+**topics:** arms, characterizing, completing, concept, conditions, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, part, per-pool, pool, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -958,6 +958,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 - The change
 - Blast radius
 - Order
+- Two things worth carrying forward
 - Part B — completing the grant compiler
 - Are the new fields ornaments?
 - Derived helpers, or more fields?
@@ -967,7 +968,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, capabilities, control, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** advanced, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
 
 - 0. Standing, do these first
 - 1. Grants on the remaining four silos
@@ -1036,7 +1037,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track, widgets
+**topics:** 2026-09-05, bespoke, class-feature, d29, detail, feat, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track, widgets
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
