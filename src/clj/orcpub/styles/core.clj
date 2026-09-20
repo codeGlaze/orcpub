@@ -17,6 +17,17 @@
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+;; Field errors on the WHITE auth card. The site's own red is a wine that goes
+;; muddy over a tint, so this is GOV.UK's, measured in every position it takes:
+;; 4.86:1 as text on the card, 4.52:1 as a border against its own tint. It is
+;; never used for running text ON the tint -- that would be 4.52:1 as text,
+;; which scrapes AA rather than clearing it.
+;; Ink and muted ON the white auth card, the counterparts to muted-on-dark.
+;; 8.9:1 and 4.6:1 on white respectively.
+(def text-color-light "#4b545e")
+(def muted-on-light "#6b7681")
+(def error-red "#d4351c")
+(def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
@@ -657,6 +668,323 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+
+   ;; The gryphon panel beside the auth form. It had no background-repeat and no
+   ;; background-size, so the moment the form column grew taller than the image's
+   ;; own height the browser did what it is told to do by default and TILED it --
+   ;; a second gryphon appearing below the first, half cropped. The register form
+   ;; is the tallest of the nine pages and grew taller again with the confirm
+   ;; fields, so this is where it showed. cover keeps one copy filling the panel
+   ;; whatever the form's height turns out to be.
+   [:.registration-image
+    {:background-image "url(/image/login-side.jpg)"
+     :background-repeat :no-repeat
+     :background-size :cover
+     :background-position "center"
+     :background-clip :content-box
+     :width "350px"
+     :min-height "600px"}]
+   ;; The auth card is white whatever theme the app is in, so anything inside it
+   ;; needs the light-ground colours. .red otherwise resolves to red-on-dark,
+   ;; which is a red chosen to carry on near-black and washes out to pink here
+   ;; -- every field error on the register form was reading at about 2.6:1.
+   ;; .app.light-theme already does this; that selector just never matches here.
+   [:.registration-content
+    [:.red {:color red}
+     [:a :a:visited {:color red}]]
+
+    ;; LIGHT-GROUND VARIANTS. .field-notice, .message and .callout are all toned
+    ;; for the dark app -- rgba(255,255,255,0.06) grounds, red-on-dark text,
+    ;; color:white. Dropped onto this card as they are, the sign-in banner puts
+    ;; white text on white. These re-tone them rather than fork them, so the auth
+    ;; pages use the same components as everywhere else.
+    [:.field-notice
+     {:background-color :transparent
+      :border-left :none
+      :padding "0"
+      :margin "0 2px 8px"
+      :font-size "13px"
+      :line-height "19px"
+      ;; The words are INK. Only the mark and the label carry the colour, because
+      ;; a wall of red text is most of what makes a form feel like it is shouting.
+      :color text-color-light
+      :text-align :left}
+     ;; An empty notice is not a notice. The slot is always rendered so a live
+     ;; check and a submitted one cannot lay the field out differently, which
+     ;; means every healthy field carried a bare "!" until this.
+     [:&:empty {:display :none}]
+     [:&.is-error:before
+      {:content "\"!\""
+       :flex "0 0 auto"
+       :font-weight :bold
+       :color error-red}]
+     [:&.is-note {:color muted-on-light
+                  :margin "7px 2px 0"}]]
+    ;; 1 1 auto, not the 260px basis the dark-app notice uses: at this width the
+    ;; basis forced the text onto its own line and left the mark stranded.
+    [:.field-notice-what {:flex "1 1 auto"}]
+    [:.field-notice-action {:color "#c98700"
+                            :font-size "13px"}]
+    [:.field-notice.is-error {:color text-color-light}]
+    [:.field-notice.is-warning {:color text-color-light}]
+
+    [:.message {:color text-color-light}]
+    [:.message.tone-error {:background-color "rgba(212, 53, 28, 0.08)"
+                           :border-color "rgba(212, 53, 28, 0.45)"}]
+    [:.message.tone-warning {:background-color "rgba(240, 161, 0, 0.10)"
+                             :border-color "rgba(240, 161, 0, 0.5)"}]
+    [:.message.tone-success {:background-color "rgba(74, 112, 0, 0.09)"
+                             :border-color "rgba(74, 112, 0, 0.45)"}]
+    [:.tone-error [:.message-icon {:color error-red}]]
+    [:.tone-success [:.message-icon {:color "#4a7000"}]]
+
+    [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
+    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]
+
+    ;; ---------------------------------------------------------------------
+    ;; The auth field. A notched outline label: a real <label for> riding on
+    ;; the input's own border, so the field never stops saying what it is. A
+    ;; placeholder stops saying it the moment somebody types.
+    ;;
+    ;; The notch is driven by :placeholder-shown rather than a class the view
+    ;; keeps in step. A class desynced the moment somebody typed and tabbed
+    ;; away -- the label dropped back over their own text, which reads as the
+    ;; field clearing itself. Every input carries placeholder=" " for the
+    ;; selector to test against.
+    ;; ---------------------------------------------------------------------
+    ;; The field owns its alignment. register-page wraps its whole contents in
+    ;; text-align:center, which centred the labels, centred the notice text and
+    ;; pushed the "!" onto a line of its own. A field is left-aligned wherever it
+    ;; is put; that is not the page's call to make.
+    [:.field {:position :static
+              :margin-bottom "22px"
+              :text-align :left}]
+    ;; The heading. Ink with an amber rule under it, replacing an orange word
+    ;; carrying a drop shadow -- which six pages each held their own copy of.
+    ;; The rule carries the brand colour so the heading does not have to shout
+    ;; it, and ink reads at full contrast on the card where the orange did not.
+    [:.auth-heading {:margin "0"
+                     :font-size "25px"
+                     :font-weight :bold
+                     :letter-spacing "0.055em"
+                     :text-transform :uppercase
+                     :color "#23282e"
+                     :text-align :center
+                     :line-height "1.2"}]
+    [:.auth-rule {:width "54px"
+                  :height "3px"
+                  :background-color orange
+                  :border-radius "2px"
+                  :margin "10px auto 8px"}]
+    ;; Everything below the fields -- the submit, the "already have an account"
+    ;; line, the consent text -- used to be centred by a text-align:center
+    ;; wrapper on the register page. auth-page replaced that wrapper, and the
+    ;; button ended up hard against the left edge. Centring belongs to the parts
+    ;; that want it, not to one div wrapping the whole page.
+    ;; The summary. .bg-note's neutral ground with a rail in the error colour,
+    ;; rather than a tinted box: the fields below are already tinted, and two
+    ;; pink areas stacked is the crowding the design pass was fixing.
+    [:.auth-summary {:border-left (str "3px solid " error-red)
+                     :background-color "rgba(0, 0, 0, 0.035)"
+                     :border-radius "3px"
+                     :padding "12px 14px"
+                     :margin "0 0 22px"
+                     :text-align :left}]
+    [:.auth-summary-title {:font-weight :bold
+                           :color error-red
+                           :font-size "14px"
+                           :margin-bottom "6px"}]
+    [:.auth-summary-list {:margin "0"
+                          :padding-left "18px"
+                          :font-size "13.5px"
+                          :color text-color-light}
+     [:li {:margin-bottom "3px"}]
+     [:a {:color error-red
+          :text-decoration :underline
+          :text-underline-offset "2px"
+          :cursor :pointer}]]
+
+    [:.auth-tail {:text-align :center
+                  :padding "0 16px"
+                  :box-sizing :border-box
+                  :font-weight :normal
+                  :font-size "14px"
+                  :color text-color-light}]
+    ;; Full width, as the design pass settled: at 174px it read as one option
+    ;; among the links around it rather than the thing the page is for.
+    [:.join-button {:width "100%"
+                    :height "48px"
+                    :font-size "15px"
+                    :font-weight "700"
+                    :letter-spacing "0.12em"
+                    :margin-top "4px"}]
+    ;; text-wrap balance on both: centred text in a 435px column breaks with a
+    ;; single orphaned word on the second line ("off." under the lede, "read our
+    ;; Privacy Policy." under the consent line), which reads as a mistake rather
+    ;; than a line break. Browsers without it fall back to the ragged wrap, which
+    ;; is what this looked like before.
+    [:.auth-fineprint {:margin-top "16px"
+                       :font-size "12.5px"
+                       :color muted-on-light
+                       :text-align :center
+                       :text-wrap :balance
+                       :padding "0 16px"}]
+    [:.auth-lede {:margin "0 0 22px"
+                  :text-align :center
+                  :text-wrap :balance
+                  :color text-color-light
+                  :font-size "14.5px"}]
+
+    ;; The gutter base-input used to carry as .p-l-10.p-r-10 on every field.
+    ;; It belongs to the form, not to each field -- a field that indents itself
+    ;; cannot be put anywhere else -- and the wrong-state rail needs room to sit
+    ;; in, which is why it is 16px rather than 10.
+    [:.auth-form {:padding "0 16px"
+                  :box-sizing :border-box}]
+    [:.field-box {:position :relative}]
+    ;; border-box, because there is no global one: width:100% plus 13px of
+    ;; padding and a border made every field wider than the 435px column it
+    ;; sits in, and it ran out over the gryphon.
+    [:.field [:input {:width "100%"
+                      :box-sizing :border-box
+                      :height "50px"
+                      :padding "14px 13px 0"
+                      :font-size "15px"
+                      :color text-color-light
+                      :background-color :white
+                      :border "1px solid #d9dee3"
+                      :border-radius "3px"
+                      :color-scheme :light
+                      :outline :none
+                      :transition "border-color 0.15s, box-shadow 0.15s, background-color 0.15s"}]]
+    [:.field [:.notch {:position :absolute
+                       :left "11px"
+                       :top "15px"
+                       :padding "0 4px"
+                       :pointer-events :none
+                       :color muted-on-light
+                       :font-size "15px"
+                       :background-color :white
+                       :transition "top 0.14s, font-size 0.14s, color 0.14s, letter-spacing 0.14s"}]]
+    [:.field ["input:not(:placeholder-shown) + .notch" "input:focus + .notch"
+              {:top "-9px"
+               :font-size "11px"
+               :letter-spacing "0.08em"
+               :text-transform :uppercase
+               :color text-color-light}]]
+    [:.field ["input:focus" {:border-color orange
+                             :box-shadow "0 0 0 3px rgba(240, 161, 0, 0.20)"}]]
+    [:.field ["input:focus + .notch" {:color "#c98700"}]]
+
+    ;; Wrong: the group grows a rail, the field tints, and the label LEAVES the
+    ;; notch to become a plain line so the message can sit under it -- GOV.UK's
+    ;; order, which puts the explanation before the box about to be retyped.
+    ;; The field visibly changes shape, which is a signal before a word is read.
+    ;; One container, not four: the first attempt tinted the input AND doubled
+    ;; its border AND boxed the message AND railed the box, and looked pinched.
+    [:.field [:.lift {:display :none
+                      :margin "0 0 5px"
+                      :font-size "11px"
+                      :letter-spacing "0.08em"
+                      :text-transform :uppercase
+                      :color error-red}]]
+    [:.field.is-wrong {:padding-left "13px"
+                       :border-left (str "3px solid " error-red)
+                       :margin-left "-16px"}]
+    [:.field.is-wrong [:.lift {:display :block}]]
+    [:.field.is-wrong [:.notch {:display :none}]]
+    [:.field.is-wrong [:input {:border-color error-red
+                               :background-color error-tint}]]
+    [:.field.is-wrong ["input:focus" {:box-shadow "0 0 0 3px rgba(212, 53, 28, 0.18)"}]]
+
+    ;; The reveal. Inside the field so it cannot be read as a control of its
+    ;; own; the input reserves room rather than letting text run under it.
+    [:.peek {:position :absolute
+             :right "6px"
+             :top "8px"
+             :height "34px"
+             :padding "0 11px"
+             :border :none
+             :background :none
+             :color muted-on-light
+             :font-size "11.5px"
+             :font-weight :bold
+             :letter-spacing "0.11em"
+             :text-transform :uppercase
+             :cursor :pointer
+             :border-radius "3px"}]
+    [:.peek:hover {:color text-color-light
+                   :background-color "#eef1f4"}]
+    ;; A keyword cannot carry the parens of :has(), so this selector is a string.
+    [".field-box:has(.peek) input" {:padding-right "78px"}]]
+
+   ;; Password meter. Four slots with one fill sweeping through them, so the
+   ;; movement is continuous while the milestones stay countable. The minimum
+   ;; length lands on the first slot's edge, so the gap between slots marks it
+   ;; and no separate notch is needed. Only the fill WIDTH is set inline, at the
+   ;; call site, because that width is the measurement itself.
+   ;;
+   ;; These are LIGHT-ground colours. registration-page puts its form on a white
+   ;; card with only the header bar dark, so the *-on-dark palette is wrong
+   ;; here: red-on-dark washes out to pink and muted-on-dark all but vanishes.
+   ;; The first cut used them and a screenshot is what caught it.
+   ;;
+   ;; Fill and label colours are separate families rather than one class reused
+   ;; through currentColor, because Legendary is a gradient -- correct behind a
+   ;; bar, wrong behind text.
+   [:.pw-slots {:display :flex
+                :gap "4px"
+                :height "10px"}]
+   [:.pw-slot {:flex "1"
+               :border-radius "2px"
+               :overflow :hidden
+               :background-color "rgba(0,0,0,0.12)"}]
+   [:.pw-fill {:height "100%"
+               :width "0"
+               :transition "width 0.22s cubic-bezier(0.4,0,0.2,1), background-color 0.2s"}]
+
+   ;; A broken rule takes every slot to the failure colour. The fill still
+   ;; reports the real length, so the bar never claims progress it has not made.
+   [:.pw-fill-fail {:background-color red}]
+   [:.pw-fill-0 {:background-color "#5d8c00"}]
+   [:.pw-fill-1 {:background-color "#2f6fb5"}]
+   [:.pw-fill-2 {:background-color purple}]
+   [:.pw-fill-3 {:background-image "linear-gradient(100deg,#b06d08,#e8b24a 42%,#ffe08a 52%,#e8b24a 62%,#b06d08)"}]
+
+   [:.pw-name-fail {:color red}]
+   [:.pw-name-0 {:color "#4a7000"}]
+   [:.pw-name-1 {:color "#2f6fb5"}]
+   [:.pw-name-2 {:color "#6f61b0"}]
+   [:.pw-name-3 {:color "#a2650c"}]
+
+   [:.pw-verdict {:display :flex
+                  :justify-content :space-between
+                  :align-items :center
+                  :gap "10px"
+                  :min-height "24px"
+                  :margin-top "9px"}]
+   [:.pw-tier-name {:font-size "13px"
+                    :font-weight :bold
+                    :letter-spacing "0.08em"
+                    :text-transform :uppercase}]
+   [:.pw-next {:font-size "12px"
+               :color "#6b7681"
+               :font-variant-numeric "tabular-nums"}]
+
+   ;; The JOIN button's dimensions. They were four inline declarations on the
+   ;; element, alongside a class that dimmed it to 50% whenever the form was
+   ;; not ready -- which is gone: a control that looks dead reads as a broken
+   ;; site rather than an unfinished form, and it cannot say why it will not go.
+   [:.join-button {:height "40px"
+                   :width "174px"
+                   :font-size "16px"
+                   :font-weight "600"}]
+
+   [:.registration-notice
+    {:color red
+     :font-size "14px"
+     :line-height "1.5"}]
+
    [:.bg-orange
     {:background-color orange}]
    [:.bg-red
@@ -1884,9 +2212,16 @@
      {:background-image "linear-gradient(to right, #d35730, #eda41e)"
       :padding ".5em 2em"}]
 
-    [:.modal-container :.m-b-10,
-     :.modal-container :.link-button
-     {:font-weight "bold"}]
+    ;; Nested, not comma-separated. Written as
+    ;;   [:.modal-container :.m-b-10, :.modal-container :.link-button {...}]
+    ;; this reads as a descendant selector and is not one: garden treats every
+    ;; keyword before the map as a SEPARATE selector, so it compiled to
+    ;;   .modal-container, .m-b-10, .modal-container, .link-button
+    ;; and put font-weight:bold on a MARGIN UTILITY used 194 times across the
+    ;; app. Anything carrying .m-b-10 anywhere has been bold by accident.
+    [:.modal-container
+     [:.m-b-10 {:font-weight "bold"}]
+     [:.link-button {:font-weight "bold"}]]
     
     [:.modal-container :.link-button
      {:color "#f7c257"

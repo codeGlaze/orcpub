@@ -39,6 +39,7 @@
             [orcpub.pdf :as pdf]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
+            [orcpub.pwned :as pwned]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -266,14 +267,34 @@
     (:orcpub.user/pending-email user)
     (assoc :pending-email (:orcpub.user/pending-email user))))
 
-(defn bad-credentials-response [db username ip]
+(defn base-url [{:keys [scheme headers]}]
+  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
+
+(defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
   (if (security/too-many-attempts-for-username? username)
-    (login-error errors/too-many-attempts)
+    (do (security/note-refusal! :login-username)
+        (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
-      (login-error (if (:db/id user-for-username)
-                     errors/bad-credentials
-                     errors/no-account)))))
+      ;; Several addresses failing against ONE account inside a minute is what
+      ;; this predicate was written for, and it is also what a person with a
+      ;; phone, a laptop and a tablet looks like -- so it tells the owner rather
+      ;; than locking them out. On another thread, and its outcome can never
+      ;; reach the response: whoever is failing these logins must not be able to
+      ;; learn from a status or a delay whether mail went anywhere.
+      (when (and (:db/id user-for-username)
+                 (security/multiple-ip-attempts-to-same-account? username)
+                 (security/claim-sign-in-notice! username))
+        (future
+          (email/send-sign-in-attempts-email
+           (base-url request)
+           {:email (:orcpub.user/email user-for-username)
+            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+            :user-agent (get (:headers request) "user-agent")})))
+      ;; One answer for both. Telling somebody the username does not exist made
+      ;; the login form the same membership test the reset endpoint was, and a
+      ;; cheaper one, since it needs no mail to be sent.
+      (login-error errors/bad-credentials))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -293,6 +314,16 @@
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
+
+      ;; Checked before the credentials, not on the failure path: stuffing ends
+      ;; on the one account it guesses right, and a check that only runs after a
+      ;; failed lookup never sees that attempt. Tripping it takes five DISTINCT
+      ;; usernames failing from this address inside a minute, so one person
+      ;; across several devices cannot -- only a spray across accounts can.
+      (security/multiple-account-access? remote-addr)
+      (do (security/note-refusal! :login-spray)
+          (login-error errors/too-many-attempts))
+
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
                   {:keys [:orcpub.user/verified?
@@ -302,17 +333,14 @@
                   unverified? (not verified?)
                   expired? (and verification-sent (verification-expired? verification-sent))]
               (cond
-                (nil? id) (bad-credentials-response db username remote-addr)
+                (nil? id) (bad-credentials-response db username remote-addr request)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
                 (create-login-response db conn user id))))))
 
-(defn login [{:keys [json-params db] :as request}]
-  (try
-    (let [resp (login-response request)]
-      resp)
-    (catch Throwable e (prn "E" e) (throw e))))
+(defn login [request]
+  (login-response request))
 
 
 (defn user-for-email [db email]
@@ -324,9 +352,6 @@
                                        ?email]]}
                             (s/lower-case email))]
     user))
-
-(defn base-url [{:keys [scheme headers]}]
-  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -359,7 +384,53 @@
                         {:error :verification-failed}
                         e))))))
 
-(defn register [{:keys [json-params db conn] :as request}]
+
+(defn- breach-message
+  "Why this reads as a strength verdict rather than a security warning.
+
+   The corpus is a commonness measure: a password in it fifty million times is
+   common, and that is the whole of what we learn. Saying \"breach\" implies this
+   person was breached; saying \"attackers try this first\" conjures someone
+   coming for them. Neither is what happened, and both frighten someone who is
+   trying to sign up for a character builder.
+
+   So it speaks the way the strength meter speaks, because it is the same kind
+   of judgement -- too common, here is the better move -- and the count stays out."
+  [_n]
+  "Too common. A few words strung together are harder to guess and easier to remember.")
+
+(def ^:private breach-refusal-threshold
+  "How many appearances in the corpus make a password common enough to refuse.
+
+   The corpus measures commonness, not danger to the person in front of us. A
+   password appearing once leaked in somebody else's dump years ago; one
+   appearing four figures of times ships inside every cracking wordlist there
+   is. Refusing on ANY appearance -- which this did until now -- reads a
+   commonness measure as a veto and turns away passwords nobody is realistically
+   guessing, on a site whose worst loss is a character sheet.
+
+   Below this line the corpus has an opinion rather than a verdict, and voicing
+   it is the strength meter's job: it says the same thing while someone is still
+   typing, where it can still be acted on. Refusing at submit is the last resort
+   and is kept for the egregious."
+  1000)
+
+(defn- breach-errors
+  "A validation map for an egregiously common password, or nil.
+
+   Only a positive answer counts, and only one at or above the threshold: an
+   unreachable service must read as no objection, and nor must a handful of
+   appearances."
+  [password]
+  (let [result (pwned/check password)]
+    (when (and (number? result) (>= result breach-refusal-threshold))
+      {:password [(breach-message result)]})))
+
+(def ^:private registration-throttled-message
+  (str "Too many accounts have been created from this connection in the last hour. "
+       "Try again a little later, or email us if you are stuck."))
+
+(defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
         email (when email (s/lower-case (s/trim email)))
@@ -368,25 +439,35 @@
                     json-params
                     (seq (d/q email-query db email))
                     (seq (d/q username-query db username)))
-        now (java.util.Date.)]
-    (try
-      (if (seq validation)
-        {:status 400
-         :body validation}
-        (do-verification
-         request
-         json-params
-         conn
-         (merge
-          {:orcpub.user/email email
-           :orcpub.user/username username
-           :orcpub.user/password (hashers/encrypt password)
-           :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created now}
-          (when auth/record-last-login-at-registration?
-            {:orcpub.user/last-login now})
-          (user-data/registration-defaults))))
-      (catch Throwable e (prn e) (throw e)))))
+        now (java.util.Date.)
+        ;; Checked only once the form is otherwise valid: no reason to ask a third
+        ;; party about a password attached to a malformed signup.
+        validation (if (seq validation)
+                     validation
+                     (or (breach-errors password) validation))
+        ;; Checked last, so a form that was going to be rejected anyway is not
+        ;; counted against the host. :general rather than a field key: nobody
+        ;; can edit their way past a rate limit, so it must not sit in the map
+        ;; that disables the button.
+        validation (if (or (seq validation) (security/registration-allowed? remote-addr))
+                     validation
+                     (assoc validation :general [registration-throttled-message]))]
+    (if (seq validation)
+      {:status 400
+       :body validation}
+      (do-verification
+       request
+       json-params
+       conn
+       (merge
+        {:orcpub.user/email email
+         :orcpub.user/username username
+         :orcpub.user/password (hashers/encrypt password)
+         :orcpub.user/send-updates? send-updates?
+         :orcpub.user/created now}
+        (when auth/record-last-login-at-registration?
+          {:orcpub.user/last-login now})
+        (user-data/registration-defaults))))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -513,13 +594,29 @@
              :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
       {:status 400 :body {:error "User not found"}})))
 
+(defn hash-reset-key
+  "What goes in the database. The emailed key is the secret; storing it verbatim
+   made anyone who can read the user table able to complete a reset on any
+   account with one outstanding. Only the digest is kept, so a stolen table
+   yields nothing that can be mailed back in."
+  [key]
+  (->> (.getBytes ^String key "UTF-8")
+       (.digest (java.security.MessageDigest/getInstance "SHA-256"))
+       (map #(format "%02x" %))
+       (apply str)))
+
+;; Two hours. One is the usual choice and is a one-line change here; two leaves
+;; room for mail that takes a while to arrive and for somebody who reads it on
+;; the way home, on a site whose worst case is a character sheet.
+(def password-reset-valid-hours 2)
+
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
       @(d/transact
         conn
         [{:db/id user-id
-          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-key (hash-reset-key key)
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
@@ -535,23 +632,34 @@
                         e))))))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent
+       (before? (instant password-reset-sent) (-> password-reset-valid-hours hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
-(defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
-  (try
-    (let [email (:email query-params)
-          {:keys [:orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset
-                  :db/id] :as user} (user-for-email db email)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (if id
+(defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
+  (let [email (:email query-params)
+        {:keys [:db/id]} (user-for-email db email)]
+    ;; The answer is the same whether or not that address has an account. It
+    ;; used to be {:error :no-account} with a 400, which made this endpoint a
+    ;; free membership test: ask it about any address and it told you. A list
+    ;; of addresses confirmed to have accounts here is precisely the input to
+    ;; the stuffing runs the per-address throttle now turns away.
+    ;; The limit is checked AFTER the lookup and changes nothing about the
+    ;; answer, because an endpoint that responds differently once throttled is
+    ;; an oracle for whether the limit was reached -- which on this endpoint is
+    ;; the membership test the uniform 200 exists to close.
+    (when (and id (security/reset-email-allowed? email remote-addr))
+      (try
         (do-send-password-reset id email conn request)
-        {:status 400 :body {:error :no-account}}))
-    (catch Throwable e (prn e) (throw e))))
+        (catch Exception e
+          ;; Swallowed on purpose. Letting this escape would restore the oracle
+          ;; in a subtler form -- only a real account can fail to be emailed,
+          ;; so an error response would mark the address as registered.
+          (println "ERROR: password reset for a known address could not be sent:"
+                   (.getMessage e)))))
+    {:status 200}))
 
 (defn do-password-reset [conn user-id password]
   (try
@@ -573,10 +681,16 @@
   (try
     (let [{:keys [password verify-password]} json-params
           username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)]
+          {:keys [:db/id] :as user} (first-user-by db username-query username)
+          ;; Asked once. Only reached when the password is otherwise acceptable,
+          ;; so a rejected reset never costs a call.
+          breached (when (and (= password verify-password)
+                              (empty? (registration/validate-password password)))
+                     (first (:password (breach-errors password))))]
       (cond
         (not= password verify-password) {:status 400 :message "Passwords do not match"}
         (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
+        breached {:status 400 :message breached}
         :else (do-password-reset conn id password)))
     (catch Throwable t (prn t) (throw t))))
 
@@ -1215,23 +1329,32 @@
 (defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
   (default-index-page request response))
 
-(defn reset-password-page [{:keys [query-params db conn] :as req}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:db/id
-                  :orcpub.user/username
-                  :orcpub.user/password-reset-key
-                  :orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset] :as user}
-          (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (cond
-        expired? (redirect route-map/password-reset-expired-route)
-        already-reset? (redirect route-map/password-reset-used-route)
-        :else (let [token (create-token username (-> 1 hours from-now))]
-                (index req {:cookies {"token" token}}))))
-    {:status 400
-     :body "Key is required"}))
+(defn reset-password-page [{:keys [query-params db] :as req}]
+  (let [key (:key query-params)
+        {:keys [:db/id
+                :orcpub.user/username
+                :orcpub.user/password-reset-sent
+                :orcpub.user/password-reset]}
+        ;; The link carries the key; the table holds only its digest.
+        (when-not (s/blank? key)
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key)))
+        expired? (password-reset-expired? password-reset-sent)
+        already-reset? (password-already-reset? password-reset password-reset-sent)]
+    (cond
+      ;; Covers both no key at all and a key matching nobody. These used to
+      ;; behave very differently and both were wrong: a missing key answered
+      ;; with the bare string "Key is required" and no page around it, and an
+      ;; unrecognised key fell through to :else, where username was nil and a
+      ;; session token got signed for nil.
+      ;;
+      ;; From the reader's side a mangled link and an expired one are the same
+      ;; event -- it does not work and they need another -- so both land on the
+      ;; page that says so and offers to send one.
+      (nil? id) (redirect route-map/password-reset-expired-route)
+      expired? (redirect route-map/password-reset-expired-route)
+      already-reset? (redirect route-map/password-reset-used-route)
+      :else (let [token (create-token username (-> 1 hours from-now))]
+              (index req {:cookies {"token" token}})))))
 
 (defn check-field [query value db]
   {:status 200
@@ -1861,6 +1984,11 @@
    [route-map/login-page-route]
    [route-map/verify-sent-route]
    [route-map/password-reset-sent-route]
+   ;; Was the only one of these missing. The client routes here after a reset,
+   ;; so it renders inside a session -- but a refresh, a back button or a
+   ;; bookmark asked the server for it and got "Not Found", on the one page
+   ;; whose whole job is to confirm the password was changed.
+   [route-map/password-reset-success-route]
    [route-map/password-reset-expired-route]
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]

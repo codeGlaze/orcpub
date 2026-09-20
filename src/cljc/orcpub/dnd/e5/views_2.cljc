@@ -45,12 +45,20 @@
 (def orange-style
   {:color :orange})
 
-(defn legal-footer []
-  [:div.m-l-15.m-b-10.m-t-10.t-a-l
-   [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
-   (for [{:keys [label href]} splash/legal-footer-links]
-     ^{:key href}
-     [:a.m-l-5 {:href href :target :_blank} label])])
+(defn legal-footer
+  "The site-wide copyright line and its two legal links.
+
+   `links?` false leaves the copyright and drops the links, for a page that has
+   already linked both documents in its own consent copy. Printing them twice
+   sixteen pixels apart does not make the agreement any more agreed to."
+  ([] (legal-footer true))
+  ([links?]
+   [:div.m-l-15.m-b-10.m-t-10.t-a-l
+    [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
+    (when links?
+      (for [{:keys [label href]} splash/legal-footer-links]
+        ^{:key href}
+        [:a.m-l-5 {:href href :target :_blank} label]))]))
 
 (defn splash-page []
   [:div.app.h-full

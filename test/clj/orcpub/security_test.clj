@@ -202,3 +202,48 @@
                        {:user "u" :ip "2.2.2.2" :date instant}])]
     (is (= 1 (count two-ips))
         "two attempts, one instant, one surviving entry")))
+
+
+(deftest refusals-are-counted-so-the-numbers-can-be-tuned
+  (s/take-refusals!)
+  (is (nil? (s/refusal-summary {})) "a quiet hour says nothing")
+  ;; Eleven signups from one host inside the hour: the first ten pass.
+  (dotimes [_ 11] (s/registration-allowed? "9.9.9.9"))
+  (let [counts (s/take-refusals!)]
+    (is (= 1 (:n (:register counts))))
+    (is (= "limits: register 1" (s/refusal-summary counts))))
+  (is (= {} (s/take-refusals!)) "taking them resets, so each hour is its own period"))
+
+(deftest a-limit-turns-away-only-what-is-past-it
+  (s/take-refusals!)
+  (let [host (str "10.0.0." (rand-int 250))]
+    (is (every? true? (repeatedly 10 #(s/registration-allowed? host))))
+    (is (false? (s/registration-allowed? host)))
+    (is (true? (s/registration-allowed? (str host ".other")))
+        "a different host has its own allowance")))
+
+
+(deftest one-host-hammering-reads-differently-from-a-spread
+  ;; The count alone cannot tell these apart, and they are not the same event:
+  ;; twenty refusals from twenty addresses is a pool working through a list.
+  (s/take-refusals!)
+  (dotimes [_ 4] (s/note-refusal! :register "5.5.5.5"))
+  (is (= "limits: register 4" (s/refusal-summary (s/take-refusals!)))
+      "one source is not worth naming as a spread")
+  (doseq [n (range 6)] (s/note-refusal! :register (str "5.5.5." n)))
+  (is (= "limits: register 6 from 6 sources" (s/refusal-summary (s/take-refusals!)))))
+
+(deftest a-host-that-stops-just-short-is-still-visible
+  ;; The case refusals cannot see at all: a host taking nine of its ten signups
+  ;; an hour, every hour, trips nothing and is never counted. busiest-summary
+  ;; is pure, so it is tested on its own rather than through the shared atom.
+  (is (= "limits, busiest source: register 9/10" (s/busiest-summary {:register 9} 0.8)))
+  (is (= "limits, busiest source: register 10/10" (s/busiest-summary {:register 10} 0.8)))
+  (is (nil? (s/busiest-summary {:register 2} 0.8)) "an ordinary hour says nothing")
+  (is (nil? (s/busiest-summary {:unknown-limit 99} 0.8)) "a limit with no cap is not guessed at"))
+
+(deftest busiest-reads-the-live-window
+  (let [host (str "7.7.7." (rand-int 250))]
+    (dotimes [_ 9] (s/registration-allowed? host))
+    ;; Other tests share this atom, so the floor is what matters, not the value.
+    (is (>= (:register (s/busiest)) 9))))

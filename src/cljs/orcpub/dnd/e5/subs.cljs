@@ -70,12 +70,37 @@
    (get db :srd-message-closed? false)))
 
 (reg-sub
+ :registration-server-errors
+ (fn [db [_]]
+   (get db :registration-server-errors)))
+
+(reg-sub
  :registration-validation
  :<- [:registration-form]
  :<- [:email-taken?]
  :<- [:username-taken?]
- (fn [args [_]]
-   (apply registration/validate-registration args)))
+ :<- [:registration-server-errors]
+ (fn [[form email-taken? username-taken? server] [_]]
+   ;; Merged per field, so a server objection sits alongside anything the form
+   ;; found rather than replacing it.
+   (merge-with (comp vec distinct concat)
+               (registration/validate-registration form email-taken? username-taken?)
+               ;; :general is deliberately excluded. It is not a field fault and
+               ;; the submit button is disabled while this map has anything in
+               ;; it -- a rate limit the person cannot edit their way out of
+               ;; would leave them with a button that never comes back.
+               (dissoc (or server {}) :general))))
+
+(reg-sub
+ :registration-attempted?
+ (fn [db [_]]
+   (get db :registration-attempted? false)))
+
+(reg-sub
+ :registration-notice
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (:general server)))
 
 (reg-sub
  :temp-email

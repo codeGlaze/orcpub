@@ -43,6 +43,28 @@ comes with a check that fails without it.
 - **The server records when it was running** — an hourly heartbeat kept in the database notes when the
   server was off, and scheduled jobs run after it; share link pruning is the first (`e3aa6d07`).
 
+- **The password rules judge length and shape, not character classes** — a minimum of 12
+  characters, with repeats, runs and too few distinct characters refused, and no rule about
+  symbols or capitals. NIST has told everyone to stop imposing composition rules, which push
+  people to Password1! and no further. The validator is shared between the browser and the
+  server so neither can disagree with the other (`43a56c60`, `ad5ebcb8`, `389b0360`).
+
+- **A strength meter that asks the validator instead of guessing beside it** — four rungs at
+  12, 16, 22 and 28 characters, and it refuses to show a verdict the server would contradict.
+  The username and email go into the judgement, so a password made of them does not score
+  (`389b0360`).
+
+- **Breach screening against the Pwned Passwords corpus** — the first five characters of a
+  SHA-1 go to the service and the rest never leaves, so the password itself is not sent and
+  cannot be inferred from the size of the reply. A password is refused only at 1000 or more
+  appearances: the corpus measures commonness rather than danger to the person in front of
+  us, and refusing on a single appearance turned a measure into a veto. A service that cannot
+  answer is never a refusal (`b459e6b7`, `79e7a325`, `cef432af`).
+
+- **A notice when one account is signed into from several places** — with the time, the
+  browser and where from, held to one message per account per cooldown so a person with a
+  phone and a laptop is not mailed all day (`b2aefc9b`, `4f75360c`, `40d6ea23`).
+
 ## Fixed
 
 - **Blank icons show again** — the Edit button on character and item pages, New link and three
@@ -128,6 +150,44 @@ comes with a check that fails without it.
   panel cannot exceed the screen, and a child that still outruns the bar is clipped
   rather than scrolling the whole page sideways (`0a089349`).
 
+- **Login no longer says whether a username exists** — every failure answers the same way, and
+  the per-address throttle is consulted BEFORE the credentials rather than computed and thrown
+  away, so a spray is turned back without first being told whether it guessed a real account
+  (`5f4d34ba`, `70c3f49a`).
+
+- **Password reset no longer says whether an address is registered** — it answers 200 either
+  way, including once throttled, because an endpoint that changes its answer under a limit has
+  simply moved the oracle (`3570624e`).
+
+- **Reset keys are stored as a digest and expire** — the table holds a SHA-256 of the key
+  rather than the key itself, and it is good for two hours. An unknown key used to fall through
+  to signing a token for username nil (`cfd39eb9`).
+
+- **Registration is capped per host** — ten an hour, counted only once a form was otherwise
+  going to succeed, so a signup that was failing anyway is not held against the address. What
+  the limits turn away is counted and summarised hourly, so the numbers can be tuned against
+  something (`91acfcd1`, `cc5f8653`, `a744b6d4`).
+
+- **A margin utility no longer makes 194 places bold** — `.m-b-10` sat in a Garden selector
+  group that read as a descendant chain and was not one, so a margin class carried
+  `font-weight: bold` across the app. Measured rather than guessed: 194 uses in source, 11
+  rendering on the logged-out pages, 7 computing a different weight, 5 actually looking
+  different (`042ee596`).
+
+- **The legal links printed twice on the register page** — the consent line links both
+  documents and the footer printed the same pair under it. The footer keeps the copyright there
+  and drops its copies (`ecb13193`).
+
+- **The gryphon panel tiled** — no `background-repeat` and no `background-size`, so once the
+  form column outgrew the image a second half-cropped gryphon drew below the first. It is a
+  Garden class now instead of an inline style map (`ecb13193`).
+
+- **The email help link was one word in the middle of a sentence** — "whitelist" as the whole
+  clickable target, which is a small target and names no destination when a screen reader reads
+  it alone. Both instances link a phrase now, and the login copy no longer reads "Didn't receive
+  validation the email?" or advise resetting a password to fix a missing validation email
+  (`ecb13193`).
+
 ## Changed
 
 - **Share wording** — the startup log's share settings speak of share data, the Share link button no
@@ -154,3 +214,24 @@ comes with a check that fails without it.
   rather than written out, so they emitted no CSS at all and are generated here. The
   password meter keeps an inline width, because that width IS the measurement. Nothing
   renders differently (`47bb73f4`, `2c9c553d`).
+- **The nine auth pages share one heading** — `registration-page` was always the shared shell,
+  but six pages carried their own copy of the same orange drop-shadowed heading. The shell owns
+  it now, as ink with an amber rule, so it changes in one place (`3b1ac947`).
+
+- **The auth fields are notched outlines with a real label** — the label rides the input's
+  border rather than sitting in a placeholder that vanishes the moment somebody types, so the
+  field never stops saying what it is (`c9c6732b`).
+
+- **Errors read in GOV.UK order** — the label lifts out of the notch, the message sits under it
+  and the input follows, with a rail down the group, a 1px border and a soft tint instead of a
+  heavy outline plus a boxed message. A summary above the form counts fields rather than
+  messages, and each line focuses its field (`70b6a410`, `935c996f`).
+
+- **A password can be revealed, and the confirm box retires when it is** — two boxes while it
+  is masked, one while it is not, and `display: none` rather than dimmed so a submit cannot
+  fail pointing at a field nobody can see (`141894fd`).
+
+- **The email is confirmed, not the password, and a mistyped domain is offered a fix** — a
+  mistyped password is recoverable; a mistyped address makes a dead account holding the username
+  its owner wanted and mails a stranger on the way. Within two edits of a known domain, a
+  correction is offered under the field (`bd434342`).
