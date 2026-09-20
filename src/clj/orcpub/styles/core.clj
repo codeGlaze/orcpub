@@ -59,7 +59,14 @@
   (px-prop
    :margin-top
    :m-t
-   (concat (range 0 10) [21] (range 10 30 5))))
+   ;; 100 drops a success message clear of the registration panel's heading.
+   (concat (range 0 10) [21] (range 10 30 5) [100])))
+
+(def min-widths
+  (px-prop
+   :min-width
+   :min-w
+   [53 120 160]))
 
 (def widths
   (px-prop
@@ -1343,11 +1350,19 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
+      :overflow-x :hidden}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     ;; A full-width child plus its padding measures wider than the bar without this.
+     [:.w-100-p {:box-sizing :border-box}]
+     ;; The logo is sized for the desktop header and crowds the search row here.
+     [:img {:max-height "40px"}]]
+    [:.import-log-panel
+     {:max-width "100vw"}]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
@@ -3001,9 +3016,269 @@
      [:.inv-combo-pop:popover-open {:animation :none}]
      [:.inv-combo-row {:transition :none}])
 
+
+    ;; ── Harvested from refactor/garden-inline-styles ─────────────────────────
+    ;; Class definitions lifted from that branch rather than merging it: integration is
+    ;; 648 commits past its merge-base and the merge conflicts over sections both sides
+    ;; rewrote. The call sites that used these as inline :style maps are converted
+    ;; separately, against integration's current views.cljs.
+
+    [:.character-display
+     {:padding "20px 5px"
+      :background-color "rgba(0,0,0,0.15)"}]
+
+    [:.checkbox-border
+     {:margin-top "-3px"
+      :border-color "#f0a100"
+      :border-style :solid
+      :border-width "1px"
+      :border-bottom-width "3px"}]
+
+    [:.close-btn-posn
+     {:right "8px"
+      :top "8px"}]
+
+    [:.close-button
+     {:position "fixed"
+      :top "20px"
+      :right "40px"}]
+
+    [:.close-icon
+     {:top 0
+      :right 0
+      :padding "17px"}]
+
+    [:.columns-2
+     (handle-browsers :column-count 2)]
+
+    [:.columns-3
+     (handle-browsers :column-count 3)]
+
+    [:.debug-textarea
+     {:width "400px"
+      :height "450px"}]
+
+    [:.error-warning-box
+     {:background-color "rgba(255,0,0,0.1)"
+      :border "1px solid red"
+      :border-radius "4px"}]
+
+    [:.expanded-spell-background
+     {:background-color "rgba(0,0,0,0.1)"}]
+
+    [:.folder-dropdown
+     {:width :auto
+      :align-self :stretch
+      :box-sizing :border-box}]
+
+    [:.form-input-base
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"}]
+
+    [:.form-input-default
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"
+      :border-color "rgba(72,72,72,0.37)"}]
+
+    [:.form-submit-btn
+     {:height "40px"
+      :width "174px"
+      :font-size "16px"
+      :font-weight "600"}]
+
+    [:.fullscreen-overlay
+     {:top 0
+      :left 0
+      :right 0
+      :bottom 0
+      :z-index 100}]
+
+    [:.h-16
+    {:height "16px"}]
+
+    [:.h-42
+    {:height "42px"}]
+
+    [:.header-bar-item
+     {:display :flex
+      :align-items "stretch"}]
+
+    [:.header-bar-row
+     {:align-items :stretch}]
+
+    [:.header-controls
+     {:border-left "1px solid rgba(255,255,255,0.15)"
+      :padding-left "12px"
+      :margin-left :auto
+      :gap "4px"}]
+
+    [:.header-menu-dropdown
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 84)
+      :right 0}]
+
+    [:.header-menu-dropdown-mobile
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 46)
+      :right 0}]
+
+    [:.header-tab-active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    [:.highlight-spell-slot-row
+     {:background-color "rgba(255,255,255,0.3)"}]
+
+    [:.input-error
+     {:border "2px solid red"}]
+
+    [:.loading-overlay
+     {:position "fixed"
+      :height "100%"
+      :width "100%"
+      :top 0
+      :bottom 0
+      :right 0
+      :left 0
+      :z-index 100
+      :background-color "rgba(0,0,0,0.6)"}]
+
+    [:.login-menu
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.notes-textarea
+     {:height "400px"
+      :width "100%"}]
+
+    [:.oracle-frame
+     {:overflow-y "scroll"
+      :position "fixed"
+      :z-index 1
+      :background-color "rgba(0,0,0,0.95)"
+      :top 0
+      :left 0
+      :right 0
+      :bottom 0}]
+
+    [:.orcacle-icon
+     {:filter "drop-shadow(0 0 4px rgba(240,161,0,0.6)) drop-shadow(0 0 12px rgba(240,161,0,0.3))"}]
+
+    [:.orcacle-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color "rgba(255,255,255,0.1)"
+      :color :white}]
+
+    [:.password-strength-bg
+     {:top 0
+      :left 0
+      :height "30px"
+      :opacity "0.7"
+      :width "100%"
+      :position :absolute}]
+
+    [:.password-strength-container
+     {:position :relative
+      :height "30px"}]
+
+    [:.password-strength-label
+     {:position :absolute
+      :padding-top "6px"}]
+
+    [:.password-strength-meter
+     {:top 0
+      :left 0
+      :position :absolute
+      :height "30px"
+      :transition "width 1s"}]
+
+    [:.print-disabled
+     {:opacity 0.5
+      :cursor :not-allowed
+      :pointer-events "none"}]
+
+    [:.registration-header
+     {:height "65px"
+      :background-color "#1a2532"
+      :border-right "1px solid white"}]
+
+    [:.registration-left-col
+     {:flex-direction :column
+      :width "435px"}]
+
+    [:.search-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color :transparent
+      :color :white}]
+
+    [:.search-input-parent
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.social-icon
+     {:color :white
+      :font-size "20px"}]
+
+    [:.success-header
+     {:color "#f0a100"
+      :font-weight :bold
+      :font-size "36px"
+      :text-transform :uppercase
+      :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"}]
+
+    [:.svg-bar-stroke
+     {:stroke-width 5
+      :stroke "#f0a100"
+      :opacity "0.8"}]
+
+    [:.svg-icon-inline
+     {:vertical-align "middle"
+      :fill "currentColor"}]
+
+    [:.svg-stroke
+     {:stroke-width 1}]
+
+    [:.text-color-dark
+     {:color "#484848"}]
+
+    [:.user-menu
+     {:background-color "#2c3445"
+      :z-index 10000
+      :position :absolute
+      :right 0
+      :display :none}]
+
+    [:.z-1 {:z-index 1}]
+
+    [:.z-200 {:z-index 200}]
+
 ];concat-bracket
    margin-lefts
    margin-tops
+   min-widths
    widths
    font-sizes
    props

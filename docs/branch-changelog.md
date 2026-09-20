@@ -84,6 +84,23 @@ of them hid a bug that a green build said nothing about.
    gutters, and the reset page's help link whose clickable target is the word
    "whitelist" in the middle of a sentence.
 
+### The garden-harvest merge
+
+`refactor/garden-harvest` landed on `integration-local` first, and integration was
+then brought forward into this branch, so the 8 conflicts got resolved here — where
+the auth decisions live — rather than by whoever integrates later.
+
+All 8 are the same shape: harvest converted an inline style inside a block this
+branch had already deleted and replaced. Seven take this branch's side outright, and
+six classes harvest introduced go orphaned as a result (`success-header`, `m-t-100`,
+and the four `password-strength-*`) because `auth-page` and `.pw-slots` replaced
+every call site.
+
+**The eighth was not a take-ours**, and taking one would have been a silent
+regression: harvest also put the updates checkbox on `.t-a-l.m-l-15` and gave the
+tick a `.checkbox-border` this branch never had. Resolved as a real merge — this
+branch's meter, harvest's classed wrapper and border.
+
 ### The one out-of-scope commit
 
 `042ee596` stops `.m-b-10` — a MARGIN utility — carrying `font-weight:bold`,
