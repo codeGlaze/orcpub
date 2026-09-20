@@ -2605,10 +2605,7 @@
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
-     (into
-      (if character-id
-        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
-        [])
+     (vec
       (remove nil?
        [{:title "Random"
          :icon "random"
@@ -2664,4 +2661,5 @@
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
         [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+         [builder-columns]]]]]
+     :subheader (when character-id [integrations/share-line character-id])]))
