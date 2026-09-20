@@ -170,6 +170,53 @@
                    last)
         :fills fills}))))
 
+(def common-email-domains
+  "The domains worth offering a correction towards. Short on purpose: a domain
+   that is not on this list is somebody's own mail server, not a mistake."
+  ["gmail.com" "googlemail.com" "hotmail.com" "hotmail.co.uk" "outlook.com"
+   "yahoo.com" "yahoo.co.uk" "icloud.com" "me.com" "live.com" "msn.com"
+   "aol.com" "proton.me" "protonmail.com" "comcast.net" "btinternet.com"])
+
+(defn edit-distance
+  "Levenshtein distance between two strings."
+  [a b]
+  (let [m (count a) n (count b)]
+    (loop [i 1
+           prev (vec (range (inc n)))]
+      (if (> i m)
+        (peek prev)
+        (recur (inc i)
+               (reduce (fn [row j]
+                         (conj row
+                               (min (inc (nth prev j))
+                                    (inc (peek row))
+                                    (+ (nth prev (dec j))
+                                       (if (= (nth a (dec i)) (nth b (dec j))) 0 1)))))
+                       [i]
+                       (range 1 (inc n))))))))
+
+(defn suggest-email-domain
+  "The address with a likely-mistyped domain corrected, or nil.
+
+   Only fires for a domain CLOSE to a common one and not already one of them --
+   two edits, which covers gmial, gmai and gmail.con, and stops short of
+   somebody's own domain that merely rhymes with one. Returns nil rather than a
+   guess whenever there is nothing worth saying."
+  [address]
+  (let [address (or address "")
+        at (s/last-index-of address "@")]
+    (when (and at (pos? at))
+      (let [domain (s/lower-case (s/trim (subs address (inc at))))]
+        (when (and (>= (count domain) 4)
+                   (not (some #{domain} common-email-domains)))
+          (let [[best distance] (reduce (fn [[b d] candidate]
+                                          (let [d2 (edit-distance domain candidate)]
+                                            (if (< d2 d) [candidate d2] [b d])))
+                                        [nil 99]
+                                        common-email-domains)]
+            (when (and best (pos? distance) (<= distance 2))
+              (str (subs address 0 (inc at)) best))))))))
+
 (def email-format #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}")
 
 (defn bad-email? [email]
