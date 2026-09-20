@@ -93,6 +93,24 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### The origin is persisted beside the draft (2026-09-20)
+
+Closes the gap the two sections below both leaned on. `:builder-origin` lived only in app-db, so a
+page refresh lost it and a restored draft could not be moved until it was reopened from My Content —
+which was the entire cost of the `:unrecorded` refusal.
+
+It is persisted now, under its own localStorage key, restored by a cofx on boot like every other
+device-local value, and cleared by New. It cannot be derived from the draft: the item's
+`:option-pack` is whatever the author currently has typed in the field, so after a refresh nothing
+else says where the item came from.
+
+`test/e2e/move-between-sources.js` reloads the page between opening the item and retyping its
+source, and the move still works — verified by disabling the restore and watching four of its
+eleven checks fail.
+
+The refusal stays for the case where the origin is genuinely absent, which is a Move/copy from My
+Content rearranging `:plugins` under an open builder. That is the one the guess would get wrong.
+
 ### The READ path stamps the address (2026-09-20)
 
 Third review round, and it found the hole under the section below. That one says identity is

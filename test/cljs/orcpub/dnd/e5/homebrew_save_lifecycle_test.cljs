@@ -438,12 +438,13 @@
   (is (= "Tideward" (get-in @app-db [:plugins OTHER ct (k "Tideward") :name]))
       "and the other source is untouched"))
 
-(deftest a-restored-draft-is-not-moved-on-a-guess
-  ;; After a refresh there is no recorded origin -- `:builder-origin` is not persisted, only the
-  ;; draft is. One source holds the key, which is enough to save back INTO it, but not enough to
-  ;; delete the entry there: the builder may be holding an item the library has moved on from,
-  ;; which is exactly what a Move/copy from My Content leaves behind. Refusing costs one click
-  ;; (reopen it from My Content); moving on a guess costs the entry.
+(deftest an-item-with-no-recorded-origin-is-not-moved-on-a-guess
+  ;; The origin IS persisted now, so a refresh keeps it (pinned end-to-end by
+  ;; test/e2e/move-between-sources.js, which reloads the page mid-edit). This is the case where
+  ;; it is genuinely absent -- a Move/copy from My Content rearranging :plugins under an open
+  ;; builder, which leaves the form holding an item the library has moved on from. One source
+  ;; holds the key, which is enough to save back INTO it, but not enough to delete the entry
+  ;; there. Refusing costs one click; moving on a guess costs the entry.
   (open! (draft "Tideward"))
   (save!)
   (swap! app-db dissoc :builder-origin)              ; what a page reload leaves behind

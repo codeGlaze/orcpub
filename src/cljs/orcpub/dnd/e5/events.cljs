@@ -41,6 +41,7 @@
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       set-item
+                                      local-storage-builder-origin-key
                                       builder-wip-stores
                                       character->local-store
                                       user->local-store
@@ -238,6 +239,15 @@
   (into {} (map (juxt :builder-item :local-storage-key)) ct/content-types))
 
 (reg-fx
+ ::persist-builder-origin
+ ;; Beside the draft, so a refresh does not turn a move into a guess. nil clears it, which is what
+ ;; New does -- an item from nowhere has no address to return to.
+ (fn [origin]
+   (if origin
+     (set-item local-storage-builder-origin-key (str origin))
+     (.removeItem js/window.localStorage local-storage-builder-origin-key))))
+
+(reg-fx
  ::persist-builder-wip
  ;; The per-builder ->local-store interceptors only fire on edit events, so a write
  ;; the SAVE makes to the builder item (the :key stamp) would be lost on refresh.
@@ -262,6 +272,7 @@
   ;; Restore every homebrew builder's in-progress item (one cofx, driven by
   ;; db/builder-wip-stores) so WIP survives a refresh in ALL builders, not just class.
   (inject-cofx :local-store-builder-items)
+  (inject-cofx ::e5/builder-origin)
   (inject-cofx ::e5/plugins)
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
@@ -278,6 +289,7 @@
               local-store-user
               local-store-magic-item
               local-store-builder-items
+              ::e5/builder-origin
               ::e5/plugins
               ::e5/rejected-plugins
               ::e5/disable-overlay
@@ -307,8 +319,11 @@
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
-            ;; Restore in-progress builder WIP (all builders) across refresh.
+            ;; Restore in-progress builder WIP (all builders) across refresh, and with it the
+            ;; address the item was fetched from -- the draft alone cannot say, since its
+            ;; `:option-pack` is whatever is currently typed in the field.
             (seq local-store-builder-items) (merge local-store-builder-items)
+            (seq builder-origin) (assoc :builder-origin builder-origin)
             tracker-item (assoc ::combat/tracker-item tracker-item)))}))
 
 (defn reset-character [_ _]
@@ -1083,6 +1098,7 @@
              {:db (assoc db
                          item-key item-with-key
                          :builder-origin {:source option-pack :key key :content-type plugin-key})
+              ::persist-builder-origin {:source option-pack :key key :content-type plugin-key}
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -1145,6 +1161,7 @@
              {:db (assoc db
                          item-key item-with-key
                          :builder-origin {:source src :key final-key :content-type plugin-key})
+              ::persist-builder-origin {:source src :key final-key :content-type plugin-key}
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -1275,6 +1292,7 @@
                      ::selections5e/builder-item item-with-key
                      :builder-origin {:source option-pack :key key
                                      :content-type ::e5/selections})
+          ::persist-builder-origin {:source option-pack :key key :content-type ::e5/selections}
           ::persist-builder-wip [::selections5e/builder-item item-with-key]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -1319,6 +1337,7 @@
          {:db (assoc db
                      ::selections5e/builder-item item-with-key
                      :builder-origin {:source src :key key :content-type ::e5/selections})
+          ::persist-builder-origin {:source src :key key :content-type ::e5/selections}
           ::persist-builder-wip [::selections5e/builder-item item-with-key]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -2935,6 +2954,9 @@
        {:db (assoc db :builder-origin {:source (:option-pack located)
                                        :key (:key located)
                                        :content-type content-type})
+        ::persist-builder-origin {:source (:option-pack located)
+                                  :key (:key located)
+                                  :content-type content-type}
         :dispatch-n [[set-event located]
                      [:route route]]}))))
 
@@ -4814,6 +4836,7 @@
          ;; the next save falls back to guessing from the library
          {:db (assoc db item-key moved
                      :builder-origin {:source option-pack :key new-key :content-type plugin-key})
+          ::persist-builder-origin {:source option-pack :key new-key :content-type plugin-key}
           ::persist-builder-wip [item-key moved]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -6386,6 +6409,7 @@
    (fn [{:keys [db]} [_ option-pack option]]
      ;; a new item came from nowhere, so it has no origin to return to
      {:db (dissoc db :builder-origin)
+      ::persist-builder-origin nil
       :dispatch-n [[set-event (-> default-val
                                   (assoc :option-pack option-pack)
                                   (merge option))]
