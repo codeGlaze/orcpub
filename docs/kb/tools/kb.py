@@ -5,6 +5,7 @@
     kb terms <doc>      the words that most distinguish one document
     kb vocab <prefix>   corpus vocabulary, to find the word you didn't know
     kb lint             check the KB for the things that actually rot
+    kb lint --self-test prove each check can still fail
 
 Why this exists. The KB is the group memory, and consulting it used to mean
 reading docs/kb/topic-index.md (104KB, ~26k tokens) or docs/kb/README.md (40KB,
@@ -192,7 +193,97 @@ def cmd_lint():
     return 0
 
 
-USAGE = "usage: kb find <query> | kb terms <doc> | kb vocab <prefix> | kb lint"
+def cmd_self_test():
+    """Prove every lint check can FAIL. A check that only ever passes is worth nothing.
+
+    This exists because of a real mistake. The first version of the reachability
+    check resolved link targets against the working directory instead of docs/kb,
+    so relative_to threw on every link and it reported all 135 documents as
+    unreachable. That was loud. The opposite mistake -- a check that silently
+    never fires -- is far harder to notice, because a green run looks exactly
+    like a healthy tree.
+
+    So each check runs against a fixture built to break it, and must complain. A
+    clean fixture must pass. If any check stops discriminating, this fails.
+    """
+    import contextlib
+    import io as _io
+    import shutil
+    import tempfile
+
+    def build(tmp):
+        """A minimal, healthy KB: a README linking one document."""
+        kb = Path(tmp)
+        (kb / "README.md").write_text("# Index\n\n- [good.md](good.md)\n", encoding="utf-8")
+        (kb / "good.md").write_text("# A real title\n\nbody text here\n", encoding="utf-8")
+        return kb
+
+    @contextlib.contextmanager
+    def pointed_at(kb):
+        """Point both modules' KB globals at a fixture, then put them back."""
+        global KB
+        saved = (KB, ti.KB_DIR, ti.OUT_FILE)
+        KB, ti.KB_DIR, ti.OUT_FILE = kb, kb, kb / "topic-index.md"
+        try:
+            yield
+        finally:
+            KB, ti.KB_DIR, ti.OUT_FILE = saved
+
+    def add_bad(kb):
+        (kb / "bad.md").write_text("no heading at all\n", encoding="utf-8")
+        (kb / "README.md").write_text(
+            "# Index\n\n- [good.md](good.md)\n- [bad.md](bad.md)\n", encoding="utf-8")
+
+    def add_orphan(kb):
+        (kb / "orphan.md").write_text("# Orphan\n\nbody\n", encoding="utf-8")
+
+    def stale_index(kb):
+        (kb / "topic-index.md").write_text("stale\n", encoding="utf-8")
+
+    cases = [
+        ("clean fixture passes",        None,        0, None),
+        ("doc with no H1",              add_bad,     1, "no H1"),
+        ("doc unreachable from README", add_orphan,  1, "not reachable"),
+        ("stale topic-index",           stale_index, 1, "out of date"),
+    ]
+
+    failures = []
+    for name, mutate, want_rc, want_msg in cases:
+        tmp = tempfile.mkdtemp()
+        try:
+            kb = build(tmp)
+            with pointed_at(kb):
+                (kb / "topic-index.md").write_text(ti.render(), encoding="utf-8")
+                if mutate:
+                    mutate(kb)
+                    if mutate is not stale_index:
+                        # a new doc also makes the index stale; regenerate so the
+                        # case under test is the only thing that can fire
+                        (kb / "topic-index.md").write_text(ti.render(), encoding="utf-8")
+                buf = _io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = cmd_lint()
+                out = buf.getvalue()
+            if rc != want_rc:
+                failures.append("%s: expected exit %d, got %d\n%s" % (name, want_rc, rc, out))
+            elif want_msg and want_msg not in out:
+                failures.append("%s: expected %r in output, got:\n%s" % (name, want_msg, out))
+            else:
+                print("  ok   %s" % name)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    if failures:
+        print()
+        for f in failures:
+            print("  FAIL %s" % f)
+        print("\n%d check(s) no longer discriminate" % len(failures))
+        return 1
+    print("\nkb lint --self-test: all %d checks discriminate" % len(cases))
+    return 0
+
+
+USAGE = "usage: kb find <query> | kb terms <doc> | kb vocab <prefix> | kb lint [--self-test]"
 
 
 def main(argv):
@@ -200,7 +291,7 @@ def main(argv):
         sys.stderr.write("error: run from the repository root\n")
         return 2
     if argv and argv[0] == "lint":
-        return cmd_lint()
+        return cmd_self_test() if "--self-test" in argv else cmd_lint()
     if len(argv) < 2:
         sys.stderr.write(USAGE + "\n")
         return 2

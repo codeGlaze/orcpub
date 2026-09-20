@@ -573,7 +573,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _claude-branch-triage · claude branch triage_
 
-**topics:** 171, 2026-01-17, 2026-02-02, 2026-06-10, 2026-09-12, branch, branches, byte-identical, definitions, defs, elsewhere, reachability, robe, salvage, shas, superseded, tip, unique
+**topics:** ---, 171, 2026-01-17, 2026-02-02, 2026-06-10, 2026-09-12, branch, branches, byte-identical, definitions, defs, elsewhere, robe, salvage, shas, superseded, tip, unique
 
 - How this was established, and why reachability was not enough
 - Corrections to the starting premise
@@ -1584,7 +1584,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** 22px, arrows, awesome, cause, discriminate, font, fonts, glyph, hours, icon, locale-safety, sent, separates, server, stylesheet, svg, webjar, width
+**topics:** arrows, awesome, cause, discriminate, fa5, font, fonts, glyph, hours, icon, locale-safety, sent, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -2637,7 +2637,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, returned, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -2679,13 +2679,15 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, armed, baseline, bracers, caller, characterization, confident, documentation-tenets, falsifiable, freeze, miss, number, perf-homebrew-builder-loop, reading, single-function, synthetic, tells, unverified
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, proves, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
+- A check that has never failed has never been tested
+- The rule
+- Making it mechanical
 - Comparing the existing codebase to a proposed upgrade (the method)
 - Search the dead/old code too, not just the live surface
 - A green (or red) number proves nothing if the FIXTURE doesn't match real content
-- The rule
 - A test whose contributors share a magnitude proves nothing
 - A comparison is only as good as its baseline — verify the baseline by CONTENT
 - Benchmark rules: warm up, and measure cost not proxies
