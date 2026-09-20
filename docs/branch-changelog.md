@@ -8,8 +8,11 @@ had not been touched at all. This branch is that pass, built.
 
 The decisions it implements, each settled before a line was written:
 
-- **One shell.** Fourteen pages each carry their own copy of the header, gutters, gryphon and
-  legal footer. They have drifted apart accordingly. An `auth-page` function replaces them.
+- **One heading.** `registration-page` is already the shared shell and all nine pages use it —
+  an earlier reading of this branch claimed fourteen hand-copied layouts and was simply wrong,
+  and the claim survived into the first version of this file. What IS copied is the heading: the
+  same orange drop-shadowed `div`, six times over. The shell takes the heading instead, so the
+  new ink-and-amber treatment lands everywhere at once rather than six times.
 - **Notched outline labels.** A real `<label for>` riding on the input's border, so the field
   never stops saying what it is — a placeholder disappears the moment somebody types.
 - **An ink heading with an amber rule**, replacing the orange drop-shadowed word.
@@ -45,3 +48,24 @@ live there and this builds on both.
 form's edge) and the breach threshold, neither of which blocks the shell.
 
 <!-- Entries below as work lands. One change per bullet, ending with (`shorthash`). -->
+
+## The order the rest is being built in
+
+Each step lands on its own and leaves the branch working.
+
+1. **The heading moves into the shell.** `registration-page` gains an arity taking a heading and
+   an optional lede, rendered as ink with an amber rule. Six copies of the orange drop-shadow
+   `div` collapse into it. Done first because every other page benefits without being touched.
+2. **The error summary.** A `callout` above the form on a failed submit, counting FIELDS rather
+   than groups, so the first fault is not off screen on a long form.
+3. **The confirm-password box, retiring on reveal.** Two boxes while it is masked, one while it
+   is not — and `display:none` rather than faded, so it leaves the accessibility tree and a
+   submit cannot fail pointing at a field nobody can see.
+4. **The domain-typo suggestion.** `.field-notice-action`, the same one-action-per-notice shape
+   the character builder's image field already uses for its "Use this instead". Bind it to
+   mousedown: on click, pressing it blurs the field, the blur rewrites the notice, and the button
+   is destroyed between mousedown and mouseup — the fix appears to do nothing.
+5. **The sweep.** The legal links printed twice, the phone gutters, and the reset page's help
+   link whose clickable target is the word "whitelist" in the middle of a sentence.
+
+Still deliberately open: the heading's alignment, and the breach threshold.
