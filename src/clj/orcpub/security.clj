@@ -117,29 +117,36 @@
 ;; means it is doing its job.
 (def ^:private refusals (atom {}))
 
-(defn note-refusal! [what]
-  (swap! refusals update what (fnil inc 0))
-  nil)
+(defn note-refusal!
+  "Records a refusal against a limit, and WHO it was. The count alone cannot
+   tell one host refused twenty times from twenty hosts refused once each --
+   the first is somebody hammering, the second is a spread, and only the second
+   suggests a pool of addresses working through the same list."
+  ([what] (note-refusal! what nil))
+  ([what who]
+   (swap! refusals update what
+          (fn [{:keys [n who-set] :or {n 0 who-set #{}}}]
+            {:n (inc n) :who-set (cond-> who-set who (conj who))}))
+   nil))
 
 (defn take-refusals! []
   (first (reset-vals! refusals {})))
 
 (defn refusal-summary
-  "A line for the log, or nil on an hour when nothing was turned away."
+  "A line for the log, or nil on an hour when nothing was turned away. Each
+   limit reports how many refusals and across how many distinct sources, which
+   is the difference between one bad actor and a pool of them."
   [counts]
   (when (seq counts)
     (str "limits: "
          (->> counts
-              (sort-by (comp - val))
-              (map (fn [[what n]] (str n " " (name what))))
+              (sort-by (comp - :n val))
+              (map (fn [[what {:keys [n who-set]}]]
+                     (str (name what) " " n
+                          (when (> (count who-set) 1)
+                            (str " from " (count who-set) " sources")))))
               (interpose ", ")
               (apply str)))))
-
-(defn summary-job
-  "Heartbeat job: one line an hour, and only when something was refused."
-  [_conn]
-  (when-let [line (refusal-summary (take-refusals!))]
-    (println line)))
 
 (def ^:private sightings (atom {}))
 
@@ -166,7 +173,8 @@
     ;; The key's first element names the limit, so every caller is counted
     ;; without having to remember to say so.
     (when-not allowed
-      (note-refusal! (if (vector? k) (first k) k)))
+      (note-refusal! (if (vector? k) (first k) k)
+                     (when (vector? k) (second k))))
     allowed))
 
 (defn claim-once?
@@ -205,3 +213,40 @@
 
 (defn registration-allowed? [ip]
   (under-limit? [:register ip] registrations-per-host-hourly (hours 1)))
+
+(defn busiest
+  "The heaviest single user of each limit in the window, whether or not it was
+   ever refused. A host that stops at ten signups an hour, every hour, never
+   trips anything and so never appears in the refusals at all -- this is the
+   only place it shows up."
+  []
+  (->> @sightings
+       (reduce (fn [acc [k ts]]
+                 (let [limit (if (vector? k) (first k) k)]
+                   (update acc limit (fnil max 0) (count ts))))
+               {})))
+
+(defn busiest-summary
+  "A line naming any limit whose heaviest user is at least at `floor` of it --
+   the quiet version of abuse, which sits just inside every number it is given."
+  [highs floor]
+  (let [caps {:register registrations-per-host-hourly
+              :reset-address reset-per-address-hourly
+              :reset-host reset-per-host-hourly}
+        near (for [[what n] highs
+                   :let [cap (get caps what)]
+                   :when (and cap (>= n (* floor cap)))]
+               (str (name what) " " n "/" cap))]
+    (when (seq near)
+      (str "limits, busiest source: " (apply str (interpose ", " near))))))
+
+(defn summary-job
+  "Heartbeat job: at most two lines an hour, and silent when there is nothing
+   to say. The first is what was turned away and how widely; the second is the
+   heaviest user of any limit that is sitting at 80% or more of it."
+  [_conn]
+  (let [highs (busiest)]
+    (when-let [line (refusal-summary (take-refusals!))]
+      (println line))
+    (when-let [line (busiest-summary highs 0.8)]
+      (println line))))
