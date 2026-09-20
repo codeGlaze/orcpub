@@ -4,7 +4,7 @@
 
    Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops.
    UI hooks provide basic defaults (e.g. supporter-link shows a Patreon
-   button when configured, share-links provides a single email link).
+   button when configured, share-line shows a character's sharing status and actions).
 
    Companion to integrations.clj (server-side head tags).
    Server-side loads third-party scripts in <head>;
@@ -159,6 +159,25 @@
         (.catch #(on-done (exec-copy-fallback! text))))
     (on-done (exec-copy-fallback! text))))
 
+(defn- copy-when-ready!
+  "Copy the link a promise resolves to, from inside the click that started it, then call (on-done ok?).
+   Safari only finishes a clipboard write begun during the click, so where the browser has ClipboardItem
+   the pending link goes in as one; elsewhere the text is written when it arrives."
+  [link-promise on-done]
+  (if (and (exists? js/ClipboardItem) (some-> js/navigator .-clipboard .-write))
+    (-> (.write js/navigator.clipboard
+                #js [(js/ClipboardItem.
+                      #js {"text/plain" (.then link-promise
+                                               (fn [link]
+                                                 (if link
+                                                   (js/Blob. #js [link] #js {:type "text/plain"})
+                                                   (throw (js/Error. "no link to copy")))))})])
+        (.then #(on-done true))
+        (.catch #(on-done false)))
+    (-> link-promise
+        (.then (fn [link] (if link (copy-to-clipboard! link on-done) (on-done false))))
+        (.catch #(on-done false)))))
+
 (defn- native-share?
   "True when the browser exposes the OS share sheet."
   []
@@ -250,16 +269,14 @@
    a vanilla character, while a payload is still encoding, or when the homebrew is
    too big to fit in a link (:file tier — the recipient then needs the .orcbrew).
 
-   `variant` styles the buttons to sit flush with their siblings in each context —
-   the app renders header and list buttons differently:
-     :header — tall header buttons (.h-40, icon at .f-s-18, label hidden at xs
-               via .header-button-text) matching the page-header action row.
-     :list   — compact card-row buttons (.m-r-5, small inline icon) matching the
-               character-list sibling buttons."
-  [id variant]
+   Rendered as one line (.share-line in styles/core.clj): for the owner of a character with homebrew, a
+   status pill (Not shared, Shared, Link expired) and text-button actions that grow from Share link to
+   Copy link, New link and Stop sharing once a link exists; for everyone else, Copy link. `mode` :line
+   draws that line; :row draws the character list row's single Copy link button."
+  [id mode]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]
-    (fn [id variant]
+    (fn [id mode]
       ;; The character this button shares, by id. [:character] is the builder's working copy, which on the
       ;; character page and in the character list is some other character or none.
       (let [character @(subscribe [::char5e/character id])
@@ -306,102 +323,127 @@
                        :file (dispatch [:show-message
                                         "This character has too much custom content to fit in a link. A plain link was copied — share the .orcbrew file so the recipient gets the homebrew."])
                        nil))
-              ;; One button, styled for the context. :header wraps the icon/label in
-              ;; spans (the label collapses at xs via .header-button-text); :list is a
-              ;; compact button with a small inline icon so it matches the card row.
-              btn (fn [icon label title on-click]
-                    (if (= variant :header)
-                      [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
-                       {:title title :disabled working? :on-click on-click}
-                       [:span [:i.fa.f-s-18 {:class icon}]]
-                       [:span.m-l-5.header-button-text label]]
-                      [:button.form-button.m-r-5
-                       {:title title :disabled working? :on-click on-click}
-                       [:i.fa.m-r-5 {:class icon}] label]))]
-          (if (= tier :unshared)
-           [:<>
-            (btn "fa-link" "Share link"
-                 "Make a short link to this character, custom content included."
-                 (fn [_]
-                   (swap! state assoc :tier :working)
-                   (let [bundle (sb/extract-bundle character plugins)]
-                     (-> (start-share! id bundle)
-                         (.then (fn [token]
-                                  (if token
-                                    (swap! state assoc :tier :full :url (str base "#s=" token) :short-link? true
-                                           :expired-on nil)
-                                    (-> (embedded-link base {:plugins bundle})
-                                        (.then #(swap! state merge %))))))))))
-            ;; Shown on every visit until the owner shares again or dismisses it, so it cannot be missed once.
-            (when expired-on
-              [:<>
-               [:span.f-s-12.orange.m-l-5.m-r-5
-                (str "Your last share link expired on " (reader-date expired-on) " after going unused.")]
-               (btn "fa-times" "Dismiss" "Hide this note. Share link makes a new link."
-                    (fn [_]
-                      (-> (stop-sharing! id)
-                          (.then #(when % (swap! state assoc :expired-on nil))))))])]
-          [:<>
-           (btn (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
-                (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
-                "Copy a link to this character (custom content included)"
-                (fn [_]
-                  (copy-to-clipboard!
-                   url
-                   (fn [ok]
-                     (when ok
-                       (swap! state assoc :copied? true)
-                       (note)
-                       (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
-           ;; Only a short link can be revoked; an embedded link carries its custom content itself.
-           (when (and owner? short-link?)
-             (btn "fa-sync-alt" "New link"
-                  "Make a new link. Links you shared before stop showing this character's custom content."
-                  (fn [_]
-                    (when (js/confirm "Links you shared before will stop showing this character's custom content. Make a new link?")
-                      (swap! state assoc :tier :working)
-                      (-> (new-link! id)
-                          (.then (fn [ok?]
-                                   ;; Forget the last inputs, so the content is sent again under the new token.
-                                   (reset! prev {})
-                                   (swap! state assoc :tier :plain :short-link? false)
-                                   (dispatch [:show-message
-                                              (if ok?
-                                                "New link made. Links you shared before no longer show this character's custom content."
-                                                "Could not make a new link. Try again.")]))))))))
-           (when (and owner? short-link?)
-             (btn "fa-ban" "Stop sharing"
-                  "Stop sharing this character. Links you shared before stop showing its custom content."
-                  (fn [_]
-                    (when (js/confirm "Links you shared before will stop showing this character's custom content. Stop sharing?")
-                      (swap! state assoc :tier :working)
-                      (-> (stop-sharing! id)
-                          (.then (fn [ok?]
-                                   ;; Nothing is sent again until Share link: the page now asks and gets a 404.
-                                   (swap! state assoc :tier (if ok? :unshared :full) :short-link? (not ok?)
-                                          :expired-on nil)
-                                   (dispatch [:show-message
-                                              (if ok?
-                                                "Stopped sharing. Links you shared before no longer show this character's custom content."
-                                                "Could not stop sharing. Try again.")]))))))))
-           (when (native-share?)
-             (btn "fa-share-alt" "Share"
-                  "Share this character (custom content included)"
-                  (fn [_]
-                    (-> (.share js/navigator
-                                #js {:title (str (or char-name "D&D character") " — " branding/app-name)
-                                     :url url})
-                        (.then (fn [_] (note)))
-                        ;; user-cancelled / permission rejections are expected — swallow.
-                        (.catch (fn [_] nil))))))]))))))
+              ;; A text button on the line; `tone` is :danger or :quiet.
+              action (fn [icon label title on-click & [tone]]
+                       [:button.share-action
+                        {:type "button" :title title :disabled working? :on-click on-click
+                         :class (when tone (str "share-action-" (name tone)))}
+                        [:i.fa {:class icon}]
+                        [:span label]])
+              ;; Makes the share and settles the state on its link. Promise of the link, or nil.
+              start-link (fn []
+                           (swap! state assoc :tier :working)
+                           (let [bundle (sb/extract-bundle character plugins)]
+                             (-> (start-share! id bundle)
+                                 (.then (fn [token]
+                                          (if token
+                                            (let [link (str base "#s=" token)]
+                                              (swap! state assoc :tier :full :url link :short-link? true
+                                                     :expired-on nil)
+                                              link)
+                                            (-> (embedded-link base {:plugins bundle})
+                                                (.then (fn [s] (swap! state merge s) (:url s))))))))))
+              ;; After a copy; `made?` when that press also made the share, as the list row's button does.
+              copied (fn [ok? made?]
+                       (if ok?
+                         (do (swap! state assoc :copied? true)
+                             (if made?
+                               (dispatch [:show-message "Link copied. This character is now shared; its page has New link and Stop sharing."])
+                               (note))
+                             (js/setTimeout #(swap! state assoc :copied? false) 1800))
+                         (dispatch [:show-message "The link could not be copied. Try Copy link again."])))
+              share-link (action "fa-link" "Share link"
+                                 "Make a short link to this character, custom content included."
+                                 (fn [_] (start-link)))
+              copy-link (action (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
+                                (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
+                                "Copy a link to this character (custom content included)"
+                                (fn [_] (copy-to-clipboard! url #(copied % false))))
+              native (when (native-share?)
+                       (action "fa-share-alt" "Share"
+                               "Share this character (custom content included)"
+                               (fn [_]
+                                 (-> (.share js/navigator
+                                             #js {:title (str (or char-name "D&D character") " — " branding/app-name)
+                                                  :url url})
+                                     (.then (fn [_] (note)))
+                                     ;; user-cancelled / permission rejections are expected — swallow.
+                                     (.catch (fn [_] nil))))))]
+          (if (= mode :row)
+            ;; The character list has no room for the line: one button that copies the link, making the share
+            ;; first when there is none. The status, New link and Stop sharing stay on the character page.
+            [:button.form-button.m-r-5
+             {:type "button" :disabled working?
+              :title "Copy a link to this character (custom content included)"
+              :on-click (fn [_]
+                          (if (= tier :unshared)
+                            (copy-when-ready! (start-link) #(copied % (:short-link? @state)))
+                            (copy-to-clipboard! url #(copied % false))))}
+             (cond copied? "Copied!" working? "Preparing…" :else "Copy link")]
+          [:div.share-line
+           (cond
+             ;; Shown on every visit until the owner shares again or dismisses it, so it cannot be missed once.
+             (and (= tier :unshared) expired-on)
+             [:<>
+              [:span.share-pill.share-pill-expired {:title "It went unused, so it stopped working."}
+               (str "Link expired " (reader-date expired-on))]
+              share-link
+              (action "fa-times" "Dismiss" "Hide this note. Share link makes a new link."
+                      (fn [_]
+                        (-> (stop-sharing! id)
+                            (.then #(when % (swap! state assoc :expired-on nil)))))
+                      :quiet)]
 
-(defn share-links
-  "Header share cluster (Copy link + native Share) carrying the character's
-   homebrew embedded in the link. Returned as a single button-cfg element."
-  [id _character-name]
-  [[share-controls id :header]])
+             (= tier :unshared)
+             [:<>
+              [:span.share-pill.share-pill-neutral "Not shared"]
+              share-link]
 
-(defn share-link-www
-  "Single-element share cluster for the character-sheet header."
+             ;; Only a short link can be revoked; an embedded link carries its custom content itself.
+             (and owner? short-link?)
+             [:<>
+              [:span.share-pill.share-pill-shared "Shared"]
+              copy-link
+              (action "fa-sync-alt" "New link"
+                      "Make a new link. Links you shared before stop showing this character's custom content."
+                      (fn [_]
+                        (when (js/confirm "Links you shared before will stop showing this character's custom content. Make a new link?")
+                          (swap! state assoc :tier :working)
+                          (-> (new-link! id)
+                              (.then (fn [ok?]
+                                       ;; Forget the last inputs, so the content is sent again under the new token.
+                                       (reset! prev {})
+                                       (swap! state assoc :tier :plain :short-link? false)
+                                       (dispatch [:show-message
+                                                  (if ok?
+                                                    "New link made. Links you shared before no longer show this character's custom content."
+                                                    "Could not make a new link. Try again.")])))))))
+              (action "fa-ban" "Stop sharing"
+                      "Stop sharing this character. Links you shared before stop showing its custom content."
+                      (fn [_]
+                        (when (js/confirm "Links you shared before will stop showing this character's custom content. Stop sharing?")
+                          (swap! state assoc :tier :working)
+                          (-> (stop-sharing! id)
+                              (.then (fn [ok?]
+                                       ;; Nothing is sent again until Share link: the page now asks and gets a 404.
+                                       (swap! state assoc :tier (if ok? :unshared :full) :short-link? (not ok?)
+                                              :expired-on nil)
+                                       (dispatch [:show-message
+                                                  (if ok?
+                                                    "Stopped sharing. Links you shared before no longer show this character's custom content."
+                                                    "Could not stop sharing. Try again.")]))))))
+                      :danger)
+              native]
+
+             :else
+             [:<> copy-link native])]))))))
+
+(defn share-line
+  "A character's share line, under its page title."
   [id]
-  [share-controls id :list])
+  [share-controls id :line])
+
+(defn share-copy-button
+  "The character list row's Copy link button, which makes the share first when there is none."
+  [id]
+  [share-controls id :row])
