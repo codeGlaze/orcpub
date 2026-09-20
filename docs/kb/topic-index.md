@@ -610,7 +610,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -721,7 +721,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, loosen, phase, phases, registry, revert, snapshots, stop
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, phase, phases, registry, revert, snapshots, stop, warlock
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -772,7 +772,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, missing-content, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, content, custom, factory, inline, localstorage, magic, missing-content, resolves, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -846,7 +846,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, repeatable, select, spell, spells, two-level, vocabulary
+**topics:** agreed, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, repeatable, rows, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1193,7 +1193,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, sword, vector, weapons
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, sword, vector, weapons
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1570,7 +1570,7 @@ _homebrew-override · homebrew override_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, bug, conj, constructed, creation, dispatch, fire-and-forget, handler, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -1614,7 +1614,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** built-in, coexist, combines, copy, import, item, key, membership, minted, override, plugin, predictable, rename, same-key, save, spell, winner, wins
+**topics:** built-in, coexist, combines, copy, duplicate, import, item, key, membership, override, plugin, predictable, rename, same-key, save, spell, winner, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -1702,6 +1702,19 @@ _memoize-antipattern-scan · memoize antipattern scan_
 - Plan (for a separate branch)
 - Analysis: what could break
 - Related
+
+## merging-across-a-refactor.md
+
+_merging-across-a-refactor · merging across a refactor_
+
+**topics:** 2026-09-20, 669, bare, branch, call, conflict, cut, fetch, filtered-list-staleness, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side, sign-in
+
+- Case 1: the clean merge that was already broken
+- Case 2: the conflict whose obvious resolution restores a bug
+- This one was self-inflicted, and that is the measurable part
+- What to do about it
+- Related
+- Revisions
 
 ## modifier-vs-trait-slots.md
 
@@ -2277,7 +2290,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, grant, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -2481,7 +2494,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes
@@ -2609,7 +2622,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, arrows, character-load, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, upstreamable, windows
+**topics:** 2026-09-20, ability-score, arrows, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, upstreamable, windows
 
 - Shipped
 - About hotfix/locale-safety
@@ -2680,7 +2693,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
