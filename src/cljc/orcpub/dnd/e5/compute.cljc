@@ -30,9 +30,13 @@
                    (if (coll? type-m)
                      (into
                       {}
-                      (remove
-                       (fn [[_k {:keys [disabled?]}]]
-                         disabled?)
+                      (keep
+                       (fn [[k v]]
+                         ;; stamp the address, exactly as process-plugin-vals does -- this is a
+                         ;; replica, and a replica that drifts is how the next reader gets it wrong
+                         (when-not (:disabled? v)
+                           [k (cond-> v
+                                (map? v) (assoc :key k :option-pack source-name))]))
                        type-m))
                      type-m)]))
               p))))

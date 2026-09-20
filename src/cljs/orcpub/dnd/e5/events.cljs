@@ -244,7 +244,11 @@
  ;; New does -- an item from nowhere has no address to return to.
  (fn [origin]
    (if origin
-     (set-item local-storage-builder-origin-key (str origin))
+     ;; A failed write leaves the PREVIOUS value in the store, which would come back on the next
+     ;; boot beside a draft it does not describe. Clear it instead: no record refuses a move,
+     ;; a wrong one performs the wrong one.
+     (when-not (set-item local-storage-builder-origin-key (str origin))
+       (.removeItem js/window.localStorage local-storage-builder-origin-key))
      (.removeItem js/window.localStorage local-storage-builder-origin-key))))
 
 (reg-fx
@@ -870,12 +874,11 @@
         ;; holds a race and a subrace under one key for one name, so a record left behind by
         ;; another builder would otherwise validate here.
         recorded-src (when (and (= key (:key recorded))
-                                ;; a record that names a content type must name THIS one: a
-                                ;; source holds a race and a subrace under one key for one name,
-                                ;; and `:builder-origin` is a single slot shared by every builder.
-                                ;; Absent is the older shape, no weaker than it ever was.
-                                (or (nil? (:content-type recorded))
-                                    (= plugin-key (:content-type recorded)))
+                                ;; and recorded for THIS content type: a source holds a race
+                                ;; and a subrace under one key for one name, and
+                                ;; `:builder-origin` is a single slot shared by all fourteen
+                                ;; builders -- one of which may have left the record behind
+                                (= plugin-key (:content-type recorded))
                                 (contains? holders (:source recorded)))
                        (:source recorded))
         ;; where the item lives -- known from the record, or GUESSED when one library holds the
@@ -923,8 +926,7 @@
    The same verification `save-destination` applies to a record; see its GOTCHA."
   [plugins recorded plugin-key key]
   (when (and (some? key) (= key (:key recorded))
-             (or (nil? (:content-type recorded))
-                 (= plugin-key (:content-type recorded)))
+             (= plugin-key (:content-type recorded))
              (some? (get-in plugins [(:source recorded) plugin-key key])))
     (:source recorded)))
 
@@ -1003,7 +1005,9 @@
                        (:name occupant) "\".")
            :details [[:span.pointer.underline.f-w-b
                       {:on-click #(dispatch replace-event)}
-                      "Replace it"]
+                      (if-let [from (:origin destination)]
+                        (str "Replace it, and move this one out of " (pr-str from))
+                        "Replace it")]
                      "Or rename this one."]}
 
           :elsewhere
@@ -1227,7 +1231,10 @@
          key (address-for (:plugins db) ::e5/selections option-pack item name)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
-         item-with-key (assoc filled-item :key key)
+         ;; Validate the author's ACTUAL input, not a placeholder-filled copy -- the same rule
+         ;; `reg-save-homebrew` states. It matters more now that the saved item is written back
+         ;; into the form, so a placeholder would appear as though the author had typed it.
+         item-with-key (assoc normalized-item :key key)
          plugins (:plugins db)
          explanation (spec/explain-data (content-specs/save-spec-for ::e5/selections) item-with-key)
          ;; Check for empty option names
@@ -2932,7 +2939,7 @@
    {:dispatch-n [[::mi/set-item (mi/to-internal-item item)]
                  [:route routes/dnd-e5-item-builder-page-route]]}))
 
-(defn reg-edit-homebrew [event set-event route]
+(defn reg-edit-homebrew [event set-event route plugin-key]
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ item source key content-type]]
@@ -2941,16 +2948,18 @@
      ;; the source leaves stale, and `:key` is absent on libraries authored before keys were
      ;; stored.
      ;;
-     ;; The address goes ONTO the item, not just into `:builder-origin`. That is what makes every
-     ;; later question easy: the form shows the source that really holds it, the save writes back
-     ;; where it came from, a rename cannot re-address it, and the draft carries all of it across
-     ;; a refresh -- which `:builder-origin` alone does not, since it is not persisted.
+     ;; The address goes ONTO the item, not just into `:builder-origin`. That is what makes
+     ;; every later question easy: the form shows the source that really holds it, the save
+     ;; writes back where it came from, and a rename cannot re-address it.
      ;; Ten of the eleven edit buttons pass only the item -- the list pages and the
      ;; character-builder pencil. They can, because `process-plugin-vals` stamps the address on
      ;; the way out of `:plugins`; My Content passes it explicitly because it has it to hand.
      (let [located (cond-> item
                      source (assoc :option-pack source)
-                     key    (assoc :key key))]
+                     key    (assoc :key key))
+           ;; the content type is known at REGISTRATION -- a builder only ever edits its own kind
+           ;; -- so the caller never has to supply it and every record carries one
+           content-type (or content-type plugin-key)]
        {:db (assoc db :builder-origin {:source (:option-pack located)
                                        :key (:key located)
                                        :content-type content-type})
@@ -2963,64 +2972,76 @@
 (reg-edit-homebrew
  ::spells/edit-spell
  ::spells/set-spell
- routes/dnd-e5-spell-builder-page-route)
+ routes/dnd-e5-spell-builder-page-route
+ ::e5/spells)
 
 (reg-edit-homebrew
  ::monsters/edit-monster
  ::monsters/set-monster
- routes/dnd-e5-monster-builder-page-route)
+ routes/dnd-e5-monster-builder-page-route
+ ::e5/monsters)
 
 (reg-edit-homebrew
  ::encounters/edit-encounter
  ::encounters/set-encounter
- routes/dnd-e5-encounter-builder-page-route)
+ routes/dnd-e5-encounter-builder-page-route
+ ::e5/encounters)
 
 (reg-edit-homebrew
  ::bg5e/edit-background
  ::bg5e/set-background
- routes/dnd-e5-background-builder-page-route)
+ routes/dnd-e5-background-builder-page-route
+ ::e5/backgrounds)
 
 (reg-edit-homebrew
  ::langs5e/edit-language
  ::langs5e/set-language
- routes/dnd-e5-language-builder-page-route)
+ routes/dnd-e5-language-builder-page-route
+ ::e5/languages)
 
 (reg-edit-homebrew
  ::class5e/edit-invocation
  ::class5e/set-invocation
- routes/dnd-e5-invocation-builder-page-route)
+ routes/dnd-e5-invocation-builder-page-route
+ ::e5/invocations)
 
 ;; ::class5e/edit-boon is registered via register-homebrew-content!.
 
 (reg-edit-homebrew
  ::selections5e/edit-selection
  ::selections5e/set-selection
- routes/dnd-e5-selection-builder-page-route)
+ routes/dnd-e5-selection-builder-page-route
+ ::e5/selections)
 
 (reg-edit-homebrew
  ::feats5e/edit-feat
  ::feats5e/set-feat
- routes/dnd-e5-feat-builder-page-route)
+ routes/dnd-e5-feat-builder-page-route
+ ::e5/feats)
 
 (reg-edit-homebrew
  ::race5e/edit-race
  ::race5e/set-race
- routes/dnd-e5-race-builder-page-route)
+ routes/dnd-e5-race-builder-page-route
+ ::e5/races)
 
 (reg-edit-homebrew
  ::race5e/edit-subrace
  ::race5e/set-subrace
- routes/dnd-e5-subrace-builder-page-route)
+ routes/dnd-e5-subrace-builder-page-route
+ ::e5/subraces)
 
 (reg-edit-homebrew
  ::class5e/edit-subclass
  ::class5e/set-subclass
- routes/dnd-e5-subclass-builder-page-route)
+ routes/dnd-e5-subclass-builder-page-route
+ ::e5/subclasses)
 
 (reg-edit-homebrew
  ::class5e/edit-class
  ::class5e/set-class
- routes/dnd-e5-class-builder-page-route)
+ routes/dnd-e5-class-builder-page-route
+ ::e5/classes)
 
 (reg-event-fx
  :delete-character-success
@@ -6436,7 +6457,7 @@
   ;; plugin-key, not passed per-call — so `spec` from the descriptor is unused here now.)
   (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
   (reg-delete-homebrew delete-event plugin-key)
-  (reg-edit-homebrew edit-event set-event route)
+  (reg-edit-homebrew edit-event set-event route plugin-key)
   (reg-new-homebrew new-event set-event default route)
   ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
   (reg-event-db set-event interceptors (fn [_ [_ item]] item))
