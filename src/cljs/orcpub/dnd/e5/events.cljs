@@ -2491,8 +2491,14 @@
                        (:return-route db)
                        routes/dnd-e5-char-builder-route)]}))
 
-(defn show-old-account-message []
-  [:show-login-message [:div  "There is no account for the email or username, please double-check it. Usernames and passwords are case sensitive, email addresses are not. You can also try to " [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
+(defn sign-in-failed-message []
+  ;; Says nothing about which half was wrong -- naming the username as unknown
+  ;; made this form a membership test. Both facts below are true whether or not
+  ;; the account exists, so nobody loses the help that used to be here.
+  [:show-login-message
+   [:div "That username and password do not match. Usernames and passwords are case sensitive, "
+    "email addresses are not. If you have not signed up yet you can "
+    [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
 
 (defn dispatch-login-failure [message]
   {:dispatch-n [[:clear-login]
@@ -2506,9 +2512,8 @@
        (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
        (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
        (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) (dispatch-login-failure "That username and password do not match.")
-       (= error-code errors/no-account) {:dispatch-n [[:clear-login]
-                                                      (show-old-account-message)]}
+       (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
+                                                           (sign-in-failed-message)]}
        (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
                                          :dispatch [:route routes/verify-sent-route]}
        (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
@@ -2554,8 +2559,15 @@
 
 (reg-event-fx
  :register-failure
- (fn [cofx [_ response]]
-   {:dispatch [:clear-login]}))
+ ;; The server's objections had nowhere to go: this threw the body away, so a
+ ;; password the server refused produced a JOIN button that appeared to do
+ ;; nothing. Checks that only the server can make -- whether a password is a
+ ;; common one, whether this host has signed up too often -- are kept here and
+ ;; merged into what the form is already showing.
+ (fn [{:keys [db]} [_ response]]
+   {:db (assoc db :registration-server-errors
+               (when (map? (:body response)) (:body response)))
+    :dispatch [:clear-login]}))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
   (defn validate-registration [])
@@ -2597,7 +2609,10 @@
 (reg-event-db
  :registration-password
  (fn [db [_ password]]
-   (assoc-in db [:registration-form :password] password)))
+   (-> db
+       ;; What the server said was about the password it was sent, not this one.
+       (dissoc :registration-server-errors)
+       (assoc-in [:registration-form :password] password))))
 
 (reg-event-db
  :registration-send-updates?
@@ -2658,11 +2673,11 @@
 
 (reg-event-fx
  :send-password-reset-failure
- (fn [_ [_ response]]
-   (let [error (-> response :body :error (= :no-account))]
-     (if error
-       (dispatch (show-old-account-message))
-       (show-generic-error)))))
+ ;; The endpoint answers 200 for every address now, so :no-account cannot arrive
+ ;; here and the branch that handled it is gone. Anything reaching this handler
+ ;; is a network or server fault, which is what the generic error is for.
+ (fn [_ _]
+   (show-generic-error)))
 
 (reg-event-fx
  :send-password-reset

@@ -405,7 +405,11 @@
     (when (and (number? result) (pos? result))
       {:password [(breach-message result)]})))
 
-(defn register [{:keys [json-params db conn] :as request}]
+(def ^:private registration-throttled-message
+  (str "Too many accounts have been created from this connection in the last hour. "
+       "Try again a little later, or email us if you are stuck."))
+
+(defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
         email (when email (s/lower-case (s/trim email)))
@@ -419,7 +423,14 @@
         ;; party about a password attached to a malformed signup.
         validation (if (seq validation)
                      validation
-                     (or (breach-errors password) validation))]
+                     (or (breach-errors password) validation))
+        ;; Checked last, so a form that was going to be rejected anyway is not
+        ;; counted against the host. :general rather than a field key: nobody
+        ;; can edit their way past a rate limit, so it must not sit in the map
+        ;; that disables the button.
+        validation (if (or (seq validation) (security/registration-allowed? remote-addr))
+                     validation
+                     (assoc validation :general [registration-throttled-message]))]
     (if (seq validation)
       {:status 400
        :body validation}
