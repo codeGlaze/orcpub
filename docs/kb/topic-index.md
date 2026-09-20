@@ -610,7 +610,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, docstrings, jsdoc, justification, length, narration, non-obvious, resort, sentence
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -2622,10 +2622,11 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, arrows, booted, cherry-picked, commits, fa4, five, font, fork, fork-only, hotfix, icon-font-failure, locale-safety, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
+- Why the comment bodies could not be read, and what would work
 - Next actions, in order
 - Not done, and not claimed
 - Shipped

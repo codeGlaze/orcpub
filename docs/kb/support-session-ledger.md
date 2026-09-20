@@ -24,27 +24,49 @@ Copilot review.** That review is the next piece of work. Nothing is merged.
 
 ### The Copilot review — 6 medium + 1 low, NOT yet triaged
 
-**Read the real comments before acting.** The list below came through a page summariser, not the
-API: GitHub renders review comments client-side so they are absent from the static HTML, the
-unauthenticated API returns 403, and this session's GitHub tools are scoped to `codeglaze/orcpub`.
-So these are **topic-level leads, not quotations.**
+**The seven finding titles, as GitHub renders them.** The bodies could not be retrieved — see
+below — so these are Copilot's own headings, not its reasoning:
 
-Two were spot-checked and are **real defects in code written during this session**:
+1. Port diagnostics ignore the application's configured PORT
+2. Figwheel CSP predicate misclassifies policy branches
+3. Local env template overrides Datomic URL with Docker hostname
+4. Windows port parser misidentifies non-listening sockets
+5. Help command performs environment setup side effects
+6. CI does not test production locale handling under hostile locales
+7. CSP documentation incorrectly describes DEV_MODE behavior
 
-- **`PORT` in `.env` never reaches the scripts.** `.env.example:12` documents `PORT=8890` and the
-  server reads it (`system.clj`, `System/getenv "PORT"`), but `common.sh:202` uses
+**Numbers 1 and 2 were reproduced independently and are real defects in code written during
+this session:**
+
+- **(1) `PORT` in `.env` never reaches the scripts.** `.env.example:12` documents `PORT=8890`
+  and the server honours it (`system.clj`, `System/getenv "PORT"`), but `common.sh:202` uses
   `SERVER_PORT`. Set `PORT=9000` and the server moves while every port check,
-  `explain_bind_failure`, and the new `report_env_config` all still look at 8890. The config
+  `explain_bind_failure`, and the new `report_env_config` still look at 8890 — so the config
   reporting added this session makes the mismatch *more* visible and still wrong.
-- **`permissive` CSP blocks Figwheel too.** `permissive-csp-settings` defines `:default-src
-  "'self'"` and no `:connect-src`, so connect-src falls back to `'self'` and the websocket is
-  blocked. `dev_mode_blocks_figwheel` only warns when the policy is `strict`, so it stays silent
-  in a case that is equally broken.
+- **(2) `permissive` CSP blocks Figwheel too.** `permissive-csp-settings` sets `:default-src
+  "'self'"` and no `:connect-src`, so connect-src falls back and the websocket is blocked.
+  `dev_mode_blocks_figwheel` only warns when the policy is `strict`, staying silent on a case
+  that is equally broken.
 
-The remaining five leads, unverified: Datomic URL override in the config template (`.env.example`
-ships a docker hostname that overrides the sane localhost default), Windows socket parser
-accuracy, help-command environment side effects, CI gaps in hostile-locale testing, and CSP
-documentation accuracy around `DEV_MODE`.
+Numbers 3–7 are untriaged.
+
+### Why the comment bodies could not be read, and what would work
+
+Not a GitHub permission problem — **the PR is public.** The block is this session's own egress
+proxy, which enforces a per-repository allowlist regardless of whether a repo is public. Routes
+tried, 2026-09-20:
+
+| route | result |
+|---|---|
+| `github.com/.../pull/695` HTML | **reachable** — but review bodies render client-side, so only the titles are in the markup |
+| `api.github.com/.../pulls/695/comments` | 403 from the proxy, not from GitHub |
+| GitHub MCP tools | denied: scoped to `codeglaze/orcpub` |
+| `gh` CLI (installs fine, works on the fork) | same proxy 403 on any `Orcpub/*` path |
+| headless Chromium via Playwright | proxy MITMs TLS; the CA is in the system store but Chromium uses its own root store, and pinning the CA was refused as TLS weakening |
+
+Three things would get the bodies: a human paste, a Claude session that already has
+`orcpub/orcpub` access, or a session started with `orcpub/orcpub` as its initial source
+(`add_repo` cannot add it afterwards — cross-owner adds are unsupported).
 
 ### Next actions, in order
 
