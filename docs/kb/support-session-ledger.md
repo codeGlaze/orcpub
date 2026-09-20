@@ -14,8 +14,8 @@ out to be a server bug affecting every non-English-locale install.
 
 | what | where | state |
 |---|---|---|
-| **Locale fixes: ETag crash + CSP case folding** | `hotfix/locale-safety` @ `947a5013`, cut from `upstream/develop` | pushed, pre-merged clean, **no PR yet** |
-| Windows port detection (`common.sh`, `start.sh`, `stop.sh`) + `windows-latest` CI | `fix/windows-port-detection` @ `8fbf98f5` | green, 4 files, +406/−11, **unmerged** |
+| **Self-hosting hotfix: locale crash + Windows port detection** | `hotfix/locale-safety` @ `b646c5dc`, cut from `upstream/develop` | pushed, pre-merged clean, **no PR yet** |
+| ~~Windows port detection as its own branch~~ | `fix/windows-port-detection` @ `8fbf98f5` | **superseded** — its 5 commits are cherry-picked into the hotfix branch |
 | Character-load rescue console (v6) | `agents/develop` and `claude/fix-brave-export-bug-2Tt7j` — byte-identical | landed on both |
 | [locale-safety.md](locale-safety.md) | `agents/develop` | done |
 | [icon-font-failure.md](icon-font-failure.md) | `agents/develop` | **rewritten** — the original blamed Dark Reader and was wrong |
@@ -28,6 +28,17 @@ Deliberately based on `upstream/develop`, not on `agents/develop`, so it merges 
 `orcpub/orcpub` and pulls back down. **Upstream carries both bugs verbatim**, so this is an
 upstream fix we happen to have found. Code only — no docs, no fork-specific changes — which is what
 keeps it mergeable in both directions.
+
+**Scope, and a correction.** These were briefly two branches; they should not have been. Both
+are the same story — self-hosters cannot run this — found in the same session, and a maintainer
+asking "why does Windows not work" wants one place to look. The Windows commits were cherry-picked
+on 2026-09-20 rather than merged, because `fix/windows-port-detection` is based on the fork's
+integration line and its diff against `upstream/develop` is 77 files / +7,240 lines of unrelated
+fork work. Its own five commits touch only four files, and the fork's copies of
+`scripts/{common,start,stop}.sh` were byte-identical to upstream's, so they replayed cleanly.
+
+The FA4 icon names stay separate, deliberately: `import_log.cljs` and `conflict_resolution.cljs`
+are fork-only files and cannot go upstream at all.
 
 Pre-merge results:
 

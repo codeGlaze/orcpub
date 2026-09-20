@@ -2609,7 +2609,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** ability-score, arrows, character-load, character-rescue-console, dark, env-and-auth, font, getting-started, hotfix, icon-font-failure, locale, locale-safety, macos, pre-merged, rescue, self-hoster, topic-index, windows
+**topics:** ability-score, arrows, character-load, character-rescue-console, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, windows
 
 - Shipped
 - About hotfix/locale-safety
