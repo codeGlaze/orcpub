@@ -31,34 +31,71 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
-# Report which Content-Security-Policy the server will run under.
+# Show the configuration this run will actually use, and where it came from.
 #
-# CSP mode is invisible until something breaks, and what breaks first is
-# Figwheel's websocket -- hot reload simply stops working, with the cause a
-# response header nobody thought to look at. DEV_MODE defaults to false, so a
-# checkout with no .env gets the enforcing policy without asking for it.
+# A launcher is the one moment the operator is present and paying attention, so
+# it is the right place to surface configuration rather than let it be
+# discovered through a symptom. Two settings in particular fail silently:
+# CSP_POLICY/DEV_MODE (blocks Figwheel's websocket with no visible cause) and
+# the ports (a busy port used to be reported as free on Windows).
 #
-# Quiet when the combination is fine; loud only when it will bite.
-report_csp_mode() {
+# Respects QUIET via log_info/log_warn. Never blocks a non-interactive run.
+report_env_config() {
+    local env_file="$REPO_ROOT/.env"
+    local example="$REPO_ROOT/.env.example"
+
+    if [[ -f "$env_file" ]]; then
+        log_info "Config: .env  (edit it to change any of the below)"
+    else
+        log_info "Config: built-in defaults — no .env  (see .env.example)"
+    fi
+
+    log_info "  ports    server=$SERVER_PORT datomic=$DATOMIC_PORT figwheel=$FIGWHEEL_PORT nrepl=$NREPL_PORT"
+
     local policy="${CSP_POLICY:-strict}"
     local dev="${DEV_MODE:-}"
-    # Match the server's own comparison: case-insensitive, exactly "true".
     local dev_on=false
     case "$(printf '%s' "$dev" | tr '[:upper:]' '[:lower:]')" in true) dev_on=true ;; esac
 
     if [[ "$policy" != "strict" || "$dev_on" == "true" ]]; then
-        log_info "CSP: policy=$policy, DEV_MODE=${dev:-<unset>}"
+        log_info "  csp      policy=$policy DEV_MODE=${dev:-<unset>}"
     elif [[ -n "$dev" ]]; then
-        # Explicitly set to something other than true -- a decision, not an
+        # Explicitly set to something other than true: a decision, not an
         # accident. State the consequence once, without the lecture.
-        log_info "CSP: strict and ENFORCING (DEV_MODE=$dev). Figwheel hot reload will be blocked."
+        log_info "  csp      strict, ENFORCING (DEV_MODE=$dev) — Figwheel hot reload will be blocked"
     else
         # Unset: nobody chose this, and the symptom is a dead hot-reload socket
         # with no visible cause. This is the case worth interrupting for.
-        log_warn "CSP: strict and ENFORCING (DEV_MODE is unset, which means false)."
-        log_warn "     Figwheel's websocket (ws://localhost:$FIGWHEEL_PORT) is not in connect-src,"
-        log_warn "     so hot reload will be blocked. Set DEV_MODE=true in .env for development."
-        [[ -f "$REPO_ROOT/.env" ]] || log_warn "     No .env found — start from .env.example."
+        log_warn "  csp      strict and ENFORCING (DEV_MODE unset, which means false)"
+        log_warn "           ws://localhost:$FIGWHEEL_PORT is not in connect-src, so Figwheel"
+        log_warn "           hot reload will be blocked. Set DEV_MODE=true in .env to develop."
+    fi
+
+    # First run: offer to start a .env from the example. Only when there is
+    # nothing to lose -- no .env present -- and only with someone at the
+    # keyboard to answer. A non-interactive run is told where to look instead.
+    if [[ ! -f "$env_file" && -f "$example" ]]; then
+        if is_interactive; then
+            local reply=""
+            if read -t 30 -p "Create .env from .env.example now? [y/N] " -n 1 -r reply; then
+                echo
+                if [[ "$reply" =~ ^[Yy]$ ]]; then
+                    if cp "$example" "$env_file"; then
+                        log_info "Wrote $env_file — review it (SIGNATURE especially) before going further."
+                        log_info "Re-run this script to pick it up; this run continues on defaults."
+                    else
+                        log_error "Could not write $env_file"
+                    fi
+                fi
+            else
+                echo
+                # read returns non-zero for both a 30s timeout and EOF, and
+                # they are not distinguishable here -- so do not claim either.
+                log_info "No answer — continuing on defaults."
+            fi
+        else
+            log_info "  To configure: cp .env.example .env"
+        fi
     fi
 }
 

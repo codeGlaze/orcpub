@@ -405,8 +405,6 @@ start_server() {
 
     cd "$REPO_ROOT"
 
-    report_csp_mode
-
     # Use headless mode if not running interactively (background/nohup)
     local rc=0
     if [[ "$(repl_mode)" == "interactive" ]]; then
@@ -764,6 +762,10 @@ main() {
     done
 
     target="${positional[0]:-all}"
+
+    # Surface configuration once, before any target runs. Every path through
+    # this script benefits: ports matter to all of them, CSP to the server.
+    report_env_config
 
     # Handle install flag (no prereq checks needed)
     if [[ "$do_install" == "true" ]]; then
