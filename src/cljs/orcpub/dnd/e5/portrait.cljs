@@ -196,10 +196,20 @@
    faces the document has loaded. Vollkorn is the face the PDF itself is set
    in, so the caption inside the exported picture matches the sheet around it
    rather than falling back to whatever the viewer's OS offers. Fetched only
-   when something actually asks for it -- i.e. on an export. */
+   when something actually asks for it -- i.e. on an export.
+
+   A subset, because the whole face is 357 KB to draw one short line. Cut to
+   Latin-1 plus the separators and quotes a name might carry: 197 glyphs,
+   26 KB, kerning kept. The full TTF stays as the fallback -- it is on disk
+   anyway for PDFBox, and it covers a name the subset does not.
+
+   Regenerate with fonttools + brotli -- one line, because a backslash
+   continuation is not a legal escape inside this Clojure string:
+     pyftsubset resources/public/fonts/Vollkorn-Italic.ttf --flavor=woff2 --unicodes='U+0020-007E,U+00A0-00FF,U+2013-2014,U+2018-2019,U+201C-201D' --output-file=resources/public/fonts/Vollkorn-Italic-credit.woff2 */
 @font-face {
   font-family: 'Vollkorn';
-  src: url('/fonts/Vollkorn-Italic.ttf') format('truetype');
+  src: url('/fonts/Vollkorn-Italic-credit.woff2') format('woff2'),
+       url('/fonts/Vollkorn-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400;
   font-display: swap;
