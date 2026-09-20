@@ -592,7 +592,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, mode, passing, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -2616,6 +2616,7 @@ _support-session-ledger · support session ledger_
 - Built, in no branch
 - Open — needs a decision, not just work
 - Open — small, self-contained
+- Verified on 2026-09-20 — previously listed as unverifiable
 - Unverified — do not report these as done
 - Corrections worth keeping
 

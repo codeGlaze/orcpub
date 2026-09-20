@@ -61,11 +61,10 @@ identical under `tr_TR`, `es_ES` and `en_US`.
 
 Recoverable from the pre-trim tip `87d9bba3`, otherwise only in session scratch:
 
-- **`orcpub-start.sh`** (327 lines) — one-command launcher: finds the repo, checks Java/lein, frees
-  8890/7888, checks Windows reserved ranges, starts Datomic if down, runs the server headless, and
-  prints a redacted report on failure. **Deliberately not merged** — once
-  `fix/windows-port-detection` lands, `check_port_available` and `explain_bind_failure` do the same
-  job through the project's own entry point.
+- ~~**`orcpub-start.sh`** (327 lines)~~ — **obsolete as of 2026-09-20.** Its condition for
+  retirement was "once the Windows port fixes land in the project's own scripts", and those
+  commits are now on `hotfix/locale-safety`. `check_port_available` and `explain_bind_failure`
+  do the job through `scripts/start.sh`. Nothing to merge; nothing to decide.
 - **`orcpub-port-doctor.sh`** (257 lines) — read-only diagnostic. Superseded by the above.
 
 ## Open — needs a decision, not just work
@@ -78,8 +77,6 @@ verified; nothing blocking but the decision.
 ☐ **Untangle `claude/fix-brave-export-bug-2Tt7j`.** It carries two unrelated things: three export
 commits (`25c4a371`, `1002cc5c`, `3a1f5bfb` — what the branch is named for) and seven
 character-load rescue commits (`daf32bb9`…`f1bda173`).
-
-☐ **Does `orcpub-start.sh` have a home?** It dies with the session otherwise.
 
 ☐ **First-run path.** `start.sh server` needs Datomic already running — documented
 ([GETTING-STARTED.md](../GETTING-STARTED.md) steps 4–7) but it catches every newcomer.
@@ -101,6 +98,22 @@ own dark theme) but note it is **no longer a fix for anything known**.
 [icon-font-failure.md §5](icon-font-failure.md)
 ☐ Regenerate [topic-index.md](topic-index.md) — it is generated and does not yet list
 `locale-safety.md`: `lein with-profile +tools run -m orcpub.topic-index`
+
+## Verified on 2026-09-20 — previously listed as unverifiable
+
+Three gaps were reported as "cannot check here". All three were checkable; the tools were
+simply not installed. Installing them took about a minute.
+
+- **`lein test`** — Leiningen is not preinstalled, but the upstream script installs itself and
+  `com.datomic/peer` resolves from public Maven. Result: **210 tests, 963 assertions, 0 failures,
+  0 errors**, and green again under `es_ES`. Caveat: there is no `config-test` or
+  `pedestal-test`, so the suite shows nothing was broken rather than proving the fix.
+- **`shellcheck`** — `pip install shellcheck-py` provides 0.11.0. Run against all three scripts:
+  **zero new finding types versus the upstream baseline** (11 before, 11 after).
+- **The full app booted** — still not done. Needs a Datomic transactor and a cljs build.
+
+The lesson is the one already in [verification-discipline.md](verification-discipline.md):
+"I have not checked" and "it cannot be checked" are different claims, and only one is an excuse.
 
 ## Unverified — do not report these as done
 
