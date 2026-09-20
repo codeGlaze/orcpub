@@ -307,4 +307,13 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except BrokenPipeError:
+        # `kb find x | head` closes the pipe early. Without this Python prints a
+        # traceback on the way out, which makes a working command look broken.
+        # Redirect stdout to devnull so the interpreter's own flush at exit does
+        # not raise a second time, then exit quietly.
+        import os
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(0)

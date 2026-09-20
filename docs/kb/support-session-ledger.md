@@ -10,6 +10,57 @@ out to be a server bug affecting every non-English-locale install.
 
 ---
 
+## WHERE WE ARE — 2026-09-20, paused mid-review
+
+**PR [orcpub/orcpub#695](https://github.com/Orcpub/orcpub/pull/695) is OPEN and has an unaddressed
+Copilot review.** That review is the next piece of work. Nothing is merged.
+
+| branch | base | state |
+|---|---|---|
+| `hotfix/locale-safety` | `upstream/develop` | 12 commits, 14 files. **PR #695 open.** Windows CI green; `lein test` 220/985/0 under `en_US`, `es_ES`, `tr_TR`; `lein fig:build` clean |
+| `fix/fa4-icon-names` | `upstream/develop` | 1 commit, 4 files, pushed, **no PR**. Five FA4 icon names; `far` weight confirmed present in the free set |
+| `agents/develop` | — | docs + tooling. `kb` CLI, hooks armed at session start, KB corrections |
+| `fix/windows-port-detection` | fork line | **superseded** — its commits were cherry-picked into `hotfix/locale-safety` |
+
+### The Copilot review — 6 medium + 1 low, NOT yet triaged
+
+**Read the real comments before acting.** The list below came through a page summariser, not the
+API: GitHub renders review comments client-side so they are absent from the static HTML, the
+unauthenticated API returns 403, and this session's GitHub tools are scoped to `codeglaze/orcpub`.
+So these are **topic-level leads, not quotations.**
+
+Two were spot-checked and are **real defects in code written during this session**:
+
+- **`PORT` in `.env` never reaches the scripts.** `.env.example:12` documents `PORT=8890` and the
+  server reads it (`system.clj`, `System/getenv "PORT"`), but `common.sh:202` uses
+  `SERVER_PORT`. Set `PORT=9000` and the server moves while every port check,
+  `explain_bind_failure`, and the new `report_env_config` all still look at 8890. The config
+  reporting added this session makes the mismatch *more* visible and still wrong.
+- **`permissive` CSP blocks Figwheel too.** `permissive-csp-settings` defines `:default-src
+  "'self'"` and no `:connect-src`, so connect-src falls back to `'self'` and the websocket is
+  blocked. `dev_mode_blocks_figwheel` only warns when the policy is `strict`, so it stays silent
+  in a case that is equally broken.
+
+The remaining five leads, unverified: Datomic URL override in the config template (`.env.example`
+ships a docker hostname that overrides the sane localhost default), Windows socket parser
+accuracy, help-command environment side effects, CI gaps in hostile-locale testing, and CSP
+documentation accuracy around `DEV_MODE`.
+
+### Next actions, in order
+
+1. Read the actual review comments on #695 (needs a session that can reach `orcpub/orcpub`, or a
+   human paste).
+2. Fix the two confirmed defects above. Both are in `scripts/common.sh` / `config.clj`.
+3. Triage the other five.
+4. Decide whether `fix/fa4-icon-names` gets its own PR now or waits for #695.
+
+### Not done, and not claimed
+
+- **The application has never been booted.** No Datomic transactor here. Everything is verified by
+  unit tests, the CLJS compile, the Windows runner, and standalone interceptor tests.
+- The FA4 icons have not been seen rendering in a browser. The `far` weight is confirmed present
+  in the webjar; that is not the same as having looked at it.
+
 ## Shipped
 
 | what | where | state |

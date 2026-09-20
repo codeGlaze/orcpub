@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, artemis, com, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor, unit
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor, unit
 
 - Executive Summary
 - Test Results Matrix
@@ -1640,7 +1640,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _lein-uberjar-hang · lein uberjar hang_
 
-**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, hooks, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
+**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar, wipes
 
 - Summary
 - Final Working Solution: Three-Step Docker Build
@@ -2030,7 +2030,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, sharing, stage, stages, subs, suite, unit
+**topics:** 2026-09-13, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2622,8 +2622,12 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, ability-score, arrows, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, arrows, booted, cherry-picked, commits, fa4, five, font, fork, fork-only, hotfix, icon-font-failure, locale-safety, session, upstream, upstreamable, windows
 
+- WHERE WE ARE — 2026-09-20, paused mid-review
+- The Copilot review — 6 medium + 1 low, NOT yet triaged
+- Next actions, in order
+- Not done, and not claimed
 - Shipped
 - About hotfix/locale-safety
 - Built, in no branch
