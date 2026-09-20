@@ -49,7 +49,87 @@ form's edge) and the breach threshold, neither of which blocks the shell.
 
 <!-- Entries below as work lands. One change per bullet, ending with (`shorthash`). -->
 
-## The order the rest is being built in
+## Progress
+
+Four of five done. Each was verified in a BROWSER, not by compiling — every one
+of them hid a bug that a green build said nothing about.
+
+1. **Heading into the shell** (`3b1ac947`). `auth-page` takes a heading, an
+   optional lede and the body. Six copies of the orange drop-shadowed `div`
+   gone; ink with a 54px amber rule instead. Copy tightened since the shell
+   owns it. *Caught by looking:* every field was running out past the 435px
+   column and over the gryphon — there is no global `border-box` here, so
+   `width:100%` plus padding plus a border overflows. +16px before, -16px after.
+2. **Error summary** (`70b6a410`). Counts FIELDS, not messages. Each line is a
+   link that focuses its field, carrying the message rather than the field name
+   — "Username — Username is required" says it twice and the link text is what
+   a screen reader announces alone. *Also fixed:* converting to `auth-page`
+   dropped the wrapper whose `text-align:center` everything below the fields
+   relied on, so the submit sat hard against the left edge. `.auth-tail` owns
+   that now, and the button is full width.
+3. **Confirm-password retiring on reveal** (`141894fd`). Verified through the
+   whole cycle: masked with the box, revealed without it, masked again with its
+   old value intact. *Two bugs, both mine:* the submit check read the reveal
+   state from the db while the component kept its own atom, so the confirmation
+   would have been demanded even when revealed; and `:verify-password` was
+   missing from the summary's field list, so a mismatch blocked submit while the
+   summary sat empty.
+4. **Domain-typo correction** (`bd434342`). Two edits on plain Levenshtein,
+   where a transposition costs two — so one transposition is offered a fix and a
+   transposition plus a wrong letter is not. Lives in `registration.cljc` for
+   the shared suite. Binds to MOUSEDOWN: on click, pressing it blurs the field,
+   the blur re-renders the notice, and the button dies between mousedown and
+   mouseup.
+5. **The sweep** — NOT STARTED. The legal links printed twice, the phone
+   gutters, and the reset page's help link whose clickable target is the word
+   "whitelist" in the middle of a sentence.
+
+### The one out-of-scope commit
+
+`042ee596` stops `.m-b-10` — a MARGIN utility — carrying `font-weight:bold`,
+which it did because a garden selector group read as a descendant chain and was
+not one. Measured three ways rather than guessed:
+
+| | |
+|---|---|
+| source uses | 194 |
+| actually render (7 pages, logged out) | 11 |
+| compute a different weight | 7 |
+| **look different** | **5** |
+
+The two that do not are the character-list filter bar and the builder tab strip:
+the container's weight changes, every child sets its own, the pixels are
+byte-identical. The five real ones are the legal footer on register/login/forgot,
+the forgot-password lede and the monster sort bar — all accidental bold making
+ordinary text insist on itself. Logged-out pages, so the true count is higher,
+but the ratio holds.
+
+### Still open, and not blocking
+
+- **The heading's alignment** — centred as now, or left against the form's edge.
+- **The breach threshold** on `feature/password-rules` — refuses on ANY corpus
+  hit, which is a default rather than a decision.
+- **The registration throttle notice copy**, which has had no review.
+
+### The design record
+
+Mockups and measurements this was built from, all published artifacts:
+
+- Target mockup, live: <https://claude.ai/artifact/SyGom3JjPLRAzUPxY9Wet8>
+- Auth pages as built, before/after: <https://claude.ai/artifact/AoD2LtGs4MPZaQtYtxzmQG>
+- Error treatments, five options: <https://claude.ai/artifact/FepUHoE9bnkKvxcfCip8PU>
+- Message catalogue, twelve surfaces: <https://claude.ai/artifact/HdxzkGSDJ3dsxKjJX6pt38>
+- Password meter: <https://claude.ai/artifact/TwQXi2roVmtVuLqitXBPzZ>
+
+### Running any of this again
+
+- `DATOMIC_URL="datomic:mem://orcpub" lein e2e-server` — the `:e2e` profile's
+  env reaches the app through `.lein-env`, which every lein task rewrites, so a
+  concurrent task can strip it. Passing it explicitly is immune.
+- Playwright scripts must run from the project root; `node_modules` is there.
+- `lein test` takes longer than a 120s window. Background it.
+
+## The order it was built in
 
 Each step lands on its own and leaves the branch working.
 
