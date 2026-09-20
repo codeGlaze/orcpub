@@ -847,7 +847,7 @@
 
 (defn verify-success []
   (auth-page
-   "You are all set"
+   "Registration complete"
    [:div
     [:div.m-t-20 "You can now"]
     [login-link]]))
@@ -890,6 +890,48 @@
         @(subscribe [:temp-email])
         " has an account, a link to reset your password is on its way.")))
 
+(def ^:private field-order
+  "The order the summary lists faults in, which is the order they appear on the
+   form. Sorting by map key would list them however the keywords happen to hash."
+  [[:username "Username"] [:email "Email address"] [:verify-email "Confirm email address"]
+   [:password "Password"] [:first-and-last-name "Name"]])
+
+(defn error-summary
+  "What is wrong, above the form, after a submit that could not go through.
+
+   Counts FIELDS rather than messages: a field with two faults is one thing to
+   fix, and saying \"three things need fixing\" over two fields is the kind of
+   arithmetic that makes people distrust the rest of the page.
+
+   Each line is a link to its field. That is the whole point of a summary -- on
+   a form long enough to scroll, the first fault can be off screen -- and it is
+   why the lines carry the message rather than the field's name: prefixing
+   \"Username\" to \"Username is required\" says it twice, and the link text is
+   what a screen reader reads out on its own.
+
+   Renders nothing until a submit has been attempted. A summary of everything
+   wrong with an untouched form is a scolding, not help."
+  [validation]
+  (let [faults (for [[k label] field-order
+                     :let [messages (seq (get validation k))]
+                     :when messages]
+                 [k label (first messages)])]
+    (when (seq faults)
+      [:div.auth-summary {:role "alert"}
+       [:div.auth-summary-title
+        (str (count faults) (if (= 1 (count faults))
+                              " thing needs fixing"
+                              " things need fixing"))]
+       [:ul.auth-summary-list
+        (for [[k label message] faults]
+          ^{:key k}
+          [:li
+           [:a {:href (str "#f-" (name k))
+                :on-click (fn [_]
+                            (when-let [el (.getElementById js/document (str "f-" (name k)))]
+                              (.focus el)))}
+            message]])]])))
+
 (defn register-form []
   (let [registration-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
@@ -904,6 +946,7 @@
      "Save your characters, share them, and pick up where you left off."
      [:div
       [:div.m-t-10.auth-form
+       (when show-errors? [error-summary registration-validation])
        [form-input {:title "Username"
                     :key :username
                     :value (:username registration-form)
@@ -972,14 +1015,14 @@
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
-       [:div.m-t-10
-        [:div.m-t-20
-         [:span "Already have an account?"]
-         (login-link)]
+       [:div.m-t-10.auth-tail
         (when-let [notice @(subscribe [:registration-notice])]
           [:div.m-t-10.registration-notice
            (for [line notice] ^{:key line} [:div line])])
-        [:div.m-t-10.m-b-20
+        ;; Not .m-b-10: that margin utility is bundled into a rule that sets
+        ;; font-weight bold across the whole app (styles/core.clj, .modal-container
+        ;; group). Using it here quietly emboldened this sentence.
+        [:div.m-t-10.m-b-5
          [:span "We will send a confirmation link to the address above."]]
         ;; Never dimmed. A submit button that looks dead reads as a broken site
         ;; rather than an unfinished form, and it cannot tell anyone WHY it will
@@ -989,15 +1032,16 @@
          {:on-click #(if (empty? registration-validation)
                        (dispatch [:register])
                        (dispatch [:registration-attempted]))}
-         "JOIN"]]]
-      [:div.m-t-5.p-r-10.p-l-10
-       [:span.f-s-14
-        "By clicking JOIN you agree to our"
-        [:a.m-l-5 {:href "/terms-of-use" :target :_blank
-                   :style {:color text-color}} "Terms of Use"]
-        [:span.m-l-5 "and that you've read our"]
-        [:a.m-l-5 {:href "/privacy-policy" :target :_blank
-                   :style {:color text-color}} "Privacy Policy"]]]])))
+         "JOIN"]
+        [:div.m-t-20
+         [:span "Already have an account?"]
+         (login-link)]]]
+      [:div.auth-fineprint
+       "By joining you agree to our "
+       [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
+       " and confirm you have read our "
+       [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+       "."]])))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
