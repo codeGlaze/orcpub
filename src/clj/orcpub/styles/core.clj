@@ -650,6 +650,15 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+   ;; The auth card is white whatever theme the app is in, so anything inside it
+   ;; needs the light-ground colours. .red otherwise resolves to red-on-dark,
+   ;; which is a red chosen to carry on near-black and washes out to pink here
+   ;; -- every field error on the register form was reading at about 2.6:1.
+   ;; .app.light-theme already does this; that selector just never matches here.
+   [:.registration-content
+    [:.red {:color red}
+     [:a :a:visited {:color red}]]]
+
    ;; Password meter. Four slots with one fill sweeping through them, so the
    ;; movement is continuous while the milestones stay countable. The minimum
    ;; length lands on the first slot's edge, so the gap between slots marks it
@@ -702,6 +711,15 @@
    [:.pw-next {:font-size "12px"
                :color "#6b7681"
                :font-variant-numeric "tabular-nums"}]
+
+   ;; The JOIN button's dimensions. They were four inline declarations on the
+   ;; element, alongside a class that dimmed it to 50% whenever the form was
+   ;; not ready -- which is gone: a control that looks dead reads as a broken
+   ;; site rather than an unfinished form, and it cannot say why it will not go.
+   [:.join-button {:height "40px"
+                   :width "174px"
+                   :font-size "16px"
+                   :font-weight "600"}]
 
    [:.registration-notice
     {:color red

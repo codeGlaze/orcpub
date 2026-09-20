@@ -112,7 +112,10 @@
 
 (defn form-input []
   (let [blurred? (r/atom false)]
-    (fn [{:keys [title key value messages type on-change]}]
+    ;; show-errors? is how a submit reveals faults in fields nobody has visited.
+    ;; Without it, pressing the button on a form with an untouched empty field
+    ;; had nothing to say, which is why the button used to dim instead.
+    (fn [{:keys [title key value messages type on-change show-errors?]}]
       [:div
        [base-input
         {:name key
@@ -120,13 +123,13 @@
          :value value
          :placeholder title
          :style input-style
-         :class (if (and @blurred? (seq messages))
-                       "b-red"
-                       "b-gray")
+         :class (if (and (or @blurred? show-errors?) (seq messages))
+                  "b-red"
+                  "b-gray")
          :on-focus (fn [_] (reset! blurred? false))
          :on-change on-change
          :on-blur (fn [e] (reset! blurred? true))}]
-       (when @blurred? (validation-messages messages))])))
+       (when (or @blurred? show-errors?) (validation-messages messages))])))
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
@@ -726,7 +729,13 @@
            ]])))))
 
 (defn password-reset-expired-page []
-  [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
+  ;; Reached by an expired link AND by one that is mangled or unrecognised, so
+  ;; the wording cannot claim to know which. It also no longer says 24 hours,
+  ;; which stopped being true when the window became two.
+  [send-password-reset-page
+   (str "That reset link no longer works. Links last "
+        "two hours, and each one can only be used once. "
+        "Send yourself a new one below.")])
 
 (defn password-reset-used-page []
   [send-password-reset-page "Your reset link has already been used. Please use the form below to send another reset email."])
@@ -857,6 +866,7 @@
 (defn register-form []
   (let [registration-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
+        show-errors? @(subscribe [:registration-attempted?])
         send-updates? (not= false (:send-updates? registration-form))
         {:keys [rung fills]} (registration/password-strength
                               (:password registration-form)
@@ -877,24 +887,28 @@
                     :key :username
                     :value (:username registration-form)
                     :messages (:username registration-validation)
+                    :show-errors? show-errors?
                     :type :username
                     :on-change (fn [e] (dispatch [:registration-username (event-value e)]))}]
        [form-input {:title "Email"
                     :key :email
                     :value (:email registration-form)
                     :messages (:email registration-validation)
+                    :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}]
        [form-input {:title "Verify Email"
                     :key :verify-email
                     :value (:verify-email registration-form)
                     :messages (:verify-email registration-validation)
+                    :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
        [form-input {:title "Password"
                     :key :password
                     :value (:password registration-form)
                     :messages (:password registration-validation)
+                    :show-errors? show-errors?
                     :type :password
                     :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
        ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
@@ -937,21 +951,22 @@
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
        [:div.m-t-10
-        [:div.p-10
+        [:div.m-t-20
          [:span "Already have an account?"]
          (login-link)]
         (when-let [notice @(subscribe [:registration-notice])]
           [:div.m-t-10.registration-notice
            (for [line notice] ^{:key line} [:div line])])
-        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button
-         {:style {:height "40px"
-                  :width "174px"
-                  :font-size "16px"
-                  :font-weight "600"}
-          :class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
-          :on-click #(when (empty? registration-validation)
-                       (dispatch [:register]))}
+        [:div.m-t-10.m-b-20
+         [:span "We will send a confirmation link to the address above."]]
+        ;; Never dimmed. A submit button that looks dead reads as a broken site
+        ;; rather than an unfinished form, and it cannot tell anyone WHY it will
+        ;; not go -- so pressing it always does something, and when the form is
+        ;; not ready that something is showing the faults it has been sitting on.
+        [:button.form-button.join-button
+         {:on-click #(if (empty? registration-validation)
+                       (dispatch [:register])
+                       (dispatch [:registration-attempted]))}
          "JOIN"]]]
       [:div.m-t-5.p-r-10.p-l-10
        [:span.f-s-14
