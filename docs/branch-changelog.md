@@ -38,3 +38,65 @@ signup down with it.
   reset.
 - **No character-class requirements are imposed**, per NIST SP 800-63B-4. The strength meter still
   counts them as encouragement; nothing is gated on them.
+
+## Still open
+
+Everything below was raised during this branch's work and deliberately not done
+here. Listed so it is tracked rather than remembered.
+
+**Needs a decision from you, not work from me**
+
+- **The breach threshold.** Screening currently refuses a password on ANY
+  appearance in the corpus — the NIST-strict reading, and a default rather than
+  a choice. Measured alternatives: blocking at 10 changes nothing in practice;
+  blocking at 100 lets `Password-!` through at 44 hits; blocking at 1000 lets
+  `Dragon7!` through at 488. The softness probably belongs in the wording rather
+  than the number, since everyone a low threshold stops chose something
+  thousands of other people also chose.
+- **The registration throttle notice.** New copy and a new red style
+  (`.registration-notice`). Neither has been reviewed.
+
+**Designed, specified by the preview, not built**
+
+- **The browser-side breach lookup.** The preview shows a chip that sits dashed
+  while a lookup is out and then resolves. Nothing like it exists: the check is
+  server-side at submit only, so there is no live feedback and no waiting state.
+  The design is settled — SHA-1 in the browser, five hex characters through our
+  own server so the page's CSP needs no new origin, compare locally, fire on
+  blur rather than per keystroke, and bind the verdict to the exact string it
+  was asked about so it is discarded rather than shown against text that has
+  changed.
+- **The in-app sign-in notice.** OWASP's guidance is that a failed-sign-in
+  warning "should be displayed next time they login, and optionally emailed to
+  them as well". Only the email exists. The in-app half needs somewhere to
+  persist the event and a surface after login, and it is the better channel:
+  no mail-bomb surface, so the 24-hour cooldown exists only to protect the
+  weaker one.
+- **The screened-at timestamp.** A positive `:orcpub.user/password-screened`
+  instant, absence meaning never screened. It is worth having only alongside
+  the nudge it enables, and the nudge's audience is every account that exists
+  today, since a bcrypt hash cannot be screened retroactively. NIST supports
+  the shape: no scheduled expiry, but force a change on evidence of compromise.
+  Explicitly NOT paired with a re-check at login — the password is handed over
+  to sign in, and screening it there is a second use of a credential given for
+  one purpose.
+
+**From the auth design pass, none started**
+
+- The `auth-page` higher-order function. Fourteen pages are variations on one
+  shell and each carries its own copy.
+- Notched outline labels, `<label for>`, `aria-invalid` and `aria-describedby`
+  on `base-input`/`form-input`.
+- **Stop dimming the submit button.** The design pass decided a submit button
+  should never be disabled. It still dims while validation is non-empty, which
+  is why the throttle notice had to be routed around it under `:general` rather
+  than keyed to a field.
+- The tablet gutter (`width:435px` inline → garden) and the +2px box-sizing fix.
+- Copy rewrites across the fourteen auth pages.
+
+**Smaller**
+
+- The login form still answers `:unverified` distinctly, which is correct for
+  usability but is a narrower version of the oracle closed elsewhere.
+- NIST asks that at least 64 characters be accepted and that nothing be
+  truncated. Not audited.
