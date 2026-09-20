@@ -1,120 +1,47 @@
-# Branch changelog — `feature/password-rules`
+# Branch changelog — `feature/auth-redesign`
 
 ## Why this branch exists
 
-Password rules here disagreed with themselves: `password-strength` scored against eight
-characters and four character classes, while `validate-password` enforced six characters and
-nothing else, so the form graded people against one standard and admitted them on another.
+A design pass ran over the fourteen auth pages and produced decisions, not code. They sat
+undone long enough that the pages were repeatedly mistaken for having been redesigned — they
+had not been touched at all. This branch is that pass, built.
 
-Current guidance (NIST SP 800-63B-4, OWASP Authentication Cheat Sheet) says character-class
-requirements shall not be imposed — they push people toward predictable shapes — and asks for
-length plus screening against known-bad passwords instead. This branch follows that: a longer
-minimum, a few cheap pattern rules, and an optional breach check that must never be able to take
-signup down with it.
+The decisions it implements, each settled before a line was written:
 
-**Parent:** `integration-local` @ `593cb50c`.
-**Return path:** merges back to `integration-local`. Nothing is stacked on this branch.
+- **One shell.** Fourteen pages each carry their own copy of the header, gutters, gryphon and
+  legal footer. They have drifted apart accordingly. An `auth-page` function replaces them.
+- **Notched outline labels.** A real `<label for>` riding on the input's border, so the field
+  never stops saying what it is — a placeholder disappears the moment somebody types.
+- **An ink heading with an amber rule**, replacing the orange drop-shadowed word.
+- **The card capped and centred**, with the site's own background as the gutter.
+- **Errors in GOV.UK order with a light field:** the label lifts out of the notch, the message
+  sits under it, the input follows. A rail down the group is the only container; the field
+  carries a 1px border and a soft tint rather than a heavy outline plus a boxed message, which
+  is what made the first attempt look pinched. The words stay in ink so only the mark and the
+  label are red, and red text never sits on the tint.
+- **`#d4351c`** for that red, over the site's wine red, which went muddy over a tint. Measured
+  in every position it occupies: 4.86:1 as text on the card, 4.52:1 as a border against its own
+  tint.
+- **A reveal, and a confirm box that retires when you use it.** NIST asks for the option to
+  display a password and we offer none. Two boxes while it is masked, one while it is not.
+- **Confirm the email, not the password.** A mistyped password is recoverable; a mistyped
+  address creates a dead unverified account holding the username its owner wanted, and mails a
+  stranger on the way. A domain-typo suggestion sits under the field.
 
-## Added
+**Built on what already exists.** `.field-notice` with its `is-error`/`is-warning`/`is-note`
+tones and its single `.field-notice-action` is the project's own component, used by the
+character builder's image field. `callout` and `notifications/message` likewise. An earlier
+version of the mockup reinvented all three beside a codebase that already had them.
 
-- **Passwords are checked for the obvious patterns** — three or more of the same character in a
-  row, runs like `1234`, `abcd` or `qwerty` in either direction, and passwords carrying the
-  account's own username or email. Shared by the browser and the server, so both agree.
+**The work that makes reuse possible:** every one of those components is toned for the dark
+app — `rgba(255,255,255,.06)`, `red-on-dark`, `color:white`. The auth card is white. Dropping
+them in as-is puts white text on a white card. Light-ground variants come first.
 
-- **A new password is checked against known breaches** — the password itself never leaves the
-  server: it is hashed here and only the first five characters of that hash are sent, so the
-  service answers with a few hundred candidates and the match is made locally. A slow or missing
-  service is not an objection — signup carries on. `ORCPUB_PWNED_CHECK=off` turns the call off
-  entirely. The result is worded as a
-  strength verdict — "too common" — not a security warning. The corpus only tells us a password
-  is common; saying "breach" implies this person was breached, and naming attackers conjures
-  someone coming for them. Neither happened. An explanation of how the check runs without the
-  password leaving in readable form is available for anyone who asks.
+**Parent:** `feature/password-rules` @ `934f5aa4` — the strength meter and the shared validator
+live there and this builds on both.
+**Return path:** merges back to `feature/password-rules`, which merges to `integration-local`.
 
-## Changed
+**Left open deliberately:** the heading's alignment (centred, as now, versus left against the
+form's edge) and the breach threshold, neither of which blocks the shell.
 
-- **The minimum password length is eight, not six** — and it is named once, so raising it later is
-  one edit. Existing passwords keep working at sign-in; the new floor applies when one is set or
-  reset.
-- **No character-class requirements are imposed**, per NIST SP 800-63B-4. The strength meter still
-  counts them as encouragement; nothing is gated on them.
-
-## Still open
-
-Everything below was raised during this branch's work and deliberately not done
-here. Listed so it is tracked rather than remembered.
-
-**Needs a decision from you, not work from me**
-
-- **The breach threshold.** Screening currently refuses a password on ANY
-  appearance in the corpus — the NIST-strict reading, and a default rather than
-  a choice. Measured alternatives: blocking at 10 changes nothing in practice;
-  blocking at 100 lets `Password-!` through at 44 hits; blocking at 1000 lets
-  `Dragon7!` through at 488. The softness probably belongs in the wording rather
-  than the number, since everyone a low threshold stops chose something
-  thousands of other people also chose.
-- **The registration throttle notice.** New copy and a new red style
-  (`.registration-notice`). Neither has been reviewed.
-
-**Designed, specified by the preview, not built**
-
-- **The browser-side breach lookup.** The preview shows a chip that sits dashed
-  while a lookup is out and then resolves. Nothing like it exists: the check is
-  server-side at submit only, so there is no live feedback and no waiting state.
-  The design is settled — SHA-1 in the browser, five hex characters through our
-  own server so the page's CSP needs no new origin, compare locally, fire on
-  blur rather than per keystroke, and bind the verdict to the exact string it
-  was asked about so it is discarded rather than shown against text that has
-  changed.
-- **The in-app sign-in notice.** OWASP's guidance is that a failed-sign-in
-  warning "should be displayed next time they login, and optionally emailed to
-  them as well". Only the email exists. The in-app half needs somewhere to
-  persist the event and a surface after login, and it is the better channel:
-  no mail-bomb surface, so the 24-hour cooldown exists only to protect the
-  weaker one.
-- **The screened-at timestamp.** A positive `:orcpub.user/password-screened`
-  instant, absence meaning never screened. It is worth having only alongside
-  the nudge it enables, and the nudge's audience is every account that exists
-  today, since a bcrypt hash cannot be screened retroactively. NIST supports
-  the shape: no scheduled expiry, but force a change on evidence of compromise.
-  Explicitly NOT paired with a re-check at login — the password is handed over
-  to sign in, and screening it there is a second use of a credential given for
-  one purpose.
-
-**From the auth design pass, none started**
-
-- The `auth-page` higher-order function. Fourteen pages are variations on one
-  shell and each carries its own copy.
-- Notched outline labels, `<label for>`, `aria-invalid` and `aria-describedby`
-  on `base-input`/`form-input`.
-- **Stop dimming the submit button.** The design pass decided a submit button
-  should never be disabled. It still dims while validation is non-empty, which
-  is why the throttle notice had to be routed around it under `:general` rather
-  than keyed to a field.
-- The tablet gutter (`width:435px` inline → garden) and the +2px box-sizing fix.
-- Copy rewrites across the fourteen auth pages.
-
-**Smaller**
-
-- The login form still answers `:unverified` distinctly, which is correct for
-  usability but is a narrower version of the oracle closed elsewhere.
-- NIST asks that at least 64 characters be accepted and that nothing be
-  truncated. Not audited.
-
-## Harness note: do not run another lein task while the e2e server boots
-
-`lein e2e-server` is `with-profile +e2e run`, and the `:e2e` profile supplies
-`:datomic-url "datomic:mem://orcpub"` through `lein-environ`. That plugin
-delivers profile env by writing **`.lein-env` at the project root**, and it
-rewrites that file on EVERY lein task. A `lein test` or `lein fig:build`
-running at the same time overwrites it WITHOUT `:datomic-url`, and a server
-that reads it in that window falls back to `datomic:dev://localhost:4334`,
-looks for a transactor that is not there, and dies with an h2
-`Connection refused: localhost:4335` that says nothing about profiles.
-
-It bit twice here, both times because the suites were deliberately being run in
-parallel with a boot. Two ways out:
-
-- Let the server finish booting before starting anything else, or
-- pass it explicitly, which is immune to the clobbering:
-  `DATOMIC_URL="datomic:mem://orcpub" lein e2e-server`
+<!-- Entries below as work lands. One change per bullet, ending with (`shorthash`). -->
