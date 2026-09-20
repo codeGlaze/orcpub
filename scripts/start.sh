@@ -768,11 +768,6 @@ main() {
 
     target="${positional[0]:-all}"
 
-    # A prompt is read; a banner is not. Only the first-run offer goes here --
-    # and not for --check, which is a read-only status command: offering to
-    # write a file is a side effect nobody asked that question for.
-    [[ "$do_check" == "true" ]] || offer_env_file
-
     # Handle install flag (no prereq checks needed)
     if [[ "$do_install" == "true" ]]; then
         run_install
@@ -790,6 +785,24 @@ main() {
         run_checks "$target"
         exit $?
     fi
+
+    # First-run .env offer. A prompt is read; a banner is not -- so this is the
+    # one interactive thing that happens before startup.
+    #
+    # It goes HERE, below every non-startup branch, not above them: `help`,
+    # `--install` and `--check` are not requests to start a server, and none of
+    # them should stop to ask whether to write a file. (`--help` already exits
+    # during argument parsing.) It used to sit above all three.
+    #
+    # Return 10 means the file was written. Stop there rather than start: .env
+    # was sourced before it existed, so the answers just given are not in this
+    # shell and the server would launch on the configuration the user was asked
+    # about and answered.
+    offer_env_file || {
+        rc=$?
+        [[ $rc -eq 10 ]] && exit $EXIT_SUCCESS
+        exit $rc
+    }
 
     # Check prerequisites for runtime targets
     check_java || exit $EXIT_PREREQ

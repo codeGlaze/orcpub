@@ -51,16 +51,13 @@ jobs:
             *) echo "FAIL: is_windows() would not fire — uname says '$(uname -s)'"; exit 1 ;;
           esac
 
-      - name: ASSERT lsof and ss are absent
-        run: |
-          # If either exists, port_in_use takes a different branch than assumed
-          # and the Windows branch is dead code. Not fatal to users, but it means
-          # the whole diagnosis was wrong, so fail and make us look.
-          rc=0
-          command -v lsof >/dev/null 2>&1 && { echo "FAIL: lsof EXISTS"; rc=1; }
-          command -v ss   >/dev/null 2>&1 && { echo "FAIL: ss EXISTS";   rc=1; }
-          [ $rc -eq 0 ] && echo "OK: neither lsof nor ss present"
-          exit $rc
+      # There was an "ASSERT lsof and ss are absent" step here. It was wrong on
+      # its own terms: port_in_use tests is_windows FIRST, so the Windows branch
+      # is taken whether or not those tools exist, and their presence would not
+      # make it dead code. All the assertion really pinned was the contents of
+      # the runner image, so a routine image update would have failed a build
+      # that had nothing wrong with it. The platform assertion above and the
+      # real-listener tests below cover what actually matters.
 
       - name: ASSERT 'netstat -tln' fails and prints nothing to stdout
         run: |
@@ -94,6 +91,10 @@ jobs:
           time.sleep(180)
           " &
           LISTENER=$!
+          # trap, not a kill at the bottom: the SETUP FAIL below exits early, and
+          # a listener leaked from here is what made three later steps test the
+          # wrong process.
+          trap 'kill $LISTENER 2>/dev/null || true' EXIT
           sleep 5
 
           # independent truth: can we actually connect?
@@ -125,7 +126,6 @@ jobs:
           [ -n "${PIDS// /}" ] || { echo "FAIL: find_pids_by_port returned nothing"; fail=1; }
           port_in_use 8891 && { echo "FAIL: reported an unused port as busy"; fail=1; }
           [ "$O" = "free" ] && echo "CONFIRMED: the old check reports 'free' for a port that is in use"
-          kill $LISTENER 2>/dev/null || true
           exit $fail
 
       - name: ASSERT taskkill can stop a process we found by port
@@ -138,6 +138,8 @@ jobs:
           s.bind(('127.0.0.1', 8899)); s.listen(5)
           time.sleep(180)
           " &
+          LISTENER=$!
+          trap 'kill $LISTENER 2>/dev/null || true' EXIT
           sleep 5
           PIDS="$(find_pids_by_port 8899)"
           echo "found pids : ${PIDS:-<none>}"
@@ -177,13 +179,23 @@ jobs:
           # interactive) offers to stop it. CI is non-interactive, so the
           # expected outcome is a clean refusal naming the port.
           set -u
+          # Port 8891, not 8890: an earlier step in this job binds 8890 and holds
+          # it for 180s without stopping it. This listener would have failed to
+          # bind, the failure would have been invisible behind `&`, and the test
+          # would then have passed against THAT listener -- green without ever
+          # exercising the process it claims to create.
           python -c "
           import socket, time
           s = socket.socket()
-          s.bind(('127.0.0.1', 8890)); s.listen(5)
+          s.bind(('127.0.0.1', 8891)); s.listen(5)
           time.sleep(120)
           " &
+          LISTENER=$!
+          trap 'kill $LISTENER 2>/dev/null || true' EXIT
           sleep 5
+          # Prove the listener is actually ours before asserting anything on it.
+          (exec 3<>/dev/tcp/127.0.0.1/8891) 2>/dev/null \
+            || { echo "SETUP FAIL: nothing listening on 8891"; exit 1; }
           source scripts/common.sh
           # check_port_available lives in start.sh, and start.sh cannot be run
           # end to end here (it exits at the Leiningen prereq before reaching
@@ -191,7 +203,7 @@ jobs:
           SCRIPT_DIR="$PWD/scripts"
           source <(sed -n '/^check_port_available()/,/^}/p' scripts/start.sh)
           set +e
-          out="$(check_port_available 8890 server false 2>&1)"; rc=$?
+          out="$(check_port_available 8891 server false 2>&1)"; rc=$?
           set -e
           echo "$out"
           echo "exit: $rc"
@@ -209,7 +221,11 @@ jobs:
           s.bind(('127.0.0.1', 8890)); s.listen(5)
           time.sleep(60)
           " &
+          LISTENER=$!
+          trap 'kill $LISTENER 2>/dev/null || true' EXIT
           sleep 5
+          (exec 3<>/dev/tcp/127.0.0.1/8890) 2>/dev/null \
+            || { echo "SETUP FAIL: nothing listening on 8890"; exit 1; }
           out="$(explain_bind_failure 8890 2>&1)"
           echo "$out"
           echo "$out" | grep -qi "already listening" || { echo "FAIL: did not identify the listener"; exit 1; }
@@ -240,9 +256,10 @@ jobs:
           # a bind failure after a normal shutdown would be crying wolf.
           set -u
           source scripts/common.sh
-          # Use a port no other step touches. Earlier steps leave their python
-          # listeners alive (they sleep well past the end of the step), so 8890
-          # is NOT free by the time we get here.
+          # A port no other step touches. Every listener step now traps EXIT and
+          # kills its own, so 8890 should in fact be free here -- but this
+          # assertion is about silence on a free port, and it should not also be
+          # an implicit test of someone else's cleanup.
           FREE_PORT=8123
           if port_in_use "$FREE_PORT"; then
             echo "SETUP FAIL: $FREE_PORT is unexpectedly in use"; exit 1

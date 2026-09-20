@@ -71,9 +71,19 @@ dev_mode_blocks_figwheel() {
     # and ws://localhost:3449 is blocked exactly as under strict. Only "none"
     # sends no policy at all.
     case "$policy" in strict|permissive) ;; *) return 1 ;; esac
+    # An UNSET DEV_MODE does not mean false here. Every server path in start.sh
+    # launches `lein with-profile +dev,+start-server`, and the :dev profile sets
+    # :env {:dev-mode "true"} (project.clj:244), which environ reads. So on a
+    # fresh checkout with nothing exported, the server we are about to start has
+    # dev-mode ON and skips CSP entirely -- and warning that CSP will block
+    # Figwheel would be false, and would talk the user out of a working setup.
+    #
+    # Only an explicit false-y DEV_MODE flips it: environ lets a real environment
+    # variable override the profile's value, so DEV_MODE=false does reach the
+    # server and does re-enable CSP.
     case "$(printf '%s' "${DEV_MODE:-}" | tr '[:upper:]' '[:lower:]')" in
-        true) return 1 ;;
-        *)    return 0 ;;
+        false|0|no|off) return 0 ;;
+        *)              return 1 ;;
     esac
 }
 
@@ -118,8 +128,9 @@ offer_env_file() {
     fi
 
     echo ""
-    log_warn "No .env found. Defaults will be used, including CSP_POLICY=strict with"
-    log_warn "DEV_MODE unset, which silently blocks Figwheel's hot reload."
+    log_warn "No .env found. Defaults will be used: CSP_POLICY=strict, and the"
+    log_warn "placeholder SIGNATURE / ADMIN_PASSWORD / DATOMIC_PASSWORD from the"
+    log_warn "template, which are published values and must not face a network."
 
     local reply=""
     read -t 30 -p "Create .env from .env.example now? [y/N] " -n 1 -r reply || { echo; log_info "No answer — continuing on defaults."; return 0; }
@@ -167,8 +178,14 @@ offer_env_file() {
         fi
     fi
 
-    log_info "Wrote $env_file (mode 600). Review it, then re-run to pick it up;"
-    log_info "this run continues on the values it already loaded."
+    log_info "Wrote $env_file (mode 600). Review it, then re-run to start."
+    # Returning 10 means "written, caller should stop". Continuing is not an
+    # option: .env was sourced near the top of this file, before it existed, and
+    # every default and derived path was computed from what was loaded then. The
+    # DEV_MODE just chosen and the credentials just generated are not in this
+    # shell and cannot be, so carrying on would launch the server on exactly the
+    # configuration the user was asked about and answered.
+    return 10
 }
 
 # Raised where it actually bites. Starting Figwheel with an enforcing CSP gives
@@ -203,11 +220,16 @@ LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
 
 # Port configuration
 DATOMIC_PORT="${DATOMIC_PORT:-4334}"
-# PORT is what the SERVER reads (system.clj, System/getenv "PORT") and what
-# .env.example documents. Honour it here too, or the scripts check 8890 while
-# the server listens somewhere else -- and every port check, explain_bind_failure
-# and the config report are then confidently wrong.
-SERVER_PORT="${SERVER_PORT:-${PORT:-8890}}"
+# Deliberately NOT ${PORT:-8890}. PORT is read by the PRODUCTION service map;
+# these scripts launch the DEV one, and orcpub.system/dev-service-map-overrides
+# pins ::http/port to a literal 8890 (system.clj:13). Honouring PORT here made
+# the scripts probe, report and stop 9000 while the server sat on 8890 -- the
+# checks confidently describing a port nothing was listening on.
+#
+# The alternative fix is to make the dev service map read PORT. That is the
+# better end state, but it changes where a dev server binds, which is not a
+# hotfix-sized change; SERVER_PORT still overrides if you need to move it.
+SERVER_PORT="${SERVER_PORT:-8890}"
 NREPL_PORT="${NREPL_PORT:-7888}"
 FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
 GARDEN_PORT="${GARDEN_PORT:-3000}"
@@ -334,9 +356,13 @@ port_in_use() {
         # refuses to start. Identify listening rows by the WILDCARD FOREIGN
         # ADDRESS rather than the state word -- the state word is localised
         # (LISTENING/LISTEN/translated), the foreign address is not.
+        # $1 == "TCP" is load-bearing. A UDP row is printed with four columns
+        # and a literal "*:*" foreign address, so it satisfies the wildcard test
+        # above; without the protocol check a UDP socket on this port makes a
+        # free TCP port read as busy and start.sh refuses to start.
         [ -n "$(netstat -ano 2>/dev/null \
                 | awk -v p="[:.]${port}\$" \
-                      '$2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ {print; exit}')" ]
+                      '$1 == "TCP" && $2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ {print; exit}')" ]
     elif command -v lsof >/dev/null 2>&1; then
         lsof -i ":${port}" >/dev/null 2>&1
     elif command -v ss >/dev/null 2>&1; then
@@ -413,9 +439,13 @@ find_pids_by_port() {
 
     if is_windows; then
         # Last column of a LISTENING row is the owning PID.
+        # $1 == "TCP" for the same reason as port_in_use, and it matters more
+        # here: stop.sh feeds these PIDs to kill, so a UDP row passing the
+        # wildcard test would terminate an unrelated process that merely shares
+        # the port number.
         pids=$(netstat -ano 2>/dev/null \
                | awk -v p="[:.]${port}\$" \
-                     '$2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ && $NF ~ /^[0-9]+$/ {print $NF}' \
+                     '$1 == "TCP" && $2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ && $NF ~ /^[0-9]+$/ {print $NF}' \
                | sort -u || true)
         echo "$pids" | tr '\n' ' ' | xargs
         return
