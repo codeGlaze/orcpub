@@ -37,8 +37,14 @@ integration line and its diff against `upstream/develop` is 77 files / +7,240 li
 fork work. Its own five commits touch only four files, and the fork's copies of
 `scripts/{common,start,stop}.sh` were byte-identical to upstream's, so they replayed cleanly.
 
-The FA4 icon names stay separate, deliberately: `import_log.cljs` and `conflict_resolution.cljs`
-are fork-only files and cannot go upstream at all.
+The FA4 icon names stay separate, but **not** because they are fork-only — an earlier revision of
+this ledger said that and was wrong. Checked against `upstream/develop` on 2026-09-20: all five
+sites exist upstream, in `import_log.cljs`, `conflict_resolution.cljs` and `styles/core.clj`. They
+are separate because they are an unrelated defect, and they are upstreamable as their own PR. See
+[icon-font-failure.md §5](icon-font-failure.md) for the table and the webjar shim mappings.
+
+Beware the grep that caused that error: `fa-pencil\b` matches inside `fa-pencil-alt`, so a naive
+search reports upstream's already-correct `views.cljs:8520` as broken. It is not.
 
 Pre-merge results:
 
@@ -80,7 +86,7 @@ character-load rescue commits (`daf32bb9`…`f1bda173`).
 
 ## Open — small, self-contained
 
-☐ **Five dead Font Awesome 4 names** — `fa-pencil`, `fa-exchange`, `fa-circle-o`, `fa-dot-circle-o`,
+☐ **Five dead Font Awesome 4 names — upstreamable** — `fa-pencil`, `fa-exchange`, `fa-circle-o`, `fa-dot-circle-o`,
 and the dead `.fa-caret-square-o-down` selector. They draw nothing today with the font working
 perfectly. Fork-only files, so *not* upstreamable. Full table in
 [icon-font-failure.md §5](icon-font-failure.md).

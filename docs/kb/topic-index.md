@@ -532,7 +532,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** abandoned, big-bang, class-builder-first, class-builder-only, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** abandoned, big-bang, builder, class-builder-first, class-builder-only, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -2609,7 +2609,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** ability-score, arrows, character-load, character-rescue-console, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, windows
+**topics:** 2026-09-20, arrows, character-load, cherry-picked, commits, dark, font, fork, fork-only, getting-started, hotfix, icon-font-failure, locale-safety, pre-merged, topic-index, upstream, upstreamable, windows
 
 - Shipped
 - About hotfix/locale-safety
