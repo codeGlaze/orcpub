@@ -170,7 +170,7 @@ own dark theme) but note it is **no longer a fix for anything known**.
 ☐ SVG for interactive icons — 7 icons carry their own `:on-click`; sizing in
 [icon-font-failure.md §5](icon-font-failure.md)
 ☐ Regenerate [topic-index.md](topic-index.md) — it is generated and does not yet list
-`locale-safety.md`: `lein with-profile +tools run -m orcpub.topic-index`
+`locale-safety.md`: `docs/kb/tools/topic-index.sh`
 
 ## Verified on 2026-09-20 — previously listed as unverifiable
 

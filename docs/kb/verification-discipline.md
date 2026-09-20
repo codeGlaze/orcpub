@@ -112,7 +112,7 @@ them is an excuse.
 | `kb lint` | **yes** — all 4 checks | `kb lint --self-test`, plus sabotage of two checks |
 | `scripts/check-docs.sh` | **yes** — dangling links and orphans both fire | staged fixture with a dead link; staged fixture referenced by nothing |
 | `.githooks/pre-push` | **yes** — all 3 axes | protected/unprotected target × changelog present/absent |
-| `test/clj/…/topic_index_coverage_test.clj` | **no** — red since 2026-09-12 | checks `## <basename>`; nested docs are indexed as `## rescued/<name>.md` |
+| `test/clj/…/topic_index_coverage_test.clj` | **no** — red since 2026-09-12 | checks `## <basename>`; nested docs are indexed as `## rescued/<name>.md`. **Deleted 2026-09-20**: `kb lint` makes the same guarantees, strictly, without a JVM |
 | the Clojure suite generally | **unknown** | needs Leiningen, absent from agent containers — genuinely unverifiable here |
 
 Two traps found while running the audit, both in the *test harness* rather than the guard:

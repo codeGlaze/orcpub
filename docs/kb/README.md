@@ -64,7 +64,7 @@ sides had been written blind to the other's findings.
 ### Search surfaces
 | Document | Topic |
 |----------|-------|
-| [topic-index.md](topic-index.md) | **Generated search surface** — every document with its distinctive vocabulary and section headings. Use it to find which document owns a topic. For *whether* something has been looked at, grep the corpus: `grep -ril "<term>" docs/kb/` — measured, that answers more than any index here does. Regenerate with `lein with-profile +tools run -m orcpub.topic-index`. |
+| [topic-index.md](topic-index.md) | **Generated search surface** — every document with its distinctive vocabulary and section headings. Use it to find which document owns a topic. For *whether* something has been looked at, grep the corpus: `grep -ril "<term>" docs/kb/` — measured, that answers more than any index here does. Regenerate with `docs/kb/tools/topic-index.sh`. |
 | [before-you-start.md](before-you-start.md) | **Review lessons indexed by TASK, not by topic.** What to check before designing a control, adding a CSS class, changing how something is rendered, converting a builder, borrowing a value from a mock, or believing a CSS change worked. Every entry is a rule a review had to supply, with one line of evidence. |
 
 ### Builders + authored mechanics (this branch, 2026-09)

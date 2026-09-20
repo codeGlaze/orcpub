@@ -1,33 +1,34 @@
 #!/usr/bin/env python3
 """Generate docs/kb/topic-index.md — a flat, greppable map from TOPIC to document.
 
-Port of dev/orcpub/topic_index.clj. Same algorithm, same output; see that file for
-why the index exists at all.
+The index lists each KB document with the words that most distinguish it from the
+rest of the corpus, so you can find which document owns a topic. For whether a topic
+has already been looked at, grep the corpus or use `kb find`; this is orientation,
+not recall, and says so in its own header.
 
-Why a port. The original is invoked as `lein with-profile +tools run -m
+Why Python. The generator was originally invoked as `lein with-profile +tools run -m
 orcpub.topic-index`, and Leiningen is not installed in the containers agents actually
 run in — so the one tool meant to keep the KB navigable was the one nobody could run.
-The index went stale for that reason. The script needs nothing but the standard
-library, in any language: it reads markdown and counts words.
+The index went stale for that reason. The requirement was never real: this reads
+markdown and counts words, so it needs nothing but the standard library.
 
-This is the canonical implementation. Run it with the dispatcher:
+Run it with the wrapper the KB documents cite:
 
     docs/kb/tools/topic-index.sh            # regenerate
     docs/kb/tools/topic-index.sh --check    # exit 1 if the index is out of date
 
 Or directly:  python3 docs/kb/tools/topic_index.py
 
-dev/orcpub/topic_index.clj predates this and produces identical output; the
-dispatcher falls back to it, and `--parity` proves the two agree.
+Two behaviours worth knowing, both fixes to the Clojure implementation this
+replaced (dev/orcpub/topic_index.clj, removed 2026-09-20 along with the coverage
+test that was its only remaining caller):
 
-Two deliberate differences from the original Clojure:
-
-  * Nested documents work. The original called .getName on a recursive file-seq,
+  * Nested documents work. That version called .getName on a recursive file-seq,
     discarding the directory, then read docs/kb/<basename> — so it threw
     FileNotFoundException on anything under docs/kb/rescued/. Documents are keyed by
     their path relative to docs/kb.
 
-  * Ties break deterministically. The original sorted by score alone, leaving equal
+  * Ties break deterministically. That version sorted by score alone, leaving equal
     scores in hash-map order, so two runs could disagree. Ties break on the word.
 """
 
