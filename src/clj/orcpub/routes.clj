@@ -273,7 +273,8 @@
 (defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
   (if (security/too-many-attempts-for-username? username)
-    (login-error errors/too-many-attempts)
+    (do (security/note-refusal! :login-username)
+        (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
       ;; Several addresses failing against ONE account inside a minute is what
       ;; this predicate was written for, and it is also what a person with a
@@ -320,7 +321,8 @@
       ;; usernames failing from this address inside a minute, so one person
       ;; across several devices cannot -- only a spray across accounts can.
       (security/multiple-account-access? remote-addr)
-      (login-error errors/too-many-attempts)
+      (do (security/note-refusal! :login-spray)
+          (login-error errors/too-many-attempts))
 
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)

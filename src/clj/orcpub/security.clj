@@ -109,6 +109,38 @@
 ;; on password reset that is the membership test we just closed.
 ;; ---------------------------------------------------------------------------
 
+;; A limit nobody counts is a limit nobody can tune. A number chosen against a
+;; guess about real behaviour -- ten signups an hour from one household -- is
+;; only as good as the guess, and the only way to find out it was wrong is to
+;; see how often it bites. Steady refusals on the household limits means the
+;; number is too low and real people are hitting it; a sudden spike on one host
+;; means it is doing its job.
+(def ^:private refusals (atom {}))
+
+(defn note-refusal! [what]
+  (swap! refusals update what (fnil inc 0))
+  nil)
+
+(defn take-refusals! []
+  (first (reset-vals! refusals {})))
+
+(defn refusal-summary
+  "A line for the log, or nil on an hour when nothing was turned away."
+  [counts]
+  (when (seq counts)
+    (str "limits: "
+         (->> counts
+              (sort-by (comp - val))
+              (map (fn [[what n]] (str n " " (name what))))
+              (interpose ", ")
+              (apply str)))))
+
+(defn summary-job
+  "Heartbeat job: one line an hour, and only when something was refused."
+  [_conn]
+  (when-let [line (refusal-summary (take-refusals!))]
+    (println line)))
+
 (def ^:private sightings (atom {}))
 
 (defn- prune [m cutoff]
@@ -129,8 +161,13 @@
                                (fn [m]
                                  (let [m (prune m cutoff)]
                                    (update m k #(conj (vec %) (time/now))))))
-        seen (count (remove #(.isBefore % cutoff) (get before k)))]
-    (< seen limit)))
+        seen (count (remove #(.isBefore % cutoff) (get before k)))
+        allowed (< seen limit)]
+    ;; The key's first element names the limit, so every caller is counted
+    ;; without having to remember to say so.
+    (when-not allowed
+      (note-refusal! (if (vector? k) (first k) k)))
+    allowed))
 
 (defn claim-once?
   "True the first time `k` is claimed inside `window`, false until it lapses."
