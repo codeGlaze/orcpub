@@ -220,16 +220,13 @@ LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
 
 # Port configuration
 DATOMIC_PORT="${DATOMIC_PORT:-4334}"
-# Deliberately NOT ${PORT:-8890}. PORT is read by the PRODUCTION service map;
-# these scripts launch the DEV one, and orcpub.system/dev-service-map-overrides
-# pins ::http/port to a literal 8890 (system.clj:13). Honouring PORT here made
-# the scripts probe, report and stop 9000 while the server sat on 8890 -- the
-# checks confidently describing a port nothing was listening on.
-#
-# The alternative fix is to make the dev service map read PORT. That is the
-# better end state, but it changes where a dev server binds, which is not a
-# hotfix-sized change; SERVER_PORT still overrides if you need to move it.
-SERVER_PORT="${SERVER_PORT:-8890}"
+# PORT is what BOTH service maps now read (orcpub.system/configured-port) and
+# what .env.example documents, so the scripts follow it too. They have to agree:
+# when the dev map pinned a literal 8890 and this read PORT, every port check,
+# explain_bind_failure and config report described a port nothing was listening
+# on. SERVER_PORT still overrides, for moving the scripts without moving the
+# server.
+SERVER_PORT="${SERVER_PORT:-${PORT:-8890}}"
 NREPL_PORT="${NREPL_PORT:-7888}"
 FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
 GARDEN_PORT="${GARDEN_PORT:-3000}"
