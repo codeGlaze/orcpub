@@ -753,6 +753,53 @@
                   :background-color orange
                   :border-radius "2px"
                   :margin "10px auto 8px"}]
+    ;; Everything below the fields -- the submit, the "already have an account"
+    ;; line, the consent text -- used to be centred by a text-align:center
+    ;; wrapper on the register page. auth-page replaced that wrapper, and the
+    ;; button ended up hard against the left edge. Centring belongs to the parts
+    ;; that want it, not to one div wrapping the whole page.
+    ;; The summary. .bg-note's neutral ground with a rail in the error colour,
+    ;; rather than a tinted box: the fields below are already tinted, and two
+    ;; pink areas stacked is the crowding the design pass was fixing.
+    [:.auth-summary {:border-left (str "3px solid " error-red)
+                     :background-color "rgba(0, 0, 0, 0.035)"
+                     :border-radius "3px"
+                     :padding "12px 14px"
+                     :margin "0 0 22px"
+                     :text-align :left}]
+    [:.auth-summary-title {:font-weight :bold
+                           :color error-red
+                           :font-size "14px"
+                           :margin-bottom "6px"}]
+    [:.auth-summary-list {:margin "0"
+                          :padding-left "18px"
+                          :font-size "13.5px"
+                          :color text-color-light}
+     [:li {:margin-bottom "3px"}]
+     [:a {:color error-red
+          :text-decoration :underline
+          :text-underline-offset "2px"
+          :cursor :pointer}]]
+
+    [:.auth-tail {:text-align :center
+                  :padding "0 16px"
+                  :box-sizing :border-box
+                  :font-weight :normal
+                  :font-size "14px"
+                  :color text-color-light}]
+    ;; Full width, as the design pass settled: at 174px it read as one option
+    ;; among the links around it rather than the thing the page is for.
+    [:.join-button {:width "100%"
+                    :height "48px"
+                    :font-size "15px"
+                    :font-weight "700"
+                    :letter-spacing "0.12em"
+                    :margin-top "4px"}]
+    [:.auth-fineprint {:margin-top "16px"
+                       :font-size "12.5px"
+                       :color muted-on-light
+                       :text-align :center
+                       :padding "0 16px"}]
     [:.auth-lede {:margin "0 0 22px"
                   :text-align :center
                   :color text-color-light
@@ -2127,9 +2174,16 @@
      {:background-image "linear-gradient(to right, #d35730, #eda41e)"
       :padding ".5em 2em"}]
 
-    [:.modal-container :.m-b-10,
-     :.modal-container :.link-button
-     {:font-weight "bold"}]
+    ;; Nested, not comma-separated. Written as
+    ;;   [:.modal-container :.m-b-10, :.modal-container :.link-button {...}]
+    ;; this reads as a descendant selector and is not one: garden treats every
+    ;; keyword before the map as a SEPARATE selector, so it compiled to
+    ;;   .modal-container, .m-b-10, .modal-container, .link-button
+    ;; and put font-weight:bold on a MARGIN UTILITY used 194 times across the
+    ;; app. Anything carrying .m-b-10 anywhere has been bold by accident.
+    [:.modal-container
+     [:.m-b-10 {:font-weight "bold"}]
+     [:.link-button {:font-weight "bold"}]]
     
     [:.modal-container :.link-button
      {:color "#f7c257"
