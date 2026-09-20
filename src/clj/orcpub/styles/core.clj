@@ -684,7 +684,12 @@
       :line-height "19px"
       ;; The words are INK. Only the mark and the label carry the colour, because
       ;; a wall of red text is most of what makes a form feel like it is shouting.
-      :color text-color-light}
+      :color text-color-light
+      :text-align :left}
+     ;; An empty notice is not a notice. The slot is always rendered so a live
+     ;; check and a submitted one cannot lay the field out differently, which
+     ;; means every healthy field carried a bare "!" until this.
+     [:&:empty {:display :none}]
      [:&.is-error:before
       {:content "\"!\""
        :flex "0 0 auto"
@@ -692,6 +697,9 @@
        :color error-red}]
      [:&.is-note {:color muted-on-light
                   :margin "7px 2px 0"}]]
+    ;; 1 1 auto, not the 260px basis the dark-app notice uses: at this width the
+    ;; basis forced the text onto its own line and left the mark stranded.
+    [:.field-notice-what {:flex "1 1 auto"}]
     [:.field-notice-action {:color "#c98700"
                             :font-size "13px"}]
     [:.field-notice.is-error {:color text-color-light}]
@@ -708,7 +716,103 @@
     [:.tone-success [:.message-icon {:color "#4a7000"}]]
 
     [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
-    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]]
+    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]
+
+    ;; ---------------------------------------------------------------------
+    ;; The auth field. A notched outline label: a real <label for> riding on
+    ;; the input's own border, so the field never stops saying what it is. A
+    ;; placeholder stops saying it the moment somebody types.
+    ;;
+    ;; The notch is driven by :placeholder-shown rather than a class the view
+    ;; keeps in step. A class desynced the moment somebody typed and tabbed
+    ;; away -- the label dropped back over their own text, which reads as the
+    ;; field clearing itself. Every input carries placeholder=" " for the
+    ;; selector to test against.
+    ;; ---------------------------------------------------------------------
+    ;; The field owns its alignment. register-page wraps its whole contents in
+    ;; text-align:center, which centred the labels, centred the notice text and
+    ;; pushed the "!" onto a line of its own. A field is left-aligned wherever it
+    ;; is put; that is not the page's call to make.
+    [:.field {:position :static
+              :margin-bottom "22px"
+              :text-align :left}]
+    ;; The gutter base-input used to carry as .p-l-10.p-r-10 on every field.
+    ;; It belongs to the form, not to each field -- a field that indents itself
+    ;; cannot be put anywhere else -- and the wrong-state rail needs room to sit
+    ;; in, which is why it is 16px rather than 10.
+    [:.auth-form {:padding "0 16px"}]
+    [:.field-box {:position :relative}]
+    [:.field [:input {:width "100%"
+                      :height "50px"
+                      :padding "14px 13px 0"
+                      :font-size "15px"
+                      :color text-color-light
+                      :background-color :white
+                      :border "1px solid #d9dee3"
+                      :border-radius "3px"
+                      :color-scheme :light
+                      :outline :none
+                      :transition "border-color 0.15s, box-shadow 0.15s, background-color 0.15s"}]]
+    [:.field [:.notch {:position :absolute
+                       :left "11px"
+                       :top "15px"
+                       :padding "0 4px"
+                       :pointer-events :none
+                       :color muted-on-light
+                       :font-size "15px"
+                       :background-color :white
+                       :transition "top 0.14s, font-size 0.14s, color 0.14s, letter-spacing 0.14s"}]]
+    [:.field ["input:not(:placeholder-shown) + .notch" "input:focus + .notch"
+              {:top "-9px"
+               :font-size "11px"
+               :letter-spacing "0.08em"
+               :text-transform :uppercase
+               :color text-color-light}]]
+    [:.field ["input:focus" {:border-color orange
+                             :box-shadow "0 0 0 3px rgba(240, 161, 0, 0.20)"}]]
+    [:.field ["input:focus + .notch" {:color "#c98700"}]]
+
+    ;; Wrong: the group grows a rail, the field tints, and the label LEAVES the
+    ;; notch to become a plain line so the message can sit under it -- GOV.UK's
+    ;; order, which puts the explanation before the box about to be retyped.
+    ;; The field visibly changes shape, which is a signal before a word is read.
+    ;; One container, not four: the first attempt tinted the input AND doubled
+    ;; its border AND boxed the message AND railed the box, and looked pinched.
+    [:.field [:.lift {:display :none
+                      :margin "0 0 5px"
+                      :font-size "11px"
+                      :letter-spacing "0.08em"
+                      :text-transform :uppercase
+                      :color error-red}]]
+    [:.field.is-wrong {:padding-left "13px"
+                       :border-left (str "3px solid " error-red)
+                       :margin-left "-16px"}]
+    [:.field.is-wrong [:.lift {:display :block}]]
+    [:.field.is-wrong [:.notch {:display :none}]]
+    [:.field.is-wrong [:input {:border-color error-red
+                               :background-color error-tint}]]
+    [:.field.is-wrong ["input:focus" {:box-shadow "0 0 0 3px rgba(212, 53, 28, 0.18)"}]]
+
+    ;; The reveal. Inside the field so it cannot be read as a control of its
+    ;; own; the input reserves room rather than letting text run under it.
+    [:.peek {:position :absolute
+             :right "6px"
+             :top "8px"
+             :height "34px"
+             :padding "0 11px"
+             :border :none
+             :background :none
+             :color muted-on-light
+             :font-size "11.5px"
+             :font-weight :bold
+             :letter-spacing "0.11em"
+             :text-transform :uppercase
+             :cursor :pointer
+             :border-radius "3px"}]
+    [:.peek:hover {:color text-color-light
+                   :background-color "#eef1f4"}]
+    ;; A keyword cannot carry the parens of :has(), so this selector is a string.
+    [".field-box:has(.peek) input" {:padding-right "78px"}]]
 
    ;; Password meter. Four slots with one fill sweeping through them, so the
    ;; movement is continuous while the milestones stay countable. The minimum

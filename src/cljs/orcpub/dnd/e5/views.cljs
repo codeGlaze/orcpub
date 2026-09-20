@@ -99,37 +99,74 @@
          [:li.red (str common/dot-char " " msg)])
        messages))]))
 
-(defn base-input [attrs]
-  [:div.m-b-10
-   [:div.f-s-10.t-a-l.m-l-10 (:placeholder attrs)]
-   [:div.flex.p-l-10.p-l-10.p-r-10
-    [:input.flex-grow-1
-     (merge
-      attrs
-      ;; Rem'd out to allow auto fill on use/password
-      ;;{:auto-complete :off}
-     )]]])
+(defn base-input
+  "One auth field: a notched outline label, an optional reveal, and the notice
+   slot its message goes in.
+
+   The label is a real <label for>, not a placeholder, so the field never stops
+   saying what it is -- a placeholder stops the moment somebody types. It rides
+   on the input's own border via :placeholder-shown in the stylesheet rather
+   than a class this has to keep in step; a class desynced as soon as anybody
+   typed and tabbed away, dropping the label back over their own text.
+
+   When the field is WRONG the label leaves the notch and becomes a plain line
+   above the message, which sits above the input -- GOV.UK's order, so the
+   explanation is read before the box about to be retyped. Both labels are
+   always rendered and the stylesheet picks; a live check and a submitted one
+   cannot then lay the field out differently, which is exactly what happened
+   when only the submitted path knew about the lifted label.
+
+   :messages, :hint and :reveal? are optional; everything else is passed to the
+   input untouched."
+  [{:keys [title messages hint reveal? revealed? on-reveal] :as attrs}]
+  (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
+        message-id (str id "-message")
+        wrong? (boolean (seq messages))
+        input-attrs (-> attrs
+                        (dissoc :title :messages :hint :reveal? :revealed? :on-reveal :key)
+                        (assoc :id id
+                               ;; the selector the notch is driven by
+                               :placeholder " "
+                               :aria-describedby message-id)
+                        (cond-> wrong? (assoc :aria-invalid true)))]
+    [:div.field {:class (when wrong? "is-wrong")}
+     [:label.lift {:for id} title]
+     [:div.field-notice.is-error {:id message-id}
+      (when wrong? [:span.field-notice-what (first messages)])]
+     [:div.field-box
+      [:input input-attrs]
+      [:label.notch {:for id} title]
+      (when reveal?
+        [:button.peek {:type "button"
+                       :aria-controls id
+                       :aria-pressed (boolean revealed?)
+                       :on-click on-reveal}
+         (if revealed? "Hide" "Show")])]
+     (when hint
+       [:div.field-notice.is-note [:span.field-notice-what hint]])]))
 
 (defn form-input []
-  (let [blurred? (r/atom false)]
+  (let [blurred? (r/atom false)
+        revealed? (r/atom false)]
     ;; show-errors? is how a submit reveals faults in fields nobody has visited.
     ;; Without it, pressing the button on a form with an untouched empty field
     ;; had nothing to say, which is why the button used to dim instead.
-    (fn [{:keys [title key value messages type on-change show-errors?]}]
-      [:div
-       [base-input
-        {:name key
-         :type type
-         :value value
-         :placeholder title
-         :style input-style
-         :class (if (and (or @blurred? show-errors?) (seq messages))
-                  "b-red"
-                  "b-gray")
-         :on-focus (fn [_] (reset! blurred? false))
-         :on-change on-change
-         :on-blur (fn [e] (reset! blurred? true))}]
-       (when (or @blurred? show-errors?) (validation-messages messages))])))
+    (fn [{:keys [title key value messages type on-change show-errors? hint reveal?]}]
+      (let [shown (when (or @blurred? show-errors?) messages)]
+        [base-input
+         {:name key
+          ;; A revealed password is a text field. The type is the reveal.
+          :type (if (and reveal? @revealed?) :text type)
+          :value value
+          :title title
+          :messages shown
+          :hint hint
+          :reveal? reveal?
+          :revealed? @revealed?
+          :on-reveal #(swap! revealed? not)
+          :on-focus (fn [_] (reset! blurred? false))
+          :on-change on-change
+          :on-blur (fn [_] (reset! blurred? true))}]))))
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
@@ -672,8 +709,7 @@
           {:name :email
            :value (:email @params)
            :type :email
-           :placeholder "Email"
-           :style default-input-style
+           :title "Email address"
            :on-change (partial set-value params :email)}]
          [:button.form-button.m-l-20.m-t-10
           {:style {:height "40px"
@@ -882,7 +918,7 @@
                      :margin-top "20px"}}
        "join for free"]
       [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
-      [:div.m-t-10
+      [:div.m-t-10.auth-form
        [form-input {:title "Username"
                     :key :username
                     :value (:username registration-form)
@@ -909,6 +945,7 @@
                     :value (:password registration-form)
                     :messages (:password registration-validation)
                     :show-errors? show-errors?
+                    :reveal? true
                     :type :password
                     :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
        ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
