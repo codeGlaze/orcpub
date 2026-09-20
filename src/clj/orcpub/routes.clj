@@ -1310,24 +1310,32 @@
 (defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
   (default-index-page request response))
 
-(defn reset-password-page [{:keys [query-params db conn] :as req}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:db/id
-                  :orcpub.user/username
-                  :orcpub.user/password-reset-key
-                  :orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset] :as user}
-          ;; The link carries the key; the table holds only its digest.
-          (first-user-by db user-by-password-reset-key-query (hash-reset-key key))
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (cond
-        expired? (redirect route-map/password-reset-expired-route)
-        already-reset? (redirect route-map/password-reset-used-route)
-        :else (let [token (create-token username (-> 1 hours from-now))]
-                (index req {:cookies {"token" token}}))))
-    {:status 400
-     :body "Key is required"}))
+(defn reset-password-page [{:keys [query-params db] :as req}]
+  (let [key (:key query-params)
+        {:keys [:db/id
+                :orcpub.user/username
+                :orcpub.user/password-reset-sent
+                :orcpub.user/password-reset]}
+        ;; The link carries the key; the table holds only its digest.
+        (when-not (s/blank? key)
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key)))
+        expired? (password-reset-expired? password-reset-sent)
+        already-reset? (password-already-reset? password-reset password-reset-sent)]
+    (cond
+      ;; Covers both no key at all and a key matching nobody. These used to
+      ;; behave very differently and both were wrong: a missing key answered
+      ;; with the bare string "Key is required" and no page around it, and an
+      ;; unrecognised key fell through to :else, where username was nil and a
+      ;; session token got signed for nil.
+      ;;
+      ;; From the reader's side a mangled link and an expired one are the same
+      ;; event -- it does not work and they need another -- so both land on the
+      ;; page that says so and offers to send one.
+      (nil? id) (redirect route-map/password-reset-expired-route)
+      expired? (redirect route-map/password-reset-expired-route)
+      already-reset? (redirect route-map/password-reset-used-route)
+      :else (let [token (create-token username (-> 1 hours from-now))]
+              (index req {:cookies {"token" token}})))))
 
 (defn check-field [query value db]
   {:status 200

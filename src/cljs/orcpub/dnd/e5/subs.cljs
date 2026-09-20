@@ -92,6 +92,11 @@
                (dissoc (or server {}) :general))))
 
 (reg-sub
+ :registration-attempted?
+ (fn [db [_]]
+   (get db :registration-attempted? false)))
+
+(reg-sub
  :registration-notice
  :<- [:registration-server-errors]
  (fn [server [_]]

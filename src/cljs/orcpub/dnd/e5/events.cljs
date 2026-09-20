@@ -2557,6 +2557,14 @@
        (update :user-data merge (:body response))
        (assoc :route :verify-sent))))
 
+(reg-event-db
+ :registration-attempted
+ ;; Set when JOIN is pressed on a form that is not ready. The button no longer
+ ;; dims -- a control that looks dead teaches people the site is broken rather
+ ;; than that their form is -- so pressing it has to SAY something instead.
+ (fn [db _]
+   (assoc db :registration-attempted? true)))
+
 (reg-event-fx
  :register-failure
  ;; The server's objections had nowhere to go: this threw the body away, so a
