@@ -11,19 +11,46 @@
 // Exits non-zero on the first failed check.
 
 const { chromium } = require('playwright');
+const { suppressOverlays } = require('./lib/orcbrew-import');
 
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
 
 let failures = 0;
+// Same resolver the other probes use: the image ships a pinned Chromium whose
+// build number will not match whatever playwright's npm package wants, so the
+// bundled path does not exist. ORCPUB_CHROME overrides it for a one-off run.
+// An untimed .click().catch() waits playwright's full 30s default and then throws
+// the failure away -- silent, and the runner greps for it. See test/browser/README.md.
+async function clickIfVisible(locator, { timeout = 2500 } = {}) {
+  try { await locator.click({ timeout }); return true; }
+  catch (_) { return false; }
+}
+
+function findChrome() {
+  if (process.env.ORCPUB_CHROME) return process.env.ORCPUB_CHROME;
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const dir = require('fs').readdirSync(base)
+      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
+    if (dir) {
+      const p = require('path').join(base, dir, 'chrome-linux', 'chrome');
+      if (require('fs').existsSync(p)) return p;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
 function check(label, ok, detail) {
-  if (ok) console.log(`  ok   ${label}`);
-  else { failures++; console.log(`  FAIL ${label}${detail ? ` -- ${detail}` : ''}`); }
+  // PASS/FAIL prefixes, not 'ok': run-browser-probes.js counts these lines to
+  // catch a probe that has quietly stopped asserting.
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail && !ok ? '  — ' + detail : ''}`);
 }
 
 (async () => {
-  const browser = await chromium.launch(
-    process.env.ORCPUB_CHROME ? { executablePath: process.env.ORCPUB_CHROME } : {});
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await suppressOverlays(ctx);  // by-hand runs get no preload
   const page = await ctx.newPage();
 
   console.log(`\nportrait -> pdf export e2e -- ${BASE}\n`);
@@ -31,7 +58,7 @@ function check(label, ok, detail) {
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#app', { timeout: 30000 });
   const cookieBtn = page.locator('#cookie-btn');
-  if (await cookieBtn.count()) { await cookieBtn.click().catch(() => {}); await page.waitForTimeout(200); }
+  if (await cookieBtn.count()) { await clickIfVisible(cookieBtn); await page.waitForTimeout(200); }
 
   // --- compose and save a portrait -------------------------------------
   const descTab = page.locator('.builder-tab', { hasText: /^Description$/ }).first();
@@ -158,6 +185,6 @@ function check(label, ok, detail) {
         `with=${pdfBytes} without=${bareBytes}`);
 
   await browser.close();
-  console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}\n`);
+  console.log(`\ndone — ${failures} failing\n`);
   process.exit(failures === 0 ? 0 : 1);
 })().catch(e => { console.error('\nharness error:', e); process.exit(1); });

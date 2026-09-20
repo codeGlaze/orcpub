@@ -15,26 +15,54 @@
 // Exits non-zero on the first failed check.
 
 const { chromium } = require('playwright');
+const { suppressOverlays } = require('./lib/orcbrew-import');
 
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+
+// Same resolver the other probes use: the image ships a pinned Chromium whose
+// build number will not match whatever playwright's npm package wants, so the
+// bundled path does not exist. ORCPUB_CHROME overrides it for a one-off run.
+// An untimed .click().catch() waits playwright's full 30s default and then throws
+// the failure away -- silent, and the runner greps for it. See test/browser/README.md.
+async function clickIfVisible(locator, { timeout = 2500 } = {}) {
+  try { await locator.click({ timeout }); return true; }
+  catch (_) { return false; }
+}
+
+function findChrome() {
+  if (process.env.ORCPUB_CHROME) return process.env.ORCPUB_CHROME;
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const dir = require('fs').readdirSync(base)
+      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
+    if (dir) {
+      const p = require('path').join(base, dir, 'chrome-linux', 'chrome');
+      if (require('fs').existsSync(p)) return p;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
 const SHOT = process.env.ORCPUB_SHOT;
 
 let failures = 0;
 function check(label, ok, detail) {
-  if (ok) {
-    console.log(`  ok   ${label}`);
-  } else {
-    failures++;
-    console.log(`  FAIL ${label}${detail ? ` -- ${detail}` : ''}`);
-  }
+  // PASS/FAIL prefixes, not 'ok': run-browser-probes.js counts these lines to
+  // catch a probe that has quietly stopped asserting.
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail && !ok ? '  — ' + detail : ''}`);
 }
 
 (async () => {
   // The image ships a pinned Chromium that may not match the version this
   // Playwright build expects; point at it rather than downloading another.
-  const browser = await chromium.launch(
-    process.env.ORCPUB_CHROME ? { executablePath: process.env.ORCPUB_CHROME } : {});
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const browser = await chromium.launch({ executablePath: findChrome() });
+  // Belt and braces: the runner injects overlay suppression for the sweep, and
+  // this covers a by-hand run, which gets no preload. Both backdrops swallow
+  // clicks, so without it the first click lands on a modal instead.
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await suppressOverlays(ctx);
+  const page = await ctx.newPage();
 
   // JS exceptions are always the app's problem. Resource failures are tracked
   // by URL so environmental ones (uncompiled CSS, blocked webfonts) can be
@@ -64,7 +92,7 @@ function check(label, ok, detail) {
   // The cookie banner overlays the drawer's footer buttons; dismiss it first.
   const cookieBtn = page.locator('#cookie-btn');
   if (await cookieBtn.count()) {
-    await cookieBtn.click().catch(() => {});
+    await clickIfVisible(cookieBtn);
     await page.waitForTimeout(200);
   }
 
@@ -247,7 +275,7 @@ function check(label, ok, detail) {
 
   await browser.close();
 
-  console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}\n`);
+  console.log(`\ndone — ${failures} failing\n`);
   process.exit(failures === 0 ? 0 : 1);
 })().catch(e => {
   console.error('\nharness error:', e);

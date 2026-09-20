@@ -10,13 +10,41 @@
 //   node test/browser/portrait_tab_e2e.js
 
 const { chromium } = require('playwright');
+const { suppressOverlays } = require('./lib/orcbrew-import');
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+
+// Same resolver the other probes use: the image ships a pinned Chromium whose
+// build number will not match whatever playwright's npm package wants, so the
+// bundled path does not exist. ORCPUB_CHROME overrides it for a one-off run.
+// An untimed .click().catch() waits playwright's full 30s default and then throws
+// the failure away -- silent, and the runner greps for it. See test/browser/README.md.
+async function clickIfVisible(locator, { timeout = 2500 } = {}) {
+  try { await locator.click({ timeout }); return true; }
+  catch (_) { return false; }
+}
+
+function findChrome() {
+  if (process.env.ORCPUB_CHROME) return process.env.ORCPUB_CHROME;
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const dir = require('fs').readdirSync(base)
+      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
+    if (dir) {
+      const p = require('path').join(base, dir, 'chrome-linux', 'chrome');
+      if (require('fs').existsSync(p)) return p;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
 const SHOT = process.env.ORCPUB_SHOT;
 
 let failures = 0;
 function check(label, ok, detail) {
-  if (ok) console.log(`  ok   ${label}`);
-  else { failures++; console.log(`  FAIL ${label}${detail ? ` -- ${detail}` : ''}`); }
+  // PASS/FAIL prefixes, not 'ok': run-browser-probes.js counts these lines to
+  // catch a probe that has quietly stopped asserting.
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail && !ok ? '  — ' + detail : ''}`);
 }
 
 // device-type comes from the USER AGENT, not the viewport, so a narrow window
@@ -31,14 +59,14 @@ async function openBuilder(ctx, width) {
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#app', { timeout: 30000 });
   const cookie = page.locator('#cookie-btn');
-  if (await cookie.count()) { await cookie.click().catch(() => {}); await page.waitForTimeout(200); }
+  if (await cookie.count()) { await clickIfVisible(cookie); await page.waitForTimeout(200); }
   return page;
 }
 
 (async () => {
-  const browser = await chromium.launch(
-    process.env.ORCPUB_CHROME ? { executablePath: process.env.ORCPUB_CHROME } : {});
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
+  await suppressOverlays(ctx);  // by-hand runs get no preload
   const jsErrors = [];
 
   console.log(`\nportrait tab e2e -- ${BASE}\n`);
@@ -108,6 +136,7 @@ async function openBuilder(ctx, width) {
   // ---------- the phone layout has the tab too ----------
   const phoneCtx = await browser.newContext({ userAgent: PHONE_UA, isMobile: true,
                                               hasTouch: true, viewport: { width: 412, height: 915 } });
+  await suppressOverlays(phoneCtx);
   const phone = await openBuilder(phoneCtx, 412);
   phone.on('pageerror', e => jsErrors.push(String(e)));
   const mtab = phone.locator('.builder-tab', { hasText: /^Portrait$/ }).first();
@@ -159,6 +188,6 @@ async function openBuilder(ctx, width) {
   check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
 
   await browser.close();
-  console.log(`\n${failures === 0 ? 'PASS' : `FAIL (${failures})`}\n`);
+  console.log(`\ndone — ${failures} failing\n`);
   process.exit(failures === 0 ? 0 : 1);
 })().catch(e => { console.error('\nharness error:', e); process.exit(1); });
