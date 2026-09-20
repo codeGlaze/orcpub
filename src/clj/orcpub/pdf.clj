@@ -1940,6 +1940,68 @@
       (println "pdf: supplied image bytes rejected -" (.getMessage e))
       nil)))
 
+(def ^:private max-artwork-embedded
+  "What generated artwork may weigh in the PDF.
+
+   Deliberately not max-embedded-bytes. That 128k is the number the builder
+   advertises beside the Image URL field -- a promise about what a user may
+   UPLOAD. A composed portrait is neither uploaded nor untrusted: the app
+   rasterizes it, at a size the app chose to print well.
+
+   Holding it to the upload limit costs resolution, and measurably: a 600x750
+   portrait fitted to 128k comes back 367x459, which is 156 dpi in the 2.35in
+   box the sheet prints it at -- under the 200 dpi the assets are built for.
+   320k keeps the full raster and still bounds the document; the fit below is
+   the backstop for anything larger."
+  (* 320 1024))
+
+(defn- scaled-copy-argb
+  "scaled-copy, but into ARGB so the alpha channel survives."
+  ^BufferedImage [^BufferedImage img edge]
+  (let [w (.getWidth img)
+        h (.getHeight img)
+        f (min 1.0 (/ (double edge) (double (max w h))))
+        nw (int (max 1 (Math/round (* w f))))
+        nh (int (max 1 (Math/round (* h f))))
+        out (BufferedImage. nw nh BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g img 0 0 nw nh nil)
+      (finally (.dispose g)))
+    out))
+
+(defn- png-bytes ^bytes [^BufferedImage img]
+  (let [out (ByteArrayOutputStream.)]
+    (ImageIO/write img "png" out)
+    (.toByteArray out)))
+
+(defn- fit-artwork
+  "Shrink generated artwork until it fits max-embedded-bytes, keeping alpha.
+
+   NOT fit-for-sheet. That one scales into TYPE_INT_RGB and re-encodes as
+   JPEG, which is right for a photograph and wrong for anything transparent:
+   a composed portrait put through it comes back with its transparent ground
+   turned black, which prints as a black box around the character. Artwork
+   gives up pixels instead of transparency, and stays PNG.
+
+   Steps the longest edge down by 15% a time rather than walking a fixed
+   ladder, so the first attempt always actually shrinks something -- a ladder
+   starting above the image's own size burns iterations re-encoding it
+   unchanged."
+  [^bytes data]
+  (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
+    (if (<= (alength data) max-artwork-embedded)
+      {:data data :jpg? false}
+      (loop [edge (int (* 0.85 (max (.getWidth img) (.getHeight img))))
+             tries 12]
+        (when (and (pos? tries) (>= edge 120))
+          (let [candidate (png-bytes (scaled-copy-argb img edge))]
+            (if (<= (alength candidate) max-artwork-embedded)
+              {:data candidate :jpg? false}
+              (recur (int (* 0.85 edge)) (dec tries)))))))))
+
 (def ^:private max-artwork-base64
   "Pre-decode ceiling for artwork the app generated itself. Looser than
    max-image-base64 because these bytes are fitted rather than refused, but
@@ -1970,7 +2032,7 @@
       (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
         (when (and (pos? (alength data))
                    (within-pixel-budget? data))
-          (fit-for-sheet data))))
+          (fit-artwork data))))
     (catch Exception e
       (println "pdf: generated artwork rejected -" (.getMessage e))
       nil)))

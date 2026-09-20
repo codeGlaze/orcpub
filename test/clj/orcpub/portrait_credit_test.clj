@@ -13,7 +13,8 @@
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.portrait-render :as pr])
+            [orcpub.portrait-render :as pr]
+            [orcpub.pdf :as pdf])
   (:import [java.io ByteArrayInputStream]
            [javax.imageio ImageIO]
            [java.util UUID]
@@ -126,6 +127,56 @@
   (let [doc (PDDocument.)]
     (dotimes [_ pages] (.addPage doc (PDPage. PDRectangle/LETTER)))
     doc))
+
+;; ---------- fitting the composed portrait for the PDF ----------
+;;
+;; The sheet embeds the picture the browser baked. Generated artwork is fitted
+;; rather than refused (see docs/kb on agents/develop), and HOW it is fitted
+;; matters: the general path re-encodes as JPEG, which cannot carry alpha.
+
+(deftest fitted-artwork-keeps-its-transparency
+  (testing "pdf/fit-for-sheet scales into TYPE_INT_RGB and writes JPEG, which
+            is right for a photograph and turns a composed portrait's
+            transparent ground black -- a black box around the character on
+            every printed sheet"
+    (let [png (pr/render-png (portrait-with [:head :shirt]) 600 750)
+          {:keys [data jpg?]} (pdf/decode-artwork-bytes
+                               (.encodeToString (java.util.Base64/getEncoder) png))
+          img (ImageIO/read (ByteArrayInputStream. data))]
+      (is (false? jpg?) "artwork is never handed over as JPEG")
+      (is (.hasAlpha (.getColorModel img)) "the alpha channel survives")
+      (is (zero? (bit-and (unsigned-bit-shift-right (.getRGB img 2 2) 24) 0xff))
+          "the corner is still transparent, not filled"))))
+
+(deftest fitted-artwork-keeps-print-resolution
+  (testing "the 128k ceiling is what a user may UPLOAD; holding generated art
+            to it dropped a 600x750 portrait to 367x459, 156 dpi in the 2.35in
+            box, under the 200 dpi the assets are built for"
+    (let [png (pr/render-png (portrait-with [:head :shirt]) 600 750)
+          {:keys [data]} (pdf/decode-artwork-bytes
+                          (.encodeToString (java.util.Base64/getEncoder) png))
+          img (ImageIO/read (ByteArrayInputStream. data))]
+      (is (>= (.getHeight img) 630)
+          (str "only " (int (/ (.getHeight img) 3.15)) " dpi in the printed box")))))
+
+(deftest heavy-artwork-is-fitted-not-refused
+  (testing "the weight ceiling is a backstop, not a wall: something over it
+            comes back smaller rather than nil"
+    (let [png (pr/render-png (portrait-with [:head :shirt :eyes :bangs]) 1400 1750)
+          {:keys [data jpg?]} (pdf/decode-artwork-bytes
+                               (.encodeToString (java.util.Base64/getEncoder) png))]
+      (is (some? data) "fitted, not refused")
+      (is (false? jpg?) "and still not a JPEG")
+      (is (<= (alength data) (alength png)) "no heavier than it arrived"))))
+
+(deftest a-decompression-bomb-is-refused-outright
+  (testing "the pixel budget is checked from the header before any pixels are
+            decoded, and unlike the weight ceiling it is a wall -- 2400x3000
+            is 7.2M pixels against a 4M cap"
+    (let [png (pr/render-png (portrait-with [:head]) 2400 3000)]
+      (is (nil? (pdf/decode-artwork-bytes
+                 (.encodeToString (java.util.Base64/getEncoder) png)))
+          "refused, not scaled down"))))
 
 ;; ---------- document metadata ----------
 
