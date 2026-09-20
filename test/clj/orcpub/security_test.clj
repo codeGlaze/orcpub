@@ -202,3 +202,22 @@
                        {:user "u" :ip "2.2.2.2" :date instant}])]
     (is (= 1 (count two-ips))
         "two attempts, one instant, one surviving entry")))
+
+
+(deftest refusals-are-counted-so-the-numbers-can-be-tuned
+  (s/take-refusals!)
+  (is (nil? (s/refusal-summary {})) "a quiet hour says nothing")
+  ;; Eleven signups from one host inside the hour: the first ten pass.
+  (dotimes [_ 11] (s/registration-allowed? "9.9.9.9"))
+  (let [counts (s/take-refusals!)]
+    (is (= {:register 1} counts))
+    (is (= "limits: 1 register" (s/refusal-summary counts))))
+  (is (= {} (s/take-refusals!)) "taking them resets, so each hour is its own period"))
+
+(deftest a-limit-turns-away-only-what-is-past-it
+  (s/take-refusals!)
+  (let [host (str "10.0.0." (rand-int 250))]
+    (is (every? true? (repeatedly 10 #(s/registration-allowed? host))))
+    (is (false? (s/registration-allowed? host)))
+    (is (true? (s/registration-allowed? (str host ".other")))
+        "a different host has its own allowance")))
