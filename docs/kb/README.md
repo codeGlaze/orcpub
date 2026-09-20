@@ -259,6 +259,16 @@ wrong, and why.
 
 All under `test/browser/`, run against `lein e2e-server` (see `test/browser/README.md`).
 
+- **[browser-probe-registration.md](browser-probe-registration.md)** -- adding a file to
+  `PROBES` launches it but does not protect it. Without a `probe-baseline.json` entry the
+  stopped-asserting guard is absent, not weakened; and the runner counts `^PASS`/`^FAIL`
+  lines, so a probe printing `ok` reports one check however many it ran. Measured: three
+  probes reporting `1 checks` for 32, 24 and 10.
+- **[pdf-generated-vs-uploaded-images.md](pdf-generated-vs-uploaded-images.md)** -- why
+  `pdf/decode-image-bytes` refuses over 128k and a composed portrait (247k, 1.9x the
+  ceiling) must be fitted instead. Includes the delay-is-truthy bug that made a failed
+  portrait suppress the pasted image-url.
+
 | Probe | Answers |
 | --- | --- |
 | `tab_switch_freeze_e2e.js` | the freeze: longest task per Race<->Class switch, heap, counters, stacks |
@@ -269,6 +279,9 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `localstorage_ceiling_e2e.js` | the real quota, and whether it counts chars or bytes |
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
 | `character_image_capture_e2e.js` | both routes a portrait can take into a PDF, and the shape of the field's notices |
+| `portrait_compositor_e2e.js` | the paper-doll compositor drawer: pick, randomize, colour, save, round-trip, light theme |
+| `portrait_tab_e2e.js` | the compositor as a builder tab, and the tab bar at phone width under a mobile UA |
+| `portrait_pdf_export_e2e.js` | that a composed portrait reaches the PDF, asserted differentially against an export with the payload stripped |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |
 
 ### Human-Facing Docs (Copies)

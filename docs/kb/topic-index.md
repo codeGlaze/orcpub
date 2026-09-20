@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, added, claude, csp, documentation, exit, figwheel, garden, issue, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, added, claude, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -297,7 +297,7 @@ _armor-class-refactor · armor class refactor_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -335,6 +335,18 @@ _before-you-start · before you start_
 - Before believing a CSS change worked
 - Before reporting a UI change as done
 - How this page stays small
+
+## browser-probe-registration.md
+
+_browser-probe-registration · browser probe registration_
+
+**topics:** 2026-09-20, asserting, assertion, belt, caring, conventions, env, factored, guard, image, package, probe, probes, registering, runner, sweep, untimed, var
+
+- 1. The browser: findChrome(), not an env var
+- 2. The output format is the assertion count
+- 3. No baseline entry means the shortfall guard is off
+- Two more the runner tells you about, if you read its output
+- What good looks like
 
 ## builder-conversion-gallery.md
 
@@ -592,7 +604,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, mode, passing, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -610,7 +622,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, docstrings, jsdoc, justification, length, narration, non-obvious, resort, sentence
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -643,7 +655,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, flexibility, grant, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -680,7 +692,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, boon, catalog, checklist, checks, confirm, console, errors, fail, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, boon, catalog, checklist, confirm, console, dev, errors, homebrew, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -772,7 +784,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, content, custom, factory, inline, localstorage, magic, missing-content, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, missing-content, resolves, server-backed, sets, store
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1180,7 +1192,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, decoder, defences, defends, detonation, docstring, edn, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, docstring, edn, go-loop, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1291,7 +1303,7 @@ _error-handling-import-validation · error handling import validation_
 
 _extras-definitions · extras definitions_
 
-**topics:** beneath, bounds, capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, kind, per-creature, pet, plan-companions-and-wild-shape, promotion, ribbon, sidekick, statblock, wolf
+**topics:** beneath, capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, kind, npc, per-creature, pet, plan-companions-and-wild-shape, promotion, ribbon, sidekick, statblock, wolf
 
 - One record, capabilities toggled
 - Copy-on-adopt, not reference
@@ -1383,7 +1395,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _filtered-list-staleness · filtered list staleness_
 
-**topics:** 669, branch, cache, claude-branch-triage, computing, custom-content-lifecycle, event, filter, hunks, items, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
+**topics:** branch, cache, claude-branch-triage, computing, custom-content-lifecycle, declared, event, filter, hunks, items, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
 
 - The mechanism
 - The precondition — this is why it is not constantly obvious
@@ -1614,7 +1626,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** built-in, coexist, combines, copy, duplicate, import, item, key, membership, override, plugin, predictable, rename, same-key, save, spell, winner, wins
+**topics:** built-in, coexist, combines, copy, import, item, key, membership, minted, override, plugin, predictable, rename, same-key, save, spell, winner, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -1707,7 +1719,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 2026-09-20, 669, bare, branch, call, conflict, cut, fetch, filtered-list-staleness, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side, sign-in
+**topics:** 669, bare, branch, call, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side, sign-in
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -1752,7 +1764,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, characters, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, reported, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, characters, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -1898,6 +1910,18 @@ _pdf-form-techniques · pdf form techniques_
 - The image guard's blind spots were the addresses Java has no predicate for (2026-09)
 - The byte cap did not bound TIME
 - Closing the resolve/connect gap
+
+## pdf-generated-vs-uploaded-images.md
+
+_pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
+
+**topics:** 128k, 25000, advertises, art, bytes, ceiling, composed, decode, decoder, decoding, enforces, fitted, image, picture, png, portrait, private, refusal
+
+- The collision
+- Why the merge then dropped the portrait
+- The fix, and the alternative that was rejected
+- A latent bug this uncovered
+- If you add another generated-image path
 
 ## pdf-generation-architecture.md
 
@@ -2064,7 +2088,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, measured, migration, one-time, per-key, phase, plan, quota, source, sources
+**topics:** batch, blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, per-key, phase, plan, quota, source, sources
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -2150,7 +2174,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, discipline, entry, fighting, grant, grants, irregularity, membership, pieces, pool, pools, registered, spells, styles, vector
+**topics:** 2026-09-07, air, dependent, direction, discipline, entry, fighting, grant, grants, irregularity, membership, pieces, pool, pools, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers
@@ -2255,7 +2279,7 @@ _registry-before-after · registry before after_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
+**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, lein, port, remote, ssh, tunnels, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
@@ -2290,7 +2314,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, grant, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, class, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -2479,7 +2503,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** assembly, cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2698,7 +2722,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, reading, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
