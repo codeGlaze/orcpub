@@ -13,8 +13,13 @@
                      (when selected? " selected"))
          :on-click on-click}
    [:label.flex.align-items-c.pointer
-    [:i {:class (str "fa radio-icon "
-                     (if selected? "fa-dot-circle-o" "fa-circle-o"))}]
+    ;; far, not fa: FA5 replaced the -o "outline" suffix with a style
+    ;; prefix, so the outline circles live in the regular weight. fa-circle-o
+    ;; and fa-dot-circle-o are FA4 names that do not exist in FA5, so this
+    ;; radio indicator has been drawing nothing -- .radio-icon sets width:16px,
+    ;; which reserved the space and hid it.
+    [:i {:class (str "far radio-icon "
+                     (if selected? "fa-dot-circle" "fa-circle"))}]
     label]])
 
 (defn conflict-resolution-item
