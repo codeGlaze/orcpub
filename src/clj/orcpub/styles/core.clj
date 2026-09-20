@@ -736,13 +736,40 @@
     [:.field {:position :static
               :margin-bottom "22px"
               :text-align :left}]
+    ;; The heading. Ink with an amber rule under it, replacing an orange word
+    ;; carrying a drop shadow -- which six pages each held their own copy of.
+    ;; The rule carries the brand colour so the heading does not have to shout
+    ;; it, and ink reads at full contrast on the card where the orange did not.
+    [:.auth-heading {:margin "0"
+                     :font-size "25px"
+                     :font-weight :bold
+                     :letter-spacing "0.055em"
+                     :text-transform :uppercase
+                     :color "#23282e"
+                     :text-align :center
+                     :line-height "1.2"}]
+    [:.auth-rule {:width "54px"
+                  :height "3px"
+                  :background-color orange
+                  :border-radius "2px"
+                  :margin "10px auto 8px"}]
+    [:.auth-lede {:margin "0 0 22px"
+                  :text-align :center
+                  :color text-color-light
+                  :font-size "14.5px"}]
+
     ;; The gutter base-input used to carry as .p-l-10.p-r-10 on every field.
     ;; It belongs to the form, not to each field -- a field that indents itself
     ;; cannot be put anywhere else -- and the wrong-state rail needs room to sit
     ;; in, which is why it is 16px rather than 10.
-    [:.auth-form {:padding "0 16px"}]
+    [:.auth-form {:padding "0 16px"
+                  :box-sizing :border-box}]
     [:.field-box {:position :relative}]
+    ;; border-box, because there is no global one: width:100% plus 13px of
+    ;; padding and a border made every field wider than the 435px column it
+    ;; sits in, and it ran out over the gryphon.
     [:.field [:input {:width "100%"
+                      :box-sizing :border-box
                       :height "50px"
                       :padding "14px 13px 0"
                       :font-size "15px"
