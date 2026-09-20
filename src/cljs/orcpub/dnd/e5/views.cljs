@@ -9178,10 +9178,10 @@
                         ;; the ROW's address, not the item's own fields: this is the source
                         ;; holding it and the key it answers to, which is what the save needs
                         ;; to tell its own slot from somebody else's
-                        {:on-click (make-event-handler edit-event item source-name key)}
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
                         "edit"]
                        [:button.form-button.m-l-5
-                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
                         "delete"]]])))
                  visible))]])]))))))
 

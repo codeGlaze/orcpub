@@ -93,6 +93,41 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### A move needs a RECORD, not a guess (2026-09-20)
+
+Second review round, on top of the section below. Five more, and the shape is the same one twice:
+**a guess is fine for a save that cannot lose anything, and never fine for one that deletes.**
+
+- **An empty Option Source Name was a move.** `::option-pack` is `string?`, so `""` satisfies the
+  save spec and never reached the missing-field banner — only the *save-anyway* path guarded it.
+  Clearing the box to retype it and pressing Save deleted the item from its library and re-homed it
+  under a source named `""`; the next save was a clean in-place, so nothing ever flagged it. It is a
+  missing required field and now says so. The source name is also **trimmed**: `" Pak"` is not a
+  second library, and treating it as one moved the item into a twin that renders identically.
+- **The delete button still read identity off the item** — one line below the edit button that had
+  just been fixed. For a pre-keys library it deleted nothing at all; against a stale `:option-pack`
+  it conjured an empty source; and where another source answered to the same key it deleted **that**
+  entry and left the clicked one in place.
+- **`replacing` could leave a cross-source duplicate.** The `:occupied` offer was tested before the
+  third-library check, so consent to discarding one entry still left the key answering elsewhere —
+  the state the move rule exists to prevent. The `:elsewhere` refusal now comes first.
+- **A record left by another builder validated.** `:builder-origin` is one slot for all fourteen
+  builders, and one source holds a race and a subrace under one key for one name. The record now
+  carries the content type it was made for, and every stamp site sets it.
+- **A key change did not re-stamp the origin**, leaving it pointing at a key it could never verify
+  again.
+
+**And the rule that came out of it:** with no verified record, the single library holding a key
+tells you where an item *lives* — enough to save back into it, never enough to MOVE, because a move
+deletes that entry and the builder may be holding an item the library has moved on from. That is not
+hypothetical: Move/copy in My Content rewrites `:plugins` under an open builder, and the old
+behaviour silently reverted the relocation the author had just performed. A move now refuses with
+*"This language is in X — open it from My Content to move it somewhere else"* (`:unrecorded`).
+
+**Open, and the reason the refusal above exists at all:** `:builder-origin` is not persisted, so a
+page refresh loses it and a restored draft cannot move until it is reopened. Persisting it alongside
+the draft removes that cost entirely, and is the obvious next step.
+
 ### Identity is established when the builder FETCHES the item (2026-09-19)
 
 **Corrects the section below.** `address-for` originally identified a key-less stored item by
