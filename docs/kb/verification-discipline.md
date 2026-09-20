@@ -101,6 +101,36 @@ fire, each makes `--self-test` exit 1 naming the blind check.
 **When you add a check anywhere in this repo, add the case that makes it fail.** If you cannot
 write that case, you do not yet know what the check detects.
 
+### Audit: which of this repo's guards actually discriminate
+
+Run 2026-09-20, by feeding each guard a case it is supposed to catch. Recorded because
+"I have not checked" and "it cannot be checked" are different claims, and only one of
+them is an excuse.
+
+| guard | catches what it exists for? | how it was tested |
+|---|---|---|
+| `kb lint` | **yes** — all 4 checks | `kb lint --self-test`, plus sabotage of two checks |
+| `scripts/check-docs.sh` | **yes** — dangling links and orphans both fire | staged fixture with a dead link; staged fixture referenced by nothing |
+| `.githooks/pre-push` | **yes** — all 3 axes | protected/unprotected target × changelog present/absent |
+| `test/clj/…/topic_index_coverage_test.clj` | **no** — red since 2026-09-12 | checks `## <basename>`; nested docs are indexed as `## rescued/<name>.md` |
+| the Clojure suite generally | **unknown** | needs Leiningen, absent from agent containers — genuinely unverifiable here |
+
+Two traps found while running the audit, both in the *test harness* rather than the guard:
+
+- **`check-docs.sh` only sees tracked files.** It builds its file list from `git ls-files`, so
+  an untracked new document is invisible to it. My first attempt created fixtures without
+  staging them, got CLEAN, and nearly recorded a working tool as broken. It also means a
+  manual run against a tree with new, uncommitted docs gives a false all-clear — which is
+  exactly what happened when `locale-safety.md` was created and unlinked. `kb lint` reads the
+  filesystem instead, so the two are complementary; run both.
+- **`${PIPESTATUS[0]}` is the *first* command's status.** `printf … | hook | head` reports
+  printf's exit code, not the hook's. A guard that looked like it passed had actually blocked
+  correctly.
+
+Both are the same lesson one level down: **a test of a check is itself a check, and can be
+blind in the same way.** Verify the harness against a case you know the answer to before
+trusting what it says about the thing under test.
+
 ## Comparing the existing codebase to a proposed upgrade (the method)
 
 The question "is the upgrade equivalent / better / preserving the good?" is answered by a

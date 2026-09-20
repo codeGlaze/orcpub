@@ -1180,7 +1180,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, decoder, defences, defends, docstring, edn, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, decoder, defences, defends, detonation, docstring, edn, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1584,7 +1584,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** arrows, awesome, cause, discriminate, fa5, font, fonts, glyph, hours, icon, locale-safety, sent, separates, server, stylesheet, svg, webjar, width
+**topics:** arrows, awesome, cause, fa5, font, fonts, glyph, hours, icon, locale-safety, methods, sent, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -2679,12 +2679,13 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, proves, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
 - The rule
 - Making it mechanical
+- Audit: which of this repo's guards actually discriminate
 - Comparing the existing codebase to a proposed upgrade (the method)
 - Search the dead/old code too, not just the live surface
 - A green (or red) number proves nothing if the FIXTURE doesn't match real content
