@@ -1,6 +1,6 @@
 (ns orcpub.routes-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing are]]
    [clojure.set :refer [intersection]]
    [datomic.api :as d]
    [datomock.core :as dm]
@@ -14,6 +14,9 @@
    [orcpub.entity :as entity]
    [orcpub.entity.strict :as se]
    [orcpub.errors :as errors]
+   [orcpub.security :as security]
+   [orcpub.pwned :as pwned]
+   [orcpub.email :as email]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
@@ -355,3 +358,142 @@
             body (routes/user-body db user)]
         (is (true? (:send-updates? body))
             "user-body should include send-updates? field")))))
+
+
+(deftest a-sprayed-address-is-refused-before-the-credentials
+  ;; :db is nil deliberately. lookup-user would throw on it, so these only pass
+  ;; if the address is judged before any credential work is attempted -- which
+  ;; is the point of the check: stuffing ends on the account it guesses RIGHT,
+  ;; and a check that runs only after a failed lookup never sees that attempt.
+  (let [request {:json-params {:username "kaylee" :password "whatever"}
+                 :db nil
+                 :remote-addr "1.2.3.4"}]
+    (testing "an address that sprayed five accounts is turned away"
+      (with-redefs [security/multiple-account-access? (constantly true)]
+        (let [{:keys [status body]} (routes/login-response request)]
+          (is (= 401 status))
+          (is (= errors/too-many-attempts (:error body))))))
+    (testing "an ordinary address still reaches the credential check"
+      (with-redefs [security/multiple-account-access? (constantly false)]
+        (is (thrown? Exception (routes/login-response request)))))
+    (testing "a blank field is still answered before the address is consulted"
+      (with-redefs [security/multiple-account-access?
+                    (fn [_] (throw (AssertionError. "consulted too early")))]
+        (is (= errors/username-required
+               (-> (routes/login-response (assoc-in request [:json-params :username] ""))
+                   :body :error)))))))
+
+
+(deftest password-reset-says-the-same-thing-about-every-address
+  ;; The endpoint used to answer 400 {:error :no-account} for an address with no
+  ;; account, which turned it into a membership test anyone could run.
+  (let [sent (atom [])
+        request {:query-params {:email "someone@example.com"} :db nil :conn nil}]
+    (with-redefs [routes/do-send-password-reset
+                  (fn [id email _ _] (swap! sent conj [id email]) {:status 200})]
+      (testing "an address with no account"
+        (with-redefs [routes/user-for-email (constantly nil)]
+          (is (= {:status 200} (routes/send-password-reset request)))
+          (is (empty? @sent) "no mail for an address we do not know")))
+      (testing "an address with an account gets the identical answer"
+        (with-redefs [routes/user-for-email (constantly {:db/id 17})]
+          (is (= {:status 200} (routes/send-password-reset request)))
+          (is (= [[17 "someone@example.com"]] @sent)))))
+    (testing "a send that fails does not mark the address as registered"
+      (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                    routes/do-send-password-reset
+                    (fn [& _] (throw (ex-info "smtp is down" {})))]
+        (is (= {:status 200} (routes/send-password-reset request)))))))
+
+
+(deftest the-owner-is-told-when-one-account-is-tried-from-several-places
+  (let [posted (promise)
+        request {:scheme :https :headers {"host" "example.test"}}
+        call #(routes/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
+    (with-redefs [routes/find-user-by-username-or-email
+                  (constantly {:db/id 17
+                               :orcpub.user/email "kaylee@serenity.example"
+                               :orcpub.user/first-and-last-name "Kaylee"})
+                  email/send-sign-in-attempts-email
+                  (fn [base to] (deliver posted [base to]))]
+
+      (testing "the response says bad credentials either way, as it did before"
+        (with-redefs [security/multiple-ip-attempts-to-same-account? (constantly true)
+                      security/claim-sign-in-notice! (constantly true)]
+          (is (= errors/bad-credentials (-> (call) :body :error)))))
+
+      (testing "and the notice reaches the address on the account"
+        (let [[base to] (deref posted 2000 :never-sent)]
+          (is (= "https://example.test" base))
+          (is (= "kaylee@serenity.example" (:email to)))))))
+
+  (testing "a spread of addresses that never happened sends nothing"
+    (let [posted (atom [])]
+      (with-redefs [routes/find-user-by-username-or-email (constantly {:db/id 17})
+                    security/multiple-ip-attempts-to-same-account? (constantly false)
+                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+        (routes/bad-credentials-response nil "kaylee" "1.2.3.4" {})
+        (Thread/sleep 60)
+        (is (empty? @posted)))))
+
+  (testing "an address with no account here is told nothing at all"
+    (let [posted (atom [])]
+      (with-redefs [routes/find-user-by-username-or-email (constantly nil)
+                    security/multiple-ip-attempts-to-same-account? (constantly true)
+                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+        (routes/bad-credentials-response nil "nobody" "1.2.3.4" {})
+        (Thread/sleep 60)
+        (is (empty? @posted))))))
+
+(deftest a-sign-in-notice-is-claimed-once-per-window
+  ;; Without this an attacker who can trigger the condition can trigger it on a
+  ;; loop, turning the warning into a way to mail-bomb any account by username.
+  (let [who (str "claim-test-" (System/nanoTime))]
+    (is (true? (security/claim-sign-in-notice! who)))
+    (is (false? (security/claim-sign-in-notice! who)))
+    (is (false? (security/claim-sign-in-notice! who)))
+    (is (true? (security/claim-sign-in-notice! (str who "-other")))
+        "a different account has its own window")))
+
+
+(deftest a-user-agent-is-described-the-way-a-person-would
+  ;; Order matters in describe-browser: Edge and Opera both claim to be Chrome,
+  ;; and Chrome claims to be Safari, so the checks run most-specific first.
+  (are [expected ua] (= expected (email/describe-browser ua))
+    "Chrome on Windows"       "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+    "Edge on Windows"         "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0"
+    "Safari on iOS"           "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Version/17.0 Safari/604.1"
+    "Firefox on Linux"        "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Firefox/121.0"
+    "an unrecognised browser" "curl/8.4.0"
+    "an unrecognised browser" ""
+    "an unrecognised browser" nil))
+
+
+(deftest the-reset-key-is-stored-as-a-digest
+  (let [key "0a5f8e2c-1111-2222-3333-444455556666"
+        digest (routes/hash-reset-key key)]
+    (is (= 64 (count digest)) "SHA-256 as hex")
+    (is (re-matches #"[0-9a-f]{64}" digest))
+    (is (not= key digest) "the emailed secret is not what the table holds")
+    (is (= digest (routes/hash-reset-key key)) "and the lookup can reproduce it")
+    (is (not= digest (routes/hash-reset-key (str key "x"))))))
+
+
+(deftest the-corpus-refuses-only-the-egregious
+  ;; The corpus counts commonness, not danger to this person. A password seen a
+  ;; handful of times leaked in somebody else's dump; one seen four figures of
+  ;; times is in every cracking wordlist. Only the second is refused -- the
+  ;; first is the strength meter's to argue with while someone is still typing.
+  (doseq [[n refused?] {0 false, 1 false, 297 false, 999 false, 1000 true, 52372427 true}]
+    (with-redefs [pwned/check (constantly n)]
+      (is (= refused? (some? (#'routes/breach-errors "irrelevant")))
+          (str n " appearances"))))
+  (testing "a service that could not answer is not an objection"
+    (with-redefs [pwned/check (constantly :unknown)]
+      (is (nil? (#'routes/breach-errors "irrelevant")))))
+  (testing "the refusal speaks as a strength verdict and keeps the count out"
+    (with-redefs [pwned/check (constantly 52372427)]
+      (let [message (first (:password (#'routes/breach-errors "irrelevant")))]
+        (is (= "Too common. A few words strung together are harder to guess and easier to remember."
+               message))
+        (is (not (re-find #"\d" message)) "no count, no breach language")))))

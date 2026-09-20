@@ -99,34 +99,91 @@
          [:li.red (str common/dot-char " " msg)])
        messages))]))
 
-(defn base-input [attrs]
-  [:div.m-b-10
-   [:div.f-s-10.t-a-l.m-l-10 (:placeholder attrs)]
-   [:div.flex.p-l-10.p-l-10.p-r-10
-    [:input.flex-grow-1
-     (merge
-      attrs
-      ;; Rem'd out to allow auto fill on use/password
-      ;;{:auto-complete :off}
-     )]]])
+(defn base-input
+  "One auth field: a notched outline label, an optional reveal, and the notice
+   slot its message goes in.
+
+   The label is a real <label for>, not a placeholder, so the field never stops
+   saying what it is -- a placeholder stops the moment somebody types. It rides
+   on the input's own border via :placeholder-shown in the stylesheet rather
+   than a class this has to keep in step; a class desynced as soon as anybody
+   typed and tabbed away, dropping the label back over their own text.
+
+   When the field is WRONG the label leaves the notch and becomes a plain line
+   above the message, which sits above the input -- GOV.UK's order, so the
+   explanation is read before the box about to be retyped. Both labels are
+   always rendered and the stylesheet picks; a live check and a submitted one
+   cannot then lay the field out differently, which is exactly what happened
+   when only the submitted path knew about the lifted label.
+
+   :messages, :hint and :reveal? are optional; everything else is passed to the
+   input untouched."
+  [{:keys [title messages hint action reveal? revealed? on-reveal] :as attrs}]
+  (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
+        message-id (str id "-message")
+        wrong? (boolean (seq messages))
+        input-attrs (-> attrs
+                        (dissoc :title :messages :hint :action :reveal? :revealed? :on-reveal :key)
+                        (assoc :id id
+                               ;; the selector the notch is driven by
+                               :placeholder " "
+                               :aria-describedby message-id)
+                        (cond-> wrong? (assoc :aria-invalid true)))]
+    [:div.field {:class (when wrong? "is-wrong")}
+     [:label.lift {:for id} title]
+     [:div.field-notice.is-error {:id message-id}
+      (when wrong? [:span.field-notice-what (first messages)])]
+     [:div.field-box
+      [:input input-attrs]
+      [:label.notch {:for id} title]
+      (when reveal?
+        [:button.peek {:type "button"
+                       :aria-controls id
+                       :aria-pressed (boolean revealed?)
+                       :on-click on-reveal}
+         (if revealed? "Hide" "Show")])]
+     (when (or hint action)
+       [:div.field-notice.is-note
+        (when hint [:span.field-notice-what hint])
+        (when-let [{:keys [label on-choose]} action]
+          ;; on-mouse-down, NOT on-click. Pressing it blurs the field, the blur
+          ;; re-renders this notice, and the button is gone between mousedown and
+          ;; mouseup -- so the click never lands and the offer appears to do
+          ;; nothing. mouseDown fires first; preventDefault stops the focus moving
+          ;; at all.
+          [:button.field-notice-action
+           {:type "button"
+            :on-mouse-down (fn [e] (.preventDefault e) (on-choose))}
+           label])])]))
 
 (defn form-input []
-  (let [blurred? (r/atom false)]
-    (fn [{:keys [title key value messages type on-change]}]
-      [:div
-       [base-input
-        {:name key
-         :type type
-         :value value
-         :placeholder title
-         :style input-style
-         :class (if (and @blurred? (seq messages))
-                       "b-red"
-                       "b-gray")
-         :on-focus (fn [_] (reset! blurred? false))
-         :on-change on-change
-         :on-blur (fn [e] (reset! blurred? true))}]
-       (when @blurred? (validation-messages messages))])))
+  (let [blurred? (r/atom false)
+        revealed? (r/atom false)]
+    ;; show-errors? is how a submit reveals faults in fields nobody has visited.
+    ;; Without it, pressing the button on a form with an untouched empty field
+    ;; had nothing to say, which is why the button used to dim instead.
+    (fn [{:keys [title key value messages type on-change show-errors? hint action reveal?]
+          reveal-state :revealed? on-reveal :on-reveal}]
+      ;; The reveal is usually this field's own business. A password and its
+      ;; confirmation have to share one, so the caller can own it instead.
+      (let [shown (when (or @blurred? show-errors?) messages)
+            shown-as-text? (if (some? reveal-state) reveal-state @revealed?)
+            flip (or on-reveal #(swap! revealed? not))]
+        [base-input
+         {:name key
+          ;; A revealed password is a text field. The type is the reveal.
+          :type (if (and reveal? shown-as-text?) :text type)
+          :value value
+          :title title
+          :messages shown
+          :hint hint
+          :action action
+          :reveal? reveal?
+          :revealed? shown-as-text?
+          :on-reveal flip
+          :on-focus (fn [_] (reset! blurred? false))
+          :on-change on-change
+          :on-blur (fn [_] (reset! blurred? true))}]))))
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
@@ -604,12 +661,6 @@
    :border "1px solid white"
    :color text-color})
 
-(def registration-page-style
-  {:background-image "url(/image/login-side.jpg)"
-   :background-clip :content-box
-   :width "350px"
-   :min-height "600px"})
-
 (def registration-left-column-style
   {:flex-direction :column
    :width "435px"})
@@ -622,7 +673,11 @@
 (defn route-to-default-page []
   (dispatch [:route :default]))
 
-(defn registration-page [content]
+(defn registration-page
+  "The shell every auth page renders through. `legal-links?` false suppresses the
+   footer's two links for a page that already carries them in its own consent copy."
+  ([content] (registration-page content true))
+  ([content legal-links?]
   [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
@@ -636,9 +691,27 @@
           :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
-       [views-2/legal-footer]]
-      [:div.registration-image
-       {:style registration-page-style}]]]]])
+       [views-2/legal-footer legal-links?]]
+      [:div.registration-image]]]]]))
+
+(defn auth-page
+  "The auth shell with its heading. registration-page has always been shared --
+   all nine of these pages render through it -- but the HEADING was not: six of
+   them carried their own copy of the same orange drop-shadowed div, which is
+   why changing it meant changing it six times.
+
+   `lede` is the line under the rule and is optional; pages that are a single
+   statement do not want one."
+  ([heading content] (auth-page heading nil content nil))
+  ([heading lede content] (auth-page heading lede content nil))
+  ([heading lede content {:keys [legal-links?] :or {legal-links? true}}]
+   (registration-page
+    [:div
+     [:h1.auth-heading.m-t-20 heading]
+     [:div.auth-rule]
+     (when lede [:div.auth-lede lede])
+     content]
+    legal-links?)))
 
 (def make-event-handler
   (memoize
@@ -665,8 +738,7 @@
           {:name :email
            :value (:email @params)
            :type :email
-           :placeholder "Email"
-           :style default-input-style
+           :title "Email address"
            :on-change (partial set-value params :email)}]
          [:button.form-button.form-submit-btn.m-l-20.m-t-10
           {:on-click (make-event-handler :re-verify @params)}
@@ -708,11 +780,23 @@
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
            [:div.m-t-20
-            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
+            ;; The link text is the whole phrase, not the one word "whitelist" in
+            ;; the middle of it: a single word is a small target, and it is what a
+            ;; screen reader announces on its own, where it names no destination.
+            [:span "Didn't receive the reset email? Check your spam folder, or "]
+            [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+             "read how to let our email through"]
+            [:span ", then try again."]]
            ]])))))
 
 (defn password-reset-expired-page []
-  [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
+  ;; Reached by an expired link AND by one that is mangled or unrecognised, so
+  ;; the wording cannot claim to know which. It also no longer says 24 hours,
+  ;; which stopped being true when the window became two.
+  [send-password-reset-page
+   (str "That reset link no longer works. Links last "
+        "two hours, and each one can only be used once. "
+        "Send yourself a new one below.")])
 
 (defn password-reset-used-page []
   [send-password-reset-page "Your reset link has already been used. Please use the form below to send another reset email."])
@@ -765,36 +849,30 @@
    "LOGIN"])
 
 (defn verify-success []
-  (registration-page
-   [:div.t-a-c
-    [:div.success-header.m-t-100
-     "Success! Registration is complete"]
+  (auth-page
+   "Success! Registration is complete"
+   [:div
     [:div.m-t-20 "You can now"]
     [login-link]]))
 
 (defn password-reset-success []
-  (registration-page
-   [:div.t-a-c
-    [:div.success-header.m-t-100
-     "Your password has been successfully reset"]
+  (auth-page
+   "Password changed"
+   [:div
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
 (defn unsubscribe-success []
-  (registration-page
-   [:div.t-a-c
-    [:div.success-header.m-t-100
-     "Unsubscribed"]
+  (auth-page
+   "Unsubscribed"
+   [:div
     [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
     [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
 
 (defn email-sent [text]
-  (registration-page
-   [:div.t-a-c
-    [:div.success-header.m-t-100
-     "Check your email"]
-    [:div.p-20
-     text]]))
+  (auth-page
+   "Check your email"
+   [:div.p-20.t-a-c text]))
 
 (defn verify-sent []
   (email-sent
@@ -806,86 +884,226 @@
     [:span "Remember to check your spam folder."]]))
 
 (defn password-reset-sent []
+  ;; Conditional on purpose. The endpoint now answers identically for an address
+  ;; with no account, so this page is no longer in a position to claim that an
+  ;; email went out -- and claiming it would hand back the membership test the
+  ;; server stopped answering.
   (email-sent
-   (str "We sent an email to "
+   (str "If "
         @(subscribe [:temp-email])
-        " with a link to reset your password.")))
+        " has an account, a link to reset your password is on its way.")))
+
+(defn password-pair
+  "A password and its confirmation, where revealing the password retires the
+   confirmation.
+
+   The confirm box exists only because the field is masked; being able to read
+   it back is what the box was standing in for, so it goes rather than sitting
+   there doing nothing. It is REMOVED, not faded: that keeps it out of the
+   accessibility tree, so nothing announces a field nobody can see and a submit
+   cannot fail pointing at one.
+
+   Symmetrical on purpose. Hiding again brings it back holding whatever it held,
+   so a password edited while revealed genuinely differs from the confirmation
+   and the mismatch is true rather than a trap.
+
+   `revealed?` and `on-toggle` are the CALLER's, because whatever decides
+   whether the form may be submitted has to know the confirmation is not being
+   asked for. A reveal hidden inside this component is invisible to that.
+
+   NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
+   display the password ... while it is entered\"."
+  [{:keys [password confirm messages show-errors? revealed? on-toggle
+           on-password on-confirm]}]
+  [:div
+   [form-input {:title "Password"
+                :key :password
+                :value password
+                :type :password
+                :messages messages
+                :show-errors? show-errors?
+                :reveal? true
+                :revealed? revealed?
+                :on-reveal on-toggle
+                :on-change on-password}]
+   (when-not revealed?
+     [form-input {:title "Confirm password"
+                  :key :verify-password
+                  :value confirm
+                  :type :password
+                  :messages (when (and (seq password) (seq confirm)
+                                       (not= password confirm))
+                              ["Passwords do not match"])
+                  :show-errors? show-errors?
+                  :on-change on-confirm}])])
+
+(def ^:private field-order
+  "The order the summary lists faults in, which is the order they appear on the
+   form. Sorting by map key would list them however the keywords happen to hash."
+  [[:username "Username"] [:email "Email address"] [:verify-email "Confirm email address"]
+   [:password "Password"] [:verify-password "Confirm password"]
+   [:first-and-last-name "Name"]])
+
+(defn error-summary
+  "What is wrong, above the form, after a submit that could not go through.
+
+   Counts FIELDS rather than messages: a field with two faults is one thing to
+   fix, and saying \"three things need fixing\" over two fields is the kind of
+   arithmetic that makes people distrust the rest of the page.
+
+   Each line is a link to its field. That is the whole point of a summary -- on
+   a form long enough to scroll, the first fault can be off screen -- and it is
+   why the lines carry the message rather than the field's name: prefixing
+   \"Username\" to \"Username is required\" says it twice, and the link text is
+   what a screen reader reads out on its own.
+
+   Renders nothing until a submit has been attempted. A summary of everything
+   wrong with an untouched form is a scolding, not help."
+  [validation]
+  (let [faults (for [[k label] field-order
+                     :let [messages (seq (get validation k))]
+                     :when messages]
+                 [k label (first messages)])]
+    (when (seq faults)
+      [:div.auth-summary {:role "alert"}
+       [:div.auth-summary-title
+        (str (count faults) (if (= 1 (count faults))
+                              " thing needs fixing"
+                              " things need fixing"))]
+       [:ul.auth-summary-list
+        (for [[k label message] faults]
+          ^{:key k}
+          [:li
+           [:a {:href (str "#f-" (name k))
+                :on-click (fn [_]
+                            (when-let [el (.getElementById js/document (str "f-" (name k)))]
+                              (.focus el)))}
+            message]])]])))
 
 (defn register-form []
-  (let [registration-validation @(subscribe [:registration-validation])
+  (let [base-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
+        show-errors? @(subscribe [:registration-attempted?])
+        ;; The confirmation is checked HERE, not in the shared validator, which
+        ;; runs on the server too and has no idea whether the field is currently
+        ;; revealed -- and a revealed password has no confirmation to differ from.
+        confirm-needed? (not (:password-revealed? registration-form))
+        mismatch? (and confirm-needed?
+                       (seq (:password registration-form))
+                       (not= (:password registration-form)
+                             (:verify-password registration-form)))
+        registration-validation (cond-> base-validation
+                                  mismatch?
+                                  (update :verify-password conj "Passwords do not match"))
         send-updates? (not= false (:send-updates? registration-form))
-        password-strength (registration/password-strength (:password registration-form))]
-    (registration-page
-     [:div.t-a-c
-      [:div.success-header.m-t-20
-       "join for free"]
-      [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
-      [:div.m-t-10
+        {:keys [rung fills]} (registration/password-strength
+                              (:password registration-form)
+                              {:username (:username registration-form)
+                               :email (:email registration-form)})]
+    (auth-page
+     "Join for free"
+     "Save your characters, share them, and pick up where you left off."
+     [:div
+      [:div.m-t-10.auth-form
+       (when show-errors? [error-summary registration-validation])
        [form-input {:title "Username"
                     :key :username
                     :value (:username registration-form)
                     :messages (:username registration-validation)
+                    :show-errors? show-errors?
                     :type :username
                     :on-change (fn [e] (dispatch [:registration-username (event-value e)]))}]
-       [form-input {:title "Email"
-                    :key :email
-                    :value (:email registration-form)
-                    :messages (:email registration-validation)
-                    :type :email
-                    :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}]
+       (let [suggestion (registration/suggest-email-domain (:email registration-form))]
+         [form-input {:title "Email"
+                      :key :email
+                      :value (:email registration-form)
+                      :messages (:email registration-validation)
+                      :show-errors? show-errors?
+                      :type :email
+                      :hint (when suggestion "That domain looks like a typo.")
+                      :action (when suggestion
+                                {:label (str "Use " suggestion)
+                                 :on-choose #(dispatch [:registration-email suggestion])})
+                      :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}])
        [form-input {:title "Verify Email"
                     :key :verify-email
                     :value (:verify-email registration-form)
                     :messages (:verify-email registration-validation)
+                    :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
-       [form-input {:title "Password"
-                    :key :password
-                    :value (:password registration-form)
-                    :messages (:password registration-validation)
-                    :type :password
-                    :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
-       (let [[color text]
-              (cond
-                (= 5 password-strength) ["bg-green" "Strong"]
-                (< 1 password-strength 5) ["bg-orange" "Moderate"]
-                :else ["bg-red" "Weak"])]
+       [password-pair
+        {:password (:password registration-form)
+         :confirm (:verify-password registration-form)
+         :revealed? (boolean (:password-revealed? registration-form))
+         :on-toggle #(dispatch [:registration-password-revealed?
+                                (not (:password-revealed? registration-form))])
+         :messages (:password registration-validation)
+         :show-errors? show-errors?
+         :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
+         :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
+       ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
+       ;; vocabulary this site's readers already have, and Common is not a joke
+       ;; -- a password the corpus knows is exactly that.
+       (let [tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
+             reached? (and rung (not (neg? rung)))
+             suffix (cond (nil? rung) nil (neg? rung) "fail" :else rung)
+             remaining (when (and reached? (< rung 3))
+                         (- (nth registration/strength-rungs (inc rung))
+                            (count (:password registration-form))))]
          [:div.p-r-10.p-l-10.p-t-5
-          [:div.password-strength-container
-           [:div.b-rad-5.password-strength-bg
-            {:class color}]
-           ;; The width is the measurement itself, so it stays inline; everything
-           ;; else about the bar lives in .password-strength-meter.
-           [:div.b-rad-5.password-strength-meter
-            {:style {:width (str (* 100 (float (/ password-strength 5))) "%")}
-             :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5.password-strength-label
-             [:span "Password Strength:"]
-             [:span.f-w-b.m-l-5 text]]]])
+          [:div.pw-slots
+           (doall
+            (for [[i percent] (map-indexed vector fills)]
+              ^{:key i}
+              [:div.pw-slot
+               ;; The only inline style on this widget. The width IS the
+               ;; measurement, so it cannot be a named class.
+               [:div.pw-fill {:class (when suffix (str "pw-fill-" suffix))
+                              :style {:width (str percent "%")}}]]))]
+          [:div.pw-verdict
+           [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
+            (when reached? (nth tier-names rung))]
+           [:span.pw-next
+            (cond
+              remaining (str (nth tier-names (inc rung)) " in " remaining)
+              (seq (:password registration-form))
+              (str (count (:password registration-form)) " characters"))]]])
        [:div.m-t-20.t-a-l.m-l-15
         [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
-       [:div.m-t-10
-        [:div.p-10
+       [:div.m-t-10.auth-tail
+        (when-let [notice @(subscribe [:registration-notice])]
+          [:div.m-t-10.registration-notice
+           (for [line notice] ^{:key line} [:div line])])
+        ;; Not .m-b-10: that margin utility is bundled into a rule that sets
+        ;; font-weight bold across the whole app (styles/core.clj, .modal-container
+        ;; group). Using it here quietly emboldened this sentence.
+        [:div.m-t-10.m-b-5
+         [:span "We will send a confirmation link to the address above."]]
+        ;; Never dimmed. A submit button that looks dead reads as a broken site
+        ;; rather than an unfinished form, and it cannot tell anyone WHY it will
+        ;; not go -- so pressing it always does something, and when the form is
+        ;; not ready that something is showing the faults it has been sitting on.
+        [:button.form-button.join-button
+         {:on-click #(if (empty? registration-validation)
+                       (dispatch [:register])
+                       (dispatch [:registration-attempted]))}
+         "JOIN"]
+        [:div.m-t-20
          [:span "Already have an account?"]
-         (login-link)]
-        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button.form-submit-btn
-         {:class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
-          :on-click #(when (empty? registration-validation)
-                       (dispatch [:register]))}
-         "JOIN"]]]
-      [:div.m-t-5.p-r-10.p-l-10
-       [:span.f-s-14
-        "By clicking JOIN you agree to our"
-        [:a.m-l-5 {:href "/terms-of-use" :target :_blank
-                   :style {:color text-color}} "Terms of Use"]
-        [:span.m-l-5 "and that you've read our"]
-        [:a.m-l-5 {:href "/privacy-policy" :target :_blank
-                   :style {:color text-color}} "Privacy Policy"]]]])))
+         (login-link)]]]
+      ;; This page links both documents in its consent line, so the shell's
+      ;; footer keeps the copyright and drops its copies of the same two links.
+      [:div.auth-fineprint
+       "By joining you agree to our "
+       [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
+       " and confirm you have read our "
+       [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+       "."]]
+     {:legal-links? false})))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
@@ -898,10 +1116,9 @@
     (fn []
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
-        (registration-page
-         [:div.t-a-c
-          [:div.success-header.m-t-20
-           "LOGIN"]
+        (auth-page
+         "Welcome back"
+         [:div
           [:div.m-t-10]
           [:div.login-form-inputs
            [form-input {:title "Username or Email"
@@ -936,7 +1153,10 @@
               "RESET PASSWORD"]]
             
             [:div.m-t-20
-             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
+             [:span "Didn't receive the validation email? Check your spam folder, or "]
+             [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+              "read how to let our email through"]
+             [:span "."]]]]])))))
 
 (def loading-style
   {:position :fixed
