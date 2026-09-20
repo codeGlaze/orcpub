@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, terse, toggle, widget
+**topics:** asi, asis, authoring, breakdown, con, fixed, floating, increment, mental, opt-in, released, rider, save, spread, standalone, str, terse, widget
 
 - The format
 - Examples
@@ -118,7 +118,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, delete, deleted, deprecated, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep
+**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, deleted, deprecated, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep, zero
 
 - When something lands here
 - Migration recipe (per item)
@@ -194,7 +194,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, failures, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
+**topics:** auth, backend, chromium, cljs, errors, failures, floating-asi, gotchas, harness, headless, html, overlay, per-test, playwright, race-builder, recipe, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -332,7 +332,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safety, selection, strict
+**topics:** assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, rollback, safe, safety, selection
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -495,7 +495,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, items, missing-content, resolves, server, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, guard, inline, magic, missing-content, resolves, server, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -603,7 +603,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, recipe, tier, user, variant, viable
+**topics:** base, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, per-account, recipe, tier, user, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -619,7 +619,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, hook, learned, push, reminder, session, stale, violated
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, history, hook, learned, push, reminder, scripts, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -650,7 +650,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, property, stow, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -707,7 +707,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, vietnamese, visitor
+**topics:** blocks, browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -739,7 +739,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, template, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, template, widgets
 
 - Where you are
 - The work, in order
@@ -761,7 +761,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branches, browser, cut, integration, item, library, merge, merging, minted, outcome, running, scripts, source
+**topics:** 374, 3816, 493, became, believing, branch, branches, cut, directions, integration, item, library, merge, merging, outcome, running, scripts, source
 
 - Outcome
 - The branches, and the order
@@ -775,7 +775,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, nine, pick, remove, report, reproduced, rogue, selection, sites, skill, skills, starting, template, uncheck
+**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, fighter, multi-tab-character-contamination, pick, remove, replacement, report, reproduced, rogue, selection, skill, skills, starting, template, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -802,7 +802,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
+**topics:** attaches, constraints, enforcement, expressed, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -810,11 +810,26 @@ _homebrew-override · homebrew override_
 - What it does NOT do — the part that matters for design
 - Proposed extension: per-item overrides
 
+## homebrew-save-rework.md
+
+_homebrew-save-rework · homebrew save rework_
+
+**topics:** address, draft, fix, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
+
+- The rule, if you read nothing else
+- Why re-deriving identity cannot work
+- What it started as
+- The four review rounds
+- Two process failures worth naming
+- What the tests look like
+- Open
+- Provenance
+
 ## key-collision-behavior.md
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, combines, copy, create, item, key, library, origin, override, plugin, predictable, rename, returning, same-key, save, wins
+**topics:** address, another, coexist, consent, copy, item, key, left, library, minted, move, origin, override, refusal, refused, rename, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -822,6 +837,13 @@ _key-collision-behavior · key collision behavior_
 - Open: tagging every minted key with its source
 - Where a save lands — save-destination (2026-09-18)
 - The origin, and why it is checked rather than trusted
+- The content type is bound at registration (2026-09-20)
+- The origin is persisted beside the draft (2026-09-20)
+- The READ path stamps the address (2026-09-20)
+- A move needs a RECORD, not a guess (2026-09-20)
+- Identity is established when the builder FETCHES the item (2026-09-19)
+- A stored item may have no :key (2026-09-18)
+- Replacing on purpose, and the two refusals (2026-09-18)
 - The builder's own save gate (2026-09-12)
 - The builder's save: a key is minted once (2026-09-13)
 - What the save refuses
@@ -832,7 +854,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, falls, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, invalid, junk, leading, least-destructive, mangled, manual, number, quarantine, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -843,7 +865,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, copy, disable, disabled, dismissal, enabled, import, item, library, modal, off, overlay, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, problem, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -889,9 +911,10 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** advanced, armour, cap, capabilities, damage, macro, natural-armor, number, picked, requirements, roughly, row, template, templates, tier, understood, warforged, whichever
+**topics:** 2026-09-18, advanced, armour, capabilities, damage, item, keep-both, move, natural-armor, picked, port, row, sticky, templates, trunk, understood, warforged, whichever
 
 - 0. Standing, do these first
+- 0b. Converge the save path across the four branches (2026-09-18)
 - 1. Grants on the remaining four silos
 - 2. The mechanics the feat builder still can't author
 - 3. Damage and attack bonuses reach the requirements registry
@@ -978,7 +1001,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, authorship, campaign, computation, dispensations, epic, everyone, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, constraint, dispensations, everyone, expressed, feat, granted, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -1003,7 +1026,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, srd, stone, tag, tidewater, untagged, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, srd, stone, tag, tidewater, words
 
 - What exists today
 - The proposal
@@ -1044,7 +1067,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1090,7 +1113,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, neither, not-melee, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, longsword, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
