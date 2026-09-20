@@ -405,6 +405,8 @@ start_server() {
 
     cd "$REPO_ROOT"
 
+    report_csp_mode
+
     # Use headless mode if not running interactively (background/nohup)
     local rc=0
     if [[ "$(repl_mode)" == "interactive" ]]; then

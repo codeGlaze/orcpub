@@ -153,8 +153,8 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
+    ;; Every script tag carries the per-request nonce. It is nil in dev mode,
+    ;; where no CSP header is set at all; enforcing otherwise.
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")

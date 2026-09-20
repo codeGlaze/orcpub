@@ -31,6 +31,37 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
+# Report which Content-Security-Policy the server will run under.
+#
+# CSP mode is invisible until something breaks, and what breaks first is
+# Figwheel's websocket -- hot reload simply stops working, with the cause a
+# response header nobody thought to look at. DEV_MODE defaults to false, so a
+# checkout with no .env gets the enforcing policy without asking for it.
+#
+# Quiet when the combination is fine; loud only when it will bite.
+report_csp_mode() {
+    local policy="${CSP_POLICY:-strict}"
+    local dev="${DEV_MODE:-}"
+    # Match the server's own comparison: case-insensitive, exactly "true".
+    local dev_on=false
+    case "$(printf '%s' "$dev" | tr '[:upper:]' '[:lower:]')" in true) dev_on=true ;; esac
+
+    if [[ "$policy" != "strict" || "$dev_on" == "true" ]]; then
+        log_info "CSP: policy=$policy, DEV_MODE=${dev:-<unset>}"
+    elif [[ -n "$dev" ]]; then
+        # Explicitly set to something other than true -- a decision, not an
+        # accident. State the consequence once, without the lecture.
+        log_info "CSP: strict and ENFORCING (DEV_MODE=$dev). Figwheel hot reload will be blocked."
+    else
+        # Unset: nobody chose this, and the symptom is a dead hot-reload socket
+        # with no visible cause. This is the case worth interrupting for.
+        log_warn "CSP: strict and ENFORCING (DEV_MODE is unset, which means false)."
+        log_warn "     Figwheel's websocket (ws://localhost:$FIGWHEEL_PORT) is not in connect-src,"
+        log_warn "     so hot reload will be blocked. Set DEV_MODE=true in .env for development."
+        [[ -f "$REPO_ROOT/.env" ]] || log_warn "     No .env found — start from .env.example."
+    fi
+}
+
 # Defaults (used if not set in .env)
 DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
 DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"

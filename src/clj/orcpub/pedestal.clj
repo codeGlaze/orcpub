@@ -59,10 +59,14 @@
    - :enter phase generates a nonce and stores it in [:request :csp-nonce]
    - :leave phase adds enforcing Content-Security-Policy header with the nonce
 
-   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
-   active, but the nonce interceptor becomes a no-op. This avoids flooding the
-   browser console with Report-Only violations (inline Figwheel scripts, etc.)
-   that obscure real issues during development."
+   In dev mode: no nonce is generated, so the :leave branch never fires and
+   this interceptor sets no CSP header. Pedestal's own CSP is disabled in the
+   strict branch of get-secure-headers-config, so dev runs with no CSP from
+   this application -- which is what lets Figwheel's scripts and its websocket
+   work.
+
+   There is no Report-Only mode anywhere in this codebase, despite what earlier
+   comments here claimed."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor
@@ -74,6 +78,9 @@
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
                          (csp/build-csp-header nonce
+                           ;; Always false here, and not a mistake: :enter only
+                           ;; makes a nonce when dev-mode? is false, so this
+                           ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
                            :extra-frame-src (:frame-src integrations/csp-domains)))

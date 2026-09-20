@@ -92,13 +92,18 @@
 (defn strict-csp?
   "Returns true when CSP_POLICY=strict (regardless of dev mode).
 
-   When true, nonce-interceptor generates per-request nonces and adds them
-   to script tags. The header type depends on mode:
-   - Dev mode: Content-Security-Policy-Report-Only (violations logged, not blocked)
-   - Prod mode: Content-Security-Policy (violations blocked)
+   When true AND dev-mode? is false, nonce-interceptor generates a per-request
+   nonce and sets an ENFORCING Content-Security-Policy header.
 
-   This allows catching CSP issues during development while still allowing
-   Figwheel's document.write() scripts to execute."
+   In dev mode it generates no nonce and sets no header at all, so there is no
+   CSP from this application -- which is what lets Figwheel's scripts and its
+   websocket work. Note the consequence: DEV_MODE defaults to FALSE, so a
+   checkout with no .env runs enforcing CSP, and ws://localhost:3449 is absent
+   from connect-src. Figwheel's hot reload is then blocked with no obvious
+   cause. .env.example sets DEV_MODE=true for exactly this reason.
+
+   There is no Report-Only mode. Earlier revisions of this docstring described
+   one; no code has ever emitted Content-Security-Policy-Report-Only."
   []
   (= "strict" (get-csp-policy)))
 
@@ -111,7 +116,7 @@
   []
   (cond
     ;; Strict mode - nonce-interceptor handles CSP dynamically
-    ;; (uses Report-Only in dev, enforcing in prod)
+    ;; (enforcing when DEV_MODE is not true; no header at all in dev mode)
     (= "strict" (get-csp-policy))
     {:content-security-policy-settings nil}
 
