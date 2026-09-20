@@ -683,6 +683,23 @@
       [:div.registration-image
        {:style registration-page-style}]]]]])
 
+(defn auth-page
+  "The auth shell with its heading. registration-page has always been shared --
+   all nine of these pages render through it -- but the HEADING was not: six of
+   them carried their own copy of the same orange drop-shadowed div, which is
+   why changing it meant changing it six times.
+
+   `lede` is the line under the rule and is optional; pages that are a single
+   statement do not want one."
+  ([heading content] (auth-page heading nil content))
+  ([heading lede content]
+   (registration-page
+    [:div
+     [:h1.auth-heading.m-t-20 heading]
+     [:div.auth-rule]
+     (when lede [:div.auth-lede lede])
+     content])))
+
 (def make-event-handler
   (memoize
    (fn [event-kw & args]
@@ -829,56 +846,30 @@
    "LOGIN"])
 
 (defn verify-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Success! Registration is complete"]
+  (auth-page
+   "You are all set"
+   [:div
     [:div.m-t-20 "You can now"]
     [login-link]]))
 
 (defn password-reset-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Your password has been successfully reset"]
+  (auth-page
+   "Password changed"
+   [:div
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
 (defn unsubscribe-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Unsubscribed"]
+  (auth-page
+   "Unsubscribed"
+   [:div
     [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
     [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
 
 (defn email-sent [text]
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Check your email"]
-    [:div.p-20
-     text]]))
+  (auth-page
+   "Check your email"
+   [:div.p-20.t-a-c text]))
 
 (defn verify-sent []
   (email-sent
@@ -908,16 +899,10 @@
                               (:password registration-form)
                               {:username (:username registration-form)
                                :email (:email registration-form)})]
-    (registration-page
-     [:div {:style {:text-align :center}}
-      [:div {:style {:color orange
-                     :font-weight :bold
-                     :font-size "36px"
-                     :text-transform :uppercase
-                     :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                     :margin-top "20px"}}
-       "join for free"]
-      [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
+    (auth-page
+     "Join for free"
+     "Save your characters, share them, and pick up where you left off."
+     [:div
       [:div.m-t-10.auth-form
        [form-input {:title "Username"
                     :key :username
@@ -1025,15 +1010,9 @@
     (fn []
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
-        (registration-page
-         [:div {:style {:text-align :center}}
-          [:div {:style {:color orange
-                         :font-weight :bold
-                         :font-size "36px"
-                         :text-transform :uppercase
-                         :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                         :margin-top "20px"}}
-           "LOGIN"]
+        (auth-page
+         "Welcome back"
+         [:div
           [:div.m-t-10]
           [:div.login-form-inputs
            [form-input {:title "Username or Email"
