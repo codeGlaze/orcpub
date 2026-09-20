@@ -55,7 +55,8 @@
 (defn make-nonce-interceptor
   "Creates an interceptor that generates per-request CSP nonces.
 
-   In prod (dev-mode?=false) with CSP_POLICY=strict:
+   When dev-mode? is false -- which is the DEFAULT, not just production --
+   and CSP_POLICY=strict:
    - :enter phase generates a nonce and stores it in [:request :csp-nonce]
    - :leave phase adds enforcing Content-Security-Policy header with the nonce
 

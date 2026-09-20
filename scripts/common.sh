@@ -66,7 +66,11 @@ print_env_config() {
 # exactly "true".
 dev_mode_blocks_figwheel() {
     local policy="${CSP_POLICY:-strict}"
-    [[ "$policy" == "strict" ]] || return 1
+    # "permissive" is not permissive about this: permissive-csp-settings sets
+    # default-src 'self' and NO connect-src, so connect-src falls back to 'self'
+    # and ws://localhost:3449 is blocked exactly as under strict. Only "none"
+    # sends no policy at all.
+    case "$policy" in strict|permissive) ;; *) return 1 ;; esac
     case "$(printf '%s' "${DEV_MODE:-}" | tr '[:upper:]' '[:lower:]')" in
         true) return 1 ;;
         *)    return 0 ;;
@@ -199,7 +203,11 @@ LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
 
 # Port configuration
 DATOMIC_PORT="${DATOMIC_PORT:-4334}"
-SERVER_PORT="${SERVER_PORT:-8890}"
+# PORT is what the SERVER reads (system.clj, System/getenv "PORT") and what
+# .env.example documents. Honour it here too, or the scripts check 8890 while
+# the server listens somewhere else -- and every port check, explain_bind_failure
+# and the config report are then confidently wrong.
+SERVER_PORT="${SERVER_PORT:-${PORT:-8890}}"
 NREPL_PORT="${NREPL_PORT:-7888}"
 FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
 GARDEN_PORT="${GARDEN_PORT:-3000}"
@@ -320,7 +328,15 @@ port_in_use() {
         # prints "LISTENING" where the docs say "LISTEN", and a non-English
         # Windows translates it outright. Column 2 is the local address on
         # every row; the last column is the PID.
-        [ -n "$(netstat -ano 2>/dev/null | awk -v p="[:.]${port}\$" '$2 ~ p {print; exit}')" ]
+        # A bound port is one with a LISTENING socket. Matching the address
+        # column alone also matches TIME_WAIT and ESTABLISHED rows, so a
+        # connection that closed seconds ago reads as "in use" and start.sh
+        # refuses to start. Identify listening rows by the WILDCARD FOREIGN
+        # ADDRESS rather than the state word -- the state word is localised
+        # (LISTENING/LISTEN/translated), the foreign address is not.
+        [ -n "$(netstat -ano 2>/dev/null \
+                | awk -v p="[:.]${port}\$" \
+                      '$2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ {print; exit}')" ]
     elif command -v lsof >/dev/null 2>&1; then
         lsof -i ":${port}" >/dev/null 2>&1
     elif command -v ss >/dev/null 2>&1; then
@@ -398,7 +414,8 @@ find_pids_by_port() {
     if is_windows; then
         # Last column of a LISTENING row is the owning PID.
         pids=$(netstat -ano 2>/dev/null \
-               | awk -v p="[:.]${port}\$" '$2 ~ p && $NF ~ /^[0-9]+$/ {print $NF}' \
+               | awk -v p="[:.]${port}\$" \
+                     '$2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ && $NF ~ /^[0-9]+$/ {print $NF}' \
                | sort -u || true)
         echo "$pids" | tr '\n' ' ' | xargs
         return

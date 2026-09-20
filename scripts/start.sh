@@ -768,8 +768,10 @@ main() {
 
     target="${positional[0]:-all}"
 
-    # A prompt is read; a banner is not. Only the first-run offer goes here.
-    offer_env_file
+    # A prompt is read; a banner is not. Only the first-run offer goes here --
+    # and not for --check, which is a read-only status command: offering to
+    # write a file is a side effect nobody asked that question for.
+    [[ "$do_check" == "true" ]] || offer_env_file
 
     # Handle install flag (no prereq checks needed)
     if [[ "$do_install" == "true" ]]; then
