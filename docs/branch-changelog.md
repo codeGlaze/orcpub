@@ -43,6 +43,10 @@ ability keyword where a namespaced one belongs imports cleanly and grants nothin
 - **Starting-equipment references pointed at another branch** as though the feature were
   unmerged. `starting_equipment_ledger.cljc` and its tests are on `integration`; the
   references now cite that code (`549ba9a4`).
+- **The e2e roadmap item claimed a document was missing that exists.**
+  `test/browser/README.md` already carries the probe discipline — SKIP reporting, "write
+  assertions that can fail", a missing control being a failure. The item now drops that half
+  and keeps what is genuinely absent: three DOM facts and the page-object lib (`817c3f90`).
 - **The SRD class-map roadmap item asked for work already done.** All 12 base classes are
   catalogued on `feature/grant-rows` with their auto-features and odd cases, and the
   author-parity comparison it needs has an established method there too. The item now points

@@ -333,44 +333,37 @@ representation either.
 **Where it goes:** `feature/grant-rows` owns the catalogue, the method and the pool/grant design,
 and moved as recently as 2026-09-12. Doing this on a code branch would duplicate work in flight.
 
-## Map the UI for e2e work, and give the map assertions
+## Page objects for the browser probes
 
-**Status:** Not started. The knowledge-base half belongs on the `agents/develop` branch; the assertion half is
-test code. They are one item because neither survives alone.
+**Status:** Open — narrower than first written. The discipline half was already documented;
+what is missing is code and a handful of DOM facts.
 
-There are 34 browser e2e files, two shared modules in `test/browser/lib/`, and 27 files that
-hand-roll their own locators. Writing a new probe means rediscovering the same handful of
-facts about the DOM, and getting one wrong is quiet.
+`test/browser/README.md` already covers how to write a probe and how one lies: SKIP is
+reported loudly with a reason, "write assertions that can fail", a missing control is a
+failure rather than grounds to stop asserting, and prefer `selectOption` and real
+interactions. That is the reasoning, it is good, and it does not need restating anywhere.
+Read it first; the orcbrew work went wrong by not doing so.
 
-The hazard is not that a selector is hard to find. It is that **a failed interaction is
-indistinguishable from a failed feature.** A click that matches an inert element times out,
-gets swallowed by a `.catch`, and the probe then reports — confidently, with a screenshot —
-that the app does not do the thing. Every wrong reading during the orcbrew format work was
-this, not a real defect:
+Two things it does not have.
 
-- `text=COMBAT` matched something inert; four "different" sheet tabs screenshotted the same
-  panel and read as "no modifiers apply".
-- The sheet's tab labels are lowercase in the DOM. `uppercase` is CSS, so a case-sensitive
-  text match finds nothing.
-- `spells` matches both the builder's page tab and the sheet's tab, and `.first()` takes the
-  wrong one.
-- An `<option>` cannot be clicked — it has no size. Native pickers need `selectOption`.
-- A subclass left unselected means its level-modifiers correctly never run, which looks
-  exactly like a subclass whose modifiers are broken.
+**The DOM facts.** The README says nothing about `uppercase` (zero hits). The specifics that
+cost a day:
 
-So the deliverable is two-sided:
+- The character sheet's tab labels are **lowercase in the DOM** — `uppercase` is CSS, so a
+  case-sensitive text match finds nothing.
+- `spells` matches both the builder's page tab and the sheet's tab; `.first()` takes the
+  wrong one. Builder and sheet share a label namespace.
+- A subclass left unselected means its level-modifiers correctly never run, which reads
+  exactly like a subclass whose modifiers are broken. Drive the selection, then assert.
 
-- **Page objects in `test/browser/lib/`**, growing the `orcbrew-import.js` pattern — a
-  `sheet.js` for tab switching and panel extraction, a `class-builder.js` for picking class,
-  level and subclass. Selectors live in code, where a rename fails a test instead of quietly
-  stale-ing a paragraph. The helpers must **throw** rather than swallow: that is the fix for
-  the false-negative problem and matters more than the selectors do.
-- **A KB document for the reasoning that survives renames** — why a native picker resists
-  clicking, where the builder and sheet namespaces collide, and the discipline of proving an
-  interaction landed before reading the result. It cites the lib for anything concrete rather
-  than repeating it.
+**The code.** Still 34 e2e files, 2 shared modules in `test/browser/lib/`, and 27 files
+hand-rolling their own locators (re-measured 2026-09-20; unchanged since the first count).
+Growing the `orcbrew-import.js` pattern into a `sheet.js` for tab switching and panel
+extraction, and a `class-builder.js` for class, level and subclass, puts the selectors where
+a rename fails a test instead of quietly stale-ing a paragraph. Helpers must throw rather
+than swallow — the README's rule, enforced in code.
 
-`select_option_census_e2e.js` is the precedent for a third, cheap piece: an audit script that
+`select_option_census_e2e.js` is the precedent for a cheap third piece: an audit script that
 enumerates the UI and reports, so part of the map regenerates instead of decaying.
 
 Retrofitting all 27 files is not the ask. Build the lib, use it for new probes, migrate the
