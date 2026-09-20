@@ -2623,6 +2623,21 @@
        (assoc-in [:registration-form :password] password))))
 
 (reg-event-db
+ :registration-password-revealed?
+ ;; In the db rather than a local atom: whatever decides the form may be
+ ;; submitted has to know the confirmation is not being asked for, and a reveal
+ ;; hidden inside the field component is invisible to it.
+ (fn [db [_ revealed?]]
+   (assoc-in db [:registration-form :password-revealed?] revealed?)))
+
+(reg-event-db
+ :registration-verify-password
+ (fn [db [_ password]]
+   (-> db
+       (dissoc :registration-server-errors)
+       (assoc-in [:registration-form :verify-password] password))))
+
+(reg-event-db
  :registration-send-updates?
  (fn [db [_ send-updates?]]
    (assoc-in db [:registration-form :send-updates?] send-updates?)))

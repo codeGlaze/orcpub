@@ -151,19 +151,24 @@
     ;; show-errors? is how a submit reveals faults in fields nobody has visited.
     ;; Without it, pressing the button on a form with an untouched empty field
     ;; had nothing to say, which is why the button used to dim instead.
-    (fn [{:keys [title key value messages type on-change show-errors? hint reveal?]}]
-      (let [shown (when (or @blurred? show-errors?) messages)]
+    (fn [{:keys [title key value messages type on-change show-errors? hint reveal?]
+          reveal-state :revealed? on-reveal :on-reveal}]
+      ;; The reveal is usually this field's own business. A password and its
+      ;; confirmation have to share one, so the caller can own it instead.
+      (let [shown (when (or @blurred? show-errors?) messages)
+            shown-as-text? (if (some? reveal-state) reveal-state @revealed?)
+            flip (or on-reveal #(swap! revealed? not))]
         [base-input
          {:name key
           ;; A revealed password is a text field. The type is the reveal.
-          :type (if (and reveal? @revealed?) :text type)
+          :type (if (and reveal? shown-as-text?) :text type)
           :value value
           :title title
           :messages shown
           :hint hint
           :reveal? reveal?
-          :revealed? @revealed?
-          :on-reveal #(swap! revealed? not)
+          :revealed? shown-as-text?
+          :on-reveal flip
           :on-focus (fn [_] (reset! blurred? false))
           :on-change on-change
           :on-blur (fn [_] (reset! blurred? true))}]))))
@@ -847,7 +852,7 @@
 
 (defn verify-success []
   (auth-page
-   "Registration complete"
+   "Success! Registration is complete"
    [:div
     [:div.m-t-20 "You can now"]
     [login-link]]))
@@ -890,11 +895,56 @@
         @(subscribe [:temp-email])
         " has an account, a link to reset your password is on its way.")))
 
+(defn password-pair
+  "A password and its confirmation, where revealing the password retires the
+   confirmation.
+
+   The confirm box exists only because the field is masked; being able to read
+   it back is what the box was standing in for, so it goes rather than sitting
+   there doing nothing. It is REMOVED, not faded: that keeps it out of the
+   accessibility tree, so nothing announces a field nobody can see and a submit
+   cannot fail pointing at one.
+
+   Symmetrical on purpose. Hiding again brings it back holding whatever it held,
+   so a password edited while revealed genuinely differs from the confirmation
+   and the mismatch is true rather than a trap.
+
+   `revealed?` and `on-toggle` are the CALLER's, because whatever decides
+   whether the form may be submitted has to know the confirmation is not being
+   asked for. A reveal hidden inside this component is invisible to that.
+
+   NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
+   display the password ... while it is entered\"."
+  [{:keys [password confirm messages show-errors? revealed? on-toggle
+           on-password on-confirm]}]
+  [:div
+   [form-input {:title "Password"
+                :key :password
+                :value password
+                :type :password
+                :messages messages
+                :show-errors? show-errors?
+                :reveal? true
+                :revealed? revealed?
+                :on-reveal on-toggle
+                :on-change on-password}]
+   (when-not revealed?
+     [form-input {:title "Confirm password"
+                  :key :verify-password
+                  :value confirm
+                  :type :password
+                  :messages (when (and (seq password) (seq confirm)
+                                       (not= password confirm))
+                              ["Passwords do not match"])
+                  :show-errors? show-errors?
+                  :on-change on-confirm}])])
+
 (def ^:private field-order
   "The order the summary lists faults in, which is the order they appear on the
    form. Sorting by map key would list them however the keywords happen to hash."
   [[:username "Username"] [:email "Email address"] [:verify-email "Confirm email address"]
-   [:password "Password"] [:first-and-last-name "Name"]])
+   [:password "Password"] [:verify-password "Confirm password"]
+   [:first-and-last-name "Name"]])
 
 (defn error-summary
   "What is wrong, above the form, after a submit that could not go through.
@@ -933,9 +983,20 @@
             message]])]])))
 
 (defn register-form []
-  (let [registration-validation @(subscribe [:registration-validation])
+  (let [base-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
         show-errors? @(subscribe [:registration-attempted?])
+        ;; The confirmation is checked HERE, not in the shared validator, which
+        ;; runs on the server too and has no idea whether the field is currently
+        ;; revealed -- and a revealed password has no confirmation to differ from.
+        confirm-needed? (not (:password-revealed? registration-form))
+        mismatch? (and confirm-needed?
+                       (seq (:password registration-form))
+                       (not= (:password registration-form)
+                             (:verify-password registration-form)))
+        registration-validation (cond-> base-validation
+                                  mismatch?
+                                  (update :verify-password conj "Passwords do not match"))
         send-updates? (not= false (:send-updates? registration-form))
         {:keys [rung fills]} (registration/password-strength
                               (:password registration-form)
@@ -968,14 +1029,16 @@
                     :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
-       [form-input {:title "Password"
-                    :key :password
-                    :value (:password registration-form)
-                    :messages (:password registration-validation)
-                    :show-errors? show-errors?
-                    :reveal? true
-                    :type :password
-                    :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
+       [password-pair
+        {:password (:password registration-form)
+         :confirm (:verify-password registration-form)
+         :revealed? (boolean (:password-revealed? registration-form))
+         :on-toggle #(dispatch [:registration-password-revealed?
+                                (not (:password-revealed? registration-form))])
+         :messages (:password registration-validation)
+         :show-errors? show-errors?
+         :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
+         :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
        ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
        ;; vocabulary this site's readers already have, and Common is not a joke
        ;; -- a password the corpus knows is exactly that.
