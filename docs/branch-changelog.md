@@ -51,7 +51,7 @@ form's edge) and the breach threshold, neither of which blocks the shell.
 
 ## Progress
 
-Four of five done. Each was verified in a BROWSER, not by compiling — every one
+All five done. Each was verified in a BROWSER, not by compiling — every one
 of them hid a bug that a green build said nothing about.
 
 1. **Heading into the shell** (`3b1ac947`). `auth-page` takes a heading, an
@@ -80,9 +80,20 @@ of them hid a bug that a green build said nothing about.
    the shared suite. Binds to MOUSEDOWN: on click, pressing it blurs the field,
    the blur re-renders the notice, and the button dies between mousedown and
    mouseup.
-5. **The sweep** — NOT STARTED. The legal links printed twice, the phone
-   gutters, and the reset page's help link whose clickable target is the word
-   "whitelist" in the middle of a sentence.
+5. **The sweep** (`ecb13193`). The legal links printed twice on register:
+   the consent line links both documents and the shell's footer printed the
+   same pair sixteen pixels under it, so `legal-footer` takes a `links?` and
+   that one page passes false. The help link's target was the single word
+   "whitelist" mid-sentence — two instances, not one, and the login copy read
+   "Didn't receive validation the email?" and advised resetting a password when
+   what was missing was a validation email. Both now link a phrase.
+   *Caught by looking:* the gryphon panel TILED. No `background-repeat`, no
+   `background-size`, so once the form column outgrew the image a second
+   half-cropped gryphon drew below the first — the confirm fields are what
+   pushed it over. It is a garden class now instead of an inline style map.
+   **The phone gutters are not here.** They belong to `feature/mobile-layout`,
+   whose whole remit is phone layout and whose first commit is an auth page's
+   phone layout. Listing them here was a scope error.
 
 ### The garden-harvest merge
 
