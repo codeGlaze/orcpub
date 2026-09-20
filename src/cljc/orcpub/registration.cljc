@@ -5,19 +5,6 @@
   (or (nil? value)
       (nil? (re-matches regex value))))
 
-(defn password-strength [password]
-  (let [password-missing-special-character? (fails-match? #".*[!@#\$%\^&\*].*" password)
-        password-missing-number? (fails-match? #".*[0-9].*" password)
-        password-missing-uppercase? (fails-match? #".*[A-Z].*" password)
-        password-missing-lowercase? (fails-match? #".*[a-z].*" password)
-        password-too-short? (or (nil? password) (< (count password) 8))]
-    (count (remove identity
-                   [password-missing-special-character?
-                    password-missing-number?
-                    password-missing-uppercase?
-                    password-missing-lowercase?
-                    password-too-short?]))))
-
 (def min-password-length
   "NIST SP 800-63B-4 sets fifteen for a site with no second factor, and eight
    only where one exists. Twelve is a deliberate shortfall for a site whose
@@ -134,6 +121,54 @@
 
        (and context (contains-identifier? password context))
        (update :password conj "Leave your username and email out of your password")))))
+
+(def strength-rungs
+  "Character counts at which each of the meter's four slots fills. Length is all
+   the meter measures, because it is all that reliably buys anything: a digit
+   and a symbol are worth less than four more letters, which is why the
+   character-class scoring this replaces was misleading in both directions."
+  [12 16 22 28])
+
+(def ^:private slot-edges (into [0] strength-rungs))
+
+(defn- slot-fills
+  "How full each of the four slots is, 0 to 100, at this length."
+  [length]
+  (mapv (fn [[lo hi]]
+          (-> (/ (double (- length lo)) (- hi lo))
+              (max 0.0)
+              (min 1.0)
+              (* 100)))
+        (partition 2 1 slot-edges)))
+
+(defn password-strength
+  "What the meter should show: {:rung r :fills [a b c d]}.
+
+   :rung is nil for an empty field, -1 when a rule is broken, and 0 to 3 for the
+   highest slot filled. :fills reports the real length even at -1: the fill is
+   the truth about the string and the colour is the verdict on it, so a failing
+   password must never look like it has earned a whole slot.
+
+   The verdict comes from validate-password rather than a second set of rules.
+   The two used to be written separately and drifted -- this scored Dragon7!
+   five out of five while the server refused it, and called a twenty-five
+   character passphrase a two. Deriving it makes disagreeing impossible."
+  ([password] (password-strength password nil))
+  ([password context]
+   (let [length (count (or password ""))
+         fills (slot-fills length)]
+     (cond
+       (s/blank? password)
+       {:rung nil :fills (slot-fills 0)}
+
+       (seq (:password (validate-password password context)))
+       {:rung -1 :fills fills}
+
+       :else
+       {:rung (->> strength-rungs
+                   (keep-indexed (fn [i rung] (when (>= length rung) i)))
+                   last)
+        :fills fills}))))
 
 (def email-format #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}")
 
