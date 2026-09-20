@@ -816,23 +816,36 @@
             password-messages (password-validation-messages password)
             different? (not= password verify-password)
             invalid? (or (seq password-messages)
-                         different?)]
+                         different?)
+            ;; Local to this page's own atom on purpose. The register form keeps
+            ;; the same flag in app-db, and reaching for that from here is what
+            ;; split the reveal state between a db read and a component atom
+            ;; last time.
+            attempted? (:attempted? @params)]
         (auth-page
          "Choose a new password"
          "This replaces the password on your account."
          [:div
           [:div.m-t-10.auth-form
+           ;; These messages were commented out years before the rules got
+           ;; stricter, which nobody noticed while the minimum was eight and
+           ;; almost everything passed. At twelve, an ordinary password fails
+           ;; here -- and with no message and a dimmed button, the page simply
+           ;; stopped working with nothing said. This is account RECOVERY: it is
+           ;; the last door someone has.
            [form-input {:title "Password"
                         :key :password
                         :value password
                         :type :password
-                        ;;:messages password-messages
+                        :messages password-messages
+                        :show-errors? attempted?
                         :on-change (fn [e] (swap! params assoc :password (event-value e)))}]
            [form-input {:title "Verify Password"
                         :key :verify-password
                         :value verify-password
                         :type :password
                         :messages (when different? ["Passwords do not match"])
+                        :show-errors? attempted?
                         :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5 [notifications/message
@@ -841,9 +854,14 @@
                                       hide-login-message]])
            ]
           [:div.m-t-10.auth-tail
+           ;; Never dimmed, the same call the register form makes: a button that
+           ;; looks dead reads as a broken site and cannot say why it will not
+           ;; go. Pressing it always does something, and when the form is not
+           ;; ready that something is showing the faults it has been sitting on.
            [:button.form-button.form-submit-btn
-            {:class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
-             :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
+            {:on-click #(if invalid?
+                          (swap! params assoc :attempted? true)
+                          ((make-event-handler :password-reset @params)))}
             "SUBMIT"]]])))))
 
 (defn login-link []
