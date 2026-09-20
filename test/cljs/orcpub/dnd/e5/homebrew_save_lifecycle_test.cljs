@@ -15,6 +15,7 @@
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.dnd.e5.spell-subs :as subs5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.common :as common]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
@@ -367,7 +368,7 @@
   [source k]
   ;; My Content passes the ROW's address alongside the item -- the source holding it and the key
   ;; it answers to -- because neither is reliably on the item itself.
-  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct k]) source k]))
+  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct k]) source k ct]))
 
 (defn- retarget! [source]
   (swap! app-db assoc-in [::langs5e/builder-item :option-pack] source))
@@ -437,16 +438,26 @@
   (is (= "Tideward" (get-in @app-db [:plugins OTHER ct (k "Tideward") :name]))
       "and the other source is untouched"))
 
-(deftest a-restored-draft-still-moves-when-its-origin-is-unambiguous
-  ;; After a refresh there is no recorded origin. One source holds the key, so that is where it
-  ;; came from.
+(deftest an-item-with-no-recorded-origin-is-not-moved-on-a-guess
+  ;; The origin IS persisted now, so a refresh keeps it (pinned end-to-end by
+  ;; test/e2e/move-between-sources.js, which reloads the page mid-edit). This is the case where
+  ;; it is genuinely absent -- a Move/copy from My Content rearranging :plugins under an open
+  ;; builder, which leaves the form holding an item the library has moved on from. One source
+  ;; holds the key, which is enough to save back INTO it, but not enough to delete the entry
+  ;; there. Refusing costs one click; moving on a guess costs the entry.
   (open! (draft "Tideward"))
   (save!)
   (swap! app-db dissoc :builder-origin)              ; what a page reload leaves behind
   (retarget! OTHER)
   (save!)
-  (is (nil? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "still a move, not a copy")
-  (is (some? (get-in @app-db [:plugins OTHER ct (k "Tideward")]))))
+  (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "it stayed where it lives")
+  (is (nil? (get-in @app-db [:plugins OTHER ct (k "Tideward")])) "and did not arrive")
+
+  ;; ...but a save back into the source it lives in is still fine
+  (retarget! SRC)
+  (swap! app-db assoc-in [::langs5e/builder-item :description] "edited")
+  (save!)
+  (is (= "edited" (get-in (stored) [(k "Tideward") :description]))))
 
 (deftest a-restored-draft-does-not-guess-when-two-sources-answer
   ;; No record, and two holders: there is no honest answer, so the item is treated as new — which
@@ -485,15 +496,15 @@
 
   (testing "an item that came from here"
     (let [plugins (lib A :stone-elf "Stone Elf")]
-      (is (= :in-place (dest plugins {:source A :key :stone-elf} A :stone-elf
+      (is (= :in-place (dest plugins {:source A :key :stone-elf :content-type ct} A :stone-elf
                              {:key :stone-elf :name "Stone Elf"})))
-      (is (= :move (dest plugins {:source A :key :stone-elf} B :stone-elf
+      (is (= :move (dest plugins {:source A :key :stone-elf :content-type ct} B :stone-elf
                          {:key :stone-elf :name "Stone Elf"}))
           "retyping the source is the instruction to move")))
 
   (testing "moving onto an address something else answers to"
     (is (= :refuse (dest (lib A :stone-elf "Mine" B :stone-elf "Theirs")
-                         {:source A :key :stone-elf} B :stone-elf
+                         {:source A :key :stone-elf :content-type ct} B :stone-elf
                          {:key :stone-elf :name "Mine"})))))
 
 (deftest save-destination-does-not-trust-a-record-the-library-contradicts
@@ -501,17 +512,23 @@
     (testing "the recorded source no longer holds the key — it moved, or was deleted"
       ;; trusting it would dissoc from a source that has already let go, leaving the copy it
       ;; moved to in place: one key, two libraries
-      (is (= :in-place (dest (lib B :stone-elf "Stone Elf") {:source A :key :stone-elf}
+      (is (= :in-place (dest (lib B :stone-elf "Stone Elf") {:source A :key :stone-elf :content-type ct}
                              B :stone-elf item))))
 
-    (testing "the record is for a different item that happens to share the key"
-      ;; two content types in one source share a key for one name; the record must not send a save
-      ;; off to delete an entry nobody opened
-      (is (= :in-place (dest (lib B :stone-elf "Stone Elf") {:source A :key :stone-elf}
-                             B :stone-elf item))))
+    (testing "the record was made by another builder for the same key"
+      ;; a source holds a race and a subrace under one key for one name, and :builder-origin is a
+      ;; single slot -- so a record naming a DIFFERENT content type must not send this save off to
+      ;; delete an entry nobody opened
+      (is (= :refuse (dest (lib A :stone-elf "Stone Elf")
+                           {:source A :key :stone-elf :content-type :orcpub.dnd.e5/races}
+                           B :stone-elf item))))
 
-    (testing "no record at all: the one source holding the key is where it came from"
-      (is (= :move (dest (lib A :stone-elf "Stone Elf") nil B :stone-elf item))))
+    (testing "no record at all: enough to save back in, NOT enough to move out"
+      ;; the single holder is a guess. It cannot lose anything when the save lands back in that
+      ;; same library, but a move DELETES the entry there -- and the builder may be holding an
+      ;; item the library has moved on from, e.g. after a Move/copy from My Content.
+      (is (= :in-place (dest (lib A :stone-elf "Stone Elf") nil A :stone-elf item)))
+      (is (= :refuse   (dest (lib A :stone-elf "Stone Elf") nil B :stone-elf item))))
 
     (testing "no record and SEVERAL holders: refused, because this one cannot be told from its twin"
       ;; reopening it from My Content records where it came from, which is the way out
@@ -684,7 +701,7 @@
   (dispatch! [::selections5e/save-selection])
   (dispatch! [::selections5e/edit-selection
               (get-in @app-db [:plugins SRC sct (k "Fighting Style")])
-              SRC (k "Fighting Style")])
+              SRC (k "Fighting Style") sct])
   (swap! app-db assoc-in [::selections5e/builder-item :option-pack] OTHER)
   (dispatch! [::selections5e/save-selection])
   (is (nil? (get-in @app-db [:plugins SRC sct (k "Fighting Style")])) "no copy left behind")
@@ -742,7 +759,7 @@
            {SRC {sct {old {:name "Fighting Style" :option-pack SRC
                            :options [{:name "Archery"}]}}}})
     (dispatch! [::selections5e/edit-selection
-                (get-in @app-db [:plugins SRC sct old]) SRC old])
+                (get-in @app-db [:plugins SRC sct old]) SRC old sct])
     (dispatch! [::selections5e/save-selection])
     (is (= #{old} (set (keys (get-in @app-db [:plugins SRC sct]))))
         "one entry, at the address it already had")))
@@ -866,4 +883,129 @@
   (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "it stayed where it was")
   (is (nil? (get-in @app-db [:plugins OTHER ct (k "Tideward")])) "and did not arrive")
   (is (= :invalid (:name (:builder-field-errors @app-db))) "with the reason on the form"))
+
+;; ---------------------------------------------------------------------------
+;; Round two of the review (2026-09-20)
+;; ---------------------------------------------------------------------------
+
+(deftest an-empty-source-is-a-missing-field-not-an-instruction-to-move
+  ;; `::option-pack` is `string?`, so "" satisfies the save spec and never reached the
+  ;; missing-field banner. Clearing the box to retype it and pressing Save read as a retarget:
+  ;; the item was deleted from its library and re-homed under a source named "", the banner said
+  ;; only "saved", and the next save was a clean in-place -- nothing ever flagged it.
+  (open! (draft "Tideward"))
+  (save!)
+  (open-from-library! SRC (k "Tideward"))
+  (retarget! "")
+  (save!)
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "still in the source it came from")
+  (is (empty? (get @app-db "")) "and no nameless library was created")
+  (is (= :missing (:option-pack (:builder-field-errors @app-db))) "the field is flagged instead"))
+
+(deftest a-source-name-is-trimmed-before-it-is-used-as-an-address
+  ;; " Tide Pak" renders identically to "Tide Pak" in My Content, so treating them as different
+  ;; libraries moves the item into a twin nobody can tell apart.
+  (open! (draft "Tideward"))
+  (save!)
+  (open-from-library! SRC (k "Tideward"))
+  (retarget! (str " " SRC " "))
+  (save!)
+  (is (= #{SRC} (set (keys (:plugins @app-db)))) "one library, not two")
+  (is (= #{(k "Tideward")} (set (keys (stored))))))
+
+(deftest replacing-is-not-offered-when-a-third-library-also-answers
+  ;; Consent to discarding the occupant does not resolve a key a THIRD source holds, so offering
+  ;; it there takes a decision about one entry and leaves the duplicate standing anyway.
+  (open! (draft "Tideward"))
+  (save!)
+  (doseq [src [OTHER "Third Pak"]]
+    (swap! app-db assoc-in [:plugins src ct (k "Tideward")]
+           {:key (k "Tideward") :name (str "In " src) :option-pack src}))
+  (open-from-library! SRC (k "Tideward"))
+  (retarget! OTHER)
+  (save!)
+  (is (= :elsewhere (:reason (events/save-destination (:plugins @app-db)
+                                                      (:builder-origin @app-db)
+                                                      ct OTHER (k "Tideward") (in-builder))))
+      "refused for the third library, not offered as a replace")
+  ;; and consent cannot reach it
+  (dispatch! [::langs5e/save-language {:replace? true}])
+  (is (= "In Other Pak" (get-in @app-db [:plugins OTHER ct (k "Tideward") :name]))
+      "the occupant is untouched")
+  (is (some? (get-in (stored) [(k "Tideward")])) "and this one stayed put"))
+
+(deftest a-record-left-by-another-builder-does-not-validate
+  ;; One source holds a race and a subrace under one key for one name. `:builder-origin` is a
+  ;; single slot, so without the content type a record left by one builder validated for the
+  ;; other -- and a consented replace would dissoc an entry nobody opened.
+  (let [recorded {:source SRC :key (k "Tideward") :content-type :orcpub.dnd.e5/races}]
+    (swap! app-db assoc :plugins {SRC {ct {(k "Tideward") {:key (k "Tideward") :name "Tideward"
+                                                           :option-pack SRC}}}})
+    (is (= :in-place (:action (events/save-destination (:plugins @app-db) recorded ct SRC
+                                                       (k "Tideward")
+                                                       {:key (k "Tideward")})))
+        "the single holder still answers for an in-place save")
+    (is (= :refuse (:action (events/save-destination (:plugins @app-db) recorded ct OTHER
+                                                     (k "Tideward")
+                                                     {:key (k "Tideward")})))
+        "but a MOVE is not taken on another builder's record")))
+
+(deftest a-key-change-re-stamps-where-the-item-now-lives
+  ;; Left pointing at the old key the record can never verify again, and the next save falls back
+  ;; to guessing from the library.
+  (open! (draft "Tidewrad"))
+  (save!)
+  (change-key! "tideward")
+  (is (= {:source SRC :key :tideward :content-type ct} (:builder-origin @app-db)))
+  (swap! app-db assoc-in [::langs5e/builder-item :description] "edited after the key change")
+  (save!)
+  (is (= #{:tideward} (set (keys (stored)))) "one entry")
+  (is (= "edited after the key change" (get-in (stored) [:tideward :description]))))
+
+;; ---------------------------------------------------------------------------
+;; Round three of the review (2026-09-20)
+;; ---------------------------------------------------------------------------
+
+(deftest an-item-edited-from-anywhere-but-my-content-still-knows-its-address
+  ;; My Content's edit button passes the row's address; the other TEN doors -- the Spells and
+  ;; Monsters list pages, and the character-builder pencil for background, race, subrace,
+  ;; subclass, feat, invocation, boon and spell -- pass the item alone. They can only do that
+  ;; because the read path stamps the address on the way out of :plugins. Without it a key-less
+  ;; item edited from any of them minted a fresh key and forked into two entries: the original
+  ;; left holding the pre-edit data, no :former-keys, nothing on screen.
+  (with-legacy-item!)
+  (let [as-read (-> (subs5e/process-plugin-vals (:plugins @app-db)) first (get ct) (get old-key))]
+    (is (= old-key (:key as-read)) "the reader stamps the key it lives under")
+    (is (= SRC (:option-pack as-read)) "and the source that really holds it")
+    ;; what those ten call sites dispatch: the item, and nothing else
+    (dispatch! [::langs5e/edit-language as-read])
+    (swap! app-db assoc-in [::langs5e/builder-item :description] "edited from the pencil")
+    (save!)
+    (is (= #{old-key} (set (keys (stored)))) "one entry, not a fork")
+    (is (= "edited from the pencil" (get-in (stored) [old-key :description])))))
+
+(deftest a-stale-declared-source-is-corrected-by-the-reader
+  ;; An import that renames a source leaves each item declaring the name it arrived with. Read
+  ;; through the same path, the item reports the library that actually holds it.
+  (swap! app-db assoc :plugins
+         {SRC {ct {(k "Tideward") {:key (k "Tideward") :name "Tideward"
+                                   :option-pack "Name It Declared"}}}})
+  (let [as-read (-> (subs5e/process-plugin-vals (:plugins @app-db)) first (get ct)
+                    (get (k "Tideward")))]
+    (is (= SRC (:option-pack as-read)))))
+
+(deftest minting-onto-a-key-another-library-holds-is-not-offered-as-a-replace
+  ;; The move branch already refused this; the mint branch had the opposite order and offered
+  ;; "Replace it" -- which destroys the entry here and leaves the other library answering anyway,
+  ;; so the consent buys nothing it promised.
+  (swap! app-db assoc :plugins
+         {SRC   {ct {(k "Tideward") {:key (k "Tideward") :name "Mine" :option-pack SRC}}}
+          OTHER {ct {(k "Tideward") {:key (k "Tideward") :name "Theirs" :option-pack OTHER}}}})
+  (open! (draft "Tideward"))                          ; a NEW item minting that same key
+  (save!)
+  (is (= :elsewhere (:reason (events/save-destination (:plugins @app-db) nil ct SRC
+                                                      (k "Tideward") {:name "Tideward"})))
+      "refused for the other library, not offered as a replace")
+  (dispatch! [::langs5e/save-language {:replace? true}])
+  (is (= "Mine" (get-in (stored) [(k "Tideward") :name])) "and consent cannot reach it"))
 

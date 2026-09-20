@@ -71,6 +71,7 @@
 ;; heads-up, not account state, so a stamp that never arrives (private browsing,
 ;; storage off) costs one extra showing rather than an error.
 (def local-storage-whats-new-key "whats-new-seen")
+(def local-storage-builder-origin-key "builder-origin")
 ;; Developer mode: reveals the footer's diagnostic tools, including the raw
 ;; library dump that skips the export gate. Per-device and off by default — the
 ;; switch itself stays visible and labelled so the tools are one click away when
@@ -457,6 +458,17 @@
  ::e5/whats-new-seen
  local-storage-whats-new-key
  ::whats-new-seen)
+
+;; The address the open builder fetched its item from. Persisted beside the draft
+;; because it is not derivable from it: the item's own `:option-pack` is whatever
+;; the author has typed into the field, so after a refresh nothing else says where
+;; the item came from -- and without that, a save that retypes the source is a
+;; guess, which `save-destination` refuses rather than acting on.
+(spec/def ::builder-origin map?)
+(reg-local-store-cofx
+ ::e5/builder-origin
+ local-storage-builder-origin-key
+ ::builder-origin)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this

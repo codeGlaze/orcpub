@@ -64,6 +64,14 @@ const openFromMyContent = async (page, name) => {
     check('and the form has it', await page.evaluate(() =>
       [...document.querySelectorAll('#app input')].some(i => i.value === 'Tideward')));
 
+    // A refresh between opening the item and moving it: the address the builder fetched it from
+    // is persisted beside the draft, so the save still knows this is a move rather than a guess.
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1600);
+    await dismissWhatsNew(page);
+    check('the form survived a reload', await page.evaluate(() =>
+      [...document.querySelectorAll('#app input')].some(i => i.value === 'Tideward')));
+
     await fill(page, 'Option Source Name', B);
     check('retyped the source and saved', await clickText(page, /save to browser storage/i));
     await page.waitForTimeout(1200);

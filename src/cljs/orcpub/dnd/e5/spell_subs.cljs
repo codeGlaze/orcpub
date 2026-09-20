@@ -155,10 +155,12 @@
  (fn [db _]
    (get db :strict-import?)))
 
-(defn- process-plugin-vals
+(defn process-plugin-vals
   "Filter out malformed/disabled plugin data so a bad entry can't break the
    subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps.
+   {content-type {key def}} maps, each item carrying the address it lives at
+   (`:key`, `:option-pack`) -- see the stamp below. Public because that stamp is
+   what lets the builders' edit and delete buttons trust the item they are given.
 
    `overlay` (optional) applies the two LOCAL disable levels on top of the data
    levels: :global? drops everything, and :sections drops a whole [source
@@ -189,7 +191,15 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             [k v]))
+                             ;; Carry the ADDRESS on the item. Everything downstream reads items
+                             ;; from here -- the list pages' edit and delete buttons, the
+                             ;; character-builder pencil -- and a stored item may carry neither
+                             ;; its key (libraries authored before keys were stored) nor a
+                             ;; truthful :option-pack (an import that renames a source leaves the
+                             ;; declaration behind). The map it lives in is the one place both are
+                             ;; known for certain, so they are stamped on the way out rather than
+                             ;; guessed at by every reader.
+                             [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
                 p)))

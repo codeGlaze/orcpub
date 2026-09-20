@@ -93,6 +93,85 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### The origin is persisted beside the draft (2026-09-20)
+
+Closes the gap the two sections below both leaned on. `:builder-origin` lived only in app-db, so a
+page refresh lost it and a restored draft could not be moved until it was reopened from My Content —
+which was the entire cost of the `:unrecorded` refusal.
+
+It is persisted now, under its own localStorage key, restored by a cofx on boot like every other
+device-local value, and cleared by New. It cannot be derived from the draft: the item's
+`:option-pack` is whatever the author currently has typed in the field, so after a refresh nothing
+else says where the item came from.
+
+`test/e2e/move-between-sources.js` reloads the page between opening the item and retyping its
+source, and the move still works — verified by disabling the restore and watching four of its
+eleven checks fail.
+
+The refusal stays for the case where the origin is genuinely absent, which is a Move/copy from My
+Content rearranging `:plugins` under an open builder. That is the one the guess would get wrong.
+
+### The READ path stamps the address (2026-09-20)
+
+Third review round, and it found the hole under the section below. That one says identity is
+established when the builder fetches the item, and justified deleting the old name-probe on exactly
+that basis. **The premise was true at one of eleven doors.** `reg-edit-homebrew` stamps only what
+the caller passes, and only My Content passed it — the Spells and Monsters list pages and the
+character-builder pencil (background, race, subrace, subclass, feat, invocation, boon, spell) all
+dispatch the item alone. A key-less item edited from any of them minted a fresh key and **forked**:
+the original left holding the pre-edit data, no `:former-keys`, nothing on screen. Precisely what
+the deleted probe existed to prevent.
+
+Fixed one level down instead of at eleven call sites: **`process-plugin-vals` stamps `:key` and
+`:option-pack` onto every item on the way out of `:plugins`.** That map is the one place both are
+known for certain, so no reader has to guess and no caller has to remember. It also repairs a stale
+declared source for free, and it makes the delete button's fallback correct on the list pages, which
+otherwise still deleted a same-keyed entry in the wrong library.
+
+Also from that round: the **mint** branch of `save-destination` had the opposite ordering to the
+move branch, so it offered *Replace it* where another library also held the key — consent that
+destroys the entry here and leaves the duplicate standing. Both branches now test `:elsewhere`
+first.
+
+`:content-type` on the record is required only when present: the ten doors that pass the item alone
+cannot name it, and a record without one is no weaker than it was before it existed. Threading the
+content type through registration would let it be required everywhere — worth doing, not done.
+
+### A move needs a RECORD, not a guess (2026-09-20)
+
+Second review round, on top of the section below. Five more, and the shape is the same one twice:
+**a guess is fine for a save that cannot lose anything, and never fine for one that deletes.**
+
+- **An empty Option Source Name was a move.** `::option-pack` is `string?`, so `""` satisfies the
+  save spec and never reached the missing-field banner — only the *save-anyway* path guarded it.
+  Clearing the box to retype it and pressing Save deleted the item from its library and re-homed it
+  under a source named `""`; the next save was a clean in-place, so nothing ever flagged it. It is a
+  missing required field and now says so. The source name is also **trimmed**: `" Pak"` is not a
+  second library, and treating it as one moved the item into a twin that renders identically.
+- **The delete button still read identity off the item** — one line below the edit button that had
+  just been fixed. For a pre-keys library it deleted nothing at all; against a stale `:option-pack`
+  it conjured an empty source; and where another source answered to the same key it deleted **that**
+  entry and left the clicked one in place.
+- **`replacing` could leave a cross-source duplicate.** The `:occupied` offer was tested before the
+  third-library check, so consent to discarding one entry still left the key answering elsewhere —
+  the state the move rule exists to prevent. The `:elsewhere` refusal now comes first.
+- **A record left by another builder validated.** `:builder-origin` is one slot for all fourteen
+  builders, and one source holds a race and a subrace under one key for one name. The record now
+  carries the content type it was made for, and every stamp site sets it.
+- **A key change did not re-stamp the origin**, leaving it pointing at a key it could never verify
+  again.
+
+**And the rule that came out of it:** with no verified record, the single library holding a key
+tells you where an item *lives* — enough to save back into it, never enough to MOVE, because a move
+deletes that entry and the builder may be holding an item the library has moved on from. That is not
+hypothetical: Move/copy in My Content rewrites `:plugins` under an open builder, and the old
+behaviour silently reverted the relocation the author had just performed. A move now refuses with
+*"This language is in X — open it from My Content to move it somewhere else"* (`:unrecorded`).
+
+**Open, and the reason the refusal above exists at all:** `:builder-origin` is not persisted, so a
+page refresh loses it and a restored draft cannot move until it is reopened. Persisting it alongside
+the draft removes that cost entirely, and is the obvious next step.
+
 ### Identity is established when the builder FETCHES the item (2026-09-19)
 
 **Corrects the section below.** `address-for` originally identified a key-less stored item by
