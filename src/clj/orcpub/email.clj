@@ -77,9 +77,23 @@
 
 (defn email-cfg []
   (try
-    {:user (env/value :email-access-key)
-     :pass (env/value :email-secret-key)
-     :host (env/value :email-server-url)
+    ;; "" defaults on purpose, NOT nil. docker-compose.yaml passes all three as
+    ;; ${VAR:-} -- explicitly empty -- whenever email is unconfigured, which is
+    ;; the default deployment. Handing postal nil there changes the failure from
+    ;; MailConnectException ("Couldn't connect to host, port: localhost, 587")
+    ;; to a bare NullPointerException, measured. Both fail, but one says why.
+    ;;
+    ;; Keeping "" also preserves whatever postal does with an empty :user/:pass
+    ;; versus nil, which differs for SMTP AUTH. This is deliberately byte-identical
+    ;; to the pre-orcpub.env behaviour; the blank rule is right everywhere else,
+    ;; and here the old value was load-bearing for a third-party library.
+    ;;
+    ;; The real gap is that nothing checks whether email is configured at all --
+    ;; .env.example says "Leave EMAIL_SERVER_URL empty to disable email
+    ;; functionality" and no code implements that. Worth doing, not here.
+    {:user (env/value :email-access-key "")
+     :pass (env/value :email-secret-key "")
+     :host (env/value :email-server-url "")
      :port (Integer/parseInt (env/value :email-server-port "587"))
      :ssl (or (str/to-bool (env/value :email-ssl)) nil)
      :tls (or (str/to-bool (env/value :email-tls)) nil)}
