@@ -343,10 +343,15 @@
 
    Without that rollback a failed email left a committed, unverified account,
    and `register` validates against existing username/email -- so the retry this
-   very function tells the user to make then failed with \"already taken\". The
-   address was locked out and the account could never be verified, because no
-   email could ever be sent. That is the default state of any instance without
-   SMTP, including the default docker-compose deployment.
+   very function tells the user to make then failed with \"already taken\".
+
+   Not a lockout: `re-verify` works on exactly that orphaned state and is wired
+   to a button in the UI, so a user who finds it recovers. Measured, because an
+   earlier version of this docstring claimed otherwise. It is a dead end from the
+   registration form with a non-obvious escape, which is also why seven years of
+   production never surfaced it -- live SMTP works, so this runs only on a
+   transient send failure, and the few users it reaches report \"it says my email
+   already exists\", indistinguishable from forgetting an account.
 
    `request-email-change` already did exactly this (retracting pending-email on
    send failure, covered by email-change-test/test-email-send-failure-rolls-back).

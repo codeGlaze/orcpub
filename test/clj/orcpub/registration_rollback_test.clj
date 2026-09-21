@@ -84,9 +84,11 @@
           (let [user (find-user (d/db mocked-conn) "newcomer")]
             (is (nil? user)
                 (str "A failed verification email left an account behind. "
-                     "The user is now locked out: retrying registration fails "
-                     "validation because the username and email are taken, and "
-                     "the account can never be verified. Found: " (pr-str user)))))))))
+                     "Retrying registration then fails validation because the "
+                     "username and email are taken -- which is exactly the "
+                     "advice the error message gives. (Recoverable via resend, "
+                     "see the ns docstring, but a dead end from the form.) "
+                     "Found: " (pr-str user)))))))))
 
 (deftest the-address-can-be-reused-after-a-failed-send
   (with-conn conn
