@@ -307,6 +307,15 @@ a stranger whether a username exists.
   read "reset password"; the one that mails a link is "Reset your password" and the one
   that takes the new password is "Choose a new password" (`d476dbd7`).
 
+- **Every password rule is visible as its own chip, and the meter says what to do next**
+  — five chips under the bar, one per rule, each showing whether this password satisfies
+  it before anything is pressed. The rules had only ever spoken through whichever one
+  happened to fail first, so nobody could see what was being asked of them until they had
+  broken it. Below the bar, a line that points forward at every rung except the top: a
+  password that is already good enough is the one moment somebody is looking at this field
+  and not being told off, and telling them to stop there is not what a ladder is for. Both
+  were designed with the meter and neither had been built.
+
 - **The reset form gets the meter and the reveal** — it refused by exactly the same rules
   as registration while showing no meter, offering no reveal and demanding a confirmation
   it never retired. The meter was a block inside `register-form` reading the registration

@@ -185,6 +185,55 @@
           :on-change on-change
           :on-blur (fn [_] (reset! blurred? true))}]))))
 
+(def ^:private password-rule-chips
+  "One chip per rule, so a refusal is never a single sentence standing in for
+   five separate things. Each says which rule it is and whether this password
+   satisfies it, before anybody has pressed anything.
+
+   \"not your name\" only appears where there IS a name: the reset page knows no
+   username or email, and a chip that always passes because nothing was checked
+   is worse than no chip."
+  [{:label "12 or more"
+    :ok? (fn [p _] (>= (count (or p "")) registration/min-password-length))}
+   {:label "no triples"
+    :ok? (fn [p _] (not (registration/repeated-run? p)))}
+   {:label "no key runs"
+    :ok? (fn [p _] (not (registration/sequential-run? p)))}
+   {:label "some variety"
+    :ok? (fn [p _] (not (registration/too-few-distinct? p)))}
+   {:label "not your name"
+    :needs-context? true
+    :ok? (fn [p ctx] (not (registration/contains-identifier? p ctx)))}])
+
+(def ^:private password-tips
+  "What to say at each rung once nothing is wrong -- the one moment somebody is
+   looking at this field and NOT being told off.
+
+   Every rung below the top points FORWARD. A line saying \"nobody is guessing
+   this now\" is permission to stop, on a ladder whose whole job is to get them
+   to keep going, so only Legendary says the work is done. Several per rung,
+   chosen by length so the line holds still while they type rather than flicking
+   between sentences on every keystroke."
+  [["Two words that have no business together beat one clever one."
+    "Another word buys more than another symbol."
+    "Swapping o for 0 fools nobody. That is the first thing tried."]
+   ["Spaces are allowed. A short sentence types faster than it looks."
+    "One more word is the cheapest upgrade here."
+    "Nonsense is fine. It does not have to mean anything."]
+   ["Try something your character would say."
+    "One more word and this is as good as it gets."
+    "If you can picture it, you will remember it."]
+   ["Nothing left to prove. Write it down somewhere safe."
+    "About as good as it gets. Go make a character."
+    "Just do not use this one anywhere else."]])
+
+(defn- password-tip
+  "The tip for this rung, held still by picking it from the length."
+  [rung length]
+  (when (and rung (not (neg? rung)))
+    (let [set (nth password-tips rung)]
+      (nth set (mod length (count set))))))
+
 (defn password-meter
   "The strength meter, as a component rather than a block inside the register
    form, because a password gets MADE in two places and only one of them had it.
@@ -233,10 +282,28 @@
           refused? nil
           remaining (str (nth tier-names (inc rung)) " in " remaining)
           (seq password) (str (count password) " characters"))]]
-      ;; The reasoning sits with the bar it is about, not in the field's error
-      ;; slot above the input. It is advice on making a better password, which
-      ;; is what everything else in this widget is.
-      (when refused? [:div.pw-note refused])])))
+      ;; Every rule, each as its own chip. Before this the five rules spoke only
+      ;; through whichever one happened to fail first, so nobody could see what
+      ;; was being asked of them until they had broken it.
+      (when (seq password)
+        [:div.pw-chips
+         (doall
+          (for [{:keys [label ok? needs-context?]} password-rule-chips
+                :when (or (not needs-context?) (seq (vals context)))]
+            ^{:key label}
+            [:span.pw-chip {:class (if (ok? password context) "is-ok" "is-bad")}
+             label]))
+         ;; Only the server can reach the corpus, so this appears once it has
+         ;; answered and never guesses in the meantime.
+         (when refused? [:span.pw-chip.is-bad "too common"])])
+      ;; The line under the bar: what is wrong when something is, and what to do
+      ;; next when nothing is. It sits with the bar it is about rather than in
+      ;; the field's error slot, because both readings are advice on writing a
+      ;; better password, which is what the whole widget is.
+      (cond
+        refused? [:div.pw-note refused]
+        :else (when-let [tip (password-tip rung (count (or password "")))]
+                [:div.pw-note.is-tip tip]))])))
 
 (defn password-pair
   "A password and its confirmation, where revealing the password retires the
