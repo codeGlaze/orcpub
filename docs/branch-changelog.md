@@ -8,6 +8,14 @@ had regressed, damaged homebrew loaded without a word and failed later at export
 and a few notices and controls misreported or covered what they sat on. Each fix
 comes with a check that fails without it.
 
+## Highlights
+
+Signing up, signing in and recovering an account have been rebuilt: passwords are judged
+by length and shape rather than by character classes, screened against the breach corpus
+and refused only when they are egregiously common, and a strength meter says so while you
+are still typing. The nine account pages now share one shell, and a login no longer tells
+a stranger whether a username exists.
+
 ## Added
 
 - **A check for homebrew no repair knows about** — a browser probe breaks one race on
@@ -64,6 +72,18 @@ comes with a check that fails without it.
 - **A notice when one account is signed into from several places** — with the time, the
   browser and where from, held to one message per account per cooldown so a person with a
   phone and a laptop is not mailed all day (`b2aefc9b`, `4f75360c`, `40d6ea23`).
+
+- **A browser suite for signing up, verifying, signing in and recovering an account** —
+  `scripts/e2e/auth-flows.js`, twenty-two checks. These flows had no coverage and no way to
+  get any: the verification key and the reset key exist only inside an email, registration
+  fails outright when no mail can be sent, and every other suite starts from a user seeded
+  straight into Datomic. `scripts/e2e/lib/mail-sink.js` is a dependency-free SMTP server
+  that hands the message back, and `run.sh` starts it and points the app at it, so a suite
+  follows the link a person would click. It pins the things nobody states: that a wrong
+  password and an unknown username answer identically, that an unknown address gets the
+  same answer and no mail, that five wrong guesses turn away the sixth wrong guess but the
+  owner still gets in, and that after a reset the new password logs in and the link cannot
+  be used twice (`e147938e`, `b30876ee`).
 
 ## Fixed
 
@@ -196,6 +216,36 @@ comes with a check that fails without it.
   password"; the one that mails a link is "Reset your password" and the one that takes
   the new password is "Choose a new password".
 
+- **Password reset told nobody why it would not go** — an ordinary password left SUBMIT
+  dimmed and the page silent. The rules gated the form while their reasons were suppressed:
+  `:messages password-messages` had been commented out since the dual-build era, which was
+  survivable at a minimum of eight and is not at twelve. The messages show, and the button
+  is never dimmed (`0380fc94`).
+
+- **The server's reason never left the server** — the reset endpoint answered
+  `{:status 400 :message "..."}`, but `:message` is not a Pedestal response key, so the
+  reply was a 400 with an empty body and the page showed a generic apology. Field-keyed
+  messages in `:body` now, the shape registration already used (`e147938e`).
+
+- **Two verdicts that disagreed** — a password the breach corpus refused was drawn as a red
+  field error directly above a meter reporting UNCOMMON, in green, about the same string.
+  The corpus verdict is the meter's: its own key, the fail colours, a Too common badge and
+  the reasoning on a line under the bar (`b30876ee`).
+
+- **The auth card's text was set solid** — the CSS reset sets `body{line-height:1}`, and a
+  unitless line-height is inherited as a NUMBER, so every element that did not set its own
+  rendered at its own font size and descenders ran into the next line. Eleven elements
+  measured under a 1.25 ratio, nine at exactly 1.00 (`b30876ee`).
+
+- **The gryphon panel tiled, and the legal links printed twice** — no `background-repeat`
+  and no `background-size`, so once the form column outgrew the image a second cropped
+  gryphon drew below it; and the consent line and the footer each linked the same two
+  documents (`ecb13193`).
+
+- **The email help link was one word mid-sentence** — "whitelist" as the whole clickable
+  target, in two places, one of which also read "Didn't receive validation the email?" and
+  advised resetting a password to fix a missing validation email (`ecb13193`).
+
 ## Changed
 
 - **A character's sharing is one line under its title** — a status (Not shared, Shared, or Link expired
@@ -250,3 +300,22 @@ comes with a check that fails without it.
   mistyped password is recoverable; a mistyped address makes a dead account holding the username
   its owner wanted and mails a stranger on the way. Within two edits of a known domain, a
   correction is offered under the field (`bd434342`).
+- **The last three auth pages join the shared heading** — `verify-failed`,
+  `send-password-reset-page` and `password-reset-page` still drew their own bold heading
+  with no rule and no form gutter, so three of the nine shipped unredesigned, and they are
+  the three somebody locked out of their account sees. The two reset pages would both have
+  read "reset password"; the one that mails a link is "Reset your password" and the one
+  that takes the new password is "Choose a new password" (`d476dbd7`).
+
+- **The reset form gets the meter and the reveal** — it refused by exactly the same rules
+  as registration while showing no meter, offering no reveal and demanding a confirmation
+  it never retired. The meter was a block inside `register-form` reading the registration
+  form directly; it is a component now, used by both (`0fbfab83`).
+
+- **A password is refused for the corpus only when it is egregiously common** — 1000
+  appearances, not one. The count was already returned and both call sites flattened it to
+  a boolean. Reset also judges the password against the username, which registration did
+  and it did not (`cef432af`, `e147938e`).
+
+- **Five dead rules removed** — the four `password-strength-*` from the meter this replaced
+  and `success-header`, all with zero uses outside garden (`b30876ee`).

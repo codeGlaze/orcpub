@@ -89,9 +89,10 @@
           count
           (>= 3)))
 
-;; NOTE unused: nothing calls this. Its sibling too-many-attempts-for-username?
-;; is wired into the login handler in routes.clj; this one is not, so a fault in
-;; it fails open silently and no test of the wiring would catch it.
+;; Three addresses failing against ONE account inside the window. That is what a
+;; credential-stuffing run looks like, and it is also what somebody with a phone,
+;; a laptop and a tablet looks like -- so bad-credentials-response in routes.clj
+;; uses it to TELL the account holder rather than to lock anyone out.
 (defn multiple-ip-attempts-to-same-account? [username]
   (multiple-ip-attempts-to-same-account-aux
    username
