@@ -868,7 +868,11 @@
    back into it, never enough to MOVE, since that deletes an entry on a guess. With several there
    is no honest answer at all, so it refuses and says to reopen the item from My Content."
   [plugins recorded plugin-key option-pack key item]
-  (let [occupant (get-in plugins [option-pack plugin-key key])
+  (let [;; every caller gates on this, but the function is not safe on its own terms without
+        ;; it: `(= lives-in option-pack)` is (= nil nil) for a nil target with no known home,
+        ;; which would write a source literally named nil
+        _ (assert (some? option-pack) "save-destination needs a target source")
+        occupant (get-in plugins [option-pack plugin-key key])
         holders  (set (sources-holding plugins plugin-key key))
         ;; The record, only when it still answers AND was made by THIS builder: one source
         ;; holds a race and a subrace under one key for one name, so a record left behind by
@@ -894,8 +898,10 @@
         (cond
           ;; before the occupied offer, for the same reason the move branch tests it first:
           ;; replacing what is here cannot resolve a key another library also holds
-          (seq elsewhere) {:action :refuse :reason :elsewhere :holders elsewhere}
-          occupant        {:action :refuse :reason :occupied :occupant occupant}
+          (seq elsewhere) {:action :refuse :reason :elsewhere :holders elsewhere
+                           :minting? true}
+          occupant        {:action :refuse :reason :occupied :occupant occupant
+                           :minting? true}
           :else           {:action :create}))
 
       (= lives-in option-pack) {:action :in-place}
@@ -913,6 +919,15 @@
       ;; cannot lose anything -- not enough to delete the entry there on the strength of a form
       ;; field, because the form may be holding an item the library has moved on from.
       lives-in                 {:action :refuse :reason :unrecorded :source lives-in}
+
+      ;; The builder opened a real entry and it is no longer there -- deleted, relocated or
+      ;; re-keyed by something that writes :plugins outside this gate, while the form stayed
+      ;; open. Saving would put it back, silently undoing what the author just did somewhere
+      ;; else. They may well want it back; they should be the ones to say so.
+      (and (= key (:key recorded))
+           (= plugin-key (:content-type recorded))
+           (empty? holders))
+      {:action :refuse :reason :vanished :source (:source recorded)}
 
       ;; Nothing answers to the key, so nothing can be duplicated or replaced:
       (empty? holders)         {:action :create}
@@ -954,11 +969,12 @@
    can see on screen. `:elsewhere` and `:ambiguous` pass through unchanged -- nothing is in the
    way there to replace, so consenting would create the duplicate rather than resolve it."
   [{:keys [action reason origin] :as destination}]
-  (if (and (= :refuse action) (= :occupied reason))
-    (if origin
-      {:action :move :from origin}
-      {:action :create})
-    destination))
+  (cond
+    (not= :refuse action)  destination
+    (= :occupied reason)   (if origin {:action :move :from origin} {:action :create})
+    ;; the entry is gone; consent is to writing it back
+    (= :vanished reason)   {:action :create}
+    :else                  destination))
 
 (defn save-into-plugins
   "Write `item` at `key`, and remove whatever sat under `renamed-from`.
@@ -1012,7 +1028,18 @@
 
           :elsewhere
           {:title (str in-sources " already uses the key " key ".")
-           :details ["Keys are shared across your whole library. Rename this one, or change its key."]}
+           ;; renaming only re-addresses an item that has no key YET (D10a). Telling somebody
+           ;; whose item has one to rename it points at a control that cannot help.
+           :details [(if (:minting? destination)
+                       "Keys are shared across your whole library. Rename this one."
+                       "Keys are shared across your whole library. Change its key.")]}
+
+          :vanished
+          {:title (str (pr-str (:source destination)) " no longer has this " lower ".")
+           :details [[:span.pointer.underline.f-w-b
+                      {:on-click #(dispatch replace-event)}
+                      "Save it again"]
+                     "It was deleted or moved while this form was open."]}
 
           :unrecorded
           {:title (str "This " lower " is in " (pr-str (:source destination)) ".")
@@ -1021,8 +1048,11 @@
           :ambiguous
           {:title (str "Two sources have a " lower " with the key " key ".")
            :details ["Open this one from My Content and save again."]})]
-    {:dispatch-n [[:set-builder-field-errors (if (#{:ambiguous :unrecorded} reason)
-                                               {} {:name :invalid})]
+    {:dispatch-n [[:set-builder-field-errors
+                   ;; flag the NAME only where changing it is the way out
+                   ;; the name is the address only while an item is still minting one (D10a),
+                   ;; so flagging it on any other refusal points at a control that cannot help
+                   (if (:minting? destination) {:name :invalid} {})]
                   [:show-error-message message builder-error-ttl]]}))
 
 (defn reg-save-homebrew [type-name
@@ -1067,7 +1097,7 @@
              ;; copies. (Wanting both IS legitimate and arrives through IMPORT, where the conflict
              ;; modal asks.)
              {:keys [action from] :as destination}
-             (when (nil? explanation)
+             (when (and option-pack (nil? explanation))
                (cond-> (save-destination plugins (:builder-origin db) plugin-key option-pack key
                                          item)
                  replace? replacing))]
@@ -1109,8 +1139,13 @@
                            [:show-warning-message
                             ;; Headline carries the point -- it is saved, and only here. The
                             ;; caveat and the way out sit under it.
-                            {:title (str type-name " saved — in this browser only")
-                             :details [[:span
+                            {:title (if (= :move action)
+                                      (str type-name " moved to " (pr-str option-pack)
+                                           " — in this browser only")
+                                      (str type-name " saved — in this browser only"))
+                             :details [(when (= :move action)
+                                         (str "Removed from " (pr-str from) "."))
+                                       [:span
                                         "Clearing browser data loses it. "
                                         [:span.pointer.underline
                                          ;; stop the click: the banner closes on any click that
@@ -1171,8 +1206,9 @@
                            [:set-builder-field-errors {}]
                            [:show-warning-message
                             (str type-name " saved to My Content under \"" src
-                                 "\" with placeholders for missing fields. Review it "
-                                 "and re-export before sharing.")]]})))))))
+                                 "\" with placeholders for missing fields."
+                                 (when (= :move action) (str " Removed from " (pr-str from) "."))
+                                 " Review it and re-export before sharing.")]]})))))))
 
 (reg-save-homebrew
  "Spell"
@@ -1230,7 +1266,6 @@
          item (cond-> raw-item option-pack (assoc :option-pack option-pack))
          key (address-for (:plugins db) ::e5/selections option-pack item name)
          normalized-item (orcbrew-val/normalize-text-in-data item)
-         {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          ;; Validate the author's ACTUAL input, not a placeholder-filled copy -- the same rule
          ;; `reg-save-homebrew` states. It matters more now that the saved item is written back
          ;; into the form, so a placeholder would appear as though the author had typed it.
@@ -1252,7 +1287,7 @@
                            distinct
                            sort))
          {:keys [action from] :as destination}
-         (when (nil? explanation)
+         (when (and option-pack (nil? explanation))
            (cond-> (save-destination plugins (:builder-origin db) ::e5/selections option-pack key
                                      item)
              replace? replacing))]
@@ -1304,8 +1339,13 @@
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
-                        {:title "Selection saved — in this browser only"
-                         :details [[:span
+                        {:title (if (= :move action)
+                                   (str "Selection moved to " (pr-str option-pack)
+                                        " — in this browser only")
+                                   "Selection saved — in this browser only")
+                         :details [(when (= :move action)
+                                     (str "Removed from " (pr-str from) "."))
+                                   [:span
                                     "Clearing browser data loses it. "
                                     [:span.pointer.underline
                                      {:on-click (fn [e]
@@ -1350,8 +1390,9 @@
                        [:set-builder-field-errors {}]
                        [:show-warning-message
                         (str "Selection saved to My Content under \"" src
-                             "\" with placeholders for missing fields. Review it "
-                             "and re-export before sharing.")]]})))))
+                             "\" with placeholders for missing fields."
+                             (when (= :move action) (str " Removed from " (pr-str from) "."))
+                             " Review it and re-export before sharing.")]]})))))
 
 (reg-save-homebrew
  "Feat"

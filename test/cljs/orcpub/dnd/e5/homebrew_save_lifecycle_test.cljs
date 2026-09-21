@@ -411,7 +411,8 @@
   (is (= "Somebody Else's" (get-in @app-db [:plugins OTHER ct (k "Tideward") :name]))
       "the item already there is untouched")
   (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "and this one stayed put")
-  (is (= :invalid (:name (:builder-field-errors @app-db))) "with the reason on the form"))
+  (is (empty? (:builder-field-errors @app-db))
+      "and the NAME is not flagged — this item has a key, so renaming cannot help (D10a)"))
 
 (deftest editing-in-place-is-not-a-move
   (open! (draft "Tideward"))
@@ -447,7 +448,7 @@
   ;; there. Refusing costs one click; moving on a guess costs the entry.
   (open! (draft "Tideward"))
   (save!)
-  (swap! app-db dissoc :builder-origin)              ; what a page reload leaves behind
+  (swap! app-db dissoc :builder-origin)              ; a Move/copy under an open builder
   (retarget! OTHER)
   (save!)
   (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "it stayed where it lives")
@@ -882,7 +883,8 @@
   (save!)
   (is (some? (get-in @app-db [:plugins SRC ct (k "Tideward")])) "it stayed where it was")
   (is (nil? (get-in @app-db [:plugins OTHER ct (k "Tideward")])) "and did not arrive")
-  (is (= :invalid (:name (:builder-field-errors @app-db))) "with the reason on the form"))
+  (is (empty? (:builder-field-errors @app-db))
+      "and the NAME is not flagged — it is the other library, not the name, in the way"))
 
 ;; ---------------------------------------------------------------------------
 ;; Round two of the review (2026-09-20)
@@ -1011,4 +1013,66 @@
       "refused for the other library, not offered as a replace")
   (dispatch! [::langs5e/save-language {:replace? true}])
   (is (= "Mine" (get-in (stored) [(k "Tideward") :name])) "and consent cannot reach it"))
+
+;; ---------------------------------------------------------------------------
+;; Round five of the review (2026-09-21)
+;; ---------------------------------------------------------------------------
+
+(deftest deleting-uses-the-rows-address-not-the-items-own-fields
+  ;; `reg-delete-homebrew` had no test at all. Reading `:option-pack`/`:key` off the item deleted
+  ;; nothing for a pre-keys library, and where another source answered to the same key it deleted
+  ;; THAT entry and left the clicked one in place.
+  (with-legacy-item!)                                   ; SRC holds old-key, item carries no :key
+  (swap! app-db assoc-in [:plugins OTHER ct old-key]
+         {:name "Somebody Else's" :option-pack OTHER})
+  (dispatch! [::langs5e/delete-language (get-in @app-db [:plugins SRC ct old-key]) SRC old-key])
+  (is (empty? (stored)) "the clicked row is gone")
+  (is (= "Somebody Else's" (get-in @app-db [:plugins OTHER ct old-key :name]))
+      "and the same-keyed entry in another library is untouched"))
+
+(deftest deleting-something-that-is-not-there-says-so
+  ;; The list pages pass only the item, so the fallback runs. A homebrew item that arrived through
+  ;; a share link is not in :plugins at all -- that used to be a silent no-op.
+  (dispatch! [::langs5e/delete-language {:name "Shared" :option-pack "Not Mine"
+                                         :key :shared-nm}])
+  (is (empty? (:plugins @app-db)) "nothing written")
+  (is (some? (:message @app-db)) "and the author is told rather than left guessing"))
+
+(deftest an-entry-deleted-under-an-open-builder-is-not-silently-resurrected
+  ;; Three things write :plugins outside this gate -- delete, Move/copy, and import conflict
+  ;; resolution -- and all of them can run while a builder holds the item. Saving afterwards used
+  ;; to put it straight back, undoing what the author had just done somewhere else.
+  (open! (draft "Tideward"))
+  (save!)
+  (open-from-library! SRC (k "Tideward"))
+  (dispatch! [::langs5e/delete-language (get-in (stored) [(k "Tideward")]) SRC (k "Tideward")])
+  (is (empty? (stored)) "gone")
+  (save!)
+  (is (empty? (stored)) "a plain save does not bring it back")
+  ;; ...but the author can say so
+  (dispatch! [::langs5e/save-language {:replace? true}])
+  (is (= #{(k "Tideward")} (set (keys (stored)))) "on consent it is written again"))
+
+(deftest a-move-says-what-it-removed
+  ;; The move is what the author asked for by retyping the source, but deleting the entry they
+  ;; came from is not something the banner used to mention at all.
+  (open! (draft "Tideward"))
+  (save!)
+  (open-from-library! SRC (k "Tideward"))
+  (retarget! OTHER)
+  (save!)
+  (let [{:keys [title details]} (:message @app-db)]
+    (is (re-find #"moved to" (str title)) "the headline says it moved")
+    (is (some #(re-find (re-pattern SRC) (str %)) details)
+        "and the detail names the library it was removed from")))
+
+(deftest every-read-path-stamps-the-address
+  ;; Two helpers read items out of :plugins and both must stamp, or a door that reads through the
+  ;; unstamped one hands the save an item that cannot say where it lives.
+  (with-legacy-item!)
+  (let [via-vals (-> (subs5e/process-plugin-vals (:plugins @app-db)) first (get ct) (get old-key))]
+    (is (= [old-key SRC] [(:key via-vals) (:option-pack via-vals)])))
+  (let [[src plugin] (first (subs5e/process-plugins-with-sources (:plugins @app-db)))
+        via-sources  (get-in plugin [ct old-key])]
+    (is (= [SRC old-key SRC] [src (:key via-sources) (:option-pack via-sources)]))))
 

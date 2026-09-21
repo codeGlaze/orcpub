@@ -93,6 +93,39 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### A save that deletes has to say so (2026-09-21)
+
+Fifth review round, the first against a target that was not changing underneath it. It found **no
+reachable write that destroys an entry through the gate without the author being asked** — the
+remaining problems were about what the author is *told*, and one door nobody had counted.
+
+- **A move deleted the origin entry and the banner never mentioned it.** Open Fireball from Pak A,
+  retype the source, save — gone from Pak A, and Pak A drops out of My Content if that was its last
+  item. Integration REFUSED this save, so converting it to a silent move was a regression in the
+  told dimension even though the move itself is the feature. All four success banners now read
+  *"… moved to "Pak B""* with *"Removed from "Pak A"."* under it. The vocabulary already existed —
+  the consented replace says it.
+- **`:vanished`.** Delete, Move/copy or import conflict resolution can rewrite `:plugins` while a
+  builder holds the item. The next save put it straight back, silently undoing what the author had
+  just done somewhere else. The record says *"you opened `[A k type]`"* and the library saying that
+  no longer answers is a reportable fact, not the same as a key nobody has used. It refuses with
+  *""Pak A" no longer has this language"* and offers **Save it again**.
+- **The twelfth edit door.** `options.cljc`'s dangling-spell "define it here" pencil synthesizes an
+  edit event from a spell that has no source at all. It cannot drive a move (a half-record never
+  validates), but it is the one door that reads through neither stamping helper. Counted here so the
+  next person does not have to rediscover it.
+- **The stamp moved into `process-plugins-with-sources` itself.** Round four stamped in one of that
+  helper's two callers; the other (`::classes5e/plugin-classes`) stayed unstamped. The address
+  belongs on the way out of `:plugins`, not in a caller — which is how one ended up stamped and the
+  other not.
+- **`save-destination` asserts it has a target.** With a nil `option-pack` and no known home,
+  `(= lives-in option-pack)` was `(= nil nil)` ⇒ `:in-place` ⇒ a write to a source named `nil`.
+  Unreachable only by caller discipline, and one `cond` reorder from being reachable.
+- **The NAME is flagged only while an item is still minting one.** Telling somebody whose item has a
+  key to rename it points at a control that provably cannot help (D10a).
+
+`reg-delete-homebrew` had **zero** tests — new arity, fallback and error path alike. It has four now.
+
 ### The content type is bound at registration (2026-09-20)
 
 Fourth review round. The stamp reached nine of the ten item-only edit doors — **the subclass pencil

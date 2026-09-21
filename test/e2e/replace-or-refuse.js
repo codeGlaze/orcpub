@@ -137,7 +137,9 @@ const addFrom = async (page, source) => {
     const elsewhere = await bannerText(page);
     check('refused as a cross-source duplicate', /already uses the key/.test(elsewhere), elsewhere.slice(0, 220));
     check('it names the source holding the key', /"Tide Pak" already uses the key :tideward-tepk/.test(elsewhere));
-    check('and says what to do about it', /Rename this one, or change its key/.test(elsewhere));
+    // this one is a NEW item minting a taken key, so renaming it IS the way out. An item that
+    // already has a key is told to change the key instead — renaming cannot re-address it (D10a).
+    check('and says what to do about it', /Rename this one\./.test(elsewhere));
     check('and offers NO replace button — a yes here would only make the duplicate',
           !/Replace it/.test(elsewhere));
     check('two lines, not a lecture', elsewhere.replace(/\s*✕?\s*$/, '').length < 140,
