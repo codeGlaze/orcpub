@@ -694,6 +694,14 @@
    ;; -- every field error on the register form was reading at about 2.6:1.
    ;; .app.light-theme already does this; that selector just never matches here.
    [:.registration-content
+    ;; The reset sets body{line-height:1}, and because that is a UNITLESS number
+    ;; every descendant inherits the number and multiplies it by its own font
+    ;; size -- so anything here that did not set a line-height rendered SOLID and
+    ;; its descenders ran into the next line's ascenders. Eleven elements on
+    ;; these pages were at exactly 1.00, including every sentence long enough to
+    ;; wrap. Set once on the card so everything inside inherits something
+    ;; readable; the few boxes whose geometry is tuned pin their own below.
+    {:line-height "1.5"}
     [:.red {:color red}
      [:a :a:visited {:color red}]]
 
@@ -868,6 +876,9 @@
                       :outline :none
                       :transition "border-color 0.15s, box-shadow 0.15s, background-color 0.15s"}]]
     [:.field [:.notch {:position :absolute
+                       ;; Pinned: this is positioned to the pixel against the
+                       ;; input's border and the card's line-height would move it.
+                       :line-height "1"
                        :left "11px"
                        :top "15px"
                        :padding "0 4px"
@@ -893,6 +904,7 @@
     ;; One container, not four: the first attempt tinted the input AND doubled
     ;; its border AND boxed the message AND railed the box, and looked pinched.
     [:.field [:.lift {:display :none
+                      :line-height "1"
                       :margin "0 0 5px"
                       :font-size "11px"
                       :letter-spacing "0.08em"
@@ -973,6 +985,15 @@
                   :gap "10px"
                   :min-height "24px"
                   :margin-top "9px"}]
+   ;; The corpus verdict's reasoning, under the bar it is about. Ink rather than
+   ;; red: the bar and the word above it already carry the colour, and this is
+   ;; advice on writing a better password, not a second alarm.
+   [:.pw-note {:font-size "12.5px"
+               :line-height "18px"
+               :color text-color-light
+               :text-align :left
+               :margin-top "-2px"
+               :max-width "38ch"}]
    [:.pw-tier-name {:font-size "13px"
                     :font-weight :bold
                     :letter-spacing "0.08em"
@@ -3275,29 +3296,6 @@
       :background-color "rgba(255,255,255,0.1)"
       :color :white}]
 
-    [:.password-strength-bg
-     {:top 0
-      :left 0
-      :height "30px"
-      :opacity "0.7"
-      :width "100%"
-      :position :absolute}]
-
-    [:.password-strength-container
-     {:position :relative
-      :height "30px"}]
-
-    [:.password-strength-label
-     {:position :absolute
-      :padding-top "6px"}]
-
-    [:.password-strength-meter
-     {:top 0
-      :left 0
-      :position :absolute
-      :height "30px"
-      :transition "width 1s"}]
-
     [:.print-disabled
      {:opacity 0.5
       :cursor :not-allowed
@@ -3329,13 +3327,6 @@
     [:.social-icon
      {:color :white
       :font-size "20px"}]
-
-    [:.success-header
-     {:color "#f0a100"
-      :font-weight :bold
-      :font-size "36px"
-      :text-transform :uppercase
-      :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"}]
 
     [:.svg-bar-stroke
      {:stroke-width 5

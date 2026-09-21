@@ -491,9 +491,15 @@
   (testing "a service that could not answer is not an objection"
     (with-redefs [pwned/check (constantly :unknown)]
       (is (nil? (#'routes/breach-errors "irrelevant")))))
-  (testing "the refusal speaks as a strength verdict and keeps the count out"
+  (testing "the verdict is keyed for the METER, not as a field fault"
     (with-redefs [pwned/check (constantly 52372427)]
-      (let [message (first (:password (#'routes/breach-errors "irrelevant")))]
-        (is (= "Too common. A few words strung together are harder to guess and easier to remember."
-               message))
-        (is (not (re-find #"\d" message)) "no count, no breach language")))))
+      (let [answer (#'routes/breach-errors "irrelevant")]
+        ;; :password would render it as a red error above the input, directly
+        ;; over a meter reporting UNCOMMON in green about the same password.
+        (is (nil? (:password answer)) "not keyed with the rule faults")
+        (let [message (first (:password-common answer))]
+          (is (= "A few words strung together are harder to guess and easier to remember."
+                 message))
+          (is (not (re-find #"\d" message)) "no count, no breach language")
+          (is (not (re-find #"(?i)too common" message))
+              "the badge says Too common; the line under the bar does not repeat it"))))))

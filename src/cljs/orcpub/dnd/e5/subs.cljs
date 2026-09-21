@@ -94,7 +94,10 @@
                ;; the submit button is disabled while this map has anything in
                ;; it -- a rate limit the person cannot edit their way out of
                ;; would leave them with a button that never comes back.
-               (dissoc (or server {}) :general))))
+               ;; :password-common likewise: it is the meter's verdict, shown by
+               ;; the meter. Left in here it would print a red field error above
+               ;; a meter cheerfully reporting UNCOMMON about the same password.
+               (dissoc (or server {}) :general :password-common))))
 
 (reg-sub
  :registration-attempted?
@@ -106,6 +109,14 @@
  :<- [:registration-server-errors]
  (fn [server [_]]
    (:general server)))
+
+;; The corpus verdict, for the meter. Only the server can reach the corpus, so
+;; this is the one thing the meter cannot work out for itself.
+(reg-sub
+ :registration-password-common
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (first (:password-common server))))
 
 (reg-sub
  :temp-email
