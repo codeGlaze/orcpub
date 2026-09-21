@@ -93,6 +93,39 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### The address says something answers; the NAME says what (2026-09-21)
+
+Sixth review round. Round five certified that nothing writes through the gate without the author
+being asked. That was true for the two cases anyone had enumerated — an entry **deleted** out from
+under an open builder, and one **relocated**. The third is an entry **replaced**, and it got through.
+
+An import under the *same source name* does not collide: `detect-duplicate-keys` deliberately
+filters same-source collisions out, and `merge-plugins` lets the incoming item win. So
+`[source key]` still answers, `recorded-src` still verifies, and the save reads `:in-place` and
+writes over what was just imported — under a banner reading "saved".
+
+**The record now carries which item, not just where it was.** `origin-of` stores the name at open
+time; when the occupant's name no longer matches, the save refuses as `:occupied` and offers
+*Replace it*. The address only ever proved that *something* answers.
+
+Two more from the same round:
+
+- **`:builder-origin` was ONE slot for thirteen builders**, whose drafts are all live at once. New
+  in any builder cleared it globally; edit in any builder overwrote it. So deleting an item,
+  clicking "add feat", and coming back **resurrected the deleted item** — the safety valve added the
+  round before was off for any session that touched a second builder — and a move was available
+  only to whichever builder wrote the slot last. It is one slot **per content type** now, which also
+  deletes the `:content-type` guard: the slot a record lives in *is* its content type.
+- **The key control still located the entry by the typed Option Source Name field** — the last
+  surviving instance of the guess this whole rework removes, at the one site with the most to lose.
+  Retype the source to a library that answers to the same key, then change the key, and it re-keyed
+  *that* library's entry and loaded it over the open draft, discarding every unsaved edit from
+  app-db and the persisted draft alike. It locates through the verified record now, and keeps the
+  author's item rather than replacing it with the library copy.
+
+Banner corrections: `:occupied` no longer tells a keyed author to rename (D10a — it cannot help),
+and `:ambiguous` names the sources instead of asserting there are two.
+
 ### A save that deletes has to say so (2026-09-21)
 
 Fifth review round, the first against a target that was not changing underneath it. It found **no

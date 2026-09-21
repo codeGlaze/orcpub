@@ -878,11 +878,6 @@
         ;; holds a race and a subrace under one key for one name, so a record left behind by
         ;; another builder would otherwise validate here.
         recorded-src (when (and (= key (:key recorded))
-                                ;; and recorded for THIS content type: a source holds a race
-                                ;; and a subrace under one key for one name, and
-                                ;; `:builder-origin` is a single slot shared by all fourteen
-                                ;; builders -- one of which may have left the record behind
-                                (= plugin-key (:content-type recorded))
                                 (contains? holders (:source recorded)))
                        (:source recorded))
         ;; where the item lives -- known from the record, or GUESSED when one library holds the
@@ -904,6 +899,14 @@
                            :minting? true}
           :else           {:action :create}))
 
+      ;; The address still answers -- but is it still the same ITEM? An import under the same
+      ;; source name replaces an entry without colliding (the conflict gate filters same-source
+      ;; collisions out) and without saying so, and an in-place save then writes over what was
+      ;; just imported. The recorded name is what tells them apart.
+      (and (= lives-in option-pack) occupant (:name recorded)
+           (not= (:name occupant) (:name recorded)))
+      {:action :refuse :reason :occupied :occupant occupant}
+
       (= lives-in option-pack) {:action :in-place}
 
       ;; BEFORE the occupied offer, not after: a third library answering to this key is not
@@ -924,9 +927,7 @@
       ;; re-keyed by something that writes :plugins outside this gate, while the form stayed
       ;; open. Saving would put it back, silently undoing what the author just did somewhere
       ;; else. They may well want it back; they should be the ones to say so.
-      (and (= key (:key recorded))
-           (= plugin-key (:content-type recorded))
-           (empty? holders))
+      (and (= key (:key recorded)) (empty? holders))
       {:action :refuse :reason :vanished :source (:source recorded)}
 
       ;; Nothing answers to the key, so nothing can be duplicated or replaced:
@@ -936,12 +937,21 @@
       ;; it from My Content records that, which is the way out.
       :else                    {:action :refuse :reason :ambiguous :holders holders})))
 
+(defn origin-of
+  "The record the builder keeps for an item it fetched: where it was, and WHICH item it was.
+
+   The name is the identity half. The address alone only says something still answers there --
+   an import that replaces an entry under the same source name does not collide (same-source
+   collisions are filtered out of the conflict gate) and does not notify, so `[source key]`
+   verifying proves nothing about whether it is still the item on screen."
+  [item]
+  {:source (:option-pack item) :key (:key item) :name (:name item)})
+
 (defn- fetched-from
   "The source the builder took this item out of, or nil when that address no longer answers.
    The same verification `save-destination` applies to a record; see its GOTCHA."
   [plugins recorded plugin-key key]
   (when (and (some? key) (= key (:key recorded))
-             (= plugin-key (:content-type recorded))
              (some? (get-in plugins [(:source recorded) plugin-key key])))
     (:source recorded)))
 
@@ -1024,7 +1034,9 @@
                       (if-let [from (:origin destination)]
                         (str "Replace it, and move this one out of " (pr-str from))
                         "Replace it")]
-                     "Or rename this one."]}
+                     (if (:minting? destination)
+                       "Or rename this one."
+                       "Or change its key.")]}
 
           :elsewhere
           {:title (str in-sources " already uses the key " key ".")
@@ -1046,7 +1058,7 @@
            :details ["Open it from My Content to move it somewhere else."]}
 
           :ambiguous
-          {:title (str "Two sources have a " lower " with the key " key ".")
+          {:title (str in-sources " all have a " lower " with the key " key ".")
            :details ["Open this one from My Content and save again."]})]
     {:dispatch-n [[:set-builder-field-errors
                    ;; flag the NAME only where changing it is the way out
@@ -1098,7 +1110,7 @@
              ;; modal asks.)
              {:keys [action from] :as destination}
              (when (and option-pack (nil? explanation))
-               (cond-> (save-destination plugins (:builder-origin db) plugin-key option-pack key
+               (cond-> (save-destination plugins (get-in db [:builder-origin plugin-key]) plugin-key option-pack key
                                          item)
                  replace? replacing))]
          (cond
@@ -1131,8 +1143,12 @@
              ;; next save read as another move, off an entry that has already gone.
              {:db (assoc db
                          item-key item-with-key
-                         :builder-origin {:source option-pack :key key :content-type plugin-key})
-              ::persist-builder-origin {:source option-pack :key key :content-type plugin-key}
+                         :builder-origin (assoc (:builder-origin db) plugin-key
+                                                {:source option-pack :key key
+                                                 :name (:name item-with-key)}))
+              ::persist-builder-origin (assoc (:builder-origin db) plugin-key
+                                              {:source option-pack :key key
+                                               :name (:name item-with-key)})
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -1177,7 +1193,7 @@
              ;; nowhere lands in the placeholder source. Substituting the placeholder blindly read
              ;; as a retarget and deleted the item from the library it actually lived in.
              src (or (not-empty (s/trim (str option-pack)))
-                     (fetched-from (:plugins db) (:builder-origin db) plugin-key
+                     (fetched-from (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key
                                    (:key item))
                      orcbrew-val/default-option-source)
              ;; Placeholders fill the FIELDS; they do not buy an address. Sanitizing a name must
@@ -1186,7 +1202,7 @@
              final-key (address-for (:plugins db) plugin-key src item (:name sanitized))
              item-with-key (assoc sanitized :option-pack src :key final-key)
              {:keys [action from] :as destination}
-             (cond-> (save-destination (:plugins db) (:builder-origin db) plugin-key src final-key
+             (cond-> (save-destination (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key src final-key
                                        item)
                replace? replacing)]
          (if (= :refuse action)
@@ -1199,8 +1215,12 @@
              ;; no key, so saving again mints a second one and lands on its own entry.
              {:db (assoc db
                          item-key item-with-key
-                         :builder-origin {:source src :key final-key :content-type plugin-key})
-              ::persist-builder-origin {:source src :key final-key :content-type plugin-key}
+                         :builder-origin (assoc (:builder-origin db) plugin-key
+                                                {:source src :key final-key
+                                                 :name (:name item-with-key)}))
+              ::persist-builder-origin (assoc (:builder-origin db) plugin-key
+                                              {:source src :key final-key
+                                               :name (:name item-with-key)})
               ::persist-builder-wip [item-key item-with-key]
               :dispatch-n [[::e5/set-plugins new-plugins]
                            [:set-builder-field-errors {}]
@@ -1288,7 +1308,7 @@
                            sort))
          {:keys [action from] :as destination}
          (when (and option-pack (nil? explanation))
-           (cond-> (save-destination plugins (:builder-origin db) ::e5/selections option-pack key
+           (cond-> (save-destination plugins (get-in db [:builder-origin ::e5/selections]) ::e5/selections option-pack key
                                      item)
              replace? replacing))]
      (cond
@@ -1332,9 +1352,12 @@
                            (update-in [from ::e5/selections] dissoc key))]
          {:db (assoc db
                      ::selections5e/builder-item item-with-key
-                     :builder-origin {:source option-pack :key key
-                                     :content-type ::e5/selections})
-          ::persist-builder-origin {:source option-pack :key key :content-type ::e5/selections}
+                     :builder-origin (assoc (:builder-origin db) ::e5/selections
+                                            {:source option-pack :key key
+                                             :name (:name item-with-key)}))
+          ::persist-builder-origin (assoc (:builder-origin db) ::e5/selections
+                                          {:source option-pack :key key
+                                           :name (:name item-with-key)})
           ::persist-builder-wip [::selections5e/builder-item item-with-key]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -1366,13 +1389,13 @@
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          ;; as above: blank means the field is missing, not that the item should move
          src (or (not-empty (s/trim (str option-pack)))
-                 (fetched-from (:plugins db) (:builder-origin db) ::e5/selections
+                 (fetched-from (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections
                                (:key item))
                  orcbrew-val/default-option-source)
          key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
          item-with-key (assoc filled-item :key key :option-pack src)
          {:keys [action from] :as destination}
-         (cond-> (save-destination (:plugins db) (:builder-origin db) ::e5/selections src key
+         (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src key
                                    item)
            replace? replacing)]
      (if (= :refuse action)
@@ -1383,8 +1406,12 @@
                            (= :move action) (update-in [from ::e5/selections] dissoc key))]
          {:db (assoc db
                      ::selections5e/builder-item item-with-key
-                     :builder-origin {:source src :key key :content-type ::e5/selections})
-          ::persist-builder-origin {:source src :key key :content-type ::e5/selections}
+                     :builder-origin (assoc (:builder-origin db) ::e5/selections
+                                            {:source src :key key
+                                             :name (:name item-with-key)}))
+          ::persist-builder-origin (assoc (:builder-origin db) ::e5/selections
+                                          {:source src :key key
+                                           :name (:name item-with-key)})
           ::persist-builder-wip [::selections5e/builder-item item-with-key]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
@@ -3001,12 +3028,8 @@
            ;; the content type is known at REGISTRATION -- a builder only ever edits its own kind
            ;; -- so the caller never has to supply it and every record carries one
            content-type (or content-type plugin-key)]
-       {:db (assoc db :builder-origin {:source (:option-pack located)
-                                       :key (:key located)
-                                       :content-type content-type})
-        ::persist-builder-origin {:source (:option-pack located)
-                                  :key (:key located)
-                                  :content-type content-type}
+       {:db (assoc-in db [:builder-origin content-type] (origin-of located))
+        ::persist-builder-origin (assoc (:builder-origin db) content-type (origin-of located))
         :dispatch-n [[set-event located]
                      [:route route]]}))))
 
@@ -4856,13 +4879,19 @@
  ;; checks the same invariant.
  (fn [{:keys [db]} [_ save-event typed]]
    (let [[item-key plugin-key] (get builder-drafts save-event)
-         {:keys [option-pack] :as item} (get db item-key)
+         item (get db item-key)
          old-key (:key item)
+         plugins (:plugins db)
+         ;; The library this re-keys is the one the builder FETCHED the item from, verified --
+         ;; never the Option Source Name field. Reading the field meant that retyping it and then
+         ;; changing the key re-keyed the OTHER library's entry and loaded it over the open
+         ;; draft, losing every unsaved edit from app-db and from the persisted draft alike.
+         option-pack (fetched-from plugins (get-in db [:builder-origin plugin-key])
+                                   plugin-key old-key)
          trimmed (s/trim (str typed))
-         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))
-         plugins (:plugins db)]
+         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))]
      (cond
-       (or (nil? old-key) (nil? (get-in plugins [option-pack plugin-key old-key])))
+       (or (nil? old-key) (nil? option-pack))
        {:dispatch [:show-error-message
                    "Save this first — a key is only assigned once the item is in your library."
                    builder-error-ttl]}
@@ -4894,12 +4923,20 @@
                                                        plugin-key old-key new-key)
              new-plugins (assoc plugins option-pack renamed)
              moved (get-in renamed [plugin-key new-key])]
-         ;; re-stamp the origin: left pointing at the old key it can never verify again, and
-         ;; the next save falls back to guessing from the library
-         {:db (assoc db item-key moved
-                     :builder-origin {:source option-pack :key new-key :content-type plugin-key})
-          ::persist-builder-origin {:source option-pack :key new-key :content-type plugin-key}
-          ::persist-builder-wip [item-key moved]
+         ;; The builder keeps the AUTHOR's item, re-keyed -- not the library copy. Replacing it
+         ;; wholesale discarded whatever they had typed since the last save, from app-db and from
+         ;; the persisted draft alike. `:former-keys` comes across so the next save does not
+         ;; write the breadcrumb back out.
+         {:db (assoc db item-key (assoc item :key new-key
+                                        :former-keys (:former-keys moved))
+                     :builder-origin (assoc (:builder-origin db) plugin-key
+                                            {:source option-pack :key new-key
+                                             :name (:name item)}))
+          ::persist-builder-origin (assoc (:builder-origin db) plugin-key
+                                          {:source option-pack :key new-key
+                                           :name (:name item)})
+          ::persist-builder-wip [item-key (assoc item :key new-key
+                                                 :former-keys (:former-keys moved))]
           :dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
@@ -6465,13 +6502,15 @@
    {:dispatch [::class5e/set-class
                default-class]}))
 
-(defn reg-new-homebrew [event set-event default-val route]
+(defn reg-new-homebrew [event set-event default-val route plugin-key]
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ option-pack option]]
      ;; a new item came from nowhere, so it has no origin to return to
-     {:db (dissoc db :builder-origin)
-      ::persist-builder-origin nil
+     ;; a new item came from nowhere, so THIS builder has no origin to return to. Only this
+     ;; one: the slot is per content type, and the other twelve drafts are still open.
+     {:db (update db :builder-origin dissoc plugin-key)
+      ::persist-builder-origin (dissoc (:builder-origin db) plugin-key)
       :dispatch-n [[set-event (-> default-val
                                   (assoc :option-pack option-pack)
                                   (merge option))]
@@ -6499,7 +6538,7 @@
   (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
   (reg-delete-homebrew delete-event plugin-key)
   (reg-edit-homebrew edit-event set-event route plugin-key)
-  (reg-new-homebrew new-event set-event default route)
+  (reg-new-homebrew new-event set-event default route plugin-key)
   ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
   (reg-event-db set-event interceptors (fn [_ [_ item]] item))
   (reg-event-db set-prop-event interceptors
@@ -6739,43 +6778,50 @@
  ::spells/new-spell
  ::spells/set-spell
  default-spell
- routes/dnd-e5-spell-builder-page-route)
+ routes/dnd-e5-spell-builder-page-route
+ ::e5/spells)
 
 (reg-new-homebrew
  ::monsters/new-monster
  ::monsters/set-monster
  default-monster
- routes/dnd-e5-monster-builder-page-route)
+ routes/dnd-e5-monster-builder-page-route
+ ::e5/monsters)
 
 (reg-new-homebrew
  ::encounters/new-encounter
  ::encounters/set-encounter
  default-encounter
- routes/dnd-e5-encounter-builder-page-route)
+ routes/dnd-e5-encounter-builder-page-route
+ ::e5/encounters)
 
 (reg-new-homebrew
  ::bg5e/new-background
  ::bg5e/set-background
  default-background
- routes/dnd-e5-background-builder-page-route)
+ routes/dnd-e5-background-builder-page-route
+ ::e5/backgrounds)
 
 (reg-new-homebrew
  ::langs5e/new-language
  ::langs5e/set-language
  default-language
- routes/dnd-e5-language-builder-page-route)
+ routes/dnd-e5-language-builder-page-route
+ ::e5/languages)
 
 (reg-new-homebrew
  ::class5e/new-invocation
  ::class5e/set-invocation
  default-invocation
- routes/dnd-e5-invocation-builder-page-route)
+ routes/dnd-e5-invocation-builder-page-route
+ ::e5/invocations)
 
 (reg-new-homebrew
  ::selections5e/new-selection
  ::selections5e/set-selection
  default-selection
- routes/dnd-e5-selection-builder-page-route)
+ routes/dnd-e5-selection-builder-page-route
+ ::e5/selections)
 
 ;; ::class5e/new-boon is registered via register-homebrew-content!.
 
@@ -6783,31 +6829,36 @@
  ::feats5e/new-feat
  ::feats5e/set-feat
  default-feat
- routes/dnd-e5-feat-builder-page-route)
+ routes/dnd-e5-feat-builder-page-route
+ ::e5/feats)
 
 (reg-new-homebrew
  ::race5e/new-race
  ::race5e/set-race
  default-race
- routes/dnd-e5-race-builder-page-route)
+ routes/dnd-e5-race-builder-page-route
+ ::e5/races)
 
 (reg-new-homebrew
  ::race5e/new-subrace
  ::race5e/set-subrace
  default-subrace
- routes/dnd-e5-subrace-builder-page-route)
+ routes/dnd-e5-subrace-builder-page-route
+ ::e5/subraces)
 
 (reg-new-homebrew
  ::class5e/new-subclass
  ::class5e/set-subclass
  default-subclass
- routes/dnd-e5-subclass-builder-page-route)
+ routes/dnd-e5-subclass-builder-page-route
+ ::e5/subclasses)
 
 (reg-new-homebrew
  ::class5e/new-class
  ::class5e/set-class
  default-class
- routes/dnd-e5-class-builder-page-route)
+ routes/dnd-e5-class-builder-page-route
+ ::e5/classes)
 
 (reg-event-fx
  ::mi/new-item
