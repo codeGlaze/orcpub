@@ -681,16 +681,27 @@
   (try
     (let [{:keys [password verify-password]} json-params
           username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)
+          {:keys [:db/id :orcpub.user/email] :as user} (first-user-by db username-query username)
+          ;; The username is known here, even though this page never shows it,
+          ;; so a password that IS the username can be refused the way
+          ;; registration already refuses one. Without the context this was the
+          ;; one rule the two paths did not share.
+          context {:username username :email email}
+          rule-errors (registration/validate-password password context)
           ;; Asked once. Only reached when the password is otherwise acceptable,
           ;; so a rejected reset never costs a call.
-          breached (when (and (= password verify-password)
-                              (empty? (registration/validate-password password)))
+          breached (when (and (= password verify-password) (empty? rule-errors))
                      (first (:password (breach-errors password))))]
+      ;; Field-keyed, in :body, the same shape registration answers with.
+      ;; :message is not a Pedestal response key: these came back as a 400 with
+      ;; an EMPTY body, so the reasons never left the server and the page had
+      ;; nothing to show but a generic apology.
       (cond
-        (not= password verify-password) {:status 400 :message "Passwords do not match"}
-        (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
-        breached {:status 400 :message breached}
+        (not= password verify-password)
+        {:status 400 :body {:verify-password ["Passwords do not match"]}}
+
+        (seq rule-errors) {:status 400 :body rule-errors}
+        breached {:status 400 :body {:password [breached]}}
         :else (do-password-reset conn id password)))
     (catch Throwable t (prn t) (throw t))))
 
