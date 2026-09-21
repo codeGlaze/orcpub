@@ -1,0 +1,141 @@
+(ns orcpub.registration-rollback-test
+  "Registration must not leave an account behind when the verification email fails.
+
+   do-verification transacts the user and THEN sends the email. Datomic does not
+   roll back, so a failed send left a committed, unverified account -- and since
+   register validates against existing username/email, the retry it tells the
+   user to make then fails with \"already taken\". The address is locked out and
+   the account can never be verified, because no email can ever be sent.
+
+   That is the default state of any instance without SMTP, including the default
+   docker-compose deployment, where EMAIL_SERVER_URL is passed as ${VAR:-}.
+
+   The sibling flow already solved this: request-email-change transacts, sends,
+   and retracts on failure, covered by email_change_test/test-email-send-failure-
+   rolls-back. These tests are that one's mirror for registration.
+
+   See docs/kb/blank-env-values.md."
+  (:require
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [datomic.api :as d]
+   [datomock.core :as dm]
+   [orcpub.errors :as errors]
+   [orcpub.routes :as routes]
+   [orcpub.db.schema :as schema])
+  (:import [java.util UUID]))
+
+(use-fixtures :each
+  (fn [f]
+    (binding [errors/*error-prefix* "TEST_ERROR:"]
+      (f))))
+
+(defmacro with-conn [conn-binding & body]
+  `(let [uri# (str "datomic:mem:registration-rollback-test-" (UUID/randomUUID))
+         ~conn-binding (do
+                         (d/create-database uri#)
+                         (d/connect uri#))]
+     (try ~@body
+          (finally (d/delete-database uri#)))))
+
+(defn- seed-schema [conn]
+  @(d/transact conn schema/all-schemas))
+
+(defn- find-user [db username]
+  (when-let [e (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] db username)]
+    (d/pull db '[*] e)))
+
+(defn- register-request [conn]
+  {:conn conn
+   :db (d/db conn)
+   :scheme :https
+   :headers {"host" "example.test"}
+   ;; verify-email is required by registration/validate-registration and must
+   ;; match :email, or register returns 400 before reaching do-verification.
+   :json-params {:username "newcomer"
+                 :email "newcomer@test.com"
+                 :verify-email "newcomer@test.com"
+                 :password "hunter2hunter2"
+                 :send-updates? false}})
+
+(deftest failed-verification-email-leaves-no-account
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (testing "an SMTP failure must not commit a half-created user"
+        (with-redefs [routes/send-verification-email
+                      (fn [& _] (throw (Exception. "SMTP down")))]
+          ;; register rethrows; what matters is the DB state afterwards, not
+          ;; which exception surfaced.
+          (try (routes/register (register-request mocked-conn))
+               (catch Throwable _ nil))
+          (let [user (find-user (d/db mocked-conn) "newcomer")]
+            (is (nil? user)
+                (str "A failed verification email left an account behind. "
+                     "The user is now locked out: retrying registration fails "
+                     "validation because the username and email are taken, and "
+                     "the account can never be verified. Found: " (pr-str user)))))))))
+
+(deftest the-address-can-be-reused-after-a-failed-send
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (testing "after a failed send, the same details still validate as available"
+        (with-redefs [routes/send-verification-email
+                      (fn [& _] (throw (Exception. "SMTP down")))]
+          (try (routes/register (register-request mocked-conn))
+               (catch Throwable _ nil)))
+        ;; Second attempt, this time with a working mailer.
+        (with-redefs [routes/send-verification-email (fn [& _] nil)]
+          (let [resp (routes/register (register-request mocked-conn))]
+            (is (= 200 (:status resp))
+                (str "Retrying after a failed send must succeed -- this is the "
+                     "advice the error message gives the user. Got: " (pr-str resp)))
+            (let [user (find-user (d/db mocked-conn) "newcomer")]
+              (is (some? user) "the retry should create the account")
+              (is (false? (:orcpub.user/verified? user))
+                  "and it should be awaiting verification"))))))))
+
+(deftest a-successful-send-still-creates-the-account
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (testing "the happy path is unchanged by the rollback"
+        (with-redefs [routes/send-verification-email (fn [& _] nil)]
+          (let [resp (routes/register (register-request mocked-conn))
+                user (find-user (d/db mocked-conn) "newcomer")]
+            (is (= 200 (:status resp)))
+            (is (some? user))
+            (is (= "newcomer@test.com" (:orcpub.user/email user)))
+            (is (false? (:orcpub.user/verified? user)))
+            (is (some? (:orcpub.user/verification-key user))
+                "a verification key must be stored for the emailed link to resolve")))))))
+
+(deftest re-verify-rollback-must-not-delete-an-existing-user
+  ;; The dangerous case. re-verify calls do-verification with an EXISTING
+  ;; {:db/id id}, so rolling back with :db/retractEntity would delete a real
+  ;; account -- turning a failed resend into data loss. Only the attributes this
+  ;; attempt set may be retracted.
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (with-redefs [routes/send-verification-email (fn [& _] nil)]
+        (routes/register (register-request mocked-conn)))
+      (let [before (find-user (d/db mocked-conn) "newcomer")]
+        (is (some? before) "precondition: the account exists")
+        (testing "a failed re-send leaves the account intact"
+          (with-redefs [routes/send-verification-email
+                        (fn [& _] (throw (Exception. "SMTP down")))]
+            (try (routes/re-verify {:conn mocked-conn
+                                    :db (d/db mocked-conn)
+                                    :scheme :https
+                                    :headers {"host" "example.test"}
+                                    :query-params {:email "newcomer@test.com"}})
+                 (catch Throwable _ nil)))
+          (let [after (find-user (d/db mocked-conn) "newcomer")]
+            (is (some? after)
+                "THE USER WAS DELETED by a failed verification resend")
+            (is (= (:orcpub.user/email before) (:orcpub.user/email after)))
+            (is (= (:orcpub.user/password before) (:orcpub.user/password after))
+                "credentials must survive a failed resend")
+            (is (nil? (:orcpub.user/verification-key after))
+                "the key from the failed attempt should be retracted")))))))

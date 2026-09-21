@@ -334,23 +334,63 @@
    params
    verification-key))
 
-(defn do-verification [request params conn & [tx-data]]
+(defn do-verification
+  "Create or refresh a pending verification, then email the link.
+
+   The write has to happen BEFORE the send, because the emailed link only
+   resolves if the key is already stored. Datomic does not roll back, so the
+   send is wrapped and the write undone if it fails.
+
+   Without that rollback a failed email left a committed, unverified account,
+   and `register` validates against existing username/email -- so the retry this
+   very function tells the user to make then failed with \"already taken\". The
+   address was locked out and the account could never be verified, because no
+   email could ever be sent. That is the default state of any instance without
+   SMTP, including the default docker-compose deployment.
+
+   `request-email-change` already did exactly this (retracting pending-email on
+   send failure, covered by email-change-test/test-email-send-failure-rolls-back).
+   Registration was never brought up to match. See
+   registration_rollback_test.clj and docs/kb/blank-env-values.md."
+  [request params conn & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
-        now (java.util.Date.)]
+        now (java.util.Date.)
+        ;; re-verify passes an existing {:db/id id}; register does not. The two
+        ;; need different rollbacks -- never retract the ENTITY for a user who
+        ;; already existed, only the attributes this attempt set.
+        existing-id (:db/id tx-data)
+        tempid "verification-subject"
+        report (try
+                 @(d/transact
+                   conn
+                   [(merge
+                     tx-data
+                     {:db/id (or existing-id tempid)
+                      :orcpub.user/verified? false
+                      :orcpub.user/verification-key verification-key
+                      :orcpub.user/verification-sent now})])
+                 (catch Exception e
+                   (println "ERROR: Failed to create verification record:" (.getMessage e))
+                   (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                                   {:error :verification-failed}
+                                   e))))
+        eid (or existing-id (get (:tempids report) tempid))]
     (try
-      @(d/transact
-        conn
-        [(merge
-          tx-data
-          {:orcpub.user/verified? false
-           :orcpub.user/verification-key verification-key
-           :orcpub.user/verification-sent now})])
       (send-verification-email request params verification-key)
       {:status 200}
-      (catch Exception e
-        (println "ERROR: Failed to create verification record:" (.getMessage e))
+      (catch Throwable e
+        (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
+        (try
+          @(d/transact conn (if existing-id
+                              [[:db/retract eid :orcpub.user/verification-key verification-key]
+                               [:db/retract eid :orcpub.user/verification-sent now]]
+                              [[:db/retractEntity eid]]))
+          (catch Exception re
+            ;; Report the rollback failure, but surface the original cause.
+            (println "ERROR: Rollback ALSO failed; a partial account may remain:"
+                     (.getMessage re))))
         (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                        {:error :verification-failed}
+                        {:error :verification-email-failed}
                         e))))))
 
 (defn register [{:keys [json-params db conn] :as request}]
