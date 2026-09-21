@@ -336,11 +336,28 @@ _before-you-start · before you start_
 - Before reporting a UI change as done
 - How this page stays small
 
+## blank-env-values.md
+
+_blank-env-values · blank env values_
+
+**topics:** address, auth, blank, bypass, contact, docker, email, empty, environ, environment, lint, postal, reintroducing, sites, smtp, unset, uri, variables
+
+- Why it kept happening
+- What it cost
+- The auth bypass, in detail
+- The fix: a rule with teeth
+- The exception, and why it is not a wart
+- Verifying a change like this against Docker
+- Open: registration lockout when SMTP is unset (worse than the bypass)
+- A second finding from the same sweep
+- Corrections to other docs
+- Related
+
 ## browser-probe-registration.md
 
 _browser-probe-registration · browser probe registration_
 
-**topics:** 2026-09-20, asserting, assertion, belt, caring, conventions, env, factored, guard, image, package, probe, probes, registering, runner, sweep, untimed, var
+**topics:** 2026-09-20, asserting, assertion, belt, caring, conventions, env, factored, guard, package, probe, probes, registering, runner, safeguards, sweep, untimed, var
 
 - 1. The browser: findChrome(), not an env var
 - 2. The output format is the assertion count
@@ -544,7 +561,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** abandoned, big-bang, builder, class-builder-first, class-builder-only, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** big-bang, builder, class-builder-first, class-builder-only, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -692,7 +709,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, boon, catalog, checklist, confirm, console, dev, errors, homebrew, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, homebrew, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -890,7 +907,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, configures, consolidation, csp, datomic, dev-setup, figwheel, init, java, port, profile, repl, start
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, figwheel, init, java, orchestrates, port, profile, repl, start
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -908,7 +925,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email, email-preferences-implementation, hotfix-integrations, license, matomo, meta, nginx, passwords, patron, production
+**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1395,7 +1412,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _filtered-list-staleness · filtered list staleness_
 
-**topics:** branch, cache, claude-branch-triage, computing, custom-content-lifecycle, declared, event, filter, hunks, items, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
+**topics:** 669, cache, claude-branch-triage, computing, custom-content-lifecycle, declared, event, filter, hunks, items, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
 
 - The mechanism
 - The precondition — this is why it is not constantly obvious
@@ -1626,7 +1643,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** built-in, coexist, combines, copy, import, item, key, membership, minted, override, plugin, predictable, rename, same-key, save, spell, winner, wins
+**topics:** built-in, coexist, combines, hash-iteration, import, item, key, membership, minted, override, plugin, predictable, rename, same-key, save, spell, winner, wins
 
 - TL;DR
 - The map (VERIFIED)
@@ -1776,7 +1793,7 @@ _multi-tab-character-contamination · multi tab character contamination_
 
 _name-to-kw-audit · name to kw audit_
 
-**topics:** apostrophe-strip, derivation, derived-key, explicit, fallback, first-order, key, keys, map-key, migration-free, option, pain, second-order, sites, snare, snares, srd, string
+**topics:** apostrophe-strip, derivation, derived-key, explicit, fallback, first-order, key, keys, keyword, map-key, migration-free, option, pain, second-order, snare, snares, srd, string
 
 - 0. Reading conventions
 - 1. What name-to-kw is
@@ -2314,7 +2331,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, grant, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -2646,7 +2663,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -2722,7 +2739,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, reading, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
