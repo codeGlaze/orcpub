@@ -75,6 +75,11 @@
    (get db :registration-server-errors)))
 
 (reg-sub
+ :password-reset-server-errors
+ (fn [db [_]]
+   (get db :password-reset-server-errors)))
+
+(reg-sub
  :registration-validation
  :<- [:registration-form]
  :<- [:email-taken?]

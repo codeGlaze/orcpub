@@ -246,8 +246,8 @@
 
    NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
    display the password ... while it is entered\"."
-  [{:keys [password confirm messages show-errors? revealed? on-toggle
-           on-password on-confirm]}]
+  [{:keys [password confirm messages confirm-messages show-errors? revealed?
+           on-toggle on-password on-confirm]}]
   [:div
    [form-input {:title "Password"
                 :key :password
@@ -264,9 +264,13 @@
                   :key :verify-password
                   :value confirm
                   :type :password
-                  :messages (when (and (seq password) (seq confirm)
-                                       (not= password confirm))
-                              ["Passwords do not match"])
+                  ;; The caller may have more to say about this field than a
+                  ;; mismatch -- the server answers per field too -- so its
+                  ;; messages win when it passes any.
+                  :messages (or (seq confirm-messages)
+                                (when (and (seq password) (seq confirm)
+                                           (not= password confirm))
+                                  ["Passwords do not match"]))
                   :show-errors? show-errors?
                   :on-change on-confirm}])])
 
@@ -898,7 +902,12 @@
     (fn []
       (let [password (:password @params)
             verify-password (:verify-password @params)
-            password-messages (password-validation-messages password)
+            ;; Merged per field, so a server objection -- a common password, the
+            ;; one rule only the server can apply -- sits alongside whatever the
+            ;; form already found rather than replacing it.
+            server-errors @(subscribe [:password-reset-server-errors])
+            password-messages (vec (distinct (concat (password-validation-messages password)
+                                                     (:password server-errors))))
             ;; Reading the password back is what the confirm box stands in for,
             ;; so revealing it retires the box -- and the check that decides
             ;; whether this can be submitted has to know that, which is why the
@@ -908,6 +917,8 @@
             different? (and confirm-needed?
                             (seq password)
                             (not= password verify-password))
+            confirm-messages (vec (distinct (concat (when different? ["Passwords do not match"])
+                                                    (:verify-password server-errors))))
             invalid? (or (seq password-messages)
                          different?)
             ;; Local to this page's own atom on purpose. The register form keeps
@@ -932,11 +943,16 @@
             {:password password
              :confirm verify-password
              :messages password-messages
+             :confirm-messages confirm-messages
              :show-errors? attempted?
              :revealed? revealed?
              :on-toggle #(swap! params update :password-revealed? not)
-             :on-password (fn [e] (swap! params assoc :password (event-value e)))
-             :on-confirm (fn [e] (swap! params assoc :verify-password (event-value e)))}]
+             :on-password (fn [e]
+                            (dispatch [:password-reset-clear-errors])
+                            (swap! params assoc :password (event-value e)))
+             :on-confirm (fn [e]
+                           (dispatch [:password-reset-clear-errors])
+                           (swap! params assoc :verify-password (event-value e)))}]
            ;; No context: this page knows no username or email, which is also
            ;; what the server judges the password against here.
            [password-meter password]

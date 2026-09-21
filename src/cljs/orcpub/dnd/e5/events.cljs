@@ -2736,8 +2736,23 @@
 
 (reg-event-fx
  :password-reset-failure
- (fn [_ _]
-   (dispatch-login-failure "There was an error resetting your password.")))
+ ;; The same bug :register-failure had: the body was thrown away and replaced
+ ;; with one generic sentence, so a password refused for being a common one said
+ ;; only that something had gone wrong, and the obvious next move was to try the
+ ;; same password again. The server's reasons are field-keyed; keep them.
+ (fn [{:keys [db]} [_ response]]
+   (let [errors (when (map? (:body response)) (:body response))]
+     (if (seq errors)
+       {:db (assoc db :password-reset-server-errors errors)}
+       ;; A failure with nothing to say -- a network drop, a 500 -- still needs
+       ;; to say something.
+       (dispatch-login-failure "There was an error resetting your password.")))))
+
+(reg-event-db
+ :password-reset-clear-errors
+ ;; What the server said was about the password it was sent, not this one.
+ (fn [db _]
+   (dissoc db :password-reset-server-errors)))
 
 (reg-event-fx
  :password-reset

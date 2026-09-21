@@ -724,9 +724,15 @@
        :color error-red}]
      [:&.is-note {:color muted-on-light
                   :margin "7px 2px 0"}]]
-    ;; 1 1 auto, not the 260px basis the dark-app notice uses: at this width the
-    ;; basis forced the text onto its own line and left the mark stranded.
-    [:.field-notice-what {:flex "1 1 auto"}]
+    ;; Basis ZERO, not auto and not the 260px the dark-app notice uses. Both of
+    ;; those size the text by its own content, so a message wider than the line
+    ;; -- "Too common. A few words strung together are harder to guess and easier
+    ;; to remember." is one -- wraps as a whole block and leaves the "!" stranded
+    ;; on the line above. At zero it takes whatever room is left beside the mark
+    ;; and wraps INSIDE it. min-width goes with it, or a long unbroken word puts
+    ;; the floor back under the basis.
+    [:.field-notice-what {:flex "1 1 0"
+                          :min-width "0"}]
     [:.field-notice-action {:color "#c98700"
                             :font-size "13px"}]
     [:.field-notice.is-error {:color text-color-light}]

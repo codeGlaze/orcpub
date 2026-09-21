@@ -30,7 +30,10 @@ fi
 PORT="${E2E_PORT:-8890}"
 LOG="${E2E_LOG:-/tmp/e2e-server.log}"
 
-if ! node -e "require('playwright')" 2>/dev/null; then
+# Resolved from scripts/e2e, which is where its package.json and node_modules
+# live -- checking from the project root reported it missing while every suite
+# could load it perfectly well.
+if ! (cd "$(dirname "$0")" && node -e "require('playwright')") 2>/dev/null; then
   echo "playwright is not installed. Run:"
   echo "  (cd scripts/e2e && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install)"
   exit 1
@@ -64,10 +67,22 @@ if [ -z "${CSP_POLICY:-}" ] && grep -q CLOSURE_UNCOMPILED_DEFINES resources/publ
   echo "Development bundle on disk, so CSP is off for this run. Build with lein fig:prod to test under the strict policy."
 fi
 
+# Mail. Without a server to send to, registration FAILS outright -- the
+# verification email goes out inside the same try as the transaction -- and the
+# verification and reset keys exist nowhere but in that mail. That is why the
+# signup, verify and reset flows had no coverage at all. The suites point at
+# scripts/e2e/lib/mail-sink.js, which accepts anything and hands the message
+# back, so a suite can follow the link a real person would click.
+MAIL_PORT="${E2E_MAIL_PORT:-2525}"
+export E2E_MAIL_PORT="$MAIL_PORT"
+
 echo "Starting server on :${PORT}..."
 DATOMIC_URL="datomic:mem://orcpub-e2e" \
 ORCPUB_ENV=dev \
 SIGNATURE="${SIGNATURE:-e2e-test-signature}" \
+EMAIL_SERVER_URL=127.0.0.1 \
+EMAIL_SERVER_PORT="$MAIL_PORT" \
+EMAIL_FROM_ADDRESS="${EMAIL_FROM_ADDRESS:-e2e@orcpub.invalid}" \
 PORT="$PORT" \
   setsid lein with-profile init-db run -m e2e-boot > "$LOG" 2>&1 &
 SERVER_PID=$!
