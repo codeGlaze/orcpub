@@ -8652,10 +8652,10 @@
                             (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                       [:div
                        [:button.form-button.m-l-5
-                        {:on-click (make-event-handler edit-event item)}
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
                         "edit"]
                        [:button.form-button.m-l-5
-                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
                         "delete"]]])))
                  visible))]])]))))))
 

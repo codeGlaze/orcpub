@@ -117,10 +117,12 @@
  (fn [db _]
    (get db :quarantined-plugins)))
 
-(defn- process-plugin-vals
+(defn process-plugin-vals
   "Filter out malformed/disabled plugin data so a bad entry can't break the
    subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps.
+   {content-type {key def}} maps, each item carrying the address it lives at
+   (`:key`, `:option-pack`) -- see the stamp below. Public because that stamp is
+   what lets the builders' edit and delete buttons trust the item they are given.
 
    `overlay` (optional) applies the two LOCAL disable levels on top of the data
    levels: :global? drops everything, and :sections drops a whole [source
@@ -151,7 +153,15 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             [k v]))
+                             ;; Carry the ADDRESS on the item. Everything downstream reads items
+                             ;; from here -- the list pages' edit and delete buttons, the
+                             ;; character-builder pencil -- and a stored item may carry neither
+                             ;; its key (libraries authored before keys were stored) nor a
+                             ;; truthful :option-pack (an import that renames a source leaves the
+                             ;; declaration behind). The map it lives in is the one place both are
+                             ;; known for certain, so they are stamped on the way out rather than
+                             ;; guessed at by every reader.
+                             [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
                 p)))
@@ -227,8 +237,11 @@
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
+(defn process-plugins-with-sources
+  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed. Each item
+  ;; carries the address it lives at, exactly as process-plugin-vals stamps it -- the address
+  ;; belongs on the way out of :plugins, not in one of the two callers, which is how one of them
+  ;; ended up stamped and the other not.
   ;; Applies the same disable overlay as process-plugin-vals: :global? drops
   ;; everything and a section pair drops that content-type from the source, so the
   ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
@@ -241,9 +254,18 @@
         (fn [[source-name plugin-data]]
           (when (and (map? plugin-data) (not (:disabled? plugin-data)))
             [source-name
-             (into {} (remove (fn [[type-k _]]
-                                (contains? sections [source-name type-k]))
-                              plugin-data))]))
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
         plugins)))))
 
 (reg-sub
@@ -611,7 +633,8 @@
                                                       subclass-key)
                    :levels levels
                    :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+                   :edit-event [::classes5e/edit-subclass subclass-with-key
+                                source-name subclass-key ::e5/subclasses])))
         (catch js/Error e
           (js/console.warn "Skipping malformed subclass:" subclass-key e)
           nil)))
