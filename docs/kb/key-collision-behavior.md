@@ -93,6 +93,33 @@ Pinned by `save-destination-decides-by-where-the-item-came-from`,
 `save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
 and `test/e2e/move-between-sources.js` end to end.
 
+### The content type is bound at registration (2026-09-20)
+
+Fourth review round. The stamp reached nine of the ten item-only edit doors — **the subclass pencil
+reads through a different subscription** (`::e5/plugins-with-sources`, which filters but does not
+stamp), so its item still carried whatever source it declared. With the same key in two sources and
+one of them disabled, editing the visible copy wrote over the invisible one and left the edited
+entry untouched. That sub stamps now, and passes the row's address like My Content does.
+
+And the gap left open twice is closed, because it turned out to be cheap: the content type a builder
+edits is **statically known at registration**, so `reg-edit-homebrew` takes it as a parameter and
+every record carries one without any call site supplying it. The check is strict again — a record
+that names another builder's content type no longer validates.
+
+Smaller, same round:
+
+- The `:occupied` banner asked consent for one destructive act and performed two. Where the refusal
+  carries an origin, it now reads **"Replace it, and move this one out of X"**.
+- `::persist-builder-origin` ignored `set-item`'s failure. A failed write leaves the PREVIOUS value
+  in the store, which comes back on the next boot beside a draft it does not describe; it clears the
+  key instead. No record refuses a move, a wrong one performs the wrong move.
+- `compute-plugin-vals` (`compute.cljc`) is a hand-maintained replica of `process-plugin-vals` and
+  had silently diverged from it. It stamps too — a replica that drifts is how the next reader gets
+  it wrong (D29).
+- The selection save validated a placeholder-filled copy rather than the author's input, against the
+  rule `reg-save-homebrew` states. It matters more now that the saved item is written back into the
+  form, where a placeholder would look like something the author typed.
+
 ### The origin is persisted beside the draft (2026-09-20)
 
 Closes the gap the two sections below both leaned on. `:builder-origin` lived only in app-db, so a

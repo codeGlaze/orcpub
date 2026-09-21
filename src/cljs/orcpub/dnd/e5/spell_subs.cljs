@@ -684,8 +684,9 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; Ensure the subclass has its key set (the map key is authoritative)
-          (let [subclass-with-key (assoc subclass :key subclass-key)
+          ;; The map key and the source holding it are authoritative -- this sub reads through
+          ;; `process-plugins-with-sources`, which filters but does not stamp, so it stamps here.
+          (let [subclass-with-key (assoc subclass :key subclass-key :option-pack source-name)
                 levels (make-levels spell-lists spells-map selection-map subclass-with-key)
                 ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
                 ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
@@ -696,7 +697,8 @@
                    :selections (concat (:selections subclass) ai-sels)
                    :levels levels
                    :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+                   :edit-event [::classes5e/edit-subclass subclass-with-key
+                                source-name subclass-key ::e5/subclasses])))
         (catch js/Error e
           (js/console.warn "Skipping malformed subclass:" subclass-key e)
           nil)))

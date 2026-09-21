@@ -977,8 +977,11 @@
   (let [as-read (-> (subs5e/process-plugin-vals (:plugins @app-db)) first (get ct) (get old-key))]
     (is (= old-key (:key as-read)) "the reader stamps the key it lives under")
     (is (= SRC (:option-pack as-read)) "and the source that really holds it")
-    ;; what those ten call sites dispatch: the item, and nothing else
+    ;; what those call sites dispatch: the item, and nothing else. The content type still
+    ;; reaches the record, because it is bound at REGISTRATION rather than passed here.
     (dispatch! [::langs5e/edit-language as-read])
+    (is (= {:source SRC :key old-key :content-type ct} (:builder-origin @app-db))
+        "a door that passes only the item still records a complete address")
     (swap! app-db assoc-in [::langs5e/builder-item :description] "edited from the pencil")
     (save!)
     (is (= #{old-key} (set (keys (stored)))) "one entry, not a fork")
