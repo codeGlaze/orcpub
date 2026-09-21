@@ -1057,37 +1057,58 @@
    {:on-click dispatch-route-to-login}
    "LOGIN"])
 
+(defn auth-outcome
+  "A page with nothing to ask for: a statement, and at most one way onward.
+
+   These four had no layout of their own. The heading was centred and everything
+   under it was not, so the sentence sat hard against the card's left edge with
+   no gutter, and because a div preceded it the one link fell onto its own line
+   below -- \"You can now\" on one line and LOGIN stranded under it. They also
+   stacked from the top of a 600px card and left most of it empty.
+
+   `onward` is a button rather than the inline link the register form uses: on a
+   page with one thing to do, the one thing to do should look like it."
+  ([heading message] (auth-outcome heading message nil))
+  ([heading message onward]
+   (auth-page heading
+              [:div.auth-outcome
+               [:div.auth-outcome-line message]
+               (when onward [:div.auth-outcome-onward onward])])))
+
+(defn- login-button []
+  [:button.form-button.form-submit-btn
+   {:on-click dispatch-route-to-login}
+   "LOGIN"])
+
 (defn verify-success []
-  (auth-page
+  (auth-outcome
    "Success! Registration is complete"
-   [:div
-    [:div.m-t-20 "You can now"]
-    [login-link]]))
+   "Your account is ready."
+   [login-button]))
 
 (defn password-reset-success []
-  (auth-page
+  (auth-outcome
    "Password changed"
-   [:div
-    [:div.m-t-20 "You can now log in"]
-    [login-link]]))
+   "Use the new one from now on."
+   [login-button]))
 
 (defn unsubscribe-success []
-  (auth-page
+  (auth-outcome
    "Unsubscribed"
    [:div
-    [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
-    [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
+    [:div "You will not get email updates from us any more."]
+    [:div.m-t-10 "You can turn them back on whenever you like, from your account settings."]]))
 
 (defn email-sent [text]
-  (auth-page
-   "Check your email"
-   [:div.p-20.t-a-c text]))
+  (auth-outcome "Check your email" text))
 
 (defn verify-sent []
   (email-sent
    [:div
     [:span "We sent a verification email to "]
-    [:span.f-w-b.red.f-s-18 @(subscribe [:temp-email])]
+    ;; Ink, not .red. Red is what a fault looks like on every one of these
+    ;; pages, and this is the address somebody just typed correctly.
+    [:span.auth-emphasis @(subscribe [:temp-email])]
     [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
     [:span " "]
     [:span "Remember to check your spam folder."]]))
@@ -1275,23 +1296,32 @@
                                       :error
                                       login-message
                                       hide-login-message]])
-           [:div.m-t-10
-            
-            [:button.form-button.form-submit-btn
+           ;; .auth-tail and .join-button, the same pair the register page uses.
+           ;; At 174px and hard left this read as one option among the links
+           ;; under it rather than the thing the page is for.
+           [:div.m-t-10.auth-tail
+            [:button.form-button.join-button
              {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
-            [:div.m-t-20
-             [:span "Don't have a login? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-register-page}
-              "REGISTER NOW"]]
-            [:div.m-t-20
-             [:span "Forgot your password? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-reset-password-page}
-              "RESET PASSWORD"]]
-            
-            [:div.m-t-20
+            ;; One group, one rhythm. Each of these was its own block with two
+            ;; <br> inside it, so a question and its answer were three lines
+            ;; apart and the three pairs were differently shaped -- two stacked,
+            ;; one inline. A question and the thing that answers it now sit on
+            ;; one line, the way the register page already asks its one.
+            [:div.m-t-20.auth-alts
+             [:div.auth-alt
+              [:span "Don't have a login?"]
+              [:span.orange.underline.pointer
+               {:on-click route-to-register-page}
+               "REGISTER NOW"]]
+             [:div.auth-alt
+              [:span "Forgot your password?"]
+              [:span.orange.underline.pointer
+               {:on-click route-to-reset-password-page}
+               "RESET PASSWORD"]]]
+            ;; Kept apart from the pair above: it is not another way in, it is
+            ;; what to do when the way in never arrived.
+            [:div.auth-help
              [:span "Didn't receive the validation email? Check your spam folder, or "]
              [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
               "read how to let our email through"]

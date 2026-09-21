@@ -208,6 +208,21 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **The pages that only announce an outcome get a layout of their own** — registration
+  complete, password changed, unsubscribed and check-your-email had none. The heading was
+  centred and everything under it was not, so the sentence sat against the card's left
+  edge with no gutter and the one link fell onto its own line beneath it. They now centre
+  in the space the card actually has, and the one thing to do looks like a button rather
+  than a link among nothing (`9657d6db`).
+
+- **The login page's other ways in are one group with one rhythm** — three separate
+  blocks, two of them holding a pair of `<br>` that pushed each answer three lines from
+  its question, and a third shaped differently again. A question and the thing that
+  answers it now share a line, the way the register page already asks its one, with the
+  help line set below a rule because it is not another way in. The LOGIN button is full
+  width and aligned to the fields, where at 174px and hard left it read as one option
+  among the links under it (`9657d6db`).
+
 - **The last three auth pages join the shared heading** — `verify-failed`,
   `send-password-reset-page` and `password-reset-page` were still drawing their own
   bold heading inside the old shell, with no amber rule and no form gutter, so three

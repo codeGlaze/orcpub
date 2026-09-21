@@ -841,6 +841,60 @@
     ;; Privacy Policy." under the consent line), which reads as a mistake rather
     ;; than a line break. Browsers without it fall back to the ragged wrap, which
     ;; is what this looked like before.
+    ;; A page that states an outcome and offers at most one way on. Centred like
+    ;; the heading above it, given the same gutter the form fields have, and set
+    ;; down from the rule rather than tight under it -- the card is 600px and
+    ;; these pages hold three lines, so the space is going to be there either
+    ;; way and the block may as well be composed inside it.
+    ;; The card is 600px whatever is in it, and these pages hold three lines, so
+    ;; the space below is there either way. Centring the block in what remains
+    ;; below the heading settles it against the full-height image beside it,
+    ;; instead of stacking it at the top with a third of the card empty under.
+    [:.auth-outcome {:display :flex
+                     :flex-direction :column
+                     :align-items :center
+                     :justify-content :center
+                     :text-align :center
+                     :min-height "340px"
+                     :padding "0 16px"}]
+    ;; The one thing in an outcome sentence worth picking out -- the address the
+    ;; mail went to. Ink and bold, because red is a fault everywhere else here.
+    [:.auth-emphasis {:font-weight :bold
+                      :color "#23282e"
+                      :word-break :break-word}]
+    [:.auth-outcome-line {:color text-color-light
+                          :font-size "15px"
+                          :max-width "34ch"
+                          :text-wrap :balance}]
+    [:.auth-outcome-onward {:margin-top "26px"
+                            :width "100%"
+                            :max-width "260px"}]
+
+    ;; The other ways in. A question and the thing that answers it on ONE line,
+    ;; with one rhythm down the group -- these were three separate blocks, two
+    ;; of them holding a pair of <br> that pushed the answer three lines from
+    ;; its question.
+    [:.auth-alts {:display :flex
+                  :flex-direction :column
+                  :gap "10px"}]
+    [:.auth-alt {:display :flex
+                 :justify-content :center
+                 :align-items :baseline
+                 :flex-wrap :wrap
+                 :gap "8px"}]
+    ;; Set apart from the pair above it: not another way in, but what to do when
+    ;; the way in never arrived.
+    [:.auth-help {:margin-top "22px"
+                  :padding-top "18px"
+                  :border-top "1px solid #ebe7e1"
+                  :font-size "13.5px"
+                  :color muted-on-light
+                  :text-align :center}]
+    ;; This block sets its own width, so the tail's 16px gutter only inset the
+    ;; button 16px narrower than the fields above it. The gutter is for a column
+    ;; that does NOT constrain itself.
+    [:.login-form-inputs [:.auth-tail {:padding "0"}]]
+
     [:.auth-fineprint {:margin-top "16px"
                        :font-size "12.5px"
                        :color muted-on-light
