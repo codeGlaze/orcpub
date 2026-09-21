@@ -185,6 +185,91 @@
           :on-change on-change
           :on-blur (fn [_] (reset! blurred? true))}]))))
 
+(defn password-meter
+  "The strength meter, as a component rather than a block inside the register
+   form, because a password gets MADE in two places and only one of them had it.
+
+   The meter is the only thing that argues with a weak password while it can
+   still be changed -- the reset form refuses by exactly the same rules, so
+   without this it refuses in silence and the first a person hears of it is a
+   rejection.
+
+   `context` is what the password must not simply be, and the reset page has no
+   username or email to hand, which is also what the server judges it against
+   there. Rarity names rather than Weak/Moderate/Strong: the ladder is the
+   vocabulary this site's readers already have, and Common is not a joke -- a
+   password the corpus knows is exactly that."
+  ([password] (password-meter password nil))
+  ([password context]
+   (let [{:keys [rung fills]} (registration/password-strength password context)
+         tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
+         reached? (and rung (not (neg? rung)))
+         suffix (cond (nil? rung) nil (neg? rung) "fail" :else rung)
+         remaining (when (and reached? (< rung 3))
+                     (- (nth registration/strength-rungs (inc rung))
+                        (count (or password ""))))]
+     [:div.p-r-10.p-l-10.p-t-5
+      [:div.pw-slots
+       (doall
+        (for [[i percent] (map-indexed vector fills)]
+          ^{:key i}
+          [:div.pw-slot
+           ;; The only inline style on this widget. The width IS the
+           ;; measurement, so it cannot be a named class.
+           [:div.pw-fill {:class (when suffix (str "pw-fill-" suffix))
+                          :style {:width (str percent "%")}}]]))]
+      [:div.pw-verdict
+       [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
+        (when reached? (nth tier-names rung))]
+       [:span.pw-next
+        (cond
+          remaining (str (nth tier-names (inc rung)) " in " remaining)
+          (seq password) (str (count password) " characters"))]]])))
+
+(defn password-pair
+  "A password and its confirmation, where revealing the password retires the
+   confirmation.
+
+   The confirm box exists only because the field is masked; being able to read
+   it back is what the box was standing in for, so it goes rather than sitting
+   there doing nothing. It is REMOVED, not faded: that keeps it out of the
+   accessibility tree, so nothing announces a field nobody can see and a submit
+   cannot fail pointing at one.
+
+   Symmetrical on purpose. Hiding again brings it back holding whatever it held,
+   so a password edited while revealed genuinely differs from the confirmation
+   and the mismatch is true rather than a trap.
+
+   `revealed?` and `on-toggle` are the CALLER's, because whatever decides
+   whether the form may be submitted has to know the confirmation is not being
+   asked for. A reveal hidden inside this component is invisible to that.
+
+   NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
+   display the password ... while it is entered\"."
+  [{:keys [password confirm messages show-errors? revealed? on-toggle
+           on-password on-confirm]}]
+  [:div
+   [form-input {:title "Password"
+                :key :password
+                :value password
+                :type :password
+                :messages messages
+                :show-errors? show-errors?
+                :reveal? true
+                :revealed? revealed?
+                :on-reveal on-toggle
+                :on-change on-password}]
+   (when-not revealed?
+     [form-input {:title "Confirm password"
+                  :key :verify-password
+                  :value confirm
+                  :type :password
+                  :messages (when (and (seq password) (seq confirm)
+                                       (not= password confirm))
+                              ["Passwords do not match"])
+                  :show-errors? show-errors?
+                  :on-change on-confirm}])])
+
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
    plugin-data map is pre-subscribed by the calling component."
@@ -814,7 +899,15 @@
       (let [password (:password @params)
             verify-password (:verify-password @params)
             password-messages (password-validation-messages password)
-            different? (not= password verify-password)
+            ;; Reading the password back is what the confirm box stands in for,
+            ;; so revealing it retires the box -- and the check that decides
+            ;; whether this can be submitted has to know that, which is why the
+            ;; flag is out here rather than inside password-pair.
+            revealed? (:password-revealed? @params)
+            confirm-needed? (not revealed?)
+            different? (and confirm-needed?
+                            (seq password)
+                            (not= password verify-password))
             invalid? (or (seq password-messages)
                          different?)
             ;; Local to this page's own atom on purpose. The register form keeps
@@ -827,26 +920,26 @@
          "This replaces the password on your account."
          [:div
           [:div.m-t-10.auth-form
-           ;; These messages were commented out years before the rules got
-           ;; stricter, which nobody noticed while the minimum was eight and
-           ;; almost everything passed. At twelve, an ordinary password fails
-           ;; here -- and with no message and a dimmed button, the page simply
-           ;; stopped working with nothing said. This is account RECOVERY: it is
-           ;; the last door someone has.
-           [form-input {:title "Password"
-                        :key :password
-                        :value password
-                        :type :password
-                        :messages password-messages
-                        :show-errors? attempted?
-                        :on-change (fn [e] (swap! params assoc :password (event-value e)))}]
-           [form-input {:title "Verify Password"
-                        :key :verify-password
-                        :value verify-password
-                        :type :password
-                        :messages (when different? ["Passwords do not match"])
-                        :show-errors? attempted?
-                        :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
+           ;; The same pair and the same meter the register form uses. A password
+           ;; is made in two places and only one of them helped: these messages
+           ;; were commented out years before the rules got stricter, which
+           ;; nobody noticed while the minimum was eight and almost everything
+           ;; passed. At twelve an ordinary password fails here, and with no
+           ;; message, no meter and a dimmed button the page simply stopped
+           ;; working with nothing said. This is account RECOVERY -- the last
+           ;; door somebody has.
+           [password-pair
+            {:password password
+             :confirm verify-password
+             :messages password-messages
+             :show-errors? attempted?
+             :revealed? revealed?
+             :on-toggle #(swap! params update :password-revealed? not)
+             :on-password (fn [e] (swap! params assoc :password (event-value e)))
+             :on-confirm (fn [e] (swap! params assoc :verify-password (event-value e)))}]
+           ;; No context: this page knows no username or email, which is also
+           ;; what the server judges the password against here.
+           [password-meter password]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
@@ -914,50 +1007,6 @@
         @(subscribe [:temp-email])
         " has an account, a link to reset your password is on its way.")))
 
-(defn password-pair
-  "A password and its confirmation, where revealing the password retires the
-   confirmation.
-
-   The confirm box exists only because the field is masked; being able to read
-   it back is what the box was standing in for, so it goes rather than sitting
-   there doing nothing. It is REMOVED, not faded: that keeps it out of the
-   accessibility tree, so nothing announces a field nobody can see and a submit
-   cannot fail pointing at one.
-
-   Symmetrical on purpose. Hiding again brings it back holding whatever it held,
-   so a password edited while revealed genuinely differs from the confirmation
-   and the mismatch is true rather than a trap.
-
-   `revealed?` and `on-toggle` are the CALLER's, because whatever decides
-   whether the form may be submitted has to know the confirmation is not being
-   asked for. A reveal hidden inside this component is invisible to that.
-
-   NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
-   display the password ... while it is entered\"."
-  [{:keys [password confirm messages show-errors? revealed? on-toggle
-           on-password on-confirm]}]
-  [:div
-   [form-input {:title "Password"
-                :key :password
-                :value password
-                :type :password
-                :messages messages
-                :show-errors? show-errors?
-                :reveal? true
-                :revealed? revealed?
-                :on-reveal on-toggle
-                :on-change on-password}]
-   (when-not revealed?
-     [form-input {:title "Confirm password"
-                  :key :verify-password
-                  :value confirm
-                  :type :password
-                  :messages (when (and (seq password) (seq confirm)
-                                       (not= password confirm))
-                              ["Passwords do not match"])
-                  :show-errors? show-errors?
-                  :on-change on-confirm}])])
-
 (def ^:private field-order
   "The order the summary lists faults in, which is the order they appear on the
    form. Sorting by map key would list them however the keywords happen to hash."
@@ -1017,10 +1066,7 @@
                                   mismatch?
                                   (update :verify-password conj "Passwords do not match"))
         send-updates? (not= false (:send-updates? registration-form))
-        {:keys [rung fills]} (registration/password-strength
-                              (:password registration-form)
-                              {:username (:username registration-form)
-                               :email (:email registration-form)})]
+        ]
     (auth-page
      "Join for free"
      "Save your characters, share them, and pick up where you left off."
@@ -1063,33 +1109,9 @@
          :show-errors? show-errors?
          :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
-       ;; Rarity names rather than Weak/Moderate/Strong: the ladder is the
-       ;; vocabulary this site's readers already have, and Common is not a joke
-       ;; -- a password the corpus knows is exactly that.
-       (let [tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
-             reached? (and rung (not (neg? rung)))
-             suffix (cond (nil? rung) nil (neg? rung) "fail" :else rung)
-             remaining (when (and reached? (< rung 3))
-                         (- (nth registration/strength-rungs (inc rung))
-                            (count (:password registration-form))))]
-         [:div.p-r-10.p-l-10.p-t-5
-          [:div.pw-slots
-           (doall
-            (for [[i percent] (map-indexed vector fills)]
-              ^{:key i}
-              [:div.pw-slot
-               ;; The only inline style on this widget. The width IS the
-               ;; measurement, so it cannot be a named class.
-               [:div.pw-fill {:class (when suffix (str "pw-fill-" suffix))
-                              :style {:width (str percent "%")}}]]))]
-          [:div.pw-verdict
-           [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
-            (when reached? (nth tier-names rung))]
-           [:span.pw-next
-            (cond
-              remaining (str (nth tier-names (inc rung)) " in " remaining)
-              (seq (:password registration-form))
-              (str (count (:password registration-form)) " characters"))]]])
+       [password-meter (:password registration-form)
+        {:username (:username registration-form)
+         :email (:email registration-form)}]
        [:div.m-t-20.t-a-l.m-l-15
         [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
