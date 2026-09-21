@@ -71,19 +71,36 @@ dev_mode_blocks_figwheel() {
     # and ws://localhost:3449 is blocked exactly as under strict. Only "none"
     # sends no policy at all.
     case "$policy" in strict|permissive) ;; *) return 1 ;; esac
-    # An UNSET DEV_MODE does not mean false here. Every server path in start.sh
-    # launches `lein with-profile +dev,+start-server`, and the :dev profile sets
-    # :env {:dev-mode "true"} (project.clj:244), which environ reads. So on a
-    # fresh checkout with nothing exported, the server we are about to start has
-    # dev-mode ON and skips CSP entirely -- and warning that CSP will block
-    # Figwheel would be false, and would talk the user out of a working setup.
+    # Mirror the SERVER exactly. config/dev-mode? is (.equalsIgnoreCase "true"),
+    # so ONLY the literal "true" turns CSP off; every other value leaves it
+    # enforcing and blocks ws://localhost:3449. Guessing at other truthy-looking
+    # spellings here is what makes the warning lie -- an earlier revision treated
+    # yes/1/empty/typos as non-blocking, so the server sent enforcing CSP while
+    # this stayed quiet, which is the silent hot-reload failure it exists to warn
+    # about.
     #
-    # Only an explicit false-y DEV_MODE flips it: environ lets a real environment
-    # variable override the profile's value, so DEV_MODE=false does reach the
-    # server and does re-enable CSP.
-    case "$(printf '%s' "${DEV_MODE:-}" | tr '[:upper:]' '[:lower:]')" in
-        false|0|no|off) return 0 ;;
-        *)              return 1 ;;
+    # UNSET is the one case that is not a value: every server path launches
+    # `lein with-profile +dev,+start-server`, and :dev supplies
+    # :env {:dev-mode "true"} (project.clj:244). An EXPLICIT empty string IS a
+    # value, and it overrides the profile.
+    #
+    # Measured against `lein with-profile +dev`, not reasoned about:
+    #
+    #   DEV_MODE unset  -> env :dev-mode "true"  dev-mode? true   does not block
+    #   DEV_MODE=true   -> "true"                dev-mode? true   does not block
+    #   DEV_MODE=TRUE   -> "TRUE"                dev-mode? true   does not block
+    #   DEV_MODE=yes    -> "yes"                 dev-mode? FALSE  blocks
+    #   DEV_MODE=1      -> "1"                   dev-mode? FALSE  blocks
+    #   DEV_MODE=       -> ""                    dev-mode? FALSE  blocks
+    #   DEV_MODE=tru    -> "tru"                 dev-mode? FALSE  blocks
+    #   DEV_MODE=false  -> "false"               dev-mode? FALSE  blocks
+    #
+    # ${DEV_MODE+x}, not ${DEV_MODE:-}: the latter collapses unset and empty,
+    # and the table above shows those two disagree.
+    [ -z "${DEV_MODE+x}" ] && return 1
+    case "$(printf '%s' "$DEV_MODE" | tr '[:upper:]' '[:lower:]')" in
+        true) return 1 ;;
+        *)    return 0 ;;
     esac
 }
 
