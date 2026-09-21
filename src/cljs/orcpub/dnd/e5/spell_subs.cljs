@@ -278,8 +278,11 @@
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
+(defn process-plugins-with-sources
+  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed. Each item
+  ;; carries the address it lives at, exactly as process-plugin-vals stamps it -- the address
+  ;; belongs on the way out of :plugins, not in one of the two callers, which is how one of them
+  ;; ended up stamped and the other not.
   ;; Applies the same disable overlay as process-plugin-vals: :global? drops
   ;; everything and a section pair drops that content-type from the source, so the
   ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
@@ -292,9 +295,18 @@
         (fn [[source-name plugin-data]]
           (when (and (map? plugin-data) (not (:disabled? plugin-data)))
             [source-name
-             (into {} (remove (fn [[type-k _]]
-                                (contains? sections [source-name type-k]))
-                              plugin-data))]))
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
         plugins)))))
 
 (reg-sub
@@ -684,9 +696,8 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; The map key and the source holding it are authoritative -- this sub reads through
-          ;; `process-plugins-with-sources`, which filters but does not stamp, so it stamps here.
-          (let [subclass-with-key (assoc subclass :key subclass-key :option-pack source-name)
+          ;; the map key is authoritative; :option-pack arrives stamped by the reader
+          (let [subclass-with-key (assoc subclass :key subclass-key)
                 levels (make-levels spell-lists spells-map selection-map subclass-with-key)
                 ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
                 ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
