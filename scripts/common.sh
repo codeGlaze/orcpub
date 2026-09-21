@@ -52,8 +52,9 @@ print_env_config() {
     fi
     echo "  ports      server=$SERVER_PORT datomic=$DATOMIC_PORT figwheel=$FIGWHEEL_PORT nrepl=$NREPL_PORT"
 
-    local policy="${CSP_POLICY:-strict}"
-    local dev="${DEV_MODE:-<unset>}"
+    local policy dev
+    policy="$(effective_csp_policy)"
+    dev="${DEV_MODE:-<unset>}"
     if dev_mode_blocks_figwheel; then
         echo -e "  csp        ${YELLOW}$policy, ENFORCING${NC} (DEV_MODE=$dev) — Figwheel hot reload blocked"
     else
@@ -61,44 +62,76 @@ print_env_config() {
     fi
 }
 
-# True when the server will send an enforcing CSP whose connect-src omits the
-# Figwheel websocket. Matches the server's own comparison: case-insensitive,
-# exactly "true".
+# The policy the SERVER will actually use, normalised the way
+# config/get-csp-policy does (Locale/ROOT lowercase). An unrecognised value is
+# not an error there: get-secure-headers-config cond-falls through to
+# permissive-csp-settings, so report what it BECOMES, not what was typed.
+#
+# LC_ALL=C on the tr is load-bearing, and is the same defect this branch exists
+# for: tr '[:upper:]' '[:lower:]' uses the shell's locale, so on a Turkish
+# machine "STRICT" folds to "strıct" (dotless i), matches nothing, and gets
+# reported as the fallback. The server avoids this with Locale/ROOT.
+# The policy token exactly as the server resolves it, before any interpretation.
+#
+# ${CSP_POLICY+x}, not ${CSP_POLICY:-strict}. The server does
+#   (or (env :csp-policy) (System/getenv "CSP_POLICY") "strict")
+# and the empty string is TRUTHY in Clojure, so CSP_POLICY= resolves to "" --
+# not to "strict". Only a genuinely absent variable defaults. Bash's :- collapses
+# unset and empty, which would call an empty CSP_POLICY "strict"; strict is the
+# one policy DEV_MODE can switch off, so an empty value would be reported as
+# safe while the server applied the static permissive policy. Measured: with
+# CSP_POLICY= and DEV_MODE=true the server BLOCKS and the :- version said it did
+# not.
+_csp_policy_token() {
+    if [ -z "${CSP_POLICY+x}" ]; then
+        printf 'strict'
+    else
+        printf '%s' "$CSP_POLICY" | LC_ALL=C tr 'A-Z' 'a-z'
+    fi
+}
+
+effective_csp_policy() {
+    local p
+    p="$(_csp_policy_token)"
+    case "$p" in
+        strict|permissive|none) printf '%s' "$p" ;;
+        *) printf 'permissive (fallback from "%s")' "${CSP_POLICY-}" ;;
+    esac
+}
+
+# True when the server will send a CSP whose connect-src omits the Figwheel
+# websocket, so hot reload fails silently.
 dev_mode_blocks_figwheel() {
-    local policy="${CSP_POLICY:-strict}"
-    # "permissive" is not permissive about this: permissive-csp-settings sets
-    # default-src 'self' and NO connect-src, so connect-src falls back to 'self'
-    # and ws://localhost:3449 is blocked exactly as under strict. Only "none"
-    # sends no policy at all.
-    case "$policy" in strict|permissive) ;; *) return 1 ;; esac
-    # Mirror the SERVER exactly. config/dev-mode? is (.equalsIgnoreCase "true"),
-    # so ONLY the literal "true" turns CSP off; every other value leaves it
-    # enforcing and blocks ws://localhost:3449. Guessing at other truthy-looking
-    # spellings here is what makes the warning lie -- an earlier revision treated
-    # yes/1/empty/typos as non-blocking, so the server sent enforcing CSP while
-    # this stayed quiet, which is the silent hot-reload failure it exists to warn
-    # about.
+    local policy
+    policy="$(_csp_policy_token)"
+
+    # Mirror config/get-secure-headers-config, which is a three-way cond and not
+    # a two-way one:
     #
-    # UNSET is the one case that is not a value: every server path launches
-    # `lein with-profile +dev,+start-server`, and :dev supplies
-    # :env {:dev-mode "true"} (project.clj:244). An EXPLICIT empty string IS a
-    # value, and it overrides the profile.
+    #   none        -> :content-security-policy-settings nil, no CSP at all
+    #   strict      -> settings nil; the NONCE INTERCEPTOR sets an enforcing
+    #                  header, but only when dev-mode? is false. The one policy
+    #                  DEV_MODE affects.
+    #   ANY OTHER   -> permissive-csp-settings, applied STATICALLY by Pedestal.
+    #                  That includes "permissive" and every unrecognised value.
+    #                  It has default-src 'self' and no connect-src, so the
+    #                  Figwheel websocket is blocked -- and DEV_MODE cannot
+    #                  change it, because the nonce interceptor is inert here.
     #
-    # Measured against `lein with-profile +dev`, not reasoned about:
-    #
-    #   DEV_MODE unset  -> env :dev-mode "true"  dev-mode? true   does not block
-    #   DEV_MODE=true   -> "true"                dev-mode? true   does not block
-    #   DEV_MODE=TRUE   -> "TRUE"                dev-mode? true   does not block
-    #   DEV_MODE=yes    -> "yes"                 dev-mode? FALSE  blocks
-    #   DEV_MODE=1      -> "1"                   dev-mode? FALSE  blocks
-    #   DEV_MODE=       -> ""                    dev-mode? FALSE  blocks
-    #   DEV_MODE=tru    -> "tru"                 dev-mode? FALSE  blocks
-    #   DEV_MODE=false  -> "false"               dev-mode? FALSE  blocks
-    #
-    # ${DEV_MODE+x}, not ${DEV_MODE:-}: the latter collapses unset and empty,
-    # and the table above shows those two disagree.
+    # An earlier revision tested `strict|permissive` and then applied the
+    # DEV_MODE logic to both, so CSP_POLICY=permissive with DEV_MODE=true was
+    # reported as fine while the server blocked the socket.
+    case "$policy" in
+        none)   return 1 ;;
+        strict) ;;
+        *)      return 0 ;;
+    esac
+
+    # Strict only, from here. See the measured table in the commit that added
+    # this: unset means the :dev profile supplies "true"; an explicit empty
+    # string is a value and overrides it; only the literal "true" disables CSP.
     [ -z "${DEV_MODE+x}" ] && return 1
-    case "$(printf '%s' "$DEV_MODE" | tr '[:upper:]' '[:lower:]')" in
+    case "$(printf '%s' "$DEV_MODE" | LC_ALL=C tr 'A-Z' 'a-z')" in
         true) return 1 ;;
         *)    return 0 ;;
     esac
@@ -211,9 +244,21 @@ offer_env_file() {
 confirm_dev_mode() {
     dev_mode_blocks_figwheel || return 0
 
-    log_warn "CSP is strict and ENFORCING (DEV_MODE=${DEV_MODE:-<unset>})."
+    local policy
+    policy="$(effective_csp_policy)"
+    log_warn "CSP policy is $policy and ENFORCING (DEV_MODE=${DEV_MODE:-<unset>})."
     log_warn "ws://localhost:$FIGWHEEL_PORT is not in connect-src, so hot reload"
-    log_warn "will silently not work. Set DEV_MODE=true in .env to develop."
+    log_warn "will silently not work."
+    # The remedy differs by policy, and the old text gave the strict one for all
+    # of them. Under permissive (and any unrecognised value, which becomes
+    # permissive) the policy is applied statically by Pedestal and DEV_MODE has
+    # no effect at all, so "set DEV_MODE=true" is advice that cannot work.
+    case "$policy" in
+        strict) log_warn "Set DEV_MODE=true in .env to develop." ;;
+        *)      log_warn "DEV_MODE does not affect this policy -- it is applied"
+                log_warn "statically. Use CSP_POLICY=strict with DEV_MODE=true," 
+                log_warn "or CSP_POLICY=none." ;;
+    esac
 
     is_interactive || { log_warn "Continuing anyway (non-interactive)."; return 0; }
 
