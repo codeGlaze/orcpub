@@ -395,9 +395,12 @@
    trying to sign up for a character builder.
 
    So it speaks the way the strength meter speaks, because it is the same kind
-   of judgement -- too common, here is the better move -- and the count stays out."
+   of judgement -- too common, here is the better move -- and the count stays
+   out. It IS the meter's now: the verdict is the badge reading \"Too common\"
+   and this is the line under the bar, so the words no longer open by repeating
+   what the badge just said."
   [_n]
-  "Too common. A few words strung together are harder to guess and easier to remember.")
+  "A few words strung together are harder to guess and easier to remember.")
 
 (def ^:private breach-refusal-threshold
   "How many appearances in the corpus make a password common enough to refuse.
@@ -424,7 +427,12 @@
   [password]
   (let [result (pwned/check password)]
     (when (and (number? result) (>= result breach-refusal-threshold))
-      {:password [(breach-message result)]})))
+      ;; Its OWN key, not :password. This is a strength verdict, not a rule
+      ;; fault: it belongs to the meter, which is the only thing on the page
+      ;; already saying how good the password is. Keyed with the rule faults it
+      ;; rendered as a red field error sitting directly above a meter reporting
+      ;; UNCOMMON in green -- two verdicts on one password, disagreeing.
+      {:password-common [(breach-message result)]})))
 
 (def ^:private registration-throttled-message
   (str "Too many accounts have been created from this connection in the last hour. "
@@ -691,7 +699,7 @@
           ;; Asked once. Only reached when the password is otherwise acceptable,
           ;; so a rejected reset never costs a call.
           breached (when (and (= password verify-password) (empty? rule-errors))
-                     (first (:password (breach-errors password))))]
+                     (first (:password-common (breach-errors password))))]
       ;; Field-keyed, in :body, the same shape registration answers with.
       ;; :message is not a Pedestal response key: these came back as a 400 with
       ;; an EMPTY body, so the reasons never left the server and the page had
@@ -701,7 +709,7 @@
         {:status 400 :body {:verify-password ["Passwords do not match"]}}
 
         (seq rule-errors) {:status 400 :body rule-errors}
-        breached {:status 400 :body {:password [breached]}}
+        breached {:status 400 :body {:password-common [breached]}}
         :else (do-password-reset conn id password)))
     (catch Throwable t (prn t) (throw t))))
 

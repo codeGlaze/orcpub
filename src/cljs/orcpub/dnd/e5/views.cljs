@@ -199,12 +199,18 @@
    there. Rarity names rather than Weak/Moderate/Strong: the ladder is the
    vocabulary this site's readers already have, and Common is not a joke -- a
    password the corpus knows is exactly that."
-  ([password] (password-meter password nil))
-  ([password context]
+  ([password] (password-meter password nil nil))
+  ([password context] (password-meter password context nil))
+  ([password context refused]
    (let [{:keys [rung fills]} (registration/password-strength password context)
          tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
-         reached? (and rung (not (neg? rung)))
-         suffix (cond (nil? rung) nil (neg? rung) "fail" :else rung)
+         ;; The corpus outranks the ladder. Only the server can reach it, so it
+         ;; arrives late and separately -- but a password it refuses is not a
+         ;; Rare one, and showing both is how the page ended up holding two
+         ;; verdicts that disagreed.
+         refused? (boolean (seq refused))
+         reached? (and (not refused?) rung (not (neg? rung)))
+         suffix (cond refused? "fail" (nil? rung) nil (neg? rung) "fail" :else rung)
          remaining (when (and reached? (< rung 3))
                      (- (nth registration/strength-rungs (inc rung))
                         (count (or password ""))))]
@@ -220,11 +226,17 @@
                           :style {:width (str percent "%")}}]]))]
       [:div.pw-verdict
        [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
-        (when reached? (nth tier-names rung))]
+        (cond refused? "Too common"
+              reached? (nth tier-names rung))]
        [:span.pw-next
         (cond
+          refused? nil
           remaining (str (nth tier-names (inc rung)) " in " remaining)
-          (seq password) (str (count password) " characters"))]]])))
+          (seq password) (str (count password) " characters"))]]
+      ;; The reasoning sits with the bar it is about, not in the field's error
+      ;; slot above the input. It is advice on making a better password, which
+      ;; is what everything else in this widget is.
+      (when refused? [:div.pw-note refused])])))
 
 (defn password-pair
   "A password and its confirmation, where revealing the password retires the
@@ -953,9 +965,9 @@
              :on-confirm (fn [e]
                            (dispatch [:password-reset-clear-errors])
                            (swap! params assoc :verify-password (event-value e)))}]
-           ;; No context: this page knows no username or email, which is also
-           ;; what the server judges the password against here.
-           [password-meter password]
+           ;; No context here: the page knows no username or email. The server
+           ;; does, and judges the password against them.
+           [password-meter password nil (first (:password-common server-errors))]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
@@ -1127,7 +1139,8 @@
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
        [password-meter (:password registration-form)
         {:username (:username registration-form)
-         :email (:email registration-form)}]
+         :email (:email registration-form)}
+        @(subscribe [:registration-password-common])]
        [:div.m-t-20.t-a-l.m-l-15
         [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
