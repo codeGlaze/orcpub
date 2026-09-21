@@ -8,6 +8,7 @@
    [buddy.sign.jwt :as jwt]
    [environ.core :as environ]
    [orcpub.routes :as routes]
+            [orcpub.env :as env]
    [orcpub.dnd.e5.magic-items :as mi]
    [orcpub.dnd.e5.character :as char5e]
    [orcpub.modifiers :as mod]
@@ -257,7 +258,7 @@
 (deftest test-unsubscribe-token-roundtrip
   (testing "Token encodes email and action, verifiable with signature"
     (let [token (routes/unsubscribe-token "Test@Example.com")
-          claims (jwt/unsign token (environ/env :signature))]
+          claims (jwt/unsign token (env/value :signature))]
       (is (= "test@example.com" (:email claims))
           "Email should be lowercased")
       (is (= "unsubscribe" (:action claims))))))

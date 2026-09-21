@@ -6,13 +6,13 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
-            [environ.core :refer [env]]))
+            [orcpub.env :as env]))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
    Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
    When unset, no fetch is attempted — plugins come only from local imports."
-  (env :load-homebrew-url))
+  (env/value :load-homebrew-url))
 
 (defn meta-tag [property content]
   (when content

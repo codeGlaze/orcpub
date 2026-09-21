@@ -46,6 +46,7 @@
             [orcpub.routes.folder :as folder]
             [hiccup.page :as page]
             [environ.core :as environ]
+            [orcpub.env :as env]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
@@ -66,8 +67,18 @@
 
 (def ^:private jwt-secret
   "JWT signing secret from SIGNATURE env var.
-   nil when unset — check-auth returns 500 with a diagnostic message."
-  (environ/env :signature))
+   nil when unset OR BLANK — check-auth returns 500 with a diagnostic message.
+
+   The blank check is load-bearing, and its absence defeated the warning below.
+   An exported-but-empty SIGNATURE= yields \"\", which is TRUTHY in Clojure, so
+   it sailed past `when-not jwt-secret` — the guard written for exactly this —
+   and was handed to buddy. Measured: buddy signs AND verifies with \"\" without
+   complaint, so the app issued and accepted tokens signed with a publicly
+   known empty secret, and anyone could forge one for any user.
+
+   Clearing a line in .env is an ordinary thing to do; .env.example ships nine
+   keys with empty values."
+  (env/value :signature))
 
 (when-not jwt-secret
   (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
@@ -230,7 +241,7 @@
 (defn create-token [username exp]
   (jwt/sign {:user username
              :exp exp}
-            (environ/env :signature)))
+            jwt-secret))
 
 (defn following-usernames [db ids]
   (map :orcpub.user/username
@@ -457,7 +468,7 @@
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
   (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+            jwt-secret))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -468,7 +479,7 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token jwt-secret)]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
             (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]

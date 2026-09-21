@@ -62,34 +62,26 @@ print_env_config() {
     fi
 }
 
-# The policy the SERVER will actually use, normalised the way
-# config/get-csp-policy does (Locale/ROOT lowercase). An unrecognised value is
-# not an error there: get-secure-headers-config cond-falls through to
-# permissive-csp-settings, so report what it BECOMES, not what was typed.
+# The policy token as the server resolves it: config/get-csp-policy is now
+# (env/value :csp-policy "strict"), and orcpub.env/value treats blank as absent.
+# So ${CSP_POLICY:-strict} is correct again -- unset and empty both mean strict.
 #
-# LC_ALL=C on the tr is load-bearing, and is the same defect this branch exists
-# for: tr '[:upper:]' '[:lower:]' uses the shell's locale, so on a Turkish
-# machine "STRICT" folds to "strıct" (dotless i), matches nothing, and gets
-# reported as the fallback. The server avoids this with Locale/ROOT.
-# The policy token exactly as the server resolves it, before any interpretation.
+# This briefly used ${CSP_POLICY+x} to distinguish them, because the server used
+# to resolve an empty CSP_POLICY to "" and fall through to the static permissive
+# policy. That was a faithful mirror of a server bug; the server was the thing to
+# fix, and the mirror got simpler when it was.
 #
-# ${CSP_POLICY+x}, not ${CSP_POLICY:-strict}. The server does
-#   (or (env :csp-policy) (System/getenv "CSP_POLICY") "strict")
-# and the empty string is TRUTHY in Clojure, so CSP_POLICY= resolves to "" --
-# not to "strict". Only a genuinely absent variable defaults. Bash's :- collapses
-# unset and empty, which would call an empty CSP_POLICY "strict"; strict is the
-# one policy DEV_MODE can switch off, so an empty value would be reported as
-# safe while the server applied the static permissive policy. Measured: with
-# CSP_POLICY= and DEV_MODE=true the server BLOCKS and the :- version said it did
-# not.
+# LC_ALL=C on the tr is load-bearing, and is this branch's own subject matter:
+# tr '[:upper:]' '[:lower:]' folds using the shell's locale, so on a Turkish
+# machine "STRICT" becomes "strıct" and matches nothing. config/get-csp-policy
+# avoids the same trap with Locale/ROOT.
 _csp_policy_token() {
-    if [ -z "${CSP_POLICY+x}" ]; then
-        printf 'strict'
-    else
-        printf '%s' "$CSP_POLICY" | LC_ALL=C tr 'A-Z' 'a-z'
-    fi
+    printf '%s' "${CSP_POLICY:-strict}" | LC_ALL=C tr 'A-Z' 'a-z'
 }
 
+# The policy the SERVER will actually USE. An unrecognised value is not an error
+# there: get-secure-headers-config cond-falls through to permissive-csp-settings,
+# so report what it BECOMES, not what was typed.
 effective_csp_policy() {
     local p
     p="$(_csp_policy_token)"

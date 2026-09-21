@@ -6,7 +6,7 @@
   handling to prevent silent failures when the SMTP server is unavailable."
   (:require [hiccup2.core :as hiccup]
             [postal.core :as postal]
-            [environ.core :as environ]
+            [orcpub.env :as env]
             [clojure.pprint :as pprint]
             [clojure.string :as s]
             [orcpub.route-map :as routes]
@@ -77,16 +77,16 @@
 
 (defn email-cfg []
   (try
-    {:user (environ/env :email-access-key)
-     :pass (environ/env :email-secret-key)
-     :host (environ/env :email-server-url)
-     :port (Integer/parseInt (or (environ/env :email-server-port) "587"))
-     :ssl (or (str/to-bool (environ/env :email-ssl)) nil)
-     :tls (or (str/to-bool (environ/env :email-tls)) nil)}
+    {:user (env/value :email-access-key)
+     :pass (env/value :email-secret-key)
+     :host (env/value :email-server-url)
+     :port (Integer/parseInt (env/value :email-server-port "587"))
+     :ssl (or (str/to-bool (env/value :email-ssl)) nil)
+     :tls (or (str/to-bool (env/value :email-tls)) nil)}
     (catch NumberFormatException e
       (throw (ex-info "Invalid email server port configuration. Expected a number."
                       {:error :invalid-port
-                       :port (environ/env :email-server-port)}
+                       :port (env/value :email-server-port)}
                       e)))))
 
 (defn emailfrom
@@ -363,7 +363,7 @@
   - Throttles: one email per unique error fingerprint per 5 minutes
   - Extracts Pedestal interceptor metadata as a separate section"
   [context exception]
-  (when (not-empty (environ/env :email-errors-to))
+  (when (env/value :email-errors-to)
     (let [data-map      (ex-data exception)
           pedestal?     (pedestal-wrapper? data-map)
           real-ex       (if pedestal? (:exception data-map) exception)
@@ -378,7 +378,7 @@
             (let [result (postal/send-message
                           (email-cfg)
                           {:from    (str branding/app-name " Errors <" (emailfrom) ">")
-                           :to      (str (environ/env :email-errors-to))
+                           :to      (str (env/value :email-errors-to))
                            :subject (email-subject real-ex request)
                            :body    [{:type    "text/plain"
                                       :content (build-body request real-ex pedestal-meta)}]})]

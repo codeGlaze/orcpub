@@ -7,7 +7,8 @@
    PERMISSIVE policy -- a security downgrade nobody asked for and nothing
    reports. These tests run under a Turkish locale on purpose."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [orcpub.config :as config])
+            [orcpub.config :as config]
+            [environ.core])
   (:import [java.util Locale]))
 
 (def ^:private turkish (Locale/forLanguageTag "tr-TR"))

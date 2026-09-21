@@ -1,5 +1,5 @@
 (ns orcpub.system
-  (:require [clojure.string :as s]
+  (:require [orcpub.env :as env]
             [com.stuartsierra.component :as component]       
             [reloaded.repl :as rrepl]
             [io.pedestal.http :as http]
@@ -24,8 +24,7 @@
   ;; threw here -- and because both service maps are top-level defs, that throws
   ;; while the namespace LOADS, not when the server starts. An empty value in a
   ;; config template is a normal thing for a user to leave behind.
-  (let [raw (System/getenv "PORT")
-        port-str (if (s/blank? raw) "8890" (s/trim raw))]
+  (let [port-str (env/value :port "8890")]
     (try
       (Integer/parseInt port-str)
       (catch NumberFormatException e

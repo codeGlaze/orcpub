@@ -2,12 +2,12 @@
   "Optional third-party <head> integrations.
    Configure via environment variables; disabled when unset.
    Fork overrides: uncomment examples and add real service config."
-  (:require [environ.core :refer [env]]))
+  (:require [orcpub.env :as env]))
 
 ;; ─── How to add an integration ───────────────────────────────────────
 ;;
 ;; 1. Define env-var-gated config:
-;;      (def my-service-id (env :my-service-id))
+;;      (def my-service-id (env/value :my-service-id))
 ;;
 ;; 2. Write a tag function that returns hiccup (or nil when disabled):
 ;;      (defn- my-service-tag [nonce]
