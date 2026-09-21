@@ -117,6 +117,35 @@ async function resetLinkFor(page, sink, email) {
   check(/at least 12 characters/i.test(await cardText(page)),
         'a short password is refused WITH its reason');
 
+  // The chips and the tip. Five rules, each visible as its own chip before
+  // anything is pressed, and a line pointing forward once nothing is wrong.
+  await page.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.auth-form input');
+  b = authInputs(page);
+  await b.nth(0).fill('kaylee');
+  const chipState = async () => {
+    await page.waitForTimeout(400);
+    return page.locator('.pw-chip').evaluateAll(els => Object.fromEntries(
+      els.map(e => [e.textContent.trim(), e.classList.contains('is-ok')])));
+  };
+  await b.nth(3).fill('aaaaaaaaaaaa');
+  let c = await chipState();
+  check(c['12 or more'] === true && c['no triples'] === false && c['some variety'] === false,
+        'twelve of one letter: length passes, triples and variety do not', JSON.stringify(c));
+  await b.nth(3).fill('abcdefghijkl');
+  c = await chipState();
+  check(c['no key runs'] === false, 'an alphabet run fails its own chip', JSON.stringify(c));
+  await b.nth(3).fill('kayleekaylee12');
+  c = await chipState();
+  check(c['not your name'] === false, 'a password holding the username fails its own chip',
+        JSON.stringify(c));
+  await b.nth(3).fill('brass lantern rope candle bell');
+  c = await chipState();
+  check(Object.values(c).every(Boolean) && Object.keys(c).length === 5,
+        'a real passphrase satisfies all five', JSON.stringify(c));
+  const tip = await text(page, '.pw-note');
+  check(tip.length > 0, 'and the meter says what to do next rather than only what is wrong', tip);
+
   console.log('login');
   await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('input');

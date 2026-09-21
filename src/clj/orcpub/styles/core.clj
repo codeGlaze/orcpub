@@ -985,15 +985,38 @@
                   :gap "10px"
                   :min-height "24px"
                   :margin-top "9px"}]
-   ;; The corpus verdict's reasoning, under the bar it is about. Ink rather than
+   ;; One chip per rule. Outlined and quiet: five of these have to sit under a
+   ;; field without reading as five warnings, so the satisfied state is a thin
+   ;; green line and the broken one a thin red line, neither of them filled.
+   [:.pw-chips {:display :flex
+                :flex-wrap :wrap
+                :gap "5px"
+                :margin-top "10px"}]
+   [:.pw-chip {:font-size "11.5px"
+               :line-height "16px"
+               :padding "3px 9px"
+               :border-radius "11px"
+               :border "1px solid #e3e7eb"
+               :color muted-on-light
+               :background-color "#fbfcfd"}]
+   [:.pw-chip.is-ok {:border-color "#c2dd8e"
+                     :color "#4a7000"
+                     :background-color "#f4f9ea"}]
+   [:.pw-chip.is-bad {:border-color "#f0b9c4"
+                      :color error-red
+                      :background-color error-tint}]
+
+   ;; The line under the bar, in both its readings: why a password was refused,
+   ;; and -- the rest of the time -- what buys the next rung. Ink rather than
    ;; red: the bar and the word above it already carry the colour, and this is
    ;; advice on writing a better password, not a second alarm.
    [:.pw-note {:font-size "12.5px"
                :line-height "18px"
                :color text-color-light
                :text-align :left
-               :margin-top "-2px"
+               :margin-top "9px"
                :max-width "38ch"}]
+   [:.pw-note.is-tip {:color muted-on-light}]
    [:.pw-tier-name {:font-size "13px"
                     :font-weight :bold
                     :letter-spacing "0.08em"
