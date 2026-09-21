@@ -340,7 +340,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** address, auth, blank, bypass, contact, docker, email, empty, environ, environment, lint, postal, reintroducing, sites, smtp, unset, uri, variables
+**topics:** account, blank, bypass, docker, email, empty, environ, environment, implements, lockout, postal, reintroducing, sibling, sites, smtp, unset, uri, variables
 
 - Why it kept happening
 - What it cost
@@ -672,7 +672,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, flexibility, grant, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1299,7 +1299,7 @@ _equipment-option-picker · equipment option picker_
 
 _error-handling-import-validation · error handling import validation_
 
-**topics:** composite, css, decomposition, destructuring, error, extracted, findings, garden, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews, warning
+**topics:** composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews, warning
 
 - Context
 - What Was Built
@@ -2663,7 +2663,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged

@@ -162,16 +162,43 @@ means "sending throws".
 Datomic does not roll back. So on any instance without SMTP — **the default Docker state**:
 
 1. The account is created, `:verified? false`
-2. The email throws; the user sees *"Unable to complete registration."*
+2. The email throws; the user sees *"Unable to complete registration. Please try again."*
 3. Retrying fails validation — the username and email are now taken
-4. The account can never be verified, because no email can ever be sent
 
-Registration is permanently broken and half-creates accounts that lock out the address. The
-"contact support" in that message may also render empty, since `APP_SUPPORT_EMAIL` ships
-unset. This is reachable **by default**, not by misconfiguration, which makes it a bigger
-problem than the auth bypass above. Not fixed on `hotfix/locale-safety` — out of scope for a
-locale hotfix, and the fix is a design question (gate before transacting? allow unverified
-accounts when email is disabled? admin verification path?).
+**Severity, measured rather than assumed.** An earlier version of this document said the
+account "can never be verified" and that registration was "permanently broken". Both were
+wrong. The resend-verification route operates on exactly this orphaned state and succeeds,
+and it is wired to a UI button (`views.cljs:653` dispatches `:re-verify`). Verified against
+the pre-fix code:
+
+```
+register            -> threw
+account left behind -> true
+retry registration  -> 400        <- the confusing part
+RESEND verification -> 200        <- recovery works
+fresh key stored    -> true
+```
+
+So the real symptom is a confusing dead end with an escape hatch, not a lockout.
+
+**That is also why seven years of production never surfaced it.** Live SMTP works, so this
+branch only runs on a *transient* send failure — provider outage, timeout, greylisting, a
+bounced recipient. The handful of users it reaches report *"it says my email already
+exists"*, which is indistinguishable from someone who forgot they had an account.
+Misattributed, not invisible. Worth remembering as a pattern: a bug whose symptom mimics
+ordinary user error can survive any amount of production time.
+
+Fixed on `hotfix/locale-safety` (`e4a69649`), by the rollback the sibling flow already used
+— see `registration_rollback_test.clj`. The two callers need *different* rollbacks:
+`register` passes no `:db/id` so the entity is retracted, while `re-verify` passes an
+existing user and only the attributes that attempt set may be retracted. Retracting the
+entity there would delete a real account; the naive fix passes every other test and does
+exactly that.
+
+Still open, and genuinely a product decision: an instance with no SMTP now fails cleanly
+instead of orphaning an account, but still cannot register anyone. Auto-verify when email is
+disabled, refuse up front, or an admin path? `.env.example` already promises "Leave
+EMAIL_SERVER_URL empty to disable email functionality" and nothing implements it.
 
 ## A second finding from the same sweep
 
