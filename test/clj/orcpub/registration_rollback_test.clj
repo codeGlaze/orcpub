@@ -4,11 +4,24 @@
    do-verification transacts the user and THEN sends the email. Datomic does not
    roll back, so a failed send left a committed, unverified account -- and since
    register validates against existing username/email, the retry it tells the
-   user to make then fails with \"already taken\". The address is locked out and
-   the account can never be verified, because no email can ever be sent.
+   user to make then fails with \"already taken\".
 
-   That is the default state of any instance without SMTP, including the default
-   docker-compose deployment, where EMAIL_SERVER_URL is passed as ${VAR:-}.
+   SCOPE, measured rather than assumed. The account is NOT unrecoverable: the
+   resend-verification route works on exactly this state (verified against the
+   pre-fix code -- resend returns 200 and stores a fresh key), and it is wired to
+   a button in the UI. So the real symptom is a confusing dead end that a user
+   can escape if they find the resend link, not a permanent lockout. An earlier
+   version of this docstring and of docs/kb/blank-env-values.md said \"can never
+   be verified\"; that was wrong.
+
+   Which is why seven years of production never surfaced it: live SMTP works, so
+   this branch only runs on a transient send failure, and the handful of users it
+   hits report \"it says my email already exists\" -- indistinguishable from
+   someone who forgot they had an account.
+
+   It is still worth fixing. A failed send should not leave a half-created
+   account, and \"please try again\" is the wrong advice when retrying cannot
+   work.
 
    The sibling flow already solved this: request-email-change transacts, sends,
    and retracts on failure, covered by email_change_test/test-email-send-failure-
