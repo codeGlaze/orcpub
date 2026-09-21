@@ -881,6 +881,28 @@
      content]
     legal-links?)))
 
+(defn auth-form-page
+  "A page that asks for something: a column of fields, then whatever acts on
+   them.
+
+   auth-page shares the shell and the heading and takes the body as an OPAQUE
+   blob, so everything below the amber rule stayed per-page hiccup -- and four
+   pages then hand-assembled the identical
+   `[:div [:div.m-t-10.auth-form ...] [:div.m-t-10.auth-tail ...]]` four times
+   over. That is why a gutter, a submit width, a line-height and a message slot
+   each had to be fixed once PER PAGE rather than once: the shell was shared and
+   the body was not.
+
+   `tail` is what acts on the fields and everything under it -- a submit, and
+   whatever links or fineprint that page carries."
+  [{:keys [heading lede fields tail legal-links?]
+    :or {legal-links? true}}]
+  (auth-page heading lede
+             [:div
+              [:div.m-t-10.auth-form fields]
+              (when tail [:div.m-t-10.auth-tail tail])]
+             {:legal-links? legal-links?}))
+
 (def make-event-handler
   (memoize
    (fn [event-kw & args]
@@ -896,22 +918,19 @@
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
-      (auth-page
-       "Your key has expired"
-       (str "You must verify your email within 24 hours of registering. "
-            "Send another verification email by submitting your address here.")
-       [:div
-        [:div.m-t-10.auth-form
-         [base-input
-          {:name :email
-           :value (:email @params)
-           :type :email
-           :title "Email address"
-           :on-change (partial set-value params :email)}]]
-        [:div.m-t-10.auth-tail
-         [:button.form-button.form-submit-btn
-          {:on-click (make-event-handler :re-verify @params)}
-          "RESEND"]]]))))
+      (auth-form-page
+       {:heading "Your key has expired"
+        :lede (str "You must verify your email within 24 hours of registering. "
+                   "Send another verification email by submitting your address here.")
+        :fields [base-input
+                 {:name :email
+                  :value (:email @params)
+                  :type :email
+                  :title "Email address"
+                  :on-change (partial set-value params :email)}]
+        :tail [:button.form-button.form-submit-btn
+               {:on-click (make-event-handler :re-verify @params)}
+               "RESEND"]}))))
 
 
 (defn hide-login-message []
@@ -922,11 +941,11 @@
     (fn [error-message]
       (let [email (:email @params)
             bad-email? (registration/bad-email? email)]
-        (auth-page
-         "Reset your password"
-         "Submit your email address and we will send you a link to reset your password."
-         [:div
-          [:div.m-t-10.auth-form
+        (auth-form-page
+         {:heading "Reset your password"
+          :lede "Submit your email address and we will send you a link to reset your password."
+          :fields
+          [:div
            (when error-message [:div.red.m-b-20 error-message])
            [form-input
             {:title "Email"
@@ -944,20 +963,20 @@
                @(subscribe [:login-message])
                hide-login-message]])
            ]
-          [:div.m-t-10.auth-tail
+          :tail
+          [:div
            [:button.form-button.form-submit-btn
             {:class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
-           [:div.m-t-20
-            ;; The link text is the whole phrase, not the one word "whitelist" in
-            ;; the middle of it: a single word is a small target, and it is what a
-            ;; screen reader announces on its own, where it names no destination.
+           ;; The link text is the whole phrase, not the one word "whitelist" in
+           ;; the middle of it: a single word is a small target, and it is what a
+           ;; screen reader announces on its own, where it names no destination.
+           [:div.auth-help
             [:span "Didn't receive the reset email? Check your spam folder, or "]
             [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
              "read how to let our email through"]
-            [:span ", then try again."]]
-           ]])))))
+            [:span ", then try again."]]]})))))
 
 (defn password-reset-expired-page []
   ;; Reached by an expired link AND by one that is mangled or unrecognised, so
@@ -1005,11 +1024,11 @@
             ;; split the reveal state between a db read and a component atom
             ;; last time.
             attempted? (:attempted? @params)]
-        (auth-page
-         "Choose a new password"
-         "This replaces the password on your account."
-         [:div
-          [:div.m-t-10.auth-form
+        (auth-form-page
+         {:heading "Choose a new password"
+          :lede "This replaces the password on your account."
+          :fields
+          [:div
            ;; The same pair and the same meter the register form uses. A password
            ;; is made in two places and only one of them helped: these messages
            ;; were commented out years before the rules got stricter, which
@@ -1041,16 +1060,15 @@
                                       @(subscribe [:login-message])
                                       hide-login-message]])
            ]
-          [:div.m-t-10.auth-tail
-           ;; Never dimmed, the same call the register form makes: a button that
-           ;; looks dead reads as a broken site and cannot say why it will not
-           ;; go. Pressing it always does something, and when the form is not
-           ;; ready that something is showing the faults it has been sitting on.
-           [:button.form-button.form-submit-btn
-            {:on-click #(if invalid?
-                          (swap! params assoc :attempted? true)
-                          ((make-event-handler :password-reset @params)))}
-            "SUBMIT"]]])))))
+          ;; Never dimmed, the same call the register form makes: a button that
+          ;; looks dead reads as a broken site and cannot say why it will not
+          ;; go. Pressing it always does something, and when the form is not
+          ;; ready that something is showing the faults it has been sitting on.
+          :tail [:button.form-button.form-submit-btn
+                 {:on-click #(if invalid?
+                               (swap! params assoc :attempted? true)
+                               ((make-event-handler :password-reset @params)))}
+                 "SUBMIT"]})))))
 
 (defn login-link []
   [:span.underline.f-w-b.m-l-10.pointer.orange
@@ -1183,11 +1201,12 @@
                                   (update :verify-password conj "Passwords do not match"))
         send-updates? (not= false (:send-updates? registration-form))
         ]
-    (auth-page
-     "Join for free"
-     "Save your characters, share them, and pick up where you left off."
-     [:div
-      [:div.m-t-10.auth-form
+    (auth-form-page
+     {:heading "Join for free"
+      :lede "Save your characters, share them, and pick up where you left off."
+      :legal-links? false
+      :fields
+      [:div
        (when show-errors? [error-summary registration-validation])
        [form-input {:title "Username"
                     :key :username
@@ -1234,8 +1253,10 @@
          {:class (if send-updates? "orange" "white")
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
-       [:div.m-t-10.auth-tail
-        (when-let [notice @(subscribe [:registration-notice])]
+       ]
+      :tail
+      [:div
+       (when-let [notice @(subscribe [:registration-notice])]
           [:div.m-t-10.registration-notice
            (for [line notice] ^{:key line} [:div line])])
         ;; Not .m-b-10: that margin utility is bundled into a rule that sets
@@ -1252,18 +1273,17 @@
                        (dispatch [:register])
                        (dispatch [:registration-attempted]))}
          "JOIN"]
-        [:div.m-t-20
-         [:span "Already have an account?"]
-         (login-link)]]]
-      ;; This page links both documents in its consent line, so the shell's
-      ;; footer keeps the copyright and drops its copies of the same two links.
-      [:div.auth-fineprint
-       "By joining you agree to our "
-       [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
-       " and confirm you have read our "
-       [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-       "."]]
-     {:legal-links? false})))
+       [:div.m-t-20.auth-alt
+        [:span "Already have an account?"]
+        (login-link)]
+       ;; This page links both documents in its consent line, so the shell's
+       ;; footer keeps the copyright and drops its copies of the same two links.
+       [:div.auth-fineprint
+        "By joining you agree to our "
+        [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
+        " and confirm you have read our "
+        [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+        "."]]})))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
@@ -1276,11 +1296,14 @@
     (fn []
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
-        (auth-page
-         "Welcome back"
-         [:div
-          [:div.m-t-10]
-          [:div.login-form-inputs
+        ;; .login-form-inputs was this page's own container, so its fields were
+        ;; 350px where every other page's are the column's width, and the tail
+        ;; nested inside it came out narrower than the fields above it. It is on
+        ;; the same shape as the rest now.
+        (auth-form-page
+         {:heading "Welcome back"
+          :fields
+          [:div
            [form-input {:title "Username or Email"
                         :key :username
                         :value (:username @params)
@@ -1292,14 +1315,12 @@
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
            (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
-                                      :error
-                                      login-message
-                                      hide-login-message]])
-           ;; .auth-tail and .join-button, the same pair the register page uses.
-           ;; At 174px and hard left this read as one option among the links
-           ;; under it rather than the thing the page is for.
-           [:div.m-t-10.auth-tail
+             [:div.m-t-5 [notifications/message
+                          :error
+                          login-message
+                          hide-login-message]])]
+          :tail
+          [:div
             [:button.form-button.join-button
              {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
@@ -1325,7 +1346,7 @@
              [:span "Didn't receive the validation email? Check your spam folder, or "]
              [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
               "read how to let our email through"]
-             [:span "."]]]]])))))
+             [:span "."]]]})))))
 
 (def loading-style
   {:position :fixed

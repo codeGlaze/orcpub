@@ -890,10 +890,7 @@
                   :font-size "13.5px"
                   :color muted-on-light
                   :text-align :center}]
-    ;; This block sets its own width, so the tail's 16px gutter only inset the
-    ;; button 16px narrower than the fields above it. The gutter is for a column
-    ;; that does NOT constrain itself.
-    [:.login-form-inputs [:.auth-tail {:padding "0"}]]
+
 
     [:.auth-fineprint {:margin-top "16px"
                        :font-size "12.5px"
@@ -1595,15 +1592,6 @@
     [:.registration-content
      {:width "785px"
       :min-height "600px"}]
-
-    [:.login-form-inputs
-     {:max-width "350px"
-      :margin-left :auto
-      :margin-right :auto
-      :margin-top "50px"}
-     [:input
-      {:width "100%"
-       :box-sizing :border-box}]]
 
     [:.registration-input
      {:min-width "438px"}]

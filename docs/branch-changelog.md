@@ -208,6 +208,16 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **All nine auth pages share a body, not just a shell** — `auth-page` abstracted the
+  card and the heading and took everything below the amber rule as an opaque blob, so
+  four pages hand-assembled the identical container skeleton, one of them nested it
+  wrongly and gave its own submit a double gutter, and the login page used a container of
+  its own that made its fields 350px where every other page's are the column's width.
+  That is why a gutter, a submit width, a line-height and a message slot each had to be
+  fixed once PER PAGE. `auth-form-page` takes a heading, a lede, fields and a tail; the
+  nine pages now come in two shapes and neither assembles its own containers
+  (`e8f6b2a1`).
+
 - **The pages that only announce an outcome get a layout of their own** — registration
   complete, password changed, unsubscribed and check-your-email had none. The heading was
   centred and everything under it was not, so the sentence sat against the card's left
