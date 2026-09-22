@@ -220,6 +220,15 @@ a stranger whether a username exists.
   key: read, not trusted, since the server applies the same rule again from the token it
   verifies (`f4a2d1c8`).
 
+- **What the reset page's "not your name" check does and does not know** — it judges
+  against the username only, read from the session token. The server judges against the
+  username and the email's local part; matching that on the page would mean putting the
+  address into a readable cookie, which discloses more than it protects, so the gap stays
+  and the server's refusal explains itself on submit. The chip fires only on the whole
+  username and never a prefix, so it confirms a guess rather than revealing one — and
+  reaching the page needs the emailed key, whose cookie already carries the username in
+  plain base64 (`jwt/sign` is JWS, signed and not encrypted) (`c3ddbb65`).
+
 - **All nine auth pages share a body, not just a shell** — `auth-page` abstracted the
   card and the heading and took everything below the amber rule as an opaque blob, so
   four pages hand-assembled the identical container skeleton, one of them nested it

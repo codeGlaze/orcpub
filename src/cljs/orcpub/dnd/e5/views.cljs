@@ -1057,9 +1057,19 @@
             ;; one rule only the server can apply -- sits alongside whatever the
             ;; form already found rather than replacing it.
             server-errors @(subscribe [:password-reset-server-errors])
-            ;; The same context the register page uses and the same context the
-            ;; server judges against here. Without it this page called a password
-            ;; fine and the server then refused it for being the username.
+            ;; The username, and deliberately NOT the email. The server judges
+            ;; against both here; the token carries only :user, and putting the
+            ;; address in a cookie to match would be a real disclosure -- worse
+            ;; than the one it would be closing. So a password holding the email's
+            ;; local part passes the chips and is refused on submit, where the
+            ;; server's reason now reaches the page.
+            ;;
+            ;; The "not your name" chip is a confirmation oracle, which is fine:
+            ;; it fires only on the WHOLE username, never a prefix ("kayl" is
+            ;; silent, "kaylee" flags), so it cannot be walked letter by letter --
+            ;; and reaching this page at all needs the emailed key, whose cookie
+            ;; already carries the username in plain base64. It tells nobody
+            ;; anything the cookie has not already handed them.
             context {:username (token-username)}
             ;; Reading the password back is what the confirm box stands in for,
             ;; so revealing it retires the box -- and the check that decides
