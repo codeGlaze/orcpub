@@ -122,6 +122,22 @@
        (and context (contains-identifier? password context))
        (update :password conj "Leave your username and email out of your password")))))
 
+(defn password-pair-faults
+  "Everything wrong with a password AND its confirmation, keyed by field.
+
+   Both places a password is made were deriving this for themselves, in two
+   different state idioms, which is how one of them ended up judging the pair
+   against the username and the other not.
+
+   `revealed?` true means the confirmation is not being asked for -- the box is
+   gone, so it cannot be wrong. A blank password has nothing to mismatch yet."
+  [password confirm revealed? context]
+  (cond-> (validate-password password context)
+    (and (not revealed?)
+         (seq password)
+         (not= password confirm))
+    (assoc :verify-password ["Passwords do not match"])))
+
 (def strength-rungs
   "Character counts at which each of the meter's four slots fills. Length is all
    the meter measures, because it is all that reliably buys anything: a digit

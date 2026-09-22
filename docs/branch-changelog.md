@@ -208,6 +208,18 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **Both places a password is made share the area, not just its parts** — password-pair
+  and password-meter were shared components; the COMPOSITION of them was not, so each
+  page wrote out the same pair, the same meter, the same mismatch derivation and the same
+  reveal handling for itself. That is how the reset form went a whole design pass with no
+  meter at all, and how it came to judge a password against NO username while the
+  register page judged it against one — so the page called a password fine and the server
+  then refused it for being the username. `password-fields` composes the area once, and
+  `registration/password-pair-faults` derives the faults once, for both. The reset page
+  reads the username from the session token the server set when it accepted the emailed
+  key: read, not trusted, since the server applies the same rule again from the token it
+  verifies (`f4a2d1c8`).
+
 - **All nine auth pages share a body, not just a shell** — `auth-page` abstracted the
   card and the heading and took everything below the amber rule as an opaque blob, so
   four pages hand-assembled the identical container skeleton, one of them nested it

@@ -166,3 +166,20 @@
     2 "gmial.com" "gmail.com"
     0 "" ""
     3 "abc" ""))
+
+(deftest a-password-and-its-confirmation-are-judged-together
+  (testing "a mismatch is its own field's fault"
+    (is (= ["Passwords do not match"]
+           (:verify-password (reg/password-pair-faults "brass lantern rope" "brass lantern rop" false nil)))))
+  (testing "nothing to mismatch while the password is blank"
+    (is (nil? (:verify-password (reg/password-pair-faults "" "anything" false nil)))))
+  (testing "revealed, the confirmation is not asked for, so it cannot be wrong"
+    (is (nil? (:verify-password (reg/password-pair-faults "brass lantern rope" "" true nil)))))
+  (testing "the password's own rules still apply either way"
+    (is (seq (:password (reg/password-pair-faults "short" "short" true nil)))))
+  (testing "context reaches the password rules -- this is the check the reset page lacked"
+    (is (some #(re-find #"(?i)username" %)
+              (:password (reg/password-pair-faults "kayleekaylee12" "kayleekaylee12" false
+                                                   {:username "kaylee"}))))
+    (is (empty? (:password (reg/password-pair-faults "kayleekaylee12" "kayleekaylee12" false nil)))
+        "and without it the same password passes, which is the gap")))
