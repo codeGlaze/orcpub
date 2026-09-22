@@ -55,6 +55,7 @@
             [orcpub.fork.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
+            [goog.crypt.base64 :as b64]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
             [bidi.bidi :as bidi]
@@ -881,6 +882,58 @@
      content]
     legal-links?)))
 
+(defn- token-username
+  "Whose password the reset page is changing, from the session token the server
+   set when it accepted the emailed key.
+
+   READ, not trusted. It feeds one rule -- that a password must not be the
+   username -- and the server applies that same rule again using the username it
+   gets from VERIFYING this token. A forged claim here makes the page warn about
+   the wrong word and changes nothing about what is accepted.
+
+   Without it the reset page judged a password against no username at all while
+   the register page judged it against one, so the server refused a password the
+   page had just called fine."
+  []
+  (try
+    (when-let [token (get (events/cookies) "token")]
+      (let [payload (second (s/split token #"\."))]
+        (when (seq payload)
+          ;; JWT is base64URL: - and _ stand in for + and /, and the padding is
+          ;; dropped. goog's decoder wants the plain alphabet.
+          (let [b64s (-> payload (s/replace "-" "+") (s/replace "_" "/"))
+                padded (str b64s (case (mod (count b64s) 4) 2 "==" 3 "=" ""))]
+            (some-> (b64/decodeString padded) js/JSON.parse (aget "user"))))))
+    (catch :default _ nil)))
+
+(defn password-fields
+  "The whole area where a password gets made: the pair, and the meter under it.
+
+   password-pair and password-meter were already shared, but the COMPOSITION of
+   them was not -- both pages wrote out the same pair, the same meter, the same
+   mismatch derivation and the same reveal handling for themselves, in two
+   different state idioms. That is how the reset page came to judge a password
+   against no username while the register page judged it against one, and how
+   the reset page went a whole design pass without the meter at all.
+
+   The caller still owns the state, because one keeps it in app-db and the other
+   in a local atom, and that is a real difference between a form the app
+   remembers and a form that exists for ninety seconds behind a one-use link."
+  [{:keys [password confirm revealed? context messages confirm-messages
+           show-errors? refused on-password on-confirm on-toggle]}]
+  [:div
+   [password-pair
+    {:password password
+     :confirm confirm
+     :messages messages
+     :confirm-messages confirm-messages
+     :show-errors? show-errors?
+     :revealed? revealed?
+     :on-toggle on-toggle
+     :on-password on-password
+     :on-confirm on-confirm}]
+   [password-meter password context refused]])
+
 (defn auth-form-page
   "A page that asks for something: a column of fields, then whatever acts on
    them.
@@ -1004,21 +1057,22 @@
             ;; one rule only the server can apply -- sits alongside whatever the
             ;; form already found rather than replacing it.
             server-errors @(subscribe [:password-reset-server-errors])
-            password-messages (vec (distinct (concat (password-validation-messages password)
-                                                     (:password server-errors))))
+            ;; The same context the register page uses and the same context the
+            ;; server judges against here. Without it this page called a password
+            ;; fine and the server then refused it for being the username.
+            context {:username (token-username)}
             ;; Reading the password back is what the confirm box stands in for,
             ;; so revealing it retires the box -- and the check that decides
             ;; whether this can be submitted has to know that, which is why the
             ;; flag is out here rather than inside password-pair.
             revealed? (:password-revealed? @params)
-            confirm-needed? (not revealed?)
-            different? (and confirm-needed?
-                            (seq password)
-                            (not= password verify-password))
-            confirm-messages (vec (distinct (concat (when different? ["Passwords do not match"])
+            faults (registration/password-pair-faults password verify-password
+                                                      revealed? context)
+            password-messages (vec (distinct (concat (:password faults)
+                                                     (:password server-errors))))
+            confirm-messages (vec (distinct (concat (:verify-password faults)
                                                     (:verify-password server-errors))))
-            invalid? (or (seq password-messages)
-                         different?)
+            invalid? (or (seq password-messages) (seq confirm-messages))
             ;; Local to this page's own atom on purpose. The register form keeps
             ;; the same flag in app-db, and reaching for that from here is what
             ;; split the reveal state between a db read and a component atom
@@ -1037,13 +1091,15 @@
            ;; message, no meter and a dimmed button the page simply stopped
            ;; working with nothing said. This is account RECOVERY -- the last
            ;; door somebody has.
-           [password-pair
+           [password-fields
             {:password password
              :confirm verify-password
+             :context context
              :messages password-messages
              :confirm-messages confirm-messages
              :show-errors? attempted?
              :revealed? revealed?
+             :refused (first (:password-common server-errors))
              :on-toggle #(swap! params update :password-revealed? not)
              :on-password (fn [e]
                             (dispatch [:password-reset-clear-errors])
@@ -1051,9 +1107,6 @@
              :on-confirm (fn [e]
                            (dispatch [:password-reset-clear-errors])
                            (swap! params assoc :verify-password (event-value e)))}]
-           ;; No context here: the page knows no username or email. The server
-           ;; does, and judges the password against them.
-           [password-meter password nil (first (:password-common server-errors))]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
@@ -1234,20 +1287,20 @@
                     :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
-       [password-pair
+       [password-fields
         {:password (:password registration-form)
          :confirm (:verify-password registration-form)
+         :context {:username (:username registration-form)
+                   :email (:email registration-form)}
+         :messages (:password registration-validation)
+         :confirm-messages (:verify-password registration-validation)
+         :show-errors? show-errors?
          :revealed? (boolean (:password-revealed? registration-form))
+         :refused @(subscribe [:registration-password-common])
          :on-toggle #(dispatch [:registration-password-revealed?
                                 (not (:password-revealed? registration-form))])
-         :messages (:password registration-validation)
-         :show-errors? show-errors?
          :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
-       [password-meter (:password registration-form)
-        {:username (:username registration-form)
-         :email (:email registration-form)}
-        @(subscribe [:registration-password-common])]
        [:div.m-t-20.t-a-l.m-l-15
         [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
