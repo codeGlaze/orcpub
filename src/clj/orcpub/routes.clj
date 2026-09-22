@@ -358,7 +358,27 @@
    Registration was never brought up to match. See
    registration_rollback_test.clj and docs/kb/blank-env-values.md."
   [request params conn & [tx-data]]
-  (let [verification-key (str (java.util.UUID/randomUUID))
+  (if-not (email/configured?)
+    ;; No SMTP: verify on the spot rather than promising a mail that cannot be
+    ;; sent. .env.example offers an empty EMAIL_SERVER_URL as the way to run
+    ;; without email; before this, that made registration impossible instead --
+    ;; the send failed, so every attempt died. The operator of a mail-less
+    ;; instance is handing out accounts themselves, so address ownership is not
+    ;; being proved by anyone anyway.
+    (do
+      (println "INFO: EMAIL_SERVER_URL is unset — verifying" (:username params)
+               "on creation instead of sending a verification email.")
+      (try
+        @(d/transact conn [(merge tx-data {:orcpub.user/verified? true})])
+        ;; The client branches on this to show "registration complete, you can
+        ;; log in" rather than "check your email".
+        {:status 200 :body {:verified? true}}
+        (catch Exception e
+          (println "ERROR: Failed to create account:" (.getMessage e))
+          (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                          {:error :verification-failed}
+                          e)))))
+    (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)
         ;; re-verify passes an existing {:db/id id}; register does not. The two
         ;; need different rollbacks -- never retract the ENTITY for a user who
@@ -396,7 +416,7 @@
                      (.getMessage re))))
         (throw (ex-info "Unable to complete registration. Please try again or contact support."
                         {:error :verification-email-failed}
-                        e))))))
+                        e)))))))
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params

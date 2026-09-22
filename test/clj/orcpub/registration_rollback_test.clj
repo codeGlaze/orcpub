@@ -27,11 +27,17 @@
    and retracts on failure, covered by email_change_test/test-email-send-failure-
    rolls-back. These tests are that one's mirror for registration.
 
+   Every test here stubs email/configured? true: these cover the path taken when
+   a deployment HAS SMTP and the send fails. With it unconfigured, registration
+   verifies on creation instead and never sends -- that is
+   registration_no_email_test.
+
    See docs/kb/blank-env-values.md."
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [datomic.api :as d]
    [datomock.core :as dm]
+   [orcpub.email :as email]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
    [orcpub.db.schema :as schema])
@@ -75,7 +81,8 @@
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-schema mocked-conn)
       (testing "an SMTP failure must not commit a half-created user"
-        (with-redefs [routes/send-verification-email
+        (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email
                       (fn [& _] (throw (Exception. "SMTP down")))]
           ;; register rethrows; what matters is the DB state afterwards, not
           ;; which exception surfaced.
@@ -95,12 +102,14 @@
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-schema mocked-conn)
       (testing "after a failed send, the same details still validate as available"
-        (with-redefs [routes/send-verification-email
+        (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email
                       (fn [& _] (throw (Exception. "SMTP down")))]
           (try (routes/register (register-request mocked-conn))
                (catch Throwable _ nil)))
         ;; Second attempt, this time with a working mailer.
-        (with-redefs [routes/send-verification-email (fn [& _] nil)]
+        (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email (fn [& _] nil)]
           (let [resp (routes/register (register-request mocked-conn))]
             (is (= 200 (:status resp))
                 (str "Retrying after a failed send must succeed -- this is the "
@@ -115,7 +124,8 @@
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-schema mocked-conn)
       (testing "the happy path is unchanged by the rollback"
-        (with-redefs [routes/send-verification-email (fn [& _] nil)]
+        (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email (fn [& _] nil)]
           (let [resp (routes/register (register-request mocked-conn))
                 user (find-user (d/db mocked-conn) "newcomer")]
             (is (= 200 (:status resp)))
@@ -133,12 +143,14 @@
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-schema mocked-conn)
-      (with-redefs [routes/send-verification-email (fn [& _] nil)]
+      (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email (fn [& _] nil)]
         (routes/register (register-request mocked-conn)))
       (let [before (find-user (d/db mocked-conn) "newcomer")]
         (is (some? before) "precondition: the account exists")
         (testing "a failed re-send leaves the account intact"
-          (with-redefs [routes/send-verification-email
+          (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email
                         (fn [& _] (throw (Exception. "SMTP down")))]
             (try (routes/re-verify {:conn mocked-conn
                                     :db (d/db mocked-conn)

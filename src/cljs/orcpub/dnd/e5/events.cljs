@@ -1857,9 +1857,13 @@
 (reg-event-db
  :register-success
  (fn [db [_ backtrack? response]]
-   (-> db
-       (update :user-data merge (:body response))
-       (assoc :route :verify-sent))))
+   ;; A deployment with no EMAIL_SERVER_URL verifies on creation and says so
+   ;; with :verified? -- sending such a user to "check your email" would point
+   ;; them at a mail that is never coming.
+   (let [verified? (get-in response [:body :verified?])]
+     (-> db
+         (update :user-data merge (:body response))
+         (assoc :route (if verified? :verify-success :verify-sent))))))
 
 (reg-event-fx
  :register-failure

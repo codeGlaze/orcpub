@@ -75,6 +75,18 @@
   [{:type "text/html"
     :content (str (hiccup/html (email-change-verification-html username verification-url)))}])
 
+(defn configured?
+  "True when an SMTP host is set, i.e. when this deployment can send mail.
+
+   .env.example says \"Leave EMAIL_SERVER_URL empty to disable email
+   functionality\". Nothing implemented that: the variable was read in exactly one
+   place, as postal's :host, so leaving it blank did not disable email -- it made
+   every send FAIL. Since registration sends a verification mail, the documented
+   way to turn email off also turned registration off. This is the predicate that
+   makes the promise true."
+  []
+  (some? (env/value :email-server-url)))
+
 (defn email-cfg []
   (try
     ;; "" defaults on purpose, NOT nil. docker-compose.yaml passes all three as
