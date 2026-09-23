@@ -208,6 +208,30 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **A changed password now tells the account it happened** — nothing was sent. Six
+  outbound mails existed and none of them fired on a credential change, so a takeover was
+  silent until the owner tried to log in, and then all they learned was that they could
+  not. The notice says when and from what browser, and links the reset PAGE rather than
+  carrying a working credential (`8e3f5a21`).
+
+- **An email change tells the address that currently owns the account** — the verification
+  goes to the NEW address, which is the one place the owner cannot read if it was not
+  them, so the party losing the account was the only one never told (`8e3f5a21`).
+
+- **Moving an account to another address takes the password, not just a session** — it
+  asked for nothing but a session, so a borrowed laptop or a reset link followed and left
+  open was enough to walk off with an account. Checked before the address is even looked
+  at, so an unauthenticated caller cannot use it to learn which addresses are taken
+  (`8e3f5a21`).
+
+- **scripts/e2e/run.sh rebuilds a stale bundle instead of testing it** — the server is
+  `lein run` and compiles from source at every boot, while the bundle and stylesheet are
+  artifacts on disk that nothing rebuilt. Edit a `.cljs`, boot a genuinely fresh server,
+  and the page runs the OLD code while every signal says it is new; a suite then passes or
+  fails against code that is not the code you changed. It now names what is newer and
+  rebuilds the kind of bundle already there, with `E2E_SKIP_BUILD=1` to keep the artifacts
+  and say so loudly (`8e3f5a21`).
+
 - **Both places a password is made share the area, not just its parts** — password-pair
   and password-meter were shared components; the COMPOSITION of them was not, so each
   page wrote out the same pair, the same meter, the same mismatch derivation and the same

@@ -329,6 +329,72 @@ async function resetLinkFor(page, sink, email) {
   check(solid === 0, 'no text on the card is set solid', solid ? `${solid} elements under 1.25` : '');
   await phone.close();
 
+  // ---- the notices, and who is allowed to move an account ----
+  console.log('notices');
+
+  const nUser = uniq(), nEmail = nUser + '@example.com';
+  await signOut(ctx, page);
+  await registerAndVerify(page, sink, nUser, nEmail, GOOD);
+
+  // A completed reset must tell the account that it happened.
+  const nLink = await resetLinkFor(page, sink, nEmail);
+  await page.goto(nLink, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.auth-form input');
+  sink.clear();
+  const np = GOOD + ' kettle';
+  let nb = authInputs(page);
+  await nb.nth(0).fill(np); await nb.nth(1).fill(np);
+  await press(page, 'SUBMIT');
+  await page.waitForTimeout(3000);
+  let notice = await sink.waitFor(/password changed/i, 15000).catch(() => null);
+  check(Boolean(notice), 'a completed password reset tells the account it happened',
+        notice ? notice.headers.subject : 'no mail arrived');
+  if (notice) {
+    check(notice.headers.to.includes(nEmail), 'and it goes to the account address', notice.headers.to);
+    check(!/key=|token=/.test(notice.raw),
+          'and carries no working credential, so it does not teach people to click one');
+  }
+
+  // Moving the account to another address needs the password, not just a session.
+  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('input');
+  await page.locator('input').nth(0).fill(nUser);
+  await page.locator('input').nth(1).fill(np);
+  await page.locator('button.form-button').click();
+  await page.waitForTimeout(3500);
+
+  // Driven through the form a person uses, not a hand-rolled request: the
+  // endpoint takes transit over PUT and getting either wrong looks like a pass.
+  const moveTo = uniq() + '@example.com';
+  const attempt = async (pw) => {
+    await page.goto(`${BASE}/pages/my-account`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const change = page.locator('button', { hasText: /^Change$|Change email|Change again/ }).first();
+    if (await change.count()) await change.click().catch(() => {});
+    await page.waitForTimeout(500);
+    await page.locator('input[placeholder="New email address"]').fill(moveTo);
+    await page.locator('input[placeholder="Confirm new email address"]').fill(moveTo);
+    await page.locator('input[placeholder="Your current password"]').fill(pw);
+    await page.locator('button.form-button', { hasText: 'Save' }).first().click();
+    await page.waitForTimeout(3000);
+    return page.locator('.registration-content, body').first().innerText();
+  };
+
+  sink.clear();
+  const wrongText = await attempt('not the password');
+  check(/password is not right/i.test(wrongText),
+        'a session alone can no longer move the account to another address',
+        wrongText.replace(/\n/g, ' | ').slice(0, 110));
+  check(sink.messages.length === 0, 'and nothing is emailed for a refused attempt',
+        `${sink.messages.length} sent`);
+
+  sink.clear();
+  await attempt(np);
+  const toOld = await sink.waitFor(new RegExp(nEmail.replace('.', '\\.'), 'i'), 15000).catch(() => null);
+  check(Boolean(toOld), 'the real password moves it, and the address LOSING the account is told',
+        toOld ? toOld.headers.subject : 'never told');
+  if (toOld) check(toOld.raw.includes(moveTo), 'and told where it is going');
+
   check(errors.length === 0, 'no page errors anywhere in the run', errors.slice(0, 3).join(' | '));
 
   await browser.close();

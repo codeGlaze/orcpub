@@ -503,3 +503,28 @@
           (is (not (re-find #"\d" message)) "no count, no breach language")
           (is (not (re-find #"(?i)too common" message))
               "the badge says Too common; the line under the bar does not repeat it"))))))
+
+
+(deftest the-password-changed-notice-says-what-happened-and-what-to-do
+  ;; The one signal that makes an unauthorised reset visible. Without it a
+  ;; takeover is silent until the owner cannot log in, and then they learn only
+  ;; that they cannot.
+  (let [html (-> (email/password-changed-email-html
+                  "Kaylee Frye" "https://example.test/pages/send-password-reset-page"
+                  "Firefox on Linux" "3 March 2026 at 09:12 UTC")
+                 pr-str)]
+    (is (re-find #"password on your account was just changed" html))
+    (is (re-find #"Firefox on Linux" html) "where from")
+    (is (re-find #"3 March 2026" html) "and when")
+    (is (re-find #"send-password-reset-page" html) "and a way to undo it")
+    (is (not (re-find #"(?i)\bkey=|token=" html))
+        "the link carries no credential: an unexpected mail holding a working one
+         teaches people to click exactly what a phishing mail sends them")))
+
+(deftest the-email-change-notice-goes-to-the-address-losing-the-account
+  (let [html (-> (email/email-change-notice-html
+                  "Kaylee Frye" "someone-else@example.test" "3 March 2026 at 09:12 UTC")
+                 pr-str)]
+    (is (re-find #"someone-else@example.test" html) "names where it is going")
+    (is (re-find #"Nothing has moved yet" html) "and that it has not happened yet")
+    (is (re-find #"(?i)change your password now" html) "and what to do if it was not them")))
