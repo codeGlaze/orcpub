@@ -56,6 +56,7 @@
   (let [conn (fresh-conn)]
     (testing "registration succeeds and the account is already verified"
       (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly true)
                     ;; If this is ever called the test should fail loudly: the
                     ;; whole point is that no send is attempted.
                     routes/send-verification-email
@@ -74,6 +75,7 @@
   ;; before this change a mail-less instance produced accounts nobody could use.
   (let [conn (fresh-conn)]
     (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly true)
                   routes/send-verification-email (fn [& _] nil)]
       (routes/register (register-request conn)))
     (testing "the account registered without SMTP can sign in"
@@ -91,6 +93,7 @@
         sent (atom 0)]
     (testing "the normal flow still creates an unverified account and mails a link"
       (with-redefs [email/configured? (constantly true)
+                    email/unverified-registration-allowed? (constantly false)
                     routes/send-verification-email (fn [& _] (swap! sent inc) nil)]
         (let [resp (routes/register (register-request conn))
               user (find-user (d/db conn))]
@@ -100,3 +103,28 @@
           (is (false? (:orcpub.user/verified? user)))
           (is (some? (:orcpub.user/verification-key user)))
           (is (= 1 @sent) "exactly one verification email"))))))
+
+(deftest losing-smtp-config-fails-closed
+  ;; The security case. Auto-verify keyed on "no SMTP" ALONE fails open: a
+  ;; typo'd variable name, a value dropped by a deploy, a failed secrets mount
+  ;; or a stray space all read as "no email", and a production site silently
+  ;; stops requiring verification. Measured before this guard: " ", "" and
+  ;; absent all produced auto-verify.
+  ;;
+  ;; Not attacker-triggerable -- environ.core/env is a static map built once at
+  ;; namespace load, so no request can flip it. The risk is one operator slip
+  ;; downgrading the site to open registration with no alarm.
+  (let [conn (fresh-conn)]
+    (testing "no SMTP and no explicit opt-in refuses to register anyone"
+      (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly false)
+                    routes/send-verification-email
+                    (fn [& _] (throw (AssertionError. "must not attempt a send")))]
+        (let [thrown (try (routes/register (register-request conn)) nil
+                          (catch Throwable e e))]
+          (is (some? thrown)
+              "registration must FAIL when email config is missing and nothing opted out")
+          (is (= :email-not-configured (:error (ex-data thrown)))
+              (str "expected a specific, actionable error. Got: " (pr-str (ex-data thrown))))
+          (is (nil? (find-user (d/db conn)))
+              "and no account may be created, verified or otherwise"))))))

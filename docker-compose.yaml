@@ -54,6 +54,9 @@ services:
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
       CSP_POLICY: ${CSP_POLICY:-strict}
       DEV_MODE: ${DEV_MODE:-}
+      # Empty EMAIL_SERVER_URL makes registration refuse rather than silently
+      # accept unverified accounts; this is how you opt into the weaker mode.
+      ALLOW_UNVERIFIED_REGISTRATION: ${ALLOW_UNVERIFIED_REGISTRATION:-}
       LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
     depends_on:
       datomic:

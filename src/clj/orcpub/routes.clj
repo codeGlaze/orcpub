@@ -358,13 +358,28 @@
    Registration was never brought up to match. See
    registration_rollback_test.clj and docs/kb/blank-env-values.md."
   [request params conn & [tx-data]]
-  (if-not (email/configured?)
-    ;; No SMTP: verify on the spot rather than promising a mail that cannot be
-    ;; sent. .env.example offers an empty EMAIL_SERVER_URL as the way to run
-    ;; without email; before this, that made registration impossible instead --
-    ;; the send failed, so every attempt died. The operator of a mail-less
-    ;; instance is handing out accounts themselves, so address ownership is not
-    ;; being proved by anyone anyway.
+  (cond
+    ;; SMTP is gone but nobody asked for unverified registration. FAIL CLOSED.
+    ;; Keying auto-verify on "no SMTP" alone would silently turn a production
+    ;; site into open registration the moment a variable is typo'd, dropped by a
+    ;; deploy, or mounted empty -- a downgrade with no error and no alarm.
+    ;; Measured: " ", "" and absent entirely all read as "no email". Make the
+    ;; operator say so, and make the accident loud instead.
+    (and (not (email/configured?))
+         (not (email/unverified-registration-allowed?)))
+    (do
+      (println "ERROR: registration unavailable — EMAIL_SERVER_URL is unset, so no"
+               "verification email can be sent. Set it, or set"
+               "ALLOW_UNVERIFIED_REGISTRATION=true to accept accounts without"
+               "verifying the address.")
+      (throw (ex-info "Registration is temporarily unavailable. Please contact the site administrator."
+                      {:error :email-not-configured})))
+
+    ;; Deliberately running without email: verify on the spot rather than
+    ;; promising a mail that cannot be sent. The operator of a mail-less
+    ;; instance is handing out the accounts themselves, so address ownership is
+    ;; not being proved by anyone anyway.
+    (not (email/configured?))
     (do
       (println "INFO: EMAIL_SERVER_URL is unset — verifying" (:username params)
                "on creation instead of sending a verification email.")
@@ -378,6 +393,7 @@
           (throw (ex-info "Unable to complete registration. Please try again or contact support."
                           {:error :verification-failed}
                           e)))))
+    :else
     (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)
         ;; re-verify passes an existing {:db/id id}; register does not. The two

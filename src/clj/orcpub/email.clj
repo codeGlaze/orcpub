@@ -87,6 +87,26 @@
   []
   (some? (env/value :email-server-url)))
 
+(defn unverified-registration-allowed?
+  "True when this deployment has DELIBERATELY opted out of email verification.
+
+   Keying auto-verification on \"no SMTP configured\" alone fails OPEN: a typo in
+   the variable name, a value dropped by a deploy, a failed secrets mount, or a
+   stray space all read as \"no email\", and the site silently stops requiring
+   verification. Measured -- EMAIL_SERVER_URL as \" \", as empty, and absent
+   entirely all produced auto-verify, with no signal beyond a println nobody
+   reads on a running server.
+
+   An attacker cannot flip this: environ.core/env is a static map built once at
+   namespace load, so no request can change it. The risk is an operator slip
+   downgrading the site from verified to open registration, which is exactly the
+   kind of mistake that gets found by someone scanning for it.
+
+   So the weaker mode has to be ASKED FOR. Losing your SMTP config now breaks
+   registration loudly instead of quietly accepting unverified accounts."
+  []
+  (env/flag? :allow-unverified-registration))
+
 (defn email-cfg []
   (try
     ;; "" defaults on purpose, NOT nil. docker-compose.yaml passes all three as
