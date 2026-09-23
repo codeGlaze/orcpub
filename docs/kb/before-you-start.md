@@ -27,6 +27,19 @@ the commit**. That is the whole point of it being a decision.
 
 ## Judgement calls — no test can catch these
 
+- **Touching anything in signing up, signing in or password reset** — read
+  `account-flows.md` first. Two things there cost hours and neither is visible from the
+  code: these flows had no browser coverage at all because the verification and reset keys
+  exist ONLY inside an email (fixed — `scripts/e2e/run.sh` starts an SMTP sink), and the
+  server compiles from source at every boot while the bundle does not, so a fresh server
+  happily serves old client code. It also holds the breach-threshold decision, the
+  no-composition-rules reasoning, and why login must answer identically for a wrong password
+  and an unknown username.
+- **Running a browser suite after editing ClojureScript or garden** — `run.sh` now rebuilds
+  a stale bundle and stylesheet rather than testing them, and names what was newer.
+  `E2E_SKIP_BUILD=1` opts out and says so. If you are running a browser check by hand,
+  outside `run.sh`, you are on your own for this and it will not be obvious.
+
 - **Writing a modifier that needs a value off the character** — read the WRITING half of
   `built-character-representation.md` first. `?attr` is not a variable; it is rewritten at compile
   time by a macro, so a plain fn you hand to something can never read one. If a generated body needs

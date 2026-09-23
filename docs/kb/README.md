@@ -235,10 +235,33 @@ wrong, and why.
 
 ### Operations
 
+- **[docker-infrastructure.md](docker-infrastructure.md)** -- the Docker/transactor setup and
+  the decisions behind it.
 - **[secrets-in-boot-output.md](secrets-in-boot-output.md)** -- the database password was in
   every boot log, in four places rather than one, because `ex-info` data is log output too.
   Covers redacting at the boundary, the near-miss that would have broken every connection,
   and two boot-banner designs that reported a rejected setting as though it had taken effect.
+
+### Sharing & content identity
+
+- **[share-bundle-dependency-extraction.md](share-bundle-dependency-extraction.md)** -- how
+  to compute the complete set of homebrew a single character depends on, so it can travel
+  in a share.
+- **[name-to-kw-audit.md](name-to-kw-audit.md)** -- why `common/name-to-kw` exists, every
+  dependency it feeds, and the keep/harden/replace decision for the repo owner.
+
+### Accounts & auth
+
+- **[account-flows.md](account-flows.md)** -- signing up, verifying, signing in, recovering.
+  Why these flows had NO coverage and no route to any (the keys exist only inside an email,
+  and registration fails outright when none can be sent), the stale-artifact asymmetry that
+  makes a fresh server hide old client code, the password rules with the breach threshold
+  decision and its rejected alternative, four defects a green build did not catch, the
+  "components shared, composition not" shape that made every fix land once per page, and the
+  security decisions with what was rejected. Includes six corrections to claims made during
+  the work.
+- **[auth-state-in-app-db.md](auth-state-in-app-db.md)** -- where login state lives, and
+  reading the token with `get-auth-token`.
 
 ### Practice
 

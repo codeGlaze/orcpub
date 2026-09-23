@@ -22,7 +22,13 @@
 (def ^:private out-file "docs/kb/topic-index.md")
 
 (defn- docs []
-  (->> (file-seq (io/file kb-dir))
+  ;; The TOP LEVEL only. file-seq recurses, and every later read does
+  ;; (slurp (io/file kb-dir f)) with the bare .getName -- so the moment a .md
+  ;; appeared in a subdirectory (docs/kb/rescued, 8c8804d0) this threw
+  ;; FileNotFoundException and the file that says "GENERATED -- do not edit"
+  ;; could no longer be generated. Subdirectories are archives; the index is
+  ;; about the live KB.
+  (->> (.listFiles (io/file kb-dir))
        (filter #(.isFile %))
        (map #(.getName %))
        (filter #(str/ends-with? % ".md"))

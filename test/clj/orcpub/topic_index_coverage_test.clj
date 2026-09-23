@@ -11,7 +11,11 @@
             [clojure.java.io :as io]))
 
 (defn- kb-docs []
-  (->> (file-seq (io/file "docs/kb"))
+  ;; The TOP LEVEL only, matching orcpub.topic-index. file-seq recurses, so this
+  ;; demanded a README link for docs/kb/rescued/*.md -- an archive of copies off
+  ;; dead branches, deliberately not part of the live index. Both sides walked
+  ;; the tree the same wrong way and only the generator crashed on it.
+  (->> (.listFiles (io/file "docs/kb"))
        (filter #(.isFile %))
        (map #(.getName %))
        (filter #(str/ends-with? % ".md"))
