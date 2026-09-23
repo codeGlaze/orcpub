@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _account-flows · account flows_
 
-**topics:** account, address, composition, corpus, email, heading, login, mail, meter, password, refused, reset, server, signing, somebody, suite, times, username
+**topics:** account, address, composition, corpus, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, times, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -333,7 +333,7 @@ _auth-state-in-app-db · auth state in app db_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** author, crossbow, dual, equipped, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -898,7 +898,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, golden, graduation, pack, recipe, regenerates, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1087,7 +1087,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, audit, before-you-start, caution, css, enforced, hook, irreducible, ledger, lessons, linked, narrative, plan, push, sat, session, stale, violated
+**topics:** agent, audit, before-you-start, branches, enforced, hook, index, indexed, irreducible, ledger, linked, push, sat, stale, top, topic, unindexed, violated
 
 - What earns a doc
 - Verify, don't remember
@@ -1096,6 +1096,8 @@ _documentation-discipline · documentation discipline_
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
 - Index it or it is invisible
+- What counts as a KB doc: the TOP LEVEL only
+- Do not invent a section to home an orphan
 - Say what is not known
 - Arm the hooks
 - Audit history

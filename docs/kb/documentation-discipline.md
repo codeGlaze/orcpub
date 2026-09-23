@@ -107,6 +107,44 @@ Every `docs/kb/*.md` is linked from `docs/kb/README.md`. An unlinked doc is not 
 `check-docs.sh` fails the commit. Two plan docs sat orphaned for weeks because the hook was
 never armed.
 
+### What counts as a KB doc: the TOP LEVEL only
+
+`docs/kb/*.md` means the top level. Subdirectories are archives, not the live KB:
+`rescued/` is copies taken off dead branches because they existed nowhere else, and its own
+README calls them "archival snapshots, NOT accepted KB". They stay reachable — `rescued/README.md`
+is linked from the index and carries the manifest, and the documented primary search
+(`grep -ril "<term>" docs/kb/`) recurses — but they are not indexed per-document and do not
+have to be.
+
+**Both sides must agree on that rule**, and for a year they did not. `orcpub.topic-index`
+and `topic-index-coverage-test` each walked the tree with `file-seq`, which recurses, and
+then read each file back by its bare `.getName`. The generator therefore threw
+`FileNotFoundException` the moment a `.md` first appeared under `rescued/` (`8c8804d0`), and
+the file whose own header says **GENERATED — do not edit** could no longer be generated. The
+test, walking the same wrong way, demanded a README link for archived copies.
+
+Nothing caught it, because the two failures hid each other: `check-docs.sh` reported CLEAN
+throughout, and the coverage gate's 88 failing assertions read as "the index is stale"
+rather than "the thing that regenerates the index is dead". Fixed 2026-09-23: both read
+`.listFiles` on the top level. Coverage went 88 failures to 0.
+
+**If you change what counts as a KB doc, change it in both places in the same commit.** A
+generator and a gate that disagree about their own corpus will drift silently, and the gate
+will blame the docs.
+
+### Do not invent a section to home an orphan
+
+When that gate came back to life it surfaced three genuinely unindexed docs. Two of them got
+a freshly invented `### Sharing & content identity` heading, which grouped a
+dependency-closure doc with a keyword-generation audit on no better grounds than that both
+needed somewhere to go. That makes the index worse in exactly the way
+[before-you-start.md](before-you-start.md) exists to counter: more headings to scan, and a
+category that describes neither document.
+
+They belong in `### Verified topic / reference`, which already existed for topic references.
+A new `###` section is for an area with several documents and more expected — `Accounts &
+auth` earns one; two orphans do not.
+
 ## Say what is not known
 
 

@@ -43,6 +43,8 @@ sides had been written blind to the other's findings.
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo emits and which assembly fn compiles them. Includes the verified A/B grant-vocabulary comparison (shared primitive, B is level-gated, cljc/cljs layer split). | Medium-High — call-graph verified; key claims now test-backed |
+| [share-bundle-dependency-extraction.md](share-bundle-dependency-extraction.md) | How to compute the complete set of homebrew a single character depends on, so it can travel inside a shareable file. | High — code |
+| [name-to-kw-audit.md](name-to-kw-audit.md) | Why `common/name-to-kw` exists, every dependency it feeds, and the keep/harden/replace decision for the repo owner. | High — audit |
 | [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def). | High — code |
 | [key-collision-behavior.md](key-collision-behavior.md) | What happens when content keys collide, **per layer**: classes/races/spells → homebrew OVERRIDES built-in (predictable, plugin-wins); subraces/pools/lists → coexist; import → conflict modal. The "duplicate keys" map. Includes the two later-traced corrections (plugin-vs-plugin winner is **hash-order/nondeterministic**; spell-list membership **unions** across duplicates). | High — traced + test-backed (`key_collision_test`) |
 | [content-tiers-and-key-resolution.md](content-tiers-and-key-resolution.md) | **Design direction**: the "≤1 *enabled* item per key" invariant + disable-based duplicate resolution; three content provenance tiers (owned/example/variant) in one store; versioned self-updating example content with copy-on-edit graduation; library-management UX (show/search/count disabled, hide empty categories); move-between-sources; and the suggested branch decomposition. | Mixed — verified refs + DESIGN flagged |
@@ -241,14 +243,6 @@ wrong, and why.
   every boot log, in four places rather than one, because `ex-info` data is log output too.
   Covers redacting at the boundary, the near-miss that would have broken every connection,
   and two boot-banner designs that reported a rejected setting as though it had taken effect.
-
-### Sharing & content identity
-
-- **[share-bundle-dependency-extraction.md](share-bundle-dependency-extraction.md)** -- how
-  to compute the complete set of homebrew a single character depends on, so it can travel
-  in a share.
-- **[name-to-kw-audit.md](name-to-kw-audit.md)** -- why `common/name-to-kw` exists, every
-  dependency it feeds, and the keep/harden/replace decision for the repo owner.
 
 ### Accounts & auth
 
