@@ -783,7 +783,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, item-level, nondeterministic, override, owned, per-account, prereq, same-key, sources, variant, versioned, warn
+**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, graduates, item-level, nondeterministic, override, owned, per-account, prereq, same-key, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -1080,12 +1080,14 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, audit, before-you-start, caution, css, enforced, hook, hour, irreducible, ledger, linked, narrative, plan, push, sat, session, stale, violated
+**topics:** agent, audit, before-you-start, claim, confident, creep, enforced, hook, hour, irreducible, ledger, linked, plan, push, sat, session, stale, violated
 
 - What earns a doc
 - Verify, don't remember
 - Claims must be proven, not asserted
 - Update in place; record reversals separately
+- Correct a wrong doc when you find it, not later
+- The exceptions — when "nearly always" is not "always"
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
 - Index it or it is invisible
@@ -1691,7 +1693,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, sources, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2331,7 +2333,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, grant, half-caster, handoff, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, class, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellbook, spellcasting, spells
 
 - The user's ask
 - Branch state — important

@@ -48,14 +48,17 @@ Before working on this project, read these documents:
 
 - All shell scripts and the canonical installer source `.env` if present.
 - Docker Compose and devcontainer use `.env` via `env_file` or `containerEnv` (as fallback).
-- Clojure code uses `environ` or `dotenv` to read `.env`/ENV.
+- Clojure never reads `.env` itself. `scripts/common.sh` sources it with `set -a`, so the
+  entries become ordinary environment variables and `environ` picks them up like any other.
+  There is no `dotenv` dependency and there never has been — read values through
+  `orcpub.env/value`, which treats a blank value as absent (see `docs/kb/blank-env-values.md`).
 - `.env.example` provides safe defaults; `.env` is git-ignored.
 
 **Precedence:**
 1. `.env` in repo root (authoritative, always sourced if present)
 2. Docker Compose/devcontainer: use `env_file: .env` or `containerEnv` as fallback
 3. Shell scripts: always source `.env` if present
-4. Clojure: use `environ` or `dotenv` to read `.env`/ENV
+4. Clojure: `environ`, reading the environment variables the shell exported — not the file
 
 See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details.
 
@@ -66,7 +69,7 @@ See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details.
 **Stack**: Full-stack Clojure/ClojureScript application
 - **Backend**: Pedestal + Datomic + Buddy auth
 - **Frontend**: Reagent + re-frame + Figwheel
-- **Build**: Leiningen + cljsbuild
+- **Build**: Leiningen + figwheel-main
 
 For Datomic installation and transactor setup, see [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md).
 
@@ -110,7 +113,7 @@ web/
 lein test
 
 # ClojureScript compilation — REQUIRED after frontend changes
-lein cljsbuild once dev
+lein fig:build
 
 # Linter
 lein lint
@@ -256,7 +259,7 @@ See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier stru
 ## Testing Guidelines
 
 1. **Always run `lein test`** before committing server changes
-2. **Always run `lein cljsbuild once dev`** after frontend/CLJS changes
+2. **Always run `lein fig:build`** after frontend/CLJS changes
 3. **Run `lein lint`** to catch syntax issues
 4. Large schema changes require migration scripts and tests
 5. **See `docs/TESTING.md`** for test suite inventory, gotchas, and patterns

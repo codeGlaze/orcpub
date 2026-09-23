@@ -70,6 +70,54 @@ believed and what reversed it in a `## Revisions`, `## Corrections` or `## Histo
 the tail. Correct the body; explain in the ledger. Both, not either. See
 `armor-class-refactor.md`, which carries both.
 
+## Correct a wrong doc when you find it, not later
+
+**A doc you have just proven wrong is fixed in the same session, with the verified
+replacement.** Not noted, not filed, not mentioned in a handoff. Nearly always.
+
+This is not the same rule as "update in place" above, which is about how to edit a doc you
+already set out to change. This one is about the doc you did *not* set out to change — the
+one you tripped over while doing something else. That is the common case, and the one that
+keeps being deferred, because fixing it feels like scope creep.
+
+It is not scope creep. The cost is asymmetric and this repo has the receipts:
+
+- `AGENTS.md` claimed twice that Clojure reads `.env` via "environ or `dotenv`". No `dotenv`
+  dependency has ever existed on any branch, and Clojure never reads `.env` — the shell
+  sources it. That line is the most likely reason more than one person remembered a dotenv
+  approach being "tried and abandoned". **A wrong doc does not just fail to help; it
+  manufactures false memories that later decisions get built on.**
+- `AGENTS.md` told every agent to run `lein cljsbuild once dev` after frontend changes.
+  `project.clj` says in its own comments that the plugin was "fully removed" — the command
+  cannot work on any branch. An agent following the instruction gets `'cljsbuild' is not a
+  task` and has to rediscover `lein fig:build`.
+- `.env.example` promised "Leave EMAIL_SERVER_URL empty to disable email functionality" and
+  nothing implemented it, so the documented way to run without email was the way to make
+  registration impossible. **That one had to be fixed in code, because the doc was right
+  about the intent and the code was wrong.**
+
+Note the direction of that last one. "Correct the doc" is the usual answer, but the question
+is always *which* of the two is wrong. A promise a user would reasonably rely on is evidence
+about intent; sometimes the code is the thing to change.
+
+### The exceptions — when "nearly always" is not "always"
+
+- **You have not verified the replacement.** Then you have one proven-wrong claim and one
+  guess, which is worse than what you started with. Delete the wrong claim or mark it
+  UNVERIFIED, and say what you could not check. Never swap a confident wrong statement for a
+  confident unchecked one.
+- **It is deliberately historical.** `content-extensibility.md` is labelled
+  "⚠️ HISTORY (superseded)" on purpose. Superseded is not stale; it is a record with a label.
+  Check for the label before correcting.
+- **It describes intent, not current state.** A plan that has not happened yet is not wrong.
+  A plan that was abandoned is.
+- **It is not yours to edit right now** — a branch you should not be on, or a doc whose
+  correct content is somebody's open decision. Then it is genuinely a handoff item, and it
+  says exactly what was verified and how.
+
+Everything else: fix it, in the same change, and say in the commit what was wrong and what
+proved it.
+
 ## Structure: current truth first, audit trail last
 
 
