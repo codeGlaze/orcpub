@@ -9559,6 +9559,7 @@
 (defn my-account-page []
     (r/with-let [editing? (r/atom false)
                  new-email (r/atom "")
+                 current-password (r/atom "")
                  confirm-email (r/atom "")]
       (let [current-email @(subscribe [:email])
             pending-email @(subscribe [:pending-email])
@@ -9569,7 +9570,8 @@
                             (registration/bad-email? @new-email))
             emails-dont-match? (and (seq @confirm-email)
                                     (not= @new-email @confirm-email))
-            can-submit? (and (seq @new-email)
+            can-submit? (and (seq @current-password)
+                             (seq @new-email)
                              (not bad-format?)
                              (= @new-email @confirm-email))]
         [content-page
@@ -9596,6 +9598,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change again"]]
 
@@ -9616,16 +9619,26 @@
                 :on-change #(reset! confirm-email (event-value %))}]
               (when emails-dont-match?
                 [:div.m-t-5.red "Email addresses don't match"])
+              ;; Moving the account to another address takes it away from this
+              ;; one, and it used to ask for nothing but a session. The password
+              ;; is proof that the person doing it is the account holder and not
+              ;; somebody who sat down at their desk.
+              [:input.input.m-t-5
+               {:type :password
+                :value @current-password
+                :placeholder "Your current password"
+                :on-change #(reset! current-password (event-value %))}]
               [:div.m-t-5
                [:button.form-button
                 {:disabled (not can-submit?)
                  :on-click #(when can-submit?
-                              (dispatch [:change-email @new-email]))}
+                              (dispatch [:change-email @new-email @current-password]))}
                 "Save"]
                [:button.link-button.m-l-10
                 {:on-click #(do (reset! editing? false)
                                 (reset! new-email "")
                                 (reset! confirm-email "")
+                                (reset! current-password "")
                                 (dispatch [:change-email-clear]))}
                 "Cancel"]]
               (when error
@@ -9638,6 +9651,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change"]
               (when pending-email

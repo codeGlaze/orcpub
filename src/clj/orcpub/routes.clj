@@ -669,7 +669,7 @@
                    (.getMessage e)))))
     {:status 200}))
 
-(defn do-password-reset [conn user-id password]
+(defn do-password-reset [conn user-id password & [request user]]
   (try
     @(d/transact
       conn
@@ -677,6 +677,17 @@
         :orcpub.user/password (hashers/encrypt (s/trim password))
         :orcpub.user/password-reset (java.util.Date.)
         :orcpub.user/verified? true}])
+    ;; After the transact, on another thread, and its outcome never reaches the
+    ;; response: the password HAS changed by now, and a mail failure must not
+    ;; report an error for something that already happened -- somebody would
+    ;; simply do it again.
+    (when (and request (:orcpub.user/email user))
+      (future
+        (email/send-password-changed-email
+         (base-url request)
+         {:email (:orcpub.user/email user)
+          :first-and-last-name (:orcpub.user/first-and-last-name user)
+          :user-agent (get (:headers request) "user-agent")})))
     {:status 200}
     (catch Exception e
       (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
@@ -710,7 +721,7 @@
 
         (seq rule-errors) {:status 400 :body rule-errors}
         breached {:status 400 :body {:password-common [breached]}}
-        :else (do-password-reset conn id password)))
+        :else (do-password-reset conn id password request user)))
     (catch Throwable t (prn t) (throw t))))
 
 (def font-sizes
@@ -1892,6 +1903,7 @@
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
     (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+          current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
         {:status 400 :body {:error :user-not-found}}
@@ -1902,6 +1914,14 @@
           (cond
             (nil? id)
             {:status 400 :body {:error :user-not-found}}
+
+            ;; Re-authentication. Moving an account to another address is the
+            ;; one action that takes it away from whoever holds this one, and it
+            ;; asked for nothing but a session -- so a borrowed or forgotten
+            ;; session was enough to walk off with the account. The password is
+            ;; compared, never read: lookup-user does the hash check.
+            (nil? (:db/id (lookup-user db username (str current-password))))
+            {:status 400 :body {:error :bad-credentials}}
 
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
@@ -1945,6 +1965,18 @@
                 (send-email-change-verification request
                                                 {:email new-email :username username}
                                                 verification-key)
+                ;; And tell the address that currently owns the account. The
+                ;; verification goes to the NEW address, which is the one place
+                ;; the owner cannot read if this was not them -- without this,
+                ;; the only party never told is the one losing the account.
+                ;; On another thread: the change has been accepted, and this
+                ;; failing must not report an error for something that happened.
+                (future
+                  (email/send-email-change-notice
+                   (base-url request)
+                   {:email email
+                    :first-and-last-name (:orcpub.user/first-and-last-name user)
+                    :new-email new-email}))
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e
                   (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))

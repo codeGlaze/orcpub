@@ -40,16 +40,29 @@
       :orcpub.user/password   (hashers/encrypt "pass456")
       :orcpub.user/verified?  true}]))
 
+(def seeded-passwords
+  "What seed-users gives each account. Moving an account to another address now
+   takes the password as well as a session, so every request here carries one."
+  {"alice" "pass123" "bob" "pass456"})
+
 (defn make-request
-  "Build a minimal request map for request-email-change."
-  [conn new-email username]
-  {:transit-params {:new-email new-email}
-   :db             (d/db conn)
-   :conn           conn
-   :identity       {:user username}
-   ;; send-email-change-verification reads scheme + headers for base-url
-   :scheme         :https
-   :headers        {"host" "localhost"}})
+  "Build a minimal request map for request-email-change.
+
+   `current-password` defaults to the account's real one. These tests are about
+   what the endpoint does once it knows who is asking; without it every one of
+   them would stop at the re-authentication check and assert nothing about the
+   behaviour it was written for."
+  ([conn new-email username]
+   (make-request conn new-email username (get seeded-passwords username)))
+  ([conn new-email username current-password]
+   {:transit-params {:new-email new-email
+                     :current-password current-password}
+    :db             (d/db conn)
+    :conn           conn
+    :identity       {:user username}
+    ;; send-email-change-verification reads scheme + headers for base-url
+    :scheme         :https
+    :headers        {"host" "localhost"}}))
 
 (defn find-user [db username]
   (d/q '[:find (pull ?e [:orcpub.user/email
@@ -318,3 +331,29 @@
                 (is (= "new-pending@test.com" (:orcpub.user/pending-email updated)))
                 ;; Verification key should be replaced so old link is dead
                 (is (not= old-key (:orcpub.user/verification-key updated)))))))))))
+
+
+(deftest moving-an-account-takes-the-password-not-just-a-session
+  ;; A session was the whole gate: anyone holding one -- a borrowed laptop, a
+  ;; reset link followed and left open -- could move the account to an address
+  ;; of their choosing, and only the NEW address was ever asked to confirm.
+  (with-conn conn
+    (seed-users conn)
+    (testing "the wrong password moves nothing"
+      (let [resp (routes/request-email-change
+                  (make-request conn "elsewhere@test.com" "alice" "not-her-password"))]
+        (is (= 400 (:status resp)))
+        (is (= :bad-credentials (-> resp :body :error)))
+        (is (nil? (:orcpub.user/pending-email (find-user (d/db conn) "alice")))
+            "and leaves no pending change behind")))
+    (testing "no password at all is the same answer"
+      (let [resp (routes/request-email-change
+                  (make-request conn "elsewhere@test.com" "alice" nil))]
+        (is (= 400 (:status resp)))
+        (is (= :bad-credentials (-> resp :body :error)))))
+    (testing "checked BEFORE the address is even looked at, so an unauthenticated
+              caller learns nothing about which addresses are taken"
+      (let [resp (routes/request-email-change
+                  (make-request conn "bob@test.com" "alice" "not-her-password"))]
+        (is (= :bad-credentials (-> resp :body :error))
+            "not :email-taken, which would answer a question nobody proved they may ask")))))

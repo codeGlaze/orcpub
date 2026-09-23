@@ -1617,12 +1617,15 @@
 
 (reg-event-fx
  :change-email
- (fn [{:keys [db]} [_ new-email]]
+ (fn [{:keys [db]} [_ new-email current-password]]
    {:db (dissoc db :email-change-sent? :email-change-error)
     :http {:method :put
            :headers (authorization-headers db)
            :url (backend-url (routes/path-for routes/user-email-route))
-           :transit-params {:new-email new-email}
+           ;; The password is sent to be COMPARED, never stored and never read
+           ;; back: the server hands it to lookup-user, which checks the hash.
+           :transit-params {:new-email new-email
+                            :current-password current-password}
            :on-success [:change-email-success]
            :on-failure [:change-email-failure]}}))
 
@@ -1642,6 +1645,7 @@
          error (:error body)]
      (assoc db :email-change-error
             (case error
+              :bad-credentials "That password is not right. The account stays on its current address."
               :email-taken "That email address is already in use by another account."
               :invalid-email "Please enter a valid email address."
               :same-as-current "That is already your current email address."
