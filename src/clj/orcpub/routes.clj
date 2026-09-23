@@ -83,6 +83,40 @@
 (when-not jwt-secret
   (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
 
+(defn- report-registration-mode!
+  "Say at startup what registration will actually do, because every wrong answer
+   here is silent.
+
+   Printed at namespace load, beside the SIGNATURE warning above, because this
+   branch has no boot report to hang it on. If one is added later, move it there
+   -- it belongs with the rest of the effective configuration."
+  []
+  (let [smtp? (email/configured?)
+        opted-out? (email/unverified-registration-allowed?)]
+    (cond
+      (and (not smtp?) opted-out?)
+      (do (println "WARNING: registration is running WITHOUT EMAIL VERIFICATION.")
+          (println "         EMAIL_SERVER_URL is unset and ALLOW_UNVERIFIED_REGISTRATION=true,")
+          (println "         so anyone who registers is verified on the spot and nobody proves")
+          (println "         they own the address they typed. Intended for a private instance.")
+          (println "         Set EMAIL_SERVER_URL to restore verification."))
+
+      (not smtp?)
+      (do (println "WARNING: registration is DISABLED — EMAIL_SERVER_URL is unset, so no")
+          (println "         verification email can be sent. Existing users are unaffected.")
+          (println "         Set EMAIL_SERVER_URL, or ALLOW_UNVERIFIED_REGISTRATION=true to")
+          (println "         accept accounts without verifying the address."))
+
+      opted-out?
+      ;; The loaded gun: inert today, decides policy the day SMTP goes missing.
+      (do (println "WARNING: ALLOW_UNVERIFIED_REGISTRATION is set but has no effect right now,")
+          (println "         because EMAIL_SERVER_URL is configured. If that value is ever lost")
+          (println "         — a typo, a dropped deploy variable, a failed secret mount — this")
+          (println "         flag silently turns registration into OPEN registration instead of")
+          (println "         failing. Remove it unless this is a private instance.")))))
+
+(report-registration-mode!)
+
 (def backend (backends/jws {:secret jwt-secret}))
 
 (defn first-user-by [db query value]
