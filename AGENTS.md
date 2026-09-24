@@ -22,6 +22,45 @@
 3. Work in `upgrade/*` branches
 4. Create Pull Requests for review — do not merge them yourself
 5. Branch new features from `upgrade/security-jackson-guava`
+6. **Declare stop rules before starting work** — see below
+
+### Stop Rules and Budget — MUST FOLLOW
+
+The person running a session often has a limited plan and **neither they nor any agent can
+see how many tokens are left.** A run with no written stopping point can spend the rest of
+the budget redoing finished work. This has happened here: an agent committed all its fixes,
+never reported, and kept going — 137k to 203k tokens — re-rewriting a flaky test in the same
+worktree another test suite was using. The prompt had told it to "fix anything that fails",
+and a flaky test fails at random, so it never had a reason to stop.
+
+**Every response that does work starts with its stop rules**, before any tool runs, so the
+person can see them and interrupt if something looks wrong:
+
+> **Stop rules for this turn**
+> - what gets done, and what does not
+> - the attempt budget for each risky item (usually one)
+> - what makes it stop and report instead of retrying
+> - anything it will NOT do (push, touch another branch, run a second suite)
+
+Rules that apply every time:
+
+- **Flaky means stop.** If a result changes between runs with nothing changed, stop and
+  report it as flaky. Do not try to fix it by retrying, and do not change code to make it
+  pass. Retrying a race looks like progress and never ends.
+- **Attempt budgets, in the prompt.** Give every subagent a hard limit: one implementation
+  attempt, a set number of verification runs, and a tool-call ceiling. When it hits the
+  limit, it restores its changes and reports.
+- **Verify once.** After committing, run one verification pass and report. Do not loop
+  back into fixing.
+- **Watch the only budget signal there is.** Task notifications show a subagent's
+  `subagent_tokens` and `tool_uses`. If they keep climbing and nothing new is committed,
+  check `git log` / `git status` yourself; if the work has landed, stop the agent.
+- **Narrow agents.** One agent per risky item, not one agent for a batch, so a single bad
+  item cannot spend the whole batch's budget.
+- **Use the cheaper model for mechanical work.** A well-specified fix or search goes to a
+  smaller model; keep the larger model for judgement.
+- **Never share a worktree with a running `lein`.** Two `lein` processes in one worktree
+  overwrite `.lein-env` and corrupt each other's results.
 
 ---
 
