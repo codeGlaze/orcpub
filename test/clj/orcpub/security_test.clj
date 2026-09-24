@@ -1,5 +1,5 @@
 (ns orcpub.security-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [orcpub.time :as time :refer [seconds minutes hours millis ago now]]
             [orcpub.security :as s]
             [clojure.set :as sets]))
@@ -247,3 +247,37 @@
     (dotimes [_ 9] (s/registration-allowed? host))
     ;; Other tests share this atom, so the floor is what matters, not the value.
     (is (>= (:register (s/busiest)) 9))))
+
+
+(deftest a-password-change-withdraws-the-tokens-that-came-before-it
+  (s/restore-password-changes! {})
+  (let [before 1000 after 3000]
+    (s/note-password-changed! "kaylee" 2000)
+    (testing "a token minted before the change is no longer good"
+      (is (true? (s/token-withdrawn? "kaylee" before))))
+    (testing "one minted after it is"
+      (is (false? (s/token-withdrawn? "kaylee" after))))
+    (testing "a token with no minted stamp predates the mechanism, so it goes"
+      (is (true? (s/token-withdrawn? "kaylee" nil))))
+    (testing "nobody else is signed out -- this is not a limit on logins"
+      (is (false? (s/token-withdrawn? "wash" before)))
+      (is (false? (s/token-withdrawn? "wash" nil))))))
+
+(deftest the-register-forgets-what-it-can-no-longer-refuse
+  (s/restore-password-changes! {})
+  (s/note-password-changed! "old" 1000)
+  (s/note-password-changed! "recent" 9000)
+  (s/forget-password-changes-before! 5000)
+  (is (= #{"recent"} (set (keys (s/password-changes-snapshot))))
+      "an entry older than the token lifetime can only refuse tokens that have expired anyway")
+  (is (false? (s/token-withdrawn? "old" 1))
+      "and once forgotten it refuses nothing"))
+
+(deftest the-register-can-be-restored-because-a-restart-empties-it
+  ;; The failure this guards is silent: after a restart an unrestored register
+  ;; refuses nothing and looks exactly like one that has nothing to refuse.
+  (s/restore-password-changes! {})
+  (is (false? (s/token-withdrawn? "kaylee" 1)) "empty register refuses nothing")
+  (s/restore-password-changes! [["kaylee" 2000]])
+  (is (true? (s/token-withdrawn? "kaylee" 1)) "restored register refuses again")
+  (s/restore-password-changes! {}))

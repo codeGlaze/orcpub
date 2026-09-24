@@ -174,15 +174,55 @@
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
-                       username (get-in updated-request [:identity :user])]
-                   (if (and (:identity updated-request)
-                            username)
-                     (assoc context :request (assoc updated-request :username username))
-                     (terminate-request context 401 "Unauthorized")))
+                       username (get-in updated-request [:identity :user])
+                       minted (get-in updated-request [:identity :minted])]
+                   (cond
+                     (not (and (:identity updated-request) username))
+                     (terminate-request context 401 "Unauthorized")
+
+                     ;; Changing a password takes back the sessions that existed
+                     ;; before it. The same 401 as any other refusal: which of
+                     ;; the two reasons it was is not the caller's business.
+                     (security/token-withdrawn? username minted)
+                     (terminate-request context 401 "Unauthorized")
+
+                     :else
+                     (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
+
+(def ^:private recent-password-changes-query
+  '[:find ?username ?changed
+    :in $ ?since
+    :where
+    [?e :orcpub.user/password-reset ?changed]
+    [(> ?changed ?since)]
+    [?e :orcpub.user/username ?username]])
+
+(defn refresh-token-withdrawals!
+  "Rebuilds the in-memory register of passwords that moved recently, from the
+   database, where the durable record already lives.
+
+   The register is memory-only, so a restart would otherwise reinstate every
+   token it was holding -- silently, and looking exactly like working. Only
+   changes inside the token lifetime matter: a token older than that has expired
+   on its own, so the register never grows past the accounts it can still refuse."
+  [db]
+  (let [since (java.util.Date. (- (System/currentTimeMillis)
+                                  (* auth/token-lifetime-hours 60 60 1000)))
+        rows (d/q recent-password-changes-query db since)]
+    (security/restore-password-changes!
+     (map (fn [[username ^java.util.Date changed]] [username (.getTime changed)]) rows))
+    (count rows)))
+
+(defn withdrawal-refresh-job
+  "Heartbeat job: re-read the register from the database. Also repairs it if a
+   note was ever lost, since the database is the record and this is the cache."
+  [conn]
+  (refresh-token-withdrawals! (d/db conn))
+  nil)
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -246,7 +286,11 @@
                       {:error error-key})})
 
 (defn create-token [username exp]
+  ;; :minted, not :iat. buddy validates the registered claims it recognises, and
+  ;; a standard iat is seconds where this is millis -- naming it apart keeps the
+  ;; library out of it entirely.
   (jwt/sign {:user username
+             :minted (System/currentTimeMillis)
              :exp exp}
             (signature-or-throw)))
 
@@ -677,6 +721,12 @@
         :orcpub.user/password (hashers/encrypt (s/trim password))
         :orcpub.user/password-reset (java.util.Date.)
         :orcpub.user/verified? true}])
+    ;; Before anything else that can fail: every token minted before now is no
+    ;; longer good for this account, including the one this very request is
+    ;; using. That is the point -- a reset is how somebody takes their account
+    ;; back, and leaving the intruder's session alive would defeat it.
+    (when-let [username (:orcpub.user/username user)]
+      (security/note-password-changed! username))
     ;; After the transact, on another thread, and its outcome never reaches the
     ;; response: the password HAS changed by now, and a mail failure must not
     ;; report an error for something that already happened -- somebody would
