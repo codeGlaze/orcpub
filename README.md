@@ -273,7 +273,8 @@ Key variables:
 | `DATOMIC_URL` | Database connection string | `datomic:dev://localhost:4334/orcpub` |
 | `SIGNATURE` | JWT signing secret (**required**) | dev default in `.lein-env` |
 | `PORT` | Web server port | `8890` |
-| `EMAIL_SERVER_URL` | SMTP server | (optional) |
+| `EMAIL_SERVER_URL` | SMTP server — leave empty and nobody can sign up (see `ALLOW_UNVERIFIED_REGISTRATION`) | (optional) |
+| `ALLOW_UNVERIFIED_REGISTRATION` | Let people sign up without confirming their email. Private sites only | `false` |
 | `CSP_POLICY` | Content Security Policy mode | `strict` |
 | `DEV_MODE` | Enable dev features | `true` in dev |
 

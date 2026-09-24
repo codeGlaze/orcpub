@@ -69,11 +69,11 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EMAIL_SERVER_URL` | — | SMTP server hostname. **Empty does not mean "email off, site fine": registration is refused**, because no verification mail can be sent. Pair with `ALLOW_UNVERIFIED_REGISTRATION` to run without email. |
+| `EMAIL_SERVER_URL` | — | Your SMTP server. If it's empty, nobody can sign up — the site can't send a confirmation email, so it turns registration off instead of letting people in unchecked. |
 | `EMAIL_ACCESS_KEY` | — | SMTP username |
 | `EMAIL_SECRET_KEY` | — | SMTP password |
 | `EMAIL_SERVER_PORT` | `587` | SMTP port |
-| `ALLOW_UNVERIFIED_REGISTRATION` | `false` | With an empty `EMAIL_SERVER_URL`, accounts are verified on creation and no mail is sent. Ignored when SMTP is configured. Deliberately an opt-in: keying this on "no SMTP" alone would let a typo'd or dropped variable silently disable verification. |
+| `ALLOW_UNVERIFIED_REGISTRATION` | `false` | Set to `true`, with `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. For private sites only. Does nothing if SMTP is set up. You have to ask for this on purpose, so that losing your SMTP settings by accident can't quietly stop the site checking addresses. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
 | `EMAIL_ERRORS_TO` | — | Error notification recipient |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |
