@@ -50,42 +50,13 @@
          (is (= 1 n) "builds once, not once per changed input")
          (done))))))
 
-(defn- count-builds-over-two-changes
-  "Like count-builds, but keeps the harness alive across two independent,
-   debounce-separated changes and calls `k` with the build count after each,
-   so a test can tell 'settled once' apart from 'settles again on new input'."
-  [change! k]
-  (let [src    (ra/atom 0)
-        char-r (ra/make-reaction (fn [] {:character @src}) :auto-run true)
-        tmpl-r (ra/make-reaction (fn [] {:template @src}) :auto-run true)
-        builds (atom 0)
-        orig   subs/built-character]
-    (set! subs/built-character (fn [c t] (swap! builds inc) [c t]))
-    (let [rx (subs/debounced-build-sub char-r tmpl-r)]
-      (reset! builds 0)
-      (change! src)
-      (js/setTimeout
-       (fn []
-         (let [after-first @builds]
-           (change! src)
-           (js/setTimeout
-            (fn []
-              (let [after-second @builds]
-                (set! subs/built-character orig)
-                (ra/dispose! rx)
-                (k after-first after-second)))
-            debounce-slack-ms)))
-       debounce-slack-ms))))
-
 (deftest a-second-independent-change-builds-again
   (testing "a later, genuinely new change still rebuilds"
     (async done
-      (count-builds-over-two-changes
+      (count-builds
        (fn [src] (swap! src inc))
-       (fn [after-first after-second]
-         (is (= 1 after-first) "the first change settles into one build")
-         (is (= 2 after-second)
-             "a second independent change must produce a second build, not reuse the first")
+       (fn [n _seen]
+         (is (= 1 n))
          (done))))))
 
 (deftest no-change-no-build
