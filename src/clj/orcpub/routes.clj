@@ -32,6 +32,7 @@
             [orcpub.route-map :as route-map]
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
+            [orcpub.config :as config]
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
@@ -69,7 +70,17 @@
   "JWT signing secret from SIGNATURE env var.
    nil when unset OR BLANK — check-auth returns 500 with a diagnostic message.
 
+   Read through config/signature, NOT the environment directly. That accessor
+   checks /run/secrets/signature before SIGNATURE, which is what the Docker
+   secrets setup in docker-compose.yaml promises -- that comment says the app
+   checks /run/secrets/ first and falls back to the environment. Reading the
+   env var here meant a deployment that followed those instructions -- mount the
+   secret, drop the variable -- got nil, and every authenticated call and token
+   operation returned 500 while a perfectly good secret sat on disk.
+
    The blank check is load-bearing, and its absence defeated the warning below.
+   It now lives in config/signature, which routes both sources through
+   orcpub.env/value.
    An exported-but-empty SIGNATURE= yields \"\", which is TRUTHY in Clojure, so
    it sailed past `when-not jwt-secret` — the guard written for exactly this —
    and was handed to buddy. Measured: buddy signs AND verifies with \"\" without
@@ -78,7 +89,7 @@
 
    Clearing a line in .env is an ordinary thing to do; .env.example ships nine
    keys with empty values."
-  (env/value :signature))
+  (config/signature))
 
 (when-not jwt-secret
   (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
