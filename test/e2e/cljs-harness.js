@@ -17,4 +17,8 @@ const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[
  const fails=[...new Set((all.match(/(FAIL|ERROR) in \([^)]*\)/g)||[]))];
  console.log(`distinct FAIL/ERROR: ${fails.length}`); fails.slice(0,40).forEach(f=>console.log('  '+f));
  fs.writeFileSync('target/test/cljs-run.log',all);
+ // Green only on a complete summary reading zero failures and zero errors; a
+ // timeout or crash leaves no summary and must not pass.
+ const last=tot.slice(-1)[0]||''; const clean=ran.length>0&&/^0 failures, 0 errors\./.test(last);
+ process.exitCode=clean&&fails.length===0?0:1;
  await br.close();srv.close();})();
