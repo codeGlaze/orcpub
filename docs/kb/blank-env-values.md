@@ -200,6 +200,77 @@ instead of orphaning an account, but still cannot register anyone. Auto-verify w
 disabled, refuse up front, or an admin path? `.env.example` already promises "Leave
 EMAIL_SERVER_URL empty to disable email functionality" and nothing implements it.
 
+## How the registration piece was resolved (2026-09-23/24)
+
+Settled as **auto-verify when email is unconfigured** — but keyed on an explicit
+opt-in, not on the absence of SMTP, because the obvious version fails open.
+
+`ALLOW_UNVERIFIED_REGISTRATION=true` **plus** an empty `EMAIL_SERVER_URL` verifies accounts on
+creation and sends nothing. Empty `EMAIL_SERVER_URL` **without** it refuses to register anyone,
+with an error naming both remedies.
+
+### Why the opt-in, and what is not reachable
+
+Asked directly whether an attacker could turn the guard against a properly configured
+instance. Two things verified rather than argued:
+
+- **The guard keys on configuration, never on send outcome.** A failed send goes to the
+  rollback path; `verified? true` is only reachable when SMTP is unconfigured. Knocking the
+  mail server over does **not** auto-verify anybody. This is the natural mistake to make and
+  the one to keep not making.
+- **`environ.core/env` is a static `PersistentHashMap` built once at namespace load.**
+  Confirmed with `System/setProperty` after load: `configured?` unchanged. No request, input
+  or runtime manipulation can flip it.
+
+The real problem was the other direction — it **failed open**. Keying on "no SMTP" alone means
+every way of *losing* the config reads as "the operator wanted no email". Measured, all three
+silently produced auto-verify:
+
+```
+EMAIL_SERVER_URL=" "    whitespace, e.g. a copy-paste artifact
+EMAIL_SERVER_URL=       dropped by a deploy, or a failed secret mount
+(absent entirely)       typo'd variable name, renamed compose key
+```
+
+A public site would have gone from verified to **open** registration with no error and no
+alarm. Not attacker-triggered, but the shape that gets found by scanning: no need to break
+the guard, just wait for one operator slip. **A config failure must not downgrade security
+silently** — that is the transferable rule here.
+
+Three startup warnings now cover the abnormal states (no SMTP + opt-in; no SMTP + no opt-in;
+SMTP configured *with* the flag set, which is inert today and decides policy the day SMTP goes
+missing). A correct configuration prints nothing. None are fatal, deliberately: refusing to
+boot over "registration is disabled" would take down character building, exports and every
+existing user over a feature they are not using.
+
+### OPEN — fold into the boot report when integration merges down
+
+`config/print-report!` exists on `integration` and not on the hotfix branch, so
+`report-registration-mode!` prints at namespace load beside the `SIGNATURE` warning instead.
+**Move it into the boot report when the code meets it** — registration mode belongs with the
+rest of the effective configuration, not three lines above an unrelated warning. The comment
+on the function says the same.
+
+### Deploying this to a live instance
+
+Diffed a realistic production config (SMTP set, real secrets, optional extras blank) against
+upstream `develop`. Only two values change, and one needs an operator decision:
+
+| | before | after |
+|---|---|---|
+| `email-from` | `""` | `no-reply@orcpub.com` |
+| `homebrew-url` | `""` | `nil` |
+
+**`EMAIL_FROM_ADDRESS` is the one to check.** Blank in production meant outgoing mail carried
+an *empty* From header; it now falls back to `no-reply@orcpub.com`, which SendGrid/SES will
+refuse to send as unless that domain is authenticated. `.env.example` now ships it set, with
+the SPF/DKIM caveat. Everything else — `DATOMIC_URL`, `DATOMIC_PASSWORD`, `SIGNATURE`,
+`CSP_POLICY`, `PORT` — resolves identically, because blank-is-absent only differs when a value
+is actually blank.
+
+Do **not** add `ALLOW_UNVERIFIED_REGISTRATION` to a public instance's `.env`. With SMTP
+configured it is inert, and its presence earns the loaded-gun warning at boot.
+
 ## A second finding from the same sweep
 
 `privacy_content.clj` rendered `(env :email-access-key)` as the public contact address on the

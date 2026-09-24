@@ -340,7 +340,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** account, blank, bypass, docker, email, empty, environ, environment, implements, lockout, postal, reintroducing, sibling, sites, smtp, unset, uri, variables
+**topics:** account, auto-verify, blank, boot, bypass, configured, docker, email, empty, environ, instance, mail, operator, opt-in, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -349,6 +349,10 @@ _blank-env-values · blank env values_
 - The exception, and why it is not a wart
 - Verifying a change like this against Docker
 - Open: registration lockout when SMTP is unset (worse than the bypass)
+- How the registration piece was resolved (2026-09-23/24)
+- Why the opt-in, and what is not reachable
+- OPEN — fold into the boot report when integration merges down
+- Deploying this to a live instance
 - A second finding from the same sweep
 - Corrections to other docs
 - Related
@@ -369,7 +373,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, beside, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** ---, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, field, form, heading, height, jpg, layout, mockup, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -990,7 +994,7 @@ _docker-infrastructure · docker infrastructure_
 
 _docker-security-decisions · docker security decisions_
 
-**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, reverted, security, sed, transactor
+**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, port, reverted, sed, transactor
 
 - Non-Root Containers (Entrypoint-Chown-Drop)
 - sed Replacement Escaping
