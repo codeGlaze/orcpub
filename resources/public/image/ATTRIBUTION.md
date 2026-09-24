@@ -4,7 +4,7 @@ Most of the icons in this directory come from **[game-icons.net](https://game-ic
 and are used under the **[Creative Commons Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/)**
 licence, which requires that the authors be credited wherever the icons appear.
 
-The four vendored for the PDF spell cards:
+The five vendored for the PDF spell cards:
 
 | Icon | Author |
 |---|---|
