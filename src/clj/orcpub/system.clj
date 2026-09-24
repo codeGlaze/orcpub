@@ -122,13 +122,15 @@
       true http/default-interceptors
       (= :dev env) http/dev-interceptors)
 
+    ;; :token-withdrawals is listed only so Component starts it first; Pedestal
+    ;; never reads it. Without it the start order between the two is arbitrary.
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn])
+      [:service-map :conn :token-withdrawals])
 
     ;; Reads the recent password changes back into memory BEFORE the server takes
-    ;; traffic. The heartbeat also refreshes it, but not until a minute in, and a
+    ;; traffic (enforced by :pedestal depending on it). The heartbeat also refreshes it, but not until a minute in, and a
     ;; restart inside that minute would let a token a reset had already withdrawn
     ;; work again -- exactly the case the withdrawal exists for.
     :token-withdrawals
