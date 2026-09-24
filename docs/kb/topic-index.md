@@ -1084,13 +1084,14 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, audit, before-you-start, claim, confident, creep, enforced, hook, hour, irreducible, ledger, linked, plan, push, sat, session, stale, violated
+**topics:** about, agent, before-you-start, claim, confident, creep, docstrings, enforced, hook, hour, ledger, linked, operator, person, plan, push, session, violated
 
 - What earns a doc
 - Verify, don't remember
 - Claims must be proven, not asserted
 - Update in place; record reversals separately
 - Correct a wrong doc when you find it, not later
+- The other trigger: docs your change just made wrong
 - The exceptions — when "nearly always" is not "always"
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
@@ -1215,7 +1216,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, docstring, edn, go-loop, handoff, keyword-trap-name-repair, loader, readable, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, hitting, keyword-trap-name-repair, loader, readable, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1257,7 +1258,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, jwt, prod, profile, project, signature, token, username, var, vars
+**topics:** ---------------------, 500, auth, authenticated, clj, dev, dev-mode, env, jwt, overwrites, prod, profile, project, signature, token, username, var, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -2317,7 +2318,7 @@ _remote-dev · remote dev_
 
 _requirements-registry · requirements registry_
 
-**topics:** acquisition, alias, bonuses, channels, condition, context, contributors, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger, wants
+**topics:** acquisition, alias, bonuses, channels, condition, context, contributors, distinguishable, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored

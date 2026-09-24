@@ -100,6 +100,41 @@ Note the direction of that last one. "Correct the doc" is the usual answer, but 
 is always *which* of the two is wrong. A promise a user would reasonably rely on is evidence
 about intent; sometimes the code is the thing to change.
 
+### The other trigger: docs your change just made wrong
+
+The rule above is about a doc you discover is wrong. This is the one that keeps
+catching us: a doc that was **correct until your change landed**. You are the only
+person who can know, and nothing will tell you.
+
+Two rounds of review on PR #695 caught exactly this, both times:
+
+- Correcting the CSP docstrings left the same false "Report-Only" claim in
+  `docs/ENVIRONMENT.md`, `docs/DOCKER.md` and `docs/migration/pedestal-0.7.md` — the three
+  files a self-hoster actually reads. Fixing the docstrings is the half that helps people
+  already in the source.
+- Adding `ALLOW_UNVERIFIED_REGISTRATION` turned `DOCKER.md`'s "registration still works, just
+  no verification emails" from true into backwards. An operator following that line would have
+  taken sign-ups offline with no reason to suspect the doc.
+
+**So: before committing, grep for what you changed.** Not the files you edited — the *names*.
+A new environment variable, a renamed function, a changed default: `grep -rn '<the name>' docs/
+README.md` costs one command and is the only thing that finds the tables you were not
+thinking about. Both misses above were in files the change never touched.
+
+Two habits that follow from it:
+
+- **Search for the old behaviour, not just the new name.** The `ALLOW_UNVERIFIED_REGISTRATION`
+  round named three docs; grepping `EMAIL_SERVER_URL` found two more (`README.md:276`,
+  `docs/docker-user-management.md:91`) carrying the same now-false "leave empty to skip email".
+- **When a doc mirrors a function, say so in the docstring.** `docs/email-system.md` walks
+  `do-verification` branch by branch, so its docstring now names it. Otherwise the pairing
+  lives only in whoever wrote both.
+
+**Write operator docs for operators.** The first pass at the setting above said "fail closed"
+and "inert when SMTP is configured". Someone reading `DOCKER.md` wants to know what happens if
+they leave a field blank, not the reasoning behind the guard. Keep the reasoning in the code
+comment, where the next maintainer needs it, and tell the operator what to expect.
+
 ### The exceptions — when "nearly always" is not "always"
 
 - **You have not verified the replacement.** Then you have one proven-wrong claim and one
