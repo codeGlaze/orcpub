@@ -142,6 +142,41 @@ Also worth knowing, and easy to get wrong: **the shell scripts cannot affect Doc
 image is `ENTRYPOINT ["java", "-jar"]` with no `scripts/` copied in, and the transactor runs
 `deploy/start.sh`. `scripts/common.sh` and `scripts/start.sh` are host-side dev tooling only.
 
+## Three layers of guard, each added only after the next gap bit
+
+Worth recording as a shape, not as three incidents. The same mistake was caught three times,
+and each guard was blind to the next version of it:
+
+| layer | added because | what it cannot see |
+|---|---|---|
+| **1. `orcpub.env/value`** | five call sites wrote `(or (env :k) default)`, which treats an exported-empty variable as set | someone calling `environ.core/env` directly instead |
+| **2. clj-kondo `:discouraged-var`** | `orcpub.config` already had a correct `signature` accessor and `routes.clj` read the env raw anyway, four times | `(env/value :signature)` — an *approved* var used where a *different* approved accessor was required |
+| **3. `secret_accessors_test.clj`** | `SIGNATURE` and `DATOMIC_PASSWORD` also come from `/run/secrets/`, and only `config/signature` and `config/datomic-password` know that | whatever the next layer is |
+
+Layer 2 is the interesting one. `:discouraged-var` matches **vars**, so it cannot distinguish
+`(env/value :signature)` from `(env/value :app-name)` — same var, different argument, one of
+them wrong. Catching that needs a custom `analyze-call` hook, or a source scan, which is what
+layer 3 is. **Knowing which mechanism a rule uses tells you what it structurally cannot
+express**, and that is more useful than knowing it passes.
+
+Layer 3 was also caught by review rather than by the suite, and the reason is worth keeping:
+reading the environment directly **still compiles, still passes every other test, and still
+works on every deployment that uses environment variables.** It breaks only for the one that
+mounted a Docker secret and deliberately removed the variable. A defect that is invisible on
+the common path will not be found by tests written for the common path.
+
+### The transferable question
+
+When adding a guard, the useful question is not "does this catch the bug I just fixed" — it
+will, that is why you wrote it. It is **"what is the next version of this mistake, and would
+this guard see it?"** Asked at layer 1, the answer was "someone bypasses the helper", which is
+layer 2 and was already true in the tree at the time. Asked at layer 2, the answer was "the
+right helper, wrong variant", which is layer 3. Neither was hypothetical; both were sitting in
+the code, and both took a reviewer to find.
+
+Related: [`verification-discipline.md`](verification-discipline.md) covers proving a guard
+*can* fail. This covers the different question of what it cannot reach.
+
 ## Open: registration lockout when SMTP is unset (worse than the bypass)
 
 **Nothing checks whether email is configured.** `.env.example` says *"Leave EMAIL_SERVER_URL

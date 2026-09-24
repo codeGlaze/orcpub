@@ -323,7 +323,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** authored, blind, borrowing, check, css, expression, form, green, item, lesson, machine, past, pin, predicts, review, screenshot, stays, vanished
+**topics:** authored, borrowing, check, css, expression, form, green, item, lesson, machine, past, pin, predicts, react, review, screenshot, stays, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -340,7 +340,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** account, auto-verify, blank, boot, bypass, configured, docker, email, empty, environ, instance, mail, operator, opt-in, registration, send, smtp, unconfigured
+**topics:** account, auto-verify, blank, boot, bypass, configured, docker, email, empty, environ, environment, guard, instance, operator, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -348,6 +348,8 @@ _blank-env-values · blank env values_
 - The fix: a rule with teeth
 - The exception, and why it is not a wart
 - Verifying a change like this against Docker
+- Three layers of guard, each added only after the next gap bit
+- The transferable question
 - Open: registration lockout when SMTP is unset (worse than the bypass)
 - How the registration piece was resolved (2026-09-23/24)
 - Why the opt-in, and what is not reachable
@@ -1756,7 +1758,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _modifier-vs-trait-slots · modifier vs trait slots_
 
-**topics:** 1342, 1925, 2040, black-screen, breath, distinguish, dragon, entity-options-architecture, evasion, features-tab, fiery, hunter, inert, monk, plain, rogue, trait, vector
+**topics:** 1342, 1925, 2040, black-screen, breath, dragon, entity-options-architecture, evasion, evasions, features-tab, fiery, hunter, inert, monk, plain, rogue, trait, vector
 
 - The mechanism
 - Worked example: opt5e/evasion and the three Evasions
