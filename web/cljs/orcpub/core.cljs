@@ -43,13 +43,22 @@
            #(dispatch-sync [:initialize-db])
            ;; Loading threw. Set the stored library aside intact, start without it, and
            ;; say so; if startup fails without it too, homebrew was not the cause.
-           #(when-let [raw (db/set-aside-unloadable-library!)]
-              (try
-                (dispatch-sync [:initialize-db])
-                (dispatch [:orcpub.dnd.e5/library-set-aside-at-startup])
-                (catch :default e
-                  (db/restore-set-aside-library! raw)
-                  (js/console.error "Startup failed without homebrew as well:" e)))))
+           ;;
+           ;; The whole recovery -- set-aside-unloadable-library! included -- has to sit
+           ;; inside this try: that call itself touches localStorage, and boot-step
+           ;; invokes `recover` from its OWN catch block, outside its own try, so a
+           ;; storage exception here (quota, permissions, a locked-down browser) would
+           ;; otherwise escape uncaught and abort startup for good.
+           #(try
+              (when-let [raw (db/set-aside-unloadable-library!)]
+                (try
+                  (dispatch-sync [:initialize-db])
+                  (dispatch [:orcpub.dnd.e5/library-set-aside-at-startup])
+                  (catch :default e
+                    (db/restore-set-aside-library! raw)
+                    (js/console.error "Startup failed without homebrew as well:" e))))
+              (catch :default e
+                (js/console.error "Startup failed while setting homebrew aside:" e))))
 
 ;; Startup reads homebrew and builds nothing from it. The character template autosave
 ;; needs is built on the first save (autosave-fx/ensure-template-cache!).
