@@ -2837,12 +2837,22 @@
       :margin-top "6px"}]
 
     [:.whats-new-close
+     ;; A real <button> now (keyboard-focusable, with button semantics), so this
+     ;; also strips the UA chrome (background/border/appearance) a button carries
+     ;; by default -- the icon glyph itself still comes from .fa's own font-family,
+     ;; untouched here.
      {:font-size "20px"
       :color muted-on-dark
       :cursor :pointer
-      :padding "4px 6px"}
+      :padding "4px 6px"
+      :background :none
+      :border :none
+      :appearance :none}
      [:&:hover
-      {:color :white}]]
+      {:color :white}]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "2px"}]]
 
     [:.whats-new-body
      ;; The inset shadow sits on the padding box, so it stays at the bottom edge
