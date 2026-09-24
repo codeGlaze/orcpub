@@ -53,11 +53,44 @@
 (deftest a-second-independent-change-builds-again
   (testing "a later, genuinely new change still rebuilds"
     (async done
-      (count-builds
-       (fn [src] (swap! src inc))
-       (fn [n _seen]
-         (is (= 1 n))
-         (done))))))
+      ;; Real time made this flaky: whether the second change lands inside or
+      ;; outside the 500ms debounce window depended on how fast the test
+      ;; machine ran. A fake js/Date.now makes that a controlled input: the
+      ;; clock, not the clock on the wall, decides which edge fires. Each
+      ;; change settles via the sub's own queueMicrotask coalescing (see
+      ;; `settled` in debounced-build-sub) -- auto-run reactions notify
+      ;; synchronously, so queueing our assertion right after the change is
+      ;; enough to run it after that settle, with no timer of any size.
+      (let [real-now (.-now js/Date)
+            clock    (atom 1000000)
+            src      (ra/atom 0)
+            char-r   (ra/make-reaction (fn [] {:character @src}) :auto-run true)
+            tmpl-r   (ra/make-reaction (fn [] {:template @src}) :auto-run true)
+            builds   (atom 0)
+            orig     subs/built-character
+            cleanup  (fn [rx]
+                       (set! subs/built-character orig)
+                       (set! (.-now js/Date) real-now)
+                       (ra/dispose! rx))]
+        (set! (.-now js/Date) (fn [] @clock))
+        (set! subs/built-character (fn [c t] (swap! builds inc) [c t]))
+        (let [rx (subs/debounced-build-sub char-r tmpl-r)]
+          (reset! builds 0)
+          (swap! src inc)
+          (js/queueMicrotask
+           (fn []
+             (is (= 1 @builds) "first change builds immediately (leading edge)")
+             ;; Push the clock past the sub's 500ms debounce window so the
+             ;; second change also lands on a leading edge (a synchronous
+             ;; do-build) instead of scheduling a real setTimeout.
+             (swap! clock + 600)
+             (swap! src inc)
+             (js/queueMicrotask
+              (fn []
+                (is (= 2 @builds)
+                    "a genuinely new change past the debounce window rebuilds")
+                (cleanup rx)
+                (done))))))))))
 
 (deftest no-change-no-build
   (testing "writing an identical value to an input does not rebuild"
