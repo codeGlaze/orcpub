@@ -1030,6 +1030,17 @@
         (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
         outcome))))
 
+(def ^:private probe-max-concurrency
+  "Outbound fetches the probe endpoint may have running at once. This endpoint
+   needs no login and answers one URL per request, so without a bound a caller
+   can hand it many distinct not-yet-cached addresses and park a Jetty worker
+   on someone else's slow host per request. Small on purpose: this is one
+   request's worth of curiosity about one picture, not sheet generation."
+  8)
+
+(def ^:private probe-slots
+  (delay (java.util.concurrent.Semaphore. probe-max-concurrency true)))
+
 (defn image-probe
   "Whether this server can fetch the picture at the posted URL.
 
@@ -1040,13 +1051,37 @@
 
    Answers a boolean and never the picture: this endpoint needs no login, and
    handing back fetched bytes would make it a general-purpose proxy for anything
-   inside the size limits."
-  [{:keys [transit-params]}]
+   inside the size limits.
+
+   A cache hit is answered unconditionally -- it costs a map lookup and creates
+   no outbound load -- but a MISS is behind both a per-host hourly limit and the
+   concurrency bound above, since a miss is what turns this endpoint into an
+   unauthenticated way to occupy Jetty workers on hosts of the caller's choosing.
+   Both refusals answer :rate-limited, a code the builder already renders as
+   \"try again shortly\" -- an endpoint with no login must never answer a refusal
+   with a status the client isn't already prepared to fail soft on."
+  [{:keys [transit-params remote-addr]}]
   (let [url (:url transit-params)
-        reason (if-not (well-formed-image-url? url)
+        cached (get @probed-images url)
+        reason (cond
+                 (not (well-formed-image-url? url))
                  :blocked-address
-                 (let [{:keys [image reason]} (probed-outcome url)]
-                   (if image :ok (or reason :unknown))))]
+
+                 cached
+                 (let [{:keys [image reason]} (:outcome cached)]
+                   (if image :ok (or reason :unknown)))
+
+                 (not (security/image-probe-allowed? remote-addr))
+                 :rate-limited
+
+                 (not (.tryAcquire ^java.util.concurrent.Semaphore @probe-slots))
+                 :rate-limited
+
+                 :else
+                 (try
+                   (let [{:keys [image reason]} (probed-outcome url)]
+                     (if image :ok (or reason :unknown)))
+                   (finally (.release ^java.util.concurrent.Semaphore @probe-slots))))]
     ;; The HOST only, never the URL: an image address can carry a signed query
     ;; string. This is how the genuinely unreachable set gets measured rather than
     ;; guessed at.
