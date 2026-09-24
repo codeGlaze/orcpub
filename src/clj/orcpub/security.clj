@@ -277,6 +277,14 @@
 (defn registration-allowed? [ip]
   (under-limit? [:register ip] registrations-per-host-hourly (hours 1)))
 
+;; The probe has no login, so IP is the only handle on who is asking. A real
+;; character builder fires it once per image field, well under this; a script
+;; walking a URL list to keep the fetch pool occupied is what it stops.
+(def image-probe-per-host-hourly 300)
+
+(defn image-probe-allowed? [ip]
+  (under-limit? [:image-probe-host ip] image-probe-per-host-hourly (hours 1)))
+
 (defn busiest
   "The heaviest single user of each limit in the window, whether or not it was
    ever refused. A host that stops at ten signups an hour, every hour, never
@@ -295,7 +303,8 @@
   [highs floor]
   (let [caps {:register registrations-per-host-hourly
               :reset-address reset-per-address-hourly
-              :reset-host reset-per-host-hourly}
+              :reset-host reset-per-host-hourly
+              :image-probe-host image-probe-per-host-hourly}
         near (for [[what n] highs
                    :let [cap (get caps what)]
                    :when (and cap (>= n (* floor cap)))]
