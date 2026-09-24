@@ -193,11 +193,32 @@
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
 
+(defn withdraw-sessions
+  "Signs every session for this account out, including the one asking.
+
+   Deliberately does NOT require the password: somebody who thinks their account
+   is open somewhere they cannot reach should be able to close it from the
+   session they already hold, and they have already proved they hold it. It
+   grants an attacker with a session nothing -- they can sign themselves out."
+  [{:keys [conn db identity] :as _request}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (when username (first-user-by db username-query username))]
+    (if-not id
+      {:status 400 :body {:error :user-not-found}}
+      (let [now (java.util.Date.)]
+        @(d/transact conn [{:db/id id :orcpub.user/sessions-withdrawn now}])
+        (security/note-password-changed! username (.getTime now))
+        {:status 200 :body {:withdrawn true}}))))
+
 (def ^:private recent-password-changes-query
+  ;; Either reason a token is withdrawn. The caller keeps the LATER per account,
+  ;; so signing out everywhere and then resetting -- or the reverse -- does not
+  ;; let the earlier of the two reinstate anything.
   '[:find ?username ?changed
     :in $ ?since
     :where
-    [?e :orcpub.user/password-reset ?changed]
+    (or [?e :orcpub.user/password-reset ?changed]
+        [?e :orcpub.user/sessions-withdrawn ?changed])
     [(> ?changed ?since)]
     [?e :orcpub.user/username ?username]])
 
@@ -214,7 +235,10 @@
                                   (* auth/token-lifetime-hours 60 60 1000)))
         rows (d/q recent-password-changes-query db since)]
     (security/restore-password-changes!
-     (map (fn [[username ^java.util.Date changed]] [username (.getTime changed)]) rows))
+     (reduce (fn [m [username ^java.util.Date changed]]
+               (update m username (fnil max 0) (.getTime changed)))
+             {}
+             rows))
     (count rows)))
 
 (defn withdrawal-refresh-job
@@ -2193,6 +2217,8 @@
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
+       [(route-map/path-for route-map/user-sessions-route) ^:interceptors [check-auth]
+        {:delete `withdraw-sessions}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]

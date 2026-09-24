@@ -142,6 +142,12 @@
    {:db/ident :orcpub.user/password-reset
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
+   ;; When the account holder last signed every session out. Separate from
+   ;; password-reset because signing out everywhere must not require changing
+   ;; the password, and the withdrawal register takes the LATER of the two.
+   {:db/ident :orcpub.user/sessions-withdrawn
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}

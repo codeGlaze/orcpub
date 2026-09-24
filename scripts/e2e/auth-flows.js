@@ -449,6 +449,37 @@ async function resetLinkFor(page, sink, email) {
   check(Boolean(reissued) && await useToken(reissued) === 200,
         'while a fresh sign-in works, on as many devices as you like');
 
+  // Sign out everywhere, without changing the password.
+  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('input');
+  await page.locator('input').nth(0).fill(wUser);
+  await page.locator('input').nth(1).fill(wNew);
+  await page.locator('button.form-button').click();
+  await page.waitForTimeout(3500);
+  const deviceA = await page.evaluate(() => {
+    const c = window.cljs.core;
+    return c.get_in(window.re_frame.db.app_db.state,
+      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
+  });
+  const bye = await page.evaluate(async ([b, t]) =>
+    (await fetch(b + '/user/sessions', { method: 'DELETE', headers: { Authorization: `Token ${t}` } })).status,
+    [BASE, deviceA]);
+  check(bye === 200, 'sign out everywhere answers', `HTTP ${bye}`);
+  check(await useToken(deviceA) === 401,
+        'and the session that asked for it is signed out too', `HTTP ${await useToken(deviceA)}`);
+  check(await useToken(reissued) === 401, 'along with every other session');
+
+  // The password did NOT change: it still signs in.
+  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('input');
+  await page.locator('input').nth(0).fill(wUser);
+  await page.locator('input').nth(1).fill(wNew);
+  await page.locator('button.form-button').click();
+  await page.waitForTimeout(3500);
+  check(!page.url().includes('login-page'),
+        'and the password still works, because signing out is not changing it',
+        page.url().replace(BASE, ''));
+
   check(errors.length === 0, 'no page errors anywhere in the run', errors.slice(0, 3).join(' | '));
 
   await browser.close();

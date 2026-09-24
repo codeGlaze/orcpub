@@ -1662,6 +1662,29 @@
               :email-send-failed "Verification email could not be sent. Please try again later."
               "There was an error updating your email. Please try again.")))))
 
+(reg-event-fx
+ :withdraw-sessions
+ (fn [{:keys [db]} _]
+   {:http {:method :delete
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-sessions-route))
+           :on-success [:withdraw-sessions-success]
+           :on-failure [:withdraw-sessions-failure]}}))
+
+(reg-event-fx
+ :withdraw-sessions-success
+ ;; Including this one -- the token in hand was minted before the withdrawal, so
+ ;; the next call with it is a 401. Going straight to login is the honest end to
+ ;; the action rather than letting the app discover it mid-request.
+ (fn [_ _]
+   {:dispatch-n [[:clear-login] [:route-to-login]]}))
+
+(reg-event-db
+ :withdraw-sessions-failure
+ (fn [db _]
+   (assoc db :sessions-withdraw-error
+          "Could not sign your other sessions out. Please try again.")))
+
 (reg-event-db
  :change-email-clear
  (fn [db _]
