@@ -69,10 +69,11 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EMAIL_SERVER_URL` | — | SMTP server hostname. Leave empty to disable email. |
+| `EMAIL_SERVER_URL` | — | SMTP server hostname. **Empty does not mean "email off, site fine": registration is refused**, because no verification mail can be sent. Pair with `ALLOW_UNVERIFIED_REGISTRATION` to run without email. |
 | `EMAIL_ACCESS_KEY` | — | SMTP username |
 | `EMAIL_SECRET_KEY` | — | SMTP password |
 | `EMAIL_SERVER_PORT` | `587` | SMTP port |
+| `ALLOW_UNVERIFIED_REGISTRATION` | `false` | With an empty `EMAIL_SERVER_URL`, accounts are verified on creation and no mail is sent. Ignored when SMTP is configured. Deliberately an opt-in: keying this on "no SMTP" alone would let a typo'd or dropped variable silently disable verification. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
 | `EMAIL_ERRORS_TO` | — | Error notification recipient |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |

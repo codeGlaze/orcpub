@@ -11,7 +11,7 @@
    pre-fix code -- resend returns 200 and stores a fresh key), and it is wired to
    a button in the UI. So the real symptom is a confusing dead end that a user
    can escape if they find the resend link, not a permanent lockout. An earlier
-   version of this docstring and of docs/kb/blank-env-values.md said \"can never
+   version of this docstring and of `git show agents/develop:docs/kb/blank-env-values.md` said \"can never
    be verified\"; that was wrong.
 
    Which is why seven years of production never surfaced it: live SMTP works, so
@@ -32,7 +32,7 @@
    verifies on creation instead and never sends -- that is
    registration_no_email_test.
 
-   See docs/kb/blank-env-values.md."
+   See `git show agents/develop:docs/kb/blank-env-values.md`."
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [datomic.api :as d]

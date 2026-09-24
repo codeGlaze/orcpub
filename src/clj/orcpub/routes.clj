@@ -390,7 +390,7 @@
    `request-email-change` already did exactly this (retracting pending-email on
    send failure, covered by email-change-test/test-email-send-failure-rolls-back).
    Registration was never brought up to match. See
-   registration_rollback_test.clj and docs/kb/blank-env-values.md."
+   registration_rollback_test.clj and `git show agents/develop:docs/kb/blank-env-values.md`."
   [request params conn & [tx-data]]
   (cond
     ;; SMTP is gone but nobody asked for unverified registration. FAIL CLOSED.
