@@ -55,6 +55,82 @@ you haven't verified as unverified.**
    it is to back behavioral claims with a **falsifiable test** that builds the real thing,
    so a leaf-misread fails the test instead of shipping as a confident doc claim.
 
+## A check that has never failed has never been tested
+
+**The shape:** a validator, guard, probe or test whose *failure* is indistinguishable from its
+*success*. It reports "clean", everyone relaxes, and nobody can tell whether that means the tree is
+healthy or the check is blind.
+
+It bit repeatedly across September 2026, in five different disguises:
+
+| the thing | how it lied |
+|---|---|
+| `document.fonts.check()` | returns `true` for fonts that do not exist ([icon-font-failure.md](icon-font-failure.md)) |
+| glyph-width comparison | measured 60.22px with and without the font — no discrimination |
+| the ETag interceptor's `catch` | logged the exception, discarded the response, returned `200` ([locale-safety.md](locale-safety.md)) |
+| `topic-index.md`'s generator | crashed for a week; needed Leiningen, so nobody could discover that |
+| `.githooks/` | committed, reviewed, and never armed — `core.hooksPath` does not survive a clone |
+| the first `kb lint` reachability check | resolved paths against the cwd and flagged all 135 documents |
+
+That last one was caught only because it failed *loudly*. The same bug in the other direction —
+always returning "reachable" — would have passed silently forever.
+
+### The rule
+
+> **Before trusting a check, show it a case it should catch and confirm it complains.**
+
+Running it against a healthy tree proves it does not crash. It proves nothing about whether it
+works. Those are different claims and the green tick looks identical for both.
+
+### Making it mechanical
+
+Discipline that depends on remembering is the same failure one level up — the `.githooks/` row
+above is exactly that. So the rule is executable:
+
+```
+python3 docs/kb/tools/kb.py lint --self-test
+```
+
+It builds a fixture per check, breaks it in the specific way that check exists to detect, and
+requires the check to complain. A clean fixture must pass. `.githooks/pre-commit` runs it *before*
+`kb lint`, so the guard is verified before its verdict is believed.
+
+Verified by sabotage: stubbing the reachability check to always pass, and the H1 check to never
+fire, each makes `--self-test` exit 1 naming the blind check.
+
+**When you add a check anywhere in this repo, add the case that makes it fail.** If you cannot
+write that case, you do not yet know what the check detects.
+
+### Audit: which of this repo's guards actually discriminate
+
+Run 2026-09-20, by feeding each guard a case it is supposed to catch. Recorded because
+"I have not checked" and "it cannot be checked" are different claims, and only one of
+them is an excuse.
+
+| guard | catches what it exists for? | how it was tested |
+|---|---|---|
+| `kb lint` | **yes** — all 4 checks | `kb lint --self-test`, plus sabotage of two checks |
+| `scripts/check-docs.sh` | **yes** — dangling links and orphans both fire | staged fixture with a dead link; staged fixture referenced by nothing |
+| `.githooks/pre-push` | **yes** — all 3 axes | protected/unprotected target × changelog present/absent |
+| `test/clj/…/topic_index_coverage_test.clj` | **no** — red since 2026-09-12 | checks `## <basename>`; nested docs are indexed as `## rescued/<name>.md`. **Deleted 2026-09-20**: `kb lint` makes the same guarantees, strictly, without a JVM |
+| the Clojure suite generally | **unknown** | needs Leiningen, absent from agent containers — genuinely unverifiable here |
+
+Two traps found while running the audit, both in the *test harness* rather than the guard:
+
+- **`check-docs.sh` only sees tracked files.** It builds its file list from `git ls-files`, so
+  an untracked new document is invisible to it. My first attempt created fixtures without
+  staging them, got CLEAN, and nearly recorded a working tool as broken. It also means a
+  manual run against a tree with new, uncommitted docs gives a false all-clear — which is
+  exactly what happened when `locale-safety.md` was created and unlinked. `kb lint` reads the
+  filesystem instead, so the two are complementary; run both.
+- **`${PIPESTATUS[0]}` is the *first* command's status.** `printf … | hook | head` reports
+  printf's exit code, not the hook's. A guard that looked like it passed had actually blocked
+  correctly.
+
+Both are the same lesson one level down: **a test of a check is itself a check, and can be
+blind in the same way.** Verify the harness against a case you know the answer to before
+trusting what it says about the thing under test.
+
 ## Comparing the existing codebase to a proposed upgrade (the method)
 
 The question "is the upgrade equivalent / better / preserving the good?" is answered by a

@@ -181,3 +181,24 @@ Fixed to match `auth-headers` and the `equipment_subs.cljs` canonical pattern.
 | `project.clj` | `:env` in `:dev` profile | Dev defaults for `.lein-env` |
 | `.env.example` | All | Template for user's `.env` |
 | `scripts/common.sh` | `.env` sourcing | Auto-loads for script-based startup |
+
+## The placeholder SIGNATURE is easy to leave in place (field report, 2026-09)
+
+A self-hoster's server logged this on every boot:
+
+```
+Warning: environ value dev-secret-do-not-use-in-production for key :signature
+         has been overwritten with change-me-to-something-unique-and-long
+```
+
+So `.env` carried the literal placeholder from the template. Auth works — the
+value only has to be *consistent* to sign and verify tokens — which is exactly
+why this survives: nothing breaks, so nobody changes it.
+
+It matters the moment an instance is reachable by anyone else: the secret is
+public knowledge, so anyone can mint a valid token for any username. Harmless
+on localhost, a full authentication bypass on a shared host.
+
+The warning is already printed on every start; it just reads like noise next to
+the Datomic and Jetty banners. If self-hosting instructions grow a security
+checklist, "replace SIGNATURE before exposing the port" belongs at the top.

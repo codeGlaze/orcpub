@@ -144,7 +144,7 @@ _*.js
 __pycache__/
 *.pyc
 
-# Agent entry point. Copied in per environment, never committed here — it lives on
-# agents/develop, which is the one place the agent-facing docs are kept. Tracking it on a
-# code branch is how it drifts between branches and how integration ended up deleting it.
-/CLAUDE.md
+# NOTE: CLAUDE.md is deliberately NOT ignored here. This is the agentic silo and the one
+# place the entry point is versioned; agent-setup.sh reads it straight out of this branch
+# to copy into a code branch's working tree. The CODE branches ignore it, for the reason
+# integration's restructure once deleted it: an untracked copy there is committable.

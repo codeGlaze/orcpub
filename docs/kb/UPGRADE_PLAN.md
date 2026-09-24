@@ -608,16 +608,28 @@ I inspected the `deps-tree.txt` output you provided and prioritized likely secur
 
 ---
 
-## Concrete next steps I can take now
-1. Create a small branch `upgrade/security-jackson-guava` and open a PR that:
-   - Adds an explicit dependency override/pin for `com.fasterxml.jackson.core/jackson-databind` to `2.15.x` (or latest stable), and updates `com.google.guava/guava` to `31.x` or later.
-   - Runs CI (the `dependency-audit` workflow will post artifacts) and fixes any immediate failures.
-2. Add Dependabot configuration (`.github/dependabot.yml`) and/or a CI CVE scan job to continuously track vulnerabilities.
-3. After the PR lands, re-run the dependency audit to gather updated `deps-tree` and repeat for the next-highest-risk libs (Pedestal, Reagent, etc.).
+## Security pins — STATUS as of 2026-09-24 (verified against `origin/integration`)
 
----
+This section used to propose creating `upgrade/security-jackson-guava` and ended with a chat
+prompt — *"Would you like me to open the PR now … Reply with **open PR** or **show versions
+first**"* — frozen into the file. That question was answered roughly eight months ago and the
+branch no longer exists (`git ls-remote` returns zero refs). The prompt is removed; here is
+what actually happened.
 
-Would you like me to open the PR `upgrade/security-jackson-guava` now (pins: `jackson-databind` **2.15.2**, `jackson-core` **2.15.2**, `jackson-annotations` **2.15.2**, `guava` **32.1.2-jre**) and push the change, or would you rather review different target versions first? (Reply with **"open PR"** or **"show versions first"**.)
+| proposed | state | evidence |
+|---|---|---|
+| pin `jackson-databind` / `-core` / `-annotations` to 2.15.x | **DONE** | `project.clj:61-63` — all three at `2.15.2`, the exact versions offered |
+| update `guava` to 31.x or later | **DONE** | `project.clj:59` — `32.1.2-jre` |
+| add `.github/dependabot.yml` **or** a CI CVE scan job | **NOT DONE** | no `dependabot.yml` on `integration` |
+| re-run the dependency audit and repeat for Pedestal, Reagent, … | superseded | Pedestal is on 0.7 (see `docs/migration/pedestal-0.7.md`); no standing audit cadence |
+
+**The one live item is continuous vulnerability tracking.** Nothing watches for new CVEs
+between manual audits, so the pins above are accurate as of the day they landed and nothing
+will say when they stop being.
+
+Note the trap this section was: three of its four "next steps" were already complete, so an
+agent reading it as a worklist would have re-done finished work and, following the instruction
+above it, tried to branch from a branch that does not exist.
 
 ## Next steps (my plan)
 1. Run the live dependency audit and tests (if you say “allow live audit”) and append concrete outputs to this document.

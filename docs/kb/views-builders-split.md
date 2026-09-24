@@ -1,5 +1,11 @@
 # Views Builders Split
 
+> **Describes `feature/cross-platform-scripts`, not this branch.** *(noted 2026-09-15)*
+> The `views/builders/` split below has never been merged to `agents/develop`, and that branch is
+> ~1,200 commits behind. Here, all 16 homebrew builder pages still live in
+> `views.cljs` (10,820 lines).
+> Read this as the design for the split, not a map of the current tree.
+
 Deep-dive reference for the `builders.cljs` decomposition — Phase 2 of the views extraction refactor.
 
 ## Context

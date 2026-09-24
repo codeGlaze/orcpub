@@ -70,6 +70,89 @@ believed and what reversed it in a `## Revisions`, `## Corrections` or `## Histo
 the tail. Correct the body; explain in the ledger. Both, not either. See
 `armor-class-refactor.md`, which carries both.
 
+## Correct a wrong doc when you find it, not later
+
+**A doc you have just proven wrong is fixed in the same session, with the verified
+replacement.** Not noted, not filed, not mentioned in a handoff. Nearly always.
+
+This is not the same rule as "update in place" above, which is about how to edit a doc you
+already set out to change. This one is about the doc you did *not* set out to change — the
+one you tripped over while doing something else. That is the common case, and the one that
+keeps being deferred, because fixing it feels like scope creep.
+
+It is not scope creep. The cost is asymmetric and this repo has the receipts:
+
+- `AGENTS.md` claimed twice that Clojure reads `.env` via "environ or `dotenv`". No `dotenv`
+  dependency has ever existed on any branch, and Clojure never reads `.env` — the shell
+  sources it. That line is the most likely reason more than one person remembered a dotenv
+  approach being "tried and abandoned". **A wrong doc does not just fail to help; it
+  manufactures false memories that later decisions get built on.**
+- `AGENTS.md` told every agent to run `lein cljsbuild once dev` after frontend changes.
+  `project.clj` says in its own comments that the plugin was "fully removed" — the command
+  cannot work on any branch. An agent following the instruction gets `'cljsbuild' is not a
+  task` and has to rediscover `lein fig:build`.
+- `.env.example` promised "Leave EMAIL_SERVER_URL empty to disable email functionality" and
+  nothing implemented it, so the documented way to run without email was the way to make
+  registration impossible. **That one had to be fixed in code, because the doc was right
+  about the intent and the code was wrong.**
+
+Note the direction of that last one. "Correct the doc" is the usual answer, but the question
+is always *which* of the two is wrong. A promise a user would reasonably rely on is evidence
+about intent; sometimes the code is the thing to change.
+
+### The other trigger: docs your change just made wrong
+
+The rule above is about a doc you discover is wrong. This is the one that keeps
+catching us: a doc that was **correct until your change landed**. You are the only
+person who can know, and nothing will tell you.
+
+Two rounds of review on PR #695 caught exactly this, both times:
+
+- Correcting the CSP docstrings left the same false "Report-Only" claim in
+  `docs/ENVIRONMENT.md`, `docs/DOCKER.md` and `docs/migration/pedestal-0.7.md` — the three
+  files a self-hoster actually reads. Fixing the docstrings is the half that helps people
+  already in the source.
+- Adding `ALLOW_UNVERIFIED_REGISTRATION` turned `DOCKER.md`'s "registration still works, just
+  no verification emails" from true into backwards. An operator following that line would have
+  taken sign-ups offline with no reason to suspect the doc.
+
+**So: before committing, grep for what you changed.** Not the files you edited — the *names*.
+A new environment variable, a renamed function, a changed default: `grep -rn '<the name>' docs/
+README.md` costs one command and is the only thing that finds the tables you were not
+thinking about. Both misses above were in files the change never touched.
+
+Two habits that follow from it:
+
+- **Search for the old behaviour, not just the new name.** The `ALLOW_UNVERIFIED_REGISTRATION`
+  round named three docs; grepping `EMAIL_SERVER_URL` found two more (`README.md:276`,
+  `docs/docker-user-management.md:91`) carrying the same now-false "leave empty to skip email".
+- **When a doc mirrors a function, say so in the docstring.** `docs/email-system.md` walks
+  `do-verification` branch by branch, so its docstring now names it. Otherwise the pairing
+  lives only in whoever wrote both.
+
+**Write operator docs for operators.** The first pass at the setting above said "fail closed"
+and "inert when SMTP is configured". Someone reading `DOCKER.md` wants to know what happens if
+they leave a field blank, not the reasoning behind the guard. Keep the reasoning in the code
+comment, where the next maintainer needs it, and tell the operator what to expect.
+
+### The exceptions — when "nearly always" is not "always"
+
+- **You have not verified the replacement.** Then you have one proven-wrong claim and one
+  guess, which is worse than what you started with. Delete the wrong claim or mark it
+  UNVERIFIED, and say what you could not check. Never swap a confident wrong statement for a
+  confident unchecked one.
+- **It is deliberately historical.** `content-extensibility.md` is labelled
+  "⚠️ HISTORY (superseded)" on purpose. Superseded is not stale; it is a record with a label.
+  Check for the label before correcting.
+- **It describes intent, not current state.** A plan that has not happened yet is not wrong.
+  A plan that was abandoned is.
+- **It is not yours to edit right now** — a branch you should not be on, or a doc whose
+  correct content is somebody's open decision. Then it is genuinely a handoff item, and it
+  says exactly what was verified and how.
+
+Everything else: fix it, in the same change, and say in the commit what was wrong and what
+proved it.
+
 ## Structure: current truth first, audit trail last
 
 
@@ -107,30 +190,25 @@ Every `docs/kb/*.md` is linked from `docs/kb/README.md`. An unlinked doc is not 
 `check-docs.sh` fails the commit. Two plan docs sat orphaned for weeks because the hook was
 never armed.
 
-### What counts as a KB doc: the TOP LEVEL only
+### What counts as a KB doc: one enumeration, shared
 
-`docs/kb/*.md` means the top level. Subdirectories are archives, not the live KB:
-`rescued/` is copies taken off dead branches because they existed nowhere else, and its own
-README calls them "archival snapshots, NOT accepted KB". They stay reachable — `rescued/README.md`
-is linked from the index and carries the manifest, and the documented primary search
-(`grep -ril "<term>" docs/kb/`) recurses — but they are not indexed per-document and do not
-have to be.
+`docs/kb/tools/topic_index.py` decides what a KB doc is (`docs()`: every `.md` under
+`docs/kb`, keyed by its relative path, so archives index as `rescued/<name>.md`), and
+`kb lint` imports that same function rather than walking the tree itself. The generator
+and the gate therefore cannot disagree about their corpus.
 
-**Both sides must agree on that rule**, and for a year they did not. `orcpub.topic-index`
-and `topic-index-coverage-test` each walked the tree with `file-seq`, which recurses, and
-then read each file back by its bare `.getName`. The generator therefore threw
-`FileNotFoundException` the moment a `.md` first appeared under `rescued/` (`8c8804d0`), and
-the file whose own header says **GENERATED — do not edit** could no longer be generated. The
-test, walking the same wrong way, demanded a README link for archived copies.
+That is the point, because for a year they did. The old Clojure generator and its coverage
+test each walked the tree recursively and then read each file back by its bare name, so the
+generator threw `FileNotFoundException` the moment a `.md` first appeared under `rescued/`
+(`8c8804d0`), and the file whose header says **GENERATED — do not edit** could no longer be
+generated. The two failures hid each other: `check-docs.sh` reported CLEAN throughout, and
+the coverage gate's 88 failing assertions read as "the index is stale" rather than "the thing
+that regenerates the index is dead". Both were deleted on 2026-09-20 in favour of the Python
+pair.
 
-Nothing caught it, because the two failures hid each other: `check-docs.sh` reported CLEAN
-throughout, and the coverage gate's 88 failing assertions read as "the index is stale"
-rather than "the thing that regenerates the index is dead". Fixed 2026-09-23: both read
-`.listFiles` on the top level. Coverage went 88 failures to 0.
-
-**If you change what counts as a KB doc, change it in both places in the same commit.** A
-generator and a gate that disagree about their own corpus will drift silently, and the gate
-will blame the docs.
+**If a second tool ever needs the list of KB docs, import `docs()`; do not re-derive it.** A
+generator and a gate with separate definitions of their corpus drift silently, and the gate
+blames the docs.
 
 ### Do not invent a section to home an orphan
 

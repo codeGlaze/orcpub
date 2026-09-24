@@ -38,3 +38,24 @@ Java 9+ removed `javax.servlet` from the default classpath. Added explicitly:
 ## CI Configuration
 
 `.github/workflows/continuous-integration.yml` uses `setup-java@v4` with `temurin` distribution, Java 21.
+
+## Observed on Java 25 (field report, 2026-09)
+
+A self-hoster ran the full stack on **Java 25** (and another on Java 26) with
+Datomic Pro 1.0.7482. It works — server boots, Datomic connects, schema
+initialises — but the JVM now prints:
+
+```
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by
+         io.netty.util.internal.PlatformDependent0$4 (netty-common-4.1.100.Final.jar)
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+```
+
+Netty 4.1.100 reaches for `sun.misc.Unsafe`, which is **terminally deprecated**
+— it still works on 25, and will stop working on some later JDK. Nothing to do
+today; when it does break it will present as a startup failure inside netty,
+and the fix is a netty bump, not a code change on our side.
+
+Worth noting this page says Java 21 while users are already several releases
+past it without trouble.

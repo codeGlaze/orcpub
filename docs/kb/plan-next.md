@@ -17,6 +17,21 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 
 ---
 
+## 0b. September support sessions — tracked separately
+
+Windows startup and the missing icon arrows produced a branch, two scripts, several KB docs and a
+list of open decisions. They are orthogonal to the content-extensibility track this list is about,
+so the detail lives in **[support-session-ledger.md](support-session-ledger.md)** rather than here.
+
+The only item with a claim on this list:
+
+☐ **Merge `fix/windows-port-detection`** (green on a Windows runner, unmerged). One dead function
+made every port read as free on Git Bash, which broke five things including `--idempotent` — the
+primitive [AGENT-DEV-LOOP.md](../AGENT-DEV-LOOP.md) is built on. Finished work; needs a merge, not
+effort.
+
+---
+
 ## 1. Grants on the remaining four silos
 
 ☐ `subrace-option` · `background-option` · `level-option` (class and subclass)

@@ -56,6 +56,31 @@ else
   fi
 fi
 
+# --- the agent entry point ------------------------------------------------------------
+# .gitignore calls CLAUDE.md "copied in per environment", but nothing copied it: a session
+# on a code branch loaded no project instructions at all, and one spent a while writing a
+# thinner replacement from scratch before finding the real one.
+#
+# Only copied where the branch IGNORES it. agents/develop ignores /CLAUDE.md; integration
+# does not, so dropping it there leaves an untracked file that `git add -A` will commit --
+# which is how it drifted between branches, and how integration came to delete it.
+if [ "$branch" = "$KB" ]; then
+  say "  entry point:     already on $KB, CLAUDE.md is tracked here"
+elif [ $CHECK_ONLY -eq 1 ]; then
+  say "  entry point:     $([ -f CLAUDE.md ] && echo 'present' || echo 'MISSING -- run without --check')"
+elif ! git check-ignore -q CLAUDE.md 2>/dev/null; then
+  say "  entry point:     SKIPPED -- this branch does not gitignore /CLAUDE.md."
+  say "                   Copying it here would leave a file `git add -A` can commit."
+  say "                   Add '/CLAUDE.md' to .gitignore on this branch, then re-run."
+elif [ -f CLAUDE.md ]; then
+  say "  entry point:     CLAUDE.md already here, left alone (delete it to refresh)"
+elif git show "$KB_REF:CLAUDE.md" > CLAUDE.md 2>/dev/null; then
+  say "  entry point:     CLAUDE.md from $KB_REF ($(wc -l < CLAUDE.md | tr -d ' ') lines, gitignored)"
+else
+  rm -f CLAUDE.md
+  say "  entry point:     FAILED to read CLAUDE.md from $KB_REF"
+fi
+
 # --- git hooks ------------------------------------------------------------------------
 # core.hooksPath is per-clone and unset by default, so check-docs.sh and the changelog
 # guard silently do not run. This was true for a whole session once; two plan docs went

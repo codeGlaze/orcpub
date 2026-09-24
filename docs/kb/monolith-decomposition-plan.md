@@ -1,5 +1,15 @@
 # Monolith Decomposition Plan
 
+> **Status and plan, 2026-09-15.** Tier 1 below is marked DONE, and it is — on
+> `refactor/data-extraction`, which is unmerged and staying that way. No `*_data.cljc` file exists
+> on `agents/develop`.
+>
+> **That branch is not being merged.** It was weeks of work and became unmaintainable to keep in
+> step with bug fixes landing on the live branch at the same time. The plan is to redo the
+> extractions incrementally alongside the Fall Update, **using that branch's docs as the
+> guideline** — the research and sequencing below is the part worth keeping, so the idea does not
+> have to be paid for twice. Treat Tier 1 as a proven recipe, not as work already in the tree.
+
 Post-builders-split analysis: what to break down next, in what order, and how.
 
 ## 1. Did the Builders Split Make Issues Easier to Find?
@@ -14,7 +24,7 @@ The split also exposed that `classes.cljs` at 740 lines is the largest child —
 
 ## 2. What Files Can or Should Be Broken Down?
 
-### Tier 1: Data/logic separation (high impact, low risk) — DONE
+### Tier 1: Data/logic separation (high impact, low risk) — proven, not merged
 
 Completed on `refactor/data-extraction` branch (5 commits, 2026-02-25).
 
@@ -30,36 +40,68 @@ Completed on `refactor/data-extraction` branch (5 commits, 2026-02-25).
 - `class-level` had to move to the data file (not stay in logic) because class option functions call it internally. Re-exported from the logic file for external consumers.
 - Pre-existing issue surfaced: `item-saving-throw-bonuses` dropdown in item builder is a dead control (logged in docs/TODO.md).
 
+### What builder generation would actually take off `views.cljs`
+
+Measured 2026-09-15 on `agents/develop`, because "the Fall Update should cut views.cljs down" is
+worth a number rather than a hope.
+
+Of its 10,821 lines, **~3,623 (33%) is the homebrew builder UI** — a near-contiguous run from
+about L5000 to L8400, plus the page wrappers near the end.
+
+Two things that change what to expect:
+
+- **The page wrappers are already 3 lines each.** Fourteen `*-builder-page` fns, ~45 lines total.
+  Generating page code wins nothing there; the bulk is the per-type field-editing UI.
+- **The schema-driven path already exists and already works.** `simple-content-builder` +
+  `render-builder-field`, fed by the type's declarative field schema, serves 6 of the 16 builders
+  today: language, spell, boon, invocation, draconic-ancestry, fighting-style. All small types.
+
+The 10 still hand-written are ~1,150 lines: class (268), monster (233), race (152), subrace (129),
+subclass (105), selection (80), feat (66), item (53), background (35), encounter (25). Converting
+all of them is roughly a **10% cut** to `views.cljs` — real, but not the thing that fixes 10,821
+lines. The shared widgets underneath (`render-builder-field`, `rows-node`, `vector-rows-node`,
+`group-toggles`) are the framework and stay.
+
+**Generation and extraction are different wins.** Generation removes ~1,150 lines; moving the
+builder UI out of `views.cljs` relocates all 3,623. Do not expect the first to substitute for the
+second.
+
 ### Tier 2: Domain decomposition (medium impact, medium risk)
 
 These are **behavioral monoliths** where multiple concerns are interleaved. Splitting requires understanding call graphs.
 
+*Line counts re-measured 2026-09-15 on `agents/develop`; the originals (from the 2026-02 analysis)
+had drifted badly. The ranking changed with them — `views.cljs` is now the largest file in the
+repo, not the third, so Phase C below is arguably ahead of Phase B.*
+
 | File | Lines | Split strategy |
 |------|-------|----------------|
-| `events.cljs` | 4,726 | Domain-based: `events/character.cljs`, `events/builder.cljs`, `events/auth.cljs`, `events/entity.cljs`, `events/ui.cljs` |
-| `options.cljc` | 3,483 | `options.cljc` (constants, enums, abilities) + `options_builders.cljc` (option template builders used by character creation) |
-| `views.cljs` | 2,733 | Continue active refactor — detail pages, shared display utils |
-| `character_builder.cljs` | 2,165 | `character_builder.cljs` (core form + step logic) + child files for major sections |
-| `subs.cljs` | 1,518 | Domain-based mirroring events split |
+| `events.cljs` | 6,687 | Domain-based: `events/character.cljs`, `events/builder.cljs`, `events/auth.cljs`, `events/entity.cljs`, `events/ui.cljs` |
+| `options.cljc` | 4,091 | `options.cljc` (constants, enums, abilities) + `options_builders.cljc` (option template builders used by character creation) |
+| `views.cljs` | **10,820** | Continue active refactor — detail pages, shared display utils, and the 16 builder pages |
+| `character_builder.cljs` | 2,724 | `character_builder.cljs` (core form + step logic) + child files for major sections |
+| `subs.cljs` | 1,697 | Domain-based mirroring events split |
 
 ### Tier 3: Not worth splitting
 
 | File | Lines | Why not |
 |------|-------|---------|
 | `character/random.cljc` | 2,462 | Single cohesive feature (random char gen) |
-| `styles/core.clj` | 1,587 | Data-driven design system, cohesive by design |
-| `template.cljc` | 1,567 | Core infrastructure, tightly coupled |
-| `import_validation.cljs` | 1,554 | Single domain, already focused |
-| `routes.clj` | 1,443 | Standard pattern — all routes in one place |
-| `spell_subs.cljs` | 1,375 | Already domain-scoped |
+| `styles/core.clj` | 3,006 | Data-driven design system, cohesive by design |
+| `template.cljc` | 1,588 | Core infrastructure, tightly coupled |
+| `orcbrew_validation.cljs` | 2,293 | Single domain, already focused (renamed from `import_validation.cljs`) |
+| `routes.clj` | 2,015 | Standard pattern — all routes in one place |
+| `spell_subs.cljs` | 1,594 | Already domain-scoped |
 | All `templates/*.cljc` | varied | Content data bundles, one per source book |
 
 ## 3. Order of Precedence
 
-### Phase A: Data extraction (Tier 1) — DONE
+### Phase A: Data extraction (Tier 1) — proven on a branch, to be redone incrementally
 **monsters → spells → magic_items → classes**
 
-Completed 2026-02-25 on `refactor/data-extraction`. All 4 files extracted, 206 tests passing, 0 CLJS warnings.
+Completed 2026-02-25 on `refactor/data-extraction`: all 4 files extracted, 206 tests passing, 0
+CLJS warnings. Not merged and not going to be — redo these incrementally during the Fall Update,
+following the recipe and order above.
 
 ### Phase B: Events decomposition
 **events.cljs → subs.cljs** (mirror the same domain boundaries)

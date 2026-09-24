@@ -66,7 +66,7 @@ sides had been written blind to the other's findings.
 ### Search surfaces
 | Document | Topic |
 |----------|-------|
-| [topic-index.md](topic-index.md) | **Generated search surface** — every document with its distinctive vocabulary and section headings. Use it to find which document owns a topic. For *whether* something has been looked at, grep the corpus: `grep -ril "<term>" docs/kb/` — measured, that answers more than any index here does. Regenerate with `lein with-profile +tools run -m orcpub.topic-index`. |
+| [topic-index.md](topic-index.md) | **Generated search surface** — every document with its distinctive vocabulary and section headings. Use it to find which document owns a topic. For *whether* something has been looked at, grep the corpus: `grep -ril "<term>" docs/kb/` — measured, that answers more than any index here does. Regenerate with `docs/kb/tools/topic-index.sh`. |
 | [before-you-start.md](before-you-start.md) | **Review lessons indexed by TASK, not by topic.** What to check before designing a control, adding a CSS class, changing how something is rendered, converting a builder, borrowing a value from a mock, or believing a CSS change worked. Every entry is a rule a review had to supply, with one line of evidence. |
 
 ### Builders + authored mechanics (this branch, 2026-09)
@@ -112,13 +112,20 @@ sides had been written blind to the other's findings.
 | [documentation-discipline.md](documentation-discipline.md) | What earns a KB doc; verify don't remember; update in place; record reversals; index it or it is invisible; arm the hooks |
 | [claude-branch-triage.md](claude-branch-triage.md) | Which of the 37 `claude/*` auto-branches hold work that exists nowhere else: content-based verdicts (4 already squash-merged despite the ancestor check, 5 duplicated elsewhere, 16 unique, 12 disposable), the method that beats reachability, and the live Robe of the Archmagi AC bug it turned up |
 | [unsaved-knowledge-on-prunable-branches.md](unsaved-knowledge-on-prunable-branches.md) | What dies with the branches slated for deletion: nine docs to lift first, a Datomic crash analysis deleted by the commit meant to relocate it, and why `check-docs.sh`'s superset check cannot see KB drift — it compares against `develop`, which carries no `docs/kb/` at all |
+| [docker-infrastructure.md](docker-infrastructure.md) | Docker Compose and Swarm setup, and why the transactor advertises `host=datomic` rather than `0.0.0.0` |
+| [name-to-kw-audit.md](name-to-kw-audit.md) | Stage-1 audit of `common/name-to-kw`: what depends on it, the snares it creates, and keep vs. harden vs. replace. Decision doc, changes no code |
+| [share-bundle-dependency-extraction.md](share-bundle-dependency-extraction.md) | The data-model map behind "embed the content in the shared link" — how to compute every piece of homebrew one character depends on. Citations are develop-era; re-check before relying on a line number |
 | [rescued/README.md](rescued/README.md) | Docs copied verbatim off dead or prunable branches because they existed nowhere else — archival snapshots, NOT accepted KB; the manifest says which to promote, which to lift in part, and which are awaiting a read |
 | [empty-keyword-corruption.md](empty-keyword-corruption.md) | "A single colon is not a valid keyword": how an empty name took a whole saved character down, why the throw was uncatchable at the call site, and the three places the shipped defence lives |
+| [icon-font-failure.md](icon-font-failure.md) | When an icon font fails the control does not degrade, it disappears: zero-width, unclickable, absent from the accessibility tree. Which detection methods actually work (`fonts.check()` and the glyph-width trick do not), why a 200 with an empty body is indistinguishable from a stylesheet the browser refused, and the five dead Font Awesome 4 names still in source |
+| [locale-safety.md](locale-safety.md) | Every `/assets/*` request returned 200 with an empty body on non-English machines: an unlocalised date formatter threw on the English `Last-Modified` header and the ETag interceptor's `catch` discarded the response. The same error class in `config.clj`, why `str/lower-case` cannot be trusted on config tokens, and why three green reproductions proved only that the code works in English |
+| [support-session-ledger.md](support-session-ledger.md) | Where the September support work lives: the unmerged Windows branch, two scripts in no branch, what is proven and what is only reasoned about, and the beliefs that were disproved along the way. A record, not a plan |
 | [character-rescue-console.md](character-rescue-console.md) | Field tooling for a character the deployed build cannot read: how to tell whether the shipped defence is even in the served bundle, the `Uncaught mk` triage tell, how the console rescue repairs data through the app’s own save path, and how to adapt it for the next corruption |
 | [e2e-logged-in-sessions.md](e2e-logged-in-sessions.md) | The seeded verified user (`kaylee`/`serenity99`), the one command that boots a server holding it, which of the four test layers to use, and why seeding a session in localStorage cannot work |
 | [handoff-669-final-pass.md](handoff-669-final-pass.md) | For the agent doing the last pass before dev-server integration: what is already verified and should not be re-run, what is still uncovered, the traps that each cost a cycle, working commands, and pass criteria |
 | [plan-669-merge-verification.md](plan-669-merge-verification.md) | How to take the #669 branch safely: the five units it actually contains ranked by blast radius, the pre-flight results, two behaviour changes that are not the fix, a stage-gated test matrix, and what to do when each stage fails |
-| [filtered-list-staleness.md](filtered-list-staleness.md) | Fixed (`3bd77862`): My Items / My Spells showed a filter result cached by the event layer, so the list went stale when content changed (Orcpub#669). Why the subscription looked correct in review |
+| [merging-across-a-refactor.md](merging-across-a-refactor.md) | Why a branch cut before a refactor breaks in two places git cannot show you: a clean merge that is already broken (`get-auth-token`), and a conflict whose obvious resolution restores a fixed bug (`reg-api-sub` vs the extracted custom-items fetch). What #669 cost the unmerged item branch, and the checks to run before the next one |
+| [filtered-list-staleness.md](filtered-list-staleness.md) | Fixed on integration (`3bd77862`), still LIVE on develop: My Items / My Spells show a filter result cached by the event layer, so the list goes stale when content changes (Orcpub#669). Why the subscription looks correct in review |
 | [multi-tab-character-contamination.md](multi-tab-character-contamination.md) | LIVE: the character draft is cached under one localStorage key with no id, so two builder tabs overwrite each other and edits land on the wrong character. Notes carry :db/noHistory, so the loss is unrecoverable |
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Transactor crash forensics: the crash mechanism, GC's role, why writeConcurrency=4 hurts with H2 storage, recovery time and fix options |
 | [code-comment-style.md](code-comment-style.md) | House comment style: tech-manual not journal; docstrings for the what, inline why only for constraints; no jargon/markers/KB-links; relating scattered code |
@@ -147,6 +154,7 @@ sides had been written blind to the other's findings.
 | [character-naming.md](character-naming.md) | Auto-naming: descriptive labels, random name gen, display fallbacks |
 | [env-and-auth.md](env-and-auth.md) | Environment variables, SIGNATURE auth, .env sourcing chain, dev defaults |
 | [auth-state-in-app-db.md](auth-state-in-app-db.md) | Where login state lives in app-db: the token path and `get-auth-token`, why `:user-data` is nested twice, why `db :user` holds only the follow list, and how a loader's 401 logs out (and why an `:http` 401 cannot yet) |
+| [blank-env-values.md](blank-env-values.md) | **`(or (env :k) default)` is wrong** — environ returns `""` for an exported-empty var and `""` is truthy, so the default never applies. The five sites it bit (incl. JWTs signed against `""`, `fetch('')` on every Docker page load), why `orcpub.env` needed a clj-kondo rule and not just a helper, the one place `""` is kept on purpose, how to diff a config change against the real Docker env, and the registration half-account when SMTP is unset — including why seven years of production never surfaced it. |
 | [views-builders-split.md](views-builders-split.md) | builders.cljs decomposition: 10 domain files, dependency rules, gotchas (class→classes, spell-selector stays shared) |
 | [growable-option-menus.md](growable-option-menus.md) | Multi-select menu redesign: shared option-menu component, global layout toggle (grid/pills/A–Z), the two render-path families + inventory, map-prop/value-choice factories, menu-id rule, headless verify harness |
 | [monolith-decomposition-plan.md](monolith-decomposition-plan.md) | Full decomposition roadmap: tiers, precedence, branching strategy, 31 files assessed |
@@ -279,6 +287,16 @@ wrong, and why.
 
 All under `test/browser/`, run against `lein e2e-server` (see `test/browser/README.md`).
 
+- **[browser-probe-registration.md](browser-probe-registration.md)** -- adding a file to
+  `PROBES` launches it but does not protect it. Without a `probe-baseline.json` entry the
+  stopped-asserting guard is absent, not weakened; and the runner counts `^PASS`/`^FAIL`
+  lines, so a probe printing `ok` reports one check however many it ran. Measured: three
+  probes reporting `1 checks` for 32, 24 and 10.
+- **[pdf-generated-vs-uploaded-images.md](pdf-generated-vs-uploaded-images.md)** -- why
+  `pdf/decode-image-bytes` refuses over 128k and a composed portrait (247k, 1.9x the
+  ceiling) must be fitted instead. Includes the delay-is-truthy bug that made a failed
+  portrait suppress the pasted image-url.
+
 | Probe | Answers |
 | --- | --- |
 | `tab_switch_freeze_e2e.js` | the freeze: longest task per Race<->Class switch, heap, counters, stacks |
@@ -289,6 +307,9 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `localstorage_ceiling_e2e.js` | the real quota, and whether it counts chars or bytes |
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
 | `character_image_capture_e2e.js` | both routes a portrait can take into a PDF, and the shape of the field's notices |
+| `portrait_compositor_e2e.js` | the paper-doll compositor drawer: pick, randomize, colour, save, round-trip, light theme |
+| `portrait_tab_e2e.js` | the compositor as a builder tab, and the tab bar at phone width under a mobile UA |
+| `portrait_pdf_export_e2e.js` | that a composed portrait reaches the PDF, asserted differentially against an export with the payload stripped |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |
 
 ### Human-Facing Docs (Copies)
