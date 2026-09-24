@@ -9,19 +9,33 @@
 
 ### Branch Protection — MUST FOLLOW
 
-| Branch | Protection Level | Rule |
-|--------|-----------------|------|
-| `develop` | **OWNER ONLY** | NEVER merge or push. Only the repo owner touches this branch. |
-| `modernize-stack` | **PR REQUIRED** | All changes require a Pull Request with owner approval. No direct pushes. No overrides. |
-| `upgrade/*` | **OPEN** | Agents may work freely in these branches. |
+*Verified against `git ls-remote` on 2026-09-24. If a branch named here does not exist,
+correct this table rather than working around it — see `docs/kb/documentation-discipline.md`.*
+
+| Branch | Protection | Rule |
+|--------|-----------|------|
+| `develop` | **OWNER ONLY** | Never merge or push. The upstream trunk; PRs target it. |
+| `integration` | **PR REQUIRED** | The active trunk — hotfixes land here and it is ahead of `develop`. No direct pushes. |
+| `agents/develop` | **DOCS + TOOLING ONLY** | `*.md`, `.claude/*`, `agents/*`, `docs/*`, `scripts/git/*`, `.githooks/*`. **No source, no tests.** It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
+| `refactor/*` | **OPEN** | Working parent for the refactor tree and its leaves. |
+| `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` | **OPEN** | Agents may work freely. Typed prefixes; these are what the tree actually uses. |
+| `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home commits onto a typed branch before merging anything. |
 
 ### Agent Workflow Rules
 
-1. NEVER merge or push directly to `develop`
-2. NEVER merge or push directly to `modernize-stack`
-3. Work in `upgrade/*` branches
+1. Never merge or push directly to `develop` or `integration`
+2. Work in a typed branch — `feature/`, `fix/`, `hotfix/`, `perf/`, `refactor/`
+3. Branch from `integration` for anything that must ship; it is ahead of `develop`
 4. Create Pull Requests for review — do not merge them yourself
-5. Branch new features from `upgrade/security-jackson-guava`
+5. `claude/*` branches do not merge. Re-home the commits first
+6. Source or test changes do not belong on `agents/develop`
+
+**Removed 2026-09-24, verified absent from the remote:** this section named
+`modernize-stack` as PR-protected and instructed agents to "branch new features from
+`upgrade/security-jackson-guava`". Neither branch exists — `git ls-remote` returns zero refs
+for both — and they had not for roughly eight months, while sitting under a MUST FOLLOW
+heading that is the first thing an agent reads. `upgrade/*` survives as a convention with one
+live branch and is no longer the place to start work.
 
 ---
 
@@ -36,7 +50,7 @@ Before working on this project, read these documents:
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
 | [`BRANCH.md`](BRANCH.md) | Branch-specific context and handoff notes | Every session start |
-| [`UPGRADE_PLAN.md`](UPGRADE_PLAN.md) | Current upgrade roadmap, progress, and next steps | Before any upgrade work |
+| [`docs/kb/UPGRADE_PLAN.md`](docs/kb/UPGRADE_PLAN.md) | **Largely historical.** Records the Jan 2026 stack modernisation; its pins are landed. One live item: nothing tracks CVEs continuously. | Before dependency work |
 | [`README.md`](README.md) | Project overview, getting started, Docker setup | First time setup |
 | [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) | Documentation structure and KB conventions | When creating/updating docs |
 

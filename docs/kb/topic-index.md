@@ -225,7 +225,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 - Notes / Helpful commands
 - Audit results (static)
 - Audit results (live — deps tree)
-- Concrete next steps I can take now
+- Security pins — STATUS as of 2026-09-24 (verified against origin/integration)
 - Next steps (my plan)
 
 ## ability-increase-spreads.md
