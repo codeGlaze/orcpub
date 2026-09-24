@@ -9576,7 +9576,19 @@
                              (= @new-email @confirm-email))]
         [content-page
          "My Account"
-         [{:title "Delete Account"
+         [;; No password asked for: somebody who thinks their account is open
+          ;; somewhere they cannot reach should be able to shut it from the
+          ;; session they already hold. It signs THIS one out too, which is why
+          ;; it confirms first.
+          {:title "Sign out everywhere"
+           :icon "sign-out"
+           :on-click #(dispatch
+                       [:show-confirmation
+                        {:confirm-button-text "SIGN OUT EVERYWHERE"
+                         :question (str "Sign out of every device, including this one? "
+                                        "You will need to sign in again. Your password does not change.")
+                         :event [:withdraw-sessions]}])}
+          {:title "Delete Account"
            :icon "trash"
            :on-click #(dispatch
                       [:show-confirmation

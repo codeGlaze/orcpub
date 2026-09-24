@@ -339,6 +339,11 @@
    (:email-change-sent? db)))
 
 (reg-sub
+ :sessions-withdraw-error
+ (fn [db [_]]
+   (:sessions-withdraw-error db)))
+
+(reg-sub
  :email-change-error
  (fn [db _]
    (:email-change-error db)))

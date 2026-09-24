@@ -208,6 +208,14 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **Sign out everywhere** — an account can shut every session from My Account, including
+  the one asking. It does NOT take the password: somebody who thinks their account is open
+  somewhere they cannot reach should be able to close it from the session they already
+  hold, and an attacker who has one gains nothing by signing themselves out. Stored as its
+  own attribute rather than reusing the reset timestamp, because signing out must not
+  require changing the password; the register keeps the later of the two, so neither can
+  reinstate what the other withdrew (`a1b7e3f9`).
+
 - **Resetting a password takes back the sessions that existed before it** — a JWT is
   stateless and nothing could withdraw one, so every session from before a reset kept
   working, including whoever's session prompted the reset. Tokens now carry when they were
