@@ -395,6 +395,60 @@ async function resetLinkFor(page, sink, email) {
         toOld ? toOld.headers.subject : 'never told');
   if (toOld) check(toOld.raw.includes(moveTo), 'and told where it is going');
 
+  // ---- a reset takes back the sessions that existed before it ----
+  console.log('withdrawal');
+
+  const wUser = uniq(), wEmail = wUser + '@example.com';
+  await signOut(ctx, page);
+  await registerAndVerify(page, sink, wUser, wEmail, GOOD);
+
+  // Sign in and keep the token, standing in for another device still logged in.
+  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('input');
+  await page.locator('input').nth(0).fill(wUser);
+  await page.locator('input').nth(1).fill(GOOD);
+  await page.locator('button.form-button').click();
+  await page.waitForTimeout(3500);
+  const otherDevice = await page.evaluate(() => {
+    const c = window.cljs.core;
+    return c.get_in(window.re_frame.db.app_db.state,
+      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
+  });
+  const useToken = (t) => page.evaluate(async ([b, tok]) =>
+    (await fetch(b + '/user', { headers: { Authorization: `Token ${tok}` } })).status, [BASE, t]);
+  check(await useToken(otherDevice) === 200, 'a signed-in session works before the reset');
+
+  // Reset the password from somewhere else entirely.
+  await signOut(ctx, page);
+  const wLink = await resetLinkFor(page, sink, wEmail);
+  await page.goto(wLink, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.auth-form input');
+  const wNew = GOOD + ' lantern';
+  const wb = authInputs(page);
+  await wb.nth(0).fill(wNew); await wb.nth(1).fill(wNew);
+  await press(page, 'SUBMIT');
+  await page.waitForTimeout(3500);
+
+  check(await useToken(otherDevice) === 401,
+        'and is refused afterwards, so a reset takes the account back',
+        `HTTP ${await useToken(otherDevice)}`);
+
+  // And signing in again works normally -- this withdraws tokens, it does not
+  // limit how many places somebody may be signed in.
+  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('input');
+  await page.locator('input').nth(0).fill(wUser);
+  await page.locator('input').nth(1).fill(wNew);
+  await page.locator('button.form-button').click();
+  await page.waitForTimeout(3500);
+  const reissued = await page.evaluate(() => {
+    const c = window.cljs.core;
+    return c.get_in(window.re_frame.db.app_db.state,
+      c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
+  });
+  check(Boolean(reissued) && await useToken(reissued) === 200,
+        'while a fresh sign-in works, on as many devices as you like');
+
   check(errors.length === 0, 'no page errors anywhere in the run', errors.slice(0, 3).join(' | '));
 
   await browser.close();

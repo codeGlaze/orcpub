@@ -149,6 +149,68 @@
               (interpose ", ")
               (apply str)))))
 
+;; ---------------------------------------------------------------------------
+;; Tokens withdrawn by a password change
+;;
+;; A JWT is stateless and nothing can take one back, so changing a password left
+;; every session that existed before it still working -- including, in the case
+;; that matters, whoever's session prompted the change.
+;;
+;; This holds the moment each account's password last moved. A token minted
+;; before that moment is refused. It is IN MEMORY rather than a database read
+;; because check-auth runs on every authenticated request and is otherwise pure
+;; signature verification; the map only ever holds accounts whose password moved
+;; inside the token lifetime, because anything older is moot -- the tokens it
+;; would withdraw have expired on their own.
+;;
+;; It is not about how many places somebody is signed in. Resetting a password
+;; signs out that account's other sessions once, which is the point of resetting
+;; it; nothing here limits or counts concurrent logins.
+
+(def ^:private password-changes (atom {}))
+
+(defn note-password-changed!
+  "Records that `username`'s password moved, withdrawing every token minted
+   before that instant. Defaults to now."
+  ([username] (note-password-changed! username (System/currentTimeMillis)))
+  ([username at-millis]
+   (swap! password-changes assoc username at-millis)
+   at-millis))
+
+(defn token-withdrawn?
+  "Whether a token minted at `minted-millis` has been withdrawn for `username`.
+
+   A token carrying no minted stamp counts as older than any change: it predates
+   this mechanism, and the only accounts in the map are ones whose password moved
+   recently enough for the question to still matter."
+  [username minted-millis]
+  (boolean
+   (when-let [changed-at (get @password-changes username)]
+     (< (or minted-millis 0) changed-at))))
+
+(defn forget-password-changes-before!
+  "Drops entries older than `cutoff-millis`. Every token they could withdraw has
+   expired by then, so keeping them only grows the map."
+  [cutoff-millis]
+  (swap! password-changes
+         (fn [m] (into {} (remove (fn [[_ at]] (< at cutoff-millis))) m)))
+  nil)
+
+(defn restore-password-changes!
+  "Repopulates the map, for boot.
+
+   Without this a restart quietly reinstates every token the map was holding, and
+   nothing would notice -- the failure is silent and looks exactly like working,
+   which is why it has a test of its own."
+  [username->millis]
+  (reset! password-changes (into {} username->millis))
+  nil)
+
+(defn password-changes-snapshot
+  "The map as it stands. For the boot summary and for tests."
+  []
+  @password-changes)
+
 (def ^:private sightings (atom {}))
 
 (defn- prune [m cutoff]

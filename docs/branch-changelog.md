@@ -208,6 +208,18 @@ a stranger whether a username exists.
   validation the email?" or advise resetting a password to fix a missing validation email
   (`ecb13193`).
 
+- **Resetting a password takes back the sessions that existed before it** — a JWT is
+  stateless and nothing could withdraw one, so every session from before a reset kept
+  working, including whoever's session prompted the reset. Tokens now carry when they were
+  minted, and one minted before an account's password moved is refused. This withdraws
+  tokens; it does not limit how many places somebody is signed in, and signing in again
+  works normally on as many devices as you like. The register is in memory rather than a
+  read on every authenticated request -- `check-auth` is otherwise pure signature
+  verification, and against storage-backed Datomic a per-request lookup on a non-indexed
+  attribute is not free. It is rebuilt from the database at boot, before the server takes
+  traffic, because a restart would otherwise reinstate the tokens it was holding, silently
+  (`f2c8d4e1`).
+
 - **A changed password now tells the account it happened** — nothing was sent. Six
   outbound mails existed and none of them fired on a credential change, so a takeover was
   silent until the owner tried to log in, and then all they learned was that they could

@@ -3,6 +3,7 @@
             [reloaded.repl :as rrepl]
             [io.pedestal.http :as http]
             [orcpub.pedestal :as pedestal]                         
+            [datomic.api :as d]
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
             [orcpub.heartbeat :as heartbeat]
@@ -86,6 +87,24 @@
                               (config/get-http-max-threads)
                               (assoc :max-threads (config/get-http-max-threads)))})
 
+(defrecord TokenWithdrawals [conn]
+  component/Lifecycle
+  (start [this]
+    (try
+      (let [n (routes/refresh-token-withdrawals! (d/db (:conn conn)))]
+        (when (pos? n)
+          (println (str "token withdrawals: " n " account(s) whose password moved recently"))))
+      (catch Exception e
+        ;; Never blocks the boot. An empty register refuses nothing, which is
+        ;; where this started -- so failing to load it is no worse than not
+        ;; having it, and a server that will not start is worse than both.
+        (println "WARNING: could not read recent password changes; tokens from before a"
+                 "recent reset stay usable until the heartbeat refreshes:" (.getMessage e))))
+    this)
+  (stop [this] this))
+
+(defn new-token-withdrawals [] (map->TokenWithdrawals {}))
+
 (defn system [env]
   ;; Which image-fetch egress path is live is invisible until an export fails,
   ;; and the two fail very differently. One line at boot says which.
@@ -108,9 +127,19 @@
       (pedestal/new-pedestal)
       [:service-map :conn])
 
+    ;; Reads the recent password changes back into memory BEFORE the server takes
+    ;; traffic. The heartbeat also refreshes it, but not until a minute in, and a
+    ;; restart inside that minute would let a token a reset had already withdrawn
+    ;; work again -- exactly the case the withdrawal exists for.
+    :token-withdrawals
+    (component/using
+      (new-token-withdrawals)
+      [:conn])
+
     :heartbeat
     (component/using
       (heartbeat/new-heartbeat {"share link pruning" share/prune-job
+                                "token withdrawal refresh" routes/withdrawal-refresh-job
                                 ;; Says nothing on a quiet hour. A line every
                                 ;; hour reading all zeroes is how a log stops
                                 ;; being read.
