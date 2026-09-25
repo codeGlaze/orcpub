@@ -698,9 +698,12 @@
  :args (spec/cat :raw-entity ::raw-entity :modifier-map ::t/template)
  :ret any?)
 
-(defn name-to-kw [name]
+(defn name-to-kw
+  "Second implementation of name->keyword, alongside orcpub.common/name-to-kw.
+   Locale-pinned for the same reason: see orcpub.common/ascii-lower-case."
+  [name]
   (-> name
-      s/lower-case
+      common/ascii-lower-case
       (s/replace #"\W" "-")
       keyword))
 

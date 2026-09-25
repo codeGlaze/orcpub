@@ -32,6 +32,7 @@
             [orcpub.route-map :as route-map]
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
+            [orcpub.config :as config]
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
@@ -46,6 +47,7 @@
             [orcpub.routes.folder :as folder]
             [hiccup.page :as page]
             [environ.core :as environ]
+            [orcpub.env :as env]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
@@ -66,11 +68,65 @@
 
 (def ^:private jwt-secret
   "JWT signing secret from SIGNATURE env var.
-   nil when unset — check-auth returns 500 with a diagnostic message."
-  (environ/env :signature))
+   nil when unset OR BLANK — check-auth returns 500 with a diagnostic message.
+
+   Read through config/signature, NOT the environment directly. That accessor
+   checks /run/secrets/signature before SIGNATURE, which is what the Docker
+   secrets setup in docker-compose.yaml promises -- that comment says the app
+   checks /run/secrets/ first and falls back to the environment. Reading the
+   env var here meant a deployment that followed those instructions -- mount the
+   secret, drop the variable -- got nil, and every authenticated call and token
+   operation returned 500 while a perfectly good secret sat on disk.
+
+   The blank check is load-bearing, and its absence defeated the warning below.
+   It now lives in config/signature, which routes both sources through
+   orcpub.env/value.
+   An exported-but-empty SIGNATURE= yields \"\", which is TRUTHY in Clojure, so
+   it sailed past `when-not jwt-secret` — the guard written for exactly this —
+   and was handed to buddy. Measured: buddy signs AND verifies with \"\" without
+   complaint, so the app issued and accepted tokens signed with a publicly
+   known empty secret, and anyone could forge one for any user.
+
+   Clearing a line in .env is an ordinary thing to do; .env.example ships nine
+   keys with empty values."
+  (config/signature))
 
 (when-not jwt-secret
   (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+
+(defn- report-registration-mode!
+  "Say at startup what registration will actually do, because every wrong answer
+   here is silent.
+
+   Printed at namespace load, beside the SIGNATURE warning above, because this
+   branch has no boot report to hang it on. If one is added later, move it there
+   -- it belongs with the rest of the effective configuration."
+  []
+  (let [smtp? (email/configured?)
+        opted-out? (email/unverified-registration-allowed?)]
+    (cond
+      (and (not smtp?) opted-out?)
+      (do (println "WARNING: registration is running WITHOUT EMAIL VERIFICATION.")
+          (println "         EMAIL_SERVER_URL is unset and ALLOW_UNVERIFIED_REGISTRATION=true,")
+          (println "         so anyone who registers is verified on the spot and nobody proves")
+          (println "         they own the address they typed. Intended for a private instance.")
+          (println "         Set EMAIL_SERVER_URL to restore verification."))
+
+      (not smtp?)
+      (do (println "WARNING: registration is DISABLED — EMAIL_SERVER_URL is unset, so no")
+          (println "         verification email can be sent. Existing users are unaffected.")
+          (println "         Set EMAIL_SERVER_URL, or ALLOW_UNVERIFIED_REGISTRATION=true to")
+          (println "         accept accounts without verifying the address."))
+
+      opted-out?
+      ;; The loaded gun: inert today, decides policy the day SMTP goes missing.
+      (do (println "WARNING: ALLOW_UNVERIFIED_REGISTRATION is set but has no effect right now,")
+          (println "         because EMAIL_SERVER_URL is configured. If that value is ever lost")
+          (println "         — a typo, a dropped deploy variable, a failed secret mount — this")
+          (println "         flag silently turns registration into OPEN registration instead of")
+          (println "         failing. Remove it unless this is a private instance.")))))
+
+(report-registration-mode!)
 
 (def backend (backends/jws {:secret jwt-secret}))
 
@@ -230,7 +286,7 @@
 (defn create-token [username exp]
   (jwt/sign {:user username
              :exp exp}
-            (environ/env :signature)))
+            jwt-secret))
 
 (defn following-usernames [db ids]
   (map :orcpub.user/username
@@ -323,24 +379,137 @@
    params
    verification-key))
 
-(defn do-verification [request params conn & [tx-data]]
-  (let [verification-key (str (java.util.UUID/randomUUID))
-        now (java.util.Date.)]
+(defn do-verification
+  "Create or refresh a pending verification, then email the link.
+
+   The write has to happen BEFORE the send, because the emailed link only
+   resolves if the key is already stored. Datomic does not roll back, so the
+   send is wrapped and the write undone if it fails.
+
+   Without that rollback a failed email left a committed, unverified account,
+   and `register` validates against existing username/email -- so the retry this
+   very function tells the user to make then failed with \"already taken\".
+
+   Not a lockout: `re-verify` works on exactly that orphaned state and is wired
+   to a button in the UI, so a user who finds it recovers. Measured, because an
+   earlier version of this docstring claimed otherwise. It is a dead end from the
+   registration form with a non-obvious escape, which is also why seven years of
+   production never surfaced it -- live SMTP works, so this runs only on a
+   transient send failure, and the few users it reaches report \"it says my email
+   already exists\", indistinguishable from forgetting an account.
+
+   `request-email-change` already did exactly this (retracting pending-email on
+   send failure, covered by email-change-test/test-email-send-failure-rolls-back).
+   Registration was never brought up to match. See
+   registration_rollback_test.clj and `git show agents/develop:docs/kb/blank-env-values.md`.
+
+   docs/email-system.md describes this flow for operators, branch by branch. It
+   mirrors this function, so a change here needs a change there -- that doc is
+   what someone reads instead of this code."
+  [request params conn & [tx-data]]
+  (cond
+    ;; SMTP is gone but nobody asked for unverified registration. FAIL CLOSED.
+    ;; Keying auto-verify on "no SMTP" alone would silently turn a production
+    ;; site into open registration the moment a variable is typo'd, dropped by a
+    ;; deploy, or mounted empty -- a downgrade with no error and no alarm.
+    ;; Measured: " ", "" and absent entirely all read as "no email". Make the
+    ;; operator say so, and make the accident loud instead.
+    (and (not (email/configured?))
+         (not (email/unverified-registration-allowed?)))
+    (do
+      (println "ERROR: registration unavailable — EMAIL_SERVER_URL is unset, so no"
+               "verification email can be sent. Set it, or set"
+               "ALLOW_UNVERIFIED_REGISTRATION=true to accept accounts without"
+               "verifying the address.")
+      ;; A response, not a throw. A throw reaches the client as a bare 500 it
+      ;; cannot tell apart from any other failure, so the form showed nothing.
+      {:status 503 :body {:error :email-not-configured}})
+
+    ;; Deliberately running without email: verify on the spot rather than
+    ;; promising a mail that cannot be sent. The operator of a mail-less
+    ;; instance is handing out the accounts themselves, so address ownership is
+    ;; not being proved by anyone anyway.
+    (not (email/configured?))
+    (do
+      (println "INFO: EMAIL_SERVER_URL is unset — verifying" (:username params)
+               "on creation instead of sending a verification email.")
+      (try
+        @(d/transact conn [(merge tx-data {:orcpub.user/verified? true})])
+        ;; The client branches on this to show "registration complete, you can
+        ;; log in" rather than "check your email".
+        {:status 200 :body {:verified? true}}
+        (catch Exception e
+          (println "ERROR: Failed to create account:" (.getMessage e))
+          (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                          {:error :verification-failed}
+                          e)))))
+    :else
+    (let [verification-key (str (java.util.UUID/randomUUID))
+        now (java.util.Date.)
+        ;; re-verify passes an existing {:db/id id}; register does not. The two
+        ;; need different rollbacks -- never retract the ENTITY for a user who
+        ;; already existed, only the attributes this attempt set.
+        existing-id (:db/id tx-data)
+        ;; What a resend is about to overwrite. verification-key is
+        ;; cardinality-one, so the new transaction REPLACES the link already
+        ;; sitting in the user's inbox. If this send then fails, retracting the
+        ;; new key is not enough -- the old one has to come back, or a link that
+        ;; was still valid stops working because a later resend failed.
+        previous (when existing-id
+                   (d/pull (d/db conn)
+                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
+                           existing-id))
+        tempid "verification-subject"
+        report (try
+                 @(d/transact
+                   conn
+                   [(merge
+                     tx-data
+                     {:db/id (or existing-id tempid)
+                      :orcpub.user/verified? false
+                      :orcpub.user/verification-key verification-key
+                      :orcpub.user/verification-sent now})])
+                 (catch Exception e
+                   (println "ERROR: Failed to create verification record:" (.getMessage e))
+                   (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                                   {:error :verification-failed}
+                                   e))))
+        eid (or existing-id (get (:tempids report) tempid))]
     (try
-      @(d/transact
-        conn
-        [(merge
-          tx-data
-          {:orcpub.user/verified? false
-           :orcpub.user/verification-key verification-key
-           :orcpub.user/verification-sent now})])
       (send-verification-email request params verification-key)
       {:status 200}
-      (catch Exception e
-        (println "ERROR: Failed to create verification record:" (.getMessage e))
+      (catch Throwable e
+        (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
+        (try
+          @(d/transact conn (if existing-id
+                              ;; Put back what was there, or remove what we added --
+                              ;; but ONLY while the values are still ours. Two
+                              ;; resends can overlap: if a newer one wrote its key
+                              ;; and emailed it after we wrote ours, restoring the
+                              ;; old key would kill the link actually sitting in
+                              ;; the inbox. :db/cas makes the restore conditional
+                              ;; and the whole transaction atomic; a retract of a
+                              ;; value that is no longer current is already a no-op.
+                              (let [{old-key :orcpub.user/verification-key
+                                     old-sent :orcpub.user/verification-sent} previous]
+                                [(if old-key
+                                   [:db/cas eid :orcpub.user/verification-key verification-key old-key]
+                                   [:db/retract eid :orcpub.user/verification-key verification-key])
+                                 (if old-sent
+                                   [:db/cas eid :orcpub.user/verification-sent now old-sent]
+                                   [:db/retract eid :orcpub.user/verification-sent now])])
+                              [[:db/retractEntity eid]]))
+          (catch Exception re
+            (if (re-find #"cas-failed" (str re (some-> re .getCause)))
+              ;; Not a failure: a newer resend superseded this attempt, so its
+              ;; state is the right state to keep.
+              (println "INFO: verification rollback skipped — a newer resend owns the key now.")
+              ;; Report the rollback failure, but surface the original cause.
+              (println "ERROR: Rollback ALSO failed; a partial account may remain:"
+                       (.getMessage re)))))
         (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                        {:error :verification-failed}
-                        e))))))
+                        {:error :verification-email-failed}
+                        e)))))))
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
@@ -457,7 +626,7 @@
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
   (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+            jwt-secret))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -468,7 +637,7 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token jwt-secret)]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
             (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]

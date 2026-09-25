@@ -5,10 +5,30 @@
 
 (def dot-char "•")
 
+(defn ascii-lower-case
+  "Lowercase without asking the operating system what language it is in.
+
+   clojure.string/lower-case calls .toLowerCase() with no Locale on the JVM,
+   which follows the JVM default. On a Turkish or Azerbaijani machine that
+   folds \"I\" to the DOTLESS \"ı\", so \"Illusory Script\" becomes
+   :ıllusory-script instead of :illusory-script -- a different key, on the
+   server only, for the same content. Names, keys and search terms are
+   machine tokens here, not prose.
+
+   ClojureScript needs no guard: JS toLowerCase() is already locale-invariant
+   (toLocaleLowerCase() is the one that is not), so the browser was always
+   correct and only the JVM side diverged.
+
+   See docs/kb/locale-safety.md."
+  [x]
+  (let [t (str x)]
+    #?(:clj  (.toLowerCase ^String t java.util.Locale/ROOT)
+       :cljs (.toLowerCase t))))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $
-        (s/lower-case $)
+        (ascii-lower-case $)
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
@@ -204,8 +224,9 @@
 
 ;; Case Insensitive `sort-by`
 (defn aloof-sort-by [sorter coll]
-  (sort-by (comp s/lower-case sorter) coll)
-  )
+  ;; ascii-lower-case, so a list does not reorder itself depending on the
+  ;; server's locale.
+  (sort-by (comp ascii-lower-case sorter) coll))
 
 (defn ->kebab-case [s]
   (-> s
