@@ -215,6 +215,18 @@
   [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
    :portrait/open-slot :portrait/open-layer])
 
+(defn drop-portrait-draft
+  "Clear the draft and count the change.
+
+   :character-epoch is bumped in step, so it counts how many times the character
+   being edited has been REPLACED. A save is dispatched at one epoch and answered
+   at another, and that is the only way the answer can tell whether the character
+   it is about is still the one on screen -- an id cannot, because a first save is
+   where the id appears."
+  [db]
+  (-> (apply dissoc db portrait-ui-keys)
+      (update :character-epoch (fnil inc 0))))
+
 (def discard-portrait-draft
   "Drops the in-progress portrait, for an event that replaces the character
    wholesale without going through :set-character.
@@ -225,8 +237,7 @@
   (->interceptor
    :id :discard-portrait-draft
    :before (fn [context]
-             (update-in context [:coeffects :db]
-                        (fn [db] (apply dissoc db portrait-ui-keys))))))
+             (update-in context [:coeffects :db] drop-portrait-draft))))
 
 ;; Split so the one chain and the chain-plus-discard cannot drift apart, and so
 ;; the discard lands on the whole-db side of (path :character).
@@ -493,23 +504,51 @@
 #_ ;; unreferenced — character path is constructed inline
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
+(defn saved-character-is-the-one-being-edited?
+  "Whether a save that has just come back is about the character on screen.
+
+   It is decided from what the save was dispatched WITH, because nothing in the
+   response can answer it. A save is asynchronous, and the autosave queue is
+   throttled, so the answer routinely arrives after the builder has moved on --
+   toggle a prepared spell on one character from a list and the queued save for
+   it lands while another is open in the builder.
+
+   The two save paths know different things, so they say different things:
+
+     * the manual save posts db :character, so it passes the :epoch it was
+       dispatched at. A first save is exactly where the id appears, so an id
+       cannot distinguish 'the same character, now saved' from 'a different
+       character'; the epoch can, because it counts replacements.
+     * the autosave posts a character from the map BY ID, which may never have
+       been the one on screen, so it passes that :for-id to be compared.
+
+   Neither given (a bare re-dispatch) answers false. Losing a draft costs the
+   edits in it; keeping the wrong one writes one character's portrait onto
+   another."
+  [db {:keys [epoch for-id]}]
+  (cond
+    (some? for-id) (= for-id (:db/id (:character db)))
+    (some? epoch)  (= epoch (:character-epoch db 0))
+    :else          false))
+
 (reg-event-fx
  :character-save-success
- (fn [{:keys [db]} [_ response]]
+ (fn [{:keys [db]} [_ response save-context]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
-         id (:db/id character)]
+         id (:db/id character)
+         ;; Keep the portrait draft only for the character it was drawn for. On a
+         ;; first save this is where the character gets its :db/id, so the id
+         ;; changing is NOT a switch and the draft has to survive -- but a save
+         ;; that has outlived the screen it started on must not carry the draft
+         ;; onto whatever is open now.
+         current? (saved-character-is-the-one-being-edited? db save-context)]
      {:dispatch-n [[:show-message
                     (if-let [char-name (not-empty
                                         (get-in character [::entity/values ::char5e/character-name]))]
                       (str "Saved “" char-name "”")
                       "Your character has been saved.")]
-                   ;; Same character, and on a first save this is where it gets
-                   ;; its :db/id -- so say to keep the portrait draft rather than
-                   ;; letting set-character read the new id as a different
-                   ;; character. Anyone who pressed Save character with portrait
-                   ;; edits still in the drawer lost them that way.
-                   [:set-character character {:keep-portrait-draft? true}]
+                   [:set-character character {:keep-portrait-draft? current?}]
                    [::char5e/set-character id character]]})))
 
 (defn descriptive-character-label
@@ -603,7 +642,10 @@
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-                   :on-success [:character-save-success]}}
+                   ;; By id, from the character map -- which may not be the one
+                   ;; in the builder, and by the time this lands may not be even
+                   ;; if it was.
+                   :on-success [:character-save-success {:for-id (:db/id strict)}]}}
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
@@ -634,7 +676,8 @@
                :headers (authorization-headers db')
                :url (url-for-route routes/dnd-e5-char-list-route)
                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
+               :on-success [:character-save-success
+                            {:epoch (:character-epoch db' 0)}]}}
        {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
 
 (reg-event-fx
@@ -1771,7 +1814,7 @@
                         (content-recon/subclass->class-index (:plugins db)))]
     (assoc (if (keep-portrait-draft? db character (:keep-portrait-draft? opts))
              db
-             (apply dissoc db portrait-ui-keys))
+             (drop-portrait-draft db))
            :character character
            :loading false
            :character-binding-report (when (or (seq (:unbound-classes binding-report))

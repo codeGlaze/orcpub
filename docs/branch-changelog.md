@@ -95,6 +95,14 @@ unfurls into, each carrying the artist's credit with it.
   now say so, which also tells two never-saved characters apart — both have a nil id, the
   one case the comparison could never see. New builds the blank character without going
   through `:set-character` at all, so it drops the draft in its own interceptor.
+- A save that outlived the screen it started on then carried the wrong portrait. Saving is
+  asynchronous and the autosave queue is throttled, so a save answers routinely after the
+  builder has moved on -- toggle a prepared spell on one character from a list and the
+  queued save for it lands while another is open. The response was treated as the character
+  on screen either way, so the draft went with it. Nothing in the response can settle that,
+  so each save now says what it is about: the manual one the epoch it was dispatched at
+  (`:character-epoch` counts replacements, which an id cannot, since a first save is where
+  the id appears), the autosave the id it posted.
 - `node test/e2e/cljs-harness.js` depended on an untracked runner page under `target/`, so
   the command this branch is verified with failed on a clean checkout with a bare Playwright
   navigation error. The harness writes its own page now, and says which build step is

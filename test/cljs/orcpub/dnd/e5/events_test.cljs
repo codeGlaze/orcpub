@@ -922,9 +922,12 @@
       (try
         (rf/reg-fx :dispatch-n (fn [events] (reset! dispatched (vec events))))
         (reset! app-db pristine-db)
+        ;; :epoch is what the manual save posts; pristine-db has no
+        ;; :character-epoch, so 0 is the epoch it was dispatched at.
         (rf/dispatch-sync
          [:character-save-success
-          {:body {:db/id 999 :orcpub.entity.strict/values {}}}])
+          {:body {:db/id 999 :orcpub.entity.strict/values {}}}
+          {:epoch 0}])
         (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
           (is (some? set-char) ":character-save-success must re-set the character")
           (is (= {:keep-portrait-draft? true} (nth set-char 2 nil))
@@ -934,6 +937,67 @@
           (if real
             (rf/reg-fx :dispatch-n real)
             (rf/clear-fx :dispatch-n)))))))
+
+(deftest a-stale-save-does-not-carry-the-draft-onto-another-character
+  (testing "the save is asynchronous and the autosave queue is throttled, so the
+            answer can arrive after the builder has moved on. Keeping the draft
+            there writes the character on screen's portrait onto the one that was
+            saved."
+    (let [dispatched (atom [])
+          real (get-in @registrar/kind->id->handler [:fx :dispatch-n])]
+      (try
+        (rf/reg-fx :dispatch-n (fn [events] (reset! dispatched (vec events))))
+        (testing "manual save, dispatched an epoch ago"
+          ;; The epoch counts replacements of the character being edited, so a
+          ;; save posted before a switch comes back at a later one.
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 222)
+                                :character-epoch 4
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
+            {:epoch 3}])
+          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
+            (is (= {:keep-portrait-draft? false} (nth set-char 2 nil))
+                "222's draft must not ride along with 111's save")))
+        (testing "autosave, for a character that is not the one on screen"
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 222)
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
+            {:for-id 111}])
+          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
+            (is (= {:keep-portrait-draft? false} (nth set-char 2 nil))
+                "a queued autosave for 111 must not take 222's portrait")))
+        (testing "autosave, for the character on screen"
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 111)
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-111}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
+            {:for-id 111}])
+          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
+            (is (= {:keep-portrait-draft? true} (nth set-char 2 nil))
+                "this one IS the character being edited")))
+        (finally
+          (if real
+            (rf/reg-fx :dispatch-n real)
+            (rf/clear-fx :dispatch-n)))))))
+
+(deftest replacing-the-character-being-edited-counts-an-epoch
+  (testing "the epoch is what lets an answer tell whether the question is still
+            on screen, so it has to move whenever the draft is dropped"
+    (reset! app-db (assoc pristine-db :character (char-with-id 111)))
+    (rf/dispatch-sync [:set-character (char-with-id 222)])
+    (is (= 1 (:character-epoch @app-db)) "switching characters counts")
+    (rf/dispatch-sync [:set-character (char-with-id 222)
+                       {:keep-portrait-draft? true}])
+    (is (= 1 (:character-epoch @app-db))
+        "continuing the same character does not")))
 
 (deftest a-draft-does-not-cross-between-two-never-saved-characters
   (testing "New and Clone both produce a nil :db/id, so comparing ids could not
