@@ -13,7 +13,11 @@
               (messages "Sh0rt!")))
     (is (nil? (messages "vault of seven ravens")))
     (is (some? (messages nil)))
-    (is (some? (messages "")))))
+    (is (some? (messages ""))))
+  (testing "spaces around it do not count, because every path stores it trimmed"
+    ;; Greptile, PR #34: 13 characters as typed, 11 as saved.
+    (is (some? (messages " pomegranate ")))
+    (is (some? (messages "           ")))))
 
 (deftest repeated-characters
   (is (reg/repeated-run? "aaa"))
