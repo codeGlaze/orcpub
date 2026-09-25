@@ -1468,6 +1468,23 @@
     (is (some #{:artificer} (:former-keys moved))
         "the old key is recorded, for rebinding once nothing else holds it")))
 
+;; Greptile, PR #34: the selection is a set, so a bulk move could take the
+;; subclass across before its class was renamed.
+(deftest relocate-bulk-move-renames-the-class-before-its-subclass-leaves
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "B"}}}}
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins*
+                                      [["A" ::e5/subclasses :alchemist] ["A" ::e5/classes :artificer]]
+                                      "B" :move)
+        new-key (:to (first (filter #(= ::e5/classes (:ct %)) renamed)))]
+    (is (some? new-key) "the class was renamed")
+    (is (= new-key (get-in plugins ["B" ::e5/subclasses :alchemist :class]))
+        "the subclass arrives pointing at the moved class, whatever order it was ticked in")
+    (is (empty? (get-in plugins ["A" ::e5/subclasses])) "both left the source")))
+
 (deftest relocate-clashing-copy-leaves-dependents
   (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
                        ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
