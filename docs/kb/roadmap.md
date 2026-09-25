@@ -1,6 +1,6 @@
 # Branch plan — the single source (START HERE)
 
-One reconciled plan for branch `feature/fighting-style-authoring` (earlier sessions of the same work ran under other branch names). It replaces the previous split between
+One reconciled plan for branch `feature/grant-rows` — the live tip of the content-extensibility line. The same work ran earlier as `feature/fighting-style-authoring` and, before that, the harness branch `claude/zen-wright-04xhdz`; references to those names below are to this branch's own history. *(Corrected 2026-09-25: this line named `feature/fighting-style-authoring` as the branch, which `agents/develop`'s `BRANCH.md` read as this page belonging to a different leaf.)* It replaces the previous split between
 this file and `content-extensibility-direction.md` as competing "start here" docs. The branch ran in
 loops because decisions lived in two parallel trackers; this is the one that supersedes both for
 *navigation and status*. The detail/decision docs below remain authoritative for their own track.

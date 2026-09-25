@@ -1,230 +1,192 @@
-# Branch Context: claude/zen-wright-04xhdz
-
-> **Single plan / status (reconciled):** `docs/kb/roadmap.md` — the one top-level plan covering
-> BOTH the content/pool+grant track (this doc + `content-extensibility-direction.md`) AND the later
-> mechanization / class-feature / spell-slot expansion. Start there. This file remains the branch
-> history + handoff notes; the "Immediate next steps" below are the Phase-1 content-track status.
-
-> **HOW IT WORKS / HOW TO EXTEND:** `docs/kb/content-extensibility-framework.md` — the canonical
-> framework reference (mental model + registry schema + conventions + how-to-add-a-type + pool/
-> grant + invariants), human- AND agent-facing. Read it to use or extend the framework.
->
-> **READ FIRST (current direction, v2):** `docs/kb/content-extensibility-direction.md` — now
-> **re-centered**. A readability review correctly killed one unreadable wrapper (`by-parent`),
-> but that local lesson was briefly over-applied to deflate the whole *capability*. v2 restores
-> the spine: an open **pool + grant** composition layer (any (sub)race/(sub)class/feat/background
-> can grant filtered, gated choices from any other silo), with a variant forward-compat seam.
-> Principle (a *constraint*, not a ceiling): *an abstraction earns its keep only when it's
-> thicker than what it hides and reveals intent.* `content-extensibility.md` / `-plan.md` are
-> history.
->
-> Verifying cljs in this container: `docs/kb/cljs-headless-harness.md` (rebuild recipe;
-> the harness lives in ephemeral `/tmp`+`target`).
->
-> **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent`/`plugin-options`,
-> deleted `option_catalog`. (2) ✅ DONE (`3980ea1b`) — `register-homebrew-content!` (the
-> **wiring** sub-layer) + boon swapped through it (7 sites → 1); harness-verified. (3) ✅ DONE
-> (`acaa131d`) — **first pool+grant slice on real mechanics**: `draconic-ancestries` def → an
-> open pool (`content_pools.cljc` + `::races5e/draconic-ancestry-pool`); dragonborn grants
-> from it; a homebrew ancestry inherits full mechanics (resistance + breath weapon). Built-ins
-> unchanged; additive-safe; falsifiable JVM + harness tests (incl. the maintainability proof).
-> (4) ✅ DONE (`109b5dd0`) — `simple-content-builder`: collapsed boon+invocation builder FORMS
-> into one (forms are data, not "irreducible"; D22). (5) ✅ DONE (`0aca6113`) — **Draconic
-> Ancestry builder end-to-end**: author in-app → pool → export → import → character round-trip,
-> all gated. Measured cost: 9 files but only 2 required thought (the view's damage-type field +
-> the spec); the rest were 1-line registrations via register-homebrew-content!/simple-content-builder/
-> content_types. (6) ✅ **registry now DRIVES the layers** (the real "fewer files" fix): events
-> (`d2e002b4`) + db (`af68061d`) wiring generated from `content_types` — a new homebrew type no
-> longer touches events.cljs or db.cljs (behavior-preserving, harness-gated). (7) ✅ **routes**
-> layer generative (`506c32b3`/`c5e9aea6`/`58c4de47`) — cycle broken, bidi segments + my-content
-> set + SPA allowlist generated from the registry; a new type's URL/nav/allowlist are automatic
-> (route_map keeps only its one route-keyword def, D6). (8) **NEXT:** the live breath-weapon bug;
-> then grant-authoring UI. See direction doc v2 §"Foundation", §"The spine".
-> Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
+# Branch Context: feature/grant-rows
 
 ## Purpose
-Capture the content-extensibility analysis and plan, and implement it in gated phases
-(reducing the multi-file cost of adding a content type/builder to the 5e app).
 
-## ⚓ Re-anchor — what this branch is *founded on* (don't lose the plot)
-**Founding purpose = content extensibility, for TWO equal reasons: stability AND flexibility.**
-The insight: they're the **same abstraction**. Today every cross-type link is bespoke
-positional wiring (boons→warlock by arg; custom-race menu a hardcoded vector) — that bespoke-ness
-*is* the ~8-file cost and the fragility. An open **pool + grant** layer collapses N×M bespoke
-wirings to N+M declarations down one tested path: stability win = flexibility win. The
-engine *already* supports filter/gate/prereq (`selection-cfg`/`prereq-fn`/`option-prereq`/
-`ability-increase-selection-2`); the gap is the **authoring** layer (content can't *declare*
-open cross-silo grants). Readability stays a *constraint*: two words (pool/grant), built from
-existing thick parts, no cryptic DSL. What stands: `content_types` registry (data + audit
-test), the Phase-4b subs loop, `register-homebrew-content!` (wiring sub-layer) + boon.
-The `by-parent`/`plugin-options`/`option_catalog` wrappers were reverted (`9777ce88`).
+The live tip of the content-extensibility refactor, the Fall Update line. Homebrew content that
+carries real mechanics instead of inert text: a content type declares its fields once, and grants,
+pools and ability-increase spreads work across silos the way official content does. Continues the
+work that earlier ran as `feature/fighting-style-authoring` and, before that, the harness branch
+`claude/zen-wright-04xhdz`.
 
-**Current state / next core step:** ✅ `register-homebrew-content!` built; boon swapped
-(`3980ea1b`). **Next core step:** prove the **pool + grant** spine on one slice end-to-end
-(direction doc v2 §"The spine" + PINS — incl. the variant `resolved-content` forward-compat
-seam). The test-suite triage (rotted cljs suite, dead `character_test.cljc`, import fixes) was
-a tangent that produced the **headless cljs harness** — our gate for cljs work. Don't let the
-tangent become the branch.
+**Founded on stability and flexibility as the same abstraction.** Every cross-type link used to
+be bespoke positional wiring, and that bespoke-ness was both the multi-file cost and the fragility.
+One open pool + grant layer, built from parts the engine already has, collapses N×M wirings to N+M
+declarations down one tested path. Readability is a constraint on that, not a ceiling.
 
-Verification discipline lessons from this session: `docs/kb/verification-discipline.md`.
+## Core facts — know these before touching homebrew
 
-## Roadmap / TODO (live checklist — updated as work proceeds)
+- **Homebrew never touches the server.** The library (`:plugins`) lives in the browser's
+  localStorage and nowhere else. No server route accepts or stores it, and no request carries it.
+  It moves between browsers only two ways: an **`.orcbrew` export/import**, or a **share link**,
+  which carries the character's homebrew in the URL *fragment* (after `#`, never sent to a server)
+  and lands in a view-only overlay (`:shared-plugins`) until the recipient chooses Keep. Clearing
+  browser data loses the library unless it was exported.
+  *Consequence:* every rule about the library is enforced in the client or not at all. There is no
+  server-side validation, migration, backup or conflict resolution to fall back on.
+- **Characters DO live on the server** (`routes.clj` `save-character`), and they point at homebrew
+  **only by key**. A character on the server can name content that exists in one browser only.
+- **Key = address, name = display (D10).** A key is minted once and fixed; a rename is a name edit.
+  `:former-keys` heals characters across a deliberate key change.
+- **Nothing coordinates two tabs.** No listener watches localStorage changes from another tab.
+  The same class of problem is documented for characters on `agents/develop`
+  (`multi-tab-character-contamination.md`); whether and how it hits the library is open.
 
-> ⚠️ **The phase numbering below is from the OLD (superseded) plan** and refers to code that
-> no longer exists (`option_catalog`, `by-parent`, `plugin-options` — all reverted in
-> `9777ce88`). Read it as *history of what was tried*, not the live plan. The live plan is the
-> re-centered **pool + grant** spine in `content-extensibility-direction.md` (v2) and Part 4
-> of the decisions doc. The `[x]` items below (name-keyword-fix merge, harness, golden/fixture
-> tests, the two ✅ steps) still stand; the `[ ]`/`[~]` catalog phases are reframed by v2.
+## Read this first — three pages, in this order
 
-Each step is small, behavior-preserving, and must leave the gate green
-(`lein test` + `lein lint`) before commit. Code lands on this branch.
+1. **`docs/kb/roadmap.md`** — what this branch is. The arc, a BUILT / DECIDED / OPEN ledger anchored
+   to commits, the doc map, the critical path. If you are about to design, plan, or propose
+   anything, check the ledger first: this branch has re-derived already-built and already-decided
+   pieces from scratch more than once, and every time the answer was already on that page.
+2. **`docs/kb/pool-grant-map.md`** — the pool + grant web on one page (REAL vs AIR, with dates and
+   provenance). Read it before touching anything that grants, offers a choice, or registers a pool.
+3. **`docs/kb/before-you-start.md`** — review lessons indexed by what you are about to do (design a
+   control, add a CSS class, convert a builder, trust a CSS change). Short by design.
 
-- [x] **Merged `feature/name-keyword-fix`** (commit `ec26955`) — catalog work now sits on
-      the stable-key fix. Clean auto-merge; gate green (220/1092/0, lint 0). **Live/E2E
-      verification still needed** (JVM gate doesn't run cljs subs or the app):
-      see `docs/kb/content-extensibility-e2e.md`.
-- [x] **Live E2E verification (PR #28): all PASS / covered, no regressions.** A
-      full-environment run (figwheel + browser + Datomic) confirmed the catalog seams
-      end-to-end: homebrew subrace under built-in Elf, subclass under built-in Sorcerer,
-      boon + invocation in the Warlock builder, byte-identical character round-trip. Item 1
-      "failures" are pre-existing on `develop`; this branch's 18 added tests all pass.
-      Items 7/10 accepted as covered by `content-reconciliation-test/*` + the round-trip
-      golden. Fixture for the gaps: `test/extensibility-fixtures.orcbrew` (commit `f977ba9`).
-      **Merge is sequencing-blocked on #27** (name-keyword-fix) landing on `develop` first.
+Then **`docs/kb/plan-next.md`** for what is being worked on now.
 
-- [x] **Setup** — toolchain (lein + deps), baseline gate green.
-- [x] **Phase 0 — safety net.** `extensibility_golden_test.cljc` locks compat invariants
-      (name-to-kw key derivation; saved-character round-trip). Pure JVM. (212→ tests green.)
-- [x] **Phase 1 — generic injector.** New leaf ns `option_catalog.cljc` (`by-parent`),
-      unit-tested = `group-by`; subraces re-pointed. (213 tests, lint 0 errors.)
-- [x] **Phase 2 — subclasses** re-pointed to `by-parent`. (lint 0 errors.)
-- [~] **Phase 3 — boons + invocations onto a catalog read.**
-  - [x] 3b. Added `plugin-options` to `option_catalog.cljc` (catalog read primitive),
-        JVM-unit-tested identical to the legacy `(mapcat (comp vals key) plugins)`;
-        `::classes5e/plugin-boons` and `::classes5e/plugin-invocations` routed through
-        it. Behavior-preserving; no keys/signatures changed. (214 tests, lint 0 errors.)
-  - [x] 3a. (guard) `extensibility_golden_test.cljc` now builds boon/invocation options
-        via `pact-boon-options`/`eldritch-invocation-options` (real spell data) and locks
-        the built-in + homebrew option keys and the `:pact-boon`/`:eldritch-invocations`
-        selection keys. (217 tests green.)
-  - [ ] 3c. (RISKY — deferred) Stop threading `boons`/`invocations` as positional args:
-        inject them as a post-step (like subraces→races) or via an ambient ctx map.
-        Keys MUST stay identical; 3a guards it. Approach carefully; cljs assembly is
-        lint+review-only here.
-- [ ] **Phase 4 — Layer 1 registration/indexing registry (the "8 files → 1 descriptor"
-      win). Existing types only; one subsystem per commit.**
-  - [x] 4a. Created leaf `content_types.cljc` registry (13 plugin-based types;
-        magic-item + combat excluded as non-plugin). `content_types_test.cljc` audits it:
-        every `:spec` resolves via `spec/get-spec`, every `:plugin-key` satisfies the
-        orcbrew `::e5/content-keyword` contract, identity fields unique. (220 tests green.)
-        Built from an agent inventory; the get-spec/contract checks auto-verified it.
-  - [x] 4b. subs: the 13 `::<type>/builder-item` passthrough subs are now generated by a
-        loop over the registry (`spell_subs.cljs`). JVM guard `content_types_test/
-        builder-items-match-the-subs` locks the set against drift. Provably the same 13
-        keys; lint clean, 224 tests green. cljs behavior (builder forms load) → e2e.
-  - [ ] 4c. db: build `default-value` slots + `reg-local-store-cofx` from the registry.
-  - [ ] 4c. db: build `default-value` slots + `reg-local-store-cofx` from the registry.
-  - [ ] 4d. events: generate `set-`/`reset-` + `reg-*-homebrew` calls from the registry.
-  - [ ] 4e. routes: derive bidi tree + route sets + `routes.clj` allowlist (keep the
-        `(def …-route :kw)` lines).
-  - [ ] 4f. core: build the `pages` map from the registry.
-  - [ ] Gate each: app boots, NO route/event/sub/localStorage key renamed, golden green.
-- [ ] **Phase 5 — prove it with a new builder.**
-  - [ ] 5a. Fighting-style builder (easier): `fighting-style-options` → catalog;
-        `fighting-style-selection` → grant-with-filter; descriptor + spec + form.
-  - [ ] 5b. Lineage/ancestry builder (harder): convert `dragonborn-option-cfg` def→fn,
-        catalog, plus breath-weapon/resistance modifiers (real domain work).
-  - [ ] Gate: golden green (existing unaffected) + a test that an imported homebrew
-        fighting style / lineage appears under its parent.
+## Working rules on this branch (decided; don't re-litigate — cite the D-number if you must)
 
-Honesty note: the JVM gate does not run the `.cljs` subscription code. For cljs-only
-edits I rely on `lein lint` + the `.cljc` unit tests + manual review; the risky logic is
-kept in `.cljc` (`option_catalog`, option fns) precisely so it IS JVM-tested.
+- **One mechanism per job (D29).** Before adding anything, ask: does a working path already do this?
+  If yes, extend or replace it — never add a parallel one.
+- **Deprecate, don't delete (D34).** Released shapes get a characterization test and a read-shim.
+- **No shims for branch-local shapes.** If a spelling or key was introduced on this branch and has
+  never been released, rename it everywhere. A compatibility alias for it is tech debt from birth.
+- **Registration is one entry.** Adding a content type is one entry in `content_types.cljc`; adding a
+  grantable pool is one entry in `grant_pools.cljc`. If your change needs edits in several files to
+  wire one thing in, stop — that is the pattern this branch exists to remove.
+- **Audit what a new piece REPLACES before building it (D17).** Find the existing path that does
+  the job; if the new thing is not thicker than it, or drops what it carries (`:ref`, `:tags`,
+  modifiers), extend the existing path instead.
+- **A grant compiles to the same `selection-cfg` the bespoke path made (D30).** Same tags, same
+  placement, same mechanics. If a granted choice renders somewhere the hand-wired one did not, that
+  is a regression, not a feature.
+- **The rules index is the status table at the top of `content-extensibility-decisions.md`** — one
+  line per D-number. Check a design against it before proposing; do not re-derive from the history
+  below it.
+- **Docstrings are SPEC, not prose.** What it does, its args, what it returns — and at most a
+  one-or-two-line GOTCHA where a reader would otherwise write a bug. **No history, no rationale, no
+  worked examples, no "this used to be…".** That belongs in `docs/kb/`, linked by name. A docstring
+  over ~6 lines is almost certainly carrying something that is not spec. Comments follow the same
+  rule: say what the code does and why it is surprising, not how it got here.
+- **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
+  `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
+  Corrections section — never overwrite.
+- **Identity comes from a stored `:key`, never re-derived from a display `:name` (D10).** Pass
+  each item's stored `:key` to `option-cfg`. Written down in June; the save rework broke it anyway
+  by probing for items by name (`homebrew-save-rework.md`), so it is worth reading twice.
+- **Catalogs are layered, memoized `reg-sub`s that grants reference (D11)** — never recomputed
+  inside hot subs.
+- **Tests must be falsifiable.** Every test goes red if the code it covers breaks. Gut check: if I
+  break the code, does this fail? Verify by removing the fix and watching the right test fail.
+- **Fix bugs on sight**, unless one is deep enough to deserve its own branch — then file and scope it.
+- **An enumeration is part of the fix.** When a fix is correct only if "every caller does X", the
+  search for those callers is part of the fix and gets the same scrutiny. Search by at least two
+  independent methods; a single grep that assumes the call syntax missed ten call sites once
+  (`homebrew-save-rework.md`).
 
-Note: code is landing on this branch (the only authorized push target). Docs are meant
-to split-commit to `agents/develop`; production code would normally go on a code branch
-off `develop` — confirm the target before merging.
+## The knowledge base is the group memory — search it before you research anything
+
+```
+grep -ril "<term>" docs/kb/          # has anyone been here before?
+git ls-tree -r origin/agents/develop --name-only docs/kb/   # ...including what only agents/develop has
+git for-each-ref --sort=-committerdate refs/remotes/origin | head -25   # is it on a branch?
+```
+
+**Grep is the search.** Measured on fourteen realistic queries, grepping the corpus answered all
+fourteen; the curated index answered nine and `docs/kb/README.md` answered six. Use
+`docs/kb/topic-index.md` (generated) to find *which* document owns a topic, and `README.md` for what
+each one is; use grep to find out *whether* a thing has been looked at.
+
+This has been got wrong repeatedly and expensively: a builder schema system was designed twice, a
+fighting-style fix was re-planned three days after it had been decided in a document named after the
+branch, and a whole front-end design system sat on `port/redesign-on-refactor` for two months while
+this work invented its own colours and spacing. All three were one grep away. The two KBs are not
+the same set: `agents/develop` holds pages this branch does not, so check both.
+
+## Running the real app (do this for browser e2e — don't fake it)
+
+The **full stack runs locally in-memory** — no transactor, no external database:
+
+```
+lein e2e-server      # Pedestal + in-memory Datomic, serving the app on http://localhost:8890
+```
+
+(That's `lein with-profile +e2e run`; the `:e2e` profile sets `datomic:mem://orcpub`.)
+Then drive Playwright/curl against `http://localhost:8890` through the **real UI**.
+
+Do **not** serve the compiled JS off a bare static file server and drive the app by
+`dispatch_sync`-ing re-frame events / poking `app-db`. That skips the UI flows where real
+behaviour lives — the import-conflict modal, for one, never surfaces — and produces misleading
+results. Homebrew itself never reaches the backend (see Core facts); what the real server adds is
+the real SPA, real routing, and the character endpoints.
+
+## Build / test commands
+
+- `lein fig:build`   — compile the dev CLJS build (needed before browser e2e).
+- `lein garden once` — compile CSS to `resources/public/css/compiled/` (needed for screenshots).
+- `lein test`        — JVM test suite.
+- cljs suite: `lein fig:test`, then `node test/e2e/cljs-harness.js`. The harness must serve JS as
+  `charset=utf-8`; ~270 undefined-namespace errors at once means it did not, not that code broke.
+- Browser e2e: **`test/e2e/*.js`** — run against `lein e2e-server`. Start with
+  `test/e2e/README.md`; `lib.js` holds the shared helpers (finding a control by its label, driving
+  chips and the select-menu popover, the app-db reader). `test/browser/*.js` is an older parallel
+  directory that has not been folded in yet.
+- `lein garden once` **can fail while `lein fig:build` and the whole e2e suite then pass against
+  stale CSS.** Check its exit code before believing a CSS change.
+
+## Datomic
+
+The project is on **Datomic Pro 1.0.7482**, which is Java-21-compatible. `datomic:mem://`
+needs no transactor. The `docs/kb/DATOMIC_JAVA21_TEST_RESULTS.md` doc describes a **resolved**
+issue with the *old* Datomic Free on Java 8/21 — it is history, not the current state.
+
+## Current State
+
+*Updated 2026-09-25. Update at every milestone.*
+
+- **Paused on purpose: the plugin system gets mapped before it is changed further.** Six review
+  rounds of the homebrew save rework each found parts of the system nobody had mapped. The rework
+  is on this branch and every finding is fixed, but it is **not landed** on `integration`. The
+  current phase, its scope and its checkpoint are in `docs/kb/plan-next.md` §0a.
+- The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
+  as it stands: `docs/kb/key-collision-behavior.md`.
+
+| branch | state |
+|---|---|
+| `feature/grant-rows` | this branch; carries all six review rounds |
+| `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
+| `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
+| `port/save-gate` | local worktree only, never pushed; rebuild rather than trust it |
 
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 
-These are intentionally **not** done on this branch and **must be surfaced when this
-branch is finalized / PR'd** (don't let them vanish into the diff):
+Deliberately **not** done here, and they **must be surfaced when this branch is finalized** — repeat
+them in the PR description and the handoff, so they do not vanish into the diff:
 
-1. **Character-validation contract** (own branch). The computed character is the one
-   user-facing representation with no validation; the *intent* and a falsifiable charter
-   are preserved in `docs/kb/character-validation.md`. Implement on its own branch.
-2. **Get the ClojureScript tests into CI** (own branch). CI runs only the JVM gate, so the
-   cljs suite is unrun and has rotted (`docs/kb/test-suite-state.md`). This is the root
-   fix; it also lets future cljs changes be gated instead of hand-verified. Pairs with #1.
-
-When putting a bow on this branch, repeat these two items in the PR description / handoff.
+1. **Character-validation contract** (own branch). The computed character is the one user-facing
+   representation with no validation. Intent and a falsifiable charter: `docs/kb/character-validation.md`.
+2. **Get the ClojureScript tests into CI** (own branch). CI runs only the JVM gate, so the cljs
+   suite is gated by hand in a container (`docs/kb/cljs-headless-harness.md`). Pairs with 1.
 
 ## Workflow
-This branch is based on the leaner fork line, not `agents/develop`, so file
-references in the docs use the monolithic `views.cljs`/`events.cljs` layout. The docs
-flag this. Intent is to **split-commit these docs onto `agents/develop`** later.
 
-When split-committing to `agents/develop`, also add index rows for the two new docs
-to `docs/kb/README.md` there (not done here — this branch's index differs from
-`agents/develop`'s, so editing it here wouldn't carry over cleanly).
-
-## Handoff Notes
-- **Coordinate with `feature/name-keyword-fix`** (forks from the same base `d42e05d`).
-  It establishes: identity keys derive from stable ids (`:class-key`, stored `:key`),
-  NOT display names; `option-cfg` has a `::plugin-source` slot; a reconciler heals
-  orphaned keys. Both branches touch classes.cljc / options.cljc / spell_subs.cljs /
-  events.cljs / template.cljc — expect overlap and align on its stable-key approach.
-- **Two standing rules for the catalog/grant phases (3c+):** (1) pass each item's stored
-  `:key` to `option-cfg` — never re-derive identity from a display `:name`; (2) catalogs
-  are layered, memoized `reg-sub`s referenced by grants — never recomputed in hot subs.
-  Guard both with comments. (Decisions D10/D11; details in the design + compatibility docs.)
-- **Working agreements (apply to all work here):**
-  - *Tests must be falsifiable.* Every test must go red if the production code it covers
-    breaks. No theater (a test that only asserts `(spec/valid? my-spec my-input)` tests the
-    spec against examples, not the system). Gut check: "if I break the code, does this fail?"
-  - *Fix bugs on sight.* Don't leave a bug lying around once found — fix it in-flight,
-    UNLESS it's deep enough to warrant its own branch (then file it and scope it).
-- **Test-suite debt found this session (`docs/kb/test-suite-state.md`):** CI runs only the
-  JVM gate (`lein lint`/`lein test`); the cljs suite is never run and has rotted. A
-  **headless cljs harness now exists in this container** (compile `fig:test` → serve
-  `target/test/` → drive Chromium via Playwright → capture the clean reporter), so cljs is
-  verifiable here. **`save-character` null crash: FIXED + verified** (errors 3→2).
-- **Import-validation triage — TRIAGED + FIXED (`86eb5cc4`), harness-verified:**
-  - `apply-key-renames` test → was STALE (`:old-key`/`:new-key`); **fixed test** to `:from`/`:to`.
-  - `normalize-text café→cafe` → was STALE/WRONG (accents are preserved + flagged);
-    **fixed test** to expect `"Café"`.
-  - `count-non-ascii` → REAL cljs bug (`(int %)`=0 in cljs); **fixed code** → `(.charCodeAt % 0)`.
-  - `dedup-options-in-import` → REAL bug (mechanism pinned): `dedup-options-in-item` only
-    handled `:selections`-nested options, not a homebrew `:orcpub.dnd.e5/selections` item's
-    own top-level `:options`; **fixed code** (additive). Full-pipeline dedup now works.
-  - Verified: headless cljs run 133 tests / **1 failure / 0 errors** — only the unrelated
-    `user-stale-user` (subs auth guard) remains. lint 0; JVM 224/1107/0.
-  - **Still open (not import, out of this list's scope):** `user-stale-user` subs auth-guard
-    test (1 failure) + the dead `character_test.cljc` (2 errors, retire per the charter).
-- The KB requires verified-only content. The cross-link map is verified from code; the
-  proposed design is clearly labeled as a proposal. Preserve that boundary.
-- The design directly answers a cluster of open issues (#58, #57/#209, #172/#170,
-  #210/#107, #280, #173, #128) listed in `docs/issues/homebrew-builders.md` on
-  `agents/develop`.
-- Conversation context that produced these docs is not preserved elsewhere; the two
-  KB docs are the durable record.
+- **Agent docs follow `agents/develop`'s three tiers** (`docs/DOC-CONVENTIONS.md` there).
+  `CLAUDE.md` is the thin bootstrapper and `AGENTS.md` the universal rules — both copied in from
+  `agents/develop` per environment and gitignored here. This `BRANCH.md` is tracked here.
+  `agents/develop`'s `scripts/agent-setup.sh` copies `CLAUDE.md` and `.claude/` but not
+  `AGENTS.md`, so copy it by hand until that is fixed:
+  `git show origin/agents/develop:AGENTS.md > AGENTS.md`.
+- **Stop rules and budgets (`AGENTS.md`) apply to every turn that does work.**
+- **`docs/kb/` and this file are committed here during development, and move to `agents/develop`
+  before this branch merges outward.** `integration` ships to the public repo.
+- Commits are authored and committed as `codeGlaze <github@codeglaze.com>`, with no AI attribution
+  in any pushed artifact.
+- Documentation changes with every commit: current truth at the top, history at the tail.
 
 ## Related Docs
-- `.claude/summaries/2026-06-13-content-extensibility.md` — session summary / handoff
-- `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`,
-  `docs/kb/content-extensibility-compatibility.md`, `docs/kb/content-extensibility-plan.md`,
-  `docs/kb/content-extensibility-e2e.md` (live verification checklist for a VS Code agent)
-- `docs/kb/test-suite-state.md` — verified state of the test suites, the pre-existing cljs
-  failures (classified), the `::character`/built-character spec findings, open decisions
-- `docs/kb/verification-discipline.md` — lessons on assumptions & thoroughness (verify
-  against callers/intent/runtime before asserting; "red test = disagreement, not bug")
-- `docs/kb/character-validation.md` — preserves the *intent* of validating a character
-  (Larry's 2016 test) + the modern, falsifiable replacement charter (own-branch). Capture
-  this before retiring the broken `character_test.cljc`.
-- `docs/kb/built-character-representation.md` — **load-bearing gotcha:** the built/computed
-  character is a map of deferred `:entity-fn?` values (read via `entity-val`), NOT a flat
-  map; don't `spec/keys` it. Anchored in code on `entity-val`/`build`/`built-character`.
-- Cross-references: `docs/kb/spa-routing-architecture.md`,
-  `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
-  `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)
+
+On this branch: `docs/kb/roadmap.md`, `plan-next.md`, `homebrew-save-rework.md`,
+`key-collision-behavior.md`, `source-tagged-keys.md`, `handoff-integration-branches.md`.
+On `agents/develop` only: `docs/DOC-CONVENTIONS.md`, `docs/kb/multi-tab-character-contamination.md`.
+This file's previous version (June, with the phase history and the import-validation triage), kept
+verbatim: `docs/kb/branch-context-history.md`.

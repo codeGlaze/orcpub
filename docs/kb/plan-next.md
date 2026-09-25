@@ -20,7 +20,61 @@ deliberately leaves docs behind.
 
 ---
 
-## 0b. Converge the save path across the four branches (2026-09-18)
+## 0a. Map the plugin system before changing it further (decided 2026-09-25) — CURRENT
+
+☐ **Phase 1: the map. Nothing else until the owner has read it.**
+
+**Why.** The homebrew save rework went through six adversarial review rounds (6, 5, 4, 6, 6, 3
+findings) and every round found a part of the system nobody had mapped: ten edit doors that pass an
+item without its address, a subscription reading through a different helper, one origin slot shared
+by thirteen builders, a third way an entry changes under an open builder. The reviewers were building
+the map one expensive, partial piece at a time. Patching symptom by symptom will keep producing
+that. The account: `homebrew-save-rework.md`.
+
+**The standard asked for.** Stable and hardened — not breakable by a later patch or by an ordinary
+interaction in the interface. "Unbreakable" is not literal; what is achievable is making the safe
+path the only natural one and making a bypass loud: the rules that must always hold, stated once,
+enforced in one place, and tests that fail the moment any writer breaks one.
+
+**Decided (owner, 2026-09-25): changing an item's source in its own edit view MOVES it.** From the
+user's side the Option Source Name is a property of the item, and editing a property should not
+duplicate the item. The design has to make that robust, not route around it.
+
+**Scope of the map:**
+
+1. **Start from the KB** — this branch's *and* `agents/develop`'s, which hold different pages
+   (`git ls-tree -r origin/agents/develop --name-only docs/kb/`). Verify what is there; do not
+   re-derive it.
+2. **Data model and identity.** What `:plugins` stores and what is derived; what identifies an item
+   across rename, move, key change, import, export and share. The branch has no real identity model
+   — the round-six name check is a proxy, and names change.
+3. **Every writer and every reader, as a table**, with what each assumes. Measured 2026-09-25: 26
+   write sites across 17 events, 4 of them through the save gate; 27 subscriptions reading.
+4. **Characters.** They live on the server and point at browser-only homebrew by key. What happens to
+   a character when the item it names moves, is renamed, re-keyed or deleted.
+5. **Storage and transport.** localStorage (library, rejected, per-builder drafts, the origin
+   record), quota failures, **two open tabs** (nothing coordinates them — the same class is
+   documented for characters in `agents/develop`'s `multi-tab-character-contamination.md`),
+   `.orcbrew` export/import, share links.
+6. **The invariants**, each checked against every writer.
+7. **A gap list, ranked.**
+
+**Output:** one KB page — the map. Then design against it, build, and review against the
+invariants rather than blind.
+
+**Known inputs:** `homebrew-save-rework.md` and `key-collision-behavior.md` (the six rounds, and the
+mechanism as built); rounds five and six enumerated the twelve edit doors and the `:plugins`
+writers, recorded in the commit messages of `085c4d6c` and `fc6fb321`.
+
+**Open, for the owner, alongside phase 1:** what happens to the save rework meanwhile — hold it on
+this branch, or land it on `integration` as a stopgap. `integration` has confirmed silent data loss
+today (retyping a source copies the item; `::selections5e/save-selection` has no collision check at
+all), but landing an interim means `integration` changes twice. The trunk is also one round behind,
+carrying two bugs round six fixed.
+
+---
+
+## 0b. Converge the save path across the four branches (2026-09-18) — PAUSED 2026-09-25 for 0a
 
 ☐ The homebrew save exists in **three variants**, and the newest is the one to converge on:
 

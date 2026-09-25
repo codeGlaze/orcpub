@@ -134,3 +134,8 @@ __pycache__/
 # agents/develop, which is the one place the agent-facing docs are kept. Tracking it on a
 # code branch is how it drifts between branches and how integration ended up deleting it.
 /CLAUDE.md
+
+# The universal agent rules, imported by CLAUDE.md. Same reasoning and same source: versioned on
+# agents/develop, copied in per environment, and one `git add -A` away from reaching the public repo
+# if it is not ignored. (BRANCH.md is NOT ignored: it is this branch's own context, and tracked.)
+/AGENTS.md
