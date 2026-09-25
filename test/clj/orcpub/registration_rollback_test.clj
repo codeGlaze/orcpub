@@ -174,3 +174,39 @@
             (is (= (:orcpub.user/verification-sent before)
                    (:orcpub.user/verification-sent after))
                 "and its expiry clock must be the original one, not the failed attempt's")))))))
+
+(deftest a-failed-resend-must-not-clobber-a-newer-successful-one
+  ;; Two resends overlap. A writes its key, B writes a newer one and emails it,
+  ;; then A's send fails. A's rollback must NOT put the original key back over
+  ;; B's: B's link is the one sitting in the user's inbox. Restore only if the
+  ;; key is still the one this attempt wrote -- otherwise a newer resend owns it.
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (with-redefs [email/configured? (constantly true)
+                    routes/send-verification-email (fn [& _] nil)]
+        (routes/register (register-request mocked-conn)))
+      (let [uid (:db/id (find-user (d/db mocked-conn) "newcomer"))
+            newer-key "key-from-a-concurrent-successful-resend"
+            newer-sent (java.util.Date.)]
+        (testing "the newer resend's key survives the older one's rollback"
+          (with-redefs [email/configured? (constantly true)
+                        routes/send-verification-email
+                        (fn [& _]
+                          ;; Simulate B landing between A's write and A's failure.
+                          @(d/transact mocked-conn
+                                       [{:db/id uid
+                                         :orcpub.user/verification-key newer-key
+                                         :orcpub.user/verification-sent newer-sent}])
+                          (throw (Exception. "SMTP down")))]
+            (try (routes/re-verify {:conn mocked-conn
+                                    :db (d/db mocked-conn)
+                                    :scheme :https
+                                    :headers {"host" "example.test"}
+                                    :query-params {:email "newcomer@test.com"}})
+                 (catch Throwable _ nil)))
+          (let [after (find-user (d/db mocked-conn) "newcomer")]
+            (is (= newer-key (:orcpub.user/verification-key after))
+                "a failed resend overwrote the link a newer resend had already emailed")
+            (is (= newer-sent (:orcpub.user/verification-sent after))
+                "and reset that link's expiry clock to the stale one")))))))

@@ -482,20 +482,31 @@
         (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
         (try
           @(d/transact conn (if existing-id
-                              ;; Put back what was there, or remove what we added.
+                              ;; Put back what was there, or remove what we added --
+                              ;; but ONLY while the values are still ours. Two
+                              ;; resends can overlap: if a newer one wrote its key
+                              ;; and emailed it after we wrote ours, restoring the
+                              ;; old key would kill the link actually sitting in
+                              ;; the inbox. :db/cas makes the restore conditional
+                              ;; and the whole transaction atomic; a retract of a
+                              ;; value that is no longer current is already a no-op.
                               (let [{old-key :orcpub.user/verification-key
                                      old-sent :orcpub.user/verification-sent} previous]
                                 [(if old-key
-                                   [:db/add eid :orcpub.user/verification-key old-key]
+                                   [:db/cas eid :orcpub.user/verification-key verification-key old-key]
                                    [:db/retract eid :orcpub.user/verification-key verification-key])
                                  (if old-sent
-                                   [:db/add eid :orcpub.user/verification-sent old-sent]
+                                   [:db/cas eid :orcpub.user/verification-sent now old-sent]
                                    [:db/retract eid :orcpub.user/verification-sent now])])
                               [[:db/retractEntity eid]]))
           (catch Exception re
-            ;; Report the rollback failure, but surface the original cause.
-            (println "ERROR: Rollback ALSO failed; a partial account may remain:"
-                     (.getMessage re))))
+            (if (re-find #"cas-failed" (str re (some-> re .getCause)))
+              ;; Not a failure: a newer resend superseded this attempt, so its
+              ;; state is the right state to keep.
+              (println "INFO: verification rollback skipped — a newer resend owns the key now.")
+              ;; Report the rollback failure, but surface the original cause.
+              (println "ERROR: Rollback ALSO failed; a partial account may remain:"
+                       (.getMessage re)))))
         (throw (ex-info "Unable to complete registration. Please try again or contact support."
                         {:error :verification-email-failed}
                         e)))))))
