@@ -774,6 +774,11 @@
 (defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
   (try
     (let [{:keys [password verify-password]} json-params
+          ;; Trimmed before anything judges it, because do-password-reset stores it
+          ;; trimmed and the corpus lookup hashes it: an untrimmed check asks about
+          ;; a different string from the one saved.
+          password        (some-> password s/trim)
+          verify-password (some-> verify-password s/trim)
           username (:user identity)
           {:keys [:db/id :orcpub.user/email] :as user} (first-user-by db username-query username)
           ;; The username is known here, even though this page never shows it,

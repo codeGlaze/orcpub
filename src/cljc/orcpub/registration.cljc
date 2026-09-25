@@ -105,7 +105,10 @@
    The single-argument form is kept for callers that have no user context."
   ([password] (validate-password password nil))
   ([password context]
-   (let [too-short? (or (nil? password) (< (count password) min-password-length))]
+   ;; Judged as stored: register, reset and login all trim, so " pomegranate "
+   ;; would otherwise pass at 13 characters and be stored at 11.
+   (let [password   (some-> password s/trim)
+         too-short? (or (nil? password) (< (count password) min-password-length))]
      (cond-> {}
        too-short?
        (update :password conj (str "Use at least " min-password-length " characters"))
