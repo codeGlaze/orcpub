@@ -1443,6 +1443,42 @@
     (is (empty? renamed))
     (is (= relocate-plugins plugins) "moving to the same source changes nothing")))
 
+;; Greptile, PR #34: a clashing move renamed the class but left the source's
+;; subclasses on the old key, where they attached to the target's same-keyed class.
+(deftest relocate-clashing-move-carries-its-dependents
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "B"}}
+                       ::e5/subclasses {:armorer {:name "Armorer" :key :armorer
+                                                  :class :artificer :option-pack "B"}}}}
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/classes :artificer]] "B" :move)
+        new-key (:to (first renamed))
+        moved   (get-in plugins ["B" ::e5/classes new-key])]
+    (is (not= :artificer new-key) "renamed to avoid the clash")
+    (is (nil? (get-in plugins ["A" ::e5/classes :artificer])) "gone from the source")
+    (is (nil? (get-in plugins ["A" ::e5/classes new-key])) "not left behind under the new key")
+    (is (= "B" (:option-pack moved)))
+    (is (= "Artificer" (get-in plugins ["B" ::e5/classes :artificer :name])) "the target's own class untouched")
+    (is (= new-key (get-in plugins ["A" ::e5/subclasses :alchemist :class]))
+        "the moved class's subclass follows it")
+    (is (= :artificer (get-in plugins ["B" ::e5/subclasses :armorer :class]))
+        "the target's subclass still belongs to the target's class")
+    (is (some #{:artificer} (:former-keys moved))
+        "the old key is recorded, for rebinding once nothing else holds it")))
+
+(deftest relocate-clashing-copy-leaves-dependents
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {}}
+        {:keys [plugins]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/classes :artificer]] "B" :copy)]
+    (is (some? (get-in plugins ["A" ::e5/classes :artificer])) "the original stays")
+    (is (= :artificer (get-in plugins ["A" ::e5/subclasses :alchemist :class]))
+        "a copy does not steal the original's subclasses")))
+
 (deftest relocate-missing-selection-skipped
   (let [{:keys [placed missing]}
         (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :ghost]] "B" :move)]
