@@ -94,7 +94,8 @@ a stranger whether a username exists.
   trimmed, so `" pomegranate "` passed the 12-character minimum and was saved at 11 (`465666df`).
 - **Moving a class or race keeps its subclasses and subraces** — a move into a source that already
   had that key renamed the item but left its dependents on the old key, where they joined the
-  other source's item. They now follow it, and the old key is recorded (`054e42c1`).
+  other source's item. They now follow it, in a bulk move too, and the old key is recorded
+  (`054e42c1`, `ec4a3c50`).
 - **Blank icons show again** — the Edit button on character and item pages, New link and three
   import-log lines used Font Awesome 4 names the app does not serve, so on a phone they were empty
   buttons (`b50783d6`).
