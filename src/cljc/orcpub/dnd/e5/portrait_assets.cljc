@@ -254,7 +254,12 @@
    :asset/id …}}`), return the DISTINCT artist ids currently on canvas,
    in registry order — the shape the attribution surface renders."
   [layers-selection]
-  (let [in-use? (into #{}
+  ;; Belt and braces with character/sane-portrait: this is public and reached
+  ;; from cljs too, and walking a non-map selection throws rather than
+  ;; returning nothing.
+  (if-not (map? layers-selection)
+    []
+    (let [in-use? (into #{}
                       ;; Resolve through the registry by asset id first, and
                       ;; only then fall back to whatever artist the saved
                       ;; portrait names. A portrait is client-supplied data
@@ -265,10 +270,29 @@
                       (keep (fn [[layer-key sel]]
                               (or (artist-for-asset layer-key (:asset/id sel))
                                   (:artist/id sel))))
-                      layers-selection)]
-    (into []
-          (comp (map :artist/id) (filter in-use?))
-          registry)))
+                        layers-selection)]
+      (into []
+            (comp (map :artist/id) (filter in-use?))
+            registry))))
+
+(defn drawable-layers
+  "The entries of a selection whose asset ids actually resolve in the registry.
+
+   A selection can be non-empty and still draw nothing: an id that no longer
+   exists, or one from a pack this deployment does not carry. `seq` on the raw
+   selection cannot tell the difference, which is how a share card came to
+   advertise a portrait the renderer then 404ed on."
+  [layers-selection]
+  (when (map? layers-selection)
+    (into {}
+          (filter (fn [[layer-key sel]]
+                    (some? (asset-by-id layer-key (:asset/id sel)))))
+          layers-selection)))
+
+(defn drawable?
+  "Whether a portrait has anything the renderer can actually put on a canvas."
+  [portrait]
+  (boolean (seq (drawable-layers (:layers portrait)))))
 
 (defn artists-for-layers
   "Full artist maps for a portrait's layer selection, in registry order."

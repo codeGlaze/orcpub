@@ -1678,6 +1678,31 @@
               :when (and (map? class-data) (not (:disabled? class-data)))]
           class-key)))
 
+(def portrait-ui-keys
+  "Top-level app-db keys holding the in-progress portrait. Not part of the
+   character; only :portrait/save writes back."
+  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
+   :portrait/open-slot :portrait/open-layer])
+
+(defn- drop-portrait-draft-on-character-change
+  "The portrait draft lives at the TOP of app-db, not inside the character, and
+   both the drawer and the Portrait tab seed it only when it is missing. So it
+   survived a switch from character A to character B, and the next Save wrote
+   A's portrait onto B.
+
+   Keyed on :db/id changing rather than cleared unconditionally, because
+   set-character also runs after every save -- over the SAVED character, to let
+   the reconcilers re-check it. Clearing on that path would blank the inline
+   tab every time you pressed Save.
+
+   Two never-saved characters both have a nil :db/id and are not told apart.
+   That is the one gap left, and it needs a real identity on an unsaved
+   character to close."
+  [db character]
+  (cond-> db
+    (not= (:db/id character) (:db/id (:character db)))
+    (as-> $ (apply dissoc $ portrait-ui-keys))))
+
 (defn set-character [db [_ character]]
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
@@ -1708,7 +1733,7 @@
                         character
                         (loaded-class-keys db)
                         (content-recon/subclass->class-index (:plugins db)))]
-    (assoc db
+    (assoc (drop-portrait-draft-on-character-change db character)
            :character character
            :loading false
            :character-binding-report (when (or (seq (:unbound-classes binding-report))

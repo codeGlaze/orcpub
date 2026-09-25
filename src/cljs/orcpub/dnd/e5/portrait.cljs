@@ -91,6 +91,13 @@
           dh (js/Math.round (* sh scale))]
       [(js/Math.round (/ (- w dw) 2)) (js/Math.round (/ (- h dh) 2)) dw dh])))
 
+(def credit-font-family
+  "The face the baked credit is set in. Defined here rather than beside the
+   stylesheet because draw-credit! and load-credit-font both read it, and both
+   sit above that -- a forward reference the cljs compiler warned about twice
+   and clj-kondo reported as an unresolved symbol."
+  "Vollkorn")
+
 (defn- draw-credit!
   "Burn the artist credit into the baked picture.
 
@@ -188,8 +195,6 @@
           (.catch (fn [_] nil))))))
 
 ;; ---------------- drawer chrome ----------------
-
-(def credit-font-family "Vollkorn")
 
 (def drawer-styles "
 /* The baked portrait credit is drawn on a canvas, and a canvas can only use

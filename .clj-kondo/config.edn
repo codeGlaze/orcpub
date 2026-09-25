@@ -79,6 +79,10 @@
            :unresolved-symbol
            {:exclude
             [read-string
+             ;; test macros that bind their first argument -- clj-kondo cannot
+             ;; see through them, so each use reads as an unresolved symbol
+             (orcpub.portrait-credit-test/with-conn)
+             (orcpub.portrait-og-test/with-conn)
              (clojure.test.check.clojure-test/defspec)
              (clojure.core.match/match)
              (cljs.core.match/match)

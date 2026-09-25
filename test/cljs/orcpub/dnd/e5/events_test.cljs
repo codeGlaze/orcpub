@@ -25,6 +25,7 @@
             ;; the fx registry, to put the real :http handler back after stubbing it
             [re-frame.registrar :as registrar]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
@@ -852,3 +853,51 @@
         (if real
           (rf/reg-fx :http real)
           (rf/clear-fx :http))))))
+
+;; ---------------------------------------------------------------------------
+;; Portrait draft ownership (PR #36 review, P1)
+;;
+;; The draft lives at the TOP of app-db, not inside the character, and both the
+;; drawer and the Portrait tab seed it only when it is missing. So it survived a
+;; switch from character A to character B and the next Save wrote A's portrait
+;; onto B.
+;;
+;; It cannot simply be cleared on :set-character: that also runs after every
+;; save, over the SAVED character, and clearing there would blank the inline tab
+;; every time you pressed Save.
+;; ---------------------------------------------------------------------------
+
+(defn- char-with-id [id]
+  {:db/id id ::entity/values {}})
+
+(deftest portrait-draft-does-not-follow-you-to-another-character
+  (reset! app-db (assoc pristine-db
+                        :character (char-with-id 111)
+                        :portrait/draft {:layers {:head {:asset/id :a-from-char-111}}}
+                        :portrait/draft-seed "seed-a"
+                        :portrait/open-slot :hair))
+  (rf/dispatch-sync [:set-character (char-with-id 222)])
+  (is (nil? (:portrait/draft @app-db))
+      "A's draft must not survive onto B, or Save writes A's portrait onto B")
+  (is (nil? (:portrait/draft-seed @app-db)))
+  (is (nil? (:portrait/open-slot @app-db))))
+
+(deftest saving-the-same-character-keeps-the-draft
+  (testing ":set-character runs again over the saved character; clearing there
+            would blank the inline Portrait tab on every Save"
+    (let [draft {:layers {:head {:asset/id :still-being-edited}}}]
+      (reset! app-db (assoc pristine-db
+                            :character (char-with-id 111)
+                            :portrait/draft draft))
+      (rf/dispatch-sync [:set-character (char-with-id 111)])
+      (is (= draft (:portrait/draft @app-db))
+          "same character, same draft"))))
+
+(deftest first-save-of-a-new-character-is-harmless
+  (testing "nil :db/id becomes a real one, so the draft clears and the surfaces
+            reseed from the character that was just saved -- identical content"
+    (reset! app-db (assoc pristine-db
+                          :character (char-with-id nil)
+                          :portrait/draft {:layers {:head {:asset/id :x}}}))
+    (rf/dispatch-sync [:set-character (char-with-id 999)])
+    (is (nil? (:portrait/draft @app-db)))))

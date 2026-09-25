@@ -19,8 +19,7 @@
            [javax.imageio ImageIO]
            [java.util UUID]
            [org.apache.pdfbox.pdmodel PDDocument PDPage]
-           [org.apache.pdfbox.pdmodel.common PDRectangle]
-           [org.apache.pdfbox.text PDFTextStripper]))
+           [org.apache.pdfbox.pdmodel.common PDRectangle]))
 
 ;; ---------- the line itself ----------
 
@@ -265,3 +264,60 @@
                                {::char5e/image-url "https://example.com/a.png"})))]
       (is (not (re-find #"Art:" (or (description-of c id) "")))
           "a pasted URL has no artist we can name"))))
+
+;; ---------- what the review found (PR #36) ----------
+
+(defn- og-image-of
+  "The og:image content of a character's share card. Hiccup emits attributes
+   alphabetically, so `content` precedes `property`."
+  [c id]
+  (let [html (:body (routes/character-page
+                     {:db (d/db c) :conn c :headers {"host" "example.test"}
+                      :uri "/" :path-params {:id id}}))
+        tag (re-find #"<meta[^>]*og:image[^>]*>" html)]
+    (second (some->> tag (re-find #"content=\"([^\"]*)\"")))))
+
+
+(deftest a-malformed-stored-portrait-does-not-break-the-shared-page
+  (testing "the portrait is client-supplied EDN. A stored {:layers \"abc\"} is
+            valid EDN and used to reach credit-line, which walks :layers as a
+            selection and threw -- 500ing the PUBLIC character page"
+    (with-conn conn
+      (let [c (setup conn)]
+        (doseq [junk ["{:layers \"abc\"}" "{:layers [1 2 3]}" "{:layers 7}"
+                      "{:layers {:head 42}}" "not-edn-at-all" ""]]
+          (let [id (:db/id (save! c (character-with {::char5e/portrait junk})))
+                resp (routes/character-page
+                      {:db (d/db c) :conn c :headers {"host" "example.test"}
+                       :uri "/" :path-params {:id id}})]
+            (is (= 200 (:status resp)) (str "page broke on " junk))
+            (is (re-find #"Sharey" (:body resp))
+                (str "page rendered but lost its content on " junk))))))))
+
+(deftest the-share-card-only-advertises-a-portrait-it-can-draw
+  (testing "a selection naming only unknown assets is non-empty, so the card
+            pointed at /portrait.png and the renderer 404ed -- a broken preview
+            even with a usable image-url to fall back to"
+    (with-conn conn
+      (let [c (setup conn)
+            undrawable (pr-str {:layers {:head {:asset/id :no-such-asset}}})
+            id (:db/id (save! c (character-with
+                                 {::char5e/portrait undrawable
+                                  ::char5e/image-url "https://example.com/real.png"})))]
+        (is (= 404 (:status (routes/character-portrait-png
+                             {:db (d/db c) :path-params {:id id}})))
+            "premise: the renderer cannot draw it")
+        (is (= "https://example.com/real.png" (og-image-of c id))
+            "so the card must fall back rather than point at the 404")))))
+
+(deftest the-pdf-credits-nobody-when-the-composed-portrait-was-not-used
+  (testing "portrait-png that fails to decode falls back to the pasted
+            image-url, and the metadata used to credit the illustrator for it
+            anyway -- attributing somebody's photograph to the artist"
+    (with-open [doc (blank-doc 1)]
+      (routes/stamp-document-info! doc {:character-name "Sharey" :credit nil})
+      (is (nil? (.getSubject (.getDocumentInformation doc)))
+          "no credit when nothing composed was embedded"))
+    (testing "and the decode is what decides: undecodable bytes yield nothing"
+      (is (nil? (pdf/decode-artwork-bytes "!!!not base64!!!")))
+      (is (nil? (pdf/decode-artwork-bytes nil))))))
