@@ -196,6 +196,22 @@
          (fn [m] (into {} (remove (fn [[_ at]] (< at cutoff-millis))) m)))
   nil)
 
+(defn absorb-password-changes!
+  "Folds `username->millis`, read from the database, into the map, keeping the
+   later instant per account, then drops entries older than `cutoff-millis`.
+
+   Merges rather than replaces because the database read is a snapshot: a reset
+   or sign-out-everywhere that commits after the read notes itself here before
+   this runs, and replacing the map would drop it -- reinstating the very tokens
+   it withdrew until the next refresh, an hour on."
+  [username->millis cutoff-millis]
+  (swap! password-changes
+         (fn [m]
+           (into {}
+                 (remove (fn [[_ at]] (< at cutoff-millis)))
+                 (merge-with max m (into {} username->millis)))))
+  nil)
+
 (defn restore-password-changes!
   "Repopulates the map, for boot.
 

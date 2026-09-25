@@ -234,11 +234,12 @@
   (let [since (java.util.Date. (- (System/currentTimeMillis)
                                   (* auth/token-lifetime-hours 60 60 1000)))
         rows (d/q recent-password-changes-query db since)]
-    (security/restore-password-changes!
+    (security/absorb-password-changes!
      (reduce (fn [m [username ^java.util.Date changed]]
                (update m username (fnil max 0) (.getTime changed)))
              {}
-             rows))
+             rows)
+     (.getTime since))
     (count rows)))
 
 (defn withdrawal-refresh-job

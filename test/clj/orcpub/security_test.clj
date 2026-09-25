@@ -281,3 +281,18 @@
   (s/restore-password-changes! [["kaylee" 2000]])
   (is (true? (s/token-withdrawn? "kaylee" 1)) "restored register refuses again")
   (s/restore-password-changes! {}))
+
+(deftest a-refresh-from-an-older-snapshot-keeps-what-was-noted-since
+  ;; Greptile, PR #34: the hourly refresh read the database, a reset committed and
+  ;; noted itself, then the refresh replaced the map with its older read.
+  (s/restore-password-changes! {})
+  (s/note-password-changed! "kaylee" 9000)
+  (s/absorb-password-changes! {} 0)
+  (is (true? (s/token-withdrawn? "kaylee" 8000)) "a snapshot that predates the note keeps it")
+  (s/absorb-password-changes! {"kaylee" 3000} 0)
+  (is (true? (s/token-withdrawn? "kaylee" 8000)) "an older instant from the database does not win")
+  (s/absorb-password-changes! {"wash" 7000} 0)
+  (is (true? (s/token-withdrawn? "wash" 6000)) "what the database knows is added")
+  (s/absorb-password-changes! {} 8000)
+  (is (false? (s/token-withdrawn? "wash" 6000)) "and expired entries still drop out")
+  (s/restore-password-changes! {}))
