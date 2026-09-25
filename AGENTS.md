@@ -74,6 +74,12 @@ Rules that apply every time:
   item cannot spend the whole batch's budget.
 - **Use the cheaper model for mechanical work.** A well-specified fix or search goes to a
   smaller model; keep the larger model for judgement.
+- **Fetch before you read a remote branch.** `origin/*` is a snapshot from the last
+  `git fetch`, not the remote. Run `git fetch --prune origin` before reading, searching or
+  diffing any `origin/*` ref, every time -- sessions run for days and other agents push
+  during them. An agent searched a stale `origin/agents/develop`, found no budget rule, and
+  reported that none existed; it had been pushed hours earlier, and 9 of 112 refs were out
+  of date.
 - **Never share a worktree with a running `lein`.** Two `lein` processes in one worktree
   overwrite `.lein-env` and corrupt each other's results.
 
