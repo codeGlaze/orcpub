@@ -2068,6 +2068,8 @@
   ([item-name source-name] (common/disambiguated item-name source-name))
   ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
+(declare rename-key-in-plugin)
+
 (defn relocate-content
   "Move or copy selected homebrew items to a target source. `selections` is a seq
    of [source content-type key]; `op` is :move or :copy. Returns
@@ -2103,15 +2105,32 @@
                  ;; called "Artificer" while keyed :artificer-kt, so the next save
                  ;; in the builder re-derives :artificer and the item collides in
                  ;; its new home all over again.
+                 ;; A renaming move also rekeys the item inside its source, so
+                 ;; the new key must be free there too.
+                 source-map (get-in plugins [src ct])
                  ident      (when (or copy? (contains? target-map k))
                               (generate-new-identity (or (:name item) (common/kw-to-name k))
                                                      target
-                                                     #(contains? target-map %)))
+                                                     #(or (contains? target-map %)
+                                                          (and (not copy?) (not= % k)
+                                                               (contains? source-map %)))))
                  new-key    (if ident (:key ident) k)
-                 new-item   (cond-> (assoc item :key new-key :option-pack target)
+                 ;; A MOVE that renames goes through rename-key-in-plugin inside the
+                 ;; source first, the same path an import conflict takes: that repoints
+                 ;; the source's subclasses/subraces at the new key (left alone they
+                 ;; would attach to the target's same-keyed item) and records the old
+                 ;; key, so a saved character that chose it rebinds on load. A copy
+                 ;; skips this: the original keeps its key and everything aimed at it.
+                 renamed-in-src (if (and ident (not copy?))
+                                  (update plugins src rename-key-in-plugin ct k new-key (:name ident))
+                                  plugins)
+                 new-item   (cond-> (assoc (if (and ident (not copy?))
+                                             (get-in renamed-in-src [src ct new-key])
+                                             item)
+                                           :key new-key :option-pack target)
                               ident (assoc :name (:name ident)))
-                 p1         (assoc-in plugins [target ct new-key] new-item)
-                 p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
+                 p1         (assoc-in renamed-in-src [target ct new-key] new-item)
+                 p2         (if copy? p1 (update-in p1 [src ct] dissoc (if ident new-key k)))]
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
                (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
      {:plugins plugins :renamed [] :placed 0 :missing 0}
