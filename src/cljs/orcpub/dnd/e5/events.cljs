@@ -1868,7 +1868,13 @@
 (reg-event-fx
  :register-failure
  (fn [cofx [_ response]]
-   {:dispatch [:clear-login]}))
+   ;; This used to clear login state and nothing else, so every server-side
+   ;; failure -- including registration being switched off -- left the form
+   ;; looking as if nothing had happened.
+   (dispatch-login-failure
+    (if (= :email-not-configured (get-in response [:body :error]))
+      "Registration is currently unavailable. Please contact the site administrator."
+      "Registration failed. Please try again."))))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
   (defn validate-registration [])
@@ -1952,8 +1958,13 @@
 
 (reg-event-db
  :re-verify-success
- (fn [db []]
-   (assoc db :route routes/verify-sent-route)))
+ (fn [db [_ response]]
+   ;; With no SMTP and ALLOW_UNVERIFIED_REGISTRATION set, a resend verifies the
+   ;; account on the spot and says so -- "check your email" would leave the user
+   ;; waiting for a message that is never sent.
+   (assoc db :route (if (get-in response [:body :verified?])
+                      routes/verify-success-route
+                      routes/verify-sent-route))))
 
 (reg-event-fx
  :re-verify

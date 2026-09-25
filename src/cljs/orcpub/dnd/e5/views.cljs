@@ -920,6 +920,12 @@
          [:span "Already have an account?"]
          (login-link)]
         [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
+        (when @(subscribe [:login-message-shown?])
+          [:div.m-t-5.p-r-5.p-l-5
+           [message
+            :error
+            @(subscribe [:login-message])
+            hide-login-message]])
         [:button.form-button
          {:style {:height "40px"
                   :width "174px"

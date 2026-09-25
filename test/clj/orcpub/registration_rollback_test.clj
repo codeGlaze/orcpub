@@ -164,5 +164,13 @@
             (is (= (:orcpub.user/email before) (:orcpub.user/email after)))
             (is (= (:orcpub.user/password before) (:orcpub.user/password after))
                 "credentials must survive a failed resend")
-            (is (nil? (:orcpub.user/verification-key after))
-                "the key from the failed attempt should be retracted")))))))
+            ;; Not nil: the resend REPLACED the key in the user's inbox before
+            ;; the send failed. Retracting the new one left the account with no
+            ;; working link at all, so an email that was still valid stopped
+            ;; verifying anything. The rollback has to put the old key back.
+            (is (= (:orcpub.user/verification-key before)
+                   (:orcpub.user/verification-key after))
+                "the link already in the user's inbox must still work after a failed resend")
+            (is (= (:orcpub.user/verification-sent before)
+                   (:orcpub.user/verification-sent after))
+                "and its expiry clock must be the original one, not the failed attempt's")))))))

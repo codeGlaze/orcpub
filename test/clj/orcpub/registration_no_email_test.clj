@@ -120,11 +120,12 @@
                     email/unverified-registration-allowed? (constantly false)
                     routes/send-verification-email
                     (fn [& _] (throw (AssertionError. "must not attempt a send")))]
-        (let [thrown (try (routes/register (register-request conn)) nil
-                          (catch Throwable e e))]
-          (is (some? thrown)
-              "registration must FAIL when email config is missing and nothing opted out")
-          (is (= :email-not-configured (:error (ex-data thrown)))
-              (str "expected a specific, actionable error. Got: " (pr-str (ex-data thrown))))
+        (let [resp (routes/register (register-request conn))]
+          (is (= 503 (:status resp))
+              "registration must be REFUSED when email config is missing and nothing opted out")
+          ;; A response rather than a throw: a throw reached the client as a bare
+          ;; 500 and the form showed nothing. The client matches on this key.
+          (is (= :email-not-configured (get-in resp [:body :error]))
+              (str "expected a specific, actionable error. Got: " (pr-str resp)))
           (is (nil? (find-user (d/db conn)))
               "and no account may be created, verified or otherwise"))))))

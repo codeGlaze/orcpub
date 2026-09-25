@@ -421,8 +421,9 @@
                "verification email can be sent. Set it, or set"
                "ALLOW_UNVERIFIED_REGISTRATION=true to accept accounts without"
                "verifying the address.")
-      (throw (ex-info "Registration is temporarily unavailable. Please contact the site administrator."
-                      {:error :email-not-configured})))
+      ;; A response, not a throw. A throw reaches the client as a bare 500 it
+      ;; cannot tell apart from any other failure, so the form showed nothing.
+      {:status 503 :body {:error :email-not-configured}})
 
     ;; Deliberately running without email: verify on the spot rather than
     ;; promising a mail that cannot be sent. The operator of a mail-less
@@ -449,6 +450,15 @@
         ;; need different rollbacks -- never retract the ENTITY for a user who
         ;; already existed, only the attributes this attempt set.
         existing-id (:db/id tx-data)
+        ;; What a resend is about to overwrite. verification-key is
+        ;; cardinality-one, so the new transaction REPLACES the link already
+        ;; sitting in the user's inbox. If this send then fails, retracting the
+        ;; new key is not enough -- the old one has to come back, or a link that
+        ;; was still valid stops working because a later resend failed.
+        previous (when existing-id
+                   (d/pull (d/db conn)
+                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
+                           existing-id))
         tempid "verification-subject"
         report (try
                  @(d/transact
@@ -472,8 +482,15 @@
         (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
         (try
           @(d/transact conn (if existing-id
-                              [[:db/retract eid :orcpub.user/verification-key verification-key]
-                               [:db/retract eid :orcpub.user/verification-sent now]]
+                              ;; Put back what was there, or remove what we added.
+                              (let [{old-key :orcpub.user/verification-key
+                                     old-sent :orcpub.user/verification-sent} previous]
+                                [(if old-key
+                                   [:db/add eid :orcpub.user/verification-key old-key]
+                                   [:db/retract eid :orcpub.user/verification-key verification-key])
+                                 (if old-sent
+                                   [:db/add eid :orcpub.user/verification-sent old-sent]
+                                   [:db/retract eid :orcpub.user/verification-sent now])])
                               [[:db/retractEntity eid]]))
           (catch Exception re
             ;; Report the rollback failure, but surface the original cause.
