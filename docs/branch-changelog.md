@@ -86,6 +86,19 @@ unfurls into, each carrying the artist's credit with it.
   (`3f679fd`).
 - Generated artwork was fitted for the PDF by a path that re-encodes as JPEG, which has no
   alpha, so the portrait printed inside a black rectangle (`a674342e`).
+- The in-progress portrait crossed from one character to another: it lives at the top of
+  app-db, and the drawer and the Portrait tab both seed it only when it is missing, so a
+  switch from A to B left A's portrait to be saved onto B (`8fda24bc`).
+- Pressing Save character before Save portrait then discarded those edits. The fix above
+  compared `:db/id`, and a first save is exactly where a new character is given one, so the
+  save's own re-set of the character read as a switch. The callers that continue a character
+  now say so, which also tells two never-saved characters apart — both have a nil id, the
+  one case the comparison could never see. New builds the blank character without going
+  through `:set-character` at all, so it drops the draft in its own interceptor.
+- `node test/e2e/cljs-harness.js` depended on an untracked runner page under `target/`, so
+  the command this branch is verified with failed on a clean checkout with a bare Playwright
+  navigation error. The harness writes its own page now, and says which build step is
+  missing instead of timing out.
 
 ## Changed
 

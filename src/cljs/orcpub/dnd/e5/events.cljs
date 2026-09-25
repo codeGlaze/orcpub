@@ -209,10 +209,35 @@
                   :before (fn [context]
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
-(def character-interceptors [check-spec-interceptor
-                             set-changed
-                             (path :character)
-                             ->local-store])
+(def portrait-ui-keys
+  "Top-level app-db keys holding the in-progress portrait. Not part of the
+   character; only :portrait/save writes back."
+  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
+   :portrait/open-slot :portrait/open-layer])
+
+(def discard-portrait-draft
+  "Drops the in-progress portrait, for an event that replaces the character
+   wholesale without going through :set-character.
+
+   Spliced BEFORE (path :character) in a chain, like set-changed, because the
+   draft is NOT inside the character -- past that point the db is the character
+   and these keys are out of reach."
+  (->interceptor
+   :id :discard-portrait-draft
+   :before (fn [context]
+             (update-in context [:coeffects :db]
+                        (fn [db] (apply dissoc db portrait-ui-keys))))))
+
+;; Split so the one chain and the chain-plus-discard cannot drift apart, and so
+;; the discard lands on the whole-db side of (path :character).
+(def character-chain-head [check-spec-interceptor set-changed])
+(def character-chain-tail [(path :character) ->local-store])
+
+(def character-interceptors (into character-chain-head character-chain-tail))
+
+(def new-character-interceptors
+  "character-interceptors, plus the portrait discard."
+  (into (conj character-chain-head discard-portrait-draft) character-chain-tail))
 
 
 (def item-interceptors [(path ::mi/builder-item)
@@ -340,7 +365,10 @@
 
 (reg-event-db
  :reset-character
- character-interceptors
+ ;; "New" replaces the character in place and never routes through
+ ;; :set-character, so the draft has to be dropped HERE or a blank character
+ ;; inherits the previous one's portrait.
+ new-character-interceptors
  reset-character)
 
 (reg-event-fx
@@ -476,7 +504,12 @@
                                         (get-in character [::entity/values ::char5e/character-name]))]
                       (str "Saved “" char-name "”")
                       "Your character has been saved.")]
-                   [:set-character character]
+                   ;; Same character, and on a first save this is where it gets
+                   ;; its :db/id -- so say to keep the portrait draft rather than
+                   ;; letting set-character read the new id as a different
+                   ;; character. Anyone who pressed Save character with portrait
+                   ;; edits still in the drawer lost them that way.
+                   [:set-character character {:keep-portrait-draft? true}]
                    [::char5e/set-character id character]]})))
 
 (defn descriptive-character-label
@@ -1678,32 +1711,35 @@
               :when (and (map? class-data) (not (:disabled? class-data)))]
           class-key)))
 
-(def portrait-ui-keys
-  "Top-level app-db keys holding the in-progress portrait. Not part of the
-   character; only :portrait/save writes back."
-  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
-   :portrait/open-slot :portrait/open-layer])
+(defn- keep-portrait-draft?
+  "Whether the in-progress portrait survives this :set-character.
 
-(defn- drop-portrait-draft-on-character-change
-  "The portrait draft lives at the TOP of app-db, not inside the character, and
-   both the drawer and the Portrait tab seed it only when it is missing. So it
-   survived a switch from character A to character B, and the next Save wrote
-   A's portrait onto B.
+   The draft lives at the TOP of app-db, not inside the character, and both the
+   drawer and the Portrait tab seed it only when it is missing -- so left alone
+   it survived a switch from character A to character B, and the next Save wrote
+   A's portrait onto B. It cannot simply be cleared either, and the two reasons
+   pull in different directions, which is why this takes a flag AND the ids:
 
-   Keyed on :db/id changing rather than cleared unconditionally, because
-   set-character also runs after every save -- over the SAVED character, to let
-   the reconcilers re-check it. Clearing on that path would blank the inline
-   tab every time you pressed Save.
+     * The callers that CONTINUE the same character say so, because only they
+       know. :character-save-success re-sets the character from the save
+       response, and that is where a new character first gets its :db/id -- so
+       an id change does NOT mean 'a different character', and inferring that
+       threw away the portrait edits of anyone who pressed Save character before
+       Save portrait.
+     * Re-opening the character already being edited (the same non-nil id) keeps
+       it too, so Edit on the character you are already on is not a way to lose
+       work.
 
-   Two never-saved characters both have a nil :db/id and are not told apart.
-   That is the one gap left, and it needs a real identity on an unsaved
-   character to close."
-  [db character]
-  (cond-> db
-    (not= (:db/id character) (:db/id (:character db)))
-    (as-> $ (apply dissoc $ portrait-ui-keys))))
+   Everything else -- New, Clone, Random, opening or levelling a different
+   character -- drops it, INCLUDING when both ids are nil, which is what two
+   never-saved characters share and what the id comparison could not tell apart."
+  [db character explicit-keep?]
+  (let [id (:db/id character)]
+    (boolean
+     (or explicit-keep?
+         (and (some? id) (= id (:db/id (:character db))))))))
 
-(defn set-character [db [_ character]]
+(defn set-character [db [_ character opts]]
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
   ;; former-key index.
@@ -1733,7 +1769,9 @@
                         character
                         (loaded-class-keys db)
                         (content-recon/subclass->class-index (:plugins db)))]
-    (assoc (drop-portrait-draft-on-character-change db character)
+    (assoc (if (keep-portrait-draft? db character (:keep-portrait-draft? opts))
+             db
+             (apply dissoc db portrait-ui-keys))
            :character character
            :loading false
            :character-binding-report (when (or (seq (:unbound-classes binding-report))
@@ -1766,7 +1804,7 @@
    ;; the rebuild happens the way it does on any load.
    (let [{:keys [character]}
          (content-recon/reconcile-former-keys (:character db) {from-key to-key})]
-     {:dispatch-n [[:set-character character]
+     {:dispatch-n [[:set-character character {:keep-portrait-draft? true}]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
                          ". Save the character to keep it.")]]})))
@@ -3244,7 +3282,10 @@
           [::char5e/character-map (js/parseInt id)]
           update-fn)
      ::char5e/save-character-throttled id}
-    {:dispatch [:set-character (update-fn (:character db))]}))
+    ;; No id: the character being built has never been saved, so this is an
+    ;; edit to the one in hand, not a switch.
+    {:dispatch [:set-character (update-fn (:character db))
+                {:keep-portrait-draft? true}]}))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared
