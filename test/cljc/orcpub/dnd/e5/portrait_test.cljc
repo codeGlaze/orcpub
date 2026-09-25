@@ -1,7 +1,7 @@
 (ns orcpub.dnd.e5.portrait-test
   "Pure-fn tests for the paper-doll compositor. Everything here runs on
    both JVM (via lein test) and cljs — no DOM, no re-frame."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             #?(:clj [clojure.java.io :as cio])
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
@@ -239,3 +239,50 @@
     (is (keyword? (:gap/id gap)) (str "gap needs an id: " (pr-str gap)))
     (is (or (nil? (:gap/label gap)) (string? (:gap/label gap)))
         (str "gap label must be a string when present: " (pr-str gap)))))
+
+;; ---------- malformed stored portraits (PR #36 review, P1) ----------
+;;
+;; A portrait is client-supplied EDN. parse-portrait checked only that the
+;; OUTER value was a map, so `{:layers "abc"}` passed and the non-map :layers
+;; reached credit-line, which walks it as a selection. Three of four malformed
+;; shapes threw, and character-page calls credit-line unguarded, so a crafted
+;; save took the PUBLIC character page down with a 500.
+
+(deftest malformed-sub-values-are-dropped-not-passed-through
+  (are [stored kept] (= kept (:layers (char5e/parse-portrait stored)))
+    "{:layers \"abc\"}"      nil
+    "{:layers [1 2 3]}"     nil
+    "{:layers 7}"           nil
+    "{:layers nil}"         nil
+    "{:layers {:head {}}}"  {:head {}})
+  (testing ":colors and :tweaks get the same treatment"
+    (is (nil? (:colors (char5e/parse-portrait "{:colors \"red\"}"))))
+    (is (nil? (:tweaks (char5e/parse-portrait "{:tweaks 3}"))))))
+
+(deftest credit-line-never-throws-on-a-malformed-portrait
+  (doseq [stored ["{:layers \"abc\"}" "{:layers [1 2 3]}" "{:layers 7}"
+                  "{:layers {:head 42}}" "{}" "not-edn-at-all"]]
+    (is (nil? (pa/credit-line (char5e/parse-portrait stored)))
+        (str "threw or credited something for " stored))))
+
+(deftest all-artists-tolerates-a-non-map-selection
+  (testing "public, and reached from cljs too, so it guards independently of
+            parse-portrait"
+    (are [sel] (= [] (pa/all-artists-for-layers sel))
+      "abc" [1 2 3] 7 nil)))
+
+;; ---------- drawable vs merely non-empty (PR #36 review, P2) ----------
+
+(deftest drawable?-needs-an-asset-that-actually-resolves
+  (let [real (first (pa/assets-for-layer :head))]
+    (is (true? (pa/drawable? {:layers {:head {:asset/id (:asset/id real)}}})))
+    (testing "a selection naming only unknown ids is non-empty and draws nothing --
+              `seq` cannot tell the difference, which is what advertised a share
+              image the renderer then 404ed on"
+      (is (seq {:head {:asset/id :no-such-asset}}) "non-empty, to be clear")
+      (is (false? (pa/drawable? {:layers {:head {:asset/id :no-such-asset}}}))))
+    (is (false? (pa/drawable? {:layers {}})))
+    (is (false? (pa/drawable? nil)))
+    (testing "one good layer among unknowns is still drawable"
+      (is (true? (pa/drawable? {:layers {:head {:asset/id (:asset/id real)}
+                                         :shirt {:asset/id :nope}}}))))))

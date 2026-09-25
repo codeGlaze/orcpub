@@ -224,6 +224,12 @@ def main():
         for p in bucket["images"]:
             with Image.open(p) as im:
                 sizes[im.size] += 1
+    if not sizes:
+        # Every layer folder held only `no <name>.txt` markers. That is a real
+        # state -- a set where nothing is drawn yet -- not a reason to abort
+        # partway through an asset run.
+        sys.exit(f"no images under {args.source} — only not-yet-drawn markers. "
+                 "Nothing to resize.")
     (sw, sh), _ = sizes.most_common(1)[0]
     target = (max(1, round(args.height * sw / sh)), args.height)
 

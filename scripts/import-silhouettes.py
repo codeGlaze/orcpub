@@ -68,9 +68,18 @@ def main():
             w = im.width * args.scale
             h = max(1, round(w * sh / sw))
             im = im.resize((w, h), Image.LANCZOS)
-            name = asset["filename"].lower()
-            (dest / name).write_bytes(b"")
-            im.save(dest / name, "PNG", optimize=True)
+            # Basename only, and confined to dest. The manifest is a file
+            # somebody hands you: a filename of "../../x.png" or an absolute
+            # path would otherwise be joined straight onto dest and written
+            # outside it. The empty write that used to sit here made that
+            # worse -- it truncated the target before the image was saved, so
+            # a traversal destroyed the file whether or not the save worked.
+            name = Path(asset["filename"]).name.lower()
+            out_path = (dest / name).resolve()
+            if not name or out_path.parent != dest.resolve():
+                print(f"    skipped unsafe filename: {asset['filename']!r}")
+                continue
+            im.save(out_path, "PNG", optimize=True)
             entries.append({"file": name, "source": asset["filename"],
                             "w": w, "h": h})
             total += 1
@@ -78,8 +87,10 @@ def main():
                       "folder": layer["folder"], "color": layer["color"],
                       "assets": entries,
                       "gaps": [g["filename"] for g in layer.get("gaps", [])]})
-        print(f"  z{layer['z']:02d} {key:<12} {len(entries):>2} files  "
-              f"{entries[0]['w']}x{entries[0]['h']}")
+        # A layer can legitimately hold only `no <name>.txt` markers, so there
+        # may be no entry to read a size from.
+        size = f"{entries[0]['w']}x{entries[0]['h']}" if entries else "(none drawn yet)"
+        print(f"  z{layer['z']:02d} {key:<12} {len(entries):>2} files  {size}")
 
     (args.out / "silhouette-index.json").write_text(
         json.dumps({"source": "silhouette manifest (prototype mode)",

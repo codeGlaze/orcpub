@@ -698,6 +698,23 @@
 (defn image-url [built-char]
   (get-prop built-char ::image-url))
 
+(defn- sane-portrait
+  "Drop sub-values that are not the shape the compositor reads.
+
+   Checking only that the OUTER value is a map was not enough. A stored
+   `{:layers \"abc\"}` is valid EDN and passed, and the non-map :layers then
+   reached credit-line, which walks it as a selection: three of four malformed
+   shapes threw (a string, a vector and a number), and character-page calls
+   credit-line unguarded, so a crafted save took the PUBLIC character page down
+   with a 500. Entry-level junk is already harmless -- (:asset/id 42) is nil --
+   so only the containers need checking."
+  [m]
+  (when (map? m)
+    (cond-> m
+      (not (map? (:layers m))) (dissoc :layers)
+      (not (map? (:colors m))) (dissoc :colors)
+      (not (map? (:tweaks m))) (dissoc :tweaks))))
+
 (defn parse-portrait
   "Coerce a stored portrait value into {:layers {…} :colors {…} :tweaks {…}}
    or nil.
@@ -710,14 +727,17 @@
    to 'no portrait', not break the character sheet."
   [v]
   (cond
-    (map? v) v
+    (map? v) (sane-portrait v)
     (string? v)
     (when-not (s/blank? v)
       (let [parsed (try
                      #?(:clj (edn/read-string v)
                         :cljs (reader/read-string v))
                      (catch #?(:clj Exception :cljs :default) _ nil))]
-        (when (map? parsed) parsed)))
+        ;; sane-portrait on THIS branch too. It is the one that matters: a
+        ;; stored string is what a client actually persisted, while the map
+        ;; branch only sees in-memory drafts.
+        (sane-portrait parsed)))
     :else nil))
 
 (defn portrait [built-char]

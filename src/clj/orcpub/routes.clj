@@ -1212,9 +1212,14 @@
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
-            4 nil)))
-      (stamp-document-info! doc {:character-name character-name
-                                 :credit (when portrait-png portrait-credit)})
+            4 nil))
+        ;; Inside this let, so it can see whether the composed portrait was
+        ;; actually used. Keyed on the decode, not on the field being present:
+        ;; a portrait-png that fails to decode falls back to the pasted
+        ;; image-url above, and crediting the illustrator for somebody else's
+        ;; photograph is the one thing this feature must not do.
+        (stamp-document-info! doc {:character-name character-name
+                                   :credit (when composed portrait-credit)}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -1937,7 +1942,12 @@
         ;; sheet, the summary and the PDF use. It is served as a real PNG
         ;; because crawlers will not render CSS masks -- or, mostly, SVG.
         parsed-portrait (char5e/parse-portrait portrait)
-        composed? (seq (:layers parsed-portrait))
+        ;; drawable?, not (seq :layers). A selection naming only assets this
+        ;; deployment does not have is non-empty and draws nothing, so the card
+        ;; pointed at /portrait.png, the renderer returned 404, and the link
+        ;; previewed broken -- even when the character had a usable image-url
+        ;; to fall back on.
+        composed? (portrait-assets5e/drawable? parsed-portrait)
         share-image (if composed?
                       (str "https://" host
                            (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
