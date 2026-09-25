@@ -2068,6 +2068,10 @@
   ([item-name source-name] (common/disambiguated item-name source-name))
   ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
+(def ^:private referenced-content-types
+  "Content types something else points at by key -- classes, races."
+  (set (mapcat vals (vals key-reference-map))))
+
 (declare rename-key-in-plugin)
 
 (defn relocate-content
@@ -2087,8 +2091,9 @@
      avoids creating a nondeterministic same-key twin of the original.
    The placed item's :key and :option-pack are retagged to its new home, and its
    :name carries the disambiguation whenever the key was not kept as-is. Selections
-   are applied in order against the accumulating result, so keys minted earlier in
-   the batch are accounted for when uniquifying later ones."
+   are applied parents first (classes, races), then in order, against the
+   accumulating result, so keys minted earlier in the batch are accounted for when
+   uniquifying later ones."
   [plugins selections target op]
   (let [copy? (= op :copy)]
     (reduce
@@ -2134,7 +2139,11 @@
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
                (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
      {:plugins plugins :renamed [] :placed 0 :missing 0}
-     selections)))
+     ;; Parents first. The selection arrives as a set, in hash order, so a subclass
+     ;; could otherwise move before its class; the class's rename then repoints only
+     ;; what is still in the source, and the subclass sits in the target on the old
+     ;; key, under the target's same-keyed class. Stable, so order within a rank holds.
+     (sort-by (fn [[_ ct _]] (if (contains? referenced-content-types ct) 0 1)) selections))))
 
 (defn update-references-in-item
   "Update references to a renamed key within a single item.
