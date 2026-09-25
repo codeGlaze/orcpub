@@ -74,16 +74,16 @@ and they use different keys:
 `:level-factor 2` class with `:spell-list {1 #{:wardens-mark}}` produced half-caster slots
 of 4/3/2 at level 9 and the spell on the sheet at DC 12.
 
-The key is overloaded in a way worth knowing before reading that code: `class-option` passes
-`(or (:spell-list spellcasting) kw)` as the `:class-key` the list is registered under
-(`options.cljc:2736`), so with a custom list the class-key *is* the list map. It then works by
-being consistent with itself — `spellcasting-template` registers under that same value.
+`spellcasting-template` registers a class's own list under the class's own key (`class-option`
+passes `(assoc spellcasting :class-key kw)`). The list-map-as-key overload this section used to
+describe is in `subclass-option`, not `class-option`, and only a hand-authored file reaches it; see
+[homebrew-reference-web.md](homebrew-reference-web.md), "The subclass path, and a correction". That
+also resolves the cantrip question this section left open: for a class there is no map to call
+`name` on.
 
-**Unknown: the same path with cantrips.** `spell-selection-key` builds its identity with
-`(name class-key)` (`options.cljc:514`), which a map cannot satisfy. The verified run above
-had `:cantrips?` unset and hit no failure, so either that call is not reached on this path or
-something upstream substitutes a keyword. Not traced. Anyone enabling `:cantrips? true`
-alongside a custom `:spell-list` should expect to find out, and record the answer here.
+A homebrew class's list is one of three sources that are merged into a single spell-list map. The
+other two, built-in lists and homebrew spells declaring `:spell-lists {class-key true}`, and what a
+rename of either side breaks, are in [homebrew-reference-web.md](homebrew-reference-web.md), section 3.
 
 ### Known modes
 
@@ -243,3 +243,6 @@ Proposed items (design sketch, not final):
   all of which use an SRD list, so the set-per-level form a homebrew class needs was absent
   and the `:spell-list` / `:spell-list-kw` distinction was not stated. Flagged the
   `(name class-key)` hazard when a custom list is combined with cantrips.
+- Corrected (2026-09-25): the `(or (:spell-list spellcasting) kw)` overload is in `subclass-option`,
+  not `class-option`, so the cantrip hazard does not apply to classes. Pointed to
+  `homebrew-reference-web.md` for the full spell-list model.

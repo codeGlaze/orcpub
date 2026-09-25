@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, feat, fixed, floating, increment, mental, pool, race, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, feat, fixed, floating, increment, mental, pool, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -479,7 +479,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, background, bespoke, builders, creatures, feat, fields, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, bespoke, builders, creatures, feat, fields, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -792,7 +792,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, phase, phases, registry, revert, snapshots, stop, warlock
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, lineage, loosen, phase, phases, registry, revert, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -917,7 +917,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, progression, select, spell, spells, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1171,7 +1171,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, designed, item, key, match, rebind, relink, rename, renames, rung, save, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, rebind, relink, rename, renames, repair, rung, save, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1269,7 +1269,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, sword, vector, weapons
+**topics:** autosave-fx, coast, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, sword, vector, weapons
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1346,7 +1346,7 @@ _equipment-option-picker · equipment option picker_
 
 _error-handling-import-validation · error handling import validation_
 
-**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews, warning
+**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews, validation
 
 - Context
 - What Was Built
@@ -1460,7 +1460,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _filtered-list-staleness · filtered list staleness_
 
-**topics:** 2026-09-13, cache, claude-branch-triage, computing, custom-content-lifecycle, declared, defect, event, filter, items, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
+**topics:** 2026-09-13, cache, claude-branch-triage, computing, custom-content-lifecycle, declared, defect, event, filter, hunks, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
 
 - The mechanism
 - The precondition — this is why it is not constantly obvious
@@ -1584,7 +1584,7 @@ _growable-option-menus · growable option menus_
 
 _handoff-669-final-pass · handoff 669 final pass_
 
-**topics:** 401, accounts, cljs-headless-harness, cycle, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, pass, plan-669-merge-verification, suite, unit, units
+**topics:** 401, accounts, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, pass, plan-669-merge-verification, resolving, suite, unit, units
 
 - What the change is
 - Already verified — do not spend time re-running
@@ -1620,7 +1620,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _heartbeat · heartbeat_
 
-**topics:** 2026-09-14, beat, beats, clock, database, failing, hour, job, jobs, jumped, outage, pruning, running, server, share, three-day, tick, unrecorded
+**topics:** 2026-09-14, beat, beats, clock, database, failing, hour, job, jobs, jumped, measure, outage, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -1631,7 +1631,7 @@ _heartbeat · heartbeat_
 
 _homebrew-class-spellcasting · homebrew class spellcasting_
 
-**topics:** ------, --------, 435, caster, class, compilation, custom, dropdown, generic, homebrew, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
+**topics:** ------, --------, 435, cantrip, class, compilation, dropdown, generic, homebrew, homebrew-reference-web, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
 
 - Builder UI
 - Not exposed in builder
@@ -1690,11 +1690,29 @@ _homebrew-override · homebrew override_
 - What it does NOT do — the part that matters for design
 - Proposed extension: per-item overrides
 
+## homebrew-reference-web.md
+
+_homebrew-reference-web · homebrew reference web_
+
+**topics:** built-in, clash-driven, class, holder, key, link, links, matched, membership, points, race, relocation, rename, spell, spells, strands, subclass, subrace
+
+- 1. Why this page exists
+- 2. The links
+- Between homebrew items
+- From outside the plugin map
+- What is NOT a link (checked)
+- 3. Spell lists, in full
+- The subclass path, and a correction
+- The cycle
+- 4. Who walks the web, and what each one misses
+- 5. Gaps, most harmful first
+- 6. How this was established, and what was rejected
+
 ## homebrew-safety-net.md
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realizing, repairs, restore, retries, retry, set-aside, spell, startup, throw, throws, unrealized
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -1738,7 +1756,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 50-200ms, 500ms, cleared, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
+**topics:** 500ms, cleared, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2113,7 +2131,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, casters, chunking, freeze, growth, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, spell, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, growth, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2181,7 +2199,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** ---, 2026-09-13, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2561,7 +2579,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, rage, roll, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, rage, recomputes, roll, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -2648,7 +2666,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, feat, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** assembly, cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2663,7 +2681,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes
@@ -2811,7 +2829,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, e2e, errors, failures, harness, jvm, narrow, notice, pre-existing, run, spec, suite, theater, unresolved, unrun
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, notice, pre-existing, run, spec, suite, theater, unresolved, unrun
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
