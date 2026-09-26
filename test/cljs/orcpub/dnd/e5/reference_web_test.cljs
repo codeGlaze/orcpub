@@ -13,6 +13,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.races :as races5e]
+            [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             ;; Side effect: registers the subscriptions the link probes read.
@@ -160,3 +161,53 @@
   (is (= [" Only"] (map :orcpub.template/label
                         (opt5e/feat-prereqs nil {:race {:folk true}} {:folk-x {:name "Folk (X)"}})))
       "GAP: once the race is rekeyed, the feat locks for everyone under a blank label"))
+
+;; ── What the player gets after a clash rename ───────────────────────────────────────────────
+;; A rename only happens because another item already holds the key: an import conflict settled by
+;; renaming the incoming item, or a move into a source that has one. So a stranded link does not
+;; point at nothing -- it points at the OTHER item. These run the realistic case end to end through
+;; the consumers the builder reads: the library already has the item, the import brings its own
+;; and a dependent, and the import's copy is renamed.
+
+(defn- after-import-rename! [plugins ct old to new-name]
+  (reset! app-db {:plugins (orcbrew-val/rename-key-in-plugins plugins "Import" ct old to new-name)}))
+
+(deftest a-stranded-spell-feeds-the-other-class-list
+  (after-import-rename!
+   {"Library" {::e5/classes {:caster (item :caster :name "Caster")}}
+    "Import"  {::e5/classes {:caster (item :caster :name "Caster")}
+               ::e5/spells  {:bolt (item :bolt :level 1 :spell-lists {:caster true})}}}
+   ::e5/classes :caster :caster-imp "Caster (Imp)")
+  (let [lists @(rf/subscribe [::spells5e/plugin-spell-lists])]
+    (is (some #{:bolt} (get-in lists [:caster 1]))
+        "GAP: the imported spell joins the LIBRARY's Caster list")
+    (is (nil? (get-in lists [:caster-imp 1]))
+        "GAP: and the imported class it was written for offers nothing")))
+
+(deftest a-stranded-feat-prerequisite-requires-the-other-race
+  (after-import-rename!
+   {"Library" {::e5/races {:folk (item :folk :name "Folk")}}
+    "Import"  {::e5/races {:folk (item :folk :name "Folk")}
+               ::e5/feats {:knack (item :knack :path-prereqs {:race {:folk true}})}}}
+   ::e5/races :folk :folk-imp "Folk (Imp)")
+  (let [race-map (into {} (map (juxt :key identity)) @(rf/subscribe [::races5e/plugin-races]))
+        feat     (get-in @app-db [:plugins "Import" ::e5/feats :knack])]
+    (is (= ["Folk Only"] (map :orcpub.template/label
+                              (opt5e/feat-prereqs nil (:path-prereqs feat) race-map)))
+        "GAP: the imported feat now requires the LIBRARY's Folk, not the Folk (Imp) it was written for")))
+
+(deftest a-stranded-level-selection-offers-the-other-list
+  (after-import-rename!
+   {"Library" {::e5/selections {:tricks (item :tricks :name "Library Tricks"
+                                              :options [{:name "Juggle"}])}}
+    "Import"  {::e5/selections {:tricks (item :tricks :name "Import Tricks"
+                                              :options [{:name "Vanish"}])}
+               ::e5/classes    {:mage (item :mage :name "Mage"
+                                            :level-selections [{:type :tricks :level 1}])}}}
+   ::e5/selections :tricks :tricks-imp "Import Tricks (Imp)")
+  (let [mage (first (filter #(= :mage (:key %)) @(rf/subscribe [::classes5e/plugin-classes])))
+        pick (first (get-in mage [:levels 1 :selections]))]
+    (is (= "Library Tricks" (:orcpub.template/name pick))
+        "GAP: the imported class's level-1 choice offers the LIBRARY's list")
+    (is (= ["Juggle"] (map :orcpub.template/name (:orcpub.template/options pick)))
+        "GAP: with the library's options, not the ones it was written with")))
