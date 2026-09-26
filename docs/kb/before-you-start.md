@@ -36,7 +36,7 @@ the commit**. That is the whole point of it being a decision.
   no-composition-rules reasoning, and why login must answer identically for a wrong password
   and an unknown username.
 - **Renaming, moving, deleting or disabling homebrew, or changing what points at what** — read
-  `homebrew-reference-web.md` first. Items point at each other in twelve ways, by key and by
+  `homebrew-reference-web.md` first. Items point at each other in thirteen ways, by key and by
   name, and every consumer holds its own partial list: rename knows two, delete knows none.
   Spells and classes point at each other, so a batch operation cannot be made safe by ordering.
   A fix that repoints only the links you thought of is how PR #34 took four review rounds.

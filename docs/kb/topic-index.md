@@ -1694,7 +1694,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, holder, key, link, links, matched, membership, points, race, relocation, rename, spell, spells, strands, subclass, subrace
+**topics:** built-in, clash-driven, class, feat, item-to-item, key, link, links, membership, race, relocation, rename, spell, spells, stranded, strands, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -1707,6 +1707,7 @@ _homebrew-reference-web · homebrew reference web_
 - 4. Who walks the web, and what each one misses
 - 5. Gaps, most harmful first
 - 6. How this was established, and what was rejected
+- What is proven, and what is only read
 
 ## homebrew-safety-net.md
 
@@ -2546,7 +2547,7 @@ _rescued/ui-ux-plan · rescued/ui ux plan_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, track
+**topics:** 2026-09-05, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, registry, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)

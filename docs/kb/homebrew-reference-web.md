@@ -5,7 +5,9 @@ belongs to, a class names the custom selections its levels grant. Anything that 
 moves an item has to know every one of those links, or it leaves the others pointing at nothing, with
 no error and no warning.
 
-This page is the complete map, checked against `integration-local` at `ec4a3c50` (September 2026).
+This page is the complete map, checked against `integration-local` at `ec4a3c50` (September 2026),
+and **executed** by `test/cljs/orcpub/dnd/e5/reference_web_test.cljs` (`d7640dd8`): one probe per
+link for whether a rename carries it, and probes that the disputed links are actually read.
 Symbols are named rather than line numbers, because those move. Read it before touching rename,
 relocation (move/copy), delete, disable, import conflict resolution or share bundling.
 
@@ -20,7 +22,7 @@ It took four review rounds on PR #34 to see the shape of the problem, one link a
    through `rename-key-in-plugin`.
 2. A bulk move could carry a subclass across before its class was renamed, because the selection is a
    set. Fixed by moving classes and races first.
-3. Asked "what else points at things?", the answer was: at least nine more link kinds that nothing
+3. Asked "what else points at things?", the answer was: at least ten more link kinds that nothing
    repoints, and one of them (spells to classes, classes to spells) forms a cycle, so the
    parents-first ordering from step 2 cannot be extended to cover it.
 
@@ -46,6 +48,7 @@ also does (`"Artificer"` becomes `"Artificer (KsTy)"`).
 | class | `[:spellcasting :spell-list] {level #{spell-key}}` | spells | key | `spellcasting-template` |
 | subclass | `:paladin-spells` / `:cleric-spells` / `:warlock-spells` `{level {i spell-key}}` | spells | key | `make-levels` |
 | class, subclass, race, subrace | `:level-modifiers [{:type :spell :value {:key k}}]` | spell | key | `level-modifier` (spell_subs); the builder offers "Spell" as a modifier type |
+| race, subrace | `:spells [{:level n :value {:key k :ability a}}]` | spell | key | `spell-modifiers` (spell_subs), for every plugin race and subrace; written by `set-race-spell-value` / `set-subrace-spell-value` |
 | class, subclass | `:level-selections [{:type selection-key}]` | custom selection | key | `level-selection` via `::selections5e/selection-map` |
 | feat | `[:path-prereqs :race race-key]` | race | key, **then name** | `feat-prereqs` looks the key up in `race-map` for its name; `race-prereq` compares that name to the character's race |
 | feat, race, subrace, class, subclass | `[:props :language {lang-key true}]` | language | key | `plugin-modifiers`, the `:language` case of `make-feat-modifiers` |
@@ -72,8 +75,6 @@ to, the class does not list it (built-in spells are the reverse, see section 3).
 - **Backgrounds**: language grants are counts, tool and vehicle proficiencies come from fixed built-in
   lists.
 - **Feat `:props :language-choice`** is a count over all languages, not a link to one.
-- **Race and subrace `:spells [{:value {:key k}}]`**: `share_bundle` reads this shape, but no builder
-  writes it and no option builder reads it. Treat it as legacy.
 - **Editing a name in a builder** does not change the key. `reg-save-homebrew` mints the key once, from
   the name at creation, and keeps it: "The key is an address, not a label." Only import conflict
   resolution, relocation and the manual relink change keys, and those record `:former-keys`.
@@ -156,13 +157,16 @@ shared model that both import.**
 
 1. **Delete checks nothing.** Deleting a class, spell, race or selection strands everything that
    pointed at it, silently. It is the most common destructive action in the app.
-2. **Rename and relocation know two of twelve item-to-item links.** Every other link is left on the old
+2. **Rename and relocation know two of thirteen item-to-item links**, proven: eleven rename probes
+   are pinned as GAP in `reference_web_test`. Every other link is left on the old
    key.
 3. **The missing-content banner covers six content types**, so most stranded links never surface to
    the player.
 4. **Name-matched links**, race `:languages` and feat race prerequisites, break on a clash-driven
    rename even though the key-matched links would be repaired, because the rename changes the name
-   too.
+   too. A stranded feat race prerequisite does not ungate the feat: the stale key looks up no name,
+   so `race-prereq` matches `#{nil}` and the feat locks for every character with a race, labelled
+   `" Only"` (tested).
 5. **Custom items are keyed by their names**, so renaming one strands it on every character that
    equipped it.
 6. **Monsters in encounters** have no repair and no banner.
@@ -185,6 +189,20 @@ re-read in code before it was written here. Rejected on re-reading:
 - **An earlier sweep audited `/home/codeglaze/projects/orcpub` (develop)** after deciding the given
   checkout "did not exist". Every later sweep was made to run `pwd` first and stop on a mismatch. When
   delegating, give the absolute path and make that the agent's first step.
+
+- **"Race and subrace `:spells` is legacy: nothing writes or reads it."** An earlier version of this
+  page said so, from a sweep. Wrong on both halves: the race builder writes it and `spell-modifiers`
+  reads it. Caught by `a-race-spell-grant-is-read`, which is why every row now has a probe.
+
+### What is proven, and what is only read
+
+Executed (`reference_web_test`): all thirteen item-to-item links under a rename (two follow, eleven
+stranded); spell membership joining the named class list; race `:props :language` and race `:spells`
+being read; the feat race prerequisite's lookup and its stranded outcome.
+
+Only read, not executed: everything in "From outside the plugin map", the consumer table in section 4
+apart from rename, delete's plain `dissoc`, the missing-content banner's scope, and the subclass
+`:spell-list` failures in section 3.
 
 Not yet run, only read: the two subclass `:spell-list` failures in section 3, and whether
 `reconcile-spell-selection-keys` rescues spell choices after a clash-driven class rename.
