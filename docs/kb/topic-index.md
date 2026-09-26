@@ -1694,7 +1694,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, feat, item-to-item, key, link, links, membership, race, relocation, rename, spell, spells, stranded, strands, subclass, subrace
+**topics:** clash-driven, class, executed, feat, item-to-item, key, link, links, membership, race, relocation, rename, spell, spells, stranded, strands, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -1705,6 +1705,7 @@ _homebrew-reference-web · homebrew reference web_
 - The subclass path, and a correction
 - The cycle
 - 4. Who walks the web, and what each one misses
+- 4a. What a stranded link does to the player
 - 5. Gaps, most harmful first
 - 6. How this was established, and what was rejected
 - What is proven, and what is only read

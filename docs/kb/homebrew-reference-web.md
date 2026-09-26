@@ -153,6 +153,27 @@ shared model that both import.**
 
 ---
 
+## 4a. What a stranded link does to the player
+
+A rename only happens because **another item already holds the key**: an import conflict settled by
+renaming the incoming item, or a move into a source that has one. So the old key a stranded link
+still holds is live, and the link **latches onto the other item** instead of dangling. The usual
+result is wrong content, silently, not missing content. It turns into missing content only if that
+other item is later deleted or disabled.
+
+Executed in `reference_web_test`, import case, through the consumers the builder reads:
+
+- An imported spell listed on the imported class **joins the library's class list** of the same
+  key, and the imported class it was written for offers nothing.
+- An imported feat requiring the imported race **requires the library's race** ("Folk Only").
+- An imported class's level choice **offers the library's selection, with the library's options**.
+
+Nothing repairs this. `reconcile-former-keys` rebinds characters only, and refuses a former key that
+is still some item's live key, which after a clash it always is.
+
+The earlier "locks the feat for everyone" result is the other case: the old key held by nothing,
+as after the other item is deleted.
+
 ## 5. Gaps, most harmful first
 
 1. **Delete checks nothing.** Deleting a class, spell, race or selection strands everything that
@@ -197,7 +218,7 @@ re-read in code before it was written here. Rejected on re-reading:
 ### What is proven, and what is only read
 
 Executed (`reference_web_test`): all thirteen item-to-item links under a rename (two follow, eleven
-stranded); spell membership joining the named class list; race `:props :language` and race `:spells`
+stranded); what three of them do to the player after an import clash rename (section 4a); spell membership joining the named class list; race `:props :language` and race `:spells`
 being read; the feat race prerequisite's lookup and its stranded outcome.
 
 Only read, not executed: everything in "From outside the plugin map", the consumer table in section 4
