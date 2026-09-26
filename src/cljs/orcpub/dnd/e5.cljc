@@ -10,7 +10,10 @@
 (spec/def ::spells (spec/map-of common/keyword-starts-with-letter?
                                 ::spells/homebrew-spell))
 
+;; A source map holds its content types, plus the source-level settings that live beside them:
+;; :disabled? (the whole source off) and :abbreviation (the tag its keys are minted with).
 (spec/def ::content-keyword (fn [v] (or (= v :disabled?)
+                                        (= v :abbreviation)
                                         (and (qualified-keyword? v)
                                              (common/keyword-starts-with-letter? v)
                                              (= (namespace v) "orcpub.dnd.e5")))))
@@ -24,7 +27,8 @@
 
 (spec/def ::plugin (spec/map-of ::content-keyword
                                 (spec/or :items ::homebrew-items
-                                         :bool boolean?)))
+                                         :bool boolean?
+                                         :abbreviation string?)))
 
 (spec/def ::plugins (spec/map-of string? ::plugin))
 

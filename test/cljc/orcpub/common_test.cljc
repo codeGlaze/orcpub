@@ -374,6 +374,16 @@
     (is (= "PHB" (common/source-abbreviation "Player's Handbook")))
     (is (= "DMG" (common/source-abbreviation "Dungeon Master's Guide")))
     (is (= "EB" (common/source-abbreviation "Eberron"))))
+  (testing "an initialism with a description after it keeps the initialism whole"
+    ;; How a release in a series is actually named. The two-shape rule mangled both halves:
+    ;; three words gave UaGtOs and four gave UHoK.
+    (is (= "UAGO" (common/source-abbreviation "UA - Giant Options")))
+    (is (= "UAHoK" (common/source-abbreviation "UA - Heroes of Krynn")))
+    (is (= "UAGO" (common/source-abbreviation "UA: Giant Options")))
+    (is (= "MMEM" (common/source-abbreviation "MM Extra Monsters")))
+    (testing "and a year is not one, or the tag would carry all four digits"
+      (is (= "UA2HoK" (common/source-abbreviation "Unearthed Arcana 2022: Heroes of Krynn")))))
+
   (testing "a source that is ALREADY an abbreviation passes through unchanged"
     ;; "SRD" must not come back "Srd" -- same name, meaning filed off.
     (is (= "SRD" (common/source-abbreviation "SRD")))
