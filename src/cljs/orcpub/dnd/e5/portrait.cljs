@@ -17,7 +17,8 @@
   (:require [re-frame.core :refer [dispatch subscribe]]
             [reagent.core :as r]
             [clojure.string :as s]
-            [orcpub.dnd.e5.portrait-assets :as pa]))
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-layout :as layout]))
 
 (defn- classes [& cs] (s/join " " (remove nil? cs)))
 
@@ -79,25 +80,6 @@
         (set! (.-onerror img) #(resolve nil))
         (set! (.-src img) url)))))
 
-(defn contain-rect
-  "Where a `sw`x`sh` asset lands in a `w`x`h` frame under `mask-size: contain`
-   -- scaled to fit, centred, aspect kept. Twin of portrait-render/contain-rect
-   so the baked picture matches what the drawer shows."
-  [sw sh w h]
-  (if (or (zero? sw) (zero? sh))
-    [0 0 w h]
-    (let [scale (min (/ w sw) (/ h sh))
-          dw (js/Math.round (* sw scale))
-          dh (js/Math.round (* sh scale))]
-      [(js/Math.round (/ (- w dw) 2)) (js/Math.round (/ (- h dh) 2)) dw dh])))
-
-(def credit-font-family
-  "The face the baked credit is set in. Defined here rather than beside the
-   stylesheet because draw-credit! and load-credit-font both read it, and both
-   sit above that -- a forward reference the cljs compiler warned about twice
-   and clj-kondo reported as an unresolved symbol."
-  "Vollkorn")
-
 (defn- draw-credit!
   "Burn the artist credit into the baked picture.
 
@@ -108,18 +90,18 @@
    may land on a white page or a dark chat client and one of the two always
    reads."
   [ctx text w h]
-  (let [size (max 9 (js/Math.round (* h 0.026)))
-        halo (max 1 (js/Math.round (/ size 12)))
-        y (- h (max 4 (js/Math.round (* h 0.018))))]
-    (set! (.-font ctx) (str "italic " size "px '" credit-font-family "', Georgia, serif"))
+  (let [{:keys [size halo center-x baseline outline fill]} (layout/credit-layout w h)
+        rgba (fn [[r g b :as c]]
+               (str "rgba(" r "," g "," b "," (layout/alpha->unit c) ")"))]
+    (set! (.-font ctx) (str "italic " size "px '" layout/credit-font-family "', Georgia, serif"))
     (set! (.-textAlign ctx) "center")
     (set! (.-textBaseline ctx) "alphabetic")
     (set! (.-lineWidth ctx) (* 2 halo))
     (set! (.-lineJoin ctx) "round")
-    (set! (.-strokeStyle ctx) "rgba(255,255,255,0.86)")
-    (.strokeText ctx text (/ w 2) y)
-    (set! (.-fillStyle ctx) "rgba(20,20,20,0.92)")
-    (.fillText ctx text (/ w 2) y)))
+    (set! (.-strokeStyle ctx) (rgba outline))
+    (.strokeText ctx text center-x baseline)
+    (set! (.-fillStyle ctx) (rgba fill))
+    (.fillText ctx text center-x baseline)))
 
 (defn- load-credit-font
   "Resolves once the credit face is usable by a canvas.
@@ -128,7 +110,7 @@
    typeface, not the export."
   []
   (if-let [fonts (.-fonts js/document)]
-    (-> (.load fonts (str "italic 20px '" credit-font-family "'"))
+    (-> (.load fonts (str "italic 20px '" layout/credit-font-family "'"))
         (.then (fn [_] true))
         (.catch (fn [_] false)))
     (js/Promise.resolve false)))
@@ -170,7 +152,7 @@
                     ;; `mask-size: contain`, so filling the frame here would
                     ;; hand the PDF a differently-shaped face from the one on
                     ;; screen -- 10% wider, for 8:11 art in a 4:5 frame.
-                    (let [[x y dw dh] (contain-rect (.-naturalWidth img)
+                    (let [[x y dw dh] (layout/contain-rect (.-naturalWidth img)
                                                     (.-naturalHeight img)
                                                     raster-width raster-height)]
                       (.drawImage tctx img x y dw dh))

@@ -7,6 +7,7 @@
             [orcpub.dnd.e5.hunter-evasion-test]
             ;; The spell page packer and row annotations run in the browser --
             ;; the builder decides the layout -- so their tests run here too.
+            [orcpub.dnd.e5.portrait-layout-test]
             [orcpub.dnd.e5.spell-packing-test]
             [orcpub.image-url-test]
             [orcpub.whats-new-test]
@@ -33,6 +34,7 @@
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
+             'orcpub.dnd.e5.portrait-layout-test
              'orcpub.dnd.e5.spell-packing-test
              'orcpub.image-url-test
              'orcpub.whats-new-test
