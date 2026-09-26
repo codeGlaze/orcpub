@@ -21,7 +21,8 @@
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
             [orcpub.pdf :as pdf]
-            [orcpub.dnd.e5.portrait-assets :as pa])
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-layout :as layout])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
            [java.awt.geom Path2D$Double]
            [java.awt.image BufferedImage]
@@ -116,22 +117,6 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
-(defn contain-rect
-  "Where a `sw`x`sh` asset lands inside a `w`x`h` frame under CSS
-   `mask-size: contain` -- scaled to fit, centred, aspect kept.
-
-   The browser composites with `contain`; both rasterizers used to stretch to
-   the frame instead, so a shared portrait came out a different shape from the
-   one the drawer showed. With 8:11 art in a 4:5 frame that is a 10% widening
-   of every face."
-  [sw sh w h]
-  (if (or (zero? sw) (zero? sh))
-    [0 0 w h]
-    (let [scale (min (/ (double w) sw) (/ (double h) sh))
-          dw (Math/round (* sw scale))
-          dh (Math/round (* sh scale))]
-      [(Math/round (/ (- w dw) 2.0)) (Math/round (/ (- h dh) 2.0)) dw dh])))
-
 (defn- draw-raster-layer! [^Graphics2D g ^bytes data ^Color color w h]
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     ;; Tint through the source's alpha: draw it, then flood the colour with
@@ -139,7 +124,7 @@
     ;; the canvas 'source-in' composite the client uses.
     (let [tinted (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
           tg (.createGraphics tinted)
-          [x y dw dh] (contain-rect (.getWidth src) (.getHeight src) w h)]
+          [x y dw dh] (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
       (try
         (.setRenderingHint tg RenderingHints/KEY_INTERPOLATION
                            RenderingHints/VALUE_INTERPOLATION_BILINEAR)
@@ -191,20 +176,23 @@
    and one of the two always reads. Not a watermark -- a crop removes it --
    just a credit that survives being right-click-saved."
   [^Graphics2D g text w h]
-  (let [size (max 9 (int (* h 0.026)))
+  (let [{:keys [size halo baseline]
+         [or* og ob oa] :outline
+         [fr fg fb fa] :fill} (layout/credit-layout w h)
         font (face credit-face size)
         fm (.getFontMetrics g font)
         tw (.stringWidth fm text)
+        ;; centred on the measured string, which needs metrics the shared
+        ;; layout has no way to get -- it gives the band, not the width.
         x (int (/ (- w tw) 2))
-        y (int (- h (max 4 (* h 0.018))))
-        halo (max 1 (int (/ size 12)))]
+        y (int baseline)]
     (.setFont g font)
-    (.setColor g (Color. 255 255 255 220))
+    (.setColor g (Color. (int or*) (int og) (int ob) (int oa)))
     (doseq [dx [(- halo) 0 halo]
             dy [(- halo) 0 halo]
             :when (not (and (zero? dx) (zero? dy)))]
       (.drawString g ^String text (int (+ x dx)) (int (+ y dy))))
-    (.setColor g (Color. 20 20 20 235))
+    (.setColor g (Color. (int fr) (int fg) (int fb) (int fa)))
     (.drawString g ^String text x y)))
 
 ;; ---------- the portrait ----------
@@ -232,11 +220,14 @@
    advertising gone a reason to crop the artist's name off with it; on
    opposite edges the cheap crop takes this and leaves her."
   [^Graphics2D g text w h]
-  (let [size (max 8 (int (* h 0.020)))
+  (let [{:keys [size x]
+         [or* og ob oa] :outline
+         [fr fg fb fa] :fill} (layout/site-mark-layout w h)
         font (face mark-face size)
         fm (.getFontMetrics g font)
         tw (.stringWidth fm text)
-        x (- w (max 4 (int (* w 0.022))))
+        ;; centred on the measured string: the layout gives the edge, the
+        ;; renderer knows how long the text turned out.
         y (int (/ (+ h tw) 2))
         saved (.getTransform g)]
     (try
@@ -245,9 +236,9 @@
       ;; counter-clockwise, so it reads bottom-to-top like a book spine and
       ;; the glyphs hang to the left of the baseline, inside the picture
       (.rotate g (- (/ Math/PI 2)))
-      (.setColor g (Color. 255 255 255 90))
+      (.setColor g (Color. (int or*) (int og) (int ob) (int oa)))
       (.drawString g ^String text 1 1)
-      (.setColor g (Color. 20 20 20 128))
+      (.setColor g (Color. (int fr) (int fg) (int fb) (int fa)))
       (.drawString g ^String text 0 0)
       (finally (.setTransform g saved)))))
 

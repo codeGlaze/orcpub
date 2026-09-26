@@ -88,26 +88,8 @@
 ;; composed image is what gets passed around, and it arrives detached from
 ;; both. These cover the caption that is burned into the pixels instead.
 
-(deftest contain-rect-fits-without-stretching
-  (testing "8:11 art in a 4:5 frame is height-bound, centred, aspect kept"
-    (let [[x y w h] (pr/contain-rect 192 264 600 750)]
-      (is (= 750 h) "fills the short axis")
-      (is (= 545 w) (str "expected 545 wide, got " w))
-      (is (= 28 x) "centred horizontally -- (600-545)/2 rounds up, in both runtimes")
-      (is (= 0 y))
-      (is (< (Math/abs (- (/ (double w) h) (/ 192.0 264))) 0.005)
-          "source aspect preserved"))))
-
-(deftest contain-rect-handles-the-other-orientation
-  (let [[x y w h] (pr/contain-rect 800 400 600 750)]
-    (is (= 600 w) "width-bound this time")
-    (is (= 300 h))
-    (is (= 0 x))
-    (is (= 225 y) "centred vertically")))
-
-(deftest contain-rect-survives-a-degenerate-asset
-  (is (= [0 0 600 750] (pr/contain-rect 0 0 600 750)))
-  (is (= [0 0 600 750] (pr/contain-rect 10 0 600 750))))
+;; contain-rect moved to portrait-layout-test: it is one .cljc function now, and
+;; these assertions said "in both runtimes" while only ever running in one.
 
 (deftest rendered-portrait-is-not-stretched
   (testing "both rasterizers used to fill the frame, so a shared picture came
