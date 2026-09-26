@@ -1304,14 +1304,21 @@
       :margin-top (px 5)
       :font-weight :normal}]
 
+    ;; Wraps because the bar has to hold four tabs now: at phone width a
+    ;; single non-wrapping row ran OPTIONSDESCRIPTIONPORTRAIT together with no
+    ;; gap between the labels. min-width forces the break rather than letting
+    ;; flex-grow squeeze them all onto one line.
     [:.builder-tabs
      {:display :flex
+      :flex-wrap :wrap
+      :gap "10px"
       :padding "10px"
       :text-transform :uppercase
       :font-weight 600}]
 
     [:.builder-tab
-     {:flex-grow 1
+     {:flex "1 1 auto"
+      :min-width "110px"
       :padding-bottom "13px"
       :text-align :center
       :cursor :pointer

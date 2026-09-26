@@ -23,6 +23,7 @@
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -36,6 +37,7 @@
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.portrait-render :as portrait-render]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
@@ -659,6 +661,42 @@
                        n kind limit)))
     (take limit cards)))
 
+(defn pdf-safe-text
+  "PDFBox's standard-14 fonts are WinAnsi: a name with a character outside it
+   throws on showText and would take the whole sheet down. Drop what cannot be
+   encoded rather than lose the export, and keep the line short enough to fit
+   under the portrait box."
+  [s]
+  (some-> s
+          (s/replace #"[^\u0020-\u007e\u00a0-\u00ff]" "")
+          ;; dropping a character must not leave a gap where it was
+          (s/replace #"\s+" " ")
+          s/trim
+          (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
+
+(defn stamp-document-info!
+  "Set the exported sheet's own metadata.
+
+   The templates are third-party InDesign files, so a fresh export inherits
+   their info dictionary and claims to have been made by 'Adobe InDesign CS6
+   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
+   digital-asset tool or a search index reads. Overwriting it costs nothing
+   and puts the art credit somewhere besides the picture.
+
+   This is provenance, not protection: metadata strips in seconds."
+  [doc {:keys [character-name credit]}]
+  (try
+    (let [info (.getDocumentInformation doc)]
+      (.setTitle info (or (some-> character-name s/trim not-empty)
+                          branding/default-page-title))
+      (.setCreator info branding/app-name)
+      (.setProducer info branding/app-name)
+      (when-let [c (pdf-safe-text credit)]
+        (.setSubject info c)
+        (.setKeywords info c)))
+    (catch Exception e
+      (println "pdf: could not stamp document info -" (.getMessage e)))))
+
 (defn add-spell-cards!
   "Appends spell card pages, nine to a sheet, each with its back.
 
@@ -1003,7 +1041,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1144,20 +1182,44 @@
                       ;; cached.
                       (some-> (wanted url failed?)
                               (as-> u (future (:image (probed-outcome u)))))))
-            portrait (image image-data image-url image-url-failed)
+            ;; A composed (paper-doll) portrait has no URL that could produce
+            ;; it -- the client bakes its CSS-mask layers -- and it arrives
+            ;; larger than an uploaded picture may be, so it goes through
+            ;; decode-artwork-bytes, which fits it instead of refusing it.
+            ;;
+            ;; Decoded eagerly rather than in a delay: it is local CPU with no
+            ;; network in it, and a delay that derefs to nil would be truthy
+            ;; here, so a portrait that failed to decode would suppress the
+            ;; pasted image-url that should have taken over.
+            composed (pdf/decode-artwork-bytes portrait-png)
+            portrait (if composed
+                       (delay composed)
+                       (image image-data image-url image-url-failed))
             faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15)))
+            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
+          ;; The credit is baked into the composed PNG itself now (see
+          ;; portrait/draw-credit!), so there is nothing to print here: a
+          ;; second drawn line landed 0.12in under the first and said the
+          ;; same thing.
+          )
         (when-let [{:keys [data jpg?]} (some-> faction deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
-            4 nil)))
+            4 nil))
+        ;; Inside this let, so it can see whether the composed portrait was
+        ;; actually used. Keyed on the decode, not on the field being present:
+        ;; a portrait-png that fails to decode falls back to the pasted
+        ;; image-url above, and crediting the illustrator for somebody else's
+        ;; photograph is the one thing this feature must not do.
+        (stamp-document-info! doc {:character-name character-name
+                                   :credit (when composed portrait-credit)}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -1612,10 +1674,18 @@
       {:status 400 :body problems}
       {:status 200 :body character})))
 
-(defn character-summary-for-id [db id]
-  ;; Fixed: bare destructuring outside let silently returned nil
-  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
-    summary))
+(defn character-summary-for-id
+  "The share-card data for a character: {::se/summary … ::se/values …}.
+
+   Returns the WHOLE pull, not just ::se/summary. It used to return the summary
+   submap while its caller went on to destructure ::se/summary and ::se/values
+   back out of it -- so every og:title and og:image came out nil and shared
+   links fell back to the site defaults."
+  [db id]
+  (d/pull db
+          '[::se/summary
+            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
+          id))
 
 (defn get-character
   "Retrieves a character by ID.
@@ -1834,19 +1904,64 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
+(defn character-portrait-png
+  "PNG of a character's composed portrait, for og:image.
+
+   A crawler has no browser, so unlike the PDF path (where the client bakes
+   the layers with canvas) this is rendered here. Access matches the character
+   page itself -- unauthenticated by id -- because that page already exposes
+   the same character's name, race and description in its meta tags.
+
+   404 when the character has no composed portrait, so a crawler falls back to
+   whatever og:image the page did declare."
+  [{:keys [db] {:keys [id]} :path-params}]
+  (let [portrait (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+                         ::se/values
+                         ::char5e/portrait
+                         char5e/parse-portrait)]
+    (if-let [png (some-> portrait portrait-render/render-png)]
+      {:status 200
+       :headers {"Content-Type" "image/png"
+                 ;; Portraits change rarely and a crawler may refetch often.
+                 "Cache-Control" "public, max-age=300"
+                 ;; This is contributed artwork. The header is the per-response
+                 ;; twin of the page's `noai` meta -- a crawler that fetches the
+                 ;; PNG directly never parses the HTML that carries the meta.
+                 "X-Robots-Tag" "noai, noimageai"}
+       :body (ByteArrayInputStream. png)}
+      {:status 404 :body "no composed portrait"})))
+
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")
-        {:keys [::se/summary
-                ::se/values] :as summary-obj} (character-summary-for-id db id)
+        {:keys [::se/summary ::se/values]} (character-summary-for-id db id)
         {:keys [::char5e/character-name]} summary
         {:keys [::char5e/description
-                ::char5e/image-url]} values]
+                ::char5e/image-url
+                ::char5e/portrait]} values
+        ;; A composed portrait wins over a pasted URL, the same precedence the
+        ;; sheet, the summary and the PDF use. It is served as a real PNG
+        ;; because crawlers will not render CSS masks -- or, mostly, SVG.
+        parsed-portrait (char5e/parse-portrait portrait)
+        ;; drawable?, not (seq :layers). A selection naming only assets this
+        ;; deployment does not have is non-empty and draws nothing, so the card
+        ;; pointed at /portrait.png, the renderer returned 404, and the link
+        ;; previewed broken -- even when the character had a usable image-url
+        ;; to fall back on.
+        composed? (portrait-assets5e/drawable? parsed-portrait)
+        share-image (if composed?
+                      (str "https://" host
+                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
+                      image-url)
+        ;; A shared link is where the art actually travels, so the card names
+        ;; the artists too -- the same line the sheet prints.
+        credit (when composed? (portrait-assets5e/credit-line parsed-portrait))]
     (index-page-response request
                          {:title character-name
                           :description (str (character-summary-description summary)
                                             ". "
-                                            description)
-                          :image-url image-url}
+                                            description
+                                            (when credit (str " · " credit)))
+                          :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
 
 (def header-style
@@ -1958,6 +2073,8 @@
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
+        {:get `character-portrait-png}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

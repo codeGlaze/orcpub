@@ -87,10 +87,14 @@
                (with-open [stream (.openStream (io/resource file))]
                  (PDType0Font/load doc stream))))
     {}
-    {:plain       "Vollkorn-Regular.ttf"
-     :italic      "Vollkorn-Italic.ttf"
-     :bold        "Vollkorn-Bold.ttf"
-     :bold-italic "Vollkorn-BoldItalic.ttf"}))
+    ;; Under public/ so the same single copy is both on the classpath for
+    ;; PDFBox and served over HTTP: the browser bakes the portrait credit into
+    ;; a PNG that ends up inside this very document, and it should be set in
+    ;; the document's own face rather than whatever the viewer's OS offers.
+    {:plain       "public/fonts/Vollkorn-Regular.ttf"
+     :italic      "public/fonts/Vollkorn-Italic.ttf"
+     :bold        "public/fonts/Vollkorn-Bold.ttf"
+     :bold-italic "public/fonts/Vollkorn-BoldItalic.ttf"}))
 
 (def ^:private svg-token
   #"([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)")
@@ -1934,6 +1938,103 @@
           {:data data :jpg? (jpeg-bytes? data)})))
     (catch Exception e
       (println "pdf: supplied image bytes rejected -" (.getMessage e))
+      nil)))
+
+(def ^:private max-artwork-embedded
+  "What generated artwork may weigh in the PDF.
+
+   Deliberately not max-embedded-bytes. That 128k is the number the builder
+   advertises beside the Image URL field -- a promise about what a user may
+   UPLOAD. A composed portrait is neither uploaded nor untrusted: the app
+   rasterizes it, at a size the app chose to print well.
+
+   Holding it to the upload limit costs resolution, and measurably: a 600x750
+   portrait fitted to 128k comes back 367x459, which is 156 dpi in the 2.35in
+   box the sheet prints it at -- under the 200 dpi the assets are built for.
+   320k keeps the full raster and still bounds the document; the fit below is
+   the backstop for anything larger."
+  (* 320 1024))
+
+(defn- scaled-copy-argb
+  "scaled-copy, but into ARGB so the alpha channel survives."
+  ^BufferedImage [^BufferedImage img edge]
+  (let [w (.getWidth img)
+        h (.getHeight img)
+        f (min 1.0 (/ (double edge) (double (max w h))))
+        nw (int (max 1 (Math/round (* w f))))
+        nh (int (max 1 (Math/round (* h f))))
+        out (BufferedImage. nw nh BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g img 0 0 nw nh nil)
+      (finally (.dispose g)))
+    out))
+
+(defn- png-bytes ^bytes [^BufferedImage img]
+  (let [out (ByteArrayOutputStream.)]
+    (ImageIO/write img "png" out)
+    (.toByteArray out)))
+
+(defn- fit-artwork
+  "Shrink generated artwork until it fits max-embedded-bytes, keeping alpha.
+
+   NOT fit-for-sheet. That one scales into TYPE_INT_RGB and re-encodes as
+   JPEG, which is right for a photograph and wrong for anything transparent:
+   a composed portrait put through it comes back with its transparent ground
+   turned black, which prints as a black box around the character. Artwork
+   gives up pixels instead of transparency, and stays PNG.
+
+   Steps the longest edge down by 15% a time rather than walking a fixed
+   ladder, so the first attempt always actually shrinks something -- a ladder
+   starting above the image's own size burns iterations re-encoding it
+   unchanged."
+  [^bytes data]
+  (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
+    (if (<= (alength data) max-artwork-embedded)
+      {:data data :jpg? false}
+      (loop [edge (int (* 0.85 (max (.getWidth img) (.getHeight img))))
+             tries 12]
+        (when (and (pos? tries) (>= edge 120))
+          (let [candidate (png-bytes (scaled-copy-argb img edge))]
+            (if (<= (alength candidate) max-artwork-embedded)
+              {:data candidate :jpg? false}
+              (recur (int (* 0.85 edge)) (dec tries)))))))))
+
+(def ^:private max-artwork-base64
+  "Pre-decode ceiling for artwork the app generated itself. Looser than
+   max-image-base64 because these bytes are fitted rather than refused, but
+   still bounds the allocation before a byte array exists."
+  (+ 4 (quot (* 4 (* 2 1024 1024)) 3)))
+
+(defn decode-artwork-bytes
+  "Artwork the app itself produced, fitted to the sheet rather than refused.
+
+   decode-image-bytes turns away anything over max-embedded-bytes, and rightly
+   so: the browser is expected to have done the fitting already, because
+   orcpub.image-capture measures against the same print edge before it sends.
+
+   A composed portrait has no such stage. It is rasterized from CSS-mask layers
+   at the frame's own size and lands about twice the ceiling -- more once the
+   layers carry real line art rather than silhouettes. Refusing it would drop
+   the picture from the sheet for being the size we chose to make it, so it
+   gets what an oversized FETCHED image gets: fit-for-sheet. The ceiling still
+   belongs on what goes into the document.
+
+   Guards before the decode are unchanged -- encoded length bounds the
+   allocation, and the header still has to declare a sane canvas."
+  [b64]
+  (try
+    (when (and (string? b64)
+               (not (s/blank? b64))
+               (<= (count b64) max-artwork-base64))
+      (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
+        (when (and (pos? (alength data))
+                   (within-pixel-budget? data))
+          (fit-artwork data))))
+    (catch Exception e
+      (println "pdf: generated artwork rejected -" (.getMessage e))
       nil)))
 
 (defn draw-image! [doc page url x y width height]

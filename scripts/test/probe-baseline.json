@@ -63,5 +63,17 @@
   "whats_new_e2e.js": {
     "checks": 18,
     "seconds": 30
+  },
+  "portrait_compositor_e2e.js": {
+    "checks": 32,
+    "seconds": 10
+  },
+  "portrait_tab_e2e.js": {
+    "checks": 24,
+    "seconds": 11
+  },
+  "portrait_pdf_export_e2e.js": {
+    "checks": 10,
+    "seconds": 42
   }
 }

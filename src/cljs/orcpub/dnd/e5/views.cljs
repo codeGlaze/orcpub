@@ -25,6 +25,8 @@
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.portrait :as portrait]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -128,12 +130,32 @@
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component."
+   plugin-data map is pre-subscribed by the calling component.
+
+   A composed portrait exists only as stacked CSS masks in the browser, so it
+   is baked to a PNG here and posted with the spec; the server embeds those
+   bytes directly instead of fetching an image URL. Rasterizing waits on image
+   decode, hence the async submit -- and a failure resolves to nil so the
+   sheet still prints, just without the picture."
   [built-char id plugin-data & [options]]
   (fn [_]
-    (let [field (.getElementById js/document "fields-input")]
-      (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form")))))
+    (let [field (.getElementById js/document "fields-input")
+          spec (pdf-spec/make-spec built-char id options plugin-data)
+          portrait (char/portrait built-char)]
+      (-> (if (seq (:layers portrait))
+            (portrait/rasterize portrait)
+            (js/Promise.resolve nil))
+          (.then (fn [png-b64]
+                   (aset field "value"
+                         (str (cond-> spec
+                                png-b64
+                                (assoc :portrait-png png-b64
+                                       ;; the server has the baked pixels but
+                                       ;; not the layer selection, so the
+                                       ;; credit has to travel with them
+                                       :portrait-credit
+                                       (portrait-assets5e/credit-line portrait)))))
+                   (.submit (.getElementById js/document "download-form"))))))))
 
 (defn download-form [built-char]
   [:form.download-form
@@ -1736,13 +1758,18 @@
                            include-name?
                            owner
                            show-owner?
-                           show-follow?]
+                           show-follow?
+                           & [editable?]]
   (let [username @(subscribe [:username])
-        display-name (when include-name? (character-display-name summary))]
+        display-name (when include-name? (character-display-name summary))
+        ;; parsed {:layers :colors :tweaks} map, or nil — see char/portrait
+        portrait-data (::char/portrait summary)]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
-      (when image-url
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url }])
+      ;; a composed portrait wins over image-url when both are present; falls
+      ;; back to the pasted URL, then to nothing (existing behavior). With
+      ;; `editable?` the thumbnail also carries a pencil into the compositor.
+      [portrait/thumbnail portrait-data image-url editable?]
       [:div.flex.character-summary.m-t-20.m-b-20
        (when display-name [:span.m-r-20.m-b-5
                                                [:span.character-name display-name]
@@ -1787,6 +1814,7 @@
         eyes @(subscribe [::char/eyes id])
         skin @(subscribe [::char/skin id])
         image-url @(subscribe [::char/image-url id])
+        portrait-data @(subscribe [::char/portrait id])
         race @(subscribe [::char/race id])
         subrace @(subscribe [::char/subrace id])
         levels @(subscribe [::char/levels id])
@@ -1804,6 +1832,7 @@
       ::char/eyes eyes
       ::char/skin skin
       ::char/image-url image-url
+      ::char/portrait portrait-data
       ::char/race-name race
       ::char/subrace-name subrace
       ::char/alignment alignment
@@ -1819,7 +1848,10 @@
      include-name?
      owner
      true
-     true)))
+     true
+     ;; a nil id means the character currently in the builder -- the only
+     ;; place a drawer exists to open.
+     (nil? id))))
 
 ;; dead — character_builder.cljs has its own realize-char
 #_(defn realize-char [built-char]

@@ -28,6 +28,7 @@
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.encounters :as encounters]
@@ -208,10 +209,46 @@
                   :before (fn [context]
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
-(def character-interceptors [check-spec-interceptor
-                             set-changed
-                             (path :character)
-                             ->local-store])
+(def portrait-ui-keys
+  "Top-level app-db keys holding the in-progress portrait. Not part of the
+   character; only :portrait/save writes back."
+  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
+   :portrait/open-slot :portrait/open-layer])
+
+(defn drop-portrait-draft
+  "Clear the draft and count the change.
+
+   :character-epoch is bumped in step, so it counts how many times the character
+   being edited has been REPLACED. A save is dispatched at one epoch and answered
+   at another, and that is the only way the answer can tell whether the character
+   it is about is still the one on screen -- an id cannot, because a first save is
+   where the id appears."
+  [db]
+  (-> (apply dissoc db portrait-ui-keys)
+      (update :character-epoch (fnil inc 0))))
+
+(def discard-portrait-draft
+  "Drops the in-progress portrait, for an event that replaces the character
+   wholesale without going through :set-character.
+
+   Spliced BEFORE (path :character) in a chain, like set-changed, because the
+   draft is NOT inside the character -- past that point the db is the character
+   and these keys are out of reach."
+  (->interceptor
+   :id :discard-portrait-draft
+   :before (fn [context]
+             (update-in context [:coeffects :db] drop-portrait-draft))))
+
+;; Split so the one chain and the chain-plus-discard cannot drift apart, and so
+;; the discard lands on the whole-db side of (path :character).
+(def character-chain-head [check-spec-interceptor set-changed])
+(def character-chain-tail [(path :character) ->local-store])
+
+(def character-interceptors (into character-chain-head character-chain-tail))
+
+(def new-character-interceptors
+  "character-interceptors, plus the portrait discard."
+  (into (conj character-chain-head discard-portrait-draft) character-chain-tail))
 
 
 (def item-interceptors [(path ::mi/builder-item)
@@ -339,7 +376,10 @@
 
 (reg-event-db
  :reset-character
- character-interceptors
+ ;; "New" replaces the character in place and never routes through
+ ;; :set-character, so the draft has to be dropped HERE or a blank character
+ ;; inherits the previous one's portrait.
+ new-character-interceptors
  reset-character)
 
 (reg-event-fx
@@ -464,18 +504,51 @@
 #_ ;; unreferenced — character path is constructed inline
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
+(defn saved-character-is-the-one-being-edited?
+  "Whether a save that has just come back is about the character on screen.
+
+   It is decided from what the save was dispatched WITH, because nothing in the
+   response can answer it. A save is asynchronous, and the autosave queue is
+   throttled, so the answer routinely arrives after the builder has moved on --
+   toggle a prepared spell on one character from a list and the queued save for
+   it lands while another is open in the builder.
+
+   The two save paths know different things, so they say different things:
+
+     * the manual save posts db :character, so it passes the :epoch it was
+       dispatched at. A first save is exactly where the id appears, so an id
+       cannot distinguish 'the same character, now saved' from 'a different
+       character'; the epoch can, because it counts replacements.
+     * the autosave posts a character from the map BY ID, which may never have
+       been the one on screen, so it passes that :for-id to be compared.
+
+   Neither given (a bare re-dispatch) answers false. Losing a draft costs the
+   edits in it; keeping the wrong one writes one character's portrait onto
+   another."
+  [db {:keys [epoch for-id]}]
+  (cond
+    (some? for-id) (= for-id (:db/id (:character db)))
+    (some? epoch)  (= epoch (:character-epoch db 0))
+    :else          false))
+
 (reg-event-fx
  :character-save-success
- (fn [{:keys [db]} [_ response]]
+ (fn [{:keys [db]} [_ response save-context]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
-         id (:db/id character)]
+         id (:db/id character)
+         ;; Keep the portrait draft only for the character it was drawn for. On a
+         ;; first save this is where the character gets its :db/id, so the id
+         ;; changing is NOT a switch and the draft has to survive -- but a save
+         ;; that has outlived the screen it started on must not carry the draft
+         ;; onto whatever is open now.
+         current? (saved-character-is-the-one-being-edited? db save-context)]
      {:dispatch-n [[:show-message
                     (if-let [char-name (not-empty
                                         (get-in character [::entity/values ::char5e/character-name]))]
                       (str "Saved “" char-name "”")
                       "Your character has been saved.")]
-                   [:set-character character]
+                   [:set-character character {:keep-portrait-draft? current?}]
                    [::char5e/set-character id character]]})))
 
 (defn descriptive-character-label
@@ -569,7 +642,10 @@
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-                   :on-success [:character-save-success]}}
+                   ;; By id, from the character map -- which may not be the one
+                   ;; in the builder, and by the time this lands may not be even
+                   ;; if it was.
+                   :on-success [:character-save-success {:for-id (:db/id strict)}]}}
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
@@ -600,7 +676,8 @@
                :headers (authorization-headers db')
                :url (url-for-route routes/dnd-e5-char-list-route)
                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
+               :on-success [:character-save-success
+                            {:epoch (:character-epoch db' 0)}]}}
        {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
 
 (reg-event-fx
@@ -1677,7 +1754,35 @@
               :when (and (map? class-data) (not (:disabled? class-data)))]
           class-key)))
 
-(defn set-character [db [_ character]]
+(defn- keep-portrait-draft?
+  "Whether the in-progress portrait survives this :set-character.
+
+   The draft lives at the TOP of app-db, not inside the character, and both the
+   drawer and the Portrait tab seed it only when it is missing -- so left alone
+   it survived a switch from character A to character B, and the next Save wrote
+   A's portrait onto B. It cannot simply be cleared either, and the two reasons
+   pull in different directions, which is why this takes a flag AND the ids:
+
+     * The callers that CONTINUE the same character say so, because only they
+       know. :character-save-success re-sets the character from the save
+       response, and that is where a new character first gets its :db/id -- so
+       an id change does NOT mean 'a different character', and inferring that
+       threw away the portrait edits of anyone who pressed Save character before
+       Save portrait.
+     * Re-opening the character already being edited (the same non-nil id) keeps
+       it too, so Edit on the character you are already on is not a way to lose
+       work.
+
+   Everything else -- New, Clone, Random, opening or levelling a different
+   character -- drops it, INCLUDING when both ids are nil, which is what two
+   never-saved characters share and what the id comparison could not tell apart."
+  [db character explicit-keep?]
+  (let [id (:db/id character)]
+    (boolean
+     (or explicit-keep?
+         (and (some? id) (= id (:db/id (:character db))))))))
+
+(defn set-character [db [_ character opts]]
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
   ;; former-key index.
@@ -1707,7 +1812,9 @@
                         character
                         (loaded-class-keys db)
                         (content-recon/subclass->class-index (:plugins db)))]
-    (assoc db
+    (assoc (if (keep-portrait-draft? db character (:keep-portrait-draft? opts))
+             db
+             (drop-portrait-draft db))
            :character character
            :loading false
            :character-binding-report (when (or (seq (:unbound-classes binding-report))
@@ -1740,7 +1847,7 @@
    ;; the rebuild happens the way it does on any load.
    (let [{:keys [character]}
          (content-recon/reconcile-former-keys (:character db) {from-key to-key})]
-     {:dispatch-n [[:set-character character]
+     {:dispatch-n [[:set-character character {:keep-portrait-draft? true}]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
                          ". Save the character to keep it.")]]})))
@@ -1841,6 +1948,136 @@
            image-url
            ::char5e/image-url-failed
            nil)))
+
+;; ---- portrait compositor drawer ----
+;;
+;; Editing state (open/closed, the in-progress draft, which color panels are
+;; expanded) lives at the TOP of app-db under :portrait/* keys — UI state,
+;; not part of the persisted character. Only :portrait/save writes back, and
+;; it writes an EDN STRING to ::char5e/portrait: ::se/values is a Datomic
+;; component ref, so every key in it must be a registered attribute and no
+;; attribute can hold a nested map (see db/schema.clj). The char5e/portrait
+;; getter parses it back.
+
+(defn- seed-portrait-draft
+  "Reset the draft to whatever the character currently has saved.
+
+   Reads the RAW value, not char5e/portrait -- that getter resolves through
+   es/entity-val against a BUILT character, and db :character is the raw
+   entity. Going through the getter here silently yields nil, which once made
+   reopening the drawer discard a saved portrait."
+  [db]
+  (assoc db
+         :portrait/draft (or (char5e/parse-portrait
+                              (get-in db [:character ::entity/values ::char5e/portrait]))
+                             portrait-assets5e/empty-portrait)
+         :portrait/draft-seed nil
+         :portrait/open-slot nil
+         :portrait/open-layer nil))
+
+(reg-event-db
+ :portrait/ensure-draft
+ ;; For the inline Portrait tab, which has no open/close of its own: give it a
+ ;; draft if there is not one, and leave any in-progress edits alone.
+ (fn [db _]
+   (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
+
+(reg-event-db
+ :portrait/open
+ (fn [db _]
+   ;; Keeps an existing draft rather than reseeding: the drawer and the inline
+   ;; tab share one, so opening the drawer from the tab must not silently throw
+   ;; away what is on the tab's canvas.
+   (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
+       (assoc :portrait/drawer-open? true))))
+
+(reg-event-db
+ :portrait/close
+ (fn [db _]
+   ;; Cancel still discards, but by reseeding rather than dissoc-ing: the
+   ;; inline tab renders from this same draft and would otherwise go blank
+   ;; underneath the closing drawer.
+   (-> db seed-portrait-draft (assoc :portrait/drawer-open? false))))
+
+(reg-event-db
+ :portrait/pick-layer
+ (fn [db [_ layer-key asset-id]]
+   (update-in db [:portrait/draft :layers]
+              (fn [layers]
+                (if (nil? asset-id)
+                  (dissoc layers layer-key)
+                  (assoc layers layer-key
+                         {:artist/id (portrait-assets5e/artist-for-asset layer-key asset-id)
+                          :asset/id  asset-id}))))))
+
+;; Randomize and Reset touch :layers only — the character's colors persist
+;; across rerolls, which is what "my character's colors" should mean.
+(reg-event-db
+ :portrait/randomize
+ (fn [db _]
+   (let [seed (portrait-assets5e/random-seed)]
+     (-> db
+         (assoc :portrait/draft-seed seed)
+         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
+
+(reg-event-db
+ :portrait/reset
+ (fn [db _]
+   (-> db
+       (assoc-in [:portrait/draft :layers] {})
+       (assoc :portrait/draft-seed nil))))
+
+(reg-event-db
+ :portrait/set-slot-color
+ (fn [db [_ slot hex]]
+   (assoc-in db [:portrait/draft :colors slot] hex)))
+
+(reg-event-db
+ :portrait/clear-slot-color
+ (fn [db [_ slot]]
+   (update-in db [:portrait/draft :colors] dissoc slot)))
+
+;; `tweak` is {:shade n} or {:override hex}, merged into the piece's existing
+;; tweak. A zero shade or nil override drops that key; an empty tweak map is
+;; removed entirely so tweaked-layers-in-slot / the sub-dots stay honest.
+(reg-event-db
+ :portrait/set-layer-tweak
+ (fn [db [_ layer-key tweak]]
+   (update-in db [:portrait/draft :tweaks]
+              (fn [tweaks]
+                (let [merged (into {}
+                                   (remove (fn [[_ v]]
+                                             (or (nil? v) (and (number? v) (zero? v)))))
+                                   (merge (get tweaks layer-key) tweak))]
+                  (if (empty? merged)
+                    (dissoc tweaks layer-key)
+                    (assoc tweaks layer-key merged)))))))
+
+(reg-event-db
+ :portrait/clear-layer-tweak
+ (fn [db [_ layer-key]]
+   (update-in db [:portrait/draft :tweaks] dissoc layer-key)))
+
+(reg-event-db
+ :portrait/toggle-slot-panel
+ (fn [db [_ slot]]
+   (assoc db :portrait/open-slot (if (= slot (:portrait/open-slot db)) nil slot))))
+
+(reg-event-db
+ :portrait/toggle-layer-panel
+ (fn [db [_ layer-key]]
+   (assoc db :portrait/open-layer (if (= layer-key (:portrait/open-layer db)) nil layer-key))))
+
+(reg-event-db
+ :portrait/save
+ [db-char->local-store]
+ (fn [db [_ keep-open?]]
+   ;; The draft is kept either way -- it now equals what was just saved, so the
+   ;; dirty indicator clears and the inline tab carries on showing the portrait
+   ;; instead of emptying itself the moment you save it.
+   (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
+     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+       (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI
   (reg-event-db
@@ -3088,7 +3325,10 @@
           [::char5e/character-map (js/parseInt id)]
           update-fn)
      ::char5e/save-character-throttled id}
-    {:dispatch [:set-character (update-fn (:character db))]}))
+    ;; No id: the character being built has never been saved, so this is an
+    ;; edit to the one in hand, not a switch.
+    {:dispatch [:set-character (update-fn (:character db))
+                {:keep-portrait-draft? true}]}))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared

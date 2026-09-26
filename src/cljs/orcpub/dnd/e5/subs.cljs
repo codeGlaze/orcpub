@@ -15,6 +15,7 @@
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
@@ -82,6 +83,38 @@
  :temp-email
  (fn [db [_]]
    (get db :temp-email)))
+
+;; ---- portrait compositor drawer state (top-level app-db) ----
+(reg-sub
+ :portrait/drawer-open?
+ (fn [db _] (boolean (get db :portrait/drawer-open?))))
+
+(reg-sub
+ :portrait/draft
+ (fn [db _] (get db :portrait/draft {})))
+
+(reg-sub
+ :portrait/draft-seed
+ (fn [db _] (get db :portrait/draft-seed)))
+
+(reg-sub
+ :portrait/open-slot
+ (fn [db _] (get db :portrait/open-slot)))
+
+(reg-sub
+ :portrait/open-layer
+ (fn [db _] (get db :portrait/open-layer)))
+
+(reg-sub
+ :portrait/dirty?
+ ;; Compared as data, not as strings: pr-str of an equal map is not guaranteed
+ ;; to be byte-identical, and nil-vs-empty-portrait must not read as an edit.
+ (fn [db _]
+   (let [draft (get db :portrait/draft)
+         saved (char5e/parse-portrait
+                (get-in db [:character ::entity/values ::char5e/portrait]))]
+     (boolean (and draft
+                   (not= draft (or saved portrait-assets5e/empty-portrait)))))))
 
 (reg-sub
  :locked
@@ -822,6 +855,7 @@
    ::char5e/actions char5e/actions
    ::char5e/image-url char5e/image-url
    ::char5e/image-url-failed char5e/image-url-failed
+   ::char5e/portrait char5e/portrait
    ::char5e/faction-image-url char5e/faction-image-url
    ::char5e/faction-image-url-failed char5e/faction-image-url-failed
    ::char5e/personality-trait-1 char5e/personality-trait-1

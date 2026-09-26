@@ -105,6 +105,29 @@ The release id in the preload must track the newest `:id` in `src/cljc/orcpub/wh
 A new id reopens the panel by design and will break probes again; the runner is what catches
 that, and the fix is that one line.
 
+## Testing the phone layout: the viewport is not enough
+
+`:device-type` is read from the **user agent**, not the window size — it is set once at
+boot in `db.cljs` from `user-agent/device-type`. So `setViewportSize({ width: 412 })`
+still renders `desktop-or-tablet-columns`, squeezed into 412px, and a probe that calls
+that "mobile" passes while the phone layout is visibly broken. That happened here: a
+four-tab builder bar ran its labels together as `OPTIONSDESCRIPTIONPORTRAIT` at phone
+width, and the viewport-only check was green throughout.
+
+Use a context that claims to be a phone:
+
+```js
+const phone = await browser.newContext({
+  userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 '
+           + '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  isMobile: true, hasTouch: true, viewport: { width: 412, height: 915 },
+});
+```
+
+Then assert something the layout can actually fail: that no two tabs overlap, that
+`document.documentElement.scrollWidth` does not exceed `clientWidth`. "The element
+exists" is true in both layouts and proves neither.
+
 ## A probe is slow — find out why, do not guess
 
 ```
@@ -324,3 +347,12 @@ Launch with `--ssl-version-max=tls1.2` and set the proxy explicitly:
     })
 
 Bypass loopback, or requests to the app under test go out to the relay as well.
+
+## portrait_tab_e2e.js
+
+The compositor rendered as a builder tab rather than in the drawer. Covers the
+seams between the two: draft seeding without an open/close, handing in-progress
+edits to the drawer via "Full screen", and Save leaving the panel populated.
+
+Also covers the tab bar itself at phone width, in a context with a mobile UA —
+see *Testing the phone layout* above for why the viewport alone is not enough.
