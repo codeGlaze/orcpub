@@ -147,3 +147,66 @@
     (is (some? png) "the full stack of layers renders")
     (println (format "\n  COMPOSED PORTRAIT: %d layers, %.1f KB as PNG\n"
                      (count (:layers portrait)) (/ (count png) 1024.0)))))
+
+;; ---------------------------------------------------------------------------
+;; The fix, proven before it is adopted.
+;;
+;; Masking is not the only way to colour line art, and it is the wrong one for
+;; art that HAS lines. The usual technique is multiply: lay the character's
+;; colour down through the artwork's alpha, then multiply the artwork back over
+;; it. White fill leaves the tint alone; black lines stay black; a grey darkens
+;; the tint by however grey it is.
+;;
+;; Java2D has no multiply -- AlphaComposite is Porter-Duff only -- so on the
+;; server it is a pixel pass. This shows that pass keeping what SrcIn destroys.
+;; ---------------------------------------------------------------------------
+
+(defn- multiply-tint
+  "out.rgb = tint.rgb * art.rgb, out.a = art.a. The candidate replacement for
+   the AlphaComposite/SrcIn in draw-raster-layer!."
+  ^BufferedImage [^BufferedImage art ^Color tint]
+  (let [aw (.getWidth art) ah (.getHeight art)
+        out (BufferedImage. aw ah BufferedImage/TYPE_INT_ARGB)
+        tr (.getRed tint) tg (.getGreen tint) tb (.getBlue tint)]
+    (dotimes [y ah]
+      (dotimes [x aw]
+        (let [argb (.getRGB art x y)
+              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+          (when (pos? a)
+            (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                  g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                  b (bit-and argb 0xff)]
+              (.setRGB out x y
+                       (unchecked-int
+                        (bit-or (bit-shift-left a 24)
+                                (bit-shift-left (quot (* tr r) 255) 16)
+                                (bit-shift-left (quot (* tg g) 255) 8)
+                                (quot (* tb b) 255)))))))))
+    out))
+
+(deftest multiply-keeps-the-drawing-that-masking-destroys
+  (let [skin (Color. 0xE8 0xB0 0x90)
+        art (line-art-sample)
+        masked (tinted art skin)
+        multiplied (multiply-tint art skin)]
+    (write! multiplied "6-line-art-multiplied")
+
+    (testing "masking leaves one colour -- the finding above"
+      (is (= 1 (count (opaque-colours masked)))))
+
+    (testing "multiply keeps the lines AND takes the character's colour"
+      (let [colours (opaque-colours multiplied)]
+        (is (< 1 (count colours))
+            "more than one colour survives, so the drawing is still there")
+        (is (contains? colours 0xE8B090)
+            "the white fill came out exactly the character's colour")
+        (is (contains? colours 0x000000)
+            "and the black lines stayed black")))
+
+    (testing "a silhouette is unharmed by the change, so both kinds of asset
+              can share one pipeline"
+      (let [sil (silhouette-sample)]
+        (is (= #{0x000000} (opaque-colours (multiply-tint sil skin)))
+            "a pure black silhouette multiplies to black, NOT to the tint --
+             which is the catch: silhouettes would have to be white, not black,
+             for multiply to colour them")))))
