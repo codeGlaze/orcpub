@@ -154,7 +154,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
   on PR #34 is paused for it, and its homebrew commits are inputs. The work branch is
   `port/save-gate`, cut from `integration`. Inputs, scope, order and checkpoints:
   `docs/kb/plan-next.md` §0a. The map is done (`docs/kb/homebrew-key-map.md`) and the design proposed
-  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; step 1 done on `port/save-gate` (`5d8fc3a3`), step 2 next.
+  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; steps 1, 2 and 2b done on `port/save-gate` (`1d804217`), step 3 next.
 - **This branch's own purpose is grants** (`plan-next.md` items 1–6). The key fix is a detour it is
   hosting the planning for, not the branch's work; code for it lands on `port/save-gate`.
 - The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
@@ -165,7 +165,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
 | `feature/grant-rows` | this branch; carries all six review rounds of the save gate |
 | `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
 | `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
-| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `5d8fc3a3` (2026-09-27) it carries round six and #34's Move fixes and link probes |
+| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `1d804217` (2026-09-27) it carries round six, #34's Move fixes and link probes, and the built-in-key character fix |
 
 **Open PRs that touch this** (checked 2026-09-27):
 

@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Step 1 done (`port/save-gate` `5d8fc3a3`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1, 2 and 2b done (`port/save-gate` `1d804217`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -238,6 +238,16 @@ Each step lands green, with its tests, before the next begins:
    `d7640dd8`, `cd82f249` as inputs. The probes land first, marked as known gaps.
 2. **Stop characters being rebound off built-in content** (§5): built-in keys count as live in
    `former-key-index`. Moved ahead of everything else because it damages characters.
+   **Done `1d804217`.** The template watcher (`autosave_fx`, the one already mirroring
+   `::char5e/template` into app-db so events never subscribe) also stores `offered-keys`: every
+   key the builder can offer. `set-character` never redirects a key on that list and redirects
+   nothing until it exists; the first list heals a character that loaded before it.
+   **2b, done in the same commit:** the missing-content warning reads the same list instead of
+   hand-kept built-in sets. Those sets were wrong: seven subclass keys that do not exist
+   (`:lore`, `:life`, …; the real keys come from names, `:college-of-lore`) and five subraces the
+   app does not offer (Drow, Stout, Wood Elf, Mountain Dwarf, Forest Gnome, all commented out of
+   `spell_subs.cljs`). A character using one of those five now gets the warning, which is true:
+   the builder cannot build it.
 3. The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
    share closure growing to cover every link.
 4. `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
