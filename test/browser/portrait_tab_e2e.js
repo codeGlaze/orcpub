@@ -10,6 +10,8 @@
 //   node test/browser/portrait_tab_e2e.js
 
 const { chromium } = require('playwright');
+const fs = require('fs');
+const path = require('path');
 const { suppressOverlays } = require('./lib/orcbrew-import');
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
 
@@ -184,6 +186,79 @@ async function openBuilder(ctx, width) {
   check('and always says what it is',
         gapShapes.every(g => g.title && /not drawn yet/.test(g.title)),
         JSON.stringify(gapShapes));
+
+  // ---------- the draft belongs to ONE character ----------
+  //
+  // The in-progress portrait lives at the top of app-db, not inside the
+  // character, so nothing stops it outliving the character it was drawn for.
+  // Three review rounds went into guards that tried to work that out after the
+  // fact; the events say it now -- :set-character means a DIFFERENT character
+  // and always drops the draft, :character-updated means this one changed and
+  // keeps it. These drive the two switch paths in a real browser.
+  //
+  // The save path (portrait edits surviving Save, because the response is where
+  // a new character first gets its id) cannot be driven here: saving needs a
+  // session and these probes run unauthenticated. It is covered by
+  // events-test/a-save-of-the-character-on-screen-updates-it-rather-than-switching,
+  // which asserts which event the save dispatches.
+  const shotDir = process.env.ORCPUB_SHOT_DIR;
+  const shoot = async (name) => {
+    if (!shotDir) return;
+    fs.mkdirSync(shotDir, { recursive: true });
+    const out = path.join(shotDir, name);
+    await page.screenshot({ path: out });
+    console.log(`  screenshot -> ${out}`);
+  };
+
+  const portraitTab = page.locator('.builder-tab', { hasText: /^Portrait$/ }).first();
+  const inline = page.locator('.pl-inline');
+  const layerCount = () => inline.locator('.pl-portrait-frame .portrait-layer').count();
+
+  await portraitTab.click();
+  await page.waitForTimeout(300);
+  if (!(await layerCount())) {
+    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await page.waitForTimeout(400);
+  }
+  const before = await layerCount();
+  check('a portrait is composed before the switch', before > 0, `${before} layers`);
+  await shoot('1-portrait-composed.png');
+
+  // "New" replaces the character in place and never routes through
+  // :set-character, which is why it needs the discard in its own interceptor.
+  await page.locator('.header-button-text', { hasText: /^New$/ }).first().click();
+  await page.waitForTimeout(200);
+  const confirm = page.locator('button', { hasText: 'CREATE NEW CHARACTER' });
+  if (await confirm.count()) { await confirm.first().click(); }
+  await page.waitForTimeout(500);
+
+  await portraitTab.click();
+  await page.waitForTimeout(400);
+  const after = await layerCount();
+  check('New does not inherit the previous character\'s portrait',
+        after === 0, `${before} layers before, ${after} after`);
+  await shoot('2-new-character-is-blank.png');
+
+  // Randomize again so the shot after the second switch is not confused with
+  // the shot after the first.
+  await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  await page.waitForTimeout(400);
+  const rebuilt = await layerCount();
+  check('the new character can be given its own portrait', rebuilt > 0, `${rebuilt} layers`);
+  await shoot('3-new-character-own-portrait.png');
+
+  // Random builds a different character through :set-character.
+  await page.locator('.header-button-text', { hasText: /^Random$/ }).first().click();
+  await page.waitForTimeout(200);
+  const confirmRandom = page.locator('button', { hasText: 'GENERATE RANDOM CHARACTER' });
+  if (await confirmRandom.count()) { await confirmRandom.first().click(); }
+  await page.waitForTimeout(1200);
+  await portraitTab.click();
+  await page.waitForTimeout(400);
+  const afterRandom = await layerCount();
+  check('Random does not inherit it either', afterRandom === 0,
+        `${rebuilt} layers before, ${afterRandom} after`);
+  await shoot('4-random-character-is-blank.png');
 
   check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
 

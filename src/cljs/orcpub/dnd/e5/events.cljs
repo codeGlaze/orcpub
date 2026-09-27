@@ -239,16 +239,20 @@
    :before (fn [context]
              (update-in context [:coeffects :db] drop-portrait-draft))))
 
-;; Split so the one chain and the chain-plus-discard cannot drift apart, and so
-;; the discard lands on the whole-db side of (path :character).
-(def character-chain-head [check-spec-interceptor set-changed])
-(def character-chain-tail [(path :character) ->local-store])
-
-(def character-interceptors (into character-chain-head character-chain-tail))
+(def character-interceptors [check-spec-interceptor
+                             set-changed
+                             (path :character)
+                             ->local-store])
 
 (def new-character-interceptors
-  "character-interceptors, plus the portrait discard."
-  (into (conj character-chain-head discard-portrait-draft) character-chain-tail))
+  "character-interceptors, plus the portrait discard, which has to sit BEFORE
+   (path :character) -- past that point the db is the character and the draft,
+   which is not in the character, is out of reach."
+  [check-spec-interceptor
+   set-changed
+   discard-portrait-draft
+   (path :character)
+   ->local-store])
 
 
 (def item-interceptors [(path ::mi/builder-item)
@@ -522,9 +526,9 @@
      * the autosave posts a character from the map BY ID, which may never have
        been the one on screen, so it passes that :for-id to be compared.
 
-   Neither given (a bare re-dispatch) answers false. Losing a draft costs the
-   edits in it; keeping the wrong one writes one character's portrait onto
-   another."
+   Neither given (a bare re-dispatch) answers false, which is the safe way to be
+   wrong: a stale answer then updates the character map and leaves the screen
+   alone."
   [db {:keys [epoch for-id]}]
   (cond
     (some? for-id) (= for-id (:db/id (:character db)))
@@ -537,19 +541,34 @@
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)
-         ;; Keep the portrait draft only for the character it was drawn for. On a
-         ;; first save this is where the character gets its :db/id, so the id
-         ;; changing is NOT a switch and the draft has to survive -- but a save
-         ;; that has outlived the screen it started on must not carry the draft
-         ;; onto whatever is open now.
          current? (saved-character-is-the-one-being-edited? db save-context)]
-     {:dispatch-n [[:show-message
-                    (if-let [char-name (not-empty
-                                        (get-in character [::entity/values ::char5e/character-name]))]
-                      (str "Saved “" char-name "”")
-                      "Your character has been saved.")]
-                   [:set-character character {:keep-portrait-draft? current?}]
-                   [::char5e/set-character id character]]})))
+     {:dispatch-n
+      (cond-> [[:show-message
+                (if-let [char-name (not-empty
+                                    (get-in character [::entity/values ::char5e/character-name]))]
+                  (str "Saved “" char-name "”")
+                  "Your character has been saved.")]]
+
+        ;; The character on screen is only replaced when the save was ABOUT it.
+        ;; It used to be replaced by whatever came back: the autosave queue is
+        ;; throttled by 7.5s and every sheet control feeds it, so adjusting hit
+        ;; points on one character and opening another inside that window
+        ;; swapped the builder out from under you -- and db :character is where
+        ;; unsaved edits live, so they went with it. The portrait draft was only
+        ;; the loudest symptom.
+        current?
+        (conj [:character-updated character])
+
+        ;; :set-character is what decrements the loading counter on the normal
+        ;; path, so the branch that skips it has to settle up, or the overlay
+        ;; stays over a page that has finished loading.
+        (not current?)
+        (conj [:set-loading false])
+
+        ;; Always: the saved character belongs in the map whoever is on screen.
+        ;; This is the half of the old behaviour that was right.
+        true
+        (conj [::char5e/set-character id character]))})))
 
 (defn descriptive-character-label
   "Build a descriptive label like 'High Elf Ranger 3' from character properties.
@@ -1754,36 +1773,13 @@
               :when (and (map? class-data) (not (:disabled? class-data)))]
           class-key)))
 
-(defn- keep-portrait-draft?
-  "Whether the in-progress portrait survives this :set-character.
+(defn- reconciled-character
+  "Run the content reconcilers over `character` and report what they changed.
 
-   The draft lives at the TOP of app-db, not inside the character, and both the
-   drawer and the Portrait tab seed it only when it is missing -- so left alone
-   it survived a switch from character A to character B, and the next Save wrote
-   A's portrait onto B. It cannot simply be cleared either, and the two reasons
-   pull in different directions, which is why this takes a flag AND the ids:
-
-     * The callers that CONTINUE the same character say so, because only they
-       know. :character-save-success re-sets the character from the save
-       response, and that is where a new character first gets its :db/id -- so
-       an id change does NOT mean 'a different character', and inferring that
-       threw away the portrait edits of anyone who pressed Save character before
-       Save portrait.
-     * Re-opening the character already being edited (the same non-nil id) keeps
-       it too, so Edit on the character you are already on is not a way to lose
-       work.
-
-   Everything else -- New, Clone, Random, opening or levelling a different
-   character -- drops it, INCLUDING when both ids are nil, which is what two
-   never-saved characters share and what the id comparison could not tell apart."
-  [db character explicit-keep?]
-  (let [id (:db/id character)]
-    (boolean
-     (or explicit-keep?
-         (and (some? id) (= id (:db/id (:character db))))))))
-
-(defn set-character [db [_ character opts]]
-  ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
+   Shared by the two events below, which differ only in whether the portrait
+   draft survives -- everything about resolving renamed content is identical."
+  [db character]
+  ;; db :plugins are already hydrated here -- ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
   ;; former-key index.
   (let [;; Former keys first: a character that selected content before an import
@@ -1812,19 +1808,54 @@
                         character
                         (loaded-class-keys db)
                         (content-recon/subclass->class-index (:plugins db)))]
-    (assoc (if (keep-portrait-draft? db character (:keep-portrait-draft? opts))
-             db
-             (drop-portrait-draft db))
-           :character character
-           :loading false
-           :character-binding-report (when (or (seq (:unbound-classes binding-report))
-                                               (seq (:subclass-mismatches binding-report)))
-                                       binding-report)
-           ;; Cleared when there is nothing to report, which is what makes it
-           ;; self-resetting: after a save, :set-character runs again over the
-           ;; SAVED character, the reconcilers find nothing left to fix, and the
-           ;; prompt goes away on its own rather than needing to be dismissed.
-           :character-healed (when (seq rewrote) {:rewrote rewrote}))))
+    {:character character
+     :rewrote rewrote
+     :binding-report binding-report}))
+
+(defn- put-character
+  "Install a reconciled character and the reports that go with it."
+  [db {:keys [character rewrote binding-report]}]
+  (assoc db
+         :character character
+         :loading false
+         :character-binding-report (when (or (seq (:unbound-classes binding-report))
+                                             (seq (:subclass-mismatches binding-report)))
+                                     binding-report)
+         ;; Cleared when there is nothing to report, which is what makes it
+         ;; self-resetting: after a save, the character is re-installed, the
+         ;; reconcilers find nothing left to fix, and the prompt goes away on its
+         ;; own rather than needing to be dismissed.
+         :character-healed (when (seq rewrote) {:rewrote rewrote})))
+
+(defn set-character
+  "Put a DIFFERENT character on screen: opening one, cloning, randomizing, New.
+
+   The portrait draft is dropped, unconditionally and without asking anything
+   about ids. Three review rounds went into guards that tried to work out
+   afterwards whether a replacement was really a switch, and each guard was
+   wrong in a way the next one found: a first save looks like a new id, two
+   never-saved characters share a nil one. The information was never in the
+   characters -- it is in which event the caller meant, so that is now what
+   they choose. Modifying the character on screen is :character-updated.
+
+   The one exception is a courtesy and nothing depends on it: re-opening the
+   SAME saved character (Edit, from a list, on the one already in the builder)
+   keeps the draft, so that is not a way to lose work. Unlike the guards it
+   replaced, this comparison cannot be wrong -- two different characters cannot
+   share a non-nil id, and a nil one is not a match. Nothing about a save
+   reaches it any more, so please do not make it load-bearing again."
+  [db [_ character]]
+  (let [id (:db/id character)
+        same-saved-character? (and (some? id) (= id (:db/id (:character db))))]
+    (-> (cond-> db (not same-saved-character?) drop-portrait-draft)
+        (put-character (reconciled-character db character)))))
+
+(defn character-updated
+  "The character on screen has been MODIFIED -- edited in place, relinked, or
+   returned by its own save. Same reconcilers as a switch, but the portrait
+   draft is in-progress work on this character and stays."
+  [db [_ character]]
+  (put-character db (reconciled-character db character)))
 
 (defn healed-message
   "Toast copy for an automatic reconciliation. Says what moved and what to do
@@ -1847,7 +1878,7 @@
    ;; the rebuild happens the way it does on any load.
    (let [{:keys [character]}
          (content-recon/reconcile-former-keys (:character db) {from-key to-key})]
-     {:dispatch-n [[:set-character character {:keep-portrait-draft? true}]
+     {:dispatch-n [[:character-updated character]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
                          ". Save the character to keep it.")]]})))
@@ -1872,15 +1903,28 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
+(defn- character-install-fx
+  "Effects for installing a character, whichever of the two events did it."
+  [db']
+  (let [rewrote (get-in db' [:character-healed :rewrote])]
+    (cond-> {:db db'}
+      ;; Only on an actual repair. A clean load stays silent.
+      (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000]))))
+
 (reg-event-fx
  :set-character
  [db-char->local-store]
  (fn [{:keys [db]} event]
-   (let [db' (set-character db event)
-         rewrote (get-in db' [:character-healed :rewrote])]
-     (cond-> {:db db'}
-       ;; Only on an actual repair. A clean load stays silent.
-       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+   (character-install-fx (set-character db event))))
+
+(reg-event-fx
+ ;; The other half of what :set-character used to mean. Same reconcilers, same
+ ;; reports, same local-store write -- it differs only in keeping the portrait
+ ;; draft, because this character is the one that draft is being drawn for.
+ :character-updated
+ [db-char->local-store]
+ (fn [{:keys [db]} event]
+   (character-install-fx (character-updated db event))))
 
 (def character-values-path
   [::entity/values])
@@ -3327,8 +3371,7 @@
      ::char5e/save-character-throttled id}
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
-    {:dispatch [:set-character (update-fn (:character db))
-                {:keep-portrait-draft? true}]}))
+    {:dispatch [:character-updated (update-fn (:character db))]}))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared

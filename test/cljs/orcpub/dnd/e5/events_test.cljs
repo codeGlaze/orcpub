@@ -888,9 +888,11 @@
   (is (nil? (:portrait/draft-seed @app-db)))
   (is (nil? (:portrait/open-slot @app-db))))
 
-(deftest saving-the-same-character-keeps-the-draft
-  (testing ":set-character runs again over the saved character; clearing there
-            would blank the inline Portrait tab on every Save"
+(deftest re-opening-the-same-saved-character-keeps-the-draft
+  (testing "Edit, from a list, on the character already in the builder. A
+            courtesy rather than a correctness mechanism -- nothing about a save
+            reaches :set-character any more -- but losing an unsaved portrait to
+            a click that changes nothing would still be losing work"
     (let [draft {:layers {:head {:asset/id :still-being-edited}}}]
       (reset! app-db (assoc pristine-db
                             :character (char-with-id 111)
@@ -908,15 +910,15 @@
                             :character (char-with-id nil)
                             :portrait/draft draft))
       ;; What :character-save-success dispatches: same character, first id.
-      (rf/dispatch-sync [:set-character (char-with-id 999)
-                         {:keep-portrait-draft? true}])
+      (rf/dispatch-sync [:character-updated (char-with-id 999)])
       (is (= draft (:portrait/draft @app-db))
           "the draft is the only copy of these edits; it must survive"))))
 
-(deftest character-save-success-tells-set-character-to-keep-the-draft
-  (testing "the wiring, not the guard: a test that passes the flag itself proves
-            nothing about whether the save path passes it. Captures :dispatch-n
-            the way the :http stub above captures a request."
+(deftest a-save-of-the-character-on-screen-updates-it-rather-than-switching
+  (testing "the wiring, not a predicate: :set-character now MEANS a switch and
+            always drops the draft, so what this has to prove is that the save
+            path picks the other event. Captures :dispatch-n the way the :http
+            stub above captures a request."
     (let [dispatched (atom [])
           real (get-in @registrar/kind->id->handler [:fx :dispatch-n])]
       (try
@@ -928,28 +930,30 @@
          [:character-save-success
           {:body {:db/id 999 :orcpub.entity.strict/values {}}}
           {:epoch 0}])
-        (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
-          (is (some? set-char) ":character-save-success must re-set the character")
-          (is (= {:keep-portrait-draft? true} (nth set-char 2 nil))
-              "and must say the character is continuing, or a first save
-               silently discards portrait edits still in the drawer"))
+        (let [events (into #{} (map first) @dispatched)]
+          (is (contains? events :character-updated)
+              "a first save is the same character acquiring an id, so it updates")
+          (is (not (contains? events :set-character))
+              "and must not go through the switch, which discards the draft"))
         (finally
           (if real
             (rf/reg-fx :dispatch-n real)
             (rf/clear-fx :dispatch-n)))))))
 
-(deftest a-stale-save-does-not-carry-the-draft-onto-another-character
-  (testing "the save is asynchronous and the autosave queue is throttled, so the
-            answer can arrive after the builder has moved on. Keeping the draft
-            there writes the character on screen's portrait onto the one that was
-            saved."
+(deftest a-stale-save-leaves-the-character-on-screen-alone
+  (testing "saving is asynchronous and the autosave queue is throttled by 7.5s,
+            with every sheet control feeding it -- so adjust hit points on one
+            character, open another inside that window, and the answer arrives
+            about a character that is no longer on screen. It used to replace
+            the one that was, taking db :character -- where unsaved edits live --
+            with it. The portrait draft was the loudest symptom, not the bug."
     (let [dispatched (atom [])
-          real (get-in @registrar/kind->id->handler [:fx :dispatch-n])]
+          real (get-in @registrar/kind->id->handler [:fx :dispatch-n])
+          events-for (fn [] (into #{} (map first) @dispatched))]
       (try
         (rf/reg-fx :dispatch-n (fn [events] (reset! dispatched (vec events))))
+
         (testing "manual save, dispatched an epoch ago"
-          ;; The epoch counts replacements of the character being edited, so a
-          ;; save posted before a switch comes back at a later one.
           (reset! app-db (assoc pristine-db
                                 :character (char-with-id 222)
                                 :character-epoch 4
@@ -958,9 +962,14 @@
            [:character-save-success
             {:body {:db/id 111 :orcpub.entity.strict/values {}}}
             {:epoch 3}])
-          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
-            (is (= {:keep-portrait-draft? false} (nth set-char 2 nil))
-                "222's draft must not ride along with 111's save")))
+          (let [events (events-for)]
+            (is (not (contains? events :set-character)) "222 stays on screen")
+            (is (not (contains? events :character-updated)) "and is not rewritten as 111")
+            (is (contains? events :set-loading)
+                "the skipped install still owes the loading counter a decrement")
+            (is (contains? events :orcpub.dnd.e5.character/set-character)
+                "but 111 does belong in the character map")))
+
         (testing "autosave, for a character that is not the one on screen"
           (reset! app-db (assoc pristine-db
                                 :character (char-with-id 222)
@@ -969,9 +978,10 @@
            [:character-save-success
             {:body {:db/id 111 :orcpub.entity.strict/values {}}}
             {:for-id 111}])
-          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
-            (is (= {:keep-portrait-draft? false} (nth set-char 2 nil))
-                "a queued autosave for 111 must not take 222's portrait")))
+          (let [events (events-for)]
+            (is (not (contains? events :set-character)))
+            (is (not (contains? events :character-updated)))))
+
         (testing "autosave, for the character on screen"
           (reset! app-db (assoc pristine-db
                                 :character (char-with-id 111)
@@ -980,8 +990,8 @@
            [:character-save-success
             {:body {:db/id 111 :orcpub.entity.strict/values {}}}
             {:for-id 111}])
-          (let [set-char (first (filter #(= :set-character (first %)) @dispatched))]
-            (is (= {:keep-portrait-draft? true} (nth set-char 2 nil))
+          (let [events (events-for)]
+            (is (contains? events :character-updated)
                 "this one IS the character being edited")))
         (finally
           (if real
@@ -994,8 +1004,7 @@
     (reset! app-db (assoc pristine-db :character (char-with-id 111)))
     (rf/dispatch-sync [:set-character (char-with-id 222)])
     (is (= 1 (:character-epoch @app-db)) "switching characters counts")
-    (rf/dispatch-sync [:set-character (char-with-id 222)
-                       {:keep-portrait-draft? true}])
+    (rf/dispatch-sync [:character-updated (char-with-id 222)])
     (is (= 1 (:character-epoch @app-db))
         "continuing the same character does not")))
 
@@ -1030,7 +1039,6 @@
       (reset! app-db (assoc pristine-db
                             :character (char-with-id nil)
                             :portrait/draft draft))
-      (rf/dispatch-sync [:set-character (char-with-id nil)
-                         {:keep-portrait-draft? true}])
+      (rf/dispatch-sync [:character-updated (char-with-id nil)])
       (is (= draft (:portrait/draft @app-db))
           "changing a spell must not discard the portrait being built"))))
