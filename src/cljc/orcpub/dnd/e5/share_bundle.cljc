@@ -9,12 +9,10 @@
    Strategy:
      1. DIRECT   — sweep every ::entity/key the character selected
         (entity/flatten-options) and keep those that exist in the plugins map.
-     2. CLOSURE  — follow the shallow (<=2 hop) reference edges homebrew defs
-        carry (subclass->class, subrace->race, granted spells, race->language
-        by NAME, class->selection) to a fixpoint.
-     3. REVERSE  — a homebrew class's spell list is stored ON the spells
-        (:spell-lists {class-key true}), not on the class, so pull every
-        homebrew spell that names an included class.
+     2. CLOSURE  — follow every :follow link in library-links/links to a fixpoint.
+     3. REVERSE  — pull every item that points at an included item through a
+        :reverse link (a spell naming an included class's list); repeat 2 and 3
+        until nothing is added.
 
    Emits a :plugins-shaped map grouped by original source, ready to serialize
    like an .orcbrew export.
@@ -26,7 +24,8 @@
   (:require [clojure.string :as str]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.library-links :as links]))
 
 ;; Content-type keywords are written as literals (:orcpub.dnd.e5/...) rather
 ;; than via the ::e5 alias so this namespace stays clj-loadable for `lein test`
@@ -99,7 +98,9 @@
 
 ;; ── Transitive edges ─────────────────────────────────────────────────────────
 
-(defn- spell-key-refs
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/links, which
+;; outgoing-refs and add-reverse now read.
+#_(defn- spell-key-refs
   "Spell keys a race/subrace/class/subclass def grants, from every known shape."
   [d]
   (concat
@@ -112,7 +113,7 @@
    (mapcat (fn [gk] (when-let [m (get d gk)] (mapcat vals (vals m))))
            [:paladin-spells :cleric-spells :warlock-spells])))
 
-(defn- language-name-refs
+#_(defn- language-name-refs
   "Homebrew language keys a def grants by NAME (races/subraces :languages is a
    set of name strings). The one fuzzy edge — resolved via name-to-kw; names
    that do not resolve to a loaded homebrew language are simply not added
@@ -124,17 +125,17 @@
               (when (contains? lang-idx k) k)))
           (:languages d))))
 
-(defn- prop-language-refs
+#_(defn- prop-language-refs
   "Language keys referenced via a :props :language map (feats and friends)."
   [d]
   (keys (get-in d [:props :language])))
 
-(defn- selection-refs
+#_(defn- selection-refs
   "Selection keys a class references via :level-selections :type."
   [d]
   (keep :type (:level-selections d)))
 
-(defn- outgoing-refs
+#_(defn- outgoing-refs
   "All [ctype key] a def points at. Callers filter these against the index."
   [idx ctype d]
   (cond-> []
@@ -144,6 +145,26 @@
     true (into (for [k (language-name-refs idx d)] [languages k]))
     true (into (for [k (prop-language-refs d)] [languages k]))
     true (into (for [k (selection-refs d)] [selections k]))))
+
+(defn- resolve-target
+  "The key `v` names through `link`: `v` itself, or for a `:by :name` link the loaded item of
+   that name-derived key (nil when none)."
+  [idx link v]
+  (if (= :name (:by link))
+    (let [k (common/name-to-kw (str v))]
+      (when (contains? (get idx (:to link)) k) k))
+    v))
+
+(defn- outgoing-refs
+  "All [ctype key] a def of `ctype` points at through :follow links. Callers filter these
+   against the index."
+  [idx ctype d]
+  (for [link links/links
+        :when (and (= :follow (:bundle link)) (links/holds? link ctype))
+        v (links/targets link d)
+        :let [k (resolve-target idx link v)]
+        :when (some? k)]
+    [(:to link) k]))
 
 (defn- add-ref [acc ctype k] (update acc ctype (fnil conj #{}) k))
 (defn- has-ref? [acc ctype k] (contains? (get acc ctype) k))
@@ -166,7 +187,8 @@
                acc acc)]
       (if (= nxt acc) acc (recur nxt)))))
 
-(defn- add-reverse-spell-lists
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by add-reverse.
+#_(defn- add-reverse-spell-lists
   "A homebrew class's spell list is declared ON the spells (:spell-lists
    {class-key true}), so pull every homebrew spell that names an included class."
   [idx acc]
@@ -178,6 +200,31 @@
                   (add-ref a spells spell-key)
                   a))
               acc (get idx spells)))))
+
+(defn- add-reverse
+  "`acc` plus every item that points, through a :reverse link, at an item already in `acc`."
+  [idx acc]
+  (reduce
+   (fn [a link]
+     (let [wanted (get a (:to link))]
+       (if (empty? wanted)
+         a
+         (reduce (fn [a [ctype items]]
+                   (if (links/holds? link ctype)
+                     (reduce (fn [a [k {d :def}]]
+                               (if (some wanted (links/targets link d)) (add-ref a ctype k) a))
+                             a items)
+                     a))
+                 a idx))))
+   acc
+   (filter #(= :reverse (:bundle %)) links/links)))
+
+(defn- close
+  "Fixpoint of `closure` then `add-reverse`: what a reversed item needs is followed too."
+  [idx seed]
+  (loop [acc seed]
+    (let [nxt (add-reverse idx (closure idx acc))]
+      (if (= nxt acc) acc (recur nxt)))))
 
 ;; ── Emit ─────────────────────────────────────────────────────────────────────
 
@@ -201,8 +248,7 @@
   [character plugins]
   (let [idx (plugin-index plugins)]
     (->> (direct-refs idx character)
-         (closure idx)
-         (add-reverse-spell-lists idx)
+         (close idx)
          (emit-bundle idx))))
 
 ;; The share link always carries the character's FULL content — descriptions and
