@@ -31,6 +31,9 @@
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
 (autosave-fx/init-template-cache!)
 
+;; Another tab's library write reloads this tab's copy.
+(events/start-library-watch!)
+
 (def pages
   {nil views-2/splash-page
    routes/default-route views-2/splash-page

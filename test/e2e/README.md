@@ -50,6 +50,8 @@ Four scripts cover one subject between them — where a save lands, and what an 
 it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
 
 - **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`two-tabs.js`** — two tabs saving to the library: a stale tab's save is merged onto the other's,
+  and the other tab picks it up without a reload.
 - **`quarantine-restore.js`** — restoring entries the loader set aside: the panel lists only what is
   still set aside after each click, an empty source is filled from the pack, the message says what
   came back and what each is now called, and working keys are kept.

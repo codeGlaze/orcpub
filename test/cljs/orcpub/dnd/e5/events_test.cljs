@@ -528,6 +528,36 @@
          (events/updated-line [{:source "Tide Pak" :key :warden :name "Warden"}
                                {:source "Tide Pak" :key :tidecall :name "Tidecall"}]))))
 
+;; Two tabs: a write made on a stale copy is merged onto what the other tab stored.
+
+(deftest a-stale-tab-merges-its-write-onto-the-other-tabs
+  (.clear js/window.localStorage)
+  (let [base {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :sea] {:key :sea :name "Sea" :option-pack "Pak"})]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins base :orcpub.dnd.e5/plugins-rev 4})
+    (rf/dispatch-sync [::e5/set-plugins
+                       (assoc-in base ["Pak" :orcpub.dnd.e5/languages :tide] {:name "Tide"})])
+    (is (= #{:cant :sea :tide} (set (keys (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages]))))
+        "the other tab's Sea is kept")
+    (is (= 6 (:orcpub.dnd.e5/plugins-rev @app-db)))
+    (is (= "6" (.getItem js/window.localStorage "plugins:rev"))))
+  (.clear js/window.localStorage))
+
+(deftest a-stale-tab-changing-what-the-other-tab-changed-reloads-instead
+  (.clear js/window.localStorage)
+  (let [base {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :cant :name] "Thieves' Cant")]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins base :orcpub.dnd.e5/plugins-rev 4})
+    (rf/dispatch-sync [::e5/set-plugins (assoc-in base ["Pak" :orcpub.dnd.e5/languages :cant :name] "Cant (mine)")])
+    (is (= "Thieves' Cant" (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages :cant :name]))
+        "this tab now shows the other tab's version")
+    (is (= "5" (.getItem js/window.localStorage "plugins:rev")) "and nothing was written"))
+  (.clear js/window.localStorage))
+
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
 ;; (nil instead of false)" corruption by driving the REAL toggle event handlers in

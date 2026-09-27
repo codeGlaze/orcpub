@@ -524,6 +524,35 @@
 ;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
 ;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
 ;; because the salvage/quarantine behavior is plugins-specific.
+(def local-storage-plugins-rev-key "plugins:rev")
+
+(defn plugins-rev
+  "How many times the library has been written, as storage records it; 0 when it has no record."
+  []
+  (let [n (some-> js/window.localStorage (.getItem local-storage-plugins-rev-key) js/parseInt)]
+    (if (and (number? n) (not (js/isNaN n))) n 0)))
+
+(defn set-plugins-rev! [n]
+  (set-item local-storage-plugins-rev-key (str n)))
+
+(defn stored-plugins
+  "The library as storage holds it now, or {} when it holds none."
+  []
+  (let [v (get-local-storage-item local-storage-plugins-key)]
+    (if (map? v) v {})))
+
+(re-frame/reg-cofx
+ ::e5/plugins-rev
+ (fn [cofx _]
+   (assoc cofx ::e5/plugins-rev (plugins-rev))))
+
+(defn watch-library-elsewhere!
+  "Calls `on-change` whenever another tab writes the library. The browser does not fire this for
+   the tab's own writes."
+  [on-change]
+  (.addEventListener js/window "storage"
+                     (fn [e] (when (= local-storage-plugins-key (.-key e)) (on-change)))))
+
 (re-frame/reg-cofx
  ::e5/plugins
  (fn [cofx _]

@@ -80,3 +80,38 @@
           :let [was (get-in o [src ct k])]
           :when (and (some? was) (not= was item))]
       {:source src :type ct :key k :name (:name item)})))
+
+(defn- entries
+  "`plugins` as {path value}: [source] for each source, [source field] for a source's own fields,
+   [source type key] for each item."
+  [plugins]
+  (into {}
+        (for [[src plugin] plugins
+              :when (map? plugin)
+              e (cons [[src] ::source]
+                      (for [[k v] plugin
+                            e (if (and (qualified-keyword? k) (map? v))
+                                (for [[ik item] v] [[src k ik] item])
+                                [[[src k] v]])]
+                        e))]
+          e)))
+
+(defn- rebuild [es]
+  (reduce (fn [p [path v]]
+            (if (= 1 (count path)) (update p (first path) #(or % {})) (assoc-in p path v)))
+          {}
+          (sort-by (comp count key) es)))
+
+(defn three-way
+  "`mine` applied onto `theirs`, both descended from `base`: every entry (a source, a source's own
+   field, an item) that `mine` added, changed or removed since `base` is applied to `theirs`, and
+   the rest of `theirs` stands. Returns {:plugins :conflicts}, a conflict being the path of an
+   entry both changed, differently."
+  [base mine theirs]
+  (let [b (entries (normalize base)) m (entries (normalize mine)) t (entries (normalize theirs))
+        at (fn [es p] (get es p ::none))
+        changed (filter #(not= (at b %) (at m %)) (into #{} (concat (keys b) (keys m))))
+        conflicts (filter #(and (not= (at b %) (at t %)) (not= (at m %) (at t %))) changed)]
+    {:plugins (rebuild (reduce (fn [acc p] (if (= ::none (at m p)) (dissoc acc p) (assoc acc p (at m p))))
+                               t changed))
+     :conflicts (vec (sort-by str conflicts))}))

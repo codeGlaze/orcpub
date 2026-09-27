@@ -48,3 +48,34 @@
     (is (= [{:source "Classes" :type :orcpub.dnd.e5/classes :key :warden :name "Warden (2nd printing)"}]
            (library/overwritten library reimport))
         "a changed entry is named; a new one and an unchanged one are not")))
+
+;; ── Two tabs ────────────────────────────────────────────────────────────────
+
+(deftest three-way-keeps-both-tabs-work
+  (let [base library
+        mine (assoc-in base ["Classes" :orcpub.dnd.e5/classes :mine] {:name "Mine"})
+        theirs (-> base
+                   (assoc-in ["Classes" :orcpub.dnd.e5/classes :theirs] {:name "Theirs"})
+                   (assoc "New Pak" {}))
+        {:keys [plugins conflicts]} (library/three-way base mine theirs)]
+    (is (empty? conflicts))
+    (is (= #{:warden :mine :theirs} (set (keys (get-in plugins ["Classes" :orcpub.dnd.e5/classes]))))
+        "an item added in each tab survives")
+    (is (contains? plugins "New Pak") "an empty source the other tab added survives")))
+
+(deftest three-way-applies-a-delete-without-undoing-the-other-tab
+  (let [base library
+        mine (update-in base ["Classes" :orcpub.dnd.e5/classes] dissoc :warden)
+        theirs (assoc-in base ["Domains" :orcpub.dnd.e5/subclasses :tides :name] "Oath of the Tides")
+        {:keys [plugins conflicts]} (library/three-way base mine theirs)]
+    (is (empty? conflicts))
+    (is (nil? (get-in plugins ["Classes" :orcpub.dnd.e5/classes :warden])) "this tab's delete applies")
+    (is (= "Oath of the Tides" (get-in plugins ["Domains" :orcpub.dnd.e5/subclasses :tides :name]))
+        "and the other tab's edit stands")))
+
+(deftest three-way-reports-an-item-both-tabs-changed
+  (let [base library
+        mine (assoc-in base ["Classes" :orcpub.dnd.e5/classes :warden :name] "Warden A")
+        theirs (assoc-in base ["Classes" :orcpub.dnd.e5/classes :warden :name] "Warden B")]
+    (is (= [["Classes" :orcpub.dnd.e5/classes :warden]] (:conflicts (library/three-way base mine theirs))))
+    (is (empty? (:conflicts (library/three-way base mine mine))) "the same change in both is no conflict")))

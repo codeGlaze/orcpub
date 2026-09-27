@@ -60,6 +60,10 @@
                                       class->local-store
                                       plugins->local-store
                                       keep-pre-fix-copy!
+                                      plugins-rev
+                                      set-plugins-rev!
+                                      stored-plugins
+                                      watch-library-elsewhere!
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
@@ -308,6 +312,7 @@
   (inject-cofx :local-store-builder-items)
   (inject-cofx ::e5/builder-origin)
   (inject-cofx ::e5/plugins)
+  (inject-cofx ::e5/plugins-rev)
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
@@ -329,13 +334,15 @@
               ::e5/health-dismissed
               ::e5/whats-new-seen
               ::e5/dev-mode
-              ::combat/tracker-item]} _]
+              ::combat/tracker-item]
+       :as cofx} _]
    {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
                                   (cookie-banner-pending?))
     :db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins) ;; library load
+            true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0))
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
@@ -4695,22 +4702,60 @@
          (when (> (count broken) 3) (str " and " (- (count broken) 3) " more"))
          " pointing at nothing.")))
 
+(defn- changed-elsewhere-message [theirs conflicts]
+  (let [names (distinct (map (fn [[src ct k :as path]]
+                               (str "\u201c" (or (get-in theirs [src ct k :name])
+                                                 (some-> (last path) name)) "\u201d"))
+                             conflicts))]
+    {:title (str (s/join ", " (take 2 names))
+                 (when (> (count names) 2) (str " and " (- (count names) 2) " more"))
+                 " changed in another tab, so this wasn't saved.")
+     :details ["This tab now shows that version. Make your change again to keep it."]}))
+
 (defn commit-library
   "Stores `plugins` through the library gate (library/commit), the one place the library is
    written. Returns {:db :ok? :dispatch-n}: on success `:db` holds the stored library; when the
    gate refuses, `:db` is unchanged and `:dispatch-n` carries the error. `opts` as
    library/commit, plus `:on-success`, an event dispatched once the write has stuck."
   [db plugins opts]
-  (let [old (:plugins db)
-        {stored :plugins refused :refused} (library/commit old plugins opts)]
-    (if refused
+  (let [rev (plugins-rev)
+        ;; Another tab wrote since this one last read: apply this tab's change onto that write.
+        elsewhere? (and (some? (::e5/plugins-rev db)) (not= rev (::e5/plugins-rev db)))
+        theirs (when elsewhere? (stored-plugins))
+        {merged :plugins conflicts :conflicts}
+        (if elsewhere? (library/three-way (:plugins db) plugins theirs) {:plugins plugins})
+        old (if elsewhere? theirs (:plugins db))
+        {stored :plugins refused :refused} (when (empty? conflicts) (library/commit old merged opts))]
+    (cond
+      (seq conflicts)
+      {:db (assoc db :plugins theirs ::e5/plugins-rev rev) ;; library load
+       :ok? false
+       :dispatch-n [[:show-error-message (changed-elsewhere-message theirs conflicts)]]}
+
+      refused
       (do (js/console.warn "Library write refused" (clj->js refused))
           {:db db :ok? false :dispatch-n [[:show-error-message (refusal-message refused)]]})
+
+      :else
       (do (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
           (let [ok? (plugins->local-store stored)] ;; library gate
-            {:db (assoc db :plugins stored) ;; library gate
+            (when ok? (set-plugins-rev! (inc rev)))
+            {:db (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
              :ok? ok?
              :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])})))))
+
+(reg-event-fx
+ ::e5/library-changed-elsewhere
+ [(inject-cofx ::e5/plugins) (inject-cofx ::e5/plugins-rev)]
+ (fn [{:keys [db] :as cofx} _]
+   {:db (assoc db ;; library load
+               :plugins (or (::e5/plugins cofx) {})
+               ::e5/plugins-rev (::e5/plugins-rev cofx))}))
+
+(defn start-library-watch!
+  "Reloads the library into this tab whenever another tab writes it."
+  []
+  (watch-library-elsewhere! #(dispatch [::e5/library-changed-elsewhere])))
 
 (reg-event-fx
  ::e5/set-plugins
