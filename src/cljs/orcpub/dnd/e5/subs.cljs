@@ -1648,13 +1648,19 @@
     :feats feats}))
 
 (reg-sub
+ ::content-recon/offered-keys
+ (fn [db _]
+   (::content-recon/offered-keys db)))
+
+(reg-sub
  ::char5e/missing-content-report
  (fn [_]
    [(subscribe [:character])
-    (subscribe [::char5e/available-content])])
- (fn [[character available-content]]
+    (subscribe [::char5e/available-content])
+    (subscribe [::content-recon/offered-keys])])
+ (fn [[character available-content offered]]
    (when character
-     (content-recon/generate-missing-content-report character available-content))))
+     (content-recon/generate-missing-content-report character available-content offered))))
 
 (reg-sub
  ::char5e/has-missing-content?

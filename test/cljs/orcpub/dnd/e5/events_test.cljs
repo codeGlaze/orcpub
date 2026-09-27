@@ -35,6 +35,13 @@
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.template :as t]
+            [orcpub.common :as common]
+            [reagent.core :as r]
+            ;; Side effect: registers the subscriptions that build ::char5e/template
+            [orcpub.dnd.e5.subs]
+            [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]))
 
@@ -790,7 +797,7 @@
                          :name "Half-Elf (UA)"}}}})
 
 (deftest set-character-flags-a-repair-so-the-save-button-can-ask-for-it
-  (reset! app-db {:plugins renamed-plugins})
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
   (rf/dispatch-sync [:set-character
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
   (testing "the stored key is repaired"
@@ -802,7 +809,7 @@
 
 (deftest set-character-stays-quiet-when-nothing-needed-fixing
   ;; A clean load must not glint the save button, or the cue means nothing.
-  (reset! app-db {:plugins renamed-plugins})
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
   (rf/dispatch-sync [:set-character
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-ua}}}])
   (is (nil? (:character-healed @app-db))))
@@ -811,7 +818,7 @@
   ;; What makes this self-resetting rather than a banner someone has to dismiss:
   ;; saving re-dispatches :set-character over the SAVED character, whose keys are
   ;; now current, so the reconcilers find nothing and the flag drops on its own.
-  (reset! app-db {:plugins renamed-plugins})
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
   (rf/dispatch-sync [:set-character
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
   (is (some? (:character-healed @app-db)) "flagged on the broken load")
@@ -820,6 +827,84 @@
     (rf/dispatch-sync [:set-character healed])
     (is (nil? (:character-healed @app-db))
         "second pass over the repaired character clears the prompt")))
+
+;; The list of keys the builder offers decides what may be redirected.
+
+(def ^:private undone-override
+  {"Pak" {:orcpub.dnd.e5/classes
+          {:cleric-tc {:key :cleric-tc :former-keys [:cleric] :name "Cleric"}}}})
+
+(def ^:private took-the-built-in-cleric
+  {:orcpub.entity/options {:class [{:orcpub.entity/key :cleric}]}})
+
+(deftest undoing-an-override-leaves-characters-on-the-built-in
+  (reset! app-db {:plugins undone-override ::content-recon/offered-keys #{:class :cleric}})
+  (rf/dispatch-sync [:set-character took-the-built-in-cleric])
+  (is (= :cleric (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
+      "the stored key still names the built-in Cleric")
+  (is (nil? (:character-healed @app-db)) "and the save button is not asking to save a change"))
+
+(deftest nothing-is-redirected-before-the-list-exists
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (= :half-elf-phb (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key])))
+  (is (nil? (:character-healed @app-db))))
+
+(def ^:private small-template
+  {::t/selections [(t/selection-cfg
+                    {:name "Race" :key :race
+                     :options [(t/option-cfg {:name "Half-Elf (UA)" :key :half-elf-ua})]})]})
+
+(deftest the-first-list-heals-a-character-that-loaded-before-it
+  (let [character {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}
+        fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
+                                       [::autosave-fx/cache-template small-template])]
+    (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
+    (is (= [:set-character character] (:dispatch fx)) "the waiting heal runs once the list exists")
+    (is (nil? (:dispatch (autosave-fx/cache-template {:db (:db fx)}
+                                                     [::autosave-fx/cache-template small-template])))
+        "and only on the first list")))
+
+(deftest a-character-with-nothing-to-heal-is-not-reloaded
+  (let [fx (autosave-fx/cache-template
+            {:db {:plugins undone-override :character took-the-built-in-cleric}}
+            [::autosave-fx/cache-template
+             {::t/selections [(t/selection-cfg
+                               {:name "Class" :key :class
+                                :options [(t/option-cfg {:name "Cleric" :key :cleric})]})]}])]
+    (is (nil? (:dispatch fx)))))
+
+(defn- real-template
+  "The real ::char5e/template, read inside a reactive context the way the app's watcher reads it."
+  []
+  (let [out (atom nil)
+        watcher (r/track! (fn [] (reset! out @(rf/subscribe [::char5e/template]))))]
+    (r/dispose! watcher)
+    @out))
+
+(deftest the-real-builder-offers-every-built-in-key
+  ;; The built-in content the app defines (classes.cljc, spell_subs.cljs, spells.cljc). Subclasses
+  ;; carry no :key, so theirs are derived from the name, as option-cfg does.
+  (reset! app-db {})
+  (rf/clear-subscription-cache!)
+  (let [offered (content-recon/offered-keys (real-template))]
+    (doseq [[what ks] {"classes"     classes5e/base-class-keys
+                       "races"       #{:dwarf :elf :halfling :human :dragonborn :gnome
+                                       :half-elf :half-orc :tiefling}
+                       "subraces"    #{:hill-dwarf :high-elf :lightfoot :rock-gnome
+                                       :calishite :chondathan :damaran :illuskan :mulan
+                                       :rashemi :shou :tethyrian :turami}
+                       "backgrounds" #{:acolyte}
+                       "subclasses"  (set (map common/name-to-kw
+                                               ["Path of the Berserker" "College of Lore" "Life Domain"
+                                                "Circle of the Land" "Champion" "Way of the Open Hand"
+                                                "Oath of Devotion" "Hunter" "Thief" "Draconic Bloodline"
+                                                "School of Evocation" "The Fiend"]))
+                       "feats"       #{:grappler}
+                       "spells"      #{:fireball :cure-wounds :eldritch-blast}}]
+      (is (empty? (remove offered ks)) (str "every built-in " what " key is offered: missing "
+                                            (vec (remove offered ks)))))))
 
 (deftest healed-message-counts-what-moved
   (is (= (events/healed-message [{:from :a :to :b}])

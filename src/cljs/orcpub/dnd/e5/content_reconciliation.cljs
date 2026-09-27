@@ -12,6 +12,7 @@
             [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.common :as common]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
@@ -159,17 +160,19 @@
 ;; Built-in (SRD) Content — excluded from missing-content warnings
 ;; ============================================================================
 
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by `offered-keys`, which reads what
+;; the builder actually offers instead of a hand-kept copy of it. See homebrew-keys-design.md.
 ;; Only SRD content belongs here. Non-SRD PHB content (Battle Master,
 ;; Folk Hero, etc.) comes from plugins and SHOULD be flagged when removed.
 
-(def ^:private builtin-races
+#_(def ^:private builtin-races
   #{:dwarf :elf :halfling :human :dragonborn :gnome
     :half-elf :half-orc :tiefling})
 
 ;; Built-in subraces: PHB subrace keys auto-generated from their names via
 ;; common/name-to-kw. Human cultural variants (Calishite etc.) are defined
 ;; in spell_subs.cljs with only :name, so their keys are derived from the name.
-(def ^:private builtin-subraces
+#_(def ^:private builtin-subraces
   #{;; Dwarf
     :hill-dwarf :mountain-dwarf
     ;; Elf
@@ -185,17 +188,17 @@
     :standard-human :variant-human})
 
 ;; Only Acolyte is hardcoded (spell_subs.cljs:538).
-(def ^:private builtin-backgrounds #{:acolyte})
+#_(def ^:private builtin-backgrounds #{:acolyte})
 
 ;; SRD subclasses — one per class, hardcoded in classes.cljc.
-(def ^:private builtin-subclasses
+#_(def ^:private builtin-subclasses
   #{:champion :berserker :lore :life :land :open-hand
     :devotion :hunter :thief :draconic :fiend :evocation})
 
 ;; Grappler is the only SRD feat (feats5e/feats-plugin, hardcoded).
-(def ^:private builtin-feats #{:grappler})
+#_(def ^:private builtin-feats #{:grappler})
 
-(defn- builtin?
+#_(defn- builtin?
   "True if this key is SRD built-in content that won't appear in plugin subs."
   [k content-type]
   (case content-type
@@ -206,6 +209,21 @@
     :background (contains? builtin-backgrounds k)
     :feat (contains? builtin-feats k)
     false))
+
+;; ============================================================================
+;; What the builder offers
+;; ============================================================================
+
+(defn offered-keys
+  "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the
+   builder can offer right now, built-in and homebrew. Walks selections, options,
+   `::t/selections` and `::t/associated-options` only."
+  [template]
+  (letfn [(selection [acc s] (reduce option (conj acc (::t/key s)) (::t/options s)))
+          (option [acc o] (reduce selection
+                                  (reduce option (conj acc (::t/key o)) (::t/associated-options o))
+                                  (::t/selections o)))]
+    (disj (reduce selection #{} (::t/selections template)) nil)))
 
 ;; ============================================================================
 ;; Missing Content Detection
@@ -221,33 +239,24 @@
 (def ^:private inline-content-sentinels #{:custom :none})
 
 (defn check-content-availability
-  "Check which content keys from a character are missing.
-
-   Parameters:
-   - character-keys: seq from extract-content-keys
-   - available-content: map of {:classes [...] :races [...] :subclasses [...] ...}
-
-   Returns seq of missing content with suggestions."
-  [character-keys available-content]
-  (let [available-keys (into {}
-                             (map (fn [[ct field]]
-                                    [ct (set (map :key (get available-content field)))]))
-                             content-type->field)]
+  "Entries of `character-keys` (from `extract-content-keys`) whose key is not in `offered`
+   (from `offered-keys`), each with `:missing? true`, `:suggestions` drawn from `available-content`
+   ({:classes [...] :races [...] ...}) and `:inferred-source`. `offered` nil means not yet known:
+   nothing is reported."
+  [character-keys available-content offered]
+  (when (some? offered)
     (keep
      (fn [{:keys [key content-type] :as entry}]
-       (let [type-keys (get available-keys content-type #{})
-             missing? (and (not (contains? inline-content-sentinels key))
-                           (not (contains? type-keys key))
-                           (not (builtin? key content-type)))]
-         (when missing?
-           (let [field (get content-type->field content-type)
-                 suggestions (find-similar-content
-                              key content-type
-                              (get available-content field []))]
-             (assoc entry
-                    :missing? true
-                    :suggestions suggestions
-                    :inferred-source (infer-source-from-key key))))))
+       (when-not (or (contains? inline-content-sentinels key)
+                     (contains? offered key))
+         (let [field (get content-type->field content-type)
+               suggestions (find-similar-content
+                            key content-type
+                            (get available-content field []))]
+           (assoc entry
+                  :missing? true
+                  :suggestions suggestions
+                  :inferred-source (infer-source-from-key key)))))
      character-keys)))
 
 (defn generate-missing-content-report
@@ -260,9 +269,9 @@
              :label \"Class\"
              :inferred-source \"Kibbles' Tasty\"
              :suggestions [{:key :bar :name \"Similar\" :similarity 0.8}]}]}"
-  [character available-content]
+  [character available-content offered]
   (let [char-keys (extract-content-keys character)
-        missing (check-content-availability char-keys available-content)]
+        missing (check-content-availability char-keys available-content offered)]
     {:has-missing? (boolean (seq missing))
      :missing-count (count missing)
      :items (vec missing)}))
@@ -424,43 +433,36 @@
                               (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
 
 (defn former-key-index
-  "{former-key -> current-key} across every source and content type in `plugins`.
-
-   Deliberately not keyed by content type. The character's option tree stores a
-   content key as a bare value under ::entity/key with no type beside it, so a
-   type-aware index could not be consulted without reconstructing the path. Two
-   exclusions make a global index safe instead:
-
-   - a former key claimed by MORE THAN ONE item is dropped. Two items both
-     claiming to have been :artificer cannot both be rebound to, and picking one
-     would bind a character to whichever happened to be walked first.
-   - a former key that is some item's LIVE key is dropped. The live item owns that
-     key; a character pointing at it already resolves, and rebinding it away would
-     break something that works."
-  [plugins]
-  (let [items (for [[_ plugin] plugins
-                    :when (map? plugin)
-                    [ct content] plugin
-                    :when (map? content)
-                    [k item] content
-                    :when (map? item)]
-                {:key k :formers (former-keys item)})
-        live (into #{} (map :key) items)
-        claims (reduce (fn [acc {:keys [key formers]}]
-                         (reduce (fn [acc former]
-                                   (cond-> acc
-                                     (not= former key)
-                                     (update former (fnil conj #{}) key)))
-                                 acc
-                                 formers))
-                       {}
-                       items)]
-    (into {}
-          (keep (fn [[former targets]]
-                  (when (and (= 1 (count targets))
-                             (not (contains? live former)))
-                    [former (first targets)])))
-          claims)))
+  "{former-key -> current-key} across every source and content type in `plugins`. `offered` is
+   from `offered-keys`; nil means not yet known, and the index is empty.
+   GOTCHA: drops a former key claimed by more than one item, held by any library item (disabled
+   ones included), or in `offered` (built-in content included). Such a key still answers."
+  [plugins offered]
+  (if (nil? offered)
+    {}
+    (let [items (for [[_ plugin] plugins
+                      :when (map? plugin)
+                      [ct content] plugin
+                      :when (map? content)
+                      [k item] content
+                      :when (map? item)]
+                  {:key k :formers (former-keys item)})
+          live (into offered (map :key) items)
+          claims (reduce (fn [acc {:keys [key formers]}]
+                           (reduce (fn [acc former]
+                                     (cond-> acc
+                                       (not= former key)
+                                       (update former (fnil conj #{}) key)))
+                                   acc
+                                   formers))
+                         {}
+                         items)]
+      (into {}
+            (keep (fn [[former targets]]
+                    (when (and (= 1 (count targets))
+                               (not (contains? live former)))
+                      [former (first targets)])))
+            claims))))
 
 (defn reconcile-former-keys
   "Rewrite a character's stored content keys through `index`.

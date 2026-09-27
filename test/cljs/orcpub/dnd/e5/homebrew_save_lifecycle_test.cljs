@@ -150,7 +150,7 @@
   (set-name! "Tidewall")
   (save!)
   (is (contains? (stored) (k "Tideward")) "the key a character stored is still the live one")
-  (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and there is nothing to heal"))
+  (is (= {} (reconcile/former-key-index (:plugins @app-db) #{})) "and there is nothing to heal"))
 
 (deftest a-deliberate-key-change-still-records-the-move
   ;; The rename path that remains: import conflict resolution and the manual relink go through
@@ -159,7 +159,7 @@
         moved (reconcile/record-former-key (assoc item :key :tidewall) :tideward)]
     (swap! app-db assoc :plugins {SRC {ct {:tidewall moved}}})
     (let [character {:orcpub.entity/options {:languages [{:orcpub.entity/key :tideward}]}}
-          index     (reconcile/former-key-index (:plugins @app-db))
+          index     (reconcile/former-key-index (:plugins @app-db) #{})
           {:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
       (is (= {:tideward :tidewall} index))
       (is (= [{:from :tideward :to :tidewall}] rewrote))
@@ -178,7 +178,7 @@
   (let [item (moved-through [:alpha :beta :gamma])]
     (swap! app-db assoc :plugins {SRC {ct {:gamma item}}})
     (is (= [:alpha :beta] (:former-keys item)))
-    (is (= {:alpha :gamma :beta :gamma} (reconcile/former-key-index (:plugins @app-db)))
+    (is (= {:alpha :gamma :beta :gamma} (reconcile/former-key-index (:plugins @app-db) #{}))
         "every former key points at the live one")))
 
 (deftest the-history-is-capped-and-the-prime-key-is-never-dropped
@@ -192,7 +192,7 @@
   ;; vector at its next key change.
   (swap! app-db assoc :plugins {SRC {ct {:new-name {:key :new-name :name "New Name"
                                                     :option-pack SRC :former-key :old-name}}}})
-  (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db) #{})))
   (let [next-move (reconcile/record-former-key
                    (assoc (get-in @app-db [:plugins SRC ct :new-name]) :key :newer-name)
                    :new-name)]
@@ -265,7 +265,7 @@
   (is (= #{:tideward} (set (keys (stored)))) "moved, not copied")
   (is (= [(k "Tidewrad")] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
   (is (= :tideward (:key (in-builder))) "the open form follows its own item")
-  (is (= {(k "Tidewrad") :tideward} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= {(k "Tidewrad") :tideward} (reconcile/former-key-index (:plugins @app-db) #{})))
   (is (= "Tidewrad" (get-in (stored) [:tideward :name])) "the NAME is untouched"))
 
 (deftest a-key-change-is-refused-when-the-key-is-taken-anywhere
@@ -398,7 +398,7 @@
   (let [moved (get-in @app-db [:plugins OTHER ct (k "Tideward")])]
     (is (= (k "Tideward") (:key moved)) "same key")
     (is (empty? (:former-keys moved)) "nothing to record")
-    (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and nothing to heal")))
+    (is (= {} (reconcile/former-key-index (:plugins @app-db) #{})) "and nothing to heal")))
 
 (deftest a-move-onto-an-occupied-address-is-refused-and-loses-nothing
   (open! (draft "Tideward"))

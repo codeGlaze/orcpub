@@ -2000,7 +2000,7 @@
         {character :character former-rewrote :rewrote}
         (content-recon/reconcile-former-keys
          character
-         (content-recon/former-key-index (:plugins db)))
+         (content-recon/former-key-index (:plugins db) (::content-recon/offered-keys db)))
         {character :character spell-rewrote :rewrote}
         (content-recon/reconcile-spell-selection-keys
          character

@@ -1,7 +1,8 @@
 (ns ^{:doc "Effects and utils for handling throttled autosave"}
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
-            [re-frame.core :refer [reg-fx reg-event-db dispatch subscribe]]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [re-frame.core :refer [reg-fx reg-event-db reg-event-fx dispatch subscribe]]
             [reagent.core :as r]))
 
 ;; timeout in ms during which we wait for further changes; if
@@ -59,10 +60,25 @@
 ;; Cache the global template in app-db so the save handler can compute
 ;; built-character without subscribing outside a reactive context.
 ;; track! creates a proper reactive context — no warnings.
-(reg-event-db
- ::cache-template
- (fn [db [_ template]]
-   (assoc db ::cached-template template)))
+(defn cache-template
+  "Handler for `::cache-template`: stores `template` and its `offered-keys`. On the first list, if
+   the loaded character has a key the list now lets it heal, re-dispatches `:set-character`."
+  [{:keys [db]} [_ template]]
+  (let [offered (content-recon/offered-keys template)
+        character (:character db)
+        ;; :set-character heals nothing until this list exists, so a character that loaded
+        ;; first is healed here, once.
+        heal? (and (nil? (::content-recon/offered-keys db))
+                   character
+                   (seq (:rewrote (content-recon/reconcile-former-keys
+                                   character
+                                   (content-recon/former-key-index (:plugins db) offered)))))]
+    (cond-> {:db (assoc db
+                        ::cached-template template
+                        ::content-recon/offered-keys offered)}
+      heal? (assoc :dispatch [:set-character character]))))
+
+(reg-event-fx ::cache-template cache-template)
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.

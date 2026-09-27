@@ -6,6 +6,7 @@
    but doesn't have Kibbles' Tasty Homebrew loaded. The reconciliation module
    should detect this and suggest similar content."
   (:require [cljs.test :refer-macros [deftest testing is]]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
             [orcpub.entity :as entity]))
 
@@ -47,6 +48,26 @@
 ;; Key Extraction
 ;; ============================================================================
 
+(def ^:private built-in
+  "Built-in keys these fixtures assume the builder offers."
+  #{:fighter :elf :high-elf :acolyte :half-elf :human :wizard :sage})
+
+(defn- offered-from
+  "What the builder would offer with `content` loaded: the built-ins plus every loaded item."
+  [content]
+  (into built-in (for [[_ items] content item items] (:key item))))
+
+(defn- check-available [character-keys content]
+  (reconcile/check-content-availability character-keys content (offered-from content)))
+
+(defn- missing-report [character content]
+  (reconcile/generate-missing-content-report character content (offered-from content)))
+
+(defn- index-of
+  "The former-key index once the builder's list is known, with nothing built-in in the way."
+  [plugins]
+  (reconcile/former-key-index plugins #{}))
+
 (deftest test-extract-content-keys
   (testing "Extracts all content keys with correct content types"
     (let [keys (reconcile/extract-content-keys test-character)
@@ -78,7 +99,7 @@
 (deftest test-detects-missing-homebrew
   (testing "Homebrew class not in available content is flagged"
     (let [char-keys (reconcile/extract-content-keys test-character)
-          missing (reconcile/check-content-availability char-keys available-content)
+          missing (check-available char-keys available-content)
           missing-keys (set (map :key missing))]
       (is (contains? missing-keys :artificer-kibbles-tasty))
       (is (not (contains? missing-keys :wizard)))
@@ -92,7 +113,7 @@
                       :background {::entity/key :acolyte}}}
           char-keys (reconcile/extract-content-keys character)
           ;; Empty available content — builtins should still not be flagged
-          missing (reconcile/check-content-availability char-keys {})]
+          missing (check-available char-keys {})]
       (is (empty? missing)))))
 
 (deftest test-custom-inline-content-not-flagged
@@ -108,7 +129,7 @@
           char-keys (reconcile/extract-content-keys character)
           ;; empty available content — a genuinely-missing homebrew key WOULD be
           ;; flagged here, so an empty result proves :custom is treated as inline
-          missing (reconcile/check-content-availability char-keys {})]
+          missing (check-available char-keys {})]
       (is (empty? missing)
           ":custom race + background are inline content, not missing"))))
 
@@ -135,7 +156,7 @@
 
 (deftest test-generate-missing-content-report
   (testing "Report correctly identifies missing vs present content"
-    (let [report (reconcile/generate-missing-content-report test-character available-content)]
+    (let [report (missing-report test-character available-content)]
       (is (:has-missing? report))
       (is (pos? (:missing-count report)))
       (let [missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
@@ -149,14 +170,14 @@
                      {:class [{::entity/key :wizard}]
                       :race {::entity/key :human}
                       :background {::entity/key :sage}}}
-          report (reconcile/generate-missing-content-report character available-content)]
+          report (missing-report character available-content)]
       (is (not (:has-missing? report)))
       (is (= 0 (:missing-count report)))
       (is (empty? (:items report))))))
 
 (deftest test-report-includes-inferred-source
   (testing "Missing items include inferred source from key suffix"
-    (let [report (reconcile/generate-missing-content-report test-character available-content)
+    (let [report (missing-report test-character available-content)
           missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
                                            (:items report)))]
       (is (some? (:inferred-source missing-artificer)))
@@ -211,13 +232,13 @@
                          :feats [{:key :blade-mastery :name "Blade Mastery"}
                                  {:key :brawny :name "Brawny"}
                                  {:key :metabolic-control :name "Metabolic Control"}])
-          report (reconcile/generate-missing-content-report feat-test-character content)]
+          report (missing-report feat-test-character content)]
       (is (not (some #(= :feat (:content-type %)) (:items report)))
           "no feats should be missing when all are in available content"))))
 
 (deftest test-feat-flagged-when-missing
   (testing "Feats absent from available content ARE flagged as missing"
-    (let [report (reconcile/generate-missing-content-report feat-test-character {})
+    (let [report (missing-report feat-test-character {})
           missing-feats (filter #(= :feat (:content-type %)) (:items report))]
       (is (= 3 (count missing-feats))
           "all 3 feats should be flagged as missing")
@@ -377,26 +398,26 @@
 (deftest former-key-index-maps-old-to-new
   (testing "a renamed item points its old key at its new one"
     (is (= {:dark-elf-drow- :dark-elf-drow}
-           (reconcile/former-key-index
+           (index-of
             {"Pak" {ct {:dark-elf-drow {:key :dark-elf-drow
                                         :former-key :dark-elf-drow-
                                         :name "Dark Elf (Drow)"}}}}))))
 
   (testing "an item that was never renamed contributes nothing"
-    (is (= {} (reconcile/former-key-index
+    (is (= {} (index-of
                {"Pak" {ct {:elf {:key :elf :name "Elf"}}}}))))
 
   (testing "TWO items claiming the same former key are both dropped"
     ;; Rebinding would pick whichever was walked first, which is a coin flip
     ;; dressed as a repair.
-    (is (= {} (reconcile/former-key-index
+    (is (= {} (index-of
                {"A" {ct {:one {:key :one :former-key :shared}}}
                 "B" {ct {:two {:key :two :former-key :shared}}}}))))
 
   (testing "a former key that is some item's LIVE key is dropped"
     ;; :elf still exists and still resolves; rebinding it away would break a
     ;; character that is working fine.
-    (is (= {} (reconcile/former-key-index
+    (is (= {} (index-of
                {"A" {ct {:elf {:key :elf :name "Elf"}
                          :high-elf {:key :high-elf :former-key :elf}}}})))))
 
@@ -477,12 +498,11 @@
 
 (deftest srd-key-value-change-is-detected-as-missing
   ;; A character stores the key that was current when it was saved. Rename that
-  ;; SRD key and the stored value is, by definition, in neither place
-  ;; check-content-availability looks: not in loaded content, and not in the
-  ;; hardcoded builtin set (which now holds the NEW value). So it is flagged.
+  ;; SRD key and the stored value is, by definition, no longer a key the builder
+  ;; offers. So it is flagged.
   (let [before {::entity/options {:race {::entity/key :half-elf}}}
         after  {::entity/options {:race {::entity/key :half-elf-phb-2014}}}
-        check  (fn [c] (reconcile/check-content-availability
+        check  (fn [c] (check-available
                         (reconcile/extract-content-keys c) {}))]
     (is (empty? (check before))
         "the key as it stands today is builtin, so it is not flagged")
@@ -500,7 +520,7 @@
         ;; plugins carrying no :former-key — which is every SRD rename
         plugins {"Some Source" {:orcpub.dnd.e5/races
                                 {:half-elf {:key :half-elf :name "Half-Elf"}}}}
-        index (reconcile/former-key-index plugins)
+        index (index-of plugins)
         {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned index)]
     (is (empty? index) "an SRD rename records no former key anywhere")
     (is (= orphaned character) "so the character is returned untouched")
@@ -515,7 +535,7 @@
                                 {:half-elf-ua {:key :half-elf-ua
                                                :former-key :half-elf-phb-2014
                                                :name "Half-Elf (UA)"}}}}
-        index (reconcile/former-key-index plugins)
+        index (index-of plugins)
         {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned index)]
     (is (= {:half-elf-phb-2014 :half-elf-ua} index))
     (is (= :half-elf-ua (get-in character [::entity/options :race ::entity/key]))
@@ -524,18 +544,18 @@
         "and the rebind is reported, so it can be shown rather than done silently")))
 
 (deftest non-srd-content-is-flagged-when-its-plugin-is-absent
-  ;; The builtin sets hold SRD ONLY, which is what the site serves itself.
-  ;; Everything else -- including plenty of PHB content -- arrives as a plugin and
-  ;; SHOULD be reported when that plugin is not loaded, exactly as homebrew is.
+  ;; The builder offers SRD ONLY, which is what the site serves itself (Drow, for one, is
+  ;; commented out of spell_subs.cljs). Everything else -- including plenty of PHB content --
+  ;; arrives as a plugin and SHOULD be reported when that plugin is not loaded.
   ;; :eladrin is the example: real PHB content, not SRD, so being flagged is the
   ;; design working rather than a false positive.
   (let [srd     {::entity/options {:race {::entity/key :elf
                                           ::entity/options
-                                          {:subrace {::entity/key :drow}}}}}
+                                          {:subrace {::entity/key :high-elf}}}}}
         plugin' {::entity/options {:race {::entity/key :elf
                                           ::entity/options
                                           {:subrace {::entity/key :eladrin}}}}}
-        check (fn [c] (reconcile/check-content-availability
+        check (fn [c] (check-available
                        (reconcile/extract-content-keys c) {}))]
     (is (empty? (check srd))
         "SRD content is served by the site, so it is never reported missing")
@@ -640,3 +660,35 @@
 (deftest binding-report-is-empty-for-a-character-with-no-classes
   (is (= {:unbound-classes [] :subclass-mismatches []}
          (reconcile/class-binding-report {::entity/options {}} #{:wizard} {}))))
+
+
+;; ── What the builder offers ─────────────────────────────────────────────────
+
+(deftest offered-keys-walks-selections-options-and-what-they-nest
+  (let [template {::t/selections
+                  [(t/selection-cfg
+                    {:name "Class" :key :class
+                     :options [(t/option-cfg
+                                {:name "Cleric" :key :cleric
+                                 :selections [(t/selection-cfg
+                                               {:name "Divine Domain" :key :divine-domain
+                                                :options [(t/option-cfg {:name "Life" :key :life})]})]
+                                 :associated-options [(t/option-cfg {:name "Holy Symbol" :key :holy-symbol})]})]})]}]
+    (is (= #{:class :cleric :divine-domain :life :holy-symbol} (reconcile/offered-keys template)))))
+
+(deftest a-former-key-the-builder-still-offers-is-never-redirected
+  ;; Undoing an override: the homebrew class keyed :cleric was re-keyed :cleric-tc. The built-in
+  ;; Cleric still answers to :cleric, so a character that took it must stay on it.
+  (let [plugins {"Pak" {:orcpub.dnd.e5/classes
+                        {:cleric-tc {:key :cleric-tc :former-keys [:cleric] :name "Cleric"}}}}]
+    (is (= {} (reconcile/former-key-index plugins #{:cleric}))
+        "offered by the builder: left alone")
+    (is (= {:cleric :cleric-tc} (reconcile/former-key-index plugins #{}))
+        "not offered anywhere: redirected, which is the heal working")))
+
+(deftest nothing-is-redirected-or-reported-before-the-list-exists
+  (let [plugins {"Pak" {:orcpub.dnd.e5/races
+                        {:half-elf-ua {:key :half-elf-ua :former-key :half-elf-phb}}}}]
+    (is (= {} (reconcile/former-key-index plugins nil)))
+    (is (empty? (reconcile/check-content-availability
+                 (reconcile/extract-content-keys test-character) available-content nil)))))
