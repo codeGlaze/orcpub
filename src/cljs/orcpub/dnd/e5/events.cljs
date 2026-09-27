@@ -4947,11 +4947,17 @@
          ;; wholesale discarded whatever they had typed since the last save, from app-db and from
          ;; the persisted draft alike. `:former-keys` comes across so the next save does not
          ;; write the breadcrumb back out.
-         {:db (assoc db item-key (assoc item :key new-key
-                                        :former-keys (:former-keys moved))
-                     :builder-origin (assoc (:builder-origin db) plugin-key
-                                            {:source option-pack :key new-key
-                                             :name (:name item)}))
+         ;; Links in this source follow now. Links in other sources follow once the builder's
+         ;; list shows the old key no longer answers (content-recon/settle-repoints): if built-in
+         ;; content still holds it, they keep pointing there.
+         {:db (-> db
+                  (assoc item-key (assoc item :key new-key
+                                         :former-keys (:former-keys moved))
+                         :builder-origin (assoc (:builder-origin db) plugin-key
+                                                {:source option-pack :key new-key
+                                                 :name (:name item)}))
+                  (update ::content-recon/pending-repoints (fnil conj [])
+                          {:type plugin-key :from old-key :to new-key :source option-pack}))
           ::persist-builder-origin (assoc (:builder-origin db) plugin-key
                                           {:source option-pack :key new-key
                                            :name (:name item)})

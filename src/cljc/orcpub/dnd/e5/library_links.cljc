@@ -103,3 +103,47 @@
   (if (= :name (:by link))
     item
     (rewrite item (:path link) #(if (= % old) new %))))
+
+(def former-key-cap
+  "Former keys kept per item. A repair aid, not an archive."
+  4)
+
+(defn former-keys
+  "`item`'s former keys, oldest first. Reads the singular `:former-key` as a one-entry history."
+  [item]
+  (or (:former-keys item)
+      (some-> (:former-key item) vector)
+      []))
+
+(defn record-former-key
+  "Append `old-key` to `item`'s `:former-keys`, capped at `former-key-cap`. Drops `:former-key`.
+
+   Entry 0 is the prime key, minted at creation, and is never evicted — kept on the assumption
+   that the oldest characters point at the oldest key. Overflow is taken from the middle.
+   Six renames: `[:one :three :four :five]` under `:six` — `:two` gave way, `:one` stays."
+  [item old-key]
+  (let [prior (former-keys item)
+        ks    (if (some #{old-key} prior) prior (conj (vec prior) old-key))]
+    (-> item
+        (dissoc :former-key)
+        (assoc :former-keys (if (<= (count ks) former-key-cap)
+                              ks
+                              (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
+
+(defn repoint
+  "`plugin` (one source, {content-type {key item}}) with every link naming `old` in `to-type`
+   retargeted to `new`, in every item that can hold it."
+  [plugin to-type old new]
+  (let [relevant (filter #(= to-type (:to %)) links)]
+    (reduce-kv
+     (fn [p ct items]
+       (if (and (qualified-keyword? ct) (map? items))
+         (assoc p ct (reduce-kv
+                      (fn [m k item]
+                        (assoc m k (reduce #(if (and (map? %1) (holds? %2 ct))
+                                              (retarget %2 %1 old new)
+                                              %1)
+                                           item relevant)))
+                      {} items))
+         (assoc p ct items)))
+     {} plugin)))

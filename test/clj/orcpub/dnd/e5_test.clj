@@ -509,3 +509,12 @@
                {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
   (testing "nil inputs never throw"
     (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
+
+(deftest test-rekey-plugin-records-the-old-key-and-repoints-links
+  (let [plugin {:orcpub.dnd.e5/subclasses {:oath {:name "Oath" :class :9-lives}}
+                :orcpub.dnd.e5/classes {:9-lives {:name "Nine Lives" :option-pack "P"}}}
+        out (e5/rekey-plugin plugin)]
+    (is (= [:9-lives] (get-in out [:orcpub.dnd.e5/classes :nine-lives :former-keys]))
+        "a character that chose the old key can follow it")
+    (is (= :nine-lives (get-in out [:orcpub.dnd.e5/subclasses :oath :class]))
+        "a subclass in a content type re-keyed after it still follows")))

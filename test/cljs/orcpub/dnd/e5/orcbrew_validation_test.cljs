@@ -1342,19 +1342,18 @@
         (is (content-specs/valid-for-load? stripped) "stripped plugin still load-valid")))))
 
 (deftest sanitize-item-names-coerces-invalid-names-and-rekeys
-  (testing "an invalid/blank name is replaced with a valid placeholder and re-keyed
-            so save-anyway can never persist a broken key"
+  (testing "an invalid/blank name is replaced with a valid placeholder; the key is never touched"
     ;; the reported bug: "1@-asdml;" doesn't start with a letter
-    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;"} "Race")]
+    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;" :key :stone-elf-trcs} "Race")]
       (is (common/starts-with-letter? (:name out)) "name now starts with a letter")
-      (is (common/keyword-starts-with-letter? (:key out)) "key is valid (starts with a letter)")
+      (is (= :stone-elf-trcs (:key out)) "the minted key survives: keys are not re-derived")
       (is (= "Unnamed Race" (:name out))))
     (let [out (orcbrew-val/sanitize-item-names {:name "   "} "Spell")]
       (is (= "Unnamed Spell" (:name out)) "blank/whitespace name -> placeholder"))
     ;; a valid name is left intact (trimmed) and re-keyed consistently
     (let [out (orcbrew-val/sanitize-item-names {:name "  Aarakocra  "} "Race")]
       (is (= "Aarakocra" (:name out)))
-      (is (= :aarakocra (:key out))))
+      (is (nil? (:key out)) "no key is minted here; save-anyway mints one"))
     ;; nested option/trait names are coerced too
     (let [out (orcbrew-val/sanitize-item-names
                {:name "Fighter" :options [{:name "9 Lives"} {:name "Valid Option"}]}
@@ -1512,3 +1511,22 @@
         idx (orcbrew-val/collision-twin-index plugins)]
     (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
         "both enabled → :conflict, not nil")))
+
+;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
+
+(deftest an-import-rename-repoints-every-source-of-the-import
+  (let [data {"Classes" {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}}
+              "Spells"  {:orcpub.dnd.e5/spells {:bolt {:key :bolt :spell-lists {:caster true}}}}}
+        out (orcbrew-val/apply-key-renames data [{:source "Classes" :content-type :orcpub.dnd.e5/classes
+                                                  :from :caster :to :caster-imp}])]
+    (is (= {:caster-imp true} (get-in out ["Spells" :orcpub.dnd.e5/spells :bolt :spell-lists]))
+        "a spell in another source of the same import follows the renamed class")))
+
+(deftest auto-name-and-restore-leaves-every-key-alone
+  (let [plugin {:orcpub.dnd.e5/races {:stone-elf-trcs {:name "Stone Elf" :key :stone-elf-trcs}
+                                      :9-lives        {:name "9 Lives" :key :9-lives}}}
+        out (orcbrew-val/coerce-invalid-names plugin)]
+    (is (= :stone-elf-trcs (get-in out [:orcpub.dnd.e5/races :stone-elf-trcs :key]))
+        "a valid item keeps the key it is stored under")
+    (is (= :9-lives (get-in out [:orcpub.dnd.e5/races :9-lives :key]))
+        "an invalid key is e5/rekey-plugin's to move, not this")))

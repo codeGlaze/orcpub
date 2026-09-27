@@ -9,6 +9,7 @@
             [orcpub.dnd.e5 :as e5]
             ;; the rename history (:former-keys) is written here and read by the heal path
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library-links :as links]
             [orcpub.common :as common]))
 
 ;; Forward declarations for functions used before definition
@@ -299,11 +300,9 @@
   (or (common/repair-name-lead nm) fallback))
 
 (defn sanitize-item-names
-  "Coerce the item's :name — and any nested :traits/:options names — to a valid,
-   letter-starting name (invalid/blank ones become a placeholder), then re-derive
-   the top-level :key from the coerced name. This is what makes 'save anyway'
-   safe: it can never persist a name that yields an invalid/structural key (the
-   keyword-trap class), the way it used to with e.g. \"1@-asdml;\"."
+  "`item` with its :name, and any nested :traits/:options names, coerced to a valid
+   letter-starting name; invalid or blank ones become \"Unnamed <type-label>\".
+   Never touches :key: a key is minted once and changed only by rename-key-in-plugin."
   [item type-label]
   (let [coerce-nested (fn [coll]
                         (if (vector? coll)
@@ -315,7 +314,7 @@
         item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
                 (:traits item)  (update :traits coerce-nested)
                 (:options item) (update :options coerce-nested))]
-    (assoc item* :key (common/name-to-kw (:name item*)))))
+    item*))
 
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.
@@ -1416,7 +1415,8 @@
 
 (defn coerce-invalid-names
   "Coerce any present-but-INVALID item name (and nested trait/option names) to a
-   valid letter-leading placeholder, re-keying the item from the fixed name.
+   valid letter-leading placeholder. Keys are left alone; e5/rekey-plugin moves an
+   item whose key is invalid to the key derived from its fixed name.
    Blanks are already handled by fill-missing-*; this catches the
    present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
    just works in one click instead of forcing the user to hand-type a name."
@@ -1967,7 +1967,8 @@
 ;; Key Renaming (for conflict resolution)
 ;; ============================================================================
 
-(def key-reference-map
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/links.
+#_(def key-reference-map
   "Maps content types to fields that reference other content keys.
    Used to update internal references when renaming keys."
   {:orcpub.dnd.e5/subclasses {:class :orcpub.dnd.e5/classes}    ; :class field references a class key
@@ -1989,8 +1990,8 @@
   ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
 (def ^:private referenced-content-types
-  "Content types something else points at by key -- classes, races."
-  (set (mapcat vals (vals key-reference-map))))
+  "Content types another item can point at by key (library-links/links :to)."
+  (set (map :to links/links)))
 
 (declare rename-key-in-plugin)
 
@@ -2065,7 +2066,8 @@
      ;; key, under the target's same-keyed class. Stable, so order within a rank holds.
      (sort-by (fn [[_ ct _]] (if (contains? referenced-content-types ct) 0 1)) selections))))
 
-(defn update-references-in-item
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/repoint.
+#_(defn update-references-in-item
   "Update references to a renamed key within a single item.
    reference-field: the field in this item that may reference the old key
    old-key: the original key being renamed
@@ -2075,7 +2077,7 @@
     (assoc item reference-field new-key)
     item))
 
-(defn update-references-in-content-group
+#_(defn update-references-in-content-group
   "Update all references to a renamed key within a content group."
   [items reference-field old-key new-key]
   (into {}
@@ -2097,7 +2099,7 @@
    Returns the updated plugin with:
    1. The item moved to the new key
    2. Its :name replaced when new-name is given
-   3. All internal references updated (e.g., subclasses pointing to renamed class)"
+   3. Every link in this plugin that named the old key repointed (library-links/links)"
   ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
   ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
@@ -2130,22 +2132,9 @@
                                                           (content-recon/record-former-key old-key))
                                                new-name (assoc :name new-name))))
 
-            ;; Step 2: Find content types that reference this type
-            referencing-types (keep (fn [[ct refs]]
-                                      (when (some #(= (val %) content-type) refs)
-                                        [ct (key (first (filter #(= (val %) content-type) refs)))]))
-                                    key-reference-map)
-
-            ;; Step 3: Update references in those content types
-            updated-plugin (reduce
-                            (fn [p [ref-content-type ref-field]]
-                              (if-let [ref-group (get p ref-content-type)]
-                                (assoc p ref-content-type
-                                       (update-references-in-content-group
-                                        ref-group ref-field old-key new-key))
-                                p))
-                            (assoc plugin content-type updated-group)
-                            referencing-types)]
+            ;; Step 2: repoint every link in this source that names the old key.
+            updated-plugin (links/repoint (assoc plugin content-type updated-group)
+                                          content-type old-key new-key)]
         updated-plugin)
       ;; old-key already gone — a no-op, not a nil-clobber.
       plugin)
@@ -2178,6 +2167,8 @@
    - data: the import data (single or multi-plugin)
    - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
      is optional and renames the item's display name alongside its key.
+   GOTCHA: links are repointed in every source of `data`. Pass only the side of a clash
+   the renamed item belongs to: the import data, or the existing library.
 
    Returns updated data with all renames applied."
   [data renames]
@@ -2185,7 +2176,12 @@
     (reduce
      (fn [d {:keys [source content-type from to to-name]}]
        (if is-multi
-         (rename-key-in-plugins d source content-type from to to-name)
+         (reduce-kv (fn [acc src plugin]
+                      (assoc acc src (if (and (not= src source) (map? plugin))
+                                       (links/repoint plugin content-type from to)
+                                       plugin)))
+                    {}
+                    (rename-key-in-plugins d source content-type from to to-name))
          (rename-key-in-plugin d content-type from to to-name)))
      data
      renames)))

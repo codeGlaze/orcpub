@@ -13,6 +13,7 @@
             [orcpub.entity :as entity]
             [orcpub.common :as common]
             [orcpub.template :as t]
+            [orcpub.dnd.e5.library-links :as links]
             [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
@@ -406,31 +407,9 @@
 ;; per-content-type option builder. The character is right here, and :plugins are
 ;; already hydrated at :set-character.
 
-(def former-key-cap
-  "Former keys kept per item. A repair aid, not an archive."
-  4)
-
-(defn former-keys
-  "`item`'s former keys, oldest first. Reads the singular `:former-key` as a one-entry history."
-  [item]
-  (or (:former-keys item)
-      (some-> (:former-key item) vector)
-      []))
-
-(defn record-former-key
-  "Append `old-key` to `item`'s `:former-keys`, capped at `former-key-cap`. Drops `:former-key`.
-
-   Entry 0 is the prime key, minted at creation, and is never evicted — kept on the assumption
-   that the oldest characters point at the oldest key. Overflow is taken from the middle.
-   Six renames: `[:one :three :four :five]` under `:six` — `:two` gave way, `:one` stays."
-  [item old-key]
-  (let [prior (former-keys item)
-        ks    (if (some #{old-key} prior) prior (conj (vec prior) old-key))]
-    (-> item
-        (dissoc :former-key)
-        (assoc :former-keys (if (<= (count ks) former-key-cap)
-                              ks
-                              (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
+(def former-key-cap links/former-key-cap)
+(def former-keys links/former-keys)
+(def record-former-key links/record-former-key)
 
 (defn former-key-index
   "{former-key -> current-key} across every source and content type in `plugins`. `offered` is
@@ -463,6 +442,26 @@
                                (not (contains? live former)))
                       [former (first targets)])))
             claims))))
+
+(defn settle-repoints
+  "Settles `pending` cross-source repoints, each {:type :from :to :source}, against `offered`
+   (from `offered-keys`). An entry whose `:to` is not offered yet is kept for the next list. Once
+   it is: if `:from` is no longer offered, links to it in every source but `:source` are
+   repointed to `:to`; if `:from` is still offered (built-in content holds it), nothing moves.
+   Returns {:plugins :pending}."
+  [plugins pending offered]
+  (reduce (fn [{:keys [plugins] :as acc} {:keys [type from to source] :as entry}]
+            (cond
+              (not (contains? offered to)) (update acc :pending conj entry)
+              (contains? offered from) acc
+              :else (assoc acc :plugins
+                           (reduce-kv (fn [ps src plugin]
+                                        (assoc ps src (if (or (= src source) (not (map? plugin)))
+                                                        plugin
+                                                        (links/repoint plugin type from to))))
+                                      {} plugins))))
+          {:plugins plugins :pending []}
+          pending))
 
 (defn reconcile-former-keys
   "Rewrite a character's stored content keys through `index`.

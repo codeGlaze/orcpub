@@ -861,9 +861,9 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [:set-character character] (:dispatch fx)) "the waiting heal runs once the list exists")
-    (is (nil? (:dispatch (autosave-fx/cache-template {:db (:db fx)}
-                                                     [::autosave-fx/cache-template small-template])))
+    (is (= [[:set-character character]] (:dispatch-n fx)) "the waiting heal runs once the list exists")
+    (is (empty? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
+                                                         [::autosave-fx/cache-template small-template])))
         "and only on the first list")))
 
 (deftest a-character-with-nothing-to-heal-is-not-reloaded
@@ -873,7 +873,7 @@
              {::t/selections [(t/selection-cfg
                                {:name "Class" :key :class
                                 :options [(t/option-cfg {:name "Cleric" :key :cleric})]})]}])]
-    (is (nil? (:dispatch fx)))))
+    (is (empty? (:dispatch-n fx)))))
 
 (defn- real-template
   "The real ::char5e/template, read inside a reactive context the way the app's watcher reads it."
@@ -882,6 +882,24 @@
         watcher (r/track! (fn [] (reset! out @(rf/subscribe [::char5e/template]))))]
     (r/dispose! watcher)
     @out))
+
+(deftest the-watcher-writes-a-key-change-to-links-in-other-sources
+  ;; ::e5/change-builder-item-key repoints its own source and leaves the rest pending; the next
+  ;; list settles it.
+  (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:caster-x {:key :caster-x}}}
+                 "Domains" {:orcpub.dnd.e5/subclasses {:oath {:key :oath :class :caster}}}}
+        fx (autosave-fx/cache-template
+            {:db {:plugins plugins
+                  ::content-recon/offered-keys #{:caster}
+                  ::content-recon/pending-repoints [{:type :orcpub.dnd.e5/classes :from :caster
+                                                     :to :caster-x :source "Classes"}]}}
+            [::autosave-fx/cache-template
+             {::t/selections [(t/selection-cfg
+                               {:name "Class" :key :class
+                                :options [(t/option-cfg {:name "Caster X" :key :caster-x})]})]}])
+        written (some (fn [[event v]] (when (= :orcpub.dnd.e5/set-plugins event) v)) (:dispatch-n fx))]
+    (is (= :caster-x (get-in written ["Domains" :orcpub.dnd.e5/subclasses :oath :class])))
+    (is (empty? (get-in fx [:db ::content-recon/pending-repoints])))))
 
 (deftest the-real-builder-offers-every-built-in-key
   ;; The built-in content the app defines (classes.cljc, spell_subs.cljs, spells.cljc). Subclasses
