@@ -68,7 +68,8 @@ aside, an empty source is filled from the pack it is listed under, the message s
 and what each is now called, and a set-aside entry shows its description.
 `test/e2e/quarantine-restore.js` 11/11; against the old panel, 7/11. **Step 5 done** (`31329bcd`, `12eb5a23`; lein
 505/3928, cljs 489/2558, five e2e scripts 64/64; gate test and delete prompt each falsified). Q4, Q5,
-Q7 decided as recommended. Next is step 6, two tabs.
+Q7 decided as recommended. Step 9 added (later): a server request for "which of my characters use
+this" before a delete or key change. Next is step 6, two tabs.
 
 **#34's late push (2026-09-27, `f82f9444`)** was checked against `port/save-gate`: it is #34 catching
 up to integration's source-tagged keys (already on the port), a merge of the standing-duplicate fix

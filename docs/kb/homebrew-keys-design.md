@@ -257,6 +257,16 @@ Each step lands green, with its tests, before the next begins:
 6. Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
 7. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
 8. A one-time report of damage already in a library (C6), with an offered repair.
+9. **Later, decided 2026-09-27: "which of my characters use this".** One server request, made only
+   before a delete or a key change, asking which of the account's characters hold the affected keys,
+   so the prompt can say "3 of your characters use Warden". The server answers from the characters
+   it already stores; nothing about the library is sent or kept there, and no ledger is stored (a
+   stored copy would drift with every save on every device). Not a record of changes: a key change
+   means something only inside the library it happened in, and each browser has its own library, so
+   an account-wide change log would apply one browser's renames to another's copy. That stays with
+   former keys. **An account-side library** (one library per account, synced) would make an
+   account-side usage record and change log sound — that is an accounts decision (#34), and it would
+   overturn "the library never touches the server".
 
 Then review against the map's invariants, land on `integration`, and pull down as `plan-next.md`
 §0a orders.
