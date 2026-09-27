@@ -66,14 +66,14 @@
   },
   "portrait_compositor_e2e.js": {
     "checks": 32,
-    "seconds": 11
+    "seconds": 13
   },
   "portrait_tab_e2e.js": {
-    "checks": 28,
-    "seconds": 16
+    "checks": 31,
+    "seconds": 21
   },
   "portrait_pdf_export_e2e.js": {
     "checks": 10,
-    "seconds": 43
+    "seconds": 46
   }
 }
