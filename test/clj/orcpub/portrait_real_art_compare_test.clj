@@ -260,3 +260,69 @@
         (let [mouth (first (assets-in pack :mouth))]
           (is (some? mouth) "the pack has a mouth layer to reason about"))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; The mode per layer, which is the shape the registry would carry.
+;;
+;; multiply keeps a drawing and colours it, so it suits every layer that is
+;; one material. It is wrong where an asset holds two things that want
+;; different answers -- teeth are not lips. For the eyes there is a third
+;; possibility worth looking at rather than reasoning about: MASK them. It
+;; flattens the whole eye to the chosen colour, lashes included, which is
+;; destructive in principle and may be unnoticeable in practice, because the
+;; region is tiny and stylised. Keeping it also keeps the eye-colour picker,
+;; which drawing them as-is gives up.
+;; ---------------------------------------------------------------------------
+
+(def ^:private layer-modes
+  "One exception, not two. Looked at side by side on the same face at 3x:
+
+     mask      flat blue almonds -- no pupil, no lashes, no highlight
+     multiply  iris, pupil, lashes and highlight, in the chosen colour
+     as-drawn  the eye in black and white, since this asset carries no colour
+
+   So the eyes want multiply like everything else, and the worry that it would
+   flood the sclera was wrong: these eyes are drawn with a large iris, so the
+   pale area is small and reading it as eye colour is right rather than a
+   mistake. Only the mouth is special, because teeth are white and must stay
+   white while lips are not."
+  {:mouth :none})
+
+(defn- tint-fn-for [layer-key]
+  (case (get layer-modes layer-key :multiply)
+    :mask masked
+    :none as-drawn
+    multiplied))
+
+(defn- compose-by-mode [^File pack n]
+  (let [canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)
+        palette (nth palettes (mod n (count palettes)))]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (when-let [art (scaled (nth choices (mod n (count choices))))]
+            (.drawImage g ^BufferedImage
+                        ((tint-fn-for layer-key) art
+                         (get palette (get pa/color-slots layer-key) category-fallback))
+                        0 0 nil))))
+      (finally (.dispose g)))
+    canvas))
+
+(deftest one-character-three-eye-treatments
+  (testing "the same face three ways, so the eyes can be compared without a
+            different character confusing the picture"
+    (if-let [pack (pack-dir)]
+      (let [n 0]
+        (write! (compose-variant pack n masked) "eyes-a-mask")
+        (write! (compose-variant pack n multiplied) "eyes-b-multiply")
+        (write! (compose-mixed pack n) "eyes-c-as-drawn")
+        (is true))
+      (println "\n  ORCPUB_PACK not set -- skipping.\n"))))
+
+(deftest per-layer-modes-across-four-characters
+  (if-let [pack (pack-dir)]
+    (let [sheet (contact-sheet (mapv #(compose-by-mode pack %) (range 4)))]
+      (write! sheet "four-by-mode")
+      (is (pos? (opaque-colour-count sheet))))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
