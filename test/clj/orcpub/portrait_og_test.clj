@@ -154,7 +154,14 @@
                 "a list -- the header is comma-separated")
             (is (= 304 (conditional (str "W/\"other\", W/" tag)))
                 "a list of weak ones")
-            (is (= 304 (conditional "*")) "the wildcard matches any representation")
+            (is (= 304 (conditional "*"))
+                "the wildcard, when a representation does exist")
+            (is (= 200 (conditional "\"old,*,tag\""))
+                "a QUOTED tag containing commas is one tag, not a list with a
+                 wildcard in it -- splitting on commas fabricated a `*` here and
+                 answered 304 to a client holding a stale picture")
+            (is (= 200 (conditional "\"a\", \"b,*,c\""))
+                "and the same inside a genuine list")
             (is (= 304 (conditional (str tag "--gzip")))
                 "and a re-encoding proxy's suffix, as the app's own interceptor
                  tolerates it")
@@ -168,6 +175,25 @@
                        :headers {"if-none-match" "\"not-the-one-you-have\""}})]
             (is (= 200 (:status resp)))
             (is (some? (:body resp)))))))))
+
+(deftest the-wildcard-does-not-claim-a-picture-that-cannot-be-drawn
+  (testing "`*` asks whether a representation EXISTS. A stored portrait naming
+            assets the registry does not have parses fine and renders nothing,
+            so the resource has no current representation and the honest answer
+            is the 404 an ordinary request gets -- not a 304 telling the client
+            its cached copy is current."
+    (with-conn conn
+      (let [c (setup conn)
+            id (:db/id (save! c (character-with
+                                 {::char5e/portrait
+                                  (pr-str {:layers {:head {:asset/id :no-such-asset}}
+                                           :colors {} :tweaks {}})})))
+            status (fn [hdrs] (:status (routes/character-portrait-png
+                                        (cond-> {:db (d/db c) :path-params {:id id}}
+                                          hdrs (assoc :headers hdrs)))))]
+        (is (= 404 (status nil)) "nothing drawable, so an ordinary GET 404s")
+        (is (= 404 (status {"if-none-match" "*"}))
+            "and the wildcard must reach the same conclusion")))))
 
 (deftest a-different-portrait-gets-a-different-validator
   (testing "the key is what the pixels depend on, so two characters whose
