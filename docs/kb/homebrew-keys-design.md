@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1–4 done (`port/save-gate` `b5f2a1b6`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1–5 done (`port/save-gate` `12eb5a23`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -252,7 +252,7 @@ Each step lands green, with its tests, before the next begins:
    share closure growing to cover every link.
 4. **Done `b5f2a1b6`.** `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
    passing.
-5. The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
+5. **Done `31329bcd`, `12eb5a23`.** The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
    test.
 6. Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
 7. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
@@ -312,3 +312,31 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
   settles it once the new key is offered — other sources follow only if the old key stopped
   answering (`content-recon/settle-repoints`). The pending entry lives in app-db: a reload in the few
   milliseconds before it settles leaves those links for step 8's damage report.
+
+## As built (step 5) and the owner's decisions
+
+- **Decisions taken 2026-09-27:** Q4, Q5 and Q7 as recommended. Q1–Q3 and Q6 are still open.
+- **The gate is `library/commit` (pure, cljc) behind `events/commit-library`**, the one place the
+  library is written. `::e5/set-plugins` and `::e5/store-plugins` call it, and so do the four writers
+  that used to write storage themselves (quarantine repair, the export form, Keep shared content,
+  store-plugins). The `plugins-interceptors` pair is struck (D34). A write says what it intends:
+  `:deleting?` for delete, delete-a-source, delete-everything and the import paths;
+  `:retargeting` for the key control, whose other-source links are settled later.
+  `test/clj/orcpub/library_gate_test.clj` fails on any library write not marked as the gate, the
+  initial load, or a map that is not app-db. Two enumeration methods agreed: 18 dispatches of
+  `set-plugins` and 4 direct writes.
+- **Q4, as it turned out.** The import the UI uses merges item by item: a re-import overwrites the
+  entries a source already had and keeps the rest; nothing is removed. (`::e5/import-plugin-strict`,
+  which replaces a whole source, is registered but nothing dispatches it.) So the decision is carried
+  out by naming the overwritten entries in the import message (`library/overwritten`).
+- **Q5.** Export no longer writes its silent corrections (text clean-up, option dedup) back into the
+  library. The fixes an author types into the export form still save, through the gate — that is the
+  user asking.
+- **Q7.** Deleting an item or a source that other items link to shows who uses it and offers "Delete
+  it anyway". Who uses it is what `library/commit` reports the delete would strand.
+- **§4a backup.** Before the gate first corrects stored items, the library as it was is kept once in
+  `plugins:pre-fix`. **There is no restore control for it yet**; it comes with step 8's damage report.
+- **Not done in step 5:** writing load-time salvage back (§6; Q6 still open). The replay-on-conflict
+  half of step 1 of §4 belongs to step 6 (two tabs).
+- **Found, not changed:** the source **delete** button in My Content deletes a whole source with no
+  confirmation when nothing else uses it. Q7 covered only deletes others depend on.
