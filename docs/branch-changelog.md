@@ -18,6 +18,12 @@ a stranger whether a username exists.
 
 ## Added
 
+- **New homebrew keys carry their source's tag** — two authors' "Stone Elf" become
+  `:stone-elf-trcs` and `:stone-elf-kbtx` instead of colliding, the name stays as typed, and a
+  source can set its own tag from My Content. The builder also gains a key row to change a key
+  on purpose (`ed4f5a4c`, merged in `e2457ff7`). The duplicate-save gating that came alongside it
+  was reverted (`d689a310`): combined with this, it let a save overwrite another library's item,
+  and it is being reworked on its own branch.
 - **A check for homebrew no repair knows about** — a browser probe breaks one race on
   conversion and one only when drawn, and checks the app, the notice, the set-aside,
   Restore and import (`fa57ebbc`).
