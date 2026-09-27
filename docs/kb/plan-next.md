@@ -61,8 +61,9 @@ how the save path ended up in three variants with one fix built twice under diff
 
 **Design proposed 2026-09-27: `homebrew-keys-design.md`.** Approved 2026-09-27. **Step 1 done** (`port/save-gate`
 `5d8fc3a3`: round six plus #34's `054e42c1`, `ec4a3c50`, `d7640dd8`, `cd82f249`; lein test 493/3816,
-cljs 460/2401, e2e not re-run). **Steps 2 and 2b done** (`1d804217`, cljs 468/2421, falsified by removing the fix). Next is
-step 3, the link list. Its seven decisions (§9) are still open and are needed before steps 5–8.
+cljs 460/2401, e2e not re-run). **Steps 2 and 2b done** (`1d804217`, cljs 468/2421, falsified by removing the fix). **Steps 3 and 4 done** (`1042c746`,
+`b5f2a1b6`; lein 499/3914, cljs 477/2528, each falsified). Next is step 5, the commit gate — which
+needs the §9 decisions. Its seven decisions (§9) are still open and are needed before steps 5–8.
 
 **Why.** The homebrew save rework went through six adversarial review rounds (6, 5, 4, 6, 6, 3
 findings) and every round found a part of the system nobody had mapped: ten edit doors that pass an

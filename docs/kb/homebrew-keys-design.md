@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1, 2 and 2b done (`port/save-gate` `1d804217`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1–4 done (`port/save-gate` `b5f2a1b6`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -248,9 +248,9 @@ Each step lands green, with its tests, before the next begins:
    app does not offer (Drow, Stout, Wood Elf, Mountain Dwarf, Forest Gnome, all commented out of
    `spell_subs.cljs`). A character using one of those five now gets the warning, which is true:
    the builder cannot build it.
-3. The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
+3. **Done `1042c746`.** The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
    share closure growing to cover every link.
-4. `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
+4. **Done `b5f2a1b6`.** `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
    passing.
 5. The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
    test.
@@ -294,3 +294,21 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
   two quiet fixes in §4a, saved once after a backup. C7 (overrides keep working) and the built-in
   holder rule were added after the owner asked about overriding `cleric`. That question is what
   turned up the `former-key-index` bug in §5.
+
+## As built (steps 3–4)
+
+- **`library_links.cljc` has fifteen entries**, not fourteen: the three spell-grant maps
+  (`:paladin-spells`, `:cleric-spells`, `:warlock-spells`) are one entry each. Each also carries
+  `:bundle` — `:follow`, `:reverse` (a spell's `:spell-lists`) or `:none` (a feat's race
+  prerequisite, which is not something a character depends on). The locator vocabulary gained
+  `:*true-keys`, so a spell whose entry for a list is `false` stays off that list, as it did.
+- **`rekey` is not a new function.** `rename-key-in-plugin` was already the one rename path for the
+  key control, import clashes and a renaming Move; it now repoints through the link list (D29, D17).
+  `apply-key-renames` repoints across every source of the data it is given, which is the design's
+  scope for both import sides. `key-reference-map` and the per-field updaters are struck (D34).
+- **The built-in holder rule is applied after the change, not before.** Nothing can say "built-in
+  content holds this key" while a homebrew override replaces it in the template. So the builder key
+  control repoints its own source immediately and records a pending repoint; the template watcher
+  settles it once the new key is offered — other sources follow only if the old key stopped
+  answering (`content-recon/settle-repoints`). The pending entry lives in app-db: a reload in the few
+  milliseconds before it settles leaves those links for step 8's damage report.
