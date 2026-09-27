@@ -54,7 +54,10 @@ how the save path ended up in three variants with one fix built twice under diff
 
 ### Phase 1: map the plugin system before changing it further (decided 2026-09-25)
 
-☐ **Phase 1: the map. Nothing else until the owner has read it.**
+☑ **Phase 1: the map. Nothing else until the owner has read it.**
+
+**Done 2026-09-27: `homebrew-key-map.md`.** Awaiting the owner's first checkpoint. Its §6 (invariants) and §7
+(ranked gaps) are what the design has to answer.
 
 **Why.** The homebrew save rework went through six adversarial review rounds (6, 5, 4, 6, 6, 3
 findings) and every round found a part of the system nobody had mapped: ten edit doors that pass an

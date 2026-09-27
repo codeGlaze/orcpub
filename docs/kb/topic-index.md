@@ -54,7 +54,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -118,7 +118,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, deleted, deprecated, job, ledger, legacy, naive, outright, parity, re-pointed, requirements, retained, struck, sweep
+**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, deleted, deprecated, exception, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, page, react, reagent, rendering, screenshot, vanished, writing
+**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, react, reagent, rendering, screenshot, sentence, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -331,7 +331,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, case-sensitive, chromium, cljs, errors, floating-asi, gotchas, harness, headless, html, navigates, overlay, per-test, race-builder, recipe, runs, totals
+**topics:** auth, backend, case-sensitive, chromium, cljs, div, errors, floating-asi, gotchas, harness, headless, html, navigates, per-test, race-builder, recipe, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -368,7 +368,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** boilerplate, catalog, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, indirection, part, pool, re-derivation, readability, rejected
+**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -479,7 +479,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** disable, disable-based, disabled, duplicate-key, example, fork, independent, item-level, library, management, override, owned, per-account, same-key, user, variant, versioned, warn
+**topics:** disable, disable-based, disabled, duplicate-key, example, export-all, fork, item-level, management, nondeterministic-override, override, owned, per-account, same-key, user, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -523,7 +523,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, drop, garbage, guessing, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, garbage, guessing, hand-edited, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -536,7 +536,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, background, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
+**topics:** 2024, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
 
 - The question
 - What the published rules actually do
@@ -634,7 +634,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, hook, learned, push, reminder, scripts, stale
+**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, hook, learned, push, reminder, scripts, session
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -677,7 +677,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pool, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -776,7 +776,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branch, branches, cut, directions, integration, item, library, merge, merging, outcome, running, scripts, source
+**topics:** 374, 3816, 493, became, believing, branch, click, cut, directions, integration, item, library, merge, merging, outcome, running, scripts, source
 
 - Outcome
 - The branches, and the order
@@ -813,11 +813,28 @@ _homebrew-content-merge · homebrew content merge_
 - Verification recipe — "is homebrew X supported, and where does it merge?"
 - TL;DR
 
+## homebrew-key-map.md
+
+_homebrew-key-map · homebrew key map_
+
+**topics:** address, auto-name, int, library, link, minting, move, overwrite, p34, probes, quarantine, read-stamp, readers, rename, repoints, restore, salvage, save-anyway
+
+- 0. The model in one paragraph
+- 1. Branch baseline — what differs
+- 2. Minting and identity
+- 3. Every way an existing key changes
+- 4. Everything that points at a key
+- 5. Writers, readers, storage
+- 6. Invariants a fix must hold — and where each breaks today
+- 7. Gaps, ranked by how likely a user is to hit them and how much they lose
+- 8. Not covered, or uncertain
+- 9. Stale claims found in other pages
+
 ## homebrew-override.md
 
 _homebrew-override · homebrew override_
 
-**topics:** attaches, constraints, enforcement, expressed, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
+**topics:** attaches, constraints, enforcement, expressed, icon, legal, lock, mug, overridable, override, per-item, per-selection, per-thing, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -871,7 +888,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, number, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, number, repair, restore, suggestion, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -882,7 +899,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, problem, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, overlay, problem, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -928,7 +945,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** 2026-09-18, 2026-09-25, 2026-09-27, address, capabilities, checkpoint, identifies, item, keep-both, move, owner, paused, rounds, save, source, trunk, warforged, writer
+**topics:** 2026-09-18, 2026-09-25, 2026-09-27, address, capabilities, checkpoint, item, keep-both, move, owner, paused, rounds, row, save, source, trunk, warforged, writer
 
 - 0. Standing, do these first
 - 0a. The authoritative homebrew-keys fix — CURRENT
@@ -946,7 +963,7 @@ _plan-next · plan next_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, granting, irregularity, language, membership, pieces, pool, pools, registered, shaped, spells, styles, tested, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, fighting, granting, irregularity, language, membership, pieces, pool, pools, registered, spells, styles, tested, two-level, vector
 
 - In four sentences
 - The three layers
@@ -1000,7 +1017,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, registered, remaining, round-trip, substrate, track
+**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -1045,7 +1062,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, srd, stone, tag, tidewater, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, mint, minted, name, override, source, source-level, srd, stone, tag, tidewater, words
 
 - What exists today
 - The proposal
@@ -1117,7 +1134,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, miss, number, optimisation, shown, single-function, unverified, upgrade
+**topics:** adjudicating, baseline, benchmark, bracers, characterization, claims, compare, confident, falsifiable, faster, integration, intended, miss, number, optimisation, single-function, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
