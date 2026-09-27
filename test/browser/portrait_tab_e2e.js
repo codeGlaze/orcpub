@@ -260,6 +260,57 @@ async function openBuilder(ctx, width) {
         `${rebuilt} layers before, ${afterRandom} after`);
   await shoot('4-random-character-is-blank.png');
 
+  // ---------- a save that outlived the screen it started on ----------
+  //
+  // The autosave queue is throttled by 7.5s and every sheet control feeds it, so
+  // a save routinely ANSWERS about a character that is no longer open. It used
+  // to make whatever came back the builder's character, taking db :character --
+  // where unsaved edits live -- with it.
+  //
+  // Driven through re-frame rather than over HTTP because a real save needs a
+  // session and these probes run unauthenticated. Everything downstream of the
+  // response is the real thing: the real handler, the real reducers, the real
+  // DOM. Only the round-trip is stood in for.
+  await portraitTab.click();
+  await page.waitForTimeout(300);
+  if (!(await layerCount())) {
+    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await page.waitForTimeout(400);
+  }
+  const heldLayers = await layerCount();
+  check('a portrait is on screen before the stale answer', heldLayers > 0, `${heldLayers} layers`);
+
+  // dispatch_sync through the app's own re-frame, the way the other probes do
+  await page.waitForFunction(
+    () => window.re_frame && window.re_frame.db && window.cljs && window.cljs.reader,
+    null, { timeout: 30000 });
+  await page.addScriptTag({ content:
+    'window.__d = (edn) => window.re_frame.core.dispatch_sync.call(null, window.cljs.reader.read_string.call(null, edn));' });
+  const dbAt = (edn) => page.evaluate((e) => window.cljs.core.pr_str.call(null,
+    window.cljs.core.get_in.call(null, window.cljs.core.deref.call(null, window.re_frame.db.app_db),
+      window.cljs.reader.read_string.call(null, e))), edn);
+
+  // WHICH character is on screen is the assertion, not what is drawn. A first
+  // version of this checked the portrait and a heading instead and passed
+  // against the broken code: with the fix reverted the handler dispatches
+  // :character-updated, which keeps the draft on purpose, and the heading it
+  // read was the page title rather than the character.
+  const idBefore = await dbAt('[:character :db/id]');
+
+  // A save answering about a character that was never the one on screen.
+  await page.evaluate(() => window.__d(
+    '[:character-save-success {:body {:db/id 987654 :orcpub.entity.strict/values {}}} {:for-id 987654}]'));
+  await page.waitForTimeout(600);
+
+  const idAfter = await dbAt('[:character :db/id]');
+  check('a stale save does not swap the character out from under you',
+        idAfter === idBefore && idAfter !== '987654',
+        `db :character/:db/id was ${idBefore}, now ${idAfter}`);
+  const survivedLayers = await layerCount();
+  check('and the portrait on screen is still the one being drawn',
+        survivedLayers === heldLayers, `${heldLayers} before, ${survivedLayers} after`);
+  await shoot('5-stale-save-leaves-the-screen-alone.png');
+
   check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
 
   await browser.close();

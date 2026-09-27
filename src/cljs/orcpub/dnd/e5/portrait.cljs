@@ -18,7 +18,8 @@
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.dnd.e5.portrait-layout :as layout]))
+            [orcpub.dnd.e5.portrait-layout :as layout]
+            [orcpub.fork.branding :as branding]))
 
 (defn- classes [& cs] (s/join " " (remove nil? cs)))
 
@@ -177,6 +178,52 @@
           (.catch (fn [_] nil))))))
 
 ;; ---------------- drawer chrome ----------------
+
+(def empty-slot-styles
+  "The empty portrait slot.
+
+   It used to be lit by a radial gradient -- a spotlight centred at 50% 35% --
+   which read as a different design language from everything around it: the app
+   panels are flat or top-down, and the accents are amber. A centred glow in a
+   cool slate belongs to some other screen.
+
+   So the ground is a shallow top-down gradient like the app's other panels, and
+   what fills the space is the site's own logo, debossed: masked to 5% white with
+   a one-pixel dark shadow under it, so it reads as a detail lifted out of the
+   wall rather than a picture in its own right. Loud enough that the slot is not
+   empty-looking, quiet enough that it never competes with the art that replaces
+   it.
+
+   The mark comes from branding/logo-path, not a literal, so a fork gets its own
+   rather than ours -- the same reason the site mark on a shared portrait is read
+   from branding.
+
+   Only the EMPTY states carry it: .pl-empty-hint and .pl-thumb-empty both render
+   solely when there is nothing composed, so a portrait never has a logo showing
+   through its transparent parts."
+  (str "
+.pl-portrait-frame, .pl-thumb-empty {
+  background: linear-gradient(180deg, #1b2230 0%, #141a25 100%);
+}
+.pl-thumb-empty { position: relative; }
+.pl-empty-hint::before, .pl-thumb-empty::before {
+  content: ''; position: absolute; pointer-events: none;
+  left: 50%; top: 44%; transform: translate(-50%, -50%);
+  width: 56%; height: 34%;
+  background-color: rgba(255,255,255,0.055);
+  -webkit-mask-image: url(" branding/logo-path "); mask-image: url(" branding/logo-path ");
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  /* on the masked shape, not a box: this is what makes it read as debossed */
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5));
+}
+/* The big frame also carries the 'pick a layer' hint, and a wordmark directly
+   behind type muddies both. The mark sits high, the hint sits low. */
+.pl-empty-hint { align-content: end; padding-bottom: 34%; }
+.pl-empty-hint::before { top: 34%; width: 50%; height: 26%; }
+.pl-thumb-empty::before { top: 40%; width: 62%; height: 38%; }
+"))
 
 (def drawer-styles "
 /* The baked portrait credit is drawn on a canvas, and a canvas can only use
@@ -976,7 +1023,7 @@
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
     [:div.pl-root {:class theme}
-     [:style drawer-styles]
+     [:style (str drawer-styles empty-slot-styles)]
      (when open?
        (let [portrait   @(subscribe [:portrait/draft])
              seed       @(subscribe [:portrait/draft-seed])
