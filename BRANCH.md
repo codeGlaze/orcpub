@@ -154,7 +154,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
   on PR #34 is paused for it, and its homebrew commits are inputs. The work branch is
   `port/save-gate`, cut from `integration`. Inputs, scope, order and checkpoints:
   `docs/kb/plan-next.md` §0a. The map is done (`docs/kb/homebrew-key-map.md`) and the design proposed
-  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; steps 1–4 done on `port/save-gate` (`b5f2a1b6`); step 5 needs the owner's §9 decisions.
+  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; steps 1–4 and the restore-screen fixes done on `port/save-gate` (`796e15dd`); step 5 needs the owner's §9 decisions.
 - **This branch's own purpose is grants** (`plan-next.md` items 1–6). The key fix is a detour it is
   hosting the planning for, not the branch's work; code for it lands on `port/save-gate`.
 - The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
