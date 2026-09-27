@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Step 1 in progress; the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Step 1 done (`port/save-gate` `5d8fc3a3`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 

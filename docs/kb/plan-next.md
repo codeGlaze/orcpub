@@ -59,8 +59,9 @@ how the save path ended up in three variants with one fix built twice under diff
 **Done 2026-09-27: `homebrew-key-map.md`.** Awaiting the owner's first checkpoint. Its §6 (invariants) and §7
 (ranked gaps) are what the design has to answer.
 
-**Design proposed 2026-09-27: `homebrew-keys-design.md`.** Approved 2026-09-27; step 1 under way on
-`port/save-gate`. Its seven decisions (§9) are still open and are needed before steps 5–8.
+**Design proposed 2026-09-27: `homebrew-keys-design.md`.** Approved 2026-09-27. **Step 1 done** (`port/save-gate`
+`5d8fc3a3`: round six plus #34's `054e42c1`, `ec4a3c50`, `d7640dd8`, `cd82f249`; lein test 493/3816,
+cljs 460/2401, e2e not re-run). Next is step 2, the built-in-key character fix. Its seven decisions (§9) are still open and are needed before steps 5–8.
 
 **Why.** The homebrew save rework went through six adversarial review rounds (6, 5, 4, 6, 6, 3
 findings) and every round found a part of the system nobody had mapped: ten edit doors that pass an
