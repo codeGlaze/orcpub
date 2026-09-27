@@ -115,3 +115,45 @@
     {:plugins (rebuild (reduce (fn [acc p] (if (= ::none (at m p)) (dissoc acc p) (assoc acc p (at m p))))
                                t changed))
      :conflicts (vec (sort-by str conflicts))}))
+
+(defn dangling
+  "{[source type key] [{:link :target}]} for every item in `plugins` with a link to nothing:
+   neither `offered` (every key the builder offers, built-in included) nor any library item holds
+   the target. A `:by :name` link to a language is found by name first. `offered` nil means not
+   yet known: {}."
+  [plugins offered]
+  (if (nil? offered)
+    {}
+    (let [lib (held plugins)
+          answers? (fn [to k] (or (contains? offered k) (contains? (get lib to) k)))
+          names (into #{} (for [[_ ct items] (content-groups plugins)
+                                :when (= ct :orcpub.dnd.e5/languages)
+                                [_ item] items]
+                            (:name item)))]
+      (reduce (fn [acc [src ct items]]
+                (reduce-kv
+                 (fn [acc k item]
+                   (let [missing (for [link links/links
+                                       :when (and (map? item) (links/holds? link ct))
+                                       target (links/targets link item)
+                                       :when (if (= :name (:by link))
+                                               (not (or (contains? names target)
+                                                        (answers? (:to link) (common/name-to-kw (str target)))))
+                                               (not (answers? (:to link) target)))]
+                                   {:link (:id link) :to (:to link) :target target})]
+                     (cond-> acc (seq missing) (assoc [src ct k] (vec missing)))))
+                 acc items))
+              {} (content-groups plugins)))))
+
+(defn linking
+  "Items in `plugins` outside the sources in `except` with a `:by :key` link naming `k` of
+   content type `to`, as [{:source :type :key :name}]."
+  [plugins to k except]
+  (for [[src ct items] (content-groups plugins)
+        :when (not (contains? except src))
+        [ik item] items
+        :when (and (map? item)
+                   (some (fn [link] (and (= :key (:by link)) (= to (:to link)) (links/holds? link ct)
+                                         (some #{k} (links/targets link item))))
+                         links/links))]
+    {:source src :type ct :key ik :name (:name item)}))

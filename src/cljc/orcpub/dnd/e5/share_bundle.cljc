@@ -147,12 +147,13 @@
     true (into (for [k (selection-refs d)] [selections k]))))
 
 (defn- resolve-target
-  "The key `v` names through `link`: `v` itself, or for a `:by :name` link the loaded item of
-   that name-derived key (nil when none)."
+  "The key `v` names through `link`: `v` itself, or for a `:by :name` link the loaded item with
+   that name, else the one under the name-derived key (nil when none)."
   [idx link v]
   (if (= :name (:by link))
-    (let [k (common/name-to-kw (str v))]
-      (when (contains? (get idx (:to link)) k) k))
+    (or (some (fn [[k {d :def}]] (when (= v (:name d)) k)) (get idx (:to link)))
+        (let [k (common/name-to-kw (str v))]
+          (when (contains? (get idx (:to link)) k) k)))
     v))
 
 (defn- outgoing-refs

@@ -74,3 +74,9 @@
     (is (contains? spells :own-spell) "so do the spells on its own list")
     (is (contains? spells :lender-spell) "and the spells on the borrowed list")
     (is (not (contains? spells :unlisted)) "but not a spell whose entry for that list is off")))
+
+(deftest a-share-link-carries-a-language-a-race-names-even-when-its-key-is-tagged
+  (let [plugins {"Tide Pak" {:orcpub.dnd.e5/races {:tidefolk {:name "Tidefolk" :languages #{"Tidetongue"}}}
+                             :orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}}}
+        bundle (sb/extract-bundle {::entity/options {:race {::entity/key :tidefolk}}} plugins)]
+    (is (contains? (get-in bundle ["Tide Pak" :orcpub.dnd.e5/languages]) :tidetongue-tp))))

@@ -64,6 +64,8 @@
                                       set-plugins-rev!
                                       stored-plugins
                                       watch-library-elsewhere!
+                                      pending-relinks
+                                      set-pending-relinks!
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
@@ -2113,15 +2115,37 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
+(defn- relink-question
+  "The message asking whether a character keeps the imported item under `from` (named
+   `from-name`) or switches to the renamed one it used before, `to`."
+  [{:keys [from to to-name import]} from-name]
+  {:title (str "This character uses \u201c" (or from-name (common/kw-to-name from true))
+               "\u201d, and importing "
+               (if import (str "\u201c" import "\u201d") "a pack") " added a different one.")
+   :details [[:span.pointer.underline.f-w-b
+              {:on-click #(dispatch [::char5e/relink-content from to])}
+              (str "Switch it to yours, now called \u201c" (or to-name (name to)) "\u201d")]
+             "Or leave it on the imported one."]})
+
 (reg-event-fx
  :set-character
- [db-char->local-store]
- (fn [{:keys [db]} event]
+ [db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ (fn [{:keys [db] :as cofx} event]
    (let [db' (set-character db event)
-         rewrote (get-in db' [:character-healed :rewrote])]
+         rewrote (get-in db' [:character-healed :rewrote])
+         relinks (::e5/pending-relinks cofx)
+         ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
+     ;; Asked once: recorded as soon as the question is shown (owner's decision, Q3).
+     (when ask
+       (set-pending-relinks! (update-in relinks [ask :asked] (fnil conj #{}) (:db/id (:character db')))))
      (cond-> {:db db'}
        ;; Only on an actual repair. A clean load stays silent.
-       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])
+       ask (assoc :dispatch
+                  (let [{:keys [content-type from] :as r} (get relinks ask)]
+                    [:show-warning-message
+                     (relink-question r (some #(get-in % [content-type from :name]) (vals (:plugins db'))))
+                     60000]))))))
 
 (def character-values-path
   [::entity/values])
@@ -5599,6 +5623,11 @@
              (orcbrew-val/relocate-content (:plugins db) selections target op)
              verb    (if (= op :copy) "Copied" "Moved")
              ren-n   (count renamed)
+             ;; Links in other packs to a renamed key stay with the item already under it (Q2).
+             elsewhere (when (= op :move)
+                         (count (distinct (mapcat (fn [{:keys [from ct source]}]
+                                                    (library/linking plugins ct from #{source target}))
+                                                  renamed))))
              msg (str verb " " placed " item" (when (not= 1 placed) "s")
                       " to \"" target "\""
                       (when (pos? ren-n)
@@ -5607,7 +5636,11 @@
                              ")"))
                       (when (pos? missing)
                         (str " — " missing " could not be found and " (if (= 1 missing) "was" "were") " skipped"))
-                      ".")]
+                      "."
+                      (when (and elsewhere (pos? elsewhere))
+                        (str " " elsewhere (if (= 1 elsewhere) " item" " items")
+                             " in other packs still " (if (= 1 elsewhere) "uses" "use")
+                             " the one already in \u201c" target "\u201d.")))]
          {:db (-> db (dissoc :content-selection) (assoc :content-select-mode? false))
           :dispatch-n [[::e5/set-plugins plugins]
                        [:show-message msg 6000]]})))))
@@ -6397,6 +6430,12 @@
          existing-base (-> (:plugins db)
                            (orcbrew-val/apply-key-renames existing-renames)
                            (set-disabled existing-disables))
+         ;; Characters that used a renamed existing item are asked once which one they meant (Q3).
+         _ (when (and (seq existing-renames) (not (or export-mode? library-mode?)))
+             (set-pending-relinks! (into (pending-relinks)
+                                         (map #(assoc % :import import-name :asked #{}))
+                                         (map #(select-keys % [:content-type :from :to :to-name])
+                                              existing-renames))))
          {:keys [merged quarantine message]}
          (when-not (or export-mode? library-mode?)
            (store-imported-sources existing-base incoming))

@@ -524,6 +524,22 @@
 ;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
 ;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
 ;; because the salvage/quarantine behavior is plugins-specific.
+(def local-storage-relinks-key "plugins:relinks")
+
+(defn pending-relinks
+  "Import renames of existing items to ask characters about:
+   [{:content-type :from :to :to-name :import :asked #{character-id}}]."
+  []
+  (let [v (get-local-storage-item local-storage-relinks-key)] (if (vector? v) v [])))
+
+(defn set-pending-relinks! [relinks]
+  (set-item local-storage-relinks-key (str (vec relinks))))
+
+(re-frame/reg-cofx
+ ::e5/pending-relinks
+ (fn [cofx _]
+   (assoc cofx ::e5/pending-relinks (pending-relinks))))
+
 (def local-storage-plugins-rev-key "plugins:rev")
 
 (defn plugins-rev

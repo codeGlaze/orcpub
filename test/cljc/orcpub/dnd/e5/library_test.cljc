@@ -79,3 +79,27 @@
         theirs (assoc-in base ["Classes" :orcpub.dnd.e5/classes :warden :name] "Warden B")]
     (is (= [["Classes" :orcpub.dnd.e5/classes :warden]] (:conflicts (library/three-way base mine theirs))))
     (is (empty? (:conflicts (library/three-way base mine mine))) "the same change in both is no conflict")))
+
+;; ── Links to nothing ────────────────────────────────────────────────────────
+
+(deftest dangling-finds-links-nothing-answers
+  (let [plugins {"Pak" {:orcpub.dnd.e5/subclasses {:lost {:name "Lost" :class :gone}
+                                                   :srd  {:name "Srd" :class :cleric}
+                                                   :home {:name "Home" :class :warden}}
+                        :orcpub.dnd.e5/classes {:warden {:name "Warden"}}
+                        :orcpub.dnd.e5/races {:folk {:name "Folk" :languages #{"Tidetongue" "Nope"}}}
+                        :orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}}}
+        out (library/dangling plugins #{:cleric :common})]
+    (is (= [{:link :subclass->class :to :orcpub.dnd.e5/classes :target :gone}]
+           (get out ["Pak" :orcpub.dnd.e5/subclasses :lost])))
+    (is (nil? (get out ["Pak" :orcpub.dnd.e5/subclasses :srd])) "built-in content answers")
+    (is (nil? (get out ["Pak" :orcpub.dnd.e5/subclasses :home])) "a library item answers")
+    (is (= [{:link :language-by-name :to :orcpub.dnd.e5/languages :target "Nope"}]
+           (get out ["Pak" :orcpub.dnd.e5/races :folk]))
+        "a language named by name is found by name; one nothing has that name is reported")
+    (is (= {} (library/dangling plugins nil)) "nothing is reported before the builder's list exists")))
+
+(deftest linking-finds-what-still-names-a-key-outside-some-sources
+  (is (= [{:source "Domains" :type :orcpub.dnd.e5/subclasses :key :tides :name "Oath of Tides"}]
+         (library/linking library :orcpub.dnd.e5/classes :warden #{"Classes"})))
+  (is (empty? (library/linking library :orcpub.dnd.e5/classes :warden #{"Domains"}))))

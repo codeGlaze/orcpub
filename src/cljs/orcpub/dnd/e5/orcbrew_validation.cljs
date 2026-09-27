@@ -2013,7 +2013,7 @@
 (defn relocate-content
   "Move or copy selected homebrew items to a target source. `selections` is a seq
    of [source content-type key]; `op` is :move or :copy. Returns
-   {:plugins <new> :placed n :renamed [{:from :to :ct}] :missing n}.
+   {:plugins <new> :placed n :renamed [{:from :to :ct :source}] :missing n}.
 
    Single vs bulk is just the length of `selections` — one mechanism for both.
 
@@ -2073,7 +2073,7 @@
                  p1         (assoc-in renamed-in-src [target ct new-key] new-item)
                  p2         (if copy? p1 (update-in p1 [src ct] dissoc (if ident new-key k)))]
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc)) ;; not app-db
-               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
+               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct :source src}))))))
      {:plugins plugins :renamed [] :placed 0 :missing 0}
      ;; Parents first. The selection arrives as a set, in hash order, so a subclass
      ;; could otherwise move before its class; the class's rename then repoints only

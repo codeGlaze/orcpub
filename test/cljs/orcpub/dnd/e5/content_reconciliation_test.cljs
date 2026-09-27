@@ -710,3 +710,16 @@
       (let [{:keys [plugins pending]} (reconcile/settle-repoints plugins pending #{:caster :caster-x})]
         (is (= :caster (class-of plugins)))
         (is (empty? pending))))))
+
+(deftest relink-to-ask-picks-a-rename-this-character-is-caught-by
+  (let [relinks [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl :asked #{}}]
+        plugins {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
+                 "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}}
+        character {:db/id 7 ::entity/options {:class [{::entity/key :warden}]}}]
+    (is (= 0 (reconcile/relink-to-ask relinks character plugins)))
+    (is (nil? (reconcile/relink-to-ask (assoc-in relinks [0 :asked] #{7}) character plugins))
+        "asked once")
+    (is (nil? (reconcile/relink-to-ask relinks (dissoc character :db/id) plugins))
+        "an unsaved character is not asked")
+    (is (nil? (reconcile/relink-to-ask relinks character (update plugins "Classes" dissoc :orcpub.dnd.e5/classes)))
+        "not while the renamed item is gone: nothing to switch to")))

@@ -28,6 +28,7 @@
             [orcpub.dnd.e5.compute :as compute]
             [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
             [reagent.ratom :as ra]
@@ -1646,6 +1647,13 @@
     :subraces subraces
     :backgrounds backgrounds
     :feats feats}))
+
+(reg-sub
+ :orcpub.dnd.e5/dangling-links
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ (fn [[plugins offered] _]
+   (library/dangling plugins offered)))
 
 (reg-sub
  ::content-recon/offered-keys

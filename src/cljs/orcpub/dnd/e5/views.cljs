@@ -8543,6 +8543,7 @@
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
             twin-idx   @(subscribe [::e5/collision-twin-index])
+            dangling   @(subscribe [::e5/dangling-links])
             select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
@@ -8640,6 +8641,14 @@
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
                        [:span name]
+                       (when-let [missing (get dangling [source-name type-key key])]
+                         [:div.f-s-12 {:style {:color "#ffd21a"}}
+                          [:i.fa.fa-chain-broken.m-r-5]
+                          (str "Uses "
+                               (s/join ", " (for [{:keys [to target]} missing]
+                                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+                               ", which isn't in your library.")])
                        (when note
                          [:div.f-s-12
                           {:class (when (= :off (:kind note)) "b-color-gray")

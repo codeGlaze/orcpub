@@ -463,6 +463,21 @@
           {:plugins plugins :pending []}
           pending))
 
+(defn relink-to-ask
+  "The index into `relinks` (db/pending-relinks) of the first rename to ask `character` about, or
+   nil: a saved character not yet asked, holding the renamed item's old key, while `plugins` holds
+   both the renamed item (`:to`) and the item now under the old key."
+  [relinks character plugins]
+  (let [id (:db/id character)
+        holds? (fn [ct k] (some #(some? (get-in % [ct k])) (vals plugins)))
+        used (set (keep ::entity/key (tree-seq coll? seq (::entity/options character))))]
+    (when id
+      (first (keep-indexed (fn [i {:keys [content-type from to asked]}]
+                             (when (and (not (contains? asked id)) (contains? used from)
+                                        (holds? content-type to) (holds? content-type from))
+                               i))
+                           relinks)))))
+
 (defn reconcile-former-keys
   "Rewrite a character's stored content keys through `index`.
 

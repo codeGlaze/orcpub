@@ -558,6 +558,24 @@
     (is (= "5" (.getItem js/window.localStorage "plugins:rev")) "and nothing was written"))
   (.clear js/window.localStorage))
 
+(deftest a-character-caught-by-an-import-rename-is-asked-once
+  (.clear js/window.localStorage)
+  (.setItem js/window.localStorage "plugins:relinks"
+            (pr-str [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl
+                      :to-name "Warden (Cl)" :import "Tide Pak" :asked #{}}]))
+  (let [character {:db/id 7 :orcpub.entity/options {:class [{:orcpub.entity/key :warden}]}}]
+    (reset! app-db {:plugins {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
+                              "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}}})
+    (run-through! [:set-character character])
+    (is (= "This character uses \u201cWarden\u201d, and importing \u201cTide Pak\u201d added a different one."
+           (get-in @app-db [:message :title])))
+    (is (= :warden (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
+        "nothing is switched until the author picks")
+    (swap! app-db dissoc :message)
+    (run-through! [:set-character character])
+    (is (nil? (:message @app-db)) "and it is asked once"))
+  (.clear js/window.localStorage))
+
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
 ;; (nil instead of false)" corruption by driving the REAL toggle event handlers in

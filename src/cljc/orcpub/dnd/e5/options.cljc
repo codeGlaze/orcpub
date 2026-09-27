@@ -2265,6 +2265,13 @@
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
 
+(defn language-key
+  "The key of the language `language-map` ({key language}) holds under the display name `nm`,
+   else the key derived from `nm`."
+  [language-map nm]
+  (or (some (fn [[k l]] (when (= nm (:name l)) k)) language-map)
+      (common/name-to-kw nm)))
+
 (defn race-option [spell-lists
                    spells-map
                    language-map
@@ -2324,7 +2331,7 @@
                     (darkvision-modifiers darkvision))
                   (map
                    (fn [language]
-                     (modifiers/language (common/name-to-kw language)))
+                     (modifiers/language (language-key language-map language)))
                    languages)
                   (map
                    (fn [[k v]]
