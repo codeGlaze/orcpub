@@ -8,7 +8,7 @@
 
    Layer: re-frame events through `dispatch-sync`, not the DOM. The save path is event logic, and
    the browser adds nothing to it. The builder FORM is pinned separately by test/e2e/*.js."
-  (:require [cljs.test :refer-macros [deftest is use-fixtures]]
+  (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5 :as e5]
@@ -163,7 +163,7 @@
 (defn- moved-through
   "An item carried through a chain of deliberate key changes, oldest first."
   [ks]
-  (reduce (fn [item k] (reconcile/record-former-key (assoc item :key k) (:key item)))
+  (reduce (fn [item next-key] (reconcile/record-former-key (assoc item :key next-key) (:key item)))
           {:key (first ks) :option-pack SRC}
           (rest ks)))
 
