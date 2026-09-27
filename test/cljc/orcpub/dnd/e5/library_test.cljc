@@ -40,3 +40,11 @@
            (:invalid (:refused (library/commit library bad {})))))
     (is (some? (:plugins (library/commit bad bad {})))
         "a key already stored is the loader's to set aside, not a reason to refuse every write")))
+
+(deftest overwritten-names-the-entries-a-re-import-changed
+  (let [reimport (-> library
+                     (assoc-in ["Classes" :orcpub.dnd.e5/classes :warden :name] "Warden (2nd printing)")
+                     (assoc-in ["Classes" :orcpub.dnd.e5/classes :new-one] {:name "New One"}))]
+    (is (= [{:source "Classes" :type :orcpub.dnd.e5/classes :key :warden :name "Warden (2nd printing)"}]
+           (library/overwritten library reimport))
+        "a changed entry is named; a new one and an unchanged one are not")))

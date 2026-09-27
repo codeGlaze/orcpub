@@ -468,6 +468,66 @@
            (events/restore-message "Tide Pak" before {}
                                    {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}})))))
 
+;; Deleting something other items use asks first (owner's decision, Q7).
+
+(defn- run-through!
+  "dispatch-sync `event`, then every event it dispatches, in order, until none are left. The real
+   :dispatch and :dispatch-n are put back afterwards."
+  [event]
+  (let [queue (atom [event])
+        real (select-keys (get @registrar/kind->id->handler :fx) [:dispatch :dispatch-n])]
+    (try
+      (rf/reg-fx :dispatch #(swap! queue conj %))
+      (rf/reg-fx :dispatch-n #(swap! queue into (remove nil? %)))
+      (loop []
+        (when-let [e (first @queue)]
+          (swap! queue (comp vec rest))
+          (rf/dispatch-sync e)
+          (recur)))
+      (finally
+        (doseq [[id h] real] (rf/reg-fx id h))))))
+
+(def ^:private warden-and-tides
+  {"Classes" {:orcpub.dnd.e5/classes {:warden {:key :warden :name "Warden" :option-pack "Classes"}
+                                      :spare  {:key :spare :name "Spare" :option-pack "Classes"}}}
+   "Domains" {:orcpub.dnd.e5/subclasses {:tides {:key :tides :name "Oath of Tides" :class :warden
+                                                 :option-pack "Domains"}}}})
+
+(deftest deleting-an-item-others-use-asks-first
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (let [warden (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])]
+    (run-through! [::classes5e/delete-class warden "Classes" :warden])
+    (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "not deleted yet")
+    (is (= "\u201cOath of Tides\u201d uses \u201cWarden\u201d." (get-in @app-db [:message :title])))
+    (run-through! [::classes5e/delete-class warden "Classes" :warden true])
+    (is (nil? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "deleted once confirmed"))
+  (.clear js/window.localStorage))
+
+(deftest deleting-an-item-nothing-uses-just-deletes
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (run-through! [::classes5e/delete-class
+                     (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :spare]) "Classes" :spare])
+  (is (nil? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :spare])))
+  (.clear js/window.localStorage))
+
+(deftest deleting-a-pack-others-use-asks-first
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (run-through! [::e5/delete-plugin "Classes"])
+  (is (contains? (:plugins @app-db) "Classes") "not deleted yet")
+  (is (= "\u201cOath of Tides\u201d uses content from \u201cClasses\u201d."
+         (get-in @app-db [:message :title])))
+  (run-through! [::e5/delete-plugin "Classes" true])
+  (is (not (contains? (:plugins @app-db) "Classes")) "deleted once confirmed")
+  (.clear js/window.localStorage))
+
+(deftest a-re-import-says-which-entries-it-updated
+  (is (= "Updated 2 entries \u201cTide Pak\u201d already had: \u201cWarden\u201d, \u201cTidecall\u201d."
+         (events/updated-line [{:source "Tide Pak" :key :warden :name "Warden"}
+                               {:source "Tide Pak" :key :tidecall :name "Tidecall"}]))))
+
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
 ;; (nil instead of false)" corruption by driving the REAL toggle event handlers in

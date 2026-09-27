@@ -69,3 +69,14 @@
     (if (or (seq invalid) (and (seq broken) (not deleting?)))
       {:refused {:broken broken :invalid invalid}}
       {:plugins stored :broken broken})))
+
+(defn overwritten
+  "Items `old` and `new` both hold at the same source, type and key, whose content differs, as
+   [{:source :type :key :name}]. The name is the one `new` gives it."
+  [old new]
+  (let [o (normalize old) n (normalize new)]
+    (for [[src ct items] (content-groups n)
+          [k item] items
+          :let [was (get-in o [src ct k])]
+          :when (and (some? was) (not= was item))]
+      {:source src :type ct :key k :name (:name item)})))

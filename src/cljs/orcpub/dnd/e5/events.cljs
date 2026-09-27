@@ -1477,6 +1477,22 @@
  ::e5/classes
  "You must specify 'Name', 'Option Source Name'")
 
+(defn- still-used-fx
+  "The prompt shown instead of a delete that would leave `broken` (library/commit's report)
+   pointing at nothing: who uses `what`, and an offer to delete anyway via `confirm-event`."
+  [what broken confirm-event]
+  (let [names (distinct (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") broken))
+        shown (s/join ", " (take 2 names))
+        more (- (count names) 2)]
+    {:dispatch [:show-warning-message
+                {:title (str shown (when (pos? more) (str " and " more " more"))
+                             (if (= 1 (count names)) " uses " " use ") what ".")
+                 :details [[:span.pointer.underline.f-w-b {:on-click #(dispatch confirm-event)}
+                            "Delete it anyway"]
+                           (str (if (= 1 (count names)) "It" "They")
+                                " will point at nothing until you change "
+                                (if (= 1 (count names)) "it." "them."))]}]}))
+
 (defn reg-delete-homebrew [event-key plugin-key]
   (reg-event-fx
    event-key
@@ -1485,15 +1501,23 @@
    ;; before keys were stored. Reading them here deleted nothing at all for a pre-keys library,
    ;; conjured an empty source from a stale declaration, or -- where another source answered to
    ;; the same key -- deleted THAT entry and left the clicked one in place.
-   (fn [{:keys [db]} [_ item source key]]
+   (fn [{:keys [db]} [_ item source key confirmed?]]
      (let [source (or source (:option-pack item))
-           key    (or key (:key item))]
-       (if (and source key (get-in db [:plugins source plugin-key key]))
-         {:dispatch [::e5/set-plugins (update-in (:plugins db) [source plugin-key] dissoc key)
-                     {:deleting? true}]}
+           key    (or key (:key item))
+           after  (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
+           broken (when after (:broken (library/commit (:plugins db) after {:deleting? true})))]
+       (cond
+         (not (and source key (get-in db [:plugins source plugin-key key])))
          {:dispatch [:show-error-message
                      "That entry could not be found — reload My Content and try again."
-                     builder-error-ttl]})))))
+                     builder-error-ttl]}
+
+         (and (seq broken) (not confirmed?))
+         (still-used-fx (str "\u201c" (or (get-in db [:plugins source plugin-key key :name]) (name key)) "\u201d")
+                        broken [event-key item source key true])
+
+         :else
+         {:dispatch [::e5/set-plugins after {:deleting? true}]})))))
 
 (reg-delete-homebrew
  ::spells/delete-spell
@@ -5375,8 +5399,13 @@
 
 (reg-event-fx
  ::e5/delete-plugin
- (fn [{:keys [db]} [_ name]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (dissoc name)) {:deleting? true}]}))
+ (fn [{:keys [db]} [_ source-name confirmed?]]
+   (let [after (dissoc (:plugins db) source-name)
+         broken (:broken (library/commit (:plugins db) after {:deleting? true}))]
+     (if (and (seq broken) (not confirmed?))
+       (still-used-fx (str "content from \u201c" source-name "\u201d") broken
+                      [::e5/delete-plugin source-name true])
+       {:dispatch [::e5/set-plugins after {:deleting? true}]}))))
 
 (reg-event-fx
  ::e5/toggle-plugin
@@ -5810,6 +5839,17 @@
                      " set aside in “My Content”. The rest imported fine; open it "
                      "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
 
+(defn updated-line
+  "One line naming the entries a re-import overwrote: `updated` is library/overwritten's report."
+  [updated]
+  (let [by-source (group-by :source updated)
+        names (distinct (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") updated))
+        more (- (count names) 3)]
+    (str "Updated " (count updated) (if (= 1 (count updated)) " entry " " entries ")
+         (s/join " and " (map #(str "\u201c" % "\u201d") (sort (keys by-source))))
+         " already had: " (s/join ", " (take 3 names))
+         (when (pos? more) (str " and " more " more")) ".")))
+
 (defn store-single-import
   "Store a validated import (`incoming`, the flat {source plugin} shape) through the
    shared quarantine gate and return the {:db :dispatch-n} the import handler yields.
@@ -5823,7 +5863,12 @@
                                      :skipped-items (:skipped-items result)
                                      :key-conflicts (:key-conflicts result)
                                      :key-warnings (:key-warnings result)}]
-        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)]
+        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)
+        ;; A re-import overwrites the entries the library already had (owner's decision, Q4): say which.
+        updated (when merged (library/overwritten (:plugins db) merged))
+        user-message (if (and (seq updated) (map? user-message))
+                       (update user-message :details #(conj (vec %) (updated-line updated)))
+                       user-message)]
     {:db (assoc db :quarantined-plugins quarantine)
      :dispatch-n (remove nil?
                    [(when merged
