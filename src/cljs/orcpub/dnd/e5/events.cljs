@@ -59,6 +59,7 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      keep-pre-fix-copy!
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
@@ -82,6 +83,7 @@
                                       default-class
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -154,7 +156,8 @@
 
 (def class->local-store-interceptor (after class->local-store))
 
-(def plugins->local-store-interceptor (after plugins->local-store))
+;; DEPRECATED 2026-09-27, remove after 2026-12: the library is written only by commit-library.
+#_(def plugins->local-store-interceptor (after plugins->local-store))
 
 (def dev-mode->local-store-interceptor
   (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
@@ -285,8 +288,9 @@
    (when-let [store-key (builder-wip-store-key item-key)]
      (set-item store-key (str item)))))
 
-(def plugins-interceptors [(path :plugins)
-                           plugins->local-store-interceptor])
+;; DEPRECATED 2026-09-27, remove after 2026-12: see plugins->local-store-interceptor.
+#_(def plugins-interceptors [(path :plugins)
+                             plugins->local-store-interceptor])
 
 
 ;; -- Event Handlers --------------------------------------------------
@@ -331,7 +335,7 @@
     :db (if (seq db)
           db
           (cond-> default-value
-            plugins (assoc :plugins plugins)
+            plugins (assoc :plugins plugins) ;; library load
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
@@ -1485,7 +1489,8 @@
      (let [source (or source (:option-pack item))
            key    (or key (:key item))]
        (if (and source key (get-in db [:plugins source plugin-key key]))
-         {:dispatch [::e5/set-plugins (update-in (:plugins db) [source plugin-key] dissoc key)]}
+         {:dispatch [::e5/set-plugins (update-in (:plugins db) [source plugin-key] dissoc key)
+                     {:deleting? true}]}
          {:dispatch [:show-error-message
                      "That entry could not be found — reload My Content and try again."
                      builder-error-ttl]})))))
@@ -4658,11 +4663,35 @@
  (fn [_ [_ item]]
    item))
 
-(reg-event-db
+(defn- refusal-message [{:keys [broken invalid]}]
+  (if (seq invalid)
+    "That change wasn't saved: it would give an item a key the app can't load."
+    (str "That change wasn't saved: it would leave "
+         (s/join ", " (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") (take 3 broken)))
+         (when (> (count broken) 3) (str " and " (- (count broken) 3) " more"))
+         " pointing at nothing.")))
+
+(defn commit-library
+  "Stores `plugins` through the library gate (library/commit), the one place the library is
+   written. Returns {:db :ok? :dispatch-n}: on success `:db` holds the stored library; when the
+   gate refuses, `:db` is unchanged and `:dispatch-n` carries the error. `opts` as
+   library/commit, plus `:on-success`, an event dispatched once the write has stuck."
+  [db plugins opts]
+  (let [old (:plugins db)
+        {stored :plugins refused :refused} (library/commit old plugins opts)]
+    (if refused
+      (do (js/console.warn "Library write refused" (clj->js refused))
+          {:db db :ok? false :dispatch-n [[:show-error-message (refusal-message refused)]]})
+      (do (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
+          (let [ok? (plugins->local-store stored)] ;; library gate
+            {:db (assoc db :plugins stored) ;; library gate
+             :ok? ok?
+             :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])})))))
+
+(reg-event-fx
  ::e5/set-plugins
- plugins-interceptors
- (fn [_ [_ plugins]]
-   plugins))
+ (fn [{:keys [db]} [_ plugins opts]]
+   (select-keys (commit-library db plugins opts) [:db :dispatch-n])))
 
 ;; Persist-then-report: write the library to localStorage FIRST and only fire the
 ;; success dispatch if the write actually stuck. A failed write (typically quota)
@@ -4673,9 +4702,9 @@
 (reg-event-fx
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
-   (let [ok? (plugins->local-store plugins)]
-     (cond-> {:db (assoc db :plugins plugins)}
-       (and ok? on-success) (assoc :dispatch on-success)))))
+   ;; Import paths: re-importing a source replaces what it held (owner's decision, Q4).
+   (select-keys (commit-library db plugins {:deleting? true :on-success on-success})
+                [:db :dispatch-n])))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -4772,13 +4801,13 @@
              n-fixed (count-items kept-items)
              n-left (count-items still-bad)]
          ;; Persist live + quarantine together so they never disagree, and show now.
-         (plugins->local-store live)
-         (set-rejected-plugins new-rejected)
-         {:db (-> db
-                  (assoc :plugins live)
-                  (assoc :quarantined-plugins new-rejected))
-          :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
-                     (restore-message source-name bad kept-items still-bad)]})))))
+         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
+           (if-not ok?
+             {:db db' :dispatch-n refused}
+             (do (set-rejected-plugins new-rejected)
+                 {:db (assoc db' :quarantined-plugins new-rejected)
+                  :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
+                             (restore-message source-name bad kept-items still-bad)]}))))))))
 
 ;; Permanently discard a quarantined source the user can't (or doesn't want to)
 ;; repair — e.g. a stale entry from an earlier bad import that no longer
@@ -4991,7 +5020,8 @@
                                            :name (:name item)})
           ::persist-builder-wip [item-key (assoc item :key new-key
                                                  :former-keys (:former-keys moved))]
-          :dispatch-n [[::e5/set-plugins new-plugins]
+          ;; Links in other sources still name the old key until settle-repoints moves them.
+          :dispatch-n [[::e5/set-plugins new-plugins {:retargeting [[plugin-key old-key]]}]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
                         {:title (str "Key changed to " new-key)
@@ -5022,16 +5052,13 @@
    (text normalization, semantic cleaning, option dedup) so a per-source file
    and an all-sources file agree on the same content, then either shows the
    fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). Corrections are persisted back so a second export finds
-   nothing left to fix."
+   (spec failure). The library itself is not changed."
   [db plugin-name plugin {:keys [pretty-print?]}]
   (let [{corrected :plugin cleanup-changes :changes}
         (correct-single-plugin plugin-name plugin)
         library (:plugins db)
-        ;; Only write back a source the store actually holds: export-plugin is
-        ;; also called with a just-built plugin that never reached storage.
-        persist (when (and (not= plugin corrected) (contains? library plugin-name))
-                  [[::e5/set-plugins (assoc library plugin-name corrected)]])
+        ;; Export corrects the file only; the library is left as the author saved it (Q5).
+        persist nil
         validation (orcbrew-val/validate-before-export corrected)]
 
     (when (seq cleanup-changes)
@@ -5195,9 +5222,7 @@
      ;; Strip meaningless blanks (false/nil/empty) on normal export.
      (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
                          :pretty-print? pretty-print?)
-     (plugins->local-store new-plugins)
-     {:db (-> db
-              (assoc :plugins new-plugins)
+     {:db (-> (:db (commit-library db new-plugins {}))
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
                                   :import-name (if (= mode :multi)
@@ -5270,9 +5295,8 @@
          ;; Per-plugin required-field / spec check on the corrected library.
          {:keys [fillable blockers]}
          (orcbrew-val/classify-plugins-for-export corrected)
-         ;; Persist silent corrections back so the store matches the file and a
-         ;; second export finds nothing left to fix (the checks converge).
-         persist (when library-changed? [[::e5/set-plugins corrected]])]
+         ;; Export corrects the file only; the library is left as the author saved it (Q5).
+         persist nil]
 
      (when (seq cleanup-changes)
        (js/console.log "Export cleanup:" (clj->js cleanup-changes)))
@@ -5352,7 +5376,7 @@
 (reg-event-fx
  ::e5/delete-plugin
  (fn [{:keys [db]} [_ name]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (dissoc name))]}))
+   {:dispatch [::e5/set-plugins (-> db :plugins (dissoc name)) {:deleting? true}]}))
 
 (reg-event-fx
  ::e5/toggle-plugin
@@ -5636,8 +5660,7 @@
                                            (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
                                            (vals shared))}
              live (e5/merge-all-plugins (:plugins db) collapsed)]
-         (plugins->local-store live)
-         {:db (-> db (assoc :plugins live) (dissoc :shared-plugins :shared-content-info))
+         {:db (-> (:db (commit-library db live {})) (dissoc :shared-plugins :shared-content-info))
           :dispatch [:show-message
                      (str "Saved this character's custom content to your library as \""
                           source-name "\".")]})))))
@@ -5952,7 +5975,8 @@
        (let [plugin (:data result)]
          {:dispatch-n [[::e5/set-plugins (if (= :multi-plugin (:strategy result))
                                            (e5/merge-all-plugins (:plugins db) plugin)
-                                           (assoc (:plugins db) plugin-name plugin))]
+                                           (assoc (:plugins db) plugin-name plugin))
+                        {:deleting? true}]
                        [:show-warning-message user-message]]})
 
        {:dispatch [:show-error-message user-message]}))))
@@ -6310,7 +6334,7 @@
         ;; store-plugins, whose on-success ("✅ Import successful") only fires if
         ;; the write actually stuck and nothing was set aside.
         (if (or export-mode? library-mode?)
-          [::e5/set-plugins renamed-data]
+          [::e5/set-plugins renamed-data {:deleting? true}]
           (when merged
             [::e5/store-plugins merged
              (when-not message [:show-warning-message success-msg])]))
@@ -7021,7 +7045,7 @@
    ;; references so the Missing Content Warning can properly show what's missing.
    ;; The warning system will help users understand which homebrew they need
    ;; to re-import to restore their character.
-   {:dispatch-n [[::e5/set-plugins {"Default Option Source" {}}]
+   {:dispatch-n [[::e5/set-plugins {"Default Option Source" {}} {:deleting? true}]
                  [::char5e/hide-delete-plugin-confirmation]]}))
 
 (reg-event-fx

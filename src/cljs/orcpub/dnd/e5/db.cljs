@@ -272,9 +272,18 @@
   [k]
   (str k ":corrupt"))
 
+(def local-storage-pre-fix-key "plugins:pre-fix")
+
+(defn keep-pre-fix-copy!
+  "Stores `plugins` in the `plugins:pre-fix` slot, once: a slot already holding a copy is left
+   alone. Called before the library gate first corrects stored items."
+  [plugins]
+  (when (and js/window.localStorage (nil? (.getItem js/window.localStorage local-storage-pre-fix-key)))
+    (set-item local-storage-pre-fix-key (str plugins))))
+
 (defn plugins->local-store [plugins]
   (when js/window.localStorage
-    (let [ok? (set-item local-storage-plugins-key (str plugins))]
+    (let [ok? (set-item local-storage-plugins-key (str plugins))] ;; library gate
       (when-not ok?
         ;; A quota-exceeded write would silently drop the just-saved homebrew on
         ;; the next refresh. Warn and offer a raw backup so in-memory content can
