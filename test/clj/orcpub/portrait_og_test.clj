@@ -12,7 +12,8 @@
             [orcpub.db.schema :as schema]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
-            [orcpub.dnd.e5.portrait-assets :as pa])
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.portrait-render :as portrait-render])
   (:import [java.util UUID]))
 
 (defmacro with-conn [conn-binding & body]
@@ -113,6 +114,65 @@
       (let [buf (byte-array 4)]
         (.read ^java.io.InputStream (:body resp) buf)
         (is (= [-119 80 78 71] (vec buf)) "body starts with the PNG magic number")))))
+
+(deftest a-crawler-that-already-has-the-picture-gets-a-304
+  (testing "and gets it WITHOUT re-rendering. The validator is route-local
+            because the app's global etag-interceptor derives one from the
+            response body and has no method for a stream -- teaching it one
+            would hash every exported PDF, which shares that body type."
+    (with-conn conn
+      (let [c (setup conn)
+            id (:db/id (save! c (character-with {::char5e/portrait (pr-str (a-portrait))})))
+            first-resp (routes/character-portrait-png {:db (d/db c) :path-params {:id id}})
+            tag (get-in first-resp [:headers "ETag"])]
+        (is (= 200 (:status first-resp)))
+        (is (some? tag) "a 200 offers a validator, or nothing can ever be revalidated")
+        (is (re-matches #"\".*\"" tag) "quoted, as a strong validator is written")
+
+        ;; The claim is not "answers 304", it is "answers 304 WITHOUT rendering".
+        ;; Only a renderer that explodes when touched can assert the second one.
+        (let [again (with-redefs [portrait-render/render-png
+                                  (fn [& _]
+                                    (throw (ex-info "rendered anyway" {})))]
+                      (routes/character-portrait-png
+                       {:db (d/db c) :path-params {:id id}
+                        :headers {"if-none-match" tag}}))]
+          (is (= 304 (:status again)))
+          (is (nil? (:body again)) "a 304 carries no body -- that is the saving")
+          (is (= tag (get-in again [:headers "ETag"])) "and repeats the validator"))
+
+        (testing "a re-encoding proxy's --gzip suffix is tolerated, as the app's
+                  own interceptor tolerates it"
+          (is (= 304 (:status (routes/character-portrait-png
+                               {:db (d/db c) :path-params {:id id}
+                                :headers {"if-none-match" (str tag "--gzip")}})))))
+
+        (testing "a stale validator renders rather than 304ing"
+          (let [resp (routes/character-portrait-png
+                      {:db (d/db c) :path-params {:id id}
+                       :headers {"if-none-match" "\"not-the-one-you-have\""}})]
+            (is (= 200 (:status resp)))
+            (is (some? (:body resp)))))))))
+
+(deftest a-different-portrait-gets-a-different-validator
+  (testing "the key is what the pixels depend on, so two characters whose
+            selections differ cannot share a 304"
+    (with-conn conn
+      (let [c (setup conn)
+            one (:db/id (save! c (character-with {::char5e/portrait (pr-str (a-portrait))})))
+            other (:db/id (save! c (character-with
+                                    {::char5e/portrait
+                                     (pr-str (assoc-in (a-portrait)
+                                                       [:colors :hair] "#123456"))})))
+            tag-of (fn [id] (get-in (routes/character-portrait-png
+                                     {:db (d/db c) :path-params {:id id}})
+                                    [:headers "ETag"]))]
+        (is (not= (tag-of one) (tag-of other))
+            "a colour change is a pixel change")
+        (is (= 200 (:status (routes/character-portrait-png
+                             {:db (d/db c) :path-params {:id other}
+                              :headers {"if-none-match" (tag-of one)}})))
+            "and one character's validator must not satisfy another's request")))))
 
 (deftest endpoint-404s-rather-than-500s-without-a-portrait
   (with-conn conn

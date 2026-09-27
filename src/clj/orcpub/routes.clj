@@ -19,6 +19,7 @@
             [clojure.java.io :as io]
             [orcpub.time :as time :refer [hours ago from-now instant before?]]
             [clojure.string :as s]
+            [pandect.algo.sha1 :refer [sha1]]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
@@ -1904,6 +1905,28 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
+(def ^:private artwork-epoch
+  "Identifies THIS PROCESS's copy of the portrait art.
+
+   The validator below hashes what the character chose, which says \"the same
+   selections\" but not \"the same pixels\": the layer PNGs and the registry that
+   names them are classpath resources, so they change with a DEPLOYMENT and not
+   with anything in the database. Mixing the epoch in means a restart
+   invalidates every portrait validator, which is exactly when the pixels can
+   have changed underneath one."
+  (str (System/currentTimeMillis)))
+
+(defn portrait-etag
+  "A validator for a composed portrait: everything its pixels depend on.
+
+   Route-local on purpose. The app's global etag-interceptor cannot do this one,
+   because it derives a validator from the response BODY and has no method for a
+   stream -- and teaching it one would hash every exported PDF, which shares that
+   body type, on every export. Here the key is the stored EDN, which is already
+   in hand before anything is rendered."
+  [stored credit mark]
+  (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
+
 (defn character-portrait-png
   "PNG of a character's composed portrait, for og:image.
 
@@ -1914,22 +1937,37 @@
 
    404 when the character has no composed portrait, so a crawler falls back to
    whatever og:image the page did declare."
-  [{:keys [db] {:keys [id]} :path-params}]
-  (let [portrait (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
-                         ::se/values
-                         ::char5e/portrait
-                         char5e/parse-portrait)]
-    (if-let [png (some-> portrait portrait-render/render-png)]
-      {:status 200
-       :headers {"Content-Type" "image/png"
-                 ;; Portraits change rarely and a crawler may refetch often.
-                 "Cache-Control" "public, max-age=300"
-                 ;; This is contributed artwork. The header is the per-response
-                 ;; twin of the page's `noai` meta -- a crawler that fetches the
-                 ;; PNG directly never parses the HTML that carries the meta.
-                 "X-Robots-Tag" "noai, noimageai"}
-       :body (ByteArrayInputStream. png)}
-      {:status 404 :body "no composed portrait"})))
+  [{:keys [db headers] {:keys [id]} :path-params}]
+  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+                       ::se/values
+                       ::char5e/portrait)
+        portrait (some-> stored char5e/parse-portrait)
+        tag (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
+                                          (portrait-render/site-mark)))
+        ;; Some servers append --gzip to a validator they re-encoded. The app's
+        ;; own etag-interceptor strips it the same way.
+        offered (some-> (get headers "if-none-match") (s/split #"--gzip") first)
+        png-headers {"Content-Type" "image/png"
+                     ;; Portraits change rarely and a crawler may refetch often.
+                     "Cache-Control" "public, max-age=300"
+                     ;; This is contributed artwork. The header is the per-response
+                     ;; twin of the page's `noai` meta -- a crawler that fetches the
+                     ;; PNG directly never parses the HTML that carries the meta.
+                     "X-Robots-Tag" "noai, noimageai"
+                     "ETag" tag}]
+    (cond
+      (nil? portrait) {:status 404 :body "no composed portrait"}
+
+      ;; BEFORE rendering, which is the point. A 304 here costs a pull and a
+      ;; hash; the alternative is decoding up to ten PNGs, scaling, tinting,
+      ;; compositing and encoding, to produce bytes the caller already has.
+      (and tag (= tag offered))
+      {:status 304 :headers (dissoc png-headers "Content-Type")}
+
+      :else
+      (if-let [png (portrait-render/render-png portrait)]
+        {:status 200 :headers png-headers :body (ByteArrayInputStream. png)}
+        {:status 404 :body "no composed portrait"}))))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")

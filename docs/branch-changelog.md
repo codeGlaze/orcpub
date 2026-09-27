@@ -108,6 +108,13 @@ unfurls into, each carrying the artist's credit with it.
   navigation error. The harness writes its own page now, and says which build step is
   missing instead of timing out.
 
+- A crawler that already holds a portrait now gets a 304 instead of the same pixels
+  again, and the check happens BEFORE the render -- the saving is the decode, scale,
+  tint, composite and encode, not the transfer. The validator is route-local because
+  the app's global `etag-interceptor` derives one from the response body and has no
+  method for a stream; teaching it one would hash every exported PDF, which shares that
+  body type, on every export.
+
 ## Changed
 
 - `::char5e/portrait` is stored as one EDN string. `::se/values` is a Datomic component
