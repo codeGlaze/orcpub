@@ -276,7 +276,7 @@
   background: #0e131a;
   flex-shrink: 0;
 }
-.pl-drawer-title { font: 400 18px/1 Georgia, serif; }
+.pl-drawer-title { font: 600 18px/1 'Open Sans', system-ui, sans-serif; }
 .pl-drawer-title-rune { color: #f0a100; font-style: italic; padding-right: 5px; }
 .pl-drawer-close {
   display: grid; place-items: center;
@@ -321,21 +321,25 @@
 .pl-empty-hint {
   position: absolute; inset: 0;
   display: grid; place-content: center;
-  color: #616a7a; font: italic 12px/1.5 Georgia, serif;
+  color: #616a7a; font: italic 12px/1.5 'Open Sans', system-ui, sans-serif;
   text-align: center; padding: 10px;
 }
 .pl-toolbar { display: flex; flex-direction: column; gap: 8px; }
+/* Matched to the app's .form-button (styles/core.clj): 5px radius, uppercase,
+   600/12px. The panel had 8px, title case and 500/13px -- close enough to read
+   as a mistake rather than a distinction. */
 .pl-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  gap: 7px; padding: 10px 14px; border-radius: 8px;
+  gap: 7px; padding: 10px 15px; border-radius: 5px;
   border: 1px solid transparent; background: transparent;
-  color: #ebeef4; font: 500 13px/1 inherit;
+  color: #ebeef4; font: 600 12px/1 inherit;
+  text-transform: uppercase; letter-spacing: 0.04em;
   cursor: pointer; touch-action: manipulation;
   min-height: 44px;
 }
 .pl-btn:focus-visible { outline: 2px solid #ffcc5e; outline-offset: 2px; }
 .pl-btn-primary {
-  background: linear-gradient(to bottom, #f0a100, #d38a00);
+  background: linear-gradient(to bottom, #f1a20f, #dbab50);
   color: #15202e; font-weight: 700;
   border-color: #b57500;
   box-shadow: 0 6px 14px -8px rgba(240,161,0,0.32);
@@ -510,7 +514,7 @@
 .pl-tint-chip.overridden { border-color: #f0a100; }
 .pl-tint-chip.open { box-shadow: 0 0 0 2px rgba(240,161,0,0.32); }
 .pl-picker-sel {
-  font: italic 12px/1 Georgia, serif; color: #8b95a5;
+  font: italic 12px/1 'Open Sans', system-ui, sans-serif; color: #8b95a5;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 180px;
 }
 .pl-swatches {
@@ -534,7 +538,7 @@
 .pl-sw img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .pl-sw-none {
   background: repeating-linear-gradient(45deg, #131924 0 5px, transparent 5px 10px);
-  color: #616a7a; font: italic 10px/1 Georgia, serif;
+  color: #616a7a; font: italic 10px/1 'Open Sans', system-ui, sans-serif;
 }
 /* A piece the illustrator has planned but not drawn. Deliberately unlike a
    swatch you can press: dashed, no hover, no pointer. */
@@ -563,7 +567,7 @@
 .pl-root.light-theme .pl-sw-gap-badge { color: #6b6b6b; }
 .pl-empty-registry {
   padding: 8px; color: #616a7a;
-  font: italic 11px/1.4 Georgia, serif; text-align: center;
+  font: italic 11px/1.4 'Open Sans', system-ui, sans-serif; text-align: center;
 }
 
 /* ---- foot ---- */
@@ -582,14 +586,14 @@
   font: 700 10px/1 inherit; letter-spacing: 0.18em; text-transform: uppercase;
   color: #616a7a;
 }
-.pl-attribution-empty { color: #616a7a; font-style: italic; font-family: Georgia, serif; }
+.pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
-.pl-artist-swirl { color: #f0a100; font-family: Georgia, serif; font-style: italic; }
+.pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
 .pl-artist a, .pl-artist span.pl-artist-name {
   color: #ebeef4; text-decoration: none;
   border-bottom: 1px dotted rgba(240,161,0,0.32);
   padding-bottom: 1px;
-  font: italic 13px/1 Georgia, serif;
+  font: italic 13px/1 'Vollkorn', Georgia, serif;
 }
 .pl-artist a:hover { color: #ffcc5e; border-bottom-color: #f0a100; }
 .pl-drawer-actions {
@@ -706,7 +710,7 @@
 .pl-launcher {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 9px 14px; border-radius: 8px;
-  background: linear-gradient(to bottom, #f0a100, #d38a00);
+  background: linear-gradient(to bottom, #f1a20f, #dbab50);
   color: #15202e;
   font: 700 13px/1 'Open Sans', system-ui, sans-serif;
   border: 1px solid #b57500;
@@ -724,7 +728,7 @@
   width: 30px; height: 30px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
-  background: linear-gradient(to bottom, #f0a100, #d38a00);
+  background: linear-gradient(to bottom, #f1a20f, #dbab50);
   color: #15202e; font-size: 15px; line-height: 1;
   border: 2px solid #15202e;
   box-shadow: 0 3px 8px -2px rgba(0,0,0,0.5);
@@ -995,7 +999,7 @@
       [:div.pl-toolbar
        [:button.pl-btn.pl-btn-primary
         {:type "button" :on-click #(dispatch [:portrait/randomize])}
-        "\ud83c\udfb2 Randomize"]
+        "Randomize"]
        [:button.pl-btn.pl-btn-ghost
         {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
         "Reset"]

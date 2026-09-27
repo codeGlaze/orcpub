@@ -180,12 +180,19 @@ async function openBuilder(ctx, width) {
   const gapShapes = await page.locator('.pl-sw-gap').evaluateAll(
     els => els.map(e => ({ tag: e.tagName, title: e.getAttribute('title'),
                            selected: e.classList.contains('selected') })));
-  check('a not-yet-drawn piece is never a pressable swatch',
-        gapShapes.every(g => g.tag !== 'BUTTON' && !g.selected),
-        JSON.stringify(gapShapes));
-  check('and always says what it is',
-        gapShapes.every(g => g.title && /not drawn yet/.test(g.title)),
-        JSON.stringify(gapShapes));
+  // .every() on an empty array is true, so with gap-inventory empty -- which it
+  // is in the committed registry -- both of these reported PASS while looking at
+  // nothing. A probe that cannot run says so rather than passing quietly.
+  if (!gaps) {
+    console.log('  SKIP  not-yet-drawn swatches: gap-inventory is empty, nothing to assert');
+  } else {
+    check('a not-yet-drawn piece is never a pressable swatch',
+          gapShapes.every(g => g.tag !== 'BUTTON' && !g.selected),
+          JSON.stringify(gapShapes));
+    check('and always says what it is',
+          gapShapes.every(g => g.title && /not drawn yet/.test(g.title)),
+          JSON.stringify(gapShapes));
+  }
 
   // ---------- the draft belongs to ONE character ----------
   //

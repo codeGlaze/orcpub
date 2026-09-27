@@ -113,8 +113,12 @@ function check(label, ok, detail) {
         await emptyThumb.locator('.pl-thumb-edit').count() > 0);
 
   const launcher = page.locator('.pl-launcher');
-  await launcher.waitFor({ state: 'visible', timeout: 15000 });
-  check('"Compose portrait" launcher renders in Description tab', true);
+  // Was `check(..., true)` after this wait: the wait does the work, but a miss
+  // then died as a harness error with no per-check attribution, and the line
+  // reported PASS for something it had not looked at.
+  const launcherVisible = await launcher.isVisible().catch(() => false);
+  check('"Compose portrait" launcher renders in Description tab', launcherVisible);
+  if (!launcherVisible) { console.log('  (skipping the rest: no launcher to open)'); }
 
   // The drawer's <style> also styles the launcher, so it must be mounted even
   // while the drawer is closed -- which is exactly when the launcher is seen.
@@ -140,7 +144,9 @@ function check(label, ok, detail) {
 
   const layerCount = await page.locator('.pl-portrait-frame .portrait-layer').count();
   check('randomize composes layers', layerCount > 0, `${layerCount} layers`);
-  check('empty hint gone after randomize', !(await emptyHint.isVisible().catch(() => false)));
+  // count(), not !isVisible().catch(=> false): that form turns a thrown error
+  // -- a crashed page -- into a pass.
+  check('empty hint gone after randomize', await emptyHint.count() === 0);
 
   const seed = await page.locator('.pl-seed-row code').textContent().catch(() => null);
   check('seed displayed after randomize', !!seed && seed.length > 0, `seed=${seed}`);
@@ -200,7 +206,7 @@ function check(label, ok, detail) {
   // --- save and verify it reaches the summary --------------------------
   await page.locator('.pl-btn-primary', { hasText: 'Save portrait' }).click();
   await page.waitForTimeout(600);
-  check('drawer closes on save', !(await drawer.isVisible().catch(() => false)));
+  check('drawer closes on save', await drawer.count() === 0);
 
   const summaryComposite = await page.locator('.portrait-composite .portrait-layer').count();
   check('composed portrait renders in the character summary',
@@ -257,7 +263,14 @@ function check(label, ok, detail) {
   // colours, and pale skin or blonde hair would vanish on a light ground.
   const frameBg = await page.locator('.pl-portrait-frame')
     .evaluate(el => getComputedStyle(el).backgroundImage);
-  check('portrait frame stays dark in light theme', /gradient/.test(frameBg));
+  // "is a gradient" is not "is dark" -- it passed for any gradient at all,
+  // including a light one, which is the only thing this is guarding against.
+  const frameStops = (frameBg.match(/rgba?\(([^)]+)\)/g) || [])
+    .map(c => c.replace(/rgba?\(|\)/g, '').split(',').slice(0, 3).map(Number))
+    .map(([r, g, b]) => (r + g + b) / 3);
+  check('portrait frame stays dark in light theme',
+        frameStops.length > 0 && frameStops.every(v => v < 70),
+        `${frameBg} -> mean channel ${JSON.stringify(frameStops)}`);
 
   // The launcher sits outside the drawer, so it needs its own light-theme
   // hook -- it was left amber in an otherwise blue theme.
