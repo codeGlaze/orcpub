@@ -118,7 +118,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, 2026-12-08, converged, d29, d34, deleted, deprecated, exception, job, ledger, legacy, naive, parity, re-pointed, requirements, retained, struck, sweep
+**topics:** 2026-09-04, 2026-09-08, 2026-12-08, converged, d29, d34, deleted, deprecated, exception, job, ledger, naive, parity, re-pointed, requirements, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** block, check, control, css, fires, forever, form, green, invented, item, machine, react, reagent, rendering, screenshot, sentence, vanished, writing
+**topics:** block, check, control, css, fires, forever, form, invented, item, machine, page, react, reagent, rendering, screenshot, sentence, vanished, writing
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -148,7 +148,7 @@ _before-you-start · before you start_
 
 _branch-context-history · branch context history_
 
-**topics:** branch, catalog, charter, checklist, cljs, errors, golden, green, handoff, harness, history, intent, lint, locks, phase, rotted, spine, subs
+**topics:** branch, catalog, charter, cljs, errors, golden, green, handoff, harness, history, intent, lint, locks, phase, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -209,7 +209,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, frozen, grant, header, legacy, monster, pool, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, header, legacy, monster, pool, race, row, rows, shim, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -233,7 +233,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026, builders, conditionals, creatures, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
+**topics:** 2026, builders, conditionals, creatures, description, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -316,7 +316,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, summary, surge, user-reported, wind
+**topics:** attack, cfg, data-addressable, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -381,7 +381,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, draconic, event, flight, ftd, gem, metadata, openness, page-map, parametric, pool, pools, registry, schema, type, variant
+**topics:** allowlist, ancestry, descriptor, draconic, event, flight, ftd, gem, metadata, openness, page-map, parametric, per-type, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -420,7 +420,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, spa, type
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, form, framework, generated, loops, performance, pool, registers, registry, routes, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -634,7 +634,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, docstring, documentation, documented, dotfiles, goes, history, hook, learned, push, reminder, scripts, session
+**topics:** agent, appended, audit, before-you-start, css, directory, docstring, documentation, documented, dotfiles, history, hook, learned, push, reminder, scripts, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -776,7 +776,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branch, click, cut, directions, integration, item, library, merge, merging, outcome, running, scripts, source
+**topics:** 374, 3816, 493, became, believing, click, cut, directions, duplicate-key, integration, item, library, merge, merging, outcome, running, scripts, source
 
 - Outcome
 - The branches, and the order
@@ -817,7 +817,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** address, auto-name, int, library, link, minting, move, overwrite, p34, probes, quarantine, read-stamp, readers, rename, repoints, restore, salvage, save-anyway
+**topics:** address, auto-name, int, kinds, library, link, minting, move, overwrite, p34, probes, quarantine, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -830,11 +830,28 @@ _homebrew-key-map · homebrew key map_
 - 8. Not covered, or uncertain
 - 9. Stale claims found in other pages
 
+## homebrew-keys-design.md
+
+_homebrew-keys-design · homebrew keys design_
+
+**topics:** clash, direct, gate, grant-rows, holder, incoming, item, library, link, links, listener, rename, repair, replaced, report, revision, tab, writer
+
+- 1. What does not change (compatibility promises)
+- 2. One list of every kind of link
+- 3. One way to change a key
+- 4. One gate for every library write
+- 5. Reads that don't lie
+- 6. Every existing path, rewired
+- 7. Tests that make going around it fail
+- 8. Build order on port/save-gate
+- 9. Decisions for the owner
+- 10. What this replaces (D17 audit)
+
 ## homebrew-override.md
 
 _homebrew-override · homebrew override_
 
-**topics:** attaches, constraints, enforcement, expressed, icon, legal, lock, mug, overridable, override, per-item, per-selection, per-thing, switch, systematically, tooltip, tortle, waives
+**topics:** attaches, constraints, enforcement, expressed, icon, legal, lock, mug, overridable, override, per-item, per-selection, selection, switch, systematically, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -861,7 +878,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, consent, copy, item, key, library, move, origin, pak, refusal, refused, refuses, rename, round, save, source
+**topics:** address, answers, coexist, consent, copy, item, key, library, move, origin, pak, record, refusal, refused, rename, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -928,7 +945,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, owner, part, per-pool, pool, wrapper
+**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, part, per-pool, pool, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -945,7 +962,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** 2026-09-18, 2026-09-25, 2026-09-27, address, capabilities, checkpoint, item, keep-both, move, owner, paused, rounds, row, save, source, trunk, warforged, writer
+**topics:** 2026-09-18, 2026-09-25, 2026-09-27, address, awaiting, capabilities, checkpoint, item, keep-both, move, owner, paused, rounds, save, source, trunk, warforged, writer
 
 - 0. Standing, do these first
 - 0a. The authoritative homebrew-keys fix — CURRENT
@@ -1149,7 +1166,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, deals, flags, handaxe, longsword, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
+**topics:** boolean, deals, flags, handaxe, infer, longsword, mapping, melee, mistype, not-melee, predicate, ranged, synonym, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

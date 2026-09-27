@@ -59,6 +59,9 @@ how the save path ended up in three variants with one fix built twice under diff
 **Done 2026-09-27: `homebrew-key-map.md`.** Awaiting the owner's first checkpoint. Its §6 (invariants) and §7
 (ranked gaps) are what the design has to answer.
 
+**Design proposed 2026-09-27: `homebrew-keys-design.md`.** Awaiting the owner's second checkpoint and its
+seven decisions (§9). Nothing is built until then.
+
 **Why.** The homebrew save rework went through six adversarial review rounds (6, 5, 4, 6, 6, 3
 findings) and every round found a part of the system nobody had mapped: ten edit doors that pass an
 item without its address, a subscription reading through a different helper, one origin slot shared
