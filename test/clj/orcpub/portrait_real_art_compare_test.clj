@@ -204,3 +204,59 @@
                 offer choices, rather than one face in four colours"
         (is (apply distinct? (map opaque-colour-count multi)))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Layers that hold more than one thing.
+;;
+;; A smiling mouth is lips AND teeth AND the dark inside. An open eye is sclera
+;; AND iris AND pupil. One tint over the whole asset is wrong for both, whether
+;; that tint arrives by mask or by multiply -- character three came out with
+;; clay-red teeth because the mouth layer's category colour flooded everything
+;; in it.
+;;
+;; The third option is to tint such a layer not at all and draw it as the
+;; illustrator coloured it. That costs the layer its colour slot, which is free
+;; for the mouth (nobody picks a lip colour) and not free for the eyes, where
+;; the iris would have to become its own layer for an eye-colour slot to have
+;; anything to act on.
+;; ---------------------------------------------------------------------------
+
+(defn- as-drawn
+  "No tint at all: the artist's own colours."
+  ^BufferedImage [^BufferedImage art ^Color _]
+  art)
+
+(def ^:private untinted-layers #{:mouth :eyes})
+
+(defn- compose-mixed
+  "multiply everywhere, except the layers that carry their own colours."
+  [^File pack n]
+  (let [canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)
+        palette (nth palettes (mod n (count palettes)))]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (when-let [art (scaled (nth choices (mod n (count choices))))]
+            (let [tint-fn (if (untinted-layers layer-key) as-drawn multiplied)
+                  slot (get pa/color-slots layer-key)]
+              (.drawImage g ^BufferedImage (tint-fn art (get palette slot category-fallback))
+                          0 0 nil)))))
+      (finally (.dispose g)))
+    canvas))
+
+(deftest teeth-should-not-be-pink
+  (if-let [pack (pack-dir)]
+    ;; variant 2 is the one with the open smile
+    (let [n 2
+          all-multiply (compose-variant pack n multiplied)
+          mixed (compose-mixed pack n)]
+      (write! (contact-sheet [all-multiply mixed]) "mouth-tinted-vs-as-drawn")
+      (is (not= (opaque-colour-count all-multiply) (opaque-colour-count mixed))
+          "leaving two layers untinted changes the picture")
+      (testing "and it is the mouth that changes: tinting it paints teeth and
+                lips the same clay red, drawing it as-is keeps whatever the
+                illustrator put there"
+        (let [mouth (first (assets-in pack :mouth))]
+          (is (some? mouth) "the pack has a mouth layer to reason about"))))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
