@@ -1927,26 +1927,35 @@
   [stored credit mark]
   (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
 
+(defn- any-representation-requested?
+  "Whether If-None-Match is the wildcard.
+
+   RFC 7232 s3.2 gives the grammar as `\"*\" / 1#entity-tag`, so the wildcard is
+   the ENTIRE header value and can never be a list member. Reading it as one
+   meant a tag containing commas -- which the grammar permits inside the quotes
+   -- could be split into a bare `*` and fabricate a match, answering 304 to a
+   client holding a stale picture. A miss costs a render; this costs
+   correctness, so the two are not symmetrical."
+  [header]
+  (= "*" (some-> header s/trim)))
+
 (defn- covered-by-if-none-match?
-  "Whether an If-None-Match header covers `tag`.
+  "Whether an If-None-Match header lists `tag`.
 
-   RFC 7232 s3.2: the header is a comma-separated LIST, or `*`, and it is
-   compared with the WEAK function -- so W/\"x\" matches \"x\". Comparing the raw
-   header string against one strong tag, which is what this did first, misses a
-   weak validator, misses a list, and misses `*`. None of those is a correctness
-   bug -- the answer is a 200 with the right bytes -- but each one costs exactly
-   the render the validator exists to avoid, which makes it a bug in the only
-   thing the feature is for.
+   Entity tags are quoted strings and the grammar does not forbid a comma inside
+   one, so the tags are MATCHED OUT rather than split on -- splitting is what
+   invented a wildcard above. Comparison is the weak one RFC 7232 s3.2 specifies
+   for If-None-Match, so W/\"x\" covers \"x\"; the --gzip suffix some re-encoding
+   proxies append is dropped the way the app's own etag-interceptor drops it.
 
-   The --gzip suffix some re-encoding proxies append is stripped per tag, the
-   way the app's own etag-interceptor strips it from the header."
+   The wildcard is deliberately NOT handled here: it asks whether a
+   representation exists at all, which cannot be answered before rendering one."
   [header tag]
   (boolean
    (when (and (not (s/blank? header)) tag)
-     (let [normalize #(-> % s/trim (s/replace #"^W/" "") (s/replace #"--gzip$" ""))
-           offered (into #{} (map normalize) (s/split header #","))]
-       (or (contains? offered "*")
-           (contains? offered (normalize tag)))))))
+     (let [bare #(-> % s/trim (s/replace #"(?i)^W/" "") (s/replace #"--gzip$" ""))
+           offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
+       (contains? offered (bare tag))))))
 
 (defn character-portrait-png
   "PNG of a character's composed portrait, for og:image.
@@ -1983,8 +1992,16 @@
       {:status 304 :headers (dissoc png-headers "Content-Type")}
 
       :else
+      ;; The wildcard cannot take the path above. `*` asks whether a
+      ;; representation EXISTS, and a stored portrait selecting nothing drawable
+      ;; has none -- it 404s. Answering 304 there would tell a client its cached
+      ;; copy is current when the resource has no current copy at all. So it
+      ;; renders first and lets the outcome decide, which costs the saving on a
+      ;; wildcard request and keeps it on every request that names a tag.
       (if-let [png (portrait-render/render-png portrait)]
-        {:status 200 :headers png-headers :body (ByteArrayInputStream. png)}
+        (if (any-representation-requested? (get headers "if-none-match"))
+          {:status 304 :headers (dissoc png-headers "Content-Type")}
+          {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})
         {:status 404 :body "no composed portrait"}))))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
