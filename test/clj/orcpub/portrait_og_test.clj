@@ -141,11 +141,26 @@
           (is (nil? (:body again)) "a 304 carries no body -- that is the saving")
           (is (= tag (get-in again [:headers "ETag"])) "and repeats the validator"))
 
-        (testing "a re-encoding proxy's --gzip suffix is tolerated, as the app's
-                  own interceptor tolerates it"
-          (is (= 304 (:status (routes/character-portrait-png
-                               {:db (d/db c) :path-params {:id id}
-                                :headers {"if-none-match" (str tag "--gzip")}})))))
+        (testing "every shape RFC 7232 allows in If-None-Match, because each one
+                  this misses costs exactly the render the validator exists to
+                  avoid"
+          (let [conditional (fn [hdr] (:status (routes/character-portrait-png
+                                                {:db (d/db c) :path-params {:id id}
+                                                 :headers {"if-none-match" hdr}})))]
+            (is (= 304 (conditional tag)) "the plain tag")
+            (is (= 304 (conditional (str "W/" tag)))
+                "a weak validator: If-None-Match uses the WEAK comparison")
+            (is (= 304 (conditional (str "\"something-else\", " tag)))
+                "a list -- the header is comma-separated")
+            (is (= 304 (conditional (str "W/\"other\", W/" tag)))
+                "a list of weak ones")
+            (is (= 304 (conditional "*")) "the wildcard matches any representation")
+            (is (= 304 (conditional (str tag "--gzip")))
+                "and a re-encoding proxy's suffix, as the app's own interceptor
+                 tolerates it")
+            (is (= 200 (conditional "\"nope\", \"still-nope\""))
+                "a list that does NOT contain it still renders")
+            (is (= 200 (conditional "")) "and an empty header is not a match")))
 
         (testing "a stale validator renders rather than 304ing"
           (let [resp (routes/character-portrait-png

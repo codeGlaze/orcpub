@@ -113,7 +113,10 @@ unfurls into, each carrying the artist's credit with it.
   tint, composite and encode, not the transfer. The validator is route-local because
   the app's global `etag-interceptor` derives one from the response body and has no
   method for a stream; teaching it one would hash every exported PDF, which shares that
-  body type, on every export.
+  body type, on every export. `If-None-Match` is matched the way RFC 7232 defines it --
+  a comma-separated list, weak comparison, `*` -- because a validator that only
+  recognises its own exact strong tag misses a weak one and misses a list, and each
+  miss costs the render it exists to avoid.
 
 ## Changed
 
