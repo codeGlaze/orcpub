@@ -20,7 +20,39 @@ deliberately leaves docs behind.
 
 ---
 
-## 0a. Map the plugin system before changing it further (decided 2026-09-25) — CURRENT
+## 0a. The authoritative homebrew-keys fix — CURRENT
+
+**Decided 2026-09-27 (owner).** This session builds the **one authoritative fix for homebrew keys**.
+The agent working on PR #34 (`f1852203-accounts`) is **paused** for it — its homebrew commits are
+*inputs* to this fix, not a competing version. Work happens on **`port/save-gate`**, cut from
+`integration` (`a0d9e1d2`) and pushed; it holds the round-five save gate as its starting point and
+is missing round six and every #34 input so far.
+
+**Three inputs, merged into one model — not stacked:**
+
+| source | what it contributes |
+|---|---|
+| `integration` | tagged keys, `legacy?`, the key control, typed-key validation, `:former-keys`, the collision check |
+| `feature/grant-rows` | the save gate (moves, Replace, the fetched address, the per-builder origin, `:vanished`), six review rounds, 66 lifecycle tests, `replace-or-refuse.js`, `move-between-sources.js` |
+| PR #34 (paused) | load/import repair (`e5/source-for`, broken-key repair, non-map and text libraries), import renames kept for existing items, the selection save-anyway key, Move/copy taking dependents along and ordering them, and **the link-stranding probes** (`d7640dd8`, `cd82f249`) |
+
+**Scope — the key model end to end:** how a key is minted (name, source tag, a source's own
+abbreviation); what identifies an item (key, address, name, `:former-keys`); every way a key changes
+(key control, import clash rename, Move/copy rename, repair on load); **everything that points at a
+key** — characters on the server (healed by `:former-keys`), **other library items** (subclass → class,
+subrace → race, grants, pools, spell lists — the side the save rework never touched, and where #34
+was when it stopped), and every writer to `:plugins` with its guard.
+
+**Order, with owner checkpoints:** map (the phase below, narrowed to keys) → **checkpoint** → one
+design → **checkpoint** → build on `port/save-gate` → review against the map's invariants → land on
+`integration` → #32 carries it to `develop`; #34 pulls `integration` and its agent drops the homebrew
+commits this supersedes; the trunk and this branch pull it down.
+
+**Why here and not on a feature branch:** the rule is to branch from `integration` for anything that
+must ship. The save gate was built on this branch and #34's repairs on an accounts branch, and that is
+how the save path ended up in three variants with one fix built twice under different rules.
+
+### Phase 1: map the plugin system before changing it further (decided 2026-09-25)
 
 ☐ **Phase 1: the map. Nothing else until the owner has read it.**
 
@@ -66,11 +98,9 @@ invariants rather than blind.
 mechanism as built); rounds five and six enumerated the twelve edit doors and the `:plugins`
 writers, recorded in the commit messages of `085c4d6c` and `fc6fb321`.
 
-**Open, for the owner, alongside phase 1:** what happens to the save rework meanwhile — hold it on
-this branch, or land it on `integration` as a stopgap. `integration` has confirmed silent data loss
-today (retyping a source copies the item; `::selections5e/save-selection` has no collision check at
-all), but landing an interim means `integration` changes twice. The trunk is also one round behind,
-carrying two bugs round six fixed.
+**Resolved 2026-09-27:** no stopgap. The save rework is not landed on its own; it becomes one input
+to the authoritative fix above, which lands on `integration` once. The trunk stays one round behind
+until then.
 
 ---
 

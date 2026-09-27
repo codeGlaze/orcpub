@@ -15,14 +15,20 @@ declarations down one tested path. Readability is a constraint on that, not a ce
 
 ## Core facts — know these before touching homebrew
 
-- **Homebrew never touches the server.** The library (`:plugins`) lives in the browser's
-  localStorage and nowhere else. No server route accepts or stores it, and no request carries it.
+- **The homebrew LIBRARY never touches the server.** The library (`:plugins`) — everything made in the
+  homebrew builders or imported from an `.orcbrew` — lives in the browser's localStorage and nowhere
+  else. No server route accepts or stores it, and no request carries it.
   It moves between browsers only two ways: an **`.orcbrew` export/import**, or a **share link**,
   which carries the character's homebrew in the URL *fragment* (after `#`, never sent to a server)
   and lands in a view-only overlay (`:shared-plugins`) until the recipient chooses Keep. Clearing
   browser data loses the library unless it was exported.
   *Consequence:* every rule about the library is enforced in the client or not at all. There is no
   server-side validation, migration, backup or conflict resolution to fall back on.
+  **Not all custom content is the library**, though: custom content entered inline on a character
+  travels with the character, and **custom magic items are server-backed** (`::mi/custom-items`,
+  keyed by `:db/id`). Three stores, one of them browser-only — `docs/kb/custom-content-lifecycle.md`.
+  *(Corrected 2026-09-27: this line first said "homebrew never touches the server", which is true of
+  the library only.)*
 - **Characters DO live on the server** (`routes.clj` `save-character`), and they point at homebrew
   **only by key**. A character on the server can name content that exists in one browser only.
 - **Key = address, name = display (D10).** A key is minted once and fixed; a rename is a name edit.
@@ -142,21 +148,32 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
 
 ## Current State
 
-*Updated 2026-09-25. Update at every milestone.*
+*Updated 2026-09-27. Update at every milestone.*
 
-- **Paused on purpose: the plugin system gets mapped before it is changed further.** Six review
-  rounds of the homebrew save rework each found parts of the system nobody had mapped. The rework
-  is on this branch and every finding is fixed, but it is **not landed** on `integration`. The
-  current phase, its scope and its checkpoint are in `docs/kb/plan-next.md` §0a.
+- **This session owns the authoritative homebrew-keys fix** (owner's decision, 2026-09-27). The agent
+  on PR #34 is paused for it, and its homebrew commits are inputs. The work branch is
+  `port/save-gate`, cut from `integration`. Inputs, scope, order and checkpoints:
+  `docs/kb/plan-next.md` §0a. First step is the map — nothing is designed or built before the owner
+  has read it.
+- **This branch's own purpose is grants** (`plan-next.md` items 1–6). The key fix is a detour it is
+  hosting the planning for, not the branch's work; code for it lands on `port/save-gate`.
 - The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
   as it stands: `docs/kb/key-collision-behavior.md`.
 
 | branch | state |
 |---|---|
-| `feature/grant-rows` | this branch; carries all six review rounds |
+| `feature/grant-rows` | this branch; carries all six review rounds of the save gate |
 | `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
 | `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
-| `port/save-gate` | local worktree only, never pushed; rebuild rather than trust it |
+| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`, pushed 2026-09-27 at `b5b36d29` (round five). Missing round six and all #34 inputs |
+
+**Open PRs that touch this** (checked 2026-09-27):
+
+| PR | from → to | note |
+|---|---|---|
+| #32 | `integration` → `develop` | the route by which the fix reaches `develop` |
+| #34 | `f1852203-accounts` → `develop` | **paused.** Accounts rebuild; also carries 523 of #32's commits, 29 homebrew commits (inputs to the fix) and a refactor harvest. Missing `integration`'s last five commits |
+| #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix — 35 commits, none of `integration`'s or #34's |
 
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 

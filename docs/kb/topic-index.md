@@ -347,7 +347,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, payload, rollback, selection, selection-key
+**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, payload, rollback, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -420,7 +420,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, loops, performance, pool, pools, registers, registry, routes, spa, type
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -510,7 +510,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, items, magic, missing-content, resolves, server, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, magic, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -523,7 +523,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, harden, heal, healing, junk, load, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** defensive, drop, garbage, guessing, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -928,10 +928,11 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** 2026-09-18, 2026-09-25, advanced, armour, capabilities, damage, item, keep-both, move, port, rounds, row, save, source, sticky, trunk, warforged, writer
+**topics:** 2026-09-18, 2026-09-25, 2026-09-27, address, capabilities, checkpoint, identifies, item, keep-both, move, owner, paused, rounds, save, source, trunk, warforged, writer
 
 - 0. Standing, do these first
-- 0a. Map the plugin system before changing it further (decided 2026-09-25) — CURRENT
+- 0a. The authoritative homebrew-keys fix — CURRENT
+- Phase 1: map the plugin system before changing it further (decided 2026-09-25)
 - 0b. Converge the save path across the four branches (2026-09-18) — PAUSED 2026-09-25 for 0a
 - 1. Grants on the remaining four silos
 - 2. The mechanics the feat builder still can't author
