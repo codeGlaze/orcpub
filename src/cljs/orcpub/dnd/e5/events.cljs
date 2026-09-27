@@ -537,7 +537,13 @@
 
 (reg-event-fx
  :character-save-success
- (fn [{:keys [db]} [_ response save-context]]
+ ;; ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect
+ ;; dispatches (conj on-success response), so the response is APPENDED -- it
+ ;; arrives LAST, after whatever the caller put in its :on-success vector.
+ ;; Reading them the other way round bound the save context as the response,
+ ;; so (:body ...) was nil and EVERY successful save silently failed to install
+ ;; the character it got back, the first save's new :db/id included.
+ (fn [{:keys [db]} [_ save-context response]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)
@@ -558,12 +564,6 @@
         ;; the loudest symptom.
         current?
         (conj [:character-updated character])
-
-        ;; :set-character is what decrements the loading counter on the normal
-        ;; path, so the branch that skips it has to settle up, or the overlay
-        ;; stays over a page that has finished loading.
-        (not current?)
-        (conj [:set-loading false])
 
         ;; Always: the saved character belongs in the map whoever is on screen.
         ;; This is the half of the old behaviour that was right.

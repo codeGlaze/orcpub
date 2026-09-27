@@ -928,8 +928,8 @@
         ;; :character-epoch, so 0 is the epoch it was dispatched at.
         (rf/dispatch-sync
          [:character-save-success
-          {:body {:db/id 999 :orcpub.entity.strict/values {}}}
-          {:epoch 0}])
+          {:epoch 0}
+          {:body {:db/id 999 :orcpub.entity.strict/values {}}}])
         (let [events (into #{} (map first) @dispatched)]
           (is (contains? events :character-updated)
               "a first save is the same character acquiring an id, so it updates")
@@ -939,6 +939,46 @@
           (if real
             (rf/reg-fx :dispatch-n real)
             (rf/clear-fx :dispatch-n)))))))
+
+(deftest the-response-arrives-last-because-the-http-effect-appends-it
+  (testing "the :http effect dispatches (conj on-success response), so the
+            response is APPENDED -- it lands AFTER whatever the caller put in
+            the on-success vector. Every other test here builds that event by
+            hand, which encodes the author's belief about the order and so
+            cannot catch getting it wrong. It was wrong: the handler read
+            [_ response save-context], bound the context as the response, and
+            every successful save silently failed to install the character it
+            got back -- including the first save's newly assigned :db/id.
+
+            This drives the real :save-character, takes the on-success vector it
+            actually hands the effect, and completes it the way the effect does."
+    (let [sent (atom nil)
+          dispatched (atom [])
+          real-http (get-in @registrar/kind->id->handler [:fx :http])
+          real-dn (get-in @registrar/kind->id->handler [:fx :dispatch-n])
+          abilities (zipmap char5e/ability-keys (repeat 12))]
+      (try
+        (rf/reg-fx :http (fn [cfg] (reset! sent cfg)))
+        (rf/reg-fx :dispatch-n (fn [evs] (reset! dispatched (vec evs))))
+        (reset! app-db (assoc pristine-db :character {::entity/values {}}))
+        (rf/dispatch-sync [:save-character {:base-abilities abilities}])
+
+        (let [on-success (:on-success @sent)]
+          (is (some? on-success) "the manual save posts, so it has an :on-success")
+          (is (= :character-save-success (first on-success)))
+          (is (map? (last on-success))
+              "and carries its save context -- the thing the response lands after")
+
+          ;; verbatim what (reg-fx :http) does with it
+          (rf/dispatch-sync
+           (conj on-success {:status 200
+                             :body {:db/id 4242 :orcpub.entity.strict/values {}}}))
+          (let [events (into #{} (map first) @dispatched)]
+            (is (contains? events :character-updated)
+                "a save of the character on screen installs what came back")))
+        (finally
+          (if real-http (rf/reg-fx :http real-http) (rf/clear-fx :http))
+          (if real-dn (rf/reg-fx :dispatch-n real-dn) (rf/clear-fx :dispatch-n)))))))
 
 (deftest a-stale-save-leaves-the-character-on-screen-alone
   (testing "saving is asynchronous and the autosave queue is throttled by 7.5s,
@@ -960,13 +1000,15 @@
                                 :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
           (rf/dispatch-sync
            [:character-save-success
-            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
-            {:epoch 3}])
+            {:epoch 3}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
           (let [events (events-for)]
             (is (not (contains? events :set-character)) "222 stays on screen")
             (is (not (contains? events :character-updated)) "and is not rewritten as 111")
-            (is (contains? events :set-loading)
-                "the skipped install still owes the loading counter a decrement")
+            (is (not (contains? events :set-loading))
+                "and does NOT touch the loading counter: the :http effect already
+                 dispatches [:set-loading false] on every response, so a second
+                 one here clears the overlay while another request is in flight")
             (is (contains? events :orcpub.dnd.e5.character/set-character)
                 "but 111 does belong in the character map")))
 
@@ -976,8 +1018,8 @@
                                 :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
           (rf/dispatch-sync
            [:character-save-success
-            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
-            {:for-id 111}])
+            {:for-id 111}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
           (let [events (events-for)]
             (is (not (contains? events :set-character)))
             (is (not (contains? events :character-updated)))))
@@ -988,8 +1030,8 @@
                                 :portrait/draft {:layers {:head {:asset/id :belongs-to-111}}}))
           (rf/dispatch-sync
            [:character-save-success
-            {:body {:db/id 111 :orcpub.entity.strict/values {}}}
-            {:for-id 111}])
+            {:for-id 111}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
           (let [events (events-for)]
             (is (contains? events :character-updated)
                 "this one IS the character being edited")))
