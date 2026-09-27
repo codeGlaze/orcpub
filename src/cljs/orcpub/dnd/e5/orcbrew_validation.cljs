@@ -1413,6 +1413,21 @@
    :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
    :orcpub.dnd.e5/boons "Boon"})
 
+(defn fill-option-pack
+  "`plugin` with every item's blank or missing `:option-pack` set to `source-name`, the source it
+   is stored under. Items that name a source keep it."
+  [plugin source-name]
+  (reduce-kv (fn [p ct items]
+               (assoc p ct (if (and (qualified-keyword? ct) (map? items))
+                             (reduce-kv (fn [m k item]
+                                          (assoc m k (if (and (map? item)
+                                                              (str/blank? (str (:option-pack item))))
+                                                       (assoc item :option-pack source-name)
+                                                       item)))
+                                        {} items)
+                             items)))
+             {} plugin))
+
 (defn coerce-invalid-names
   "Coerce any present-but-INVALID item name (and nested trait/option names) to a
    valid letter-leading placeholder. Keys are left alone; e5/rekey-plugin moves an

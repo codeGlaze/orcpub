@@ -4695,6 +4695,42 @@
                   "Download a full backup now"]]]
                builder-error-ttl]}))
 
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- listed
+  "Up to three phrases joined with semicolons, then \"and N more\"."
+  [phrases]
+  (let [shown (take 3 phrases) more (- (count phrases) 3)]
+    (str (s/join "; " shown) (when (pos? more) (str "; and " more " more")))))
+
+(defn restore-message
+  "What a quarantine restore tells the user: how many entries came back to `source-name`, what
+   each renamed one is now called, and why any in `still-bad` cannot load yet. `before` is the
+   set-aside source; `kept` and `still-bad` are its entries after the repair."
+  [source-name before kept still-bad]
+  (let [entries (fn [plugin] (for [[ct items] plugin
+                                   :when (and (qualified-keyword? ct) (map? items))
+                                   [k item] items]
+                               [ct k item]))
+        n-kept (count (entries kept))
+        renamed (for [[ct k item] (entries kept)
+                      :let [was (get-in before [ct (if (get-in before [ct k]) k (last (:former-keys item))) :name])]
+                      :when (and was (not= was (:name item)))]
+                  (str (quoted was) " is now " (quoted (:name item))))
+        stuck (for [[_ _ item] (entries still-bad)]
+                (str (quoted (or (:name item) "Unnamed"))
+                     (if (common/starts-with-letter? (str (:name item)))
+                       " can't load yet"
+                       " needs a name that starts with a letter")))]
+    (s/join " " (remove s/blank?
+                        [(if (pos? n-kept)
+                           (str "Restored " n-kept " to " (quoted source-name) ".")
+                           "Nothing restored yet.")
+                         (when (seq renamed) (str (listed renamed) "."))
+                         (when (seq stuck)
+                           (str (when (pos? n-kept) (str (count stuck) " still can't load: "))
+                                (listed stuck) "."))]))))
+
 ;; Repair a quarantined source and merge it back into the live library.
 ;; rekey-plugin re-derives the map key from the fixed name (the keyword-trap case).
 ;; Atomic and PERSISTED (unlike the export auto-fix, which only rewrote the file):
@@ -4718,7 +4754,8 @@
        ;; (quarantine's job). The AUTO path (Auto-name & Restore) additionally runs
        ;; coerce-invalid-names, which salvages a leading number to its word form
        ;; ("9 Lives" -> "Nine Lives") and only falls to "Unnamed <Type>" for junk.
-       (let [fixed (cond-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+       (let [fixed (cond-> (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                               (orcbrew-val/fill-option-pack source-name))
                      auto? (orcbrew-val/coerce-invalid-names)
                      true  (e5/rekey-plugin))
              {kept-items :kept still-bad :rejected}
@@ -4741,16 +4778,7 @@
                   (assoc :plugins live)
                   (assoc :quarantined-plugins new-rejected))
           :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
-                     (cond
-                       (and (pos? n-fixed) (zero? n-left))
-                       (str "Restored " n-fixed " entr" (if (= 1 n-fixed) "y" "ies")
-                            " from \"" source-name "\" to My Content.")
-                       (pos? n-fixed)
-                       (str "Restored " n-fixed "; " n-left " still need a name "
-                            "starting with a letter and an option source.")
-                       :else
-                       (str "Couldn't restore \"" source-name "\" yet — each entry "
-                            "needs a name starting with a letter and an option source."))]})))))
+                     (restore-message source-name bad kept-items still-bad)]})))))
 
 ;; Permanently discard a quarantined source the user can't (or doesn't want to)
 ;; repair — e.g. a stale entry from an earlier bad import that no longer

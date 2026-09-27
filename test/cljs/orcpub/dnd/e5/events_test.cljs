@@ -432,6 +432,42 @@
     (is (contains? (db/get-rejected-plugins) "Bugged Pack") "quarantine unchanged")
     (.clear js/window.localStorage)))
 
+;; What the user finds in their browser: a pack with a digit-led name and an entry with no source.
+(def ^:private quarantined-tide
+  {"Tide Pak" {:orcpub.dnd.e5/feats
+               {:9-lives        {:name "9 Lives" :key :9-lives :option-pack "Tide Pak"}
+                :stone-elf-trcs {:name "@@@" :key :stone-elf-trcs}}}})
+
+(deftest auto-name-and-restore-brings-back-every-entry-it-can-name
+  (.clear js/window.localStorage)
+  (db/set-rejected-plugins quarantined-tide)
+  (reset! app-db {:plugins {}})
+  (rf/dispatch-sync [::e5/repair-quarantined-source "Tide Pak" {} true])
+  (let [feats (get-in @app-db [:plugins "Tide Pak" :orcpub.dnd.e5/feats])]
+    (is (= #{:nine-lives :stone-elf-trcs} (set (keys feats)))
+        "both restored: the entry with no source is filed under the pack it was listed in")
+    (is (= "Tide Pak" (get-in feats [:stone-elf-trcs :option-pack])))
+    (is (= :stone-elf-trcs (get-in feats [:stone-elf-trcs :key])) "its working key is kept")
+    (is (nil? (get (db/get-rejected-plugins) "Tide Pak")) "nothing left set aside"))
+  (.clear js/window.localStorage))
+
+(deftest the-restore-message-says-what-happened
+  (let [before (get quarantined-tide "Tide Pak")
+        kept {:orcpub.dnd.e5/feats
+              {:nine-lives {:name "Nine Lives" :key :nine-lives :former-keys [:9-lives]}
+               :stone-elf-trcs {:name "Unnamed Feat" :key :stone-elf-trcs}}}]
+    (is (= (str "Restored 2 to \u201cTide Pak\u201d. \u201c9 Lives\u201d is now \u201cNine Lives\u201d; "
+                "\u201c@@@\u201d is now \u201cUnnamed Feat\u201d.")
+           (events/restore-message "Tide Pak" before kept {})))
+    (is (= (str "Restored 1 to \u201cTide Pak\u201d. \u201c@@@\u201d is now \u201cStone Elf\u201d. "
+                "1 still can't load: \u201c9 Lives\u201d needs a name that starts with a letter.")
+           (events/restore-message "Tide Pak" before
+                                   {:orcpub.dnd.e5/feats {:stone-elf-trcs {:name "Stone Elf"}}}
+                                   {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}})))
+    (is (= "Nothing restored yet. \u201c9 Lives\u201d needs a name that starts with a letter."
+           (events/restore-message "Tide Pak" before {}
+                                   {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}})))))
+
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
 ;; (nil instead of false)" corruption by driving the REAL toggle event handlers in

@@ -1530,3 +1530,14 @@
         "a valid item keeps the key it is stored under")
     (is (= :9-lives (get-in out [:orcpub.dnd.e5/races :9-lives :key]))
         "an invalid key is e5/rekey-plugin's to move, not this")))
+
+(deftest fill-option-pack-uses-the-source-an-item-is-stored-under
+  (let [out (orcbrew-val/fill-option-pack
+             {:orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B" :option-pack ""}
+                                    :c {:name "C" :option-pack "Elsewhere"}}
+              :disabled? false}
+             "Tide Pak")]
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :a :option-pack])) "missing: filled")
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :b :option-pack])) "blank: filled")
+    (is (= "Elsewhere" (get-in out [:orcpub.dnd.e5/feats :c :option-pack])) "named: kept")
+    (is (false? (:disabled? out)) "non-content entries pass through")))

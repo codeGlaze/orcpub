@@ -9016,17 +9016,22 @@
    the now-valid entries into the live library (::e5/repair-quarantined-source) —
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
-  [src-name plugin]
-  (let [entries (vec (for [[ct items] plugin
-                           :when (and (qualified-keyword? ct) (map? items))
-                           [ik item] items]
-                       {:ct ct :ik ik :item item}))
-        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
-                                         [[[ct ik :name] (or (:name item) "")]
-                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
-                                       entries)))]
+  [_ _]
+  ;; Only what the user has typed. Everything else is read from `plugin` on every render, so the
+  ;; panel shows what is still set aside after each restore.
+  (let [typed (r/atom {})]
     (fn [src-name plugin]
-      (let [current @edits]
+      (let [entries (vec (for [[ct items] plugin
+                               :when (and (qualified-keyword? ct) (map? items))
+                               [ik item] items]
+                           {:ct ct :ik ik :item item}))
+            default-of (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                          [[[ct ik :name] (or (:name item) "")]
+                                           [[ct ik :option-pack] (or (not-empty (:option-pack item))
+                                                                     src-name)]])
+                                        entries))
+            current (merge default-of (select-keys @typed (keys default-of)))
+            edits typed]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
          (if (seq entries)
@@ -9044,6 +9049,9 @@
                ^{:key (str ct "/" ik)}
                [:div.m-t-5.m-b-5
                 [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                (when-let [d (not-empty (str (get-in plugin [ct ik :description])))]
+                  [:div.f-s-12.i.m-t-5 {:style {:opacity 0.8}}
+                   (if (> (count d) 140) (str (subs d 0 140) "…") d)])
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
@@ -9063,7 +9071,7 @@
            [:div.f-s-12.m-t-5 "No entries to repair."])
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
-                                      @edits))
+                                      current))
                ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
                ;; entry's current name is invalid AND repair-name-lead can't
                ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
@@ -9079,7 +9087,8 @@
             ;; stays quarantined (no silent auto-naming).
             (when (seq entries)
               [:button.form-button.m-r-5
-               {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map false])}
+               {:on-click #(do (dispatch [::e5/repair-quarantined-source src-name edit-map false])
+                               (reset! typed {}))}
                "Restore"])
             ;; Auto: salvage a leading number to a word ("9 Lives" -> "Nine Lives")
             ;; else a placeholder. Amber when it will replace rather than salvage.
@@ -9089,7 +9098,8 @@
                ;; red-orange one in the panel's own attention hue (#d94b20, the
                ;; border color above) — distinct from the default action buttons,
                ;; but part of this panel's palette rather than a foreign color.
-               (cond-> {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map true])}
+               (cond-> {:on-click #(do (dispatch [::e5/repair-quarantined-source src-name edit-map true])
+                                       (reset! typed {}))}
                  any-replace? (assoc :style {:background-image "linear-gradient(to bottom, #e0602c, #d94b20)"}))
                "Auto-name & Restore"])
             [:button.form-button.m-r-5
