@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1–5 done (`port/save-gate` `12eb5a23`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1–6 done (`port/save-gate` `bf1ca6a5`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -254,7 +254,7 @@ Each step lands green, with its tests, before the next begins:
    passing.
 5. **Done `31329bcd`, `12eb5a23`.** The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
    test.
-6. Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
+6. **Done `bf1ca6a5`.** Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
 7. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
 8. A one-time report of damage already in a library (C6), with an offered repair.
 9. **Later, decided 2026-09-27: "which of my characters use this".** One server request, made only
@@ -350,3 +350,19 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
   half of step 1 of §4 belongs to step 6 (two tabs).
 - **Found, not changed:** the source **delete** button in My Content deletes a whole source with no
   confirmation when nothing else uses it. Q7 covered only deletes others depend on.
+
+## As built (step 6)
+
+- **No writer was rewritten as an operation.** A three-way merge gives the same result: when the
+  revision in `plugins:rev` is ahead of the one this tab read, `commit-library` takes what this tab
+  loaded (`base`), what it wants to write (`mine`) and what storage holds (`theirs`), and applies
+  every entry `mine` changed since `base` onto `theirs` (`library/three-way`). Entries are sources,
+  a source's own fields, and items.
+- **A real conflict writes nothing.** When both tabs changed the same entry differently, this tab
+  reloads the library and says which entry changed in another tab; the author makes the change
+  again, now against the current library.
+- **A tab only checks once it knows its revision.** `initialize-db` records it; an app-db without
+  one (an event test that resets app-db) skips the check.
+- **Limit:** an older version of the app open in another tab writes the library without bumping the
+  revision. The storage listener still reloads this tab when it does, but a write this tab makes in
+  the moment before that event arrives is not merged.
