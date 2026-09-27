@@ -1927,6 +1927,27 @@
   [stored credit mark]
   (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
 
+(defn- covered-by-if-none-match?
+  "Whether an If-None-Match header covers `tag`.
+
+   RFC 7232 s3.2: the header is a comma-separated LIST, or `*`, and it is
+   compared with the WEAK function -- so W/\"x\" matches \"x\". Comparing the raw
+   header string against one strong tag, which is what this did first, misses a
+   weak validator, misses a list, and misses `*`. None of those is a correctness
+   bug -- the answer is a 200 with the right bytes -- but each one costs exactly
+   the render the validator exists to avoid, which makes it a bug in the only
+   thing the feature is for.
+
+   The --gzip suffix some re-encoding proxies append is stripped per tag, the
+   way the app's own etag-interceptor strips it from the header."
+  [header tag]
+  (boolean
+   (when (and (not (s/blank? header)) tag)
+     (let [normalize #(-> % s/trim (s/replace #"^W/" "") (s/replace #"--gzip$" ""))
+           offered (into #{} (map normalize) (s/split header #","))]
+       (or (contains? offered "*")
+           (contains? offered (normalize tag)))))))
+
 (defn character-portrait-png
   "PNG of a character's composed portrait, for og:image.
 
@@ -1944,9 +1965,6 @@
         portrait (some-> stored char5e/parse-portrait)
         tag (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
                                           (portrait-render/site-mark)))
-        ;; Some servers append --gzip to a validator they re-encoded. The app's
-        ;; own etag-interceptor strips it the same way.
-        offered (some-> (get headers "if-none-match") (s/split #"--gzip") first)
         png-headers {"Content-Type" "image/png"
                      ;; Portraits change rarely and a crawler may refetch often.
                      "Cache-Control" "public, max-age=300"
@@ -1961,7 +1979,7 @@
       ;; BEFORE rendering, which is the point. A 304 here costs a pull and a
       ;; hash; the alternative is decoding up to ten PNGs, scaling, tinting,
       ;; compositing and encoding, to produce bytes the caller already has.
-      (and tag (= tag offered))
+      (covered-by-if-none-match? (get headers "if-none-match") tag)
       {:status 304 :headers (dissoc png-headers "Content-Type")}
 
       :else
