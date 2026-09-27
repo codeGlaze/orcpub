@@ -33,6 +33,14 @@
   (when-let [d (System/getenv "ORCPUB_PACK")]
     (let [f (File. d)] (when (.isDirectory f) f))))
 
+(defn- assets-in [^File pack layer-key]
+  (let [d (File. pack (name layer-key))]
+    (when (.isDirectory d)
+      (->> (.listFiles d)
+           (filter #(re-find #"(?i)\.png$" (.getName ^File %)))
+           (sort-by #(.getName ^File %))
+           vec))))
+
 (defn- asset-for [^File pack layer-key]
   (let [d (File. pack (name layer-key))]
     (when (.isDirectory d)
@@ -138,3 +146,61 @@
           (is (> xc (* 3 mc))
               (str "multiply produced " xc " against the mask's " mc)))))
     (println "\n  ORCPUB_PACK not set or not a directory -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Several characters from one pack, so the question is what the compositor
+;; does across combinations rather than what it did to one.
+;; ---------------------------------------------------------------------------
+
+(def ^:private palettes
+  [{:hair (Color. 0x5C 0x3A 0x1E) :skin (Color. 0xE8 0xC6 0x9C)
+    :eyes (Color. 0x3B 0x6E 0xA5) :shirt (Color. 0x7A 0x5C 0x3A)}
+   {:hair (Color. 0x1B 0x14 0x12) :skin (Color. 0x8D 0x5A 0x3C)
+    :eyes (Color. 0x3E 0x2A 0x1C) :shirt (Color. 0x2F 0x4F 0x6B)}
+   {:hair (Color. 0xC9 0x8E 0x3A) :skin (Color. 0xF2 0xD8 0xBE)
+    :eyes (Color. 0x4E 0x7A 0x46) :shirt (Color. 0x7B 0x2F 0x3A)}
+   {:hair (Color. 0x9B 0x3D 0x2E) :skin (Color. 0xC8 0x96 0x6E)
+    :eyes (Color. 0x5B 0x4A 0x7A) :shirt (Color. 0x33 0x3A 0x33)}])
+
+(defn- compose-variant
+  "Character `n`: the nth option of every layer, wrapping where a layer has
+   fewer, painted from the nth palette."
+  [^File pack n tint-fn]
+  (let [canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)
+        palette (nth palettes (mod n (count palettes)))]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (when-let [art (scaled (nth choices (mod n (count choices))))]
+            (let [slot (get pa/color-slots layer-key)]
+              (.drawImage g ^BufferedImage (tint-fn art (get palette slot category-fallback))
+                          0 0 nil)))))
+      (finally (.dispose g)))
+    canvas))
+
+(defn- contact-sheet [images]
+  (let [sheet (BufferedImage. (* W (count images)) H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics sheet)]
+    (try
+      (.setColor g Color/WHITE)
+      (.fillRect g 0 0 (.getWidth sheet) H)
+      (doseq [[i ^BufferedImage img] (map-indexed vector images)]
+        (.drawImage g img (int (* i W)) 0 nil))
+      (finally (.dispose g)))
+    sheet))
+
+(deftest four-characters-from-one-pack
+  (if-let [pack (pack-dir)]
+    (let [n 4
+          multi (mapv #(compose-variant pack % multiplied) (range n))
+          mask (mapv #(compose-variant pack % masked) (range n))]
+      (write! (contact-sheet multi) "four-multiply")
+      (write! (contact-sheet mask) "four-mask")
+      (doseq [[i ^BufferedImage img] (map-indexed vector multi)]
+        (is (pos? (opaque-colour-count img))
+            (str "variant " i " drew something")))
+      (testing "the variants differ from each other -- the pack really does
+                offer choices, rather than one face in four colours"
+        (is (apply distinct? (map opaque-colour-count multi)))))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
