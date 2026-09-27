@@ -1,7 +1,7 @@
 # Homebrew keys — the design
 
-**Status: PROPOSED, 2026-09-27.** This is the second checkpoint of `plan-next.md` §0a, and nothing is
-built yet. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
+**Status: APPROVED to build, 2026-09-27. Step 1 in progress; the §9 decisions are still open and are
+needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
 **Priorities, in order (owner):**
@@ -23,12 +23,13 @@ Each promise is tested (§7), not just assumed.
 
 | # | promise |
 |---|---|
-| C1 | Every library already in a browser loads unchanged. No migration step and no required new field. |
+| C1 | **No existing key is changed**, and no required field is added. Keys change only through the four actions that change them today (§3). The only stored corrections are the two quiet fixes in §4a, each saved once after a backup copy of the library is kept. |
 | C2 | Every `.orcbrew` file already in the wild imports. Old untagged keys, the legacy `:former-key`, and races naming languages by display name all still work. |
 | C3 | Files exported after the fix still import into older versions of the app. **No new field is required, and no existing field changes shape.** |
 | C4 | Characters on the server are never rewritten by the library code. They heal at load through `:former-keys`, as today. |
 | C5 | A key that works today keeps working. Nothing is re-keyed just for being untagged or old. |
 | C6 | Nothing a user did before the fix is undone. Where old data is already damaged (links stranded by past renames), the fix **reports it and offers a repair**. It never repairs silently. |
+| C7 | **Overriding built-in content keeps working.** A homebrew item keyed `:cleric` still replaces the built-in Cleric (D10b: deleting the tag is how an override is asked for). The builder key control and the source-abbreviation control in My Content both stay. |
 
 ## 2. One list of every kind of link
 
@@ -93,6 +94,14 @@ another item holds it, the key names two items, and each link means the one it c
 | A Move lands on a taken key | the target source's item | **the moved item's origin source** | everything else |
 | Quarantine repair of an invalid key | none | **the quarantined source** | — |
 
+**Built-in content counts as a holder of its key.** An override is a homebrew item holding a
+built-in key:
+- **Making an override** (`:cleric-tc` → `:cleric`): no library item holds `:cleric`, so links
+  repoint across the whole library. Links that meant the built-in Cleric now mean the override, which
+  is what an override is. The report says so in one line: "Replaces the built-in Cleric."
+- **Undoing an override** (`:cleric` → `:cleric-tc`): the built-in still holds `:cleric`, so only the
+  item's own source is repointed. Everything else goes back to the built-in.
+
 This is the fix for the map's worst finding: a stranded link binding to the wrong item. Today an
 import-clash rename leaves the incoming file's own spells, feats and selections pointing at the
 library's item. With this, they follow the item they were written for.
@@ -113,6 +122,18 @@ library:
 ```
 [::library/commit {:op (fn [library] → library) :says "…"}]
 ```
+
+### 4a. The two quiet fixes
+
+These are the only stored corrections this work makes, and **neither changes a key or touches a
+character**. Before the first one is written, the untouched library is copied into its own slot
+(`"plugins:pre-fix"`), and My Content offers "Restore the previous library".
+1. **An item's own `:key`/`:option-pack` fields are made to match where it is stored.** grant-rows
+   already does this in memory on every read; this makes it stick. What a character resolves is
+   unchanged, because resolution already goes by where the item is stored.
+2. **The repair the loader already makes on every visit is saved once**, so it stops re-running.
+
+### 4b. The gate, step by step
 
 The gate does five things, always in this order:
 
@@ -153,9 +174,15 @@ becomes the op for builder saves. It runs inside step 1, so it sees the fresh li
 - **Links by display name resolve by name.** A race names its languages by display name, and the
   link is resolved by deriving a key from that name (`name-to-kw`). A source-tagged language
   (`:elvish-tc`) can't be found that way, so tagged keys may already have broken this link. That is **unverified**: the share closure breaks
-  for certain, and the character-side resolution is checked in build step 6.
+  for certain, and the character-side resolution is checked in build step 7.
   The fix is read-side only: match the language's `:name` first and keep the derived key as a
   fallback. No stored shape changes (C2, C3).
+- **A character is never rebound away from built-in content.** *Live bug, found 2026-09-27, on
+  `integration` and grant-rows.* `former-key-index` treats only **library** keys as live, so undoing an
+  override (`:cleric` → `:cleric-tc`) leaves `:cleric` looking unclaimed. The next time any character
+  that took the **built-in** Cleric loads, it is rebound to the homebrew class. The same happens with
+  any old untagged key that shadows a built-in one (`:fireball`). The fix: built-in keys count as live
+  in the index. It is the first code change after step 1 (§8) because it damages characters.
 - **An ambiguous character link is asked once, not guessed.** A character may point at a key that
   one item holds now and another item held before a rename. Today `former-key-index` silently picks
   the current holder. That is right after an incoming item is renamed, and wrong after an existing
@@ -209,15 +236,17 @@ Each step lands green, with its tests, before the next begins:
 
 1. Bring `port/save-gate` level: grant-rows' round six, plus #34's `054e42c1`, `ec4a3c50`,
    `d7640dd8`, `cd82f249` as inputs. The probes land first, marked as known gaps.
-2. The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
+2. **Stop characters being rebound off built-in content** (§5): built-in keys count as live in
+   `former-key-index`. Moved ahead of everything else because it damages characters.
+3. The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
    share closure growing to cover every link.
-3. `rekey` (§3), and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
+4. `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
    passing.
-4. The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
+5. The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
    test.
-5. Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
-6. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
-7. A one-time report of damage already in a library (C6), with an offered repair.
+6. Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
+7. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
+8. A one-time report of damage already in a library (C6), with an offered repair.
 
 Then review against the map's invariants, land on `integration`, and pull down as `plan-next.md`
 §0a orders.
@@ -247,3 +276,11 @@ Then review against the map's invariants, land on `integration`, and pull down a
 | read-time stamping on grant-rows | stamping in storage | kept as a cheap second line until one release proves the gate |
 
 Nothing new duplicates an existing path. The three new pieces each absorb several old ones.
+
+## Corrections
+
+- **2026-09-27, the same day.** The first draft said "no migration" in C1, and a follow-up spoke of a
+  "one-time migration". Both overstated it. No key is migrated. The only stored corrections are the
+  two quiet fixes in §4a, saved once after a backup. C7 (overrides keep working) and the built-in
+  holder rule were added after the owner asked about overriding `cleric`. That question is what
+  turned up the `former-key-index` bug in §5.
