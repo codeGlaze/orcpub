@@ -79,6 +79,11 @@ cljs 500/2589, e2e 71/71, three pieces falsified). Q1–Q3 decided as recommende
 (`4e88b04c`); the Q3 question is a banner that waits for an answer, tested in the real app
 (`c50e6536`). Nothing is open before the review.
 
+**Reviewed (2026-09-28):** four reviewers against I1–I11 and C1–C7; seventeen findings, all fixed on
+`port/save-gate` (`7c199b20`, `5209eb97`, and three small branches merged after). Account and causes:
+`homebrew-keys-design.md`, "Review of `port/save-gate`". Next: a draft PR to `integration` for an
+outside review (Greptile), opened when the owner says.
+
 **#34's late push (2026-09-27, `f82f9444`)** was checked against `port/save-gate`: it is #34 catching
 up to integration's source-tagged keys (already on the port), a merge of the standing-duplicate fix
 that it then reverted (the port already has that behaviour, pinned by

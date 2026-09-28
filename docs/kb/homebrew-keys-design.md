@@ -1,7 +1,9 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1–8 done (`port/save-gate` `c0e38458`); the §9 decisions are still open and are
-needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
+**Status, 2026-09-28: steps 1–8 and the open items built; reviewed against the invariants, and the
+review's findings fixed on `port/save-gate` (`7c199b20`, `5209eb97`, plus the last small ones — see
+"Review of `port/save-gate`" at the end). Next: a draft PR to `integration` for an outside review.**
+(Approved to build 2026-09-27.) It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
 **Priorities, in order (owner):**
@@ -305,6 +307,13 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
   holder rule were added after the owner asked about overriding `cleric`. That question is what
   turned up the `former-key-index` bug in §5.
 
+- **2026-09-28, after the review.** Four "As built" statements below no longer hold; the review
+  section at the end has what replaced them. (1) Other packs' links no longer follow a key change on
+  their own: `settle-repoints` and the pending list are gone, and links outside the item's own pack
+  are offered instead. (2) `apply-key-renames` repoints only inside the renamed item's own source.
+  (3) The repair panel no longer guesses `:other-copy`. (4) A language rename is followed only when
+  nothing else still answers to the old name.
+
 ## As built (steps 3–4)
 
 - **`library_links.cljc` has fifteen entries**, not fourteen: the three spell-grant maps
@@ -479,3 +488,66 @@ is missing (fixed in `c0e38458`; on `integration` too).
   seeded user on `e2e-boot` with `CSP_POLICY=none` and seeds a character draft, then stops at the
   builder's Save control, which is not a `<button>`. The retry budget ran out on setup (the seeded
   server's CSP blocks the dev build; the production bundle renames what the setup and reader use).
+
+## Review of `port/save-gate` (2026-09-28)
+
+Four read-only reviewers checked `a0d9e1d2..c50e6536` against I1–I11 and C1–C7; every finding
+listed as verified was confirmed against the code before it was reported. Seventeen held. Ten were
+introduced by this work, four were already on `integration` and were missed by the map, and one was
+an old gap the link list claimed to cover.
+
+**Why so many (owner asked):** contracts changed without finding every caller (the gate's result;
+the offered-key set); a shortcut — one flat set of offered keys answering questions that depend on
+type; each step tested the behaviour it added, not the invariants across every path; parts were built
+that hardening did not need; and one design claim (items are read by where they are stored) was true
+of `grant-rows`, not of `integration`, the base.
+
+**Decided with the owner:** keep the pre-tidy copy (fixed, not cut); replace the three rules for
+"should other packs' links follow a key change" with one — the item's own pack follows, other packs
+are asked; narrow language-name following.
+
+**What changed (`7c199b20`, structural):**
+- `library/offered-by-type`: what a link can resolve to outside the library, by content type —
+  classes and races from the template's top-level choices, spells, languages and monsters from fixed
+  data (`library/built-in-keys`). `dangling` and `suggested-repairs` use it; character-side checks
+  keep the flat `offered-keys`, because a character's picks are not typed.
+- `library/repoint-offer` + `events/repoint-offer-line`: after a key change (builder key control,
+  import rename either side, library/export conflict renames) links in other packs that do not hold
+  their own copy are offered in the same message — `:sticky` — and move only on the click, through
+  `::e5/apply-repairs`. `settle-repoints` and `::content-recon/pending-repoints` are gone.
+- `follow-renamed-names` follows only when no library or built-in language still has the old name.
+- The pre-tidy copy is not kept for a library with no items (a first visit had kept `{}`, whose
+  Restore emptied the library); a failed copy stops the load-time tidy; Restore passes
+  `:restoring?`, which lets keys the loader sets aside through.
+- `test/e2e/cljs-harness.js` reads the auto-testing page's totals (it waited for a "Ran N tests" line
+  the page does not print, and reported "(none)" on a pass), names failing tests, exits 1 on failure.
+
+**What changed (`5209eb97`, data loss and characters):**
+- Quarantine restore never moves an item onto a key the live source holds (`e5/rekey-plugin`'s
+  `live` argument). This was on `integration`.
+- The builder records the fetched item's content (`events/version-of` in `origin-of`); saving over an
+  item changed since then refuses `:changed` with "Save yours over it".
+- Builder saves and key changes record builder state and show their message only on the write's
+  success (`events/builder-save-fx`, `::e5/builder-saved`); so do the other writes that showed a
+  success message beside the write. Keep shared content keeps the overlay when the write is refused.
+- The export fix screen and export/library conflict resolution apply their edits to the library as
+  stored now, and no longer write export corrections into it (Q5 was incomplete).
+- `library/normalize` keeps a corrected `:key` in `:former-keys`. Without it, an item whose own `:key`
+  differed from its storage key (Auto-name & Restore on `integration` makes these) was offered under
+  a new key and characters lost the pick — the one backward-compatibility break the review found.
+- A copy drops the original's `:former-keys`.
+- The relink question and its switch look only at picks of the renamed item's type
+  (`content-recon/relink-picks`, `picks-of`).
+- Homebrew backgrounds are offered under their stored key (on `integration` they were offered under
+  their name's key); `former-key-index` treats the name's key as a former key, so characters heal.
+
+**The last small ones** (three narrow branches, merged after): the race/background language-choice
+link and `:*true-keys` for race prerequisites and granted languages (`fix/review-links`); share links
+bundling every content type holding a picked key; an unreadable library in one tab no longer empties
+the others', and a two-tab merge reports a conflict instead of resurrecting a deleted source
+(`fix/review-storage`); a pre-upgrade builder draft no longer saves as a duplicate
+(`fix/review-draft`). Results are recorded below once merged.
+
+**Not done:** the server's first-load fetch (`index.clj`) still writes the slot directly; a failed
+write of `plugins:relinks` or `plugins:repairs-dismissed` is ignored. Both low.
+
