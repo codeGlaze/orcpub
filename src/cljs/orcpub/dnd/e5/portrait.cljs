@@ -639,25 +639,35 @@
 /* A credit is a line of prose, not a row of buttons. Boxed uppercase labels
    read as navigation and competed with the artist's name, which is the part
    that matters. These sit after it as quiet lowercase text. */
-.pl-artist-links { margin-left: 9px; display: inline-flex; align-items: center; gap: 9px; }
+/* The icons sit a touch lower than a flexbox centre would put them: the text
+   beside them is small caps with no descenders, so its optical centre is
+   below its box centre and centring the marks left them floating. */
+.pl-artist-links {
+  margin-left: 11px; display: inline-flex; align-items: center; gap: 11px;
+  position: relative; top: 1px;
+}
 .pl-artist-link {
   font: 400 11px/1 'Open Sans', system-ui, sans-serif;
-  color: #77808f; text-decoration: none;
+  /* dimmer than the name on purpose -- these are an offer, the byline is the
+     point, and at equal weight the icons won the strip */
+  color: #667082; text-decoration: none;
   display: inline-flex; align-items: center;
-  transition: color 90ms ease;
+  transition: color 110ms ease, transform 110ms ease;
 }
-.pl-artist-link:hover { color: #f0a640; }
+.pl-artist-link:hover { color: #f0a640; transform: translateY(-1px); }
 /* currentColor through a mask, so the mark is the link's colour and inherits
    the hover with it -- an <img> would need a second asset per theme. */
 .pl-artist-icon {
-  display: block; width: 14px; height: 14px;
+  display: block; width: 15px; height: 15px;
   background-color: currentColor;
   -webkit-mask-size: contain;   mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-position: center;  mask-position: center;
 }
 .app.light-theme .pl-artist-link,
-.pl-root.light-theme .pl-artist-link { color: #8a8a8a; }
+.pl-root.light-theme .pl-artist-link { color: #9aa0aa; }
+.app.light-theme .pl-artist-link:hover,
+.pl-root.light-theme .pl-artist-link:hover { color: #c8811f; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
 .pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
