@@ -440,19 +440,18 @@
    black."
   0.30)
 
-(defn- colorize-iris
-  "Paint the iris its colour instead of ADDING colour to it.
+(defn- colorize-through
+  "Map a drawing's own luminance through `colour`, wherever `cov` says.
 
-   Adding is what every preview so far did, and it is why the irises looked
-   thin: the artwork shows through, so shading and the highlight wash toward
-   white rather than reading as a coloured eye. This maps the drawing's own
-   luminance through the chosen colour -- dark stays dark, mid becomes the
-   colour, the highlight stays a highlight -- which is opaque where the drawing
-   is opaque."
-  ^BufferedImage [^BufferedImage art ^Area region ^Color eye]
+   Dark stays dark, mid becomes the colour, the highlight stays a highlight.
+   The input has to be a luminance ramp with no hue of its own -- which is how
+   the irises are drawn, and, it turns out, the lips.
+
+   `cov` is per-pixel coverage 0..255, so a region's antialiased edge fades into
+   the drawing instead of stepping."
+  ^BufferedImage [^bytes cov ^BufferedImage art ^Color colour]
   (let [out (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
-        cov (coverage-mask region)
-        er (.getRed eye) eg (.getGreen eye) eb (.getBlue eye)]
+        er (.getRed colour) eg (.getGreen colour) eb (.getBlue colour)]
     (dotimes [y H]
       (dotimes [x W]
         (let [argb (.getRGB art x y)
@@ -464,22 +463,12 @@
                 (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
                       g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
                       b (bit-and argb 0xff)
-                      l (/ (+ r g b) 765.0)              ; 0 = ink, 1 = paper
-                      ;; below the midpoint, ramp from black up to the colour;
-                      ;; above it, ramp from the colour up to white
-                      ;; floor is how much of the colour the DARKEST iris ink
-                      ;; keeps. Too low and a dark drawing swallows the colour;
-                      ;; the eye reads grey and the slot looks broken. This is
-                      ;; not opacity -- the artwork never shows through, only
-                      ;; the colour's own brightness varies -- so it can be
-                      ;; lifted a long way without going transparent.
+                      l (/ (+ r g b) 765.0)
                       floor *iris-floor*
                       lg (Math/pow l (double *iris-gamma*))
                       mix (fn [c] (if (< lg 0.5)
                                     (* c (+ floor (* (- 1.0 floor) 2.0 lg)))
                                     (+ c (* (- 255 c) (* 2.0 (- lg 0.5))))))
-                      ;; k is how much of this pixel the region covers, so the
-                      ;; edge fades into the drawing instead of stepping
                       blend (fn [src tgt] (int (min 255.0 (+ (* src (- 1.0 k))
                                                              (* tgt k)))))]
                   (.setRGB out x y
@@ -489,6 +478,29 @@
                                     (bit-shift-left (blend g (mix eg)) 8)
                                     (blend b (mix eb))))))))))))
     out))
+
+(defn- colorize-iris
+  "Paint the iris its colour instead of ADDING colour to it.
+
+   Adding is what every preview so far did, and it is why the irises looked
+   thin: the artwork shows through, so shading and the highlight wash toward
+   white rather than reading as a coloured eye. This maps the drawing's own
+   luminance through the chosen colour -- dark stays dark, mid becomes the
+   colour, the highlight stays a highlight -- which is opaque where the drawing
+   is opaque."
+  ^BufferedImage [^BufferedImage art ^Area region ^Color eye]
+  (colorize-through (coverage-mask region) art eye))
+
+(defn- whole-asset-coverage
+  "Every opaque pixel, as a coverage array. The degenerate region, for an asset
+   that is nothing but the thing to be coloured."
+  ^bytes [^BufferedImage art]
+  (let [cov (byte-array (* W H))]
+    (dotimes [y H]
+      (dotimes [x W]
+        (when (pos? (bit-and (unsigned-bit-shift-right (.getRGB art x y) 24) 0xff))
+          (aset-byte cov (+ x (* y W)) (unchecked-byte 255)))))
+    cov))
 
 (defn- compose-with-eyes
   "A character, drawn the way the app will draw it: multiply everywhere, the
@@ -942,4 +954,170 @@
                 (is (> spread 0.05)
                     (str name " spread " spread " -- iris is a flat slab")))))))
       (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+
+;; ---------------------------------------------------------------------------
+;; The mouths.
+;;
+;; Drawing the mouth layer untinted is what stopped the teeth coming out red.
+;; It is also why the lipped mouth comes out silver: EVERY mouth in this pack
+;; is drawn in greys, so "carries its own colour" was never the thing that
+;; separated them. Teeth should stay neutral and lips should take a hue, and
+;; which is which is a fact about the asset -- the same kind of per-asset fact
+;; as the iris region, and it wants the same mechanism.
+;; ---------------------------------------------------------------------------
+
+(defn- max-saturation
+  "The most saturated opaque pixel in an asset, 0..255. Zero means the artist
+   drew it in greys, with no hue of its own."
+  [^BufferedImage img]
+  (reduce max 0
+          (for [x (range (.getWidth img)) y (range (.getHeight img))
+                :let [argb (.getRGB img x y)]
+                :when (< 250 (bit-and (unsigned-bit-shift-right argb 24) 0xff))
+                :let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                      g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                      b (bit-and argb 0xff)]]
+            (- (max r g b) (min r g b)))))
+
+(def ^:private lip-colours
+  [["bare"  (Color. 0xc9 0x8d 0x82)]
+   ["rose"  (Color. 0xc4 0x6a 0x6a)]
+   ["berry" (Color. 0x9b 0x3c 0x55)]
+   ["plum"  (Color. 0x6e 0x33 0x4e)]
+   ["coral" (Color. 0xd8 0x7a 0x5c)]])
+
+(defn- compose-with-mouth
+  "The face on base `n`, mouth pinned to `mouth-idx`. With `lip-colour` the
+   mouth goes through the colorize instead of being drawn raw."
+  [^File pack manifest n mouth-idx lip-colour]
+  (let [spec (iris-spec manifest)
+        palette (nth palettes (mod n (count palettes)))
+        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (let [mouth? (= :mouth layer-key)
+                ^File f (nth choices (mod (if mouth? mouth-idx n) (count choices)))]
+            (when-let [art (scaled f)]
+              (let [slot (get pa/color-slots layer-key)
+                    sp (get spec (.getName f))]
+                (cond
+                  sp (.drawImage g (colorize-iris art (iris-region sp)
+                                                  (get palette :eyes)) 0 0 nil)
+                  (and mouth? lip-colour)
+                  (.drawImage g (colorize-through (whole-asset-coverage art)
+                                                  art lip-colour) 0 0 nil)
+                  (nil? slot) (.drawImage g art 0 0 nil)
+                  :else (.drawImage g ^BufferedImage
+                                    (multiplied art (get palette slot)) 0 0 nil)))))))
+      (finally (.dispose g)))
+    canvas))
+
+(defn- mouth-band
+  ^BufferedImage [^BufferedImage src]
+  (let [y0 (int (* H 0.42)) y1 (int (* H 0.56))
+        x0 (int (* W 0.38)) x1 (int (* W 0.72))
+        bw (* (- x1 x0) 3) bh (* (- y1 y0) 3)
+        out (BufferedImage. bw bh BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+      (.drawImage g src 0 0 bw bh x0 y0 x1 y1 nil)
+      (finally (.dispose g)))
+    out))
+
+(deftest the-mouths-as-drawn
+  (if-let [pack (pack-dir)]
+    (let [manifest (read-manifest pack)
+          mouths (vec (assets-in pack :mouth))]
+      (if (or (nil? manifest) (empty? mouths))
+        (println "\n  no mouths or no manifest -- skipping\n")
+        (do
+          (println "\n  mouth assets:")
+          (doseq [^File f mouths]
+            (println (format "    %-18s max saturation %d" (.getName f)
+                             (max-saturation (scaled f)))))
+          (println)
+          (write! (row (mapv #(mouth-band (compose-with-mouth pack manifest 0 % nil))
+                             (range (count mouths))))
+                  "mouths-untinted")
+
+          (testing "every mouth in this pack is drawn in greys, so 'carries its
+                    own colour' cannot be what decides whether to tint one --
+                    which is the flaw in the per-LAYER rule that is shipping"
+            (doseq [^File f mouths]
+              (is (< (max-saturation (scaled f)) 8)
+                  (str (.getName f) " is drawn neutral"))))
+
+          ;; the lipped mouth through the SAME function the irises use, over its
+          ;; whole area. A luminance ramp with no hue is precisely what that
+          ;; function consumes, so no second mechanism is needed for lips.
+          (when-let [^File lips (first (filter #(re-find #"02" (.getName ^File %)) mouths))]
+            (binding [*iris-floor* 0.55 *iris-gamma* 0.5]
+              (write! (row (mapv (fn [[_ c]]
+                                   (mouth-band (compose-with-mouth
+                                                pack manifest 0 (.indexOf mouths lips) c)))
+                                 lip-colours))
+                      "mouth-02-lips-colorized")
+              ;; where in the ramp the art actually sits, which is the thing
+              ;; that decides the parameters
+              (let [art (scaled lips)
+                    ls (sort (for [x (range W) y (range H)
+                                   :let [argb (.getRGB art x y)]
+                                   :when (< 250 (bit-and (unsigned-bit-shift-right argb 24) 0xff))]
+                               (/ (+ (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                     (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                     (bit-and argb 0xff))
+                                  765.0)))
+                    n (count ls)
+                    at (fn [q] (nth ls (min (dec n) (int (* q n)))))]
+                (println (format "  lips luminance: p10 %.2f  median %.2f  p90 %.2f  (%d px, %.0f%% above the ramp midpoint)"
+                                 (at 0.10) (at 0.50) (at 0.90) n
+                                 (* 100.0 (/ (count (filter #(> % 0.5) ls)) (double n))))))
+              (doseq [gm [0.5 1.0 1.6 2.2]]
+                (binding [*iris-gamma* gm]
+                  (write! (row (mapv (fn [[_ c]]
+                                       (mouth-band (compose-with-mouth
+                                                    pack manifest 0 (.indexOf mouths lips) c)))
+                                     lip-colours))
+                          (format "mouth-02-lips-gamma-%.1f" gm))))
+              (testing "and the lips take a real hue when put through it"
+                (is (> (max-saturation
+                        (colorize-through (whole-asset-coverage (scaled lips))
+                                          (scaled lips) (Color. 0x9b 0x3c 0x55)))
+                       40)
+                    "colorized lips carry saturation the raw asset had none of"))
+
+              (testing "the gamma has to go the OTHER WAY for lips than for
+                        irises, and that is not a preference -- the two are
+                        drawn at opposite ends of the tonal range. The irises
+                        are near-black, so they need a floor and a gamma below
+                        1 to lift them off it. The lips are drawn light, so
+                        most of them sit in the half of the ramp that runs
+                        toward WHITE, and lifting them further is what washed
+                        them out. One global pair of numbers cannot serve both,
+                        which is the case for putting them on the asset."
+                (let [median (fn [^BufferedImage art]
+                               (let [ls (sort (for [x (range W) y (range H)
+                                                    :let [argb (.getRGB art x y)]
+                                                    :when (< 250 (bit-and (unsigned-bit-shift-right argb 24) 0xff))]
+                                                (/ (+ (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                                      (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                                      (bit-and argb 0xff))
+                                                   765.0)))]
+                                 (when (seq ls) (nth ls (quot (count ls) 2)))))
+                      eye-art (first (keep (fn [^File f]
+                                             (when (get (iris-spec manifest) (.getName f))
+                                               (scaled f)))
+                                           (mapcat #(assets-in pack %) pa/layer-order)))]
+                  (is (> (median (scaled lips)) 0.55)
+                      "the lips are drawn LIGHT, above the ramp's midpoint")
+                  (when eye-art
+                    (is (< (median eye-art) 0.55)
+                        "and the eyes are drawn dark, below it -- so a gamma
+                         that helps one hurts the other")))))))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
