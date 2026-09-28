@@ -51,7 +51,16 @@
            (filter #(re-find #"(?i)\.png$" (.getName ^File %)))
            sort first))))
 
-(defn- scaled
+(defn- px
+  "The backing int[] of a TYPE_INT_ARGB image.
+
+   .getRGB/.setRGB go through the ColorModel on every call. These loops run
+   over ~300k pixels per layer per variant, so that indirection was most of
+   the render time."
+  ^ints [^BufferedImage img]
+  (.. img getRaster getDataBuffer getData))
+
+(defn- scaled*
   "The asset placed in the frame the way both renderers place it."
   ^BufferedImage [^File f]
   (when-let [src (ImageIO/read f)]
@@ -64,6 +73,11 @@
         (.drawImage g src (int x) (int y) (int dw) (int dh) nil)
         (finally (.dispose g)))
       out)))
+
+(def ^:private scaled
+  "Memoized: a sweep composes the same ten layers dozens of times over, and
+   every call was an ImageIO/read off disk plus a bilinear rescale."
+  (memoize scaled*))
 
 (defn- masked
   "What the app does today: keep the alpha, replace every colour."
@@ -82,21 +96,21 @@
   "Tint through the alpha, then put the drawing back over it."
   ^BufferedImage [^BufferedImage art ^Color tint]
   (let [out (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        src (px art) dst (px out)
         tr (.getRed tint) tg (.getGreen tint) tb (.getBlue tint)]
-    (dotimes [y H]
-      (dotimes [x W]
-        (let [argb (.getRGB art x y)
-              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
-          (when (pos? a)
-            (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
-                  g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
-                  b (bit-and argb 0xff)]
-              (.setRGB out x y
-                       (unchecked-int
-                        (bit-or (bit-shift-left a 24)
-                                (bit-shift-left (quot (* tr r) 255) 16)
-                                (bit-shift-left (quot (* tg g) 255) 8)
-                                (quot (* tb b) 255)))))))))
+    (dotimes [i (* W H)]
+      (let [argb (aget src i)
+            a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+        (when (pos? a)
+          (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                b (bit-and argb 0xff)]
+            (aset-int dst i
+                      (unchecked-int
+                       (bit-or (bit-shift-left a 24)
+                               (bit-shift-left (quot (* tr r) 255) 16)
+                               (bit-shift-left (quot (* tg g) 255) 8)
+                               (quot (* tb b) 255))))))))
     out))
 
 (defn- compose [^File pack tint-fn]
@@ -451,32 +465,32 @@
    the drawing instead of stepping."
   ^BufferedImage [^bytes cov ^BufferedImage art ^Color colour]
   (let [out (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        src (px art) dst (px out)
+        floor (double *iris-floor*) gamma (double *iris-gamma*)
         er (.getRed colour) eg (.getGreen colour) eb (.getBlue colour)]
-    (dotimes [y H]
-      (dotimes [x W]
-        (let [argb (.getRGB art x y)
-              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
-          (when (pos? a)
-            (let [k (/ (bit-and (aget cov (+ x (* y W))) 0xff) 255.0)]
-              (if (zero? k)
-                (.setRGB out x y argb)
-                (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
-                      g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
-                      b (bit-and argb 0xff)
-                      l (/ (+ r g b) 765.0)
-                      floor *iris-floor*
-                      lg (Math/pow l (double *iris-gamma*))
-                      mix (fn [c] (if (< lg 0.5)
-                                    (* c (+ floor (* (- 1.0 floor) 2.0 lg)))
-                                    (+ c (* (- 255 c) (* 2.0 (- lg 0.5))))))
-                      blend (fn [src tgt] (int (min 255.0 (+ (* src (- 1.0 k))
-                                                             (* tgt k)))))]
-                  (.setRGB out x y
-                           (unchecked-int
-                            (bit-or (bit-shift-left a 24)
-                                    (bit-shift-left (blend r (mix er)) 16)
-                                    (bit-shift-left (blend g (mix eg)) 8)
-                                    (blend b (mix eb))))))))))))
+    (dotimes [i (* W H)]
+      (let [argb (aget src i)
+            a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+        (when (pos? a)
+          (let [k (/ (bit-and (aget cov i) 0xff) 255.0)]
+            (if (zero? k)
+              (aset-int dst i argb)
+              (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                    g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                    b (bit-and argb 0xff)
+                    l (/ (+ r g b) 765.0)
+                    lg (Math/pow l gamma)
+                    mix (fn [c] (if (< lg 0.5)
+                                  (* c (+ floor (* (- 1.0 floor) 2.0 lg)))
+                                  (+ c (* (- 255 c) (* 2.0 (- lg 0.5))))))
+                    blend (fn [s tgt] (int (min 255.0 (+ (* s (- 1.0 k))
+                                                         (* tgt k)))))]
+                (aset-int dst i
+                          (unchecked-int
+                           (bit-or (bit-shift-left a 24)
+                                   (bit-shift-left (blend r (mix er)) 16)
+                                   (bit-shift-left (blend g (mix eg)) 8)
+                                   (blend b (mix eb)))))))))))
     out))
 
 (defn- colorize-iris
@@ -495,11 +509,10 @@
   "Every opaque pixel, as a coverage array. The degenerate region, for an asset
    that is nothing but the thing to be coloured."
   ^bytes [^BufferedImage art]
-  (let [cov (byte-array (* W H))]
-    (dotimes [y H]
-      (dotimes [x W]
-        (when (pos? (bit-and (unsigned-bit-shift-right (.getRGB art x y) 24) 0xff))
-          (aset-byte cov (+ x (* y W)) (unchecked-byte 255)))))
+  (let [cov (byte-array (* W H)) src (px art)]
+    (dotimes [i (* W H)]
+      (when (pos? (bit-and (unsigned-bit-shift-right (aget src i) 24) 0xff))
+        (aset-byte cov i (unchecked-byte 255))))
     cov))
 
 (defn- compose-with-eyes
