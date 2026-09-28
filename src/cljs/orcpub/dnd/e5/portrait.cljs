@@ -361,10 +361,18 @@
 }
 
 .pl-portrait-frame {
-  width: 208px; height: 260px;
+  /* Fills the column rather than sitting at a hard 208px inside a 247px one.
+     Centring a narrower box left the art the only thing in the column whose
+     edges lined up with nothing -- every button, the seed row, the colour
+     strip and the credit all run the full width. The ratio is the frame's,
+     4:5, so height follows width instead of being pinned beside it. */
+  width: 100%; aspect-ratio: 4 / 5;
+  /* the 1px border is otherwise added OUTSIDE the 100%, so the frame came out
+     2px wider than everything it is meant to line up with */
+  box-sizing: border-box;
   background: radial-gradient(circle at 50% 35%, #202939, #131924 60%, #0f141c);
   border: 1px solid rgba(240, 161, 0, 0.16); border-radius: 10px;
-  align-self: center; position: relative; overflow: hidden;
+  align-self: stretch; position: relative; overflow: hidden;
   flex-shrink: 0;
 }
 .pl-empty-hint {
