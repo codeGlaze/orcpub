@@ -1270,3 +1270,143 @@
                      "whose mouth is teeth")))))
       (println "\n  no manifest -- skipping\n"))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; The actual range, which means varying the FEATURES and not just the palette.
+;;
+;; the-range-of-busts above pinned every layer but the eyes and the mouth, so
+;; six panels of it were six recolours of one face. The pack is 3x3x3x2x2x3x3x3
+;; x3x3 = 8748 combinations, and none of that was visible.
+;;
+;; These portraits come out of pa/compose-for-seed -- the app's own randomizer,
+;; the one behind the Randomize button -- so the sheet shows what a person
+;; would actually get rather than what the harness felt like showing.
+;; ---------------------------------------------------------------------------
+
+(defn- file-for-asset
+  "The pack file backing a registry asset, or nil when the pack lacks it."
+  ^File [^File pack layer-key asset-id]
+  (when-let [asset (pa/asset-by-id layer-key asset-id)]
+    (let [want (.toLowerCase ^String (last (s/split (:asset/url asset) #"/")))]
+      (first (filter #(= want (.toLowerCase (.getName ^File %)))
+                     (assets-in pack layer-key))))))
+
+(defn- palette-for-seed
+  "A colour per slot, drawn from the presets the picker offers. Same seed, same
+   palette, on either platform -- it is the registry's own PRNG."
+  [seed]
+  (let [r (pa/mulberry32 (pa/seed->int (str seed "-colors")))]
+    (into {} (for [slot pa/color-slot-order
+                   :let [choices (pa/color-presets slot)]
+                   :when (seq choices)]
+               [slot (nth choices (int (Math/floor (* (r) (count choices)))))]))))
+
+(defn- compose-seeded
+  "One bust for `seed`: features from the app's randomizer, colours from the
+   presets, every layer routed by the registry's own render-mode."
+  [^File pack manifest seed]
+  (let [layers (pa/compose-for-seed seed)
+        palette (palette-for-seed seed)
+        spec (iris-spec manifest)
+        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [^File f (some->> (get-in layers [layer-key :asset/id])
+                                    (file-for-asset pack layer-key))]
+          (let [asset (pa/asset-by-id layer-key (get-in layers [layer-key :asset/id]))
+                mode (pa/render-mode layer-key asset)
+                colour (some-> (get palette (pa/slot-for-asset layer-key asset)) hex->awt)]
+            (when-let [art (scaled f)]
+              (cond
+                (= :as-drawn mode) (.drawImage g art 0 0 nil)
+                (and (= :colorize mode) colour)
+                (binding [*iris-gamma* (pa/tint-gamma layer-key asset)]
+                  (.drawImage g (colorize-through
+                                 (if-let [sp (get spec (.getName f))]
+                                   (coverage-mask (iris-region sp))
+                                   (whole-asset-coverage art))
+                                 art colour)
+                              0 0 nil))
+                colour (.drawImage g ^BufferedImage (multiplied art colour) 0 0 nil)
+                :else (.drawImage g art 0 0 nil))))))
+      (finally (.dispose g)))
+    canvas))
+
+(def ^:private gallery-seeds
+  (mapv #(str "bust-" %) (range 24)))
+
+(deftest a-gallery-of-actually-different-characters
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (binding [*iris-floor* 0.55]
+        (write! (column (mapv (fn [chunk] (row (mapv #(compose-seeded pack manifest %) chunk)))
+                              (partition 6 gallery-seeds)))
+                "gallery")
+        (write! (column (mapv (fn [chunk]
+                                (row (mapv #(shrunk (compose-seeded pack manifest %) 0.32)
+                                           chunk)))
+                              (partition 8 gallery-seeds)))
+                "gallery-thumbnails")
+
+        (testing "the seeds really do produce different FACES, not one face in
+                  different colours. This is the check the previous sheet did
+                  not have, which is why six panels of it were one character."
+          (let [picks (mapv pa/compose-for-seed gallery-seeds)
+                distinct-combos (count (distinct picks))]
+            (println (format "\n  %d seeds -> %d distinct feature combinations"
+                             (count gallery-seeds) distinct-combos))
+            (is (> distinct-combos (* 0.8 (count gallery-seeds)))
+                (str "only " distinct-combos " of " (count gallery-seeds)
+                     " seeds gave a different set of features"))
+            (doseq [layer-key pa/layer-order]
+              (let [chosen (distinct (map #(get-in % [layer-key :asset/id]) picks))]
+                (is (> (count chosen) 1)
+                    (str layer-key " never varied across " (count gallery-seeds)
+                         " seeds -- that layer is pinned, which is the bug this
+                          test exists to catch"))))))
+
+        (testing "and different colours too, or the gallery is one palette"
+          (let [pals (map palette-for-seed gallery-seeds)]
+            (doseq [slot pa/color-slot-order]
+              (is (> (count (distinct (map #(get % slot) pals))) 1)
+                  (str slot " is the same colour on every bust"))))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; I claimed in review that the shirt straps "stay near-black across all six
+;; palettes" and that this was the art. It was not: five of the six shirt
+;; colours I had picked were dark, and the asset has no straps -- what reads as
+;; one is the hair-back layer over the shoulder. This measures the thing rather
+;; than describing it.
+(deftest a-pale-shirt-colour-produces-a-pale-shirt
+  (when-let [pack (pack-dir)]
+    (when-let [manifest (read-manifest pack)]
+      (doseq [[label hex] [["near-white" "#f4f1ea"] ["mid"  "#7a94b8"] ["dark" "#303030"]]]
+        (doseq [i (range (count (assets-in pack :shirt)))]
+          (let [^File f (nth (assets-in pack :shirt) i)
+                art (scaled f)
+                out (multiplied art (hex->awt hex))
+                ls (sort (for [x (range W) y (range H)
+                               :let [argb (.getRGB out x y)]
+                               :when (< 250 (bit-and (unsigned-bit-shift-right argb 24) 0xff))]
+                           (/ (+ (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                 (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                 (bit-and argb 0xff))
+                              765.0)))
+                n (count ls)]
+            (when (pos? n)
+              (println (format "  shirt %d @ %-10s  p10 %.2f  median %.2f  p90 %.2f  (%d px)"
+                               (inc i) label
+                               (nth ls (int (* 0.10 n))) (nth ls (quot n 2))
+                               (nth ls (int (* 0.90 n))) n))
+              (when (= "near-white" label)
+                (is (> (nth ls (quot n 2)) 0.40)
+                    (str "shirt " (inc i) " at a near-white colour came out at "
+                         (format "%.2f" (nth ls (quot n 2)))
+                         " -- the tint is not reaching it")))))))
+      (write! (row (mapv (fn [hex]
+                           (let [^File f (first (assets-in pack :shirt))]
+                             (multiplied (scaled f) (hex->awt hex))))
+                         ["#f4f1ea" "#d8cdae" "#7a94b8" "#303030"]))
+              "shirt-across-lightness"))))
