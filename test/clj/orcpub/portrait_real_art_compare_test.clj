@@ -1410,3 +1410,242 @@
                              (multiplied (scaled f) (hex->awt hex))))
                          ["#f4f1ea" "#d8cdae" "#7a94b8" "#303030"]))
               "shirt-across-lightness"))))
+
+;; ---------------------------------------------------------------------------
+;; Two busts with the same bangs and the same hair-back, one of which shows a
+;; strip of scalp between the bangs and the ear. Different head, hair-front and
+;; ear assets -- so either one head is wider than the hair drawn to cover it,
+;; or one hair-front covers less. Marking the head layer says which.
+;; ---------------------------------------------------------------------------
+
+(defn- compose-marking
+  "The bust for `seed`, with `mark-layer` painted a flat signal colour so the
+   pixels it is responsible for are unmistakable."
+  [^File pack manifest seed mark-layer]
+  (let [layers (pa/compose-for-seed seed)
+        palette (palette-for-seed seed)
+        spec (iris-spec manifest)
+        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [^File f (some->> (get-in layers [layer-key :asset/id])
+                                    (file-for-asset pack layer-key))]
+          (let [asset (pa/asset-by-id layer-key (get-in layers [layer-key :asset/id]))
+                mode (pa/render-mode layer-key asset)
+                colour (some-> (get palette (pa/slot-for-asset layer-key asset)) hex->awt)]
+            (when-let [art (scaled f)]
+              (cond
+                (= layer-key mark-layer)
+                (.drawImage g ^BufferedImage (multiplied art (Color. 0xff 0x00 0xff)) 0 0 nil)
+                (= :as-drawn mode) (.drawImage g art 0 0 nil)
+                (and (= :colorize mode) colour)
+                (binding [*iris-gamma* (pa/tint-gamma layer-key asset)]
+                  (.drawImage g (colorize-through
+                                 (if-let [sp (get spec (.getName f))]
+                                   (coverage-mask (iris-region sp))
+                                   (whole-asset-coverage art))
+                                 art colour)
+                              0 0 nil))
+                colour (.drawImage g ^BufferedImage (multiplied art colour) 0 0 nil)
+                :else (.drawImage g art 0 0 nil))))))
+      (finally (.dispose g)))
+    canvas))
+
+(defn- opaque-bounds
+  "[x0 y0 x1 y1] of an asset's opaque pixels, or nil."
+  [^BufferedImage img]
+  (let [src (px img)]
+    (loop [i 0 x0 W y0 H x1 -1 y1 -1]
+      (if (= i (* W H))
+        (when (<= 0 x1) [x0 y0 x1 y1])
+        (if (pos? (bit-and (unsigned-bit-shift-right (aget src i) 24) 0xff))
+          (let [x (rem i W) y (quot i W)]
+            (recur (inc i) (min x0 x) (min y0 y) (max x1 x) (max y1 y)))
+          (recur (inc i) x0 y0 x1 y1))))))
+
+(deftest which-layer-leaves-the-scalp-showing
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (binding [*iris-floor* 0.55]
+        (doseq [seed ["bust-19" "bust-20"]]
+          (write! (row [(compose-seeded pack manifest seed)
+                        (compose-marking pack manifest seed :head)
+                        (compose-marking pack manifest seed :hair-front)])
+                  (str "scalp-" seed)))
+
+        ;; the numbers behind it: how wide each head is, and how wide the
+        ;; hair-front drawn over it reaches
+        (println "\n  widths of the pieces involved:")
+        (doseq [layer-key [:head :hair-front :bangs :ears]]
+          (doseq [^File f (assets-in pack layer-key)]
+            (when-let [[x0 y0 x1 y1] (opaque-bounds (scaled f))]
+              (println (format "    %-12s %-20s x %3d..%3d (%3d wide)  y %3d..%3d"
+                               (name layer-key) (.getName f) x0 x1 (- x1 x0) y0 y1)))))
+        (println)
+        (is true))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Exposed scalp.
+;;
+;; One gallery bust showed an island of skin between the bangs and the side
+;; lock. It is not a tinting or a z-order fault: hair-front 01 is a crown cap
+;; 142px wide and hair-front 02 is a side lock 231px wide that does not cover
+;; the crown, so some combinations leave the top of the head bare.
+;;
+;; Only five layers can cover the skull, so the space is 3 heads x 2 hair-bits
+;; x 2 hair-back x 3 hair-front x 3 bangs = 108, small enough to check ALL of
+;; it rather than the one bust that happened to be looked at.
+;; ---------------------------------------------------------------------------
+
+(def ^:private skull-bottom
+  "Below this the head is a face. Bare skin there is a forehead, not a hole."
+  (int (* H 0.30)))
+
+(defn- exposed-head-mask
+  "Head pixels, above the brow, that no hair layer covers."
+  ^booleans [^File head ^File bits ^File back ^File front ^File bangs]
+  (let [h (px (scaled head))
+        covers (mapv #(px (scaled %)) (remove nil? [bits back front bangs]))
+        out (boolean-array (* W H))]
+    (dotimes [y skull-bottom]
+      (dotimes [x W]
+        (let [i (+ x (* y W))]
+          (when (and (pos? (bit-and (unsigned-bit-shift-right (aget h i) 24) 0xff))
+                     (not-any? (fn [^ints c]
+                                 (pos? (bit-and (unsigned-bit-shift-right (aget c i) 24) 0xff)))
+                               covers))
+            (aset out i true)))))
+    out))
+
+(defn- island-px
+  "Exposed head that does NOT reach the face -- skin surrounded by hair.
+
+   Counting exposed pixels outright was the wrong measure and said so loudly:
+   it called a short fringe the worst case in the pack at 3899px, because a
+   high fringe shows more FOREHEAD, and a forehead is supposed to be skin.
+   What reads as a fault is an ISLAND -- a patch with hair on every side and no
+   path down to the face. So the exposed region is flooded from the brow line,
+   and whatever the flood cannot reach is the defect."
+  [^booleans exposed]
+  (let [seen (boolean-array (* W H))
+        stack (java.util.ArrayDeque.)]
+    ;; every exposed pixel on the brow line is forehead, and so is anything
+    ;; connected to one
+    (dotimes [x W]
+      (let [i (+ x (* (dec skull-bottom) W))]
+        (when (and (aget exposed i) (not (aget seen i)))
+          (aset seen i true)
+          (.push stack (int i)))))
+    (while (not (.isEmpty stack))
+      (let [i (int (.pop stack))
+            x (rem i W) y (quot i W)]
+        (doseq [[dx dy] [[-1 0] [1 0] [0 -1] [0 1]]]
+          (let [nx (+ x dx) ny (+ y dy)]
+            (when (and (< -1 nx W) (< -1 ny skull-bottom))
+              (let [ni (+ nx (* ny W))]
+                (when (and (aget exposed ni) (not (aget seen ni)))
+                  (aset seen ni true)
+                  (.push stack (int ni)))))))))
+    (count (for [i (range (* W H))
+                 :when (and (aget exposed i) (not (aget seen i)))]
+             1))))
+
+(defn- exposed-scalp-px
+  [^File head ^File bits ^File back ^File front ^File bangs]
+  (island-px (exposed-head-mask head bits back front bangs)))
+
+(def ^:private known-scalp-islands
+  "Hair combinations the art does not cover, as [hair-front bangs] -- the head
+   makes no difference to any of them.
+
+   This is a ledger, not a suppression. It exists so the test fails on a NEW
+   gap, which is the thing nobody will notice: 108 combinations is more than
+   anyone looks at, and every one of them renders without complaint.
+
+   Fixing these is the illustrator's call, not code's. Either the fringe is
+   redrawn to meet the side lock, or the randomizer learns to avoid the pairs."
+  #{["L4_hair_front_02.png" "L9_bangs_03.png"]   ; ~207px between fringe and lock
+    ["L4_hair_front_01.png" "L9_bangs_01.png"]   ; ~87px at the crown
+    ["L4_hair_front_02.png" "L9_bangs_01.png"]
+    ["l4_hair_front_03.png" "L9_bangs_01.png"]})
+
+(deftest no-combination-leaves-a-bare-scalp
+  (if-let [pack (pack-dir)]
+    (let [heads (assets-in pack :head)
+          bits (assets-in pack :hair-bits)
+          backs (assets-in pack :hair-back)
+          fronts (assets-in pack :hair-front)
+          bangss (assets-in pack :bangs)
+          results (for [hd heads bt bits bk backs ft fronts bg bangss]
+                    {:combo [(.getName ^File hd) (.getName ^File ft) (.getName ^File bg)]
+                     :px (exposed-scalp-px hd bt bk ft bg)})
+          bad (->> results
+                   (filter #(> (:px %) 40))
+                   (remove #(contains? known-scalp-islands (vec (rest (:combo %)))))
+                   (sort-by (comp - :px))
+                   distinct)
+          ledger-hits (->> results
+                           (filter #(> (:px %) 40))
+                           (map #(vec (rest (:combo %))))
+                           set)]
+      (println (format "\n  %d skull combinations; %d leave an island of scalp"
+                       (count results) (count bad)))
+      (doseq [{:keys [combo px]} (take 10 bad)]
+        (println (format "    %5d px  %s" px (s/join " + " combo))))
+      (println (format "    worst %d px, median %d px\n"
+                       (:px (first (sort-by (comp - :px) results)))
+                       (nth (sort (map :px results)) (quot (count results) 2))))
+
+      (testing "a hairstyle that leaves a patch of scalp showing between the
+                bangs and the hair is a combination the randomizer can hand
+                someone, and 108 of them can be checked rather than noticed"
+        (is (empty? bad)
+            (str (count bad) " NEW hair combinations leave an island of scalp "
+                 "surrounded by hair. The art does not cover them -- it is not "
+                 "a rendering fault, and it needs either redrawn art or a "
+                 "randomizer that avoids the pair. Add to known-scalp-islands "
+                 "only once that decision is made: " (pr-str (map :combo bad)))))
+
+      (testing "and the ledger does not rot. A pair that stops leaving a gap --
+                because the art was redrawn -- should be taken off the list,
+                not left behind to make the next real gap look expected."
+        (doseq [pair known-scalp-islands]
+          (is (contains? ledger-hits pair)
+              (str (pr-str pair) " is listed as a known scalp gap but no longer "
+                   "leaves one; remove it from known-scalp-islands")))))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+(deftest look-at-the-worst-scalp-combination
+  (when-let [pack (pack-dir)]
+    (let [pick (fn [layer-key nm] (first (filter #(= nm (.getName ^File %))
+                                                 (assets-in pack layer-key))))
+          render (fn [bangs-name front-name]
+                   (let [canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+                         g (.createGraphics canvas)]
+                     (try
+                       (doseq [[lk ^File f] [[:hair-bits (first (assets-in pack :hair-bits))]
+                                             [:hair-back (first (assets-in pack :hair-back))]
+                                             [:head (pick :head "L2_head_01.png")]
+                                             [:hair-front (pick :hair-front front-name)]
+                                             [:bangs (pick :bangs bangs-name)]]]
+                         (when-let [art (scaled f)]
+                           (.drawImage g ^BufferedImage
+                                       (multiplied art (if (= lk :head)
+                                                         (Color. 0xff 0x00 0xff)
+                                                         (Color. 0xdd 0xdd 0xdd)))
+                                       0 0 nil)))
+                       (finally (.dispose g)))
+                     canvas))]
+      ;; left: a SHORT FRINGE, which shows more forehead and is not a fault --
+      ;; counting bare pixels called this the worst case in the pack at 3899px,
+      ;; which is how the area metric announced it was measuring the wrong
+      ;; thing. middle: the real one, an island with hair all round it.
+      ;; right: a fringe that meets the lock, and no gap at all.
+      (write! (row [(render "L9_bangs_01.png" "L4_hair_front_02.png")
+                    (render "L9_bangs_03.png" "L4_hair_front_02.png")
+                    (render "L9_bangs_02.png" "L4_hair_front_02.png")])
+              "scalp-forehead-vs-island")
+      (is true))))
