@@ -50,6 +50,8 @@ Four scripts cover one subject between them — where a save lands, and what an 
 it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
 
 - **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`move-note.js`** — a Move that has to rename says how many items in other packs still use the copy
+  already in the target.
 - **`links-to-nothing.js`** — invariant I11: one item per kind of link (read from the running app), each
   pointing at nothing; My Content, every such item's builder and the character builder open with no
   uncaught error. A new kind of link without a row fails it.
