@@ -236,13 +236,18 @@
    credits the artist whose work it ships."
   {:artist/id      :house-pack
    :artist/name    "Fusspot"
-   ;; Her homepage, not her socials. She lists half a dozen handles there and
-   ;; keeps them current; copying them here would mean this repo owns their
-   ;; staleness, and a dead handle would sit in every sheet already exported.
+   ;; The single link, for surfaces that can only hold one -- the character
+   ;; page credit is a 100px strip. Her homepage, because it is the list she
+   ;; maintains, so it cannot go stale the way a copied handle can.
    :artist/link    "https://fusspot.rip/"
-   ;; The one link that is not "see more work". An open-source project
-   ;; shipping a contributor's art can send people somewhere that pays her.
-   :artist/support "https://ko-fi.com/fusspot"
+   ;; The full set, for the builder, which has room. Chosen with her rather
+   ;; than harvested: not every handle she has, the ones she wants on this.
+   ;; Twitch is where she does most of the work, so it is not an afterthought
+   ;; here -- someone who liked the art can go and watch it being made.
+   :artist/links   [{:link/label "Site"    :link/url "https://fusspot.rip/"}
+                    {:link/label "Twitch"  :link/url "https://www.twitch.tv/fusspot"}
+                    {:link/label "Bluesky" :link/url "https://bsky.app/profile/fusspot.rip"}
+                    {:link/label "Ko-fi"   :link/url "https://ko-fi.com/fusspot"}]
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
                               {} asset-inventory)})
@@ -307,7 +312,7 @@
                 (for [[id fields] m
                       :let [keep-fields (select-keys fields [:artist/name
                                                              :artist/link
-                                                             :artist/support
+                                                             :artist/links
                                                              :artist/license])]
                       :when (seq keep-fields)]
                   [id keep-fields]))))

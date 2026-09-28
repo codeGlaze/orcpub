@@ -422,21 +422,29 @@
       (is (= "Art: A, B" (pa/format-credit ["A" "B"]))
           "several names join into one line"))))
 
-(deftest the-support-link-is-drawer-only-and-overridable
+(deftest the-artist-links-are-drawer-only-and-overridable
   (let [a (pa/artist-info :house-pack)]
     (is (= "https://fusspot.rip/" (:artist/link a))
-        "the credit points at her homepage, which is the list she maintains")
-    (is (= "https://ko-fi.com/fusspot" (:artist/support a))
-        "and a separate link that pays her, kept apart from the credit"))
-  (testing "the credit LINE carries no support URL -- it is the string burned
-            into share cards and PDFs, where a link cannot be followed anyway"
+        "one link for surfaces that hold one -- her homepage, the list she
+         maintains, so it cannot go stale the way a copied handle can")
+    (is (= ["Site" "Twitch" "Bluesky" "Ko-fi"]
+           (mapv :link/label (:artist/links a)))
+        "and the full set for the builder, Twitch high because that is where
+         she actually works")
+    (is (every? #(re-find #"^https://" (:link/url %)) (:artist/links a))
+        "every link is https")
+    (is (not-any? #(re-find #"(?i)m\.twitch\.tv" (:link/url %)) (:artist/links a))
+        "the canonical twitch host, not the mobile one she happened to paste"))
+  (testing "the credit LINE carries no links -- it is the string burned into
+            share cards and PDFs, where a URL cannot be followed anyway"
     (is (= "Art: Fusspot"
-           (pa/credit-line {:layers (pa/compose-for-seed "support-check")}))))
-  (testing "a deployment can change it, or drop it, without touching the code"
+           (pa/credit-line {:layers (pa/compose-for-seed "links-check")}))))
+  (testing "a deployment can change them, or drop them, without touching code"
     (try
-      (pa/set-artist-overrides! {:house-pack {:artist/support "https://example.test/tip"}})
-      (is (= "https://example.test/tip" (:artist/support (pa/artist-info :house-pack))))
-      (pa/set-artist-overrides! {:house-pack {:artist/support nil}})
-      (is (nil? (:artist/support (pa/artist-info :house-pack)))
-          "nil removes it rather than falling back to the default")
+      (pa/set-artist-overrides!
+       {:house-pack {:artist/links [{:link/label "Shop" :link/url "https://example.test/"}]}})
+      (is (= ["Shop"] (mapv :link/label (:artist/links (pa/artist-info :house-pack)))))
+      (pa/set-artist-overrides! {:house-pack {:artist/links nil}})
+      (is (nil? (:artist/links (pa/artist-info :house-pack)))
+          "nil removes them rather than falling back to the default")
       (finally (pa/set-artist-overrides! {})))))

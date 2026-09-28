@@ -2,9 +2,12 @@
 
 The portrait art in this repository was drawn by hand. It is not generated.
 
-## Fusspot — <https://fusspot.rip/>
+## Fusspot
 
-Support her work: <https://ko-fi.com/fusspot>
+- Site: <https://fusspot.rip/>
+- Twitch: <https://www.twitch.tv/fusspot> — where most of the work happens, live
+- Bluesky: <https://bsky.app/profile/fusspot.rip>
+- Ko-fi: <https://ko-fi.com/fusspot>
 
 Every portrait layer in `resources/public/image/portraits/` is Fusspot's work:
 the heads, hair, ears, eyes, noses, mouths and shirts that the portrait maker
@@ -29,15 +32,18 @@ a portrait built from two artists' pieces credits both.
 An artist who has not said how they want to be credited is skipped rather than
 given a byline nobody chose.
 
-`:artist/link` points at the artist's own homepage rather than at individual
-social accounts. She lists half a dozen there and keeps them current; copying
-them here would make this repository responsible for their staleness, and a
-dead handle would remain in every character sheet already exported.
+`:artist/link` is the single link, for surfaces that can only hold one -- the
+character-page credit is a 100px strip. It points at the artist's own homepage,
+because that is the list they maintain, so it cannot go stale the way a copied
+handle can.
 
-`:artist/support` is separate and appears only in the builder, next to the
-credit. It is deliberately not part of `credit-line`: that string is burned
-into share-card PNGs and PDF sheets, where a URL cannot be followed and a
-donation ask would ride along on every copy of someone else's character.
+`:artist/links` is the full labelled set and appears only in the builder, which
+has room. It is chosen with the artist rather than harvested from their site:
+these are the accounts they want on this work, not every account they have.
+
+Neither is part of `credit-line`. That string is burned into share-card PNGs
+and PDF sheets, where a URL cannot be followed, and it would ride along on
+every copy of somebody else's character.
 
 ## For forks
 
@@ -48,7 +54,7 @@ A deployment can restate a credit without editing shared code, via
 PORTRAIT_ARTISTS='{"house-pack": {"name": "…", "link": "https://…"}}'
 ```
 
-Only `name`, `link`, `support` and `license` are honoured. Which artist drew which asset
+Only `name`, `link`, `links` and `license` are honoured. Which artist drew which asset
 is structural, lives in the registry, and is not overridable — a configuration
 cannot quietly re-attribute someone's work to a different pack.
 
