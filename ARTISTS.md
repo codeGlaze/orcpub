@@ -4,6 +4,8 @@ The portrait art in this repository was drawn by hand. It is not generated.
 
 ## Fusspot — <https://fusspot.rip/>
 
+Support her work: <https://ko-fi.com/fusspot>
+
 Every portrait layer in `resources/public/image/portraits/` is Fusspot's work:
 the heads, hair, ears, eyes, noses, mouths and shirts that the portrait maker
 composes.
@@ -27,6 +29,16 @@ a portrait built from two artists' pieces credits both.
 An artist who has not said how they want to be credited is skipped rather than
 given a byline nobody chose.
 
+`:artist/link` points at the artist's own homepage rather than at individual
+social accounts. She lists half a dozen there and keeps them current; copying
+them here would make this repository responsible for their staleness, and a
+dead handle would remain in every character sheet already exported.
+
+`:artist/support` is separate and appears only in the builder, next to the
+credit. It is deliberately not part of `credit-line`: that string is burned
+into share-card PNGs and PDF sheets, where a URL cannot be followed and a
+donation ask would ride along on every copy of someone else's character.
+
 ## For forks
 
 A deployment can restate a credit without editing shared code, via
@@ -36,7 +48,7 @@ A deployment can restate a credit without editing shared code, via
 PORTRAIT_ARTISTS='{"house-pack": {"name": "…", "link": "https://…"}}'
 ```
 
-Only `name`, `link` and `license` are honoured. Which artist drew which asset
+Only `name`, `link`, `support` and `license` are honoured. Which artist drew which asset
 is structural, lives in the registry, and is not overridable — a configuration
 cannot quietly re-attribute someone's work to a different pack.
 
