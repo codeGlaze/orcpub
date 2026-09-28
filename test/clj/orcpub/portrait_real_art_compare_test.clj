@@ -12,7 +12,8 @@
             [clojure.java.io :as io]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clojure.string :as s])
   (:import [java.awt AlphaComposite Color RenderingHints]
            [java.awt.geom Area Path2D$Double Ellipse2D$Double]
            [java.awt.image BufferedImage]
@@ -492,15 +493,21 @@
 (defn- compose-with-eyes
   "A character, drawn the way the app will draw it: multiply everywhere, the
    mouth left alone, the eyes coloured inside their placed regions."
-  [^File pack manifest n]
-  (let [spec (iris-spec manifest)
-        palette (nth palettes (mod n (count palettes)))
+  ([^File pack manifest n] (compose-with-eyes pack manifest n nil nil))
+  ([^File pack manifest n eye-idx eye-colour]
+   (let [spec (iris-spec manifest)
+        palette (cond-> (nth palettes (mod n (count palettes)))
+                  eye-colour (assoc :eyes eye-colour))
         canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
         g (.createGraphics canvas)]
     (try
       (doseq [layer-key pa/layer-order]
         (when-let [choices (seq (assets-in pack layer-key))]
-          (let [^File f (nth choices (mod n (count choices)))]
+          ;; an eye asset is one that carries a placed iris; when a style is
+          ;; being held fixed it is picked by eye-idx rather than by n
+          (let [eyes? (some #(get spec (.getName ^File %)) choices)
+                ^File f (nth choices (mod (if (and eyes? eye-idx) eye-idx n)
+                                          (count choices)))]
             (when-let [art (scaled f)]
               (let [slot (get pa/color-slots layer-key)
                     s (get spec (.getName f))]
@@ -513,7 +520,7 @@
                   :else (.drawImage g ^BufferedImage
                                     (multiplied art (get palette slot)) 0 0 nil)))))))
       (finally (.dispose g)))
-    canvas))
+    canvas)))
 
 (deftest render-the-pack-the-way-the-server-will
   (if-let [pack (pack-dir)]
@@ -753,5 +760,186 @@
                   "and MORE tonal range than floor 0.55 kept -- the row that
                    looked right up close -- so neither distance is being
                    traded away")))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Every eye style, at the settled floor and gamma, across the colour slots.
+;; Each style was given its own iris ellipse, pupil offset and lid curve by
+;; hand, so each needs looking at separately -- a setting that flatters the
+;; style with the biggest irises can still fail the one with the narrowest.
+;; ---------------------------------------------------------------------------
+
+(def ^:private eye-slot-colours
+  "The eye column of the richer presets, which is what will actually ship."
+  [["brown"  (Color. 0x83 0x48 0x10)]
+   ["blue"   (Color. 0x1d 0x54 0xae)]
+   ["green"  (Color. 0x40 0x95 0x43)]
+   ["amber"  (Color. 0xa8 0x90 0x24)]
+   ["red"    (Color. 0xa8 0x37 0x37)]
+   ["teal"   (Color. 0x37 0xa8 0xa8)]
+   ["violet" (Color. 0x8c 0x37 0xa8)]
+   ["pale"   (Color. 0xef 0xd3 0x89)]])
+
+(defn- row
+  "Join images left to right at whatever size they actually are.
+
+   contact-sheet assumes every tile is a full WxH portrait, so handing it
+   cropped bands stranded them at the top of a tall white canvas and clipped
+   the last one off the right edge."
+  ^BufferedImage [images]
+  (let [ws (mapv #(.getWidth ^BufferedImage %) images)
+        h (apply max (mapv #(.getHeight ^BufferedImage %) images))
+        sheet (BufferedImage. (reduce + ws) h BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics sheet)]
+    (try
+      (.setColor g Color/WHITE)
+      (.fillRect g 0 0 (.getWidth sheet) h)
+      (loop [x 0 [^BufferedImage i & more] images]
+        (when i
+          (.drawImage g i (int x) 0 nil)
+          (recur (+ x (.getWidth i)) more)))
+      (finally (.dispose g)))
+    sheet))
+
+(defn- column
+  "Join images top to bottom at whatever size they actually are."
+  ^BufferedImage [images]
+  (let [w (apply max (mapv #(.getWidth ^BufferedImage %) images))
+        hs (mapv #(.getHeight ^BufferedImage %) images)
+        sheet (BufferedImage. w (reduce + hs) BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics sheet)]
+    (try
+      (.setColor g Color/WHITE)
+      (.fillRect g 0 0 w (.getHeight sheet))
+      (loop [y 0 [^BufferedImage i & more] images]
+        (when i
+          (.drawImage g i 0 (int y) nil)
+          (recur (+ y (.getHeight i)) more)))
+      (finally (.dispose g)))
+    sheet))
+
+(defn- eye-band
+  "The eye band of a portrait, at 2x, which is the only part worth looking at
+   when the question is about irises."
+  ^BufferedImage [^BufferedImage src]
+  (let [y0 (int (* H 0.28)) y1 (int (* H 0.44))
+        ;; the face sits in the middle; the hair either side is not the subject
+        x0 (int (* W 0.30)) x1 (int (* W 0.80))
+        bw (* (- x1 x0) 2) bh (* (- y1 y0) 2)
+        out (BufferedImage. bw bh BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+      (.drawImage g src 0 0 bw bh x0 y0 x1 y1 nil)
+      (finally (.dispose g)))
+    out))
+
+(deftest every-eye-style-across-the-colour-slots
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [spec (iris-spec manifest)
+            styles (->> pa/layer-order
+                        (mapcat #(assets-in pack %))
+                        (filter #(get spec (.getName ^File %)))
+                        vec)]
+        (if (empty? styles)
+          (println "\n  no placed irises in this pack -- skipping\n")
+          (binding [*iris-floor* 0.55 *iris-gamma* 0.5]
+            (println (format "\n  %d eye styles x %d colours, floor .55 gamma .5"
+                             (count styles) (count eye-slot-colours)))
+            (dotimes [i (count styles)]
+              (let [nm (.getName ^File (nth styles i))]
+                ;; one row per style: every eye colour on the same face, so the
+                ;; only thing changing across the row is the slot
+                (write! (row
+                         (mapv (fn [[_ c]]
+                                 (eye-band (compose-with-eyes pack manifest 0 i c)))
+                               eye-slot-colours))
+                        (str "style-" (inc i) "-" (s/replace nm #"\.png$" "") "-colours"))
+                ;; and the same style on each of the four base faces, because
+                ;; skin and hair around it change how the iris reads
+                (write! (row
+                         (mapv #(eye-band (compose-with-eyes pack manifest % i nil))
+                               (range 4)))
+                        (str "style-" (inc i) "-" (s/replace nm #"\.png$" "") "-faces"))
+                ;; and the same row at a stronger gamma. The styles do not all
+                ;; want the same number: style 3's eyes are half-lidded and its
+                ;; iris is under 40% the area of style 1's, so it has far fewer
+                ;; pixels to say a colour with. Dropping the gamma lifts its
+                ;; mean AND its spread, where raising the floor lifts the mean
+                ;; and flattens it -- so this is the knob to tweak per style.
+                (write! (column
+                         [(row (mapv (fn [[_ c]]
+                                       (binding [*iris-gamma* 0.5]
+                                         (eye-band (compose-with-eyes pack manifest 0 i c))))
+                                     eye-slot-colours))
+                          (row (mapv (fn [[_ c]]
+                                       (binding [*iris-gamma* 0.35]
+                                         (eye-band (compose-with-eyes pack manifest 0 i c))))
+                                     eye-slot-colours))])
+                        (str "style-" (inc i) "-" (s/replace nm #"\.png$" "")
+                             "-gamma-50-over-35"))
+                (println (format "    style %d: %s" (inc i) nm))))
+            ;; the three styles side by side on one colour, which is the
+            ;; comparison that shows whether one region needs re-authoring
+            (write! (row
+                     (mapv #(eye-band (compose-with-eyes pack manifest 0 %
+                                                         (Color. 0x1d 0x54 0xae)))
+                           (range (count styles))))
+                    "all-styles-one-colour")
+            (println)
+            (is (= 3 (count styles))
+                "this pack authored three eye styles; a style losing its iris
+                 spec would silently drop out of these sheets otherwise"))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; One setting, three styles. The floor and gamma were tuned on the style with
+;; the largest irises, and a style whose eyes are half-lidded has far fewer
+;; pixels to say "blue" with -- so the tuning has to be checked against the
+;; narrowest one, not the most flattering.
+;; ---------------------------------------------------------------------------
+
+(deftest the-settled-pair-checked-against-every-style
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [spec (iris-spec manifest)
+            styles (->> pa/layer-order
+                        (mapcat #(assets-in pack %))
+                        (filter #(get spec (.getName ^File %)))
+                        vec)]
+        (if (empty? styles)
+          (println "\n  no placed irises -- skipping\n")
+          (let [blue (Color. 0x1d 0x54 0xae)
+                stats (binding [*iris-floor* 0.55 *iris-gamma* 0.5]
+                        (mapv (fn [^File f]
+                                (let [region (iris-region (get spec (.getName f)))
+                                      st (iris-stats (colorize-iris (scaled f) region blue)
+                                                     region)]
+                                  (assoc st :name (.getName f))))
+                              styles))]
+            (println "\n  at floor .55 gamma .5, one eye colour, per style:")
+            (doseq [{:keys [name n mean spread]} stats]
+              (println (format "    %-18s %4d px   mean %.3f  spread %.3f"
+                               name n mean spread)))
+            (println)
+
+            (testing "every style gets enough iris to carry a colour at all.
+                      Style 3's eyes are half-lidded, so this is the one that
+                      decides whether the setting is usable -- a threshold that
+                      only style 1 has to clear is not a threshold."
+              (doseq [{:keys [name n]} stats]
+                (is (> n 150)
+                    (str name " has " n " px of iris; below roughly 150 the "
+                         "colour stops reading at portrait size"))))
+
+            (testing "and none of them is washed out by the shared setting"
+              (doseq [{:keys [name mean spread]} stats]
+                (is (> mean 0.20) (str name " mean " mean " -- iris reads grey"))
+                (is (> spread 0.05)
+                    (str name " spread " spread " -- iris is a flat slab")))))))
       (println "\n  no manifest -- skipping\n"))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
