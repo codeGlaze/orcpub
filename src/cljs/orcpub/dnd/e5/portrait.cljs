@@ -647,13 +647,13 @@
 .app.light-theme .pl-artist-link { color: #6a6a6a; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
-.pl-artist a, .pl-artist span.pl-artist-name {
+.pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
   color: #ebeef4; text-decoration: none;
   border-bottom: 1px dotted rgba(240,161,0,0.32);
   padding-bottom: 1px;
   font: italic 13px/1 'Vollkorn', Georgia, serif;
 }
-.pl-artist a:hover { color: #ffcc5e; border-bottom-color: #f0a100; }
+.pl-artist a:not(.pl-artist-link):hover { color: #ffcc5e; border-bottom-color: #f0a100; }
 .pl-drawer-actions {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
@@ -750,7 +750,7 @@
   background: repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px);
   color: #8a8a8a;
 }
-.pl-root.light-theme .pl-artist a,
+.pl-root.light-theme .pl-artist a:not(.pl-artist-link),
 .pl-root.light-theme .pl-artist span.pl-artist-name {
   color: #363636; border-bottom-color: rgba(51,101,138,0.4);
 }
