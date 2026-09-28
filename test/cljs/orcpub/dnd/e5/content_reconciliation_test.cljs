@@ -722,3 +722,23 @@
                 {:wizard-spells-known #{:spells}})]
     (is (= [{:key :tidecall :content-label "Spell"}]
            (map #(select-keys % [:key :content-label]) (:items report))))))
+
+(deftest relinking-a-race-leaves-a-subrace-with-the-same-key-alone
+  (let [character {:db/id 7
+                   ::entity/options {:race {::entity/key :aarakocra
+                                            ::entity/options {:subrace {::entity/key :aarakocra}}}}}
+        {:keys [character rewrote]} (reconcile/relink-picks character :orcpub.dnd.e5/races :aarakocra :aarakocra-2)]
+    (is (= :aarakocra-2 (get-in character [::entity/options :race ::entity/key])))
+    (is (= :aarakocra (get-in character [::entity/options :race ::entity/options :subrace ::entity/key])))
+    (is (= 1 (count rewrote))))
+  (is (= #{:aarakocra} (reconcile/picks-of {::entity/options {:subrace {::entity/key :aarakocra}}}
+                                           :orcpub.dnd.e5/subraces)))
+  (is (empty? (reconcile/picks-of {::entity/options {:subrace {::entity/key :aarakocra}}}
+                                  :orcpub.dnd.e5/races))
+      "a subrace pick does not make the question about the race"))
+
+(deftest a-background-picked-by-its-name-heals-to-its-stored-key
+  (let [plugins {"Pak" {:orcpub.dnd.e5/backgrounds {:folk-hero-pk {:name "Folk Hero" :key :folk-hero-pk}}}}]
+    (is (= :folk-hero-pk (get (reconcile/former-key-index plugins #{}) :folk-hero)))
+    (is (nil? (get (reconcile/former-key-index plugins #{:folk-hero}) :folk-hero))
+        "a built-in background with that key still answers")))

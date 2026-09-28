@@ -2069,7 +2069,10 @@
                                              (get-in renamed-in-src [src ct new-key])
                                              item)
                                            :key new-key :option-pack target)
-                              ident (assoc :name (:name ident)))
+                              ident (assoc :name (:name ident))
+                              ;; the original keeps its history; a copy claiming it too would make
+                              ;; every old key ambiguous, and characters would stop healing
+                              copy? (dissoc :former-keys :former-key))
                  p1         (assoc-in renamed-in-src [target ct new-key] new-item)
                  p2         (if copy? p1 (update-in p1 [src ct] dissoc (if ident new-key k)))]
              (cond-> (-> acc (assoc :plugins p2) (update :placed inc)) ;; not app-db

@@ -23,12 +23,17 @@
 
 (defn normalize
   "`plugins` with every item's `:key` and `:option-pack` set to the key and source it is stored
-   under."
+   under. A different keyword `:key` the item carried is kept in its `:former-keys`."
   [plugins]
   (reduce (fn [p [src ct items]]
             (assoc-in p [src ct]
                       (reduce-kv (fn [m k item]
-                                   (assoc m k (if (map? item) (assoc item :key k :option-pack src) item)))
+                                   (assoc m k (if (map? item)
+                                                (let [was (:key item)]
+                                                  (cond-> (assoc item :key k :option-pack src)
+                                                    (and (keyword? was) (not= was k))
+                                                    (links/record-former-key was)))
+                                                item)))
                                  {} items)))
           plugins
           (content-groups plugins)))

@@ -518,3 +518,9 @@
         "a character that chose the old key can follow it")
     (is (= :nine-lives (get-in out [:orcpub.dnd.e5/subclasses :oath :class]))
         "a subclass in a content type re-keyed after it still follows")))
+
+(deftest rekey-plugin-never-moves-an-item-onto-a-key-the-live-source-holds
+  (let [trapped {::e5/races {:9-lives {:name "Nine Lives"}}}
+        live {::e5/races {:nine-lives {:name "Nine Lives" :description "the live one"}}}]
+    (is (= #{:nine-lives-2} (set (keys (::e5/races (e5/rekey-plugin trapped live))))))
+    (is (= #{:nine-lives} (set (keys (::e5/races (e5/rekey-plugin trapped))))) "without it, the key is free")))

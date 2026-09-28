@@ -204,3 +204,12 @@
 (deftest dropped-lists-items-the-second-library-lacks
   (is (= [["Classes" :orcpub.dnd.e5/classes :warden]]
          (library/dropped library (update library "Classes" dissoc :orcpub.dnd.e5/classes)))))
+
+(deftest a-corrected-key-is-kept-as-a-former-key
+  ;; Characters picked the item under the :key it carried; filing it under its storage key must
+  ;; leave them a way back.
+  (let [stale {"Pak" {:orcpub.dnd.e5/feats {:tough-kt {:name "Tough" :key :tough}}}}
+        item (get-in (library/normalize stale) ["Pak" :orcpub.dnd.e5/feats :tough-kt])]
+    (is (= :tough-kt (:key item)))
+    (is (= [:tough] (:former-keys item)))
+    (is (= (library/normalize stale) (library/normalize (library/normalize stale))) "once only")))

@@ -72,6 +72,11 @@
         (doseq [ev evs] (rf/dispatch-sync ev))
         (recur (inc n))))))
 
+(defn- address-recorded
+  "The address half of the language builder's record (it also carries the fetched version)."
+  []
+  (select-keys (get-in @app-db [:builder-origin ::e5/languages]) [:source :key :name]))
+
 (defn- save! [] (dispatch! [::langs5e/save-language]))
 
 (defn- set-name! [n]
@@ -946,7 +951,7 @@
   ;; ...meanwhile, in the selections builder
   (dispatch! [::selections5e/new-selection OTHER])
   (is (= {:source SRC :key (k "Tideward") :name "Tideward"}
-         (get-in @app-db [:builder-origin ct]))
+         (address-recorded))
       "the language builder's record is untouched")
   (is (nil? (get-in @app-db [:builder-origin sct])) "and the selection builder's is cleared")
   ;; the move is still available here
@@ -972,7 +977,7 @@
   (change-key! "tideward")
   ;; the record carries WHICH item as well as where: the address alone only says something
   ;; still answers there (see `origin-of`)
-  (is (= {:source SRC :key :tideward :name "Tidewrad"} (get-in @app-db [:builder-origin ct])))
+  (is (= {:source SRC :key :tideward :name "Tidewrad"} (address-recorded)))
   (swap! app-db assoc-in [::langs5e/builder-item :description] "edited after the key change")
   (save!)
   (is (= #{:tideward} (set (keys (stored)))) "one entry")
@@ -996,7 +1001,7 @@
     ;; what those call sites dispatch: the item, and nothing else. The content type still
     ;; reaches the record, because it is bound at REGISTRATION rather than passed here.
     (dispatch! [::langs5e/edit-language as-read])
-    (is (= {:source SRC :key old-key :name "Tideward"} (get-in @app-db [:builder-origin ct]))
+    (is (= {:source SRC :key old-key :name "Tideward"} (address-recorded))
         "a door that passes only the item still records a complete address")
     (swap! app-db assoc-in [::langs5e/builder-item :description] "edited from the pencil")
     (save!)

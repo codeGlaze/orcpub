@@ -416,6 +416,7 @@
 (defn former-key-index
   "{former-key -> current-key} across every source and content type in `plugins`. `offered` is
    from `offered-keys`; nil means not yet known, and the index is empty.
+   A background's name-derived key counts as a former key.
    GOTCHA: drops a former key claimed by more than one item, held by any library item (disabled
    ones included), or in `offered` (built-in content included). Such a key still answers."
   [plugins offered]
@@ -427,7 +428,10 @@
                       :when (map? content)
                       [k item] content
                       :when (map? item)]
-                  {:key k :formers (former-keys item)})
+                  ;; a background was offered under its name's key until the stored one was used
+                  {:key k :formers (cond-> (vec (former-keys item))
+                                     (and (= ct :orcpub.dnd.e5/backgrounds) (string? (:name item)))
+                                     (conj (common/name-to-kw (:name item))))})
           live (into offered (map :key) items)
           claims (reduce (fn [acc {:keys [key formers]}]
                            (reduce (fn [acc former]
@@ -445,17 +449,55 @@
                       [former (first targets)])))
             claims))))
 
+(def ^:private selection-types
+  "Content type of the picks under each character selection that holds one type only."
+  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces :class :orcpub.dnd.e5/classes
+   :background :orcpub.dnd.e5/backgrounds :feats :orcpub.dnd.e5/feats})
+
+(defn- walk-picks
+  "`opts` (::entity/options) with `f` applied to every pick that could be of `content-type`: all
+   picks, less those under a selection `selection-types` gives another type."
+  [opts content-type f]
+  (letfn [(entry [sel e]
+            (if (map? e)
+              (let [t (get selection-types sel)]
+                (cond-> (if (or (nil? content-type) (nil? t) (= t content-type)) (f e) e)
+                  (map? (::entity/options e)) (update ::entity/options walk)))
+              e))
+          (walk [o] (into {} (map (fn [[sel v]] [sel (if (sequential? v) (mapv #(entry sel %) v) (entry sel v))])) o))]
+    (if (map? opts) (walk opts) opts)))
+
+(defn picks-of
+  "Set of `character`'s pick keys that could be of `content-type` (see `walk-picks`)."
+  [character content-type]
+  (let [ks (atom #{})]
+    (walk-picks (::entity/options character) content-type
+                #(do (when-let [k (::entity/key %)] (swap! ks conj k)) %))
+    @ks))
+
+(defn relink-picks
+  "`character` with each pick of `from` that could be of `content-type` rewritten to `to`, as
+   {:character :rewrote} (see `reconcile-former-keys`). `content-type` nil: every pick."
+  [character content-type from to]
+  (let [rewrote (atom [])
+        opts (walk-picks (::entity/options character) content-type
+                         #(if (= from (::entity/key %))
+                            (do (swap! rewrote conj {:from from :to to}) (assoc % ::entity/key to))
+                            %))]
+    {:character (cond-> character (seq @rewrote) (assoc ::entity/options opts))
+     :rewrote @rewrote}))
+
 (defn relink-to-ask
   "The index into `relinks` (db/pending-relinks) of the first rename to ask `character` about, or
-   nil: a saved character not yet asked, holding the renamed item's old key, while `plugins` holds
-   both the renamed item (`:to`) and the item now under the old key."
+   nil: a saved character not yet asked, holding the renamed item's old key as a pick of its type,
+   while `plugins` holds both the renamed item (`:to`) and the item now under the old key."
   [relinks character plugins]
   (let [id (:db/id character)
-        holds? (fn [ct k] (some #(some? (get-in % [ct k])) (vals plugins)))
-        used (set (keep ::entity/key (tree-seq coll? seq (::entity/options character))))]
+        holds? (fn [ct k] (some #(some? (get-in % [ct k])) (vals plugins)))]
     (when id
       (first (keep-indexed (fn [i {:keys [content-type from to asked]}]
-                             (when (and (not (contains? asked id)) (contains? used from)
+                             (when (and (not (contains? asked id))
+                                        (contains? (picks-of character content-type) from)
                                         (holds? content-type to) (holds? content-type from))
                                i))
                            relinks)))))

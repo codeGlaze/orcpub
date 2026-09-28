@@ -1240,3 +1240,48 @@
         (if real
           (rf/reg-fx :http real)
           (rf/clear-fx :http))))))
+
+;; ── Review of the save gate: writes that must not claim or undo anything ─────
+
+(deftest a-save-over-an-item-changed-since-it-was-opened-asks-first
+  (let [stored {:key :cant :name "Cant" :option-pack "Pak" :description "another tab's"}
+        plugins {"Pak" {:orcpub.dnd.e5/languages {:cant stored}}}
+        opened (events/origin-of (assoc stored :description "as it was opened"))]
+    (is (= :changed (:reason (events/save-destination plugins opened :orcpub.dnd.e5/languages "Pak" :cant stored))))
+    (is (= :in-place (:action (events/save-destination plugins (events/origin-of stored)
+                                                       :orcpub.dnd.e5/languages "Pak" :cant stored)))
+        "unchanged since it was opened: saves in place")
+    (is (= :in-place (:action (events/save-destination plugins (dissoc opened :version)
+                                                       :orcpub.dnd.e5/languages "Pak" :cant stored)))
+        "a record from before versions were kept does not refuse")
+    (is (= {:action :in-place} (events/replacing {:action :refuse :reason :changed})) "Save yours over it")))
+
+(deftest a-builder-save-records-nothing-until-the-write-sticks
+  (let [fx (events/builder-save-fx {"Pak" {:orcpub.dnd.e5/languages {:cant {:name "Cant"}}}}
+                                   ::some-item :orcpub.dnd.e5/languages "Pak" :cant {:name "Cant"}
+                                   [:show-message "saved"])
+        [_ _ opts] (some #(when (= ::e5/set-plugins (first %)) %) (:dispatch-n fx))]
+    (is (nil? (:db fx)) "no builder state before the write")
+    (is (= ::e5/builder-saved (first (:on-success opts))) "it comes with the write's success")))
+
+(deftest keeping-shared-content-that-cannot-be-stored-keeps-it-on-view
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins {} :shared-plugins {"X" {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}}}})
+  (run-through! [::e5/keep-shared-content "Kay"])
+  (is (some? (:shared-plugins @app-db)) "the shared content is still there to keep")
+  (is (not (re-find #"Saved this character" (pr-str (:message @app-db)))) "and no success is claimed")
+  (.clear js/window.localStorage))
+
+(deftest export-auto-fix-writes-the-edits-to-the-library-as-stored-now
+  (.clear js/window.localStorage)
+  (let [save-as (.-saveAs js/window)]
+    (set! (.-saveAs js/window) (fn [& _]))
+    (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B, added since"}}}}
+                    :export-warning {:mode :single :edits {}
+                                     :plugins [{:name "Pak"
+                                                :plugin {:orcpub.dnd.e5/feats {:a {:name "A" :note "corrected"}}}}]}})
+    (run-through! [:export-with-auto-fix])
+    (set! (.-saveAs js/window) save-as))
+  (is (some? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :b])) "what was added since is kept")
+  (is (nil? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :a :note])) "the export's corrections stay in the file")
+  (.clear js/window.localStorage))

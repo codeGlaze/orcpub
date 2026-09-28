@@ -2619,6 +2619,7 @@
 (defn background-option [language-map
                          weapon-map
                          {:keys [name
+                                 key
                                  help
                                  page
                                  profs
@@ -2637,7 +2638,9 @@
                                  source
                                  edit-event]
                           :as background}]
-  (let [kw (common/name-to-kw name)
+  ;; The stored key (D10); a background authored before keys were stored has none, and was offered
+  ;; under its name's key, which content-reconciliation/former-key-index still heals from.
+  (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs
         {skill-num :choose options :options} skill-options

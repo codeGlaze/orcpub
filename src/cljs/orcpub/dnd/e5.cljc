@@ -126,13 +126,16 @@
    disturb existing references); collisions get a numeric suffix; an item with no
    usable `:name` keeps its original key (validation still flags it).
 
+   `taken` (optional) holds keys already in use elsewhere, which a moved item also avoids.
+
    Returns {:items <re-keyed group> :renames [[old-key new-key] ...]}."
-  [items]
+  ([items] (rekey-content-group* items #{}))
+  ([items taken]
   ;; Reserve the already-valid keys. distinct-key is seeded with these plus the
   ;; keys emitted so far, so a re-keyed item can't collide with — and be clobbered
   ;; by — a valid sibling processed later.
-  (let [reserved (into #{} (comp (map key)
-                                 (filter common/keyword-starts-with-letter?))
+  (let [reserved (into (set taken) (comp (map key)
+                                         (filter common/keyword-starts-with-letter?))
                        items)]
     (reduce (fn [{acc :items :as out} [k item]]
               (if-let [derived (and (not (common/keyword-starts-with-letter? k))
@@ -146,7 +149,7 @@
                 ;; valid key, or no name to derive from → leave the item untouched
                 (assoc-in out [:items k] item)))
             {:items {} :renames []}
-            items)))
+            items))))
 
 (defn rekey-content-group
   "The re-keyed group from `rekey-content-group*`."
@@ -158,12 +161,14 @@
    (`{content-type {item-key item}}`); non-content-group entries (e.g. `:disabled?`)
    pass through. The re-key half of a quarantine repair: after the user fixes a
    trapped item's name, sync its map key so the source can pass `::plugin`. Each moved item
-   records its old key, and links to it elsewhere in the source are repointed."
-  [plugin]
+   records its old key, and links to it elsewhere in the source are repointed. `live` (optional)
+   is the source as the library holds it now; a moved item never takes a key it holds."
+  ([plugin] (rekey-plugin plugin nil))
+  ([plugin live]
   (let [{rekeyed :plugin renames :renames}
         (reduce-kv (fn [acc ct v]
                      (if (and (qualified-keyword? ct) (map? v))
-                       (let [{:keys [items renames]} (rekey-content-group* v)]
+                       (let [{:keys [items renames]} (rekey-content-group* v (keys (get live ct)))]
                          (-> acc
                              (assoc-in [:plugin ct] items)
                              (update :renames into (map (fn [[o n]] [ct o n])) renames)))
@@ -176,7 +181,7 @@
                   (update-in [ct new] links/record-former-key old)
                   (links/repoint ct old new)))
             rekeyed
-            renames)))
+            renames))))
 
 
 (defn invalid-keyed-items

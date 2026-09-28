@@ -1547,3 +1547,12 @@
     (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :b :option-pack])) "blank: filled")
     (is (= "Elsewhere" (get-in out [:orcpub.dnd.e5/feats :c :option-pack])) "named: kept")
     (is (false? (:disabled? out)) "non-content entries pass through")))
+
+(deftest a-copy-does-not-claim-the-originals-former-keys
+  (let [plugins {"A" {::e5/races {:folk {:name "Folk" :key :folk :former-keys [:old-folk]}}}
+                 "B" {}}
+        {out :plugins} (orcbrew-val/relocate-content plugins [["A" ::e5/races :folk]] "B" :copy)
+        copy (first (vals (get-in out ["B" ::e5/races])))]
+    (is (some? copy))
+    (is (nil? (:former-keys copy)) "characters on :old-folk still heal to one item")
+    (is (= [:old-folk] (get-in out ["A" ::e5/races :folk :former-keys])) "the original keeps them")))
