@@ -803,23 +803,32 @@
 ;; The negative controls that were missing (review, 2026-09-19)
 ;; ---------------------------------------------------------------------------
 
-(deftest a-new-item-does-not-capture-an-untagged-entry-of-the-same-name
-  ;; The one that was never written. `a-new-item-may-not-take-a-key-another-item-in-this-source-
-  ;; holds` files the tenant under the TAGGED key, which an untagged address never matches, so it
-  ;; passed without exercising this at all.
-  ;;
-  ;; Untagged entries are ordinary: imported content keeps the keys it arrived with, and stripping
-  ;; the tag is how an author asks to override an SRD item. Identifying a keyless item by NAME
-  ;; handed this new item that entry's address, and the save then overwrote it in place -- no
-  ;; banner, no Replace offer, an item the author never opened.
+;; A restored pre-key draft carries no :key and no :builder-origin (`with-legacy-item!` +
+;; `open!` is exactly that shape). This used to mint a TAGGED key nothing held and CREATE a
+;; second entry beside the untagged one -- a silent duplicate a character could still be on the
+;; original for. It must not silently overwrite the untagged entry either: that would discard a
+;; different item that only happens to share a name. It refuses, same as any other occupied
+;; address, and leaves the choice ("Replace it" / "Or rename this one.") to the author.
+(deftest a-new-item-does-not-capture-or-duplicate-an-untagged-entry-of-the-same-name
   (with-legacy-item!)
   (open! (assoc (draft "Tideward") :description "a different language, same name"))
   (save!)
-  (is (nil? (get-in (stored) [old-key :description])) "the entry already there is untouched")
-  (is (= "a different language, same name" (get-in (stored) [(k "Tideward") :description]))
-      "and the new one minted its own tagged key beside it")
-  (is (= #{old-key (k "Tideward")} (set (keys (stored)))) "both survive")
-  (is (empty? (:builder-field-errors @app-db)) "with nothing flagged — they do not collide"))
+  (is (= 1 (count (stored))) "refused: no duplicate was minted")
+  (is (nil? (get-in (stored) [(k "Tideward")])) "no second, tagged entry")
+  (is (nil? (get-in (stored) [old-key :description])) "and the entry already there is untouched")
+  (is (= :invalid (:name (:builder-field-errors @app-db))) "flagged, same as any other occupied name"))
+
+(deftest replacing-a-legacy-untagged-entry-lands-on-its-own-address
+  ;; Consent updates the entry the author was shown -- at ITS address -- rather than creating the
+  ;; tagged duplicate minting was about to make.
+  (with-legacy-item!)
+  (open! (assoc (draft "Tideward") :description "a different language, same name"))
+  (save!)
+  (save-replacing!)
+  (is (= #{old-key} (set (keys (stored)))) "one entry, still at the untagged address")
+  (is (= "a different language, same name" (get-in (stored) [old-key :description]))
+      "carrying the replacement's data")
+  (is (empty? (:builder-field-errors @app-db))))
 
 (deftest save-anyway-with-a-blank-source-does-not-move-the-item-out-of-its-library
   ;; A blank Option Source Name is the field the banner is complaining about. Substituting the

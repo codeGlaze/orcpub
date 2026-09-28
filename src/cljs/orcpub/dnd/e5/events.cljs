@@ -905,8 +905,11 @@
 
    With no usable record the one source holding the key is where the item lives -- enough to save
    back into it, never enough to MOVE, since that deletes an entry on a guess. With several there
-   is no honest answer at all, so it refuses and says to reopen the item from My Content."
-  [plugins recorded plugin-key option-pack key item]
+   is no honest answer at all, so it refuses and says to reopen the item from My Content.
+
+   `mint-name` is the name a fresh key would derive from (only consulted while minting); see the
+   GOTCHA on the minting branch below."
+  [plugins recorded plugin-key option-pack key item & [mint-name]]
   (let [;; every caller gates on this, but the function is not safe on its own terms without
         ;; it: `(= lives-in option-pack)` is (= nil nil) for a nil target with no known home,
         ;; which would write a source literally named nil
@@ -928,15 +931,28 @@
       ;; Minting: no key of its own yet, so anything already answering belongs to somebody else --
       ;; here or in another library, since a key is a global address.
       (nil? (:key item))
-      (let [elsewhere (disj holders option-pack)]
+      (let [elsewhere (disj holders option-pack)
+            ;; A library written before keys existed stores this same item under its UNTAGGED
+            ;; name key (D10b predates the tag). `occupant` above only probes the freshly minted
+            ;; TAGGED key, which such an entry never answers to, so minting silently created a
+            ;; second item next to it. Probed here too, scoped to `option-pack` for the same
+            ;; reason `elsewhere` is scoped: a same-named item in another library is a coincidence,
+            ;; not this one's old address.
+            untagged-key (some->> mint-name common/name-to-kw)
+            legacy-occupant (when (and untagged-key (not= untagged-key key))
+                              (get-in plugins [option-pack plugin-key untagged-key]))]
         (cond
           ;; before the occupied offer, for the same reason the move branch tests it first:
           ;; replacing what is here cannot resolve a key another library also holds
-          (seq elsewhere) {:action :refuse :reason :elsewhere :holders elsewhere
-                           :minting? true}
-          occupant        {:action :refuse :reason :occupied :occupant occupant
-                           :minting? true}
-          :else           {:action :create}))
+          (seq elsewhere)   {:action :refuse :reason :elsewhere :holders elsewhere
+                             :minting? true}
+          occupant          {:action :refuse :reason :occupied :occupant occupant
+                             :minting? true}
+          ;; Consent replaces the LEGACY entry in place (at its own, untagged address) rather than
+          ;; creating the tagged duplicate minting was about to make.
+          legacy-occupant   {:action :refuse :reason :occupied :occupant legacy-occupant
+                             :minting? true :address untagged-key}
+          :else             {:action :create}))
 
       ;; The address still answers -- but is it still the same ITEM? An import under the same
       ;; source name replaces an entry without colliding (the conflict gate filters same-source
@@ -1042,11 +1058,19 @@
 
    Only an `:occupied` refusal is negotiable: it names one item, in this source, that the author
    can see on screen. `:elsewhere` and `:ambiguous` pass through unchanged -- nothing is in the
-   way there to replace, so consenting would create the duplicate rather than resolve it."
-  [{:keys [action reason origin] :as destination}]
+   way there to replace, so consenting would create the duplicate rather than resolve it.
+
+   GOTCHA: an `:occupied` refusal while minting can carry `:address` -- the occupant's OWN key,
+   when that differs from the one the caller was about to mint (a legacy, untagged entry). Consent
+   there writes at `:address`, not at the caller's `key`, or it would recreate the very duplicate
+   being refused. Callers read this back as `(or (:key destination) key)`."
+  [{:keys [action reason origin address] :as destination}]
   (cond
     (not= :refuse action)  destination
-    (= :occupied reason)   (if origin {:action :move :from origin} {:action :create})
+    (= :occupied reason)   (cond
+                             origin  {:action :move :from origin}
+                             address {:action :create :key address}
+                             :else   {:action :create})
     ;; the entry is gone; consent is to writing it back
     (= :vanished reason)   {:action :create}
     ;; consent is to writing this version over the one stored now
@@ -1185,8 +1209,11 @@
              {:keys [action from] :as destination}
              (when (and option-pack (nil? explanation))
                (cond-> (save-destination plugins (get-in db [:builder-origin plugin-key]) plugin-key option-pack key
-                                         item)
-                 replace? replacing))]
+                                         item name)
+                 replace? replacing))
+             ;; Consenting to replace a legacy, untagged occupant lands the write on ITS address
+             ;; (see `replacing`'s GOTCHA), not the tagged one this key variable holds.
+             final-key (or (:key destination) key)]
          (cond
            ;; `::option-pack` is `string?`, so "" satisfies the spec and never reaches the
            ;; missing-field banner on its own. Clearing the field to retype it and pressing Save
@@ -1208,14 +1235,15 @@
            (builder-field-error-fx type-name explanation item error-message anyway-event-key)
 
            :else
-           (let [new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key key
+           (let [item-with-key (assoc item-with-key :key final-key)
+                 new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key final-key
                                                         item-with-key nil)
                                ;; a move, not a copy: the entry it came from goes
-                               (= :move action) (update-in [from plugin-key] dissoc key))]
+                               (= :move action) (update-in [from plugin-key] dissoc final-key))]
              ;; The key goes back onto the item still open in the builder, and the origin is
              ;; re-stamped to where it now lives: leaving the old address recorded would make the
              ;; next save read as another move, off an entry that has already gone.
-             (builder-save-fx new-plugins item-key plugin-key option-pack key item-with-key
+             (builder-save-fx new-plugins item-key plugin-key option-pack final-key item-with-key
               [:show-warning-message
                             ;; Headline carries the point -- it is saved, and only here. The
                             ;; caveat and the way out sit under it.
@@ -1263,14 +1291,17 @@
              ;; Placeholders fill the FIELDS; they do not buy an address. Sanitizing a name must
              ;; not re-address an item that already has one, so a fresh key is minted from the
              ;; sanitized name and everything else keeps the address it has.
-             final-key (address-for (:plugins db) plugin-key src item (:name sanitized))
-             item-with-key (assoc sanitized :option-pack src :key final-key)
+             mint-key (address-for (:plugins db) plugin-key src item (:name sanitized))
              {:keys [action from] :as destination}
-             (cond-> (save-destination (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key src final-key
-                                       item)
-               replace? replacing)]
+             (cond-> (save-destination (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key src mint-key
+                                       item (:name sanitized))
+               replace? replacing)
+             ;; See the ordinary save handler: consenting to replace a legacy occupant lands on
+             ;; ITS address, not the freshly minted one.
+             final-key (or (:key destination) mint-key)
+             item-with-key (assoc sanitized :option-pack src :key final-key)]
          (if (= :refuse action)
-           (collision-error-fx type-name src final-key destination
+           (collision-error-fx type-name src mint-key destination
                                [anyway-event-key {:replace? true}])
            (let [new-plugins (cond-> (save-into-plugins (:plugins db) src plugin-key final-key
                                                         item-with-key nil)
@@ -1367,8 +1398,10 @@
          {:keys [action from] :as destination}
          (when (and option-pack (nil? explanation))
            (cond-> (save-destination plugins (get-in db [:builder-origin ::e5/selections]) ::e5/selections option-pack key
-                                     item)
-             replace? replacing))]
+                                     item name)
+             replace? replacing))
+         ;; See reg-save-homebrew: consenting to replace a legacy occupant lands on ITS address.
+         final-key (or (:key destination) key)]
      (cond
        ;; an empty Option Source Name satisfies `string?`, so it never reaches the missing-field
        ;; banner on its own -- and the save then read it as a retarget
@@ -1404,11 +1437,12 @@
                            [::selections5e/save-selection {:replace? true}])
        ;; All good — save
        :else
-       (let [new-plugins (cond-> (save-into-plugins plugins option-pack ::e5/selections key
+       (let [item-with-key (assoc item-with-key :key final-key)
+             new-plugins (cond-> (save-into-plugins plugins option-pack ::e5/selections final-key
                                                     item-with-key nil)
                            (= :move action)
-                           (update-in [from ::e5/selections] dissoc key))]
-         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections option-pack key item-with-key
+                           (update-in [from ::e5/selections] dissoc final-key))]
+         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections option-pack final-key item-with-key
           [:show-warning-message
                         {:title (if (= :move action)
                                    (str "Selection moved to " (pr-str option-pack)
@@ -1440,19 +1474,21 @@
                  (fetched-from (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections
                                (:key item))
                  orcbrew-val/default-option-source)
-         key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
-         item-with-key (assoc filled-item :key key :option-pack src)
+         mint-key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
          {:keys [action from] :as destination}
-         (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src key
-                                   item)
-           replace? replacing)]
+         (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src mint-key
+                                   item (:name filled-item))
+           replace? replacing)
+         ;; See reg-save-homebrew: consenting to replace a legacy occupant lands on ITS address.
+         final-key (or (:key destination) mint-key)
+         item-with-key (assoc filled-item :key final-key :option-pack src)]
      (if (= :refuse action)
-       (collision-error-fx "Selection" src key destination
+       (collision-error-fx "Selection" src mint-key destination
                            [::selections5e/save-selection-anyway {:replace? true}])
-       (let [new-plugins (cond-> (save-into-plugins (:plugins db) src ::e5/selections key
+       (let [new-plugins (cond-> (save-into-plugins (:plugins db) src ::e5/selections final-key
                                                     item-with-key nil)
-                           (= :move action) (update-in [from ::e5/selections] dissoc key))]
-         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections src key item-with-key
+                           (= :move action) (update-in [from ::e5/selections] dissoc final-key))]
+         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections src final-key item-with-key
           [:show-warning-message
                         (str "Selection saved to My Content under \"" src
                              "\" with placeholders for missing fields."
