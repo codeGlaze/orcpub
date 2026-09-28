@@ -71,10 +71,12 @@
         idx pdata)))
    {} plugins))
 
-(defn- type-of
-  "The content-type of key k in the index, or nil if k is not homebrew."
+(defn- types-of
+  "Every content-type in the index holding key k. A key can be homebrew in more than one
+   content type at once (e.g. a race and a language sharing a key), and all of them are
+   real selections that must seed the closure."
   [idx k]
-  (some (fn [[ctype cmap]] (when (contains? cmap k) ctype)) idx))
+  (keep (fn [[ctype cmap]] (when (contains? cmap k) ctype)) idx))
 
 ;; ── Pass 1: direct references ────────────────────────────────────────────────
 
@@ -88,12 +90,12 @@
         (entity/flatten-options (::entity/options character))))
 
 (defn- direct-refs
-  "Seed set {ctype #{keys}} — selected keys that are actually homebrew."
+  "Seed set {ctype #{keys}} — selected keys that are actually homebrew, under every
+   content type each key is homebrew in."
   [idx character]
   (reduce (fn [acc k]
-            (if-let [ct (type-of idx k)]
-              (update acc ct (fnil conj #{}) k)
-              acc))
+            (reduce (fn [acc ct] (update acc ct (fnil conj #{}) k))
+                    acc (types-of idx k)))
           {} (selected-keys character)))
 
 ;; ── Transitive edges ─────────────────────────────────────────────────────────

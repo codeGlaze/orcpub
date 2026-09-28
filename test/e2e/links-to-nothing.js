@@ -27,6 +27,7 @@ const HOLDERS = {
   'granted-language':     ['races', 'ghost-speaker', '{:name "Ghost Speaker" :props {:language {:no-such-language true}}}', 'Ghost Speaker'],
   'language-by-name':     ['races', 'ghost-talker', '{:name "Ghost Talker" :languages #{"No Such Language"}}', 'Ghost Talker'],
   'encounter->monster':   ['encounters', 'ghost-ambush', '{:name "Ghost Ambush" :creatures [{:type :monster :creature {:monster :no-such-monster :num 1}}]}', 'Ghost Ambush'],
+  'language-choice':      ['races', 'ghost-linguist', '{:name "Ghost Linguist" :profs {:language-options {:choose 1 :options {:no-such-language true}}}}', 'Ghost Linguist'],
 };
 
 const library = () => {

@@ -25,7 +25,10 @@
    :language-by-name     [:orcpub.dnd.e5/races {:languages #{"Cant"}} "Cant"]
    :encounter->monster   [:orcpub.dnd.e5/encounters
                           {:creatures [{:type :monster :creature {:monster :wolf :num 2}}
-                                       {:type :character :creature {:monster :wolf}}]} :wolf]})
+                                       {:type :character :creature {:monster :wolf}}]} :wolf]
+   :language-choice      [:orcpub.dnd.e5/races
+                          {:profs {:language-options {:choose 1 :options {:common true :orcish false}}}}
+                          :common]})
 
 (deftest every-link-has-a-holder-here
   ;; A new entry in `links` without a row above fails here, so it cannot go untested.
@@ -47,6 +50,15 @@
   (doseq [link links/links]
     (is (= [] (links/targets link {:name "Plain"})) (name (:id link)))
     (is (= {:name "Plain"} (links/retarget link {:name "Plain"} :a :b)) (name (:id link)))))
+
+(deftest a-toggled-off-choice-is-not-a-link
+  ;; A `:*true-keys` path must not report a key whose value has gone `false` (checkbox toggled off).
+  (let [race-prereq (first (filter #(= :race-prerequisite (:id %)) links/links))
+        granted-lang (first (filter #(= :granted-language (:id %)) links/links))
+        lang-choice (first (filter #(= :language-choice (:id %)) links/links))]
+    (is (= [] (links/targets race-prereq {:path-prereqs {:race {:folk false}}})))
+    (is (= [] (links/targets granted-lang {:props {:language {:cant false}}})))
+    (is (= [] (links/targets lang-choice {:profs {:language-options {:options {:orcish false}}}})))))
 
 (deftest retargeting-keeps-collection-types
   (let [link (first (filter #(= :class->own-list (:id %)) links/links))]

@@ -45,13 +45,17 @@
    {:id :level-selection :from :any :to :orcpub.dnd.e5/selections
     :path [:level-selections :*each :type] :by :key :bundle :follow}
    {:id :race-prerequisite :from :any :to :orcpub.dnd.e5/races
-    :path [:path-prereqs :race :*keys] :by :key :bundle :none}
+    :path [:path-prereqs :race :*true-keys] :by :key :bundle :none}
    {:id :granted-language :from :any :to :orcpub.dnd.e5/languages
-    :path [:props :language :*keys] :by :key :bundle :follow}
+    :path [:props :language :*true-keys] :by :key :bundle :follow}
    {:id :language-by-name :from :any :to :orcpub.dnd.e5/languages
     :path [:languages :*each] :by :name :bundle :follow}
    {:id :encounter->monster :from #{:orcpub.dnd.e5/encounters} :to :orcpub.dnd.e5/monsters
-    :path [:creatures :*each [:when :type :monster] :creature :monster] :by :key :bundle :follow}])
+    :path [:creatures :*each [:when :type :monster] :creature :monster] :by :key :bundle :follow}
+   {:id :language-choice
+    :from #{:orcpub.dnd.e5/races :orcpub.dnd.e5/subclasses :orcpub.dnd.e5/backgrounds}
+    :to :orcpub.dnd.e5/languages
+    :path [:profs :language-options :options :*true-keys] :by :key :bundle :follow}])
 
 (defn holds?
   "True when items of `content-type` can hold `link`."

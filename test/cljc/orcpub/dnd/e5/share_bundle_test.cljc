@@ -57,6 +57,17 @@
     (testing "the base (non-homebrew) fighter is not emitted as content"
       (is (not (contains? (:orcpub.dnd.e5/classes c) :fighter))))))
 
+(deftest a-key-shared-by-two-content-types-is-seeded-in-both
+  ;; :orc is a homebrew RACE and, separately, a homebrew LANGUAGE with the same key. A
+  ;; character directly selecting :orc must seed both, not just whichever type is found first.
+  (let [plugins {"Src" {:orcpub.dnd.e5/races     {:orc {:name "Orc"}}
+                        :orcpub.dnd.e5/languages {:orc {:name "Orcish"}}}}
+        character {::entity/options {:race {::entity/key :orc}}}
+        bundle (sb/extract-bundle character plugins)
+        c (get bundle "Src")]
+    (is (contains? (:orcpub.dnd.e5/races c) :orc))
+    (is (contains? (:orcpub.dnd.e5/languages c) :orc))))
+
 (deftest empty-and-vanilla-characters-yield-empty-bundles
   (testing "a character with no homebrew selections produces nothing to bundle"
     (is (empty? (sb/extract-bundle
