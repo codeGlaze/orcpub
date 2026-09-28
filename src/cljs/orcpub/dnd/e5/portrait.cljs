@@ -44,9 +44,26 @@
    :z-index z
    :pointer-events "none"})
 
-(defn- mask-style [url tint z]
+(defn- mask-style
+  "A tinted layer, in CSS.
+
+   The art is laid down as a background IMAGE with the colour behind it and
+   `background-blend-mode: multiply`, rather than as a mask over a flat colour.
+   A mask keeps only the asset's alpha and discards its drawing, so every piece
+   of line art rendered as a flat silhouette of itself. Multiply keeps the
+   lines and matches what the export and the share card now do.
+
+   The mask is still there underneath, clipping the blend to the asset's own
+   shape -- without it the colour would fill the whole box, because a blend
+   mode applies everywhere the background does."
+  [url tint z]
   {:position "absolute" :inset 0 :width "100%" :height "100%"
    :background-color tint
+   :background-image (str "url(" url ")")
+   :background-size "contain"
+   :background-repeat "no-repeat"
+   :background-position "center"
+   :background-blend-mode "multiply"
    :-webkit-mask-image    (str "url(" url ")")
    :mask-image            (str "url(" url ")")
    :-webkit-mask-size     "contain"   :mask-size     "contain"
@@ -173,14 +190,26 @@
                                                     (.-naturalHeight img)
                                                     raster-width raster-height)]
                       (.drawImage tctx img x y dw dh))
-                    ;; paint the tint through the asset's alpha -- unless the
-                    ;; asset is meant to be drawn as the illustrator made it.
-                    ;; Teeth are white because they were drawn white; tinting
-                    ;; them through the mouth's category colour made them red.
+                    ;; Tint by MULTIPLY, not by masking. source-in reads the
+                    ;; asset's alpha and throws its RGB away, so line art came
+                    ;; out as one flat colour -- the same picture as its own
+                    ;; silhouette. Multiply keeps the lines: white fill takes
+                    ;; the colour, black lines stay black.
+                    ;;
+                    ;; :as-drawn skips it entirely. Teeth are white because
+                    ;; they were drawn white; tinting them through the mouth's
+                    ;; category colour is what made them red.
                     (when-not (= :as-drawn (pa/render-mode layer-key asset))
-                      (set! (.-globalCompositeOperation tctx) "source-in")
+                      (set! (.-globalCompositeOperation tctx) "multiply")
                       (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
-                      (.fillRect tctx 0 0 raster-width raster-height))
+                      (.fillRect tctx 0 0 raster-width raster-height)
+                      ;; multiply paints the whole rect, including where the
+                      ;; asset is transparent, so put the asset's own alpha back
+                      (set! (.-globalCompositeOperation tctx) "destination-in")
+                      (let [[x y dw dh] (layout/contain-rect (.-naturalWidth img)
+                                                             (.-naturalHeight img)
+                                                             raster-width raster-height)]
+                        (.drawImage tctx img x y dw dh)))
                     (.drawImage ctx tmp 0 0))
                   (when-let [credit (pa/credit-line portrait)]
                     ;; The face has to be resident before fillText or the

@@ -2143,3 +2143,66 @@
                          (count (for [i (range (* W H)) :when (on? patch i)] 1))))
         (is (.exists out)))
       (println "\n  ORCPUB_PACK not set -- skipping.\n"))))
+
+;; ---------------------------------------------------------------------------
+;; The scalp layer doing its job, in a real bust. Not a mask, not a diff --
+;; the layer stack with it and without it.
+;; ---------------------------------------------------------------------------
+
+(deftest show-the-scalp-layer-working
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (binding [*iris-floor* 0.55]
+        (let [render (fn [seed skip-scalp?]
+                       (let [layers (cond-> (pa/compose-for-seed seed)
+                                      skip-scalp? (dissoc :scalp))
+                             palette (palette-for-seed seed)
+                             spec (iris-spec manifest)
+                             canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)]
+                         (doseq [lk pa/layer-order]
+                           (when-let [^File f (some->> (get-in layers [lk :asset/id])
+                                                       (file-for-asset pack lk))]
+                             (let [asset (pa/asset-by-id lk (get-in layers [lk :asset/id]))
+                                   mode (pa/render-mode lk asset)
+                                   colour (some-> (get palette (pa/slot-for-asset lk asset))
+                                                  hex->awt)
+                                   g (.createGraphics canvas)]
+                               (when-let [art (scaled f)]
+                                 (cond
+                                   (= :as-drawn mode) (.drawImage g art 0 0 nil)
+                                   (and (= :colorize mode) colour)
+                                   (binding [*iris-gamma* (pa/tint-gamma lk asset)]
+                                     (.drawImage g (colorize-through
+                                                    (if-let [sp (get spec (.getName f))]
+                                                      (coverage-mask (iris-region sp))
+                                                      (whole-asset-coverage art))
+                                                    art colour) 0 0 nil))
+                                   colour (.drawImage g ^BufferedImage
+                                                      (multiplied art colour) 0 0 nil)
+                                   :else (.drawImage g art 0 0 nil)))
+                               (.dispose g))))
+                         canvas))
+              crop (fn [^BufferedImage src]
+                     (let [out (BufferedImage. 560 460 BufferedImage/TYPE_INT_ARGB)
+                           g (.createGraphics out)]
+                       (.drawImage g src 0 0 560 460 110 70 (+ 110 280) 300 nil)
+                       (.dispose g) out))]
+          ;; bust-19 is the one with the visible island; bust-2 the smaller gap
+          (write! (column [(row [(crop (render "bust-19" true))
+                                 (crop (render "bust-19" false))])
+                           (row [(crop (render "bust-2" true))
+                                 (crop (render "bust-2" false))])])
+                  "scalp-layer-before-after")
+          (write! (row [(render "bust-19" true) (render "bust-19" false)])
+                  "scalp-layer-full-size")
+
+          (testing "the scalp asset is actually in the pack and resolves, or
+                    this whole sheet is two identical pictures"
+            (is (some? (file-for-asset pack :scalp :l2b-scalp-01))
+                "scalp asset found")
+            (let [a (px (render "bust-19" true)) b (px (render "bust-19" false))
+                  diff (count (for [i (range (* W H)) :when (not= (aget a i) (aget b i))] 1))]
+              (println (format "\n  scalp layer changes %d px of bust-19\n" diff))
+              (is (pos? diff) "the scalp layer changes the picture")))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
