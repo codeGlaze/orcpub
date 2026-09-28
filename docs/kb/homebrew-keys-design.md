@@ -419,3 +419,26 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
 
 **Next, per `plan-next.md` §0a:** review `port/save-gate` against the map's invariants, then land it
 on `integration` (by PR, which the owner opens or asks for).
+
+## Invariant I11 — a link to nothing never breaks a page (added 2026-09-28)
+
+The gate and the repairs make a library that holds links to nothing a normal state (a delete the
+author confirmed, an import, damage reported rather than silently rebound), so every reader of a
+link has to survive a missing target. Found when the subrace builder crashed on a subrace whose race
+is missing (fixed in `c0e38458`; on `integration` too).
+
+- **Guard:** `test/e2e/links-to-nothing.js` (`26f01b9f`) seeds one item per kind of link, read from
+  `library-links/links` at runtime, each pointing at nothing, and opens My Content, every such
+  item's builder and the character builder. 34/34; fails on the subrace crash when its fix is put
+  back. A new kind of link without a row fails it.
+- **Audit** (read-only, both enumeration methods): no other code that follows a link throws on a
+  missing target. Most readers were already defensive (fallback names, `some?`/`contains?`,
+  `select-keys` on nil).
+- **Not crashes, but broken for the user:**
+  1. A feat whose race prerequisite names a missing race shows a blank label (" Only") and admits no
+     character — the feat is locked for everyone.
+  2. A subrace whose race is missing disappears from the character builder without a word. My
+     Content and the builder now mark it (step 7/8), but the character builder does not.
+- **Not covered:** building a character that *picks* an item with a broken link (the guard opens
+  the character builder, which assembles every option, but selects nothing); the character sheet's
+  display beyond the helpers the audit read; the combat tracker's monster display.
