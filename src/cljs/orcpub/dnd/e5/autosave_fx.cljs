@@ -2,6 +2,7 @@
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [re-frame.core :refer [reg-fx reg-event-db reg-event-fx dispatch subscribe]]
             [reagent.core :as r]))
 
@@ -82,6 +83,7 @@
     {:db (assoc db
                 ::cached-template template
                 ::content-recon/offered-keys offered
+                ::content-recon/choice-tags (library/choice-tags template)
                 ::content-recon/pending-repoints pending)
      :dispatch-n (cond-> []
                    (not= settled (:plugins db))

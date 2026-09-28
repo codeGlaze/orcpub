@@ -2,6 +2,7 @@
   "The one gate every write to the homebrew library passes: `commit`. See
    docs/kb/homebrew-keys-design.md §4."
   (:require [orcpub.common :as common]
+            [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.library-links :as links]))
 
@@ -253,3 +254,34 @@
    with a stray trailing separator trimmed (`common/canonical-key`)."
   [offered k]
   (or (contains? offered k) (contains? offered (common/canonical-key k))))
+
+(defn choice-tags
+  "{selection-key tags} for every selection in `template`, walked as `offered-keys` walks it."
+  [template]
+  (letfn [(selection [acc s] (reduce option
+                                     (cond-> acc (::t/key s) (update (::t/key s) (fnil into #{}) (::t/tags s)))
+                                     (::t/options s)))
+          (option [acc o] (reduce selection
+                                  (reduce option acc (::t/associated-options o))
+                                  (::t/selections o)))]
+    (reduce selection {} (::t/selections template))))
+
+(defn missing-picks
+  "Picks in `character`'s options, under a choice tagged with one of `tags` (per `choice-tags`),
+   that `offered` lacks, as [{:key :selection :tag}]. Skips entries carrying their own
+   `::entity/value`."
+  [character offered choice-tags tags]
+  (letfn [(walk [opts]
+            (for [[sel v] opts
+                  e (if (sequential? v) v [v])
+                  :when (map? e)
+                  x (cons (let [k (::entity/key e)
+                                tag (some tags (get choice-tags sel))]
+                            (when (and tag (keyword? k)
+                                       (not (contains? e ::entity/value))
+                                       (not (offers? offered k)))
+                              {:key k :selection sel :tag tag}))
+                          (walk (::entity/options e)))
+                  :when x]
+              x))]
+    (vec (distinct (walk (::entity/options character))))))

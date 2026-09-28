@@ -730,3 +730,13 @@
                                             ::entity/options {:subrace {::entity/key :dark-elf-drow-}}}}}]
     (is (empty? (reconcile/check-content-availability
                  (reconcile/extract-content-keys character) {} #{:elf :dark-elf-drow})))))
+
+(deftest a-missing-spell-is-reported-as-a-spell
+  (let [character {::entity/options {:class [{::entity/key :wizard
+                                              ::entity/options {:wizard-spells-known
+                                                                [{::entity/key :tidecall}]}}]}}
+        report (reconcile/generate-missing-content-report
+                character {} #{:wizard :class :wizard-spells-known}
+                {:wizard-spells-known #{:spells}})]
+    (is (= [{:key :tidecall :content-label "Spell"}]
+           (map #(select-keys % [:key :content-label]) (:items report))))))

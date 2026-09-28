@@ -262,9 +262,19 @@
              :label \"Class\"
              :inferred-source \"Kibbles' Tasty\"
              :suggestions [{:key :bar :name \"Similar\" :similarity 0.8}]}]}"
-  [character available-content offered]
+  [character available-content offered & [choice-tags]]
   (let [char-keys (extract-content-keys character)
-        missing (check-content-availability char-keys available-content offered)]
+        known (set (map :key char-keys))
+        missing (concat
+                 (check-content-availability char-keys available-content offered)
+                 ;; Spells and languages the character picked that the builder no longer offers.
+                 (when (and (some? offered) choice-tags)
+                   (for [{:keys [key tag]} (library/missing-picks character offered choice-tags
+                                                                  #{:spells :language-profs})
+                         :when (not (contains? known key))]
+                     {:key key :content-type (if (= :spells tag) :spell :language)
+                      :content-label (if (= :spells tag) "Spell" "Language")
+                      :missing? true :suggestions [] :inferred-source (infer-source-from-key key)})))]
     {:has-missing? (boolean (seq missing))
      :missing-count (count missing)
      :items (vec missing)}))

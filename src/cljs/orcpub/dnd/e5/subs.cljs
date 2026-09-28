@@ -1678,14 +1678,20 @@
    (::content-recon/offered-keys db)))
 
 (reg-sub
+ ::content-recon/choice-tags
+ (fn [db _]
+   (::content-recon/choice-tags db)))
+
+(reg-sub
  ::char5e/missing-content-report
  (fn [_]
    [(subscribe [:character])
     (subscribe [::char5e/available-content])
-    (subscribe [::content-recon/offered-keys])])
- (fn [[character available-content offered]]
+    (subscribe [::content-recon/offered-keys])
+    (subscribe [::content-recon/choice-tags])])
+ (fn [[character available-content offered choice-tags]]
    (when character
-     (content-recon/generate-missing-content-report character available-content offered))))
+     (content-recon/generate-missing-content-report character available-content offered choice-tags))))
 
 (reg-sub
  ::char5e/has-missing-content?
