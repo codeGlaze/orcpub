@@ -122,27 +122,56 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
+(defn- placed
+  "The asset scaled into the frame the way every renderer places it."
+  ^BufferedImage [^BufferedImage src w h]
+  (let [out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)
+        [x y dw dh] (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g src (int x) (int y) (int dw) (int dh) nil)
+      (finally (.dispose g)))
+    out))
+
+(defn- multiply!
+  "out.rgb = colour.rgb * art.rgb, out.a = art.a, in place.
+
+   Masking -- which is what this did -- reads the asset's ALPHA and throws its
+   RGB away, so a drawing with black lines over a white fill came out as one
+   flat colour, indistinguishable from its own silhouette. Multiply keeps the
+   lines: white fill takes the colour exactly, black lines stay black, a grey
+   darkens the colour by however grey it is.
+
+   Java2D has no multiply -- AlphaComposite is Porter-Duff only -- so this is a
+   pixel pass over the frame's backing int[]."
+  [^BufferedImage img ^Color colour]
+  (let [dst (.. img getRaster getDataBuffer getData)
+        tr (.getRed colour) tg (.getGreen colour) tb (.getBlue colour)
+        n (* (.getWidth img) (.getHeight img))]
+    (dotimes [i n]
+      (let [argb (aget ^ints dst i)
+            a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+        (when (pos? a)
+          (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                gg (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                b (bit-and argb 0xff)]
+            (aset-int dst i
+                      (unchecked-int
+                       (bit-or (bit-shift-left a 24)
+                               (bit-shift-left (quot (* tr r) 255) 16)
+                               (bit-shift-left (quot (* tg gg) 255) 8)
+                               (quot (* tb b) 255))))))))))
+
 (defn- draw-raster-layer!
-  "Place the asset in the frame, tinted through its alpha. A nil `color` draws
-   it exactly as the illustrator made it."
+  "Place the asset in the frame and tint it. A nil `color` draws it exactly as
+   the illustrator made it."
   [^Graphics2D g ^bytes data ^Color color w h]
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
-    ;; Tint through the source's alpha: draw it, then flood the colour with
-    ;; SrcIn so it lands only where the asset is opaque. Server-side twin of
-    ;; the canvas 'source-in' composite the client uses.
-    (let [tinted (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
-          tg (.createGraphics tinted)
-          [x y dw dh] (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
-      (try
-        (.setRenderingHint tg RenderingHints/KEY_INTERPOLATION
-                           RenderingHints/VALUE_INTERPOLATION_BILINEAR)
-        (.drawImage tg src (int x) (int y) (int dw) (int dh) nil)
-        (when color
-          (.setComposite tg AlphaComposite/SrcIn)
-          (.setColor tg color)
-          (.fillRect tg 0 0 w h))
-        (finally (.dispose tg)))
-      (.drawImage g tinted 0 0 nil))))
+    (let [img (placed src w h)]
+      (when color (multiply! img color))
+      (.drawImage g img 0 0 nil))))
 
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")

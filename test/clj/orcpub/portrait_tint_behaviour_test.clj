@@ -80,7 +80,7 @@
     (.mkdirs (File. dir))
     (ImageIO/write img "png" (File. dir (str nm ".png")))))
 
-(deftest tinting-keeps-the-shape-and-discards-the-drawing
+(deftest tinting-keeps-the-drawing
   (let [skin (Color. 0xE8 0xB0 0x90)
         art (line-art-sample)
         sil (silhouette-sample)
@@ -95,21 +95,35 @@
       (is (<= 2 (count (opaque-colours art)))
           "two or more colours before tinting -- lines and fill"))
 
-    (testing "after tinting, the drawing is gone"
+    (testing "after tinting, the drawing survives.
+
+              This USED to assert the opposite, and the opposite was true: the
+              renderer masked, which reads the asset's alpha and discards its
+              RGB, so line art came out as one flat colour. Multiply replaced
+              it, and these are the same three checks with the answers the
+              renderer now gives."
       (let [colours (opaque-colours art-tinted)]
-        (is (= 1 (count colours))
-            (str "line art flattens to a single colour: " colours))
-        (is (= #{0xE8B090} colours)
-            "and that colour is the character's, not the artist's")))
+        (is (< 1 (count colours))
+            (str "more than one colour survives, so the lines are still there: "
+                 colours))
+        (is (contains? colours 0xE8B090)
+            "the white fill came out exactly the character's colour")
+        (is (contains? colours 0x000000)
+            "and the black lines stayed black")))
 
-    (testing "a silhouette loses nothing, because it had nothing to lose"
-      (is (= 1 (count (opaque-colours sil))))
-      (is (= #{0xE8B090} (opaque-colours sil-tinted))))
+    (testing "a BLACK silhouette multiplies to black, not to the tint.
 
-    (testing "so the two are indistinguishable once tinted -- which is the
-              finding: the pipeline cannot tell a detailed drawing from its
-              own outline, because it only ever reads alpha"
-      (is (= (opaque-colours art-tinted) (opaque-colours sil-tinted))))))
+              This is the catch that comes with multiply, and it is live now
+              rather than hypothetical: any silhouette that has to survive this
+              pipeline must be drawn WHITE. The ones shipping in
+              resources/public/image/portraits are near-white already (mean
+              opaque brightness ~228 of 255), which is why the switch did not
+              black out the placeholder art."
+      (is (= #{0x000000} (opaque-colours sil-tinted))))
+
+    (testing "so a drawing and a silhouette are no longer the same picture --
+              which was the whole point of the change"
+      (is (not= (opaque-colours art-tinted) (opaque-colours sil-tinted))))))
 
 (deftest partial-alpha-is-what-survives
   (testing "shading has to be drawn in the ALPHA channel, not in grey: a
@@ -191,8 +205,12 @@
         multiplied (multiply-tint art skin)]
     (write! multiplied "6-line-art-multiplied")
 
-    (testing "masking leaves one colour -- the finding above"
-      (is (= 1 (count (opaque-colours masked)))))
+    (testing "the renderer and this reference implementation agree.
+
+              `masked` is a historical name: it runs the shipping
+              draw-raster-layer!, which multiplies now, so it produces what
+              multiply-tint produces."
+      (is (= (opaque-colours masked) (opaque-colours multiplied))))
 
     (testing "multiply keeps the lines AND takes the character's colour"
       (let [colours (opaque-colours multiplied)]
