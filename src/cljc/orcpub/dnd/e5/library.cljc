@@ -152,12 +152,21 @@
   "`mine` applied onto `theirs`, both descended from `base`: every entry (a source, a source's own
    field, an item) that `mine` added, changed or removed since `base` is applied to `theirs`, and
    the rest of `theirs` stands. Returns {:plugins :conflicts}, a conflict being the path of an
-   entry both changed, differently."
+   entry both changed, differently.
+   GOTCHA: a source `mine` deleted whole is a conflict, not a silent delete, when `theirs` added
+   or changed something under it — that entry has no path in `base`, so it is invisible to the
+   ordinary per-entry diff and would otherwise be applied onto a source that no longer exists."
   [base mine theirs]
   (let [b (entries (normalize base)) m (entries (normalize mine)) t (entries (normalize theirs))
         at (fn [es p] (get es p ::none))
         changed (filter #(not= (at b %) (at m %)) (into #{} (concat (keys b) (keys m))))
-        conflicts (filter #(and (not= (at b %) (at t %)) (not= (at m %) (at t %))) changed)]
+        deleted-sources (into #{} (comp (filter #(and (= 1 (count %)) (= ::none (at m %))))
+                                        (map first))
+                              changed)
+        orphaned (filter #(and (> (count %) 1) (contains? deleted-sources (first %)) (= ::none (at b %)))
+                         (keys t))
+        conflicts (concat (filter #(and (not= (at b %) (at t %)) (not= (at m %) (at t %))) changed)
+                          orphaned)]
     {:plugins (rebuild (reduce (fn [acc p] (if (= ::none (at m p)) (dissoc acc p) (assoc acc p (at m p))))
                                t changed))
      :conflicts (vec (sort-by str conflicts))}))

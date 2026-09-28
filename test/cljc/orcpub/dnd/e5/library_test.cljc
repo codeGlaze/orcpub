@@ -81,6 +81,14 @@
     (is (= [["Classes" :orcpub.dnd.e5/classes :warden]] (:conflicts (library/three-way base mine theirs))))
     (is (empty? (:conflicts (library/three-way base mine mine))) "the same change in both is no conflict")))
 
+(deftest three-way-conflicts-when-a-deleted-source-gained-an-item-elsewhere
+  (let [base {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}
+                     :abbreviation "PK"}}
+        mine (dissoc base "Pak")
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :sea] {:key :sea :name "Sea" :option-pack "Pak"})
+        {:keys [conflicts]} (library/three-way base mine theirs)]
+    (is (seq conflicts) "the new item under a source this tab deleted is a conflict, not a silent merge")))
+
 ;; ── Links to nothing ────────────────────────────────────────────────────────
 
 (deftest dangling-finds-links-nothing-answers

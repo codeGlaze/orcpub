@@ -1272,6 +1272,30 @@
   (is (not (re-find #"Saved this character" (pr-str (:message @app-db)))) "and no success is claimed")
   (.clear js/window.localStorage))
 
+;; A tab that finds the "plugins" slot gone (another tab quarantined a corrupt
+;; value and removed it) must keep its own in-memory library, not reload {}.
+
+(deftest library-changed-elsewhere-keeps-this-tabs-copy-when-the-slot-is-gone
+  (.clear js/window.localStorage)
+  (let [mine {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}]
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 3})
+    (rf/dispatch-sync [::e5/library-changed-elsewhere])
+    (is (= mine (:plugins @app-db)) "this tab's library is unchanged")
+    (is (= 3 (:orcpub.dnd.e5/plugins-rev @app-db)) "and its rev is unchanged"))
+  (.clear js/window.localStorage))
+
+(deftest library-changed-elsewhere-reloads-when-the-slot-is-readable
+  (.clear js/window.localStorage)
+  (let [mine {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in mine ["Pak" :orcpub.dnd.e5/languages :sea] {:key :sea :name "Sea" :option-pack "Pak"})]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "4")
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 3})
+    (rf/dispatch-sync [::e5/library-changed-elsewhere])
+    (is (= theirs (:plugins @app-db)) "reloaded from the readable slot")
+    (is (= 4 (:orcpub.dnd.e5/plugins-rev @app-db))))
+  (.clear js/window.localStorage))
+
 (deftest export-auto-fix-writes-the-edits-to-the-library-as-stored-now
   (.clear js/window.localStorage)
   (let [save-as (.-saveAs js/window)]

@@ -4789,9 +4789,15 @@
  ::e5/library-changed-elsewhere
  [(inject-cofx ::e5/plugins) (inject-cofx ::e5/plugins-rev)]
  (fn [{:keys [db] :as cofx} _]
-   {:db (assoc db ;; library load
-               :plugins (or (::e5/plugins cofx) {})
-               ::e5/plugins-rev (::e5/plugins-rev cofx))}))
+   ;; A nil ::e5/plugins cofx means the "plugins" slot is now absent or unreadable
+   ;; (e.g. another tab quarantined a corrupt value and removed it) — NOT that the
+   ;; library is empty. Reloading {} here would wipe this tab's good in-memory copy;
+   ;; keep it instead and let its next write re-create the slot through the gate.
+   (if (nil? (::e5/plugins cofx))
+     {}
+     {:db (assoc db ;; library load
+                 :plugins (::e5/plugins cofx)
+                 ::e5/plugins-rev (::e5/plugins-rev cofx))})))
 
 (reg-event-fx
  ::e5/settle-loaded-library
