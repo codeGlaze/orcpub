@@ -559,3 +559,13 @@ It was recovered from the dangling commit. Agents in parallel worktrees copy fil
 **Not done:** the server's first-load fetch (`index.clj`) still writes the slot directly; a failed
 write of `plugins:relinks` or `plugins:repairs-dismissed` is ignored. Both low.
 
+**Outside review (Greptile, PR #37, 2026-09-28).** Four findings, all valid, fixed in `4f7ebf3b`:
+two tabs that read the same revision and write within moments of each other (each tab now keeps
+`::e5/last-write` and merges its change back when another write lands at that revision); the key
+control skipped the builder's version check; an import recorded relink questions before its write
+stuck (now `::e5/import-stored`); and the share-link seeding fixed above over-included an unrelated
+item of another type sharing a key (now `library/pick-types`, which the relink walk uses too). The
+two "not done" items above are done in the same commit: the first-load fetch writes only into a
+still-empty library and bumps the revision (checked by rendering the page and running the script
+in Node, not by a repo test), and failed bookkeeping writes are logged.
+
