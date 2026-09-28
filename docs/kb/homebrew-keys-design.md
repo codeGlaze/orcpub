@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1–6 done (`port/save-gate` `bf1ca6a5`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1–7 done (`port/save-gate` `8e76bbf3`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -255,7 +255,7 @@ Each step lands green, with its tests, before the next begins:
 5. **Done `31329bcd`, `12eb5a23`.** The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
    test.
 6. **Done `bf1ca6a5`.** Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
-7. Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
+7. **Done `8e76bbf3`.** Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
 8. A one-time report of damage already in a library (C6), with an offered repair.
 9. **Later, decided 2026-09-27: "which of my characters use this".** One server request, made only
    before a delete or a key change, asking which of the account's characters hold the affected keys,
@@ -366,3 +366,24 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
 - **Limit:** an older version of the app open in another tab writes the library without bumping the
   revision. The storage listener still reloads this tab when it does, but a write this tab makes in
   the moment before that event arrives is not merged.
+
+## As built (step 7) and the owner's decisions
+
+- **Decisions taken 2026-09-27:** Q1, Q2 and Q3 as recommended. Q6 is still open.
+- **Q1, languages by name.** Confirmed first: `race-option` turned each language name into
+  `(name-to-kw name)`, so a homebrew language minted with its source's tag was never matched. Race
+  options (`options/language-key`) and share links (`share-bundle/resolve-target`) now look the
+  language up by name first and fall back to the derived key, so built-in languages resolve as
+  before. The stored shape is unchanged (C3). **Still open:** renaming a language's display name
+  strands the races that name it; #34's probe row for it stays a gap.
+- **Broken-link marks.** My Content marks an item with a link neither the builder's list (built-in
+  included) nor any library item answers (`library/dangling`, sub `::e5/dangling-links`). **Not
+  done:** the same mark inside the builder.
+- **Q2.** A Move that has to rename says how many items in other packs still use the one already
+  in the target (`library/linking`).
+- **Q3.** An import that renames one of the library's existing items records the rename in
+  `plugins:relinks` (browser-local, like the library). A saved character using the old key is asked
+  once — recorded as soon as the question shows — whether to switch to the renamed item (the
+  existing relink) or stay on the imported one; only while both items exist.
+- **Tests.** The pure pieces and the events are unit-tested and each was falsified. The six e2e
+  scripts pass (71/71) but none drives the new mark, the Move line or the question in a browser.

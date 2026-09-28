@@ -70,7 +70,9 @@ and what each is now called, and a set-aside entry shows its description.
 505/3928, cljs 489/2558, five e2e scripts 64/64; gate test and delete prompt each falsified). Q4, Q5,
 Q7 decided as recommended. Step 9 added (later): a server request for "which of my characters use
 this" before a delete or key change. **Step 6 done** (`bf1ca6a5`; lein 508/3936,
-cljs 494/2571, six e2e scripts 71/71, merge falsified). Next is step 7, reads that don't lie.
+cljs 494/2571, six e2e scripts 71/71, merge falsified). **Step 7 done** (`8e76bbf3`; lein 512/3947,
+cljs 500/2589, e2e 71/71, three pieces falsified). Q1–Q3 decided as recommended. Next is step 8, the
+damage report and the restore control for the pre-fix backup; Q6 is still open.
 
 **#34's late push (2026-09-27, `f82f9444`)** was checked against `port/save-gate`: it is #34 catching
 up to integration's source-tagged keys (already on the port), a merge of the standing-duplicate fix
