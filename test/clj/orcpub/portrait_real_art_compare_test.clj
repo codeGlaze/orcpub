@@ -419,6 +419,20 @@
       (finally (.dispose g)))
     (.. img getRaster getDataBuffer getData)))
 
+(def ^:dynamic *iris-gamma*
+  "Bends the drawing's luminance before the ramp reads it.
+
+   The floor alone cannot serve both viewing distances: raising it lifts the
+   iris's AVERAGE colour, which is what a glance sees, by squeezing the range
+   between its darkest and lightest ink, which is what a close look sees. One
+   knob doing two jobs is why 0.55 read better up close and 0.75 better across
+   the room.
+
+   A gamma below 1 lifts the midtones -- where the body of the iris sits --
+   while leaving the darkest ink alone, so the average moves toward the colour
+   and the contrast stays."
+  1.0)
+
 (def ^:dynamic *iris-floor*
   "How much of the eye colour the darkest iris ink keeps. 0.30 was the first
    guess and it lost the colour on this art, whose irises are drawn almost
@@ -459,9 +473,10 @@
                       ;; the colour's own brightness varies -- so it can be
                       ;; lifted a long way without going transparent.
                       floor *iris-floor*
-                      mix (fn [c] (if (< l 0.5)
-                                    (* c (+ floor (* (- 1.0 floor) 2.0 l)))
-                                    (+ c (* (- 255 c) (* 2.0 (- l 0.5))))))
+                      lg (Math/pow l (double *iris-gamma*))
+                      mix (fn [c] (if (< lg 0.5)
+                                    (* c (+ floor (* (- 1.0 floor) 2.0 lg)))
+                                    (+ c (* (- 255 c) (* 2.0 (- lg 0.5))))))
                       ;; k is how much of this pixel the region covers, so the
                       ;; edge fades into the drawing instead of stepping
                       blend (fn [src tgt] (int (min 255.0 (+ (* src (- 1.0 k))
@@ -610,5 +625,133 @@
                         (row 0.75 1.35 1.15)]) ; and richer presets with it
                 "iris-strength")
         (is true))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Near and far are different tests, so run both.
+;; ---------------------------------------------------------------------------
+
+(defn- shrunk
+  "The portrait at thumbnail size -- what a glance actually sees."
+  ^BufferedImage [^BufferedImage src scale]
+  (let [w (int (* (.getWidth src) scale)) h (int (* (.getHeight src) scale))
+        out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g src 0 0 w h nil)
+      (finally (.dispose g)))
+    out))
+
+(deftest reconcile-near-and-far
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [variant (fn [floor gamma sat val]
+                      (binding [*iris-floor* floor *iris-gamma* gamma]
+                        (with-redefs [palettes (mapv #(update % :eyes richer sat val)
+                                                     palettes)]
+                          (compose-with-eyes pack manifest 0))))
+            candidates [["floor 0.55, no gamma  (better up close)" (variant 0.55 1.0 1.0 1.0)]
+                        ["floor 0.75 + richer   (better at distance)" (variant 0.75 1.0 1.35 1.15)]
+                        ["floor 0.55, gamma 0.5 + richer  (the settled pair)" (variant 0.55 0.5 1.35 1.15)]
+                        ["floor 0.45, gamma 0.4 + richer  (more modelling still)" (variant 0.45 0.4 1.35 1.15)]]]
+        (doseq [[label img] candidates]
+          (write! img (str "near-" (-> label (.replaceAll "[^a-z0-9]+" "-")))))
+        ;; and the same four at a sixth the size, which is the glance test
+        (write! (contact-sheet (mapv (fn [[_ img]] (shrunk img 1.0)) candidates))
+                "near-row")
+        (write! (stack (mapv (fn [[_ img]] (shrunk img 0.22)) candidates))
+                "far-column")
+        (is true))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; The two viewing distances measured, so the choice is not a matter of taste.
+;;
+;; A glance integrates the iris into one average colour, so how strongly the
+;; eye reads across the room is its MEAN. A close look sees the shading inside
+;; it, so how modelled it looks is the SPREAD between its darkest and lightest
+;; ink. The floor moves both together -- lifting it raises the mean by squeezing
+;; the ramp -- which is why no single floor won at both distances.
+;;
+;; A gamma below 1 lifts the midtones, where the body of the iris sits, without
+;; touching the darkest ink, so the two can move apart.
+;; ---------------------------------------------------------------------------
+
+(defn- iris-stats
+  "Mean and spread of the coloured iris, over the region only.
+
+   Mean is the distance test. Spread is p90-p10 rather than min-max, because a
+   single antialiased pixel at either end would decide the answer."
+  [^BufferedImage img ^Area region]
+  (let [cov (coverage-mask region)
+        vals (persistent!
+              (reduce (fn [acc i]
+                        (if (< 200 (bit-and (aget cov i) 0xff))
+                          (let [x (rem i W) y (quot i W)
+                                argb (.getRGB img x y)]
+                            (if (pos? (bit-and (unsigned-bit-shift-right argb 24) 0xff))
+                              (conj! acc (/ (+ (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                               (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                               (bit-and argb 0xff))
+                                            765.0))
+                              acc))
+                          acc))
+                      (transient []) (range (* W H))))
+        sorted (vec (sort vals))
+        n (count sorted)
+        at (fn [q] (nth sorted (min (dec n) (int (* q n)))))]
+    (when (pos? n)
+      {:n n
+       :mean (/ (reduce + sorted) (double n))
+       :spread (- (at 0.90) (at 0.10))})))
+
+(deftest gamma-separates-legibility-from-modelling
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [spec (iris-spec manifest)
+            ;; whichever eye asset this pack's first character uses
+            eye-file (first (filter #(get spec (.getName ^File %))
+                                    (mapcat #(assets-in pack %) pa/layer-order)))]
+        (if-not eye-file
+          (println "\n  no placed iris in this pack -- skipping\n")
+          (let [region (iris-region (get spec (.getName ^File eye-file)))
+                art (scaled eye-file)
+                blue (Color. 0x1d 0x54 0xae)
+                measure (fn [floor gamma]
+                          (binding [*iris-floor* floor *iris-gamma* gamma]
+                            (iris-stats (colorize-iris art region blue) region)))
+                close (measure 0.55 1.0)       ; better up close, said the eye
+                far (measure 0.75 1.0)         ; better at distance, said the eye
+                both (measure 0.55 0.5)]       ; the settled pair
+            (println (format "\n  iris over %d px%n    floor .55 gamma 1.0   mean %.3f  spread %.3f%n    floor .75 gamma 1.0   mean %.3f  spread %.3f%n    floor .55 gamma 0.5   mean %.3f  spread %.3f%n"
+                             (:n close)
+                             (:mean close) (:spread close)
+                             (:mean far) (:spread far)
+                             (:mean both) (:spread both)))
+
+            (testing "the floor really does trade one for the other -- this is
+                      the effect being worked around, and if it ever stops
+                      holding the rest of this reasoning is void"
+              (is (> (:mean far) (:mean close))
+                  "raising the floor lifts the mean, which is why 0.75 won at a distance")
+              (is (< (:spread far) (:spread close))
+                  "and flattens the spread, which is why 0.55 won up close"))
+
+            (testing "gamma gets the distance legibility"
+              (is (>= (:mean both) (* 0.97 (:mean far)))
+                  "as bright on average as the floor-0.75 render, which is the
+                   one that read across the room"))
+
+            (testing "without paying for it in modelling"
+              (is (> (:spread both) (:spread far))
+                  "more tonal range inside the iris than floor 0.75 leaves")
+              (is (> (:spread both) (:spread close))
+                  "and MORE tonal range than floor 0.55 kept -- the row that
+                   looked right up close -- so neither distance is being
+                   traded away")))))
       (println "\n  no manifest -- skipping\n"))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
