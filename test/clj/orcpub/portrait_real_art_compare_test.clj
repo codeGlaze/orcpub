@@ -419,6 +419,12 @@
       (finally (.dispose g)))
     (.. img getRaster getDataBuffer getData)))
 
+(def ^:dynamic *iris-floor*
+  "How much of the eye colour the darkest iris ink keeps. 0.30 was the first
+   guess and it lost the colour on this art, whose irises are drawn almost
+   black."
+  0.30)
+
 (defn- colorize-iris
   "Paint the iris its colour instead of ADDING colour to it.
 
@@ -446,8 +452,15 @@
                       l (/ (+ r g b) 765.0)              ; 0 = ink, 1 = paper
                       ;; below the midpoint, ramp from black up to the colour;
                       ;; above it, ramp from the colour up to white
+                      ;; floor is how much of the colour the DARKEST iris ink
+                      ;; keeps. Too low and a dark drawing swallows the colour;
+                      ;; the eye reads grey and the slot looks broken. This is
+                      ;; not opacity -- the artwork never shows through, only
+                      ;; the colour's own brightness varies -- so it can be
+                      ;; lifted a long way without going transparent.
+                      floor *iris-floor*
                       mix (fn [c] (if (< l 0.5)
-                                    (* c (+ 0.30 (* 1.40 l)))
+                                    (* c (+ floor (* (- 1.0 floor) 2.0 l)))
                                     (+ c (* (- 255 c) (* 2.0 (- l 0.5))))))
                       ;; k is how much of this pixel the region covers, so the
                       ;; edge fades into the drawing instead of stepping
@@ -561,5 +574,41 @@
             richer (grade base [1.0 1.0 1.0] 1.22)]
         (write! (stack [base warm warm+ richer]) "grades")
         (is (pos? (opaque-colour-count base))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; Two things that make an eye colour readable: how much of the colour the ink
+;; keeps, and whether the colour was strong enough to begin with.
+;; ---------------------------------------------------------------------------
+
+(defn- richer
+  "Push a colour away from grey and up in value. The shipped presets are muted
+   mid-tones, which is a reasonable instinct for clothing and the wrong one for
+   an iris drawn in near-black ink."
+  ^Color [^Color c sat val]
+  (let [hsb (Color/RGBtoHSB (.getRed c) (.getGreen c) (.getBlue c) nil)]
+    (Color. (Color/HSBtoRGB (aget hsb 0)
+                            (float (min 1.0 (* (aget hsb 1) sat)))
+                            (float (min 1.0 (* (aget hsb 2) val)))))))
+
+(deftest compare-iris-floor-and-preset-strength
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [row (fn [floor sat val]
+                  (binding [*iris-floor* floor]
+                    (contact-sheet
+                     (mapv (fn [n]
+                             (let [p (nth palettes (mod n (count palettes)))]
+                               (with-redefs [palettes (mapv #(update % :eyes richer sat val)
+                                                            palettes)]
+                                 (compose-with-eyes pack manifest n))))
+                           (range 4)))))]
+        (write! (stack [(row 0.30 1.0 1.0)     ; what ships now
+                        (row 0.55 1.0 1.0)     ; lift the floor only
+                        (row 0.75 1.0 1.0)     ; lift it further
+                        (row 0.75 1.35 1.15)]) ; and richer presets with it
+                "iris-strength")
+        (is true))
       (println "\n  no manifest -- skipping\n"))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
