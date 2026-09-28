@@ -811,6 +811,8 @@
   -webkit-box-orient: vertical;
 }
 .app.light-theme .pl-thumb-credit { color: #6a6a6a; }
+.pl-thumb-credit-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.pl-thumb-credit-link:hover { color: #f0a640; }
 .pl-thumb-empty-label {
   font: 600 10px/1 'Open Sans', system-ui, sans-serif;
   color: #8b95a5; letter-spacing: 0.08em;
@@ -1004,6 +1006,34 @@
      (when (= open-layer layer-key)
        [:div.pl-layer-panel [sub-row portrait layer-key]])]))
 
+(defn- linked-credit
+  "The credit line with each named artist turned into a link where one is
+   known.
+
+   The drawer has done this since it was built; this is the character page,
+   which is where the art actually travels. A share link, a PDF and a baked
+   PNG can only carry the name as text -- an image cannot hold a link and a
+   social unfurl renders its description as plain text -- so this is the one
+   surface downstream of the builder that can send someone to the artist, and
+   it was printing a dead string."
+  [portrait credit]
+  (let [named (filter :artist/name (pa/artists-for-layers (:layers portrait)))
+        linked (filter :artist/link named)]
+    (if (empty? linked)
+      credit
+      [:<>
+       "Art: "
+       (interpose
+        ", "
+        (for [{:keys [:artist/id :artist/name :artist/link]} named]
+          ^{:key id}
+          (if link
+            [:a.pl-thumb-credit-link
+             {:href link :target "_blank" :rel "noopener"
+              :on-click #(.stopPropagation %)}
+             name]
+            [:span name])))])))
+
 (defn- attribution
   "Who drew what is on canvas.
 
@@ -1182,7 +1212,7 @@
          {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]
         (when editable? [edit-overlay])]
        (when-let [credit (pa/credit-line portrait-data)]
-         [:div.pl-thumb-credit {:title credit} credit])]
+         [:div.pl-thumb-credit {:title credit} [linked-credit portrait-data credit]])]
 
       image-url
       (if editable?
