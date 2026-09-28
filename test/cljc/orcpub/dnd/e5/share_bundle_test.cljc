@@ -57,16 +57,21 @@
     (testing "the base (non-homebrew) fighter is not emitted as content"
       (is (not (contains? (:orcpub.dnd.e5/classes c) :fighter))))))
 
-(deftest a-key-shared-by-two-content-types-is-seeded-in-both
-  ;; :orc is a homebrew RACE and, separately, a homebrew LANGUAGE with the same key. A
-  ;; character directly selecting :orc must seed both, not just whichever type is found first.
-  (let [plugins {"Src" {:orcpub.dnd.e5/races     {:orc {:name "Orc"}}
-                        :orcpub.dnd.e5/languages {:orc {:name "Orcish"}}}}
-        character {::entity/options {:race {::entity/key :orc}}}
-        bundle (sb/extract-bundle character plugins)
-        c (get bundle "Src")]
-    (is (contains? (:orcpub.dnd.e5/races c) :orc))
-    (is (contains? (:orcpub.dnd.e5/languages c) :orc))))
+(deftest a-key-two-content-types-share-is-bundled-as-what-was-picked
+  ;; :orc is a homebrew race in one pack and an unrelated homebrew language in another.
+  (let [plugins {"Races" {:orcpub.dnd.e5/races {:orc {:name "Orc"}}}
+                 "Tongues" {:orcpub.dnd.e5/languages {:orc {:name "Orcish"}}}}
+        race-only {::entity/options {:race {::entity/key :orc}}}
+        both {::entity/options {:race {::entity/key :orc
+                                       ::entity/options {:languages [{::entity/key :orc}]}}}}]
+    (testing "picked as a race: the race, and not the language"
+      (let [bundle (sb/extract-bundle race-only plugins)]
+        (is (contains? (get-in bundle ["Races" :orcpub.dnd.e5/races]) :orc))
+        (is (nil? (get bundle "Tongues")))))
+    (testing "picked as a race and, under a language choice, as a language: both"
+      (let [bundle (sb/extract-bundle both plugins)]
+        (is (contains? (get-in bundle ["Races" :orcpub.dnd.e5/races]) :orc))
+        (is (contains? (get-in bundle ["Tongues" :orcpub.dnd.e5/languages]) :orc))))))
 
 (deftest empty-and-vanilla-characters-yield-empty-bundles
   (testing "a character with no homebrew selections produces nothing to bundle"

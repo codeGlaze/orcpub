@@ -295,6 +295,20 @@
                 (update-in [source type key] #(links/retarget (by-id link) % target to-key))))
             plugins repairs)))
 
+(def selection-types
+  "Content type of the picks under each character selection that holds one type only, and is the
+   only selection picks of that type sit under."
+  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces
+   :class :orcpub.dnd.e5/classes :background :orcpub.dnd.e5/backgrounds})
+
+(defn pick-types
+  "Of content `types`, those a character's pick under `selection` can be: the selection's own type
+   when `selection-types` names one, else every type but those."
+  [selection types]
+  (if-let [t (selection-types selection)]
+    (filter #{t} types)
+    (remove (set (vals selection-types)) types)))
+
 (defn offered-keys
   "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the
    builder can offer right now, built-in and homebrew. Walks selections, options,

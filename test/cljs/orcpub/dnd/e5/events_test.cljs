@@ -1309,3 +1309,44 @@
   (is (some? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :b])) "what was added since is kept")
   (is (nil? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :a :note])) "the export's corrections stay in the file")
   (.clear js/window.localStorage))
+
+;; ── Outside review (Greptile) ───────────────────────────────────────────────
+
+(deftest a-same-revision-write-from-another-tab-gets-this-tabs-change-back
+  ;; Both tabs read revision 4 and wrote 5; theirs landed last.
+  (.clear js/window.localStorage)
+  (let [item (fn [k n] {:key k :name n :option-pack "Pak"})
+        base {"Pak" {:orcpub.dnd.e5/languages {:cant (item :cant "Cant")}}}
+        mine (assoc-in base ["Pak" :orcpub.dnd.e5/languages :mine] (item :mine "Mine"))
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :theirs] (item :theirs "Theirs"))]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 5
+                    :orcpub.dnd.e5/last-write {:rev 5 :base base :mine mine}})
+    (run-through! [::e5/library-changed-elsewhere])
+    (is (= #{:cant :mine :theirs} (set (keys (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages]))))
+        "both tabs' items are in the library")
+    (is (= #{:cant :mine :theirs} (set (keys (get-in (db/stored-plugins) ["Pak" :orcpub.dnd.e5/languages]))))
+        "and in storage"))
+  (.clear js/window.localStorage))
+
+(deftest a-key-change-over-an-item-changed-since-it-was-opened-is-refused
+  (.clear js/window.localStorage)
+  (let [warden (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])]
+    (reset! app-db {:plugins warden-and-tides
+                    ::classes5e/builder-item warden
+                    :builder-origin {:orcpub.dnd.e5/classes
+                                     (events/origin-of (assoc warden :description "as it was opened"))}})
+    (run-through! [::e5/change-builder-item-key ::classes5e/save-class "keeper"])
+    (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "not re-keyed")
+    (is (re-find #"changed somewhere else" (pr-str (:message @app-db)))))
+  (.clear js/window.localStorage))
+
+(deftest an-imports-relink-questions-are-recorded-by-its-success-event
+  (.clear js/window.localStorage)
+  (let [relink {:content-type :orcpub.dnd.e5/races :from :tidefolk :to :tidefolk-2 :import "Tide Pak" :asked #{}}]
+    (reset! app-db {})
+    (is (empty? (db/pending-relinks)) "nothing recorded before the write")
+    (run-through! [::e5/import-stored [relink] nil])
+    (is (= [relink] (db/pending-relinks)) "recorded once the write has stuck"))
+  (.clear js/window.localStorage))

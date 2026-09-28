@@ -2177,6 +2177,19 @@
        ;; Only on an actual repair. A clean load stays silent.
        (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
 
+(defn- record-relinks!
+  "Stores `relinks` as the pending relink questions; says so in the console when it cannot."
+  [relinks]
+  (when-not (set-pending-relinks! relinks)
+    (js/console.warn "Could not store which characters to ask about renamed items")))
+
+(reg-event-fx
+ ::e5/import-stored
+ ;; After an import's write has stuck: record its relink questions, then show `message`.
+ (fn [_ [_ relinks message]]
+   (when (seq relinks) (record-relinks! (into (pending-relinks) relinks)))
+   (cond-> {} message (assoc :dispatch message))))
+
 (reg-event-fx
  ::e5/answer-relink
  ;; `choice` is :switch (to the renamed item the character used before) or :keep.
@@ -2184,7 +2197,7 @@
    (let [{:keys [content-type from to character-id] :as q} (::e5/relink-question db)
          same? #(and (= content-type (:content-type %)) (= from (:from %)) (= to (:to %)))]
      (when q
-       (set-pending-relinks! (mapv #(cond-> % (same? %) (update :asked (fnil conj #{}) character-id))
+       (record-relinks! (mapv #(cond-> % (same? %) (update :asked (fnil conj #{}) character-id))
                                    (pending-relinks))))
      (cond-> {:db (dissoc db ::e5/relink-question)}
        (and q (= :switch choice)) (assoc :dispatch [::char5e/relink-content from to content-type])))))
@@ -4817,7 +4830,9 @@
             ok? (plugins->local-store stored)] ;; library gate
             (when ok? (set-plugins-rev! (inc rev)))
             {:db (cond-> (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
-                   kept-at (assoc ::e5/pre-fix-at kept-at))
+                   kept-at (assoc ::e5/pre-fix-at kept-at)
+                   ;; what this write replaced and stored, for ::e5/library-changed-elsewhere
+                   ok? (assoc ::e5/last-write {:rev (inc rev) :base old :mine stored}))
              :ok? ok?
              :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])}))))
 
@@ -4825,15 +4840,25 @@
  ::e5/library-changed-elsewhere
  [(inject-cofx ::e5/plugins) (inject-cofx ::e5/plugins-rev)]
  (fn [{:keys [db] :as cofx} _]
-   ;; A nil ::e5/plugins cofx means the "plugins" slot is now absent or unreadable
-   ;; (e.g. another tab quarantined a corrupt value and removed it) — NOT that the
-   ;; library is empty. Reloading {} here would wipe this tab's good in-memory copy;
-   ;; keep it instead and let its next write re-create the slot through the gate.
-   (if (nil? (::e5/plugins cofx))
-     {}
-     {:db (assoc db ;; library load
-                 :plugins (::e5/plugins cofx)
-                 ::e5/plugins-rev (::e5/plugins-rev cofx))})))
+   (let [theirs (::e5/plugins cofx)
+         rev (::e5/plugins-rev cofx)
+         {:keys [base mine] written :rev} (::e5/last-write db)]
+     (cond
+       ;; the slot is absent or unreadable (another tab set a corrupt value aside), not empty:
+       ;; keep this tab's copy, and its next write re-creates the slot through the gate
+       (nil? theirs) {}
+
+       ;; Another tab wrote at the revision this tab's last write took: both read the same
+       ;; revision, and theirs replaced this one. Put this tab's change back onto theirs.
+       (and written (= written rev) (not= mine theirs))
+       (let [{merged :plugins conflicts :conflicts} (library/three-way base mine theirs)
+             db' (assoc db :plugins theirs ::e5/plugins-rev rev ::e5/last-write nil)] ;; library load
+         (if (seq conflicts)
+           {:db db' :dispatch [:show-error-message (changed-elsewhere-message theirs conflicts)]}
+           {:db db' :dispatch [::e5/set-plugins merged]}))
+
+       :else
+       {:db (assoc db :plugins theirs ::e5/plugins-rev rev)})))) ;; library load
 
 (reg-event-fx
  ::e5/settle-loaded-library
@@ -4869,7 +4894,8 @@
    (let [dismissed (into (or (::e5/repairs-dismissed db) #{})
                          (map (juxt :source :type :key :link :target))
                          repairs)]
-     (set-repairs-dismissed! dismissed)
+     (when-not (set-repairs-dismissed! dismissed)
+       (js/console.warn "Could not store the dismissed repairs; they will be offered again"))
      (assoc db ::e5/repairs-dismissed dismissed))))
 
 (reg-event-fx
@@ -5189,11 +5215,21 @@
          option-pack (fetched-from plugins (get-in db [:builder-origin plugin-key])
                                    plugin-key old-key)
          trimmed (s/trim (str typed))
-         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))]
+         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))
+         recorded (get-in db [:builder-origin plugin-key])
+         stored (when option-pack (get-in plugins [option-pack plugin-key old-key]))]
      (cond
        (or (nil? old-key) (nil? option-pack))
        {:dispatch [:show-error-message
                    "Save this first — a key is only assigned once the item is in your library."
+                   builder-error-ttl]}
+
+       ;; the same check a save makes: re-keying would carry the stored item's newer content
+       ;; while the builder keeps the version it opened
+       (and (:version recorded) (map? stored) (not= (:version recorded) (version-of stored)))
+       {:dispatch [:show-error-message
+                   (str "\"" (:name stored) "\" was changed somewhere else since you opened it. "
+                        "Open it again from My Content before changing its key.")
                    builder-error-ttl]}
 
        (nil? new-key)
@@ -6562,12 +6598,12 @@
          existing-base (-> (:plugins db)
                            (orcbrew-val/apply-key-renames existing-renames)
                            (set-disabled existing-disables))
-         ;; Characters that used a renamed existing item are asked once which one they meant (Q3).
-         _ (when (and (seq existing-renames) (not (or export-mode? library-mode?)))
-             (set-pending-relinks! (into (pending-relinks)
-                                         (map #(assoc % :import import-name :asked #{}))
-                                         (map #(select-keys % [:content-type :from :to :to-name])
-                                              existing-renames))))
+         ;; Characters that used a renamed existing item are asked once which one they meant (Q3),
+         ;; recorded once the import's write has stuck.
+         new-relinks (when-not (or export-mode? library-mode?)
+                       (mapv #(assoc (select-keys % [:content-type :from :to :to-name])
+                                     :import import-name :asked #{})
+                             existing-renames))
          {:keys [merged quarantine message]}
          (when-not (or export-mode? library-mode?)
            (store-imported-sources existing-base incoming))
@@ -6620,7 +6656,7 @@
 
           merged
           [::e5/store-plugins merged
-           (when-not message (with-offer success-msg))])
+           [::e5/import-stored new-relinks (when-not message (with-offer success-msg))]])
 
         ;; the set-aside notice if any entry was quarantined
         (when message [:show-warning-message message])

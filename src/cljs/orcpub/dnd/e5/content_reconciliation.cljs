@@ -449,19 +449,14 @@
                       [former (first targets)])))
             claims))))
 
-(def ^:private selection-types
-  "Content type of the picks under each character selection that holds one type only."
-  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces :class :orcpub.dnd.e5/classes
-   :background :orcpub.dnd.e5/backgrounds :feats :orcpub.dnd.e5/feats})
-
 (defn- walk-picks
-  "`opts` (::entity/options) with `f` applied to every pick that could be of `content-type`: all
-   picks, less those under a selection `selection-types` gives another type."
+  "`opts` (::entity/options) with `f` applied to every pick that could be of `content-type`
+   (`library/pick-types`); `content-type` nil: every pick."
   [opts content-type f]
   (letfn [(entry [sel e]
             (if (map? e)
-              (let [t (get selection-types sel)]
-                (cond-> (if (or (nil? content-type) (nil? t) (= t content-type)) (f e) e)
+              (let [may? (or (nil? content-type) (seq (library/pick-types sel [content-type])))]
+                (cond-> (if may? (f e) e)
                   (map? (::entity/options e)) (update ::entity/options walk)))
               e))
           (walk [o] (into {} (map (fn [[sel v]] [sel (if (sequential? v) (mapv #(entry sel %) v) (entry sel v))])) o))]
