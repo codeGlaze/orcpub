@@ -10,10 +10,25 @@
 ;; ---------- registry ----------
 
 (deftest layer-order-matches-taxonomy
-  (testing "10 layers in illustrator's real z-order"
-    (is (= [:hair-bits :hair-back :head :shirt :hair-front
+  (testing "the illustrator's real z-order, plus :scalp -- a blob between the
+            head and the hair that takes the hair colour, because some
+            hair-front and bangs pairs do not meet and leave an island of skin
+            on the crown. It is not one of her pieces, so it is not in the
+            taxonomy; it is in the stack."
+    (is (= [:hair-bits :hair-back :head :scalp :shirt :hair-front
             :ears :eyes :nose :mouth :bangs]
            pa/layer-order))
+    (is (= [:hair-bits :hair-back :head :shirt :hair-front
+            :ears :eyes :nose :mouth :bangs]
+           pa/pickable-layers)
+        "and it is not offered in the picker: one option that changes nothing")
+    (is (= #{:scalp} pa/hidden-layers))
+    (testing "it sits ABOVE the head and BELOW every hair layer, or it cannot
+              do its job"
+      (let [idx #(.indexOf ^java.util.List pa/layer-order %)]
+        (is (< (idx :head) (idx :scalp)))
+        (doseq [hair [:hair-front :bangs]]
+          (is (< (idx :scalp) (idx hair)) (str "scalp must be under " hair)))))
     (is (= (count pa/layer-order) (count pa/layer-labels)))
     (is (= (count pa/layer-order) (count pa/layer-colors)))
     (is (= (set pa/layer-order) (set (keys pa/color-slots)))
@@ -123,7 +138,8 @@
   (is (re-matches #"#[0-9a-f]{6}" (pa/shade-hex "#5c3a1e" 15)) "output stays #rrggbb"))
 
 (deftest layers-in-slot-groups-by-slot
-  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair)))
+  (is (= [:hair-bits :hair-back :scalp :hair-front :bangs] (pa/layers-in-slot :hair))
+      "the scalp draws from the hair slot -- that is the entire point of it")
   (is (= [:head :ears :nose] (pa/layers-in-slot :skin)))
   (is (= [:eyes] (pa/layers-in-slot :eyes)))
   (is (= [:shirt] (pa/layers-in-slot :shirt)))

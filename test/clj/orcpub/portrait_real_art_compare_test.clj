@@ -1247,8 +1247,14 @@
                   the registry lookup misses, every bust still renders and the
                   only sign is lips that came out grey"
           (is (some? lip-idx) "a mouth asset in this pack claims the lips slot")
-          (is (= 28 (count @registry-asset-by-file))
-              "every pack file found its registry asset"))
+          ;; not a count -- the registry has an asset the pack does not (the
+          ;; scalp is generated, not drawn), so a magic number breaks the next
+          ;; time one is added. Check the thing the sentence actually claims.
+          (doseq [layer-key pa/layer-order
+                  ^File f (assets-in pack layer-key)]
+            (is (contains? @registry-asset-by-file
+                           [layer-key (.toLowerCase (.getName f))])
+                (str (.getName f) " has no registry asset"))))
 
         (testing "and the teeth did not take the lip colour"
           (let [smile-idx (first (keep-indexed
@@ -1359,12 +1365,21 @@
             (is (> distinct-combos (* 0.8 (count gallery-seeds)))
                 (str "only " distinct-combos " of " (count gallery-seeds)
                      " seeds gave a different set of features"))
-            (doseq [layer-key pa/layer-order]
+            ;; only layers that HAVE a choice. The scalp has exactly one
+            ;; asset and is not offered in the picker, so "it never varied" is
+            ;; the correct behaviour rather than a pinned layer.
+            (doseq [layer-key pa/layer-order
+                    :when (> (pa/asset-count-for-layer layer-key) 1)]
               (let [chosen (distinct (map #(get-in % [layer-key :asset/id]) picks))]
                 (is (> (count chosen) 1)
-                    (str layer-key " never varied across " (count gallery-seeds)
+                    (str layer-key " has "
+                         (pa/asset-count-for-layer layer-key)
+                         " assets but never varied across " (count gallery-seeds)
                          " seeds -- that layer is pinned, which is the bug this
-                          test exists to catch"))))))
+                          test exists to catch"))))
+            (testing "and the scalp is in every portrait, since it is not
+                      optional -- a portrait without it can show bare crown"
+              (is (every? #(= :l2b-scalp-01 (get-in % [:scalp :asset/id])) picks)))))
 
         (testing "and different colours too, or the gallery is one palette"
           (let [pals (map palette-for-seed gallery-seeds)]
@@ -2096,3 +2111,35 @@
                       (render-combo pack worst patch hair nil)])
                 "eight-px-at-real-size"))
       (is true))))
+
+;; ---------------------------------------------------------------------------
+;; Write the scalp asset.
+;;
+;; Everything above derives and checks the shape. This turns it into a PNG the
+;; app can ship as an ordinary layer -- it goes between the head and the hair
+;; and takes the hair colour like any other hair piece. Run with
+;; ORCPUB_WRITE_SCALP=1 to regenerate it after the art changes.
+;; ---------------------------------------------------------------------------
+
+(deftest write-the-scalp-asset
+  (if-not (System/getenv "ORCPUB_WRITE_SCALP")
+    (println "\n  ORCPUB_WRITE_SCALP not set -- not regenerating the scalp asset.\n")
+    (if-let [pack (pack-dir)]
+      (let [combos (vec (for [hd (assets-in pack :head) bt (assets-in pack :hair-bits)
+                              bk (assets-in pack :hair-back) ft (assets-in pack :hair-front)
+                              bg (assets-in pack :bangs)]
+                          [hd bt bk ft bg]))
+            patch (carve-patch pack (skull-patch-for pack) combos)
+            img (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+            dst (px img)
+            ;; WHITE, not black. Every layer is multiplied by its colour, and
+            ;; black multiplies to black whatever the hair is.
+            white (unchecked-int 0xffffffff)
+            out (io/file "resources/public/image/portraits/scalp/l2b_scalp_01.png")]
+        (dotimes [i (* W H)] (when (on? patch i) (aset-int dst i white)))
+        (.mkdirs (.getParentFile out))
+        (ImageIO/write img "png" out)
+        (println (format "\n  wrote %s (%d px)\n" (.getPath out)
+                         (count (for [i (range (* W H)) :when (on? patch i)] 1))))
+        (is (.exists out)))
+      (println "\n  ORCPUB_PACK not set -- skipping.\n"))))
