@@ -678,7 +678,31 @@
 .app.light-theme .pl-artist-link:hover,
 .pl-root.light-theme .pl-artist-link:hover { color: #c8811f; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
-.pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
+.pl-artist-swirl {
+  color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic;
+  /* A highlight parked off the left edge. Both ends of the gradient are the
+     swirl's own colour, so at rest it is indistinguishable from the flat
+     glyph -- the sweep only exists while it is moving. */
+  background-image: linear-gradient(105deg,
+    #f0a100 0%, #f0a100 40%, #fff0c4 50%, #f0a100 60%, #f0a100 100%);
+  background-size: 320% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text; background-clip: text;
+}
+/* Hovering the ARTIST, not the glyph: a 9px target is a poor thing to ask
+   anyone to find, and the flourish belongs to her name rather than to itself. */
+.pl-artist:hover .pl-artist-swirl {
+  color: transparent;
+  animation: pl-swirl-shimmer 900ms cubic-bezier(.33,0,.2,1) 1;
+}
+@keyframes pl-swirl-shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
+}
+/* Anyone who has asked for less motion gets the colour and none of the sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-artist:hover .pl-artist-swirl { color: #f0a100; animation: none; }
+}
 .pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
   color: #ebeef4; text-decoration: none;
   border-bottom: 1px dotted rgba(240,161,0,0.32);
@@ -710,7 +734,16 @@
 .pl-root.light-theme .pl-drawer-head,
 .pl-root.light-theme .pl-drawer-foot { background: #fff; border-color: rgba(0,0,0,0.10); }
 .pl-root.light-theme .pl-drawer-title-rune,
-.pl-root.light-theme .pl-artist-swirl { color: #33658A; }
+.pl-root.light-theme .pl-artist-swirl {
+  color: #33658A;
+  /* the dark theme's cream highlight vanishes on a pale ground, so light gets
+     its own: a lift toward cyan rather than toward white */
+  background-image: linear-gradient(105deg,
+    #33658A 0%, #33658A 40%, #6fb3d8 50%, #33658A 60%, #33658A 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl-root.light-theme .pl-artist:hover .pl-artist-swirl { color: #33658A; }
+}
 .pl-root.light-theme .pl-drawer-close {
   border-color: rgba(0,0,0,0.14); color: #5a5a5a;
 }
