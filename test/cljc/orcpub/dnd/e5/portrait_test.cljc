@@ -286,3 +286,78 @@
     (testing "one good layer among unknowns is still drawable"
       (is (true? (pa/drawable? {:layers {:head {:asset/id (:asset/id real)}
                                          :shirt {:asset/id :nope}}}))))))
+
+;; ---------------------------------------------------------------------------
+;; The lips slot, which is the first slot that belongs to an ASSET rather than
+;; to a layer. The mouth layer holds a closed line, a pair of lips and a set of
+;; teeth; they want three different things, and a per-layer rule can only say
+;; one. All three are drawn in greys, so the art cannot be asked either.
+;; ---------------------------------------------------------------------------
+
+(deftest the-slot-comes-from-the-asset-not-the-layer
+  (testing "the lipped mouth names :lips; its siblings in the same layer name
+            nothing, so the layer itself cannot be the unit"
+    (let [lips (pa/asset-by-id :mouth :l8-mouth-02)
+          smile (pa/asset-by-id :mouth :l8-mouth-03)
+          plain (pa/asset-by-id :mouth :l8-mouth-01)]
+      (is (= :lips (pa/slot-for-asset :mouth lips)))
+      (is (nil? (pa/slot-for-asset :mouth smile)) "teeth are not lips")
+      (is (nil? (pa/slot-for-asset :mouth plain)))
+      (is (nil? (pa/color-slots :mouth))
+          "and the LAYER still names nothing, which is the point")))
+  (testing "a layer's own slot is still used when the asset is silent"
+    (is (= :hair (pa/slot-for-asset :bangs (pa/asset-by-id :bangs
+                                                           (:asset/id (first (pa/assets-for-layer :bangs)))))))))
+
+(deftest the-lips-slot-only-appears-when-lips-do
+  (let [with-lips {:layers {:mouth {:asset/id :l8-mouth-02}} :colors {} :tweaks {}}
+        with-smile {:layers {:mouth {:asset/id :l8-mouth-03}} :colors {} :tweaks {}}
+        empty-p {:layers {} :colors {} :tweaks {}}]
+    (testing "a Lips swatch against a closed mouth would be a control that
+              tints nothing, so it is not shown"
+      (is (contains? (set (pa/active-color-slots with-lips)) :lips))
+      (is (not (contains? (set (pa/active-color-slots with-smile)) :lips)))
+      (is (not (contains? (set (pa/active-color-slots empty-p)) :lips))))
+    (testing "and the unconditional slots are always there"
+      (doseq [p [with-lips with-smile empty-p]]
+        (is (= [:hair :skin :eyes :shirt]
+               (vec (remove #{:lips} (pa/active-color-slots p)))))))
+    (testing "the mouth shows up as a Lips piece only while the lips are on"
+      (is (= [:mouth] (pa/layers-in-slot with-lips :lips)))
+      (is (empty? (pa/layers-in-slot with-smile :lips))))))
+
+(deftest lips-take-the-lip-colour-and-teeth-do-not
+  (let [with-lips {:layers {:mouth {:asset/id :l8-mouth-02}}
+                   :colors {:lips "#9b3c55" :skin "#ff0000"} :tweaks {}}
+        with-smile {:layers {:mouth {:asset/id :l8-mouth-03}}
+                    :colors {:lips "#9b3c55" :skin "#ff0000"} :tweaks {}}]
+    (is (= "#9b3c55" (pa/tint-for with-lips :mouth)))
+    (is (= (pa/layer-colors :mouth) (pa/tint-for with-smile :mouth))
+        "the smile ignores the lip colour entirely")
+    (testing "and a lipped mouth with nothing picked still gets a lip colour
+              rather than rendering in the greys it was drawn in"
+      (is (= (pa/default-slot-colors :lips)
+             (pa/tint-for (assoc with-lips :colors {}) :mouth))))))
+
+(deftest how-each-asset-wants-to-be-tinted
+  (testing "three modes, because masking flattens line art, colorizing is for
+            art drawn as a hueless ramp, and teeth want neither"
+    (is (= :colorize (pa/render-mode :mouth (pa/asset-by-id :mouth :l8-mouth-02))))
+    (is (= :as-drawn (pa/render-mode :mouth (pa/asset-by-id :mouth :l8-mouth-03))))
+    (is (= :as-drawn (pa/render-mode :mouth (pa/asset-by-id :mouth :l8-mouth-01))))
+    (is (= :colorize (pa/render-mode :eyes (first (pa/assets-for-layer :eyes))))
+        "the irises are a hueless ramp too")
+    (is (= :multiply (pa/render-mode :bangs (first (pa/assets-for-layer :bangs))))
+        "ordinary line art multiplies")))
+
+(deftest the-gamma-runs-opposite-ways-for-lips-and-eyes
+  (testing "not a preference: the irises are drawn near-black and the lips
+            light, so a gamma that lifts one pushes the other past white.
+            Measured on the real art in portrait-real-art-compare-test."
+    (let [lips-g (pa/tint-gamma :mouth (pa/asset-by-id :mouth :l8-mouth-02))
+          eye-g (pa/tint-gamma :eyes (first (pa/assets-for-layer :eyes)))]
+      (is (> lips-g 1.0) "lips are pulled DOWN into the colour")
+      (is (< eye-g 1.0) "irises are lifted UP off the floor")))
+  (testing "and an asset can override it, which is what a style with unusually
+            small irises needs"
+    (is (= 0.35 (pa/tint-gamma :eyes {:asset/slot :eyes :asset/gamma 0.35})))))

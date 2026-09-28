@@ -31,6 +31,19 @@
 
 ;; ---------------- composite (used by drawer AND summary) ----------------
 
+(defn- as-drawn-style
+  "An asset shown exactly as the illustrator made it: a plain background image,
+   no mask and no tint. A mask would throw the drawing away and keep only its
+   alpha, which is how the teeth came out the colour of the mouth."
+  [url z]
+  {:position "absolute" :inset 0 :width "100%" :height "100%"
+   :background-image (str "url(" url ")")
+   :background-size "contain"
+   :background-repeat "no-repeat"
+   :background-position "center"
+   :z-index z
+   :pointer-events "none"})
+
 (defn- mask-style [url tint z]
   {:position "absolute" :inset 0 :width "100%" :height "100%"
    :background-color tint
@@ -57,7 +70,10 @@
                                     (pa/asset-by-id layer-key))]
             ^{:key layer-key}
             [:div.portrait-layer
-             {:style (mask-style (:asset/url asset) (pa/tint-for portrait layer-key) z)}]))
+             {:style (if (= :as-drawn (pa/render-mode layer-key asset))
+                       (as-drawn-style (:asset/url asset) z)
+                       (mask-style (:asset/url asset)
+                                   (pa/tint-for portrait layer-key) z))}]))
         pa/layer-order)])))
 
 ;; ---------------- rasterization (for PDF export) ----------------
@@ -145,7 +161,7 @@
                       _ (set! (.-width tmp) raster-width)
                       _ (set! (.-height tmp) raster-height)
                       tctx (.getContext tmp "2d")]
-                  (doseq [[[layer-key _] img] (map vector selected (array-seq imgs))
+                  (doseq [[[layer-key asset] img] (map vector selected (array-seq imgs))
                           :when img]
                     (.clearRect tctx 0 0 raster-width raster-height)
                     (set! (.-globalCompositeOperation tctx) "source-over")
@@ -157,10 +173,14 @@
                                                     (.-naturalHeight img)
                                                     raster-width raster-height)]
                       (.drawImage tctx img x y dw dh))
-                    ;; paint the tint through the asset's alpha
-                    (set! (.-globalCompositeOperation tctx) "source-in")
-                    (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
-                    (.fillRect tctx 0 0 raster-width raster-height)
+                    ;; paint the tint through the asset's alpha -- unless the
+                    ;; asset is meant to be drawn as the illustrator made it.
+                    ;; Teeth are white because they were drawn white; tinting
+                    ;; them through the mouth's category colour made them red.
+                    (when-not (= :as-drawn (pa/render-mode layer-key asset))
+                      (set! (.-globalCompositeOperation tctx) "source-in")
+                      (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
+                      (.fillRect tctx 0 0 raster-width raster-height))
                     (.drawImage ctx tmp 0 0))
                   (when-let [credit (pa/credit-line portrait)]
                     ;; The face has to be resident before fillText or the
@@ -864,7 +884,7 @@
       "×"]]))
 
 (defn- slot-panel [portrait slot]
-  (let [pieces (pa/layers-in-slot slot)]
+  (let [pieces (pa/layers-in-slot portrait slot)]
     [:div.pl-slot-panel
      [:div
       [:span.pl-panel-heading "Presets"]
@@ -888,7 +908,9 @@
 (defn- color-strip [portrait open-slot]
   [:div.pl-color-strip
    [:span.pl-strip-label "colors"]
-   (for [slot pa/color-slot-order]
+   ;; not color-slot-order: Lips only applies while a mouth asset that HAS
+   ;; lips is selected, and a swatch that tints nothing is worse than no swatch
+   (for [slot (pa/active-color-slots portrait)]
      ^{:key slot} [slot-chip portrait slot open-slot])
    (when open-slot
      [slot-panel portrait open-slot])])
