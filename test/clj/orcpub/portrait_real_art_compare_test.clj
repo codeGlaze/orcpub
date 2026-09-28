@@ -13,7 +13,7 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [clojure.data.json :as json])
-  (:import [java.awt AlphaComposite BasicStroke Color RenderingHints]
+  (:import [java.awt AlphaComposite Color RenderingHints]
            [java.awt.geom Area Path2D$Double Ellipse2D$Double]
            [java.awt.image BufferedImage]
            [java.io File]
@@ -378,6 +378,16 @@
       (.closePath p)
       (Area. p))))
 
+(defn- shifted
+  "The pupil, moved off the iris centre. A pupil pinned to the middle of the
+   oval stares straight out of the page, which on a wide eye reads as startled
+   rather than as a character looking at something."
+  [e]
+  (let [px (or (:px e) 0.0), py (or (:py e) 0.0)]
+    (assoc e
+           :cx (+ (:cx e) (* px (:rx e)))
+           :cy (+ (:cy e) (* py (:ry e))))))
+
 (defn- iris-region
   "Oval minus pupil minus whatever the lid covers."
   ^Area [spec]
@@ -385,10 +395,29 @@
         area (Area.)]
     (doseq [e (:iris spec)]
       (let [a (ellipse-area e 1.0)]
-        (.subtract a (ellipse-area e pupil))
+        (.subtract a (ellipse-area (shifted e) pupil))
         (when-let [lid (above-lid (:lid e))] (.subtract a lid))
         (.add area a)))
     area))
+
+(defn- coverage-mask
+  "How much of each pixel the region covers, 0..255.
+
+   Area/contains is a yes-or-no test, so the iris and pupil edges came out
+   stair-stepped against artwork that is smooth everywhere else. Invisible at
+   portrait size and not invisible on a printed sheet. Filling the shape with
+   antialiasing on gives partial coverage at the boundary, which is then a
+   blend weight rather than a switch."
+  ^bytes [^Area region]
+  (let [img (BufferedImage. W H BufferedImage/TYPE_BYTE_GRAY)
+        g (.createGraphics img)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_ANTIALIASING
+                         RenderingHints/VALUE_ANTIALIAS_ON)
+      (.setColor g Color/WHITE)
+      (.fill g region)
+      (finally (.dispose g)))
+    (.. img getRaster getDataBuffer getData)))
 
 (defn- colorize-iris
   "Paint the iris its colour instead of ADDING colour to it.
@@ -401,29 +430,35 @@
    is opaque."
   ^BufferedImage [^BufferedImage art ^Area region ^Color eye]
   (let [out (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        cov (coverage-mask region)
         er (.getRed eye) eg (.getGreen eye) eb (.getBlue eye)]
     (dotimes [y H]
       (dotimes [x W]
         (let [argb (.getRGB art x y)
               a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
           (when (pos? a)
-            (if-not (.contains region (double x) (double y))
-              (.setRGB out x y argb)
-              (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
-                    g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
-                    b (bit-and argb 0xff)
-                    l (/ (+ r g b) 765.0)              ; 0 = ink, 1 = paper
-                    ;; below the midpoint, ramp from black up to the colour;
-                    ;; above it, ramp from the colour up to white
-                    mix (fn [c] (int (if (< l 0.5)
-                                       (* c (+ 0.30 (* 1.40 l)))
-                                       (+ c (* (- 255 c) (* 2.0 (- l 0.5)))))))]
-                (.setRGB out x y
-                         (unchecked-int
-                          (bit-or (bit-shift-left a 24)
-                                  (bit-shift-left (min 255 (mix er)) 16)
-                                  (bit-shift-left (min 255 (mix eg)) 8)
-                                  (min 255 (mix eb)))))))))))
+            (let [k (/ (bit-and (aget cov (+ x (* y W))) 0xff) 255.0)]
+              (if (zero? k)
+                (.setRGB out x y argb)
+                (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                      g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                      b (bit-and argb 0xff)
+                      l (/ (+ r g b) 765.0)              ; 0 = ink, 1 = paper
+                      ;; below the midpoint, ramp from black up to the colour;
+                      ;; above it, ramp from the colour up to white
+                      mix (fn [c] (if (< l 0.5)
+                                    (* c (+ 0.30 (* 1.40 l)))
+                                    (+ c (* (- 255 c) (* 2.0 (- l 0.5))))))
+                      ;; k is how much of this pixel the region covers, so the
+                      ;; edge fades into the drawing instead of stepping
+                      blend (fn [src tgt] (int (min 255.0 (+ (* src (- 1.0 k))
+                                                             (* tgt k)))))]
+                  (.setRGB out x y
+                           (unchecked-int
+                            (bit-or (bit-shift-left a 24)
+                                    (bit-shift-left (blend r (mix er)) 16)
+                                    (bit-shift-left (blend g (mix eg)) 8)
+                                    (blend b (mix eb))))))))))))
     out))
 
 (defn- compose-with-eyes
