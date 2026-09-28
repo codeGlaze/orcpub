@@ -636,15 +636,22 @@
   color: #616a7a;
 }
 .pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
+/* A credit is a line of prose, not a row of buttons. Boxed uppercase labels
+   read as navigation and competed with the artist's name, which is the part
+   that matters. These sit after it as quiet lowercase text. */
+.pl-artist-links { margin-left: 8px; white-space: nowrap; }
 .pl-artist-link {
-  margin-left: 5px; padding: 0 5px;
-  font: 600 9px/1.6 'Open Sans', system-ui, sans-serif;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  color: #8b95a5; border: 1px solid currentColor; border-radius: 3px;
-  text-decoration: none; vertical-align: 1px; white-space: nowrap;
+  font: 400 11px/1 'Open Sans', system-ui, sans-serif;
+  color: #77808f; text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 90ms ease, border-color 90ms ease;
 }
-.pl-artist-link:hover { color: #fff; background: #f0a640; border-color: #f0a640; }
-.app.light-theme .pl-artist-link { color: #6a6a6a; }
+.pl-artist-link:hover { color: #f0a640; border-bottom-color: rgba(240,166,64,0.5); }
+.pl-artist-sep { color: #4a515e; margin: 0 6px; font-size: 10px; user-select: none; }
+.app.light-theme .pl-artist-link,
+.pl-root.light-theme .pl-artist-link { color: #7a7a7a; }
+.app.light-theme .pl-artist-sep,
+.pl-root.light-theme .pl-artist-sep { color: #c0c0c0; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
 .pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
@@ -1069,12 +1076,16 @@
            ;; the name as text -- a PNG cannot hold a link -- and the character
            ;; page strip fits one. This is the surface with room, and the one
            ;; where someone is looking at the art as it is being made.
-           (for [{:link/keys [label url]} links]
-             ^{:key url}
-             [:a.pl-artist-link
-              {:href url :target "_blank" :rel "noopener"
-               :title (str name " on " label)}
-              label])])]
+           (when (seq links)
+             [:span.pl-artist-links
+              (interpose
+               [:span.pl-artist-sep "\u00b7"]
+               (for [{:link/keys [label url]} links]
+                 ^{:key url}
+                 [:a.pl-artist-link
+                  {:href url :target "_blank" :rel "noopener"
+                   :title (str name " on " label)}
+                  (s/lower-case label)]))])])]
 
        (seq infos)
        [:span.pl-attribution-empty "artist credit pending"]
