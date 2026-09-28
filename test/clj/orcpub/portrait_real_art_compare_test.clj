@@ -1650,16 +1650,6 @@
               "scalp-forehead-vs-island")
       (is true))))
 
-;; ---------------------------------------------------------------------------
-;; The proposed fix: fill the island with the hair colour, under the hair.
-;;
-;; No new art and no blocklist. The island is exactly the region already
-;; computed -- head pixels above the brow, uncovered, with no path down to the
-;; face -- and because it is enclosed by hair on every side, a patch of it
-;; cannot spill outside the hairline. That is what makes this safe: the same
-;; property that makes it a defect makes it fillable.
-;; ---------------------------------------------------------------------------
-
 (defn- island-mask
   "The island pixels alone, as a coverage array ready to fill."
   ^bytes [^booleans exposed]
@@ -1727,156 +1717,166 @@
 (defn- darker ^Color [^Color c f]
   (Color. (int (* (.getRed c) f)) (int (* (.getGreen c) f)) (int (* (.getBlue c) f))))
 
-(defn- compose-with-scalp-patch
-  "bust-19's hair combination, optionally with the island filled."
-  [^File pack manifest seed patch-shade]
-  (let [layers (pa/compose-for-seed seed)
-        palette (palette-for-seed seed)
-        spec (iris-spec manifest)
-        f-of (fn [lk] (some->> (get-in layers [lk :asset/id]) (file-for-asset pack lk)))
-        hair (hex->awt (get palette :hair))
-        patch (when patch-shade
-                (grown (island-mask (exposed-head-mask (f-of :head) (f-of :hair-bits)
-                                                       (f-of :hair-back) (f-of :hair-front)
-                                                       (f-of :bangs)))
-                       2))
-        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
-        g (.createGraphics canvas)]
+(defn- ellipse-mask
+  ^bytes [cx cy rx ry]
+  (let [img (BufferedImage. W H BufferedImage/TYPE_BYTE_GRAY)
+        g (.createGraphics img)]
     (try
-      (doseq [layer-key pa/layer-order]
-        ;; the patch goes in right after the head and before anything that
-        ;; could be hair over it
-        (when (and patch (= layer-key :hair-front))
-          (.dispose g)
-          (fill-mask! canvas patch (darker hair patch-shade)))
-        (when-let [^File f (f-of layer-key)]
-          (let [asset (pa/asset-by-id layer-key (get-in layers [layer-key :asset/id]))
-                mode (pa/render-mode layer-key asset)
-                colour (some-> (get palette (pa/slot-for-asset layer-key asset)) hex->awt)
-                g2 (.createGraphics canvas)]
-            (when-let [art (scaled f)]
-              (cond
-                (= :as-drawn mode) (.drawImage g2 art 0 0 nil)
-                (and (= :colorize mode) colour)
-                (binding [*iris-gamma* (pa/tint-gamma layer-key asset)]
-                  (.drawImage g2 (colorize-through
-                                  (if-let [sp (get spec (.getName f))]
-                                    (coverage-mask (iris-region sp))
-                                    (whole-asset-coverage art))
-                                  art colour) 0 0 nil))
-                colour (.drawImage g2 ^BufferedImage (multiplied art colour) 0 0 nil)
-                :else (.drawImage g2 art 0 0 nil)))
-            (.dispose g2))))
-      (catch Exception _ nil))
-    canvas))
+      (.setRenderingHint g RenderingHints/KEY_ANTIALIASING
+                         RenderingHints/VALUE_ANTIALIAS_ON)
+      (.setColor g Color/WHITE)
+      (.fill g (Ellipse2D$Double. (- cx rx) (- cy ry) (* 2 rx) (* 2 ry)))
+      (finally (.dispose g)))
+    (.. img getRaster getDataBuffer getData)))
 
-(deftest does-a-scalp-patch-fix-it
+(defn- hair-cover
+  "Union of every hair layer's opaque pixels."
+  ^bytes [^File bits ^File back ^File front ^File bangs]
+  (let [out (byte-array (* W H))
+        srcs (mapv #(px (scaled %)) (remove nil? [bits back front bangs]))]
+    (dotimes [i (* W H)]
+      (when (some (fn [^ints c]
+                    (pos? (bit-and (unsigned-bit-shift-right (aget c i) 24) 0xff)))
+                  srcs)
+        (aset-byte out i (unchecked-byte 255))))
+    out))
+
+(defn- union-mask ^bytes [masks]
+  (let [out (byte-array (* W H))]
+    (doseq [^bytes m masks]
+      (dotimes [i (* W H)] (when (on? m i) (aset-byte out i (unchecked-byte 255)))))
+    out))
+
+(defn- intersect-mask ^bytes [masks]
+  (let [out (byte-array (* W H))]
+    (dotimes [i (* W H)]
+      (when (every? (fn [^bytes m] (on? m i)) masks)
+        (aset-byte out i (unchecked-byte 255))))
+    out))
+
+(defn- clip-mask ^bytes [^bytes m ^bytes allowed]
+  (let [out (byte-array (* W H))]
+    (dotimes [i (* W H)]
+      (when (and (on? m i) (on? allowed i)) (aset-byte out i (unchecked-byte 255))))
+    out))
+
+(defn- skull-patch-for
+  "The one patch, derived once from the art.
+
+   Two bounds, and they are the two in the user's sentence. Bigger than every
+   empty area: it starts as the union of every gap. Not so big it clips out:
+   it is grown, then clipped to the region hair covers in EVERY combination --
+   because anywhere else, some hairstyle would leave it showing."
+  ^bytes [^File pack]
+  (let [combos (for [hd (assets-in pack :head) bt (assets-in pack :hair-bits)
+                     bk (assets-in pack :hair-back) ft (assets-in pack :hair-front)
+                     bg (assets-in pack :bangs)]
+                 [hd bt bk ft bg])
+        gaps (union-mask (map (fn [[hd bt bk ft bg]]
+                                (island-mask (exposed-head-mask hd bt bk ft bg)))
+                              combos))
+        always-hair (intersect-mask (map (fn [[_ bt bk ft bg]] (hair-cover bt bk ft bg))
+                                         combos))
+        allowed (union-mask [always-hair gaps])]
+    (clip-mask (grown gaps 14) allowed)))
+
+(def ^:private skull-patch (atom nil))
+
+(deftest one-patch-covers-every-gap-and-never-pokes-out
   (if-let [pack (pack-dir)]
-    (if-let [manifest (read-manifest pack)]
-      (binding [*iris-floor* 0.55]
-        (write! (row [(compose-with-scalp-patch pack manifest "bust-19" nil)
-                      (compose-with-scalp-patch pack manifest "bust-19" 1.0)
-                      (compose-with-scalp-patch pack manifest "bust-19" 0.75)
-                      (compose-with-scalp-patch pack manifest "bust-19" 0.55)])
-                "scalp-patch-shades")
-        ;; white hair on brown skin is the easy case -- the patch is lighter
-        ;; than what it covers. Dark hair on pale skin is where a patch would
-        ;; read as a blot if it read at all, so check that too.
-        (with-redefs [palette-for-seed
-                      (let [orig palette-for-seed]
-                        (fn [seed] (assoc (orig seed)
-                                          :hair "#2b1a10" :skin "#f2ddc4")))]
-          (write! (row [(compose-with-scalp-patch pack manifest "bust-19" nil)
-                        (compose-with-scalp-patch pack manifest "bust-19" 1.0)
-                        (compose-with-scalp-patch pack manifest "bust-19" 0.75)])
-                  "scalp-patch-dark-hair"))
-
-        (testing "the patch closes the island it was derived from"
-          (let [layers (pa/compose-for-seed "bust-19")
-                f-of (fn [lk] (some->> (get-in layers [lk :asset/id])
-                                       (file-for-asset pack lk)))
-                before (island-px (exposed-head-mask (f-of :head) (f-of :hair-bits)
-                                                     (f-of :hair-back) (f-of :hair-front)
-                                                     (f-of :bangs)))]
-            (println (format "\n  bust-19 island before the patch: %d px" before))
-            (is (pos? before) "there is something to fix")))
-
-        (testing "and the patch stays UNDER the hair -- growing a region that
-                  is ringed by hair cannot push it past the hairline, which is
-                  the property that makes this safe without new art"
-          (let [layers (pa/compose-for-seed "bust-19")
-                f-of (fn [lk] (some->> (get-in layers [lk :asset/id])
-                                       (file-for-asset pack lk)))
-                m (grown (island-mask (exposed-head-mask (f-of :head) (f-of :hair-bits)
-                                                         (f-of :hair-back) (f-of :hair-front)
-                                                         (f-of :bangs)))
-                         2)
-                head (px (scaled (f-of :head)))
-                outside (count (for [i (range (* W H))
-                                     :when (and (on? m i)
-                                                (zero? (bit-and (unsigned-bit-shift-right
-                                                                 (aget head i) 24) 0xff)))]
-                                 1))]
-            (println (format "  patch pixels falling outside the head: %d\n" outside))
-            (is (< outside 60)
-                (str outside " patch pixels land off the head entirely")))))
-      (println "\n  no manifest -- skipping\n"))
-    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
-
-(deftest the-scalp-patch-closes-every-gap-and-stays-under-the-hair
-  "The proposed fix, checked over the whole space rather than the one bust.
-
-   The patch needs no new art: the island is already computed, and because it
-   is ringed by hair on every side, growing it cannot push it past the
-   hairline. That is the property the whole idea rests on, so it is the one
-   asserted -- over all 108 combinations, not the four known-bad pairs."
-  (if-let [pack (pack-dir)]
-    (let [heads (assets-in pack :head) bits (assets-in pack :hair-bits)
-          backs (assets-in pack :hair-back) fronts (assets-in pack :hair-front)
-          bangss (assets-in pack :bangs)
-          rows (for [hd heads bt bits bk backs ft fronts bg bangss]
+    (let [patch (or @skull-patch (reset! skull-patch (skull-patch-for pack)))
+          _ (println (format "\n  patch is %d px"
+                             (count (for [i (range (* W H)) :when (on? patch i)] 1))))
+          rows (for [hd (assets-in pack :head) bt (assets-in pack :hair-bits)
+                     bk (assets-in pack :hair-back) ft (assets-in pack :hair-front)
+                     bg (assets-in pack :bangs)]
                  (let [exposed (exposed-head-mask hd bt bk ft bg)
-                       before (island-px exposed)
-                       patch (grown (island-mask exposed) 2)
+                       island (island-mask exposed)
+                       cover (hair-cover bt bk ft bg)
                        head (px (scaled hd))
-                       patch-px (count (for [i (range (* W H)) :when (on? patch i)] 1))
+                       ;; a gap the patch fails to reach
+                       missed (count (for [i (range (* W H))
+                                           :when (and (on? island i) (not (on? patch i)))]
+                                       1))
+                       ;; patch that is VISIBLE (no hair over it) somewhere that
+                       ;; was not a gap -- a hair-coloured blot on the forehead,
+                       ;; or worse, floating off the head entirely
+                       poking (count (for [i (range (* W H))
+                                           :when (and (on? patch i)
+                                                      (not (on? cover i))
+                                                      (not (on? island i)))]
+                                       1))
                        off-head (count (for [i (range (* W H))
                                              :when (and (on? patch i)
+                                                        (not (on? cover i))
                                                         (zero? (bit-and
                                                                 (unsigned-bit-shift-right
                                                                  (aget head i) 24) 0xff)))]
-                                         1))
-                       ;; the island, recomputed with the patch counted as cover
-                       left (island-px
-                             (let [e2 (aclone ^booleans exposed)]
-                               (dotimes [i (* W H)] (when (on? patch i) (aset e2 i false)))
-                               e2))]
+                                         1))]
                    {:combo [(.getName ^File ft) (.getName ^File bg)]
-                    :before before :patch patch-px :off-head off-head :left left}))
-          gapped (filter #(pos? (:before %)) rows)]
-      (println (format "\n  %d combinations, %d with an island" (count rows) (count gapped)))
-      (doseq [[combo g] (sort-by key (group-by :combo gapped))]
-        (let [r (first g)]
-          (println (format "    %-45s island %3d -> %d after a %d px patch, %d px off the head"
-                           (s/join " + " combo) (:before r) (:left r)
-                           (:patch r) (:off-head r)))))
-      (println)
+                    :missed missed :poking poking :off-head off-head}))]
+      (println (format "\n  one patch over %d combinations:" (count rows)))
+      (println (format "    gaps it fails to cover:  %d (worst %d)"
+                       (count (filter #(pos? (:missed %)) rows))
+                       (apply max (map :missed rows))))
+      (println (format "    visible where no gap:    %d (worst %d)"
+                       (count (filter #(pos? (:poking %)) rows))
+                       (apply max (map :poking rows))))
+      (println (format "    visible off the head:    %d (worst %d)\n"
+                       (count (filter #(pos? (:off-head %)) rows))
+                       (apply max (map :off-head rows))))
 
-      (testing "the patch closes the island it was derived from"
-        (doseq [{:keys [combo left]} gapped]
-          (is (zero? left)
-              (str (s/join " + " combo) " still shows " left "px after patching"))))
+      (testing "bigger than every empty area"
+        (doseq [{:keys [combo missed]} rows]
+          (is (zero? missed)
+              (str (s/join " + " combo) " leaves " missed "px of gap uncovered"))))
 
-      (testing "and never lands off the head, which is what would make it a
-                hair-coloured smear floating beside the face rather than a fix"
-        (doseq [{:keys [combo off-head]} rows]
-          (is (zero? off-head)
-              (str (s/join " + " combo) " put " off-head " patch px off the head"))))
-
-      (testing "a combination with no island gets no patch at all -- the fix
-                must not touch the 96 that were already right"
-        (doseq [{:keys [combo before patch]} rows]
-          (when (zero? before)
-            (is (zero? patch)
-                (str (s/join " + " combo) " has no island but got a " patch "px patch"))))))
+      (testing "and never clips out from underneath"
+        (doseq [{:keys [combo poking]} rows]
+          (is (zero? poking)
+              (str (s/join " + " combo) " shows " poking "px of patch where there
+                   was no gap -- it is poking out from under the hair")))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+(deftest look-at-the-one-patch
+  (when-let [pack (pack-dir)]
+    (when-let [manifest (read-manifest pack)]
+      (let [patch (or @skull-patch (reset! skull-patch (skull-patch-for pack)))
+            shape (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+            with-patch (fn [seed shade]
+                         (let [layers (pa/compose-for-seed seed)
+                               palette (palette-for-seed seed)
+                               spec (iris-spec manifest)
+                               hair (hex->awt (get palette :hair))
+                               canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)]
+                           (doseq [lk pa/layer-order]
+                             (when (and shade (= lk :hair-front))
+                               (fill-mask! canvas patch (darker hair shade)))
+                             (when-let [^File f (some->> (get-in layers [lk :asset/id])
+                                                         (file-for-asset pack lk))]
+                               (let [asset (pa/asset-by-id lk (get-in layers [lk :asset/id]))
+                                     mode (pa/render-mode lk asset)
+                                     colour (some-> (get palette (pa/slot-for-asset lk asset))
+                                                    hex->awt)
+                                     g (.createGraphics canvas)]
+                                 (when-let [art (scaled f)]
+                                   (cond
+                                     (= :as-drawn mode) (.drawImage g art 0 0 nil)
+                                     (and (= :colorize mode) colour)
+                                     (binding [*iris-gamma* (pa/tint-gamma lk asset)]
+                                       (.drawImage g (colorize-through
+                                                      (if-let [sp (get spec (.getName f))]
+                                                        (coverage-mask (iris-region sp))
+                                                        (whole-asset-coverage art))
+                                                      art colour) 0 0 nil))
+                                     colour (.drawImage g ^BufferedImage
+                                                        (multiplied art colour) 0 0 nil)
+                                     :else (.drawImage g art 0 0 nil)))
+                                 (.dispose g))))
+                           canvas))]
+        (fill-mask! shape patch (Color. 0x00 0xcc 0x44))
+        (write! (row [shape
+                      (with-patch "bust-19" nil) (with-patch "bust-19" 0.75)
+                      (with-patch "bust-2" nil) (with-patch "bust-2" 0.75)])
+                "one-patch")
+        (is true)))))
