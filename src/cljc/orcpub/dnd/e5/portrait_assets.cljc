@@ -20,12 +20,27 @@
 (def layer-order
   "Layer keys in z-order, bottom (0) → top (9). Mirrors the illustrator's
    real folder convention (`layer 0 - hair bits`, `layer 9 - bangs`, …)."
-  [:hair-bits :hair-back :head :shirt :hair-front :ears :eyes :nose :mouth :bangs])
+  [:hair-bits :hair-back :head :scalp :shirt :hair-front :ears :eyes :nose :mouth :bangs])
+
+(def hidden-layers
+  "Layers that render but are not offered in the picker.
+
+   :scalp is a plain blob that sits between the head and the hair and takes the
+   hair colour. Some hair-front and bangs pairs do not meet, leaving an island
+   of skin on the crown with hair all round it; this fills it. There is nothing
+   to choose, so putting it in the picker would only add a control with one
+   option that changes nothing."
+  #{:scalp})
+
+(def pickable-layers
+  "The layers a person actually picks from, in z-order."
+  (vec (remove hidden-layers layer-order)))
 
 (def layer-labels
   {:hair-bits  "Hair bits"
    :hair-back  "Hair back"
    :head       "Head"
+   :scalp      "Scalp"
    :shirt      "Shirt"
    :hair-front "Hair front"
    :ears       "Ears"
@@ -42,6 +57,7 @@
   {:hair-bits  "#e0a24d"
    :hair-back  "#c88a4a"
    :head       "#f2e6d0"
+   :scalp      "#c88a4a"
    :shirt      "#7a94b8"
    :hair-front "#e6a040"
    :ears       "#eab098"
@@ -141,6 +157,11 @@
     {:asset/id :l7-nose-03
      :asset/label "Nose 03"
      :asset/file  "l7_nose_03.png"}]
+   :scalp
+   [{:asset/id :l2b-scalp-01
+     :asset/label "Scalp"
+     :asset/file  "l2b_scalp_01.png"}]
+
    :mouth
    ;; The three mouths want three different treatments, which is why
    ;; :asset/slot is on the ASSET and not on the layer. All three are drawn in
@@ -405,6 +426,8 @@
    :hair-front :hair
    :bangs      :hair
    :head       :skin
+   ;; the scalp is hair, not skin -- that is the entire point of it
+   :scalp      :hair
    :ears       :skin
    :nose       :skin
    :eyes       :eyes

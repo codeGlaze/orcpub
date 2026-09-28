@@ -1029,7 +1029,7 @@
          [:div.pl-seed-row [:span "seed"] [:code seed]])]
       [color-strip portrait open-slot]]
      [:div.pl-pickers-side
-      (for [layer-key pa/layer-order]
+      (for [layer-key pa/pickable-layers]
         ^{:key layer-key}
         [category-picker portrait layer-key open-layer])]]))
 
