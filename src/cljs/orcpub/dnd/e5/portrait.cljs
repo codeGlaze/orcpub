@@ -636,14 +636,15 @@
   color: #616a7a;
 }
 .pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
-.pl-artist-support {
-  margin-left: 6px; padding: 0 5px;
+.pl-artist-link {
+  margin-left: 5px; padding: 0 5px;
   font: 600 9px/1.6 'Open Sans', system-ui, sans-serif;
   letter-spacing: 0.04em; text-transform: uppercase;
-  color: #f0a640; border: 1px solid currentColor; border-radius: 3px;
-  text-decoration: none; vertical-align: 1px;
+  color: #8b95a5; border: 1px solid currentColor; border-radius: 3px;
+  text-decoration: none; vertical-align: 1px; white-space: nowrap;
 }
-.pl-artist-support:hover { color: #fff; background: #f0a640; }
+.pl-artist-link:hover { color: #fff; background: #f0a640; border-color: #f0a640; }
+.app.light-theme .pl-artist-link { color: #6a6a6a; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
 .pl-artist a, .pl-artist span.pl-artist-name {
@@ -1057,21 +1058,23 @@
        (seq named)
        [:<>
         [:span.pl-attribution-label "Art by"]
-        (for [{:keys [:artist/id :artist/name :artist/link :artist/support]} named]
+        (for [{:keys [:artist/id :artist/name :artist/link :artist/links]} named]
           ^{:key id}
           [:span.pl-artist
            [:span.pl-artist-swirl "\u00a7"]
            (if link
              [:a {:href link :target "_blank" :rel "noopener"} name]
              [:span.pl-artist-name name])
-           ;; Only here. The drawer has room; the baked card and the sheet do
-           ;; not, and a support link belongs where someone is looking at the
-           ;; art being made rather than burned into every copy of it.
-           (when support
-             [:a.pl-artist-support
-              {:href support :target "_blank" :rel "noopener"
-               :title (str "Support " name)}
-              "support"])])]
+           ;; The full set lives only here. The baked card and the PDF carry
+           ;; the name as text -- a PNG cannot hold a link -- and the character
+           ;; page strip fits one. This is the surface with room, and the one
+           ;; where someone is looking at the art as it is being made.
+           (for [{:link/keys [label url]} links]
+             ^{:key url}
+             [:a.pl-artist-link
+              {:href url :target "_blank" :rel "noopener"
+               :title (str name " on " label)}
+              label])])]
 
        (seq infos)
        [:span.pl-attribution-empty "artist credit pending"]

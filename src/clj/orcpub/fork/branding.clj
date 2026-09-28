@@ -165,7 +165,11 @@
                    (cond-> {}
                      (:name fields)    (assoc :artist/name (:name fields))
                      (:link fields)    (assoc :artist/link (:link fields))
-                     (:support fields) (assoc :artist/support (:support fields))
+                     (:links fields)   (assoc :artist/links
+                                              (mapv (fn [l]
+                                                      {:link/label (:label l)
+                                                       :link/url   (:url l)})
+                                                    (:links fields)))
                      (:license fields) (assoc :artist/license (:license fields)))]))
           (catch Exception e
             (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))
