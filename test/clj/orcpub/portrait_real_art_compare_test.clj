@@ -11,8 +11,10 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.dnd.e5.portrait-layout :as layout])
-  (:import [java.awt AlphaComposite Color RenderingHints]
+            [orcpub.dnd.e5.portrait-layout :as layout]
+            [clojure.data.json :as json])
+  (:import [java.awt AlphaComposite BasicStroke Color RenderingHints]
+           [java.awt.geom Area Path2D$Double Ellipse2D$Double]
            [java.awt.image BufferedImage]
            [java.io File]
            [javax.imageio ImageIO]))
@@ -325,4 +327,139 @@
     (let [sheet (contact-sheet (mapv #(compose-by-mode pack %) (range 4)))]
       (write! sheet "four-by-mode")
       (is (pos? (opaque-colour-count sheet))))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; The eyes, rendered the way the SERVER will render them.
+;;
+;; Every picture in this conversation so far came out of a scratch script in a
+;; third language -- not the browser's canvas, not this Java2D path, a Python
+;; reimplementation of both. That is how a render came back with clay-red teeth
+;; long after the mouth had been settled: the script did not know. A preview
+;; that is not produced by the shipping code proves nothing about the shipping
+;; code, so this reads the pack's own manifest and draws through Java2D.
+;; ---------------------------------------------------------------------------
+
+(defn- read-manifest [^File pack]
+  (let [f (File. pack "manifest.json")]
+    (when (.isFile f)
+      (json/read-str (slurp f) :key-fn keyword))))
+
+(defn- iris-spec
+  "The regions someone placed in the Loom, by asset file name."
+  [manifest]
+  (into {}
+        (for [layer (:layers manifest)
+              a (:assets layer)
+              :when (seq (:iris a))]
+          [(:file a) a])))
+
+(defn- ellipse-area
+  "An iris oval as a shape, in frame pixels."
+  ^Area [e scale]
+  (let [rx (* (:rx e) W scale), ry (* (:ry e) H scale)
+        cx (* (:cx e) W), cy (* (:cy e) H)
+        el (Ellipse2D$Double. (- rx) (- ry) (* 2 rx) (* 2 ry))
+        tx (doto (java.awt.geom.AffineTransform.)
+             (.translate cx cy)
+             (.rotate (:rot e)))]
+    (Area. (.createTransformedShape tx el))))
+
+(defn- above-lid
+  "Everything above the lid curve -- the part the lash covers."
+  ^Area [lid]
+  (when lid
+    (let [p (Path2D$Double.)]
+      (.moveTo p (* (:x0 lid) W) (* (:y0 lid) H))
+      (.quadTo p (* (:mx lid) W) (* (:my lid) H)
+               (* (:x1 lid) W) (* (:y1 lid) H))
+      (.lineTo p (* (:x1 lid) W) (- H))
+      (.lineTo p (* (:x0 lid) W) (- H))
+      (.closePath p)
+      (Area. p))))
+
+(defn- iris-region
+  "Oval minus pupil minus whatever the lid covers."
+  ^Area [spec]
+  (let [pupil (or (:pupil spec) 0.45)
+        area (Area.)]
+    (doseq [e (:iris spec)]
+      (let [a (ellipse-area e 1.0)]
+        (.subtract a (ellipse-area e pupil))
+        (when-let [lid (above-lid (:lid e))] (.subtract a lid))
+        (.add area a)))
+    area))
+
+(defn- colorize-iris
+  "Paint the iris its colour instead of ADDING colour to it.
+
+   Adding is what every preview so far did, and it is why the irises looked
+   thin: the artwork shows through, so shading and the highlight wash toward
+   white rather than reading as a coloured eye. This maps the drawing's own
+   luminance through the chosen colour -- dark stays dark, mid becomes the
+   colour, the highlight stays a highlight -- which is opaque where the drawing
+   is opaque."
+  ^BufferedImage [^BufferedImage art ^Area region ^Color eye]
+  (let [out (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        er (.getRed eye) eg (.getGreen eye) eb (.getBlue eye)]
+    (dotimes [y H]
+      (dotimes [x W]
+        (let [argb (.getRGB art x y)
+              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+          (when (pos? a)
+            (if-not (.contains region (double x) (double y))
+              (.setRGB out x y argb)
+              (let [r (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                    g (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                    b (bit-and argb 0xff)
+                    l (/ (+ r g b) 765.0)              ; 0 = ink, 1 = paper
+                    ;; below the midpoint, ramp from black up to the colour;
+                    ;; above it, ramp from the colour up to white
+                    mix (fn [c] (int (if (< l 0.5)
+                                       (* c (+ 0.30 (* 1.40 l)))
+                                       (+ c (* (- 255 c) (* 2.0 (- l 0.5)))))))]
+                (.setRGB out x y
+                         (unchecked-int
+                          (bit-or (bit-shift-left a 24)
+                                  (bit-shift-left (min 255 (mix er)) 16)
+                                  (bit-shift-left (min 255 (mix eg)) 8)
+                                  (min 255 (mix eb)))))))))))
+    out))
+
+(defn- compose-with-eyes
+  "A character, drawn the way the app will draw it: multiply everywhere, the
+   mouth left alone, the eyes coloured inside their placed regions."
+  [^File pack manifest n]
+  (let [spec (iris-spec manifest)
+        palette (nth palettes (mod n (count palettes)))
+        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (let [^File f (nth choices (mod n (count choices)))]
+            (when-let [art (scaled f)]
+              (let [slot (get pa/color-slots layer-key)
+                    s (get spec (.getName f))]
+                (cond
+                  s (.drawImage g (colorize-iris art (iris-region s)
+                                                 (get palette :eyes))
+                                0 0 nil)
+                  ;; the mouth carries its own colours: teeth are not lips
+                  (nil? slot) (.drawImage g art 0 0 nil)
+                  :else (.drawImage g ^BufferedImage
+                                    (multiplied art (get palette slot)) 0 0 nil)))))))
+      (finally (.dispose g)))
+    canvas))
+
+(deftest render-the-pack-the-way-the-server-will
+  (if-let [pack (pack-dir)]
+    (let [manifest (read-manifest pack)]
+      (if-not manifest
+        (println "\n  no manifest.json in the pack -- skipping\n")
+        (let [sheet (contact-sheet (mapv #(compose-with-eyes pack manifest %) (range 4)))]
+          (write! sheet "server-render")
+          (println (format "  iris specs found: %s"
+                           (pr-str (keys (iris-spec manifest)))))
+          (is (pos? (opaque-colour-count sheet))))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
