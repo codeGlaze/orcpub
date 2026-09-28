@@ -628,8 +628,9 @@
   flex-shrink: 0;
 }
 .pl-attribution {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
-  font-size: 12px;
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: center; gap: 2px 7px;
+  margin: 7px 0 2px; font-size: 12px; text-align: center;
 }
 .pl-attribution-label {
   font: 700 10px/1 inherit; letter-spacing: 0.18em; text-transform: uppercase;
@@ -643,7 +644,7 @@
    beside them is small caps with no descenders, so its optical centre is
    below its box centre and centring the marks left them floating. */
 .pl-artist-links {
-  margin-left: 11px; display: inline-flex; align-items: center; gap: 11px;
+  margin-left: 8px; display: inline-flex; align-items: center; gap: 11px;
   position: relative; top: 1px;
 }
 .pl-artist-link {
@@ -1131,6 +1132,11 @@
          [composite portrait]
          [:div.pl-empty-hint
           "Pick a layer below, or hit " [:em "Randomize"] "."])]
+      ;; Directly under the art it describes. It used to sit in the footer
+      ;; beside Save Portrait, which put a credit in a row of actions and made
+      ;; the drawer disagree with the character summary, where it has always
+      ;; sat under the thumbnail.
+      [attribution (:layers portrait)]
       [:div.pl-toolbar
        [:button.pl-btn.pl-btn-primary
         {:type "button" :on-click #(dispatch [:portrait/randomize])}
@@ -1181,7 +1187,6 @@
              "\u2715"]]
            [compositor-body portrait seed open-slot open-layer]
            [:div.pl-drawer-foot
-            [attribution (:layers portrait)]
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
@@ -1216,7 +1221,6 @@
         [:div.pl-root.pl-inline {:class theme}
          [compositor-body portrait seed open-slot open-layer]
          [:div.pl-drawer-foot
-          [attribution (:layers portrait)]
           [:div.pl-drawer-actions
            [:button.pl-btn.pl-btn-ghost
             {:type "button" :on-click #(dispatch [:portrait/open])}
