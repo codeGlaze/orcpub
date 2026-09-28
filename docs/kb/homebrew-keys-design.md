@@ -546,7 +546,15 @@ link and `:*true-keys` for race prerequisites and granted languages (`fix/review
 bundling every content type holding a picked key; an unreadable library in one tab no longer empties
 the others', and a two-tab merge reports a conflict instead of resurrecting a deleted source
 (`fix/review-storage`); a pre-upgrade builder draft no longer saves as a duplicate
-(`fix/review-draft`). Results are recorded below once merged.
+(`fix/review-draft`). Merged as `a376470b`, `f3578592`, `4968a3be`. The last changes one
+message: a new item named like an older, untagged item in the same pack is now refused as
+`:occupied` ("Replace it" / "Or rename this one"), where it used to become a second item silently;
+Replace lands on the old item's own address. After all of it: JVM 528 tests, ClojureScript 529,
+e2e 10 scripts (132 checks), all passing, each fix seen failing without it.
+
+**Process note:** git's stash is shared by every worktree of a repository. Two agents in separate
+worktrees each used `git stash` to revert a fix for falsification, and one popped the other's work.
+It was recovered from the dangling commit. Agents in parallel worktrees copy files aside instead.
 
 **Not done:** the server's first-load fetch (`index.clj`) still writes the slot directly; a failed
 write of `plugins:relinks` or `plugins:repairs-dismissed` is ignored. Both low.

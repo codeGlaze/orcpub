@@ -167,7 +167,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
 | `feature/grant-rows` | this branch; carries all six review rounds of the save gate |
 | `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
 | `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
-| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `5209eb97` (2026-09-28) it carries the review's fixes on top of round six, #34's inputs, the built-in-key character fix, the link list, link-carrying key changes, the restore-screen fixes, the write gate, two-tab safety, step 7's reads and step 8's repairs |
+| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `4968a3be` (2026-09-28) it carries the review's fixes on top of round six, #34's inputs, the built-in-key character fix, the link list, link-carrying key changes, the restore-screen fixes, the write gate, two-tab safety, step 7's reads and step 8's repairs |
 
 **Open PRs that touch this** (checked 2026-09-27):
 
