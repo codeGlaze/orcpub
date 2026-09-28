@@ -1729,14 +1729,25 @@
       (finally (.dispose g)))
     (.. img getRaster getDataBuffer getData)))
 
+(def ^:private hides-it
+  "How opaque hair has to be before it can be said to HIDE something behind it.
+
+   Not 1. Using any alpha at all was the flaw that let the patch show: this art
+   is sketchy at the crown, full of wisps and antialiased strands drawn at very
+   low alpha, and a pixel of hair at alpha 20 does not conceal a flat fill
+   underneath -- you see the fill straight through it. The check said zero
+   poke-out while the render showed a grey band along the hairline, because the
+   check counted those wisps as cover and an eye does not."
+  200)
+
 (defn- hair-cover
-  "Union of every hair layer's opaque pixels."
+  "Union of every hair layer's pixels that are opaque enough to hide a fill."
   ^bytes [^File bits ^File back ^File front ^File bangs]
   (let [out (byte-array (* W H))
         srcs (mapv #(px (scaled %)) (remove nil? [bits back front bangs]))]
     (dotimes [i (* W H)]
       (when (some (fn [^ints c]
-                    (pos? (bit-and (unsigned-bit-shift-right (aget c i) 24) 0xff)))
+                    (>= (bit-and (unsigned-bit-shift-right (aget c i) 24) 0xff) hides-it))
                   srcs)
         (aset-byte out i (unchecked-byte 255))))
     out))
@@ -1879,4 +1890,81 @@
                       (with-patch "bust-19" nil) (with-patch "bust-19" 0.75)
                       (with-patch "bust-2" nil) (with-patch "bust-2" 0.75)])
                 "one-patch")
+        ;; a flat fraction of the hair colour is not the right rule. On dark
+        ;; hair 0.75 is invisible; on WHITE hair it is a mid-grey blob, because
+        ;; 0.75 of white is grey and the hair around it renders near-white.
+        ;; Shade matters far less now that the patch only lives under real
+        ;; cover, but 1.0 remains the safe default: a fraction of the hair
+        ;; colour is a grey on WHITE hair (0.75 of #f2f2f2 is rgb(181,181,181))
+        ;; and invisible on dark, so the same number does not mean the same
+        ;; thing at both ends.
+        (doseq [sh [1.0 0.85 0.75]]
+          (write! (row [(with-patch "bust-19" sh) (with-patch "bust-2" sh)])
+                  (format "patch-shade-%.2f" sh)))
+        (is true)))))
+
+(deftest debug-patch-colour-in-bust-2
+  (when-let [pack (pack-dir)]
+    (when-let [manifest (read-manifest pack)]
+      (let [patch (or @skull-patch (reset! skull-patch (skull-patch-for pack)))]
+        (doseq [seed ["bust-19" "bust-2"]]
+          (let [layers (pa/compose-for-seed seed)
+                palette (palette-for-seed seed)
+                hair (hex->awt (get palette :hair))
+                want (darker hair 0.75)
+                ;; which layer ends up owning each patch pixel?
+                owner (fn [i]
+                        (last (for [lk pa/layer-order
+                                    :let [f (some->> (get-in layers [lk :asset/id])
+                                                     (file-for-asset pack lk))]
+                                    :when (and f (> (bit-and (unsigned-bit-shift-right
+                                                              (aget ^ints (px (scaled f)) i) 24)
+                                                             0xff) 200))]
+                                lk)))
+                idxs (for [i (range (* W H)) :when (on? patch i)] i)
+                by-owner (frequencies (map #(or (owner %) :patch-visible) idxs))]
+            (println (format "\n  %s  hair %s -> patch should be rgb(%d,%d,%d)"
+                             seed (get palette :hair)
+                             (.getRed want) (.getGreen want) (.getBlue want)))
+            (println (format "    patch pixels: %d" (count idxs)))
+            (doseq [[lk n] (sort-by (comp - val) by-owner)]
+              (println (format "      %-16s %d" (str lk) n)))
+            ;; and what colour actually lands there in the finished bust
+            (let [canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+                  spec (iris-spec manifest)]
+              (doseq [lk pa/layer-order]
+                (when (= lk :hair-front)
+                  (fill-mask! canvas patch want))
+                (when-let [^File f (some->> (get-in layers [lk :asset/id])
+                                            (file-for-asset pack lk))]
+                  (let [asset (pa/asset-by-id lk (get-in layers [lk :asset/id]))
+                        mode (pa/render-mode lk asset)
+                        colour (some-> (get palette (pa/slot-for-asset lk asset)) hex->awt)
+                        g (.createGraphics canvas)]
+                    (when-let [art (scaled f)]
+                      (cond
+                        (= :as-drawn mode) (.drawImage g art 0 0 nil)
+                        (and (= :colorize mode) colour)
+                        (binding [*iris-gamma* (pa/tint-gamma lk asset)]
+                          (.drawImage g (colorize-through
+                                         (if-let [sp (get spec (.getName f))]
+                                           (coverage-mask (iris-region sp))
+                                           (whole-asset-coverage art))
+                                         art colour) 0 0 nil))
+                        colour (.drawImage g ^BufferedImage (multiplied art colour) 0 0 nil)
+                        :else (.drawImage g art 0 0 nil)))
+                    (.dispose g))))
+              (let [out (px canvas)
+                    ;; patch pixels the head is topmost under -- the ones that show
+                    vis (for [i idxs
+                              :when (= :head (owner i))]
+                          (aget out i))
+                    avg (fn [f] (int (/ (reduce + (map f vis)) (max 1 (count vis)))))]
+                (when (seq vis)
+                  (println (format "    %d visible; average rgb(%d,%d,%d), wanted rgb(%d,%d,%d)"
+                                   (count vis)
+                                   (avg #(bit-and (unsigned-bit-shift-right % 16) 0xff))
+                                   (avg #(bit-and (unsigned-bit-shift-right % 8) 0xff))
+                                   (avg #(bit-and % 0xff))
+                                   (.getRed want) (.getGreen want) (.getBlue want))))))))
         (is true)))))
