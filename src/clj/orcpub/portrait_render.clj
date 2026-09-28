@@ -105,8 +105,13 @@
         nil))
     p))
 
-(defn- draw-vector-layer! [^Graphics2D g svg ^Color color w h]
-  (when-let [d (pdf/last-svg-path svg)]
+(defn- draw-vector-layer!
+  "A vector asset is a bare path with no colour of its own, so unlike a raster
+   one it cannot be drawn `:as-drawn` -- there is nothing there to draw. A nil
+   colour means the caller had no tint for it, and the layer is skipped rather
+   than filled with whatever Graphics2D happens to be set to."
+  [^Graphics2D g svg ^Color color w h]
+  (when-let [d (and color (pdf/last-svg-path svg))]
     (let [[vw vh] (svg-view-box svg)
           path (ops->path2d (pdf/svg-path-ops d) (/ w vw) (/ h vh))]
       (.setColor g color)
@@ -117,7 +122,10 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
-(defn- draw-raster-layer! [^Graphics2D g ^bytes data ^Color color w h]
+(defn- draw-raster-layer!
+  "Place the asset in the frame, tinted through its alpha. A nil `color` draws
+   it exactly as the illustrator made it."
+  [^Graphics2D g ^bytes data ^Color color w h]
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     ;; Tint through the source's alpha: draw it, then flood the colour with
     ;; SrcIn so it lands only where the asset is opaque. Server-side twin of
@@ -129,9 +137,10 @@
         (.setRenderingHint tg RenderingHints/KEY_INTERPOLATION
                            RenderingHints/VALUE_INTERPOLATION_BILINEAR)
         (.drawImage tg src (int x) (int y) (int dw) (int dh) nil)
-        (.setComposite tg AlphaComposite/SrcIn)
-        (.setColor tg color)
-        (.fillRect tg 0 0 w h)
+        (when color
+          (.setComposite tg AlphaComposite/SrcIn)
+          (.setColor tg color)
+          (.fillRect tg 0 0 w h))
         (finally (.dispose tg)))
       (.drawImage g tinted 0 0 nil))))
 
@@ -270,8 +279,14 @@
              ;; portrait is still worth showing.
              (try
                (let [{:keys [mime bytes]} (asset-source (:asset/url asset))
-                     color (hex->color (pa/tint-for portrait layer-key))]
-                 (when (and mime bytes color)
+                     ;; :as-drawn means the artist already coloured it -- teeth
+                     ;; are white because they were drawn white, and tinting
+                     ;; them through the mouth's category colour is what made
+                     ;; them red.
+                     as-drawn? (= :as-drawn (pa/render-mode layer-key asset))
+                     color (when-not as-drawn?
+                             (hex->color (pa/tint-for portrait layer-key)))]
+                 (when (and mime bytes (or as-drawn? color))
                    (if (s/includes? mime "svg")
                      (draw-vector-layer! g (String. ^bytes bytes "UTF-8") color w h)
                      (draw-raster-layer! g bytes color w h))))

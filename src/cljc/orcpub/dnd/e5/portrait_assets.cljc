@@ -142,15 +142,20 @@
      :asset/label "Nose 03"
      :asset/file  "l7_nose_03.png"}]
    :mouth
+   ;; The three mouths want three different treatments, which is why
+   ;; :asset/slot is on the ASSET and not on the layer. All three are drawn in
+   ;; greys -- max saturation 1 out of 255 -- so "carries its own colour"
+   ;; cannot tell them apart; what differs is what the shape IS.
    [{:asset/id :l8-mouth-01
      :asset/label "Mouth 01"
-     :asset/file  "l8_mouth_01.png"}
+     :asset/file  "l8_mouth_01.png"}          ; a closed line, nothing to colour
     {:asset/id :l8-mouth-02
-     :asset/label "Mouth 02"
-     :asset/file  "l8_mouth_02.png"}
+     :asset/label "Lips"
+     :asset/file  "l8_mouth_02.png"
+     :asset/slot  :lips}                      ; drawn shaded and hueless
     {:asset/id :l8-mouth-03
-     :asset/label "Mouth 03"
-     :asset/file  "l8_mouth_03.png"}]
+     :asset/label "Smile"
+     :asset/file  "l8_mouth_03.png"}]         ; teeth: they stay white
    :bangs
    [{:asset/id :l9-bangs-01
      :asset/label "Bangs 01"
@@ -192,11 +197,13 @@
 
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file]}]
-          {:asset/id    id
-           :asset/label label
-           :asset/url   (str asset-root (name layer-key) "/" file)
-           :asset/tags  #{layer-key}})
+  (mapv (fn [{:asset/keys [id label file slot gamma]}]
+          (cond-> {:asset/id    id
+                   :asset/label label
+                   :asset/url   (str asset-root (name layer-key) "/" file)
+                   :asset/tags  #{layer-key}}
+            slot  (assoc :asset/slot slot)
+            gamma (assoc :asset/gamma gamma)))
         entries))
 
 (def house-pack
@@ -386,9 +393,13 @@
 (def empty-portrait {:layers {} :colors {} :tweaks {}})
 
 (def color-slots
-  "Which color slot each layer draws its base tint from. nil = the layer
-   keeps its category tint (mouth stays clay red; lips in skin tone look
-   wrong)."
+  "Which color slot each LAYER draws its base tint from. nil = the layer has no
+   slot of its own and falls back to its category tint.
+
+   A layer-wide rule is not enough for every layer. The mouth carries three
+   assets that want three different things -- a bare line, lips, and teeth --
+   so the lipped one names its own slot with :asset/slot and slot-for-asset
+   prefers that. See `lips` in color-slot-order."
   {:hair-bits  :hair
    :hair-back  :hair
    :hair-front :hair
@@ -400,21 +411,82 @@
    :shirt      :shirt
    :mouth      nil})
 
-(def color-slot-order [:hair :skin :eyes :shirt])
+(def color-slot-order
+  "Slot order in the picker. `:lips` is last because it only applies to some
+   mouth assets; `slot-in-use?` decides whether to show it."
+  [:hair :skin :eyes :shirt :lips])
 
-(def color-slot-labels {:hair "Hair" :skin "Skin" :eyes "Eyes" :shirt "Shirt"})
+(def color-slot-labels
+  {:hair "Hair" :skin "Skin" :eyes "Eyes" :shirt "Shirt" :lips "Lips"})
+
+(def conditional-slots
+  "Slots that only apply when an asset asks for them, rather than to a whole
+   layer. Showing a Lips swatch against a closed-mouth asset would be a control
+   that does nothing."
+  #{:lips})
 
 (def color-presets
   "One-tap starting points per slot; a native picker covers the rest."
   {:hair  ["#2b1a10" "#5c3a1e" "#a06430" "#d4a256" "#e6d58f" "#c8c8c8" "#f2f2f2" "#7a3f6e"]
    :skin  ["#f2ddc4" "#e8c69c" "#c99871" "#a06e46" "#6c4726" "#3d2617" "#c0a693" "#a4b5a0"]
    :eyes  ["#6b4a2a" "#3d5c8f" "#4a7a4c" "#8a7c3f" "#8a4a4a" "#4a8a8a" "#7a4a8a" "#c4b48a"]
-   :shirt ["#3a4a5c" "#7a94b8" "#5c3a3a" "#8f5c3a" "#3d5a3a" "#5c3a5c" "#2c2c2c" "#c8c0a8"]})
+   :shirt ["#3a4a5c" "#7a94b8" "#5c3a3a" "#8f5c3a" "#3d5a3a" "#5c3a5c" "#2c2c2c" "#c8c0a8"]
+   ;; bare through berry, then plum and coral. These read as lips rather than
+   ;; as a stripe of paint because the art supplies the shading and only the
+   ;; hue comes from here.
+   :lips  ["#c98d82" "#c46a6a" "#b04a5a" "#9b3c55" "#6e334e" "#d87a5c" "#a85c4a" "#7a4442"]})
+
+(def default-slot-colors
+  "What a slot renders as before anyone picks. Only :lips has one: the other
+   slots fall back to their layer's category tint, but a lipped mouth with no
+   lip colour would render in greys, which is the bug this slot exists to fix."
+  {:lips "#c98d82"})
+
+(defn selected-asset
+  "The asset a portrait has chosen for `layer-key`, or nil."
+  [portrait layer-key]
+  (when-let [asset-id (:asset/id (get-in portrait [:layers layer-key]))]
+    (asset-by-id layer-key asset-id)))
+
+(defn slot-for-asset
+  "The colour slot an asset renders from: its own `:asset/slot` when it names
+   one, otherwise its layer's.
+
+   The asset wins because it knows more. A layer holds pieces that are not
+   alike -- one mouth is lips and another is teeth -- and only the piece can
+   say which it is."
+  [layer-key asset]
+  (or (:asset/slot asset) (color-slots layer-key)))
+
+(defn slot-in-use?
+  "Whether `slot` applies to anything this portrait has actually selected.
+
+   Unconditional slots always apply. A conditional one applies only while a
+   selected asset asks for it, so the Lips swatch appears with the lips and
+   goes away again with a closed mouth."
+  [portrait slot]
+  (if-not (contains? conditional-slots slot)
+    true
+    (boolean
+     (some (fn [layer-key]
+             (when-let [asset-id (:asset/id (get-in portrait [:layers layer-key]))]
+               (= slot (:asset/slot (asset-by-id layer-key asset-id)))))
+           layer-order))))
+
+(defn active-color-slots
+  "The slots the picker should show for `portrait`, in order."
+  [portrait]
+  (filterv #(slot-in-use? portrait %) color-slot-order))
 
 (defn layers-in-slot
-  "Layer keys mapped to `slot`, in z-order."
-  [slot]
-  (filterv #(= slot (color-slots %)) layer-order))
+  "Layer keys mapped to `slot`, in z-order.
+
+   With a `portrait`, a layer counts when its SELECTED asset names the slot --
+   which is the only way the mouth appears under Lips, since the layer itself
+   is mapped to nothing."
+  ([slot] (filterv #(= slot (color-slots %)) layer-order))
+  ([portrait slot]
+   (filterv #(= slot (slot-for-asset % (selected-asset portrait %))) layer-order)))
 
 (defn- hex-pair->int [s]
   #?(:clj  (Integer/parseInt s 16)
@@ -442,11 +514,48 @@
 
 (defn base-tint
   "What a layer renders in before any per-piece tweak: its slot's chosen
-   color if set, else the layer's category tint."
+   color if set, else the slot's default, else the layer's category tint.
+
+   The slot comes from the SELECTED ASSET, not the layer, so a lipped mouth
+   draws from :lips while a closed one in the same layer draws from neither."
   [portrait layer-key]
-  (let [slot (color-slots layer-key)]
+  (let [slot (slot-for-asset layer-key (selected-asset portrait layer-key))]
     (or (and slot (get-in portrait [:colors slot]))
+        (and slot (default-slot-colors slot))
         (layer-colors layer-key))))
+
+(defn render-mode
+  "How a renderer should apply `base-tint` to this asset.
+
+   :multiply  -- the default. Lay the colour down through the art's alpha and
+                 multiply the drawing back over it, so lines stay lines.
+   :colorize  -- map the art's own luminance through the colour. For art drawn
+                 as a hueless ramp: the irises, and the lips.
+   :as-drawn  -- do not tint at all. Teeth are not lips.
+
+   Assets that name a conditional slot are colorized, because that is what
+   naming one is for; an asset with no slot at all is left alone. Returning a
+   MODE rather than a boolean is what lets the mouth's three pieces differ."
+  [layer-key asset]
+  (let [slot (slot-for-asset layer-key asset)]
+    (cond
+      (nil? slot) :as-drawn
+      (contains? conditional-slots slot) :colorize
+      (= :eyes slot) :colorize
+      :else :multiply)))
+
+(defn tint-gamma
+  "The luminance gamma for a :colorize asset.
+
+   Not one number, because the art it applies to sits at opposite ends of the
+   tonal range: the irises are drawn near-black and need a gamma below 1 to
+   lift them off the floor, while the lips are drawn light -- 75% of that
+   asset is above the ramp's midpoint -- and need one above 1 to pull them
+   down into the colour. A single value washes out whichever it was not
+   chosen for."
+  [layer-key asset]
+  (or (:asset/gamma asset)
+      (if (= :lips (slot-for-asset layer-key asset)) 2.2 0.5)))
 
 (defn tint-for
   "Effective render color for a layer: per-piece override → shaded base →
