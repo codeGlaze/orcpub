@@ -723,3 +723,10 @@
         "an unsaved character is not asked")
     (is (nil? (reconcile/relink-to-ask relinks character (update plugins "Classes" dissoc :orcpub.dnd.e5/classes)))
         "not while the renamed item is gone: nothing to switch to")))
+
+(deftest a-legacy-trailing-dash-key-is-not-reported-missing
+  ;; Lookup matches :dark-elf-drow- to :dark-elf-drow (common/canonical-key); so must the warning.
+  (let [character {::entity/options {:race {::entity/key :elf
+                                            ::entity/options {:subrace {::entity/key :dark-elf-drow-}}}}}]
+    (is (empty? (reconcile/check-content-availability
+                 (reconcile/extract-content-keys character) {} #{:elf :dark-elf-drow})))))

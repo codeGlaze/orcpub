@@ -3383,8 +3383,15 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-names (map (comp :name race-map) race-keys)]
-         [(race-prereq race-names)])))))
+       ;; A race the library no longer holds can never match; if none of them is held, the feat
+       ;; stays locked and says which race it needs.
+       (let [race-names (keep (comp :name race-map) race-keys)]
+         (if (seq race-names)
+           [(race-prereq race-names)]
+           [(t/option-prereq
+             (str "Needs " (common/list-print (map #(str "\u201c" (common/kw-to-name % true) "\u201d") race-keys) "or")
+                  ", which isn't in your library")
+             (constantly false))]))))))
 
 (def filter-true (filter val))
 

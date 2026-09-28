@@ -2,6 +2,7 @@
   "The one gate every write to the homebrew library passes: `commit`. See
    docs/kb/homebrew-keys-design.md §4."
   (:require [orcpub.common :as common]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.library-links :as links]))
 
 (defn- content-groups [plugins]
@@ -235,3 +236,20 @@
     (reduce (fn [p {:keys [source type key link target to-key]}]
               (update-in p [source type key] #(links/retarget (by-id link) % target to-key)))
             plugins repairs)))
+
+(defn offered-keys
+  "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the
+   builder can offer right now, built-in and homebrew. Walks selections, options,
+   `::t/selections` and `::t/associated-options` only."
+  [template]
+  (letfn [(selection [acc s] (reduce option (conj acc (::t/key s)) (::t/options s)))
+          (option [acc o] (reduce selection
+                                  (reduce option (conj acc (::t/key o)) (::t/associated-options o))
+                                  (::t/selections o)))]
+    (disj (reduce selection #{} (::t/selections template)) nil)))
+
+(defn offers?
+  "True when `offered` holds `k`, matching the way a character's key is looked up: exactly, or
+   with a stray trailing separator trimmed (`common/canonical-key`)."
+  [offered k]
+  (or (contains? offered k) (contains? offered (common/canonical-key k))))

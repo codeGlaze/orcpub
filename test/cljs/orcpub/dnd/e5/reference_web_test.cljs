@@ -148,9 +148,10 @@
       "the race key finds the race")
   ;; race-prereq matches (character/race c) against the looked-up names. A stale key looks up
   ;; nil, so the set is #{nil}: the feat is shown as " Only" and admits no character with a race.
-  (is (= [" Only"] (map :orcpub.template/label
-                        (opt5e/feat-prereqs nil {:race {:folk true}} {:folk-x {:name "Folk (X)"}})))
-      "GAP: once the race is rekeyed, the feat locks for everyone under a blank label"))
+  (is (= ["Needs \u201cFolk\u201d, which isn't in your library"]
+         (map :orcpub.template/label
+              (opt5e/feat-prereqs nil {:race {:folk true}} {:folk-x {:name "Folk (X)"}})))
+      "a race the library no longer holds: still locked, and the label says which race"))
 
 ;; ── What the player gets after a clash rename ───────────────────────────────────────────────
 ;; A rename only happens because another item already holds the key: an import conflict settled by

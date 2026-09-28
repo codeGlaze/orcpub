@@ -14,6 +14,7 @@
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.library-links :as links]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
@@ -215,16 +216,7 @@
 ;; What the builder offers
 ;; ============================================================================
 
-(defn offered-keys
-  "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the
-   builder can offer right now, built-in and homebrew. Walks selections, options,
-   `::t/selections` and `::t/associated-options` only."
-  [template]
-  (letfn [(selection [acc s] (reduce option (conj acc (::t/key s)) (::t/options s)))
-          (option [acc o] (reduce selection
-                                  (reduce option (conj acc (::t/key o)) (::t/associated-options o))
-                                  (::t/selections o)))]
-    (disj (reduce selection #{} (::t/selections template)) nil)))
+(def offered-keys library/offered-keys)
 
 ;; ============================================================================
 ;; Missing Content Detection
@@ -249,7 +241,7 @@
     (keep
      (fn [{:keys [key content-type] :as entry}]
        (when-not (or (contains? inline-content-sentinels key)
-                     (contains? offered key))
+                     (library/offers? offered key))
          (let [field (get content-type->field content-type)
                suggestions (find-similar-content
                             key content-type
