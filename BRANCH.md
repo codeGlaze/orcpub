@@ -156,7 +156,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
   on PR #34 is paused for it, and its homebrew commits are inputs. The work branch is
   `port/save-gate`, cut from `integration`. Inputs, scope, order and checkpoints:
   `docs/kb/plan-next.md` §0a. The map is done (`docs/kb/homebrew-key-map.md`) and the design proposed
-  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; steps 1–7 and the restore-screen fixes done on `port/save-gate` (`8e76bbf3`); step 8 next.
+  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; all eight build steps done on `port/save-gate` (`c0e38458`); next is the review against the map's invariants, then landing on `integration`.
 - **This branch's own purpose is grants** (`plan-next.md` items 1–6). The key fix is a detour it is
   hosting the planning for, not the branch's work; code for it lands on `port/save-gate`.
 - The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
@@ -167,7 +167,7 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
 | `feature/grant-rows` | this branch; carries all six review rounds of the save gate |
 | `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
 | `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
-| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `8e76bbf3` (2026-09-27) it carries round six, #34's inputs, the built-in-key character fix, the link list, link-carrying key changes, the restore-screen fixes, the write gate, two-tab safety and step 7's reads |
+| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `c0e38458` (2026-09-28) it carries round six, #34's inputs, the built-in-key character fix, the link list, link-carrying key changes, the restore-screen fixes, the write gate, two-tab safety, step 7's reads and step 8's repairs |
 
 **Open PRs that touch this** (checked 2026-09-27):
 

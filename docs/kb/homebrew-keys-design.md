@@ -1,6 +1,6 @@
 # Homebrew keys — the design
 
-**Status: APPROVED to build, 2026-09-27. Steps 1–7 done (`port/save-gate` `8e76bbf3`); the §9 decisions are still open and are
+**Status: APPROVED to build, 2026-09-27. Steps 1–8 done (`port/save-gate` `c0e38458`); the §9 decisions are still open and are
 needed before steps 5–8.** It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
 (§7). Link integrity is in scope (owner, 2026-09-27).
 
@@ -256,7 +256,7 @@ Each step lands green, with its tests, before the next begins:
    test.
 6. **Done `bf1ca6a5`.** Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
 7. **Done `8e76bbf3`.** Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
-8. A one-time report of damage already in a library (C6), with an offered repair.
+8. **Done `c0e38458`.** A one-time report of damage already in a library (C6), with an offered repair.
 9. **Later, decided 2026-09-27: "which of my characters use this".** One server request, made only
    before a delete or a key change, asking which of the account's characters hold the affected keys,
    so the prompt can say "3 of your characters use Warden". The server answers from the characters
@@ -387,3 +387,35 @@ Nothing new duplicates an existing path. The three new pieces each absorb severa
   existing relink) or stay on the imported one; only while both items exist.
 - **Tests.** The pure pieces and the events are unit-tested and each was falsified. The six e2e
   scripts pass (71/71) but none drives the new mark, the Move line or the question in a browser.
+
+## As built (step 8) and what is left
+
+- **Q6 decided 2026-09-28 as recommended.** On load, the library as the loader kept it is stored
+  once through the gate (`::e5/settle-loaded-library`), after the untouched library is copied to
+  `plugins:pre-fix`, and only when every entry it dropped is in quarantine. My Content shows the
+  copy's date with Restore and Remove. #34's `mend-library` field repairs were not adopted.
+- **Repairs.** `library/suggested-repairs` finds two kinds of damage and offers, never applies:
+  a target renamed away that exactly one item lists among its former keys (`:missing`), and a link
+  bound to another pack's copy while its own pack holds the renamed one (`:other-copy`). My Content
+  lists them with Fix, Fix all and Leave these (dismissals kept in `plugins:repairs-dismissed`).
+- **Language renames.** `library/commit` carries a renamed item's new name into every `:by :name`
+  link to it, so renaming a language updates the races that name it. Closes step 7's open item.
+- **The builder** marks a saved item's link to nothing beside its key.
+- **Found by the new browser test and fixed:** step 7's My Content mark crashed the page when a
+  row had a link to nothing (the row's destructured `name` shadowed the function); and the subrace
+  builder, on `integration` too, crashed on a subrace whose race is missing or has no size.
+- **A new write:** a first-ever visit now stores the default (empty) library once, where before
+  nothing was written until the first save. Harmless; noted because it is a change.
+
+**Left open after step 8:**
+1. No browser test drives the Move note (Q2) or the character question (Q3); they need the conflict
+   screen and a server-side character. Both are unit- and event-tested.
+2. The missing-content warning still checks six kinds of content.
+3. Step 9 (later): a server request for "which of my characters use this".
+4. The character draft slot (`multi-tab-character-contamination.md` on `agents/develop`): the owner is
+   open to suggestions; proposed 2026-09-28 — each tab keeps the id of the character it edits in
+   `sessionStorage`, drafts are stored per id, existing single-slot drafts move under their own
+   `:db/id` (a draft without one is the new-character draft), new characters get a temporary id.
+
+**Next, per `plan-next.md` §0a:** review `port/save-gate` against the map's invariants, then land it
+on `integration` (by PR, which the owner opens or asks for).

@@ -71,8 +71,9 @@ and what each is now called, and a set-aside entry shows its description.
 Q7 decided as recommended. Step 9 added (later): a server request for "which of my characters use
 this" before a delete or key change. **Step 6 done** (`bf1ca6a5`; lein 508/3936,
 cljs 494/2571, six e2e scripts 71/71, merge falsified). **Step 7 done** (`8e76bbf3`; lein 512/3947,
-cljs 500/2589, e2e 71/71, three pieces falsified). Q1–Q3 decided as recommended. Next is step 8, the
-damage report and the restore control for the pre-fix backup; Q6 is still open.
+cljs 500/2589, e2e 71/71, three pieces falsified). Q1–Q3 decided as recommended. **Step 8 done** (`c0e38458`; lein 515/3953, cljs
+505/2598, seven e2e scripts 82/82; Q6 decided). All eight build steps are done. Next: review
+`port/save-gate` against the map's invariants, then land it on `integration`.
 
 **#34's late push (2026-09-27, `f82f9444`)** was checked against `port/save-gate`: it is #34 catching
 up to integration's source-tagged keys (already on the port), a merge of the standing-duplicate fix
