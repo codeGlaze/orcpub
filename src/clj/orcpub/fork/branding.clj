@@ -5,7 +5,9 @@
    Server-side (.clj) is the source of truth. Client-side branding
    is delivered via the config bridge: index.clj injects client-config
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
-  (:require [environ.core :refer [env]])
+  (:require [environ.core :refer [env]]
+            [cheshire.core :as cheshire]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets])
   (:import [java.time Year]))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
@@ -134,6 +136,46 @@
 ;; index.clj injects this as window.__BRANDING__ JSON in <head>.
 ;; branding.cljs reads it at runtime for CLJS components.
 
+
+;; ─── Portrait Artist Credits ───────────────────────────────────────
+
+(def portrait-artists
+  "Deployment overrides for how portrait artists are credited, as
+   {artist-id {:artist/name .. :artist/link .. :artist/license ..}}.
+
+   PORTRAIT_ARTISTS is JSON keyed by artist id:
+
+     {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}
+
+   The registry in portrait-assets.cljc holds the public default and the
+   structure -- which artist drew which asset -- because the app cannot
+   resolve an asset without it. Only the presentation of the credit is
+   overridable, so a fork can credit its own contributors without editing
+   shared code, and cannot silently re-attribute someone's art to a
+   different pack.
+
+   A malformed value is ignored with a warning rather than taking down the
+   page: a broken credit should cost the credit, not the site."
+  (or (when-let [raw (not-empty (or (env :portrait-artists)
+                                    (System/getenv "PORTRAIT_ARTISTS")))]
+        (try
+          (into {}
+                (for [[id fields] (cheshire/parse-string raw true)]
+                  [(keyword (name id))
+                   (cond-> {}
+                     (:name fields)    (assoc :artist/name (:name fields))
+                     (:link fields)    (assoc :artist/link (:link fields))
+                     (:license fields) (assoc :artist/license (:license fields)))]))
+          (catch Exception e
+            (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))
+            nil)))
+      {}))
+
+;; Apply them server-side at load. The client gets the same map through
+;; client-config and applies it itself, so the share card (rendered here) and
+;; the sheet (rendered in the browser) always name the same person.
+(portrait-assets/set-artist-overrides! portrait-artists)
+
 (defn client-config
   "Map of branding values for CLJS injection. Serialized to JSON by index.clj."
   []
@@ -147,4 +189,5 @@
    :social-links              social-links
    :field-limits              field-limits
    :registration-logo-class   registration-logo-class
-   :restrict-print-to-owner?  restrict-print-to-owner?})
+   :restrict-print-to-owner?  restrict-print-to-owner?
+   :portrait-artists          portrait-artists})

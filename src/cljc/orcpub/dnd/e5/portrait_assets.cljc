@@ -228,15 +228,15 @@
         entries))
 
 (def house-pack
-  "The single contributing artist.
+  "The illustrator who drew the portrait art.
 
-   :artist/name is deliberately nil until the illustrator says how they want
-   to be credited. credit-line skips unnamed artists, so nothing invents a
-   byline for them in the meantime -- the sheet, the share card and the
-   summary simply show no credit until this is filled in."
+   The name and link are the public default. A deployment can override them
+   without touching this file -- see `artist-overrides` below -- which is what
+   lets a fork credit its own contributors while the open-source repo still
+   credits the artist whose work it ships."
   {:artist/id      :house-pack
-   :artist/name    nil
-   :artist/link    nil
+   :artist/name    "Fusspot"
+   :artist/link    "https://fusspot.rip/"
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
                               {} asset-inventory)})
@@ -272,10 +272,45 @@
             id))
         registry))
 
+;; Per-artist fields supplied at runtime, keyed by :artist/id.
+;;
+;; defonce takes no docstring, hence the comment.
+(comment
+  "Per-artist fields supplied at runtime, keyed by :artist/id.
+
+   The registry holds the STRUCTURE -- which artist drew which asset -- and
+   that has to be public, because the app cannot resolve an asset without it.
+   The presentation of a credit is a deployment concern: a fork may ship the
+   same art under a different arrangement with the artist, or add artists its
+   own users contributed. So the name, link and licence are overridable and
+   nothing else is.
+
+   Set on the server from env at startup and on the client from the config
+   the page injects, so both runtimes credit the same person -- the drawer and
+   the PDF render in the browser, the share card on the server, and a credit
+   that disagreed between them would be worse than none.")
+
+(defonce ^:private artist-overrides (atom {}))
+
+(defn set-artist-overrides!
+  "Replace the runtime artist overrides. `m` is {artist-id {field value}};
+   only :artist/name, :artist/link and :artist/license are honoured."
+  [m]
+  (reset! artist-overrides
+          (into {}
+                (for [[id fields] m
+                      :let [keep-fields (select-keys fields [:artist/name
+                                                             :artist/link
+                                                             :artist/license])]
+                      :when (seq keep-fields)]
+                  [id keep-fields]))))
+
 (defn artist-info
-  "Full `{:artist/id … :artist/name … :artist/link …}` map for an id."
+  "Full `{:artist/id … :artist/name … :artist/link …}` map for an id, with any
+   deployment override applied."
   [artist-id]
-  (some #(when (= artist-id (:artist/id %)) %) registry))
+  (when-let [base (some #(when (= artist-id (:artist/id %)) %) registry)]
+    (merge base (get @artist-overrides artist-id))))
 
 (defn all-artists-for-layers
   "Given the current portrait-layers selection (`{layer-key {:artist/id …

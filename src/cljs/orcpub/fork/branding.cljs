@@ -3,7 +3,8 @@
    Fallback values are used in dev/REPL where no server injection exists.
 
    Server-side source of truth: branding.clj
-   Bridge: index.clj injects branding/client-config as JSON in <head>.")
+   Bridge: index.clj injects branding/client-config as JSON in <head>."
+  (:require [orcpub.dnd.e5.portrait-assets :as portrait-assets]))
 
 ;; ─── Config Bridge ───────────────────────────────────────────────
 ;; Server injects branding.clj/client-config as window.__BRANDING__ JSON.
@@ -12,6 +13,14 @@
 (def ^:private config
   (when (exists? js/window.__BRANDING__)
     (js->clj js/window.__BRANDING__ :keywordize-keys true)))
+
+;; Portrait artist credits, applied as soon as the config is read. The drawer
+;; and the PDF export render here while the share card renders on the server,
+;; so both runtimes have to be told the same thing -- a credit that disagreed
+;; between the sheet and the link someone shared would be worse than none.
+(when-let [artists (:portrait-artists config)]
+  (portrait-assets/set-artist-overrides!
+   (into {} (for [[id fields] artists] [(keyword (name id)) fields]))))
 
 ;; ─── Branding Values ─────────────────────────────────────────────
 ;; Each def reads from the bridge config with a hardcoded fallback
