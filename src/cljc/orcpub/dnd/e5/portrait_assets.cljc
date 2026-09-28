@@ -236,7 +236,13 @@
    credits the artist whose work it ships."
   {:artist/id      :house-pack
    :artist/name    "Fusspot"
+   ;; Her homepage, not her socials. She lists half a dozen handles there and
+   ;; keeps them current; copying them here would mean this repo owns their
+   ;; staleness, and a dead handle would sit in every sheet already exported.
    :artist/link    "https://fusspot.rip/"
+   ;; The one link that is not "see more work". An open-source project
+   ;; shipping a contributor's art can send people somewhere that pays her.
+   :artist/support "https://ko-fi.com/fusspot"
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
                               {} asset-inventory)})
@@ -301,6 +307,7 @@
                 (for [[id fields] m
                       :let [keep-fields (select-keys fields [:artist/name
                                                              :artist/link
+                                                             :artist/support
                                                              :artist/license])]
                       :when (seq keep-fields)]
                   [id keep-fields]))))

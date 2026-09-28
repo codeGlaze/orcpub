@@ -421,3 +421,22 @@
       (is (= [:house-pack] (pa/all-artists-for-layers layers)))
       (is (= "Art: A, B" (pa/format-credit ["A" "B"]))
           "several names join into one line"))))
+
+(deftest the-support-link-is-drawer-only-and-overridable
+  (let [a (pa/artist-info :house-pack)]
+    (is (= "https://fusspot.rip/" (:artist/link a))
+        "the credit points at her homepage, which is the list she maintains")
+    (is (= "https://ko-fi.com/fusspot" (:artist/support a))
+        "and a separate link that pays her, kept apart from the credit"))
+  (testing "the credit LINE carries no support URL -- it is the string burned
+            into share cards and PDFs, where a link cannot be followed anyway"
+    (is (= "Art: Fusspot"
+           (pa/credit-line {:layers (pa/compose-for-seed "support-check")}))))
+  (testing "a deployment can change it, or drop it, without touching the code"
+    (try
+      (pa/set-artist-overrides! {:house-pack {:artist/support "https://example.test/tip"}})
+      (is (= "https://example.test/tip" (:artist/support (pa/artist-info :house-pack))))
+      (pa/set-artist-overrides! {:house-pack {:artist/support nil}})
+      (is (nil? (:artist/support (pa/artist-info :house-pack)))
+          "nil removes it rather than falling back to the default")
+      (finally (pa/set-artist-overrides! {})))))
