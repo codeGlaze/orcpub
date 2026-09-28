@@ -36,6 +36,7 @@
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.template :as t]
             [orcpub.entity :as entity]
             [orcpub.common :as common]
@@ -1140,9 +1141,9 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [[:set-character character]] (:dispatch-n fx)) "the waiting heal runs once the list exists")
-    (is (empty? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
-                                                         [::autosave-fx/cache-template small-template])))
+    (is (= [:set-character character] (:dispatch fx)) "the waiting heal runs once the list exists")
+    (is (nil? (:dispatch (autosave-fx/cache-template {:db (:db fx)}
+                                                     [::autosave-fx/cache-template small-template])))
         "and only on the first list")))
 
 (deftest a-character-with-nothing-to-heal-is-not-reloaded
@@ -1152,7 +1153,7 @@
              {::t/selections [(t/selection-cfg
                                {:name "Class" :key :class
                                 :options [(t/option-cfg {:name "Cleric" :key :cleric})]})]}])]
-    (is (empty? (:dispatch-n fx)))))
+    (is (nil? (:dispatch fx)))))
 
 (defn- real-template
   "The real ::char5e/template, read inside a reactive context the way the app's watcher reads it."
@@ -1162,23 +1163,28 @@
     (r/dispose! watcher)
     @out))
 
-(deftest the-watcher-writes-a-key-change-to-links-in-other-sources
-  ;; ::e5/change-builder-item-key repoints its own source and leaves the rest pending; the next
-  ;; list settles it.
-  (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:caster-x {:key :caster-x}}}
-                 "Domains" {:orcpub.dnd.e5/subclasses {:oath {:key :oath :class :caster}}}}
-        fx (autosave-fx/cache-template
-            {:db {:plugins plugins
-                  ::content-recon/offered-keys #{:caster}
-                  ::content-recon/pending-repoints [{:type :orcpub.dnd.e5/classes :from :caster
-                                                     :to :caster-x :source "Classes"}]}}
-            [::autosave-fx/cache-template
-             {::t/selections [(t/selection-cfg
-                               {:name "Class" :key :class
-                                :options [(t/option-cfg {:name "Caster X" :key :caster-x})]})]}])
-        written (some (fn [[event v]] (when (= :orcpub.dnd.e5/set-plugins event) v)) (:dispatch-n fx))]
-    (is (= :caster-x (get-in written ["Domains" :orcpub.dnd.e5/subclasses :oath :class])))
-    (is (empty? (get-in fx [:db ::content-recon/pending-repoints])))))
+(defn- texts
+  "Every string in a hiccup tree, joined."
+  [h]
+  (apply str (filter string? (tree-seq coll? seq h))))
+
+(deftest a-key-change-asks-before-moving-links-in-other-packs
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides
+                  ::classes5e/builder-item (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])
+                  :builder-origin {:orcpub.dnd.e5/classes {:source "Classes" :key :warden :name "Warden"}}})
+  (run-through! [::e5/change-builder-item-key ::classes5e/save-class "keeper"])
+  (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :keeper])) "the key changed")
+  (is (= :warden (get-in @app-db [:plugins "Domains" :orcpub.dnd.e5/subclasses :tides :class]))
+      "the other pack's link is not moved")
+  (is (re-find #"1 item in other packs still uses :warden\. Point it at :keeper"
+               (texts (get-in @app-db [:message :details])))
+      "it is offered")
+  (run-through! [::e5/apply-repairs (library/repoint-offer (:plugins @app-db) :orcpub.dnd.e5/classes
+                                                          :warden :keeper "Classes")])
+  (is (= :keeper (get-in @app-db [:plugins "Domains" :orcpub.dnd.e5/subclasses :tides :class]))
+      "and moved when accepted")
+  (.clear js/window.localStorage))
 
 (deftest the-real-builder-offers-every-built-in-key
   ;; The built-in content the app defines (classes.cljc, spell_subs.cljs, spells.cljc). Subclasses

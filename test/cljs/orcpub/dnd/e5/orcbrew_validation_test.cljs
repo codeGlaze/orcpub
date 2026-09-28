@@ -1514,13 +1514,19 @@
 
 ;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
 
-(deftest an-import-rename-repoints-every-source-of-the-import
-  (let [data {"Classes" {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}}
-              "Spells"  {:orcpub.dnd.e5/spells {:bolt {:key :bolt :spell-lists {:caster true}}}}}
+(deftest an-import-rename-moves-links-only-in-its-own-source
+  ;; Links in other sources are offered (library/repoint-offer), never moved.
+  (let [data {"Classes" {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:own {:key :own :class :caster}}}
+              "Spells"  {:orcpub.dnd.e5/spells {:bolt {:key :bolt :spell-lists {:caster true}}}}
+              "Twin"    {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:twin-sub {:key :twin-sub :class :caster}}}}
         out (orcbrew-val/apply-key-renames data [{:source "Classes" :content-type :orcpub.dnd.e5/classes
                                                   :from :caster :to :caster-imp}])]
-    (is (= {:caster-imp true} (get-in out ["Spells" :orcpub.dnd.e5/spells :bolt :spell-lists]))
-        "a spell in another source of the same import follows the renamed class")))
+    (is (= :caster-imp (get-in out ["Classes" :orcpub.dnd.e5/subclasses :own :class])))
+    (is (= {:caster true} (get-in out ["Spells" :orcpub.dnd.e5/spells :bolt :spell-lists])))
+    (is (= :caster (get-in out ["Twin" :orcpub.dnd.e5/subclasses :twin-sub :class]))
+        "a source holding its own copy keeps meaning it")))
 
 (deftest auto-name-and-restore-leaves-every-key-alone
   (let [plugin {:orcpub.dnd.e5/races {:stone-elf-trcs {:name "Stone Elf" :key :stone-elf-trcs}

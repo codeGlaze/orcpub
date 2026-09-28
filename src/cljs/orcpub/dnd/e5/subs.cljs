@@ -1655,7 +1655,7 @@
 (reg-sub
  :orcpub.dnd.e5/suggested-repairs
  :<- [:orcpub.dnd.e5/plugins]
- :<- [::content-recon/offered-keys]
+ :<- [::content-recon/offered-by-type]
  :<- [:orcpub.dnd.e5/repairs-dismissed]
  (fn [[plugins offered dismissed] _]
    (vec (remove #(contains? dismissed ((juxt :source :type :key :link :target) %))
@@ -1668,7 +1668,7 @@
 (reg-sub
  :orcpub.dnd.e5/dangling-links
  :<- [:orcpub.dnd.e5/plugins]
- :<- [::content-recon/offered-keys]
+ :<- [::content-recon/offered-by-type]
  (fn [[plugins offered] _]
    (library/dangling plugins offered)))
 
@@ -1676,6 +1676,11 @@
  ::content-recon/offered-keys
  (fn [db _]
    (::content-recon/offered-keys db)))
+
+(reg-sub
+ ::content-recon/offered-by-type
+ (fn [db _]
+   (::content-recon/offered-by-type db)))
 
 (reg-sub
  :orcpub.dnd.e5/relink-question

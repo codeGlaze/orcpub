@@ -62,16 +62,11 @@
 ;; built-character without subscribing outside a reactive context.
 ;; track! creates a proper reactive context — no warnings.
 (defn cache-template
-  "Handler for `::cache-template`: stores `template` and its `offered-keys`, and settles pending
-   key-change repoints against them (writing the library when one moves a link). On the first
-   list, if the loaded character has a key the list now lets it heal, re-dispatches
-   `:set-character`."
+  "Handler for `::cache-template`: stores `template`, what it offers (`offered-keys`,
+   `offered-by-type`) and its `choice-tags`. On the first list, if the loaded character has a key
+   the list now lets it heal, re-dispatches `:set-character`."
   [{:keys [db]} [_ template]]
   (let [offered (content-recon/offered-keys template)
-        {settled :plugins pending :pending}
-        (content-recon/settle-repoints (:plugins db)
-                                       (::content-recon/pending-repoints db)
-                                       offered)
         character (:character db)
         ;; :set-character heals nothing until this list exists, so a character that loaded
         ;; first is healed here, once.
@@ -80,16 +75,12 @@
                    (seq (:rewrote (content-recon/reconcile-former-keys
                                    character
                                    (content-recon/former-key-index (:plugins db) offered)))))]
-    {:db (assoc db
-                ::cached-template template
-                ::content-recon/offered-keys offered
-                ::content-recon/choice-tags (library/choice-tags template)
-                ::content-recon/pending-repoints pending)
-     :dispatch-n (cond-> []
-                   (not= settled (:plugins db))
-                   (conj [:orcpub.dnd.e5/set-plugins settled])
-                   heal?
-                   (conj [:set-character character]))}))
+    (cond-> {:db (assoc db
+                        ::cached-template template
+                        ::content-recon/offered-keys offered
+                        ::content-recon/offered-by-type (library/offered-by-type template)
+                        ::content-recon/choice-tags (library/choice-tags template))}
+      heal? (assoc :dispatch [:set-character character]))))
 
 (reg-event-fx ::cache-template cache-template)
 

@@ -3272,9 +3272,11 @@
 
 (reg-event-db
  :show-warning-message
+ ;; `ttl` :sticky keeps the message until it is dismissed.
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when-not (= :sticky ttl)
+     (go (<! (timeout (or ttl 5000)))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
@@ -4767,7 +4769,10 @@
           {:db db :ok? false :dispatch-n [[:show-error-message (refusal-message refused)]]})
 
       :else
-      (let [kept-at (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
+      (let [kept (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
+            kept-at (:at kept)
+            _ (when (:failed? kept)
+                (js/console.warn "No room to keep a copy of the library before tidying it"))
             ok? (plugins->local-store stored)] ;; library gate
             (when ok? (set-plugins-rev! (inc rev)))
             {:db (cond-> (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
@@ -4797,9 +4802,12 @@
        (seq lost) (do (js/console.warn "Not storing the loaded library: entries it dropped are not in quarantine"
                                        (clj->js lost))
                       {})
-       :else (let [kept-at (keep-pre-fix-copy! stored)]
-               (cond-> {:dispatch [::e5/set-plugins live]}
-                 kept-at (assoc :db (assoc db ::e5/pre-fix-at kept-at))))))))
+       :else (let [kept (keep-pre-fix-copy! stored)]
+               (if (:failed? kept)
+                 (do (js/console.warn "Not storing the loaded library: no room to keep a copy of it first")
+                     {})
+                 (cond-> {:dispatch [::e5/set-plugins live]}
+                   (:at kept) (assoc :db (assoc db ::e5/pre-fix-at (:at kept))))))))))
 
 (reg-event-fx
  ::e5/apply-repairs
@@ -4820,7 +4828,7 @@
  ::e5/restore-pre-fix-library
  (fn [_ _]
    (if-let [{:keys [plugins]} (pre-fix-copy)]
-     {:dispatch-n [[::e5/set-plugins plugins {:deleting? true}]
+     {:dispatch-n [[::e5/set-plugins plugins {:deleting? true :restoring? true}]
                    [:show-message "Restored your library as it was before it was tidied."]]}
      {:dispatch [:show-error-message "There is no earlier copy to restore."]})))
 
@@ -5087,6 +5095,25 @@
                       (nil? normalized) (update source dissoc :abbreviation))]
      {:dispatch [::e5/set-plugins plugins]})))
 
+(defn repoint-offer-line
+  "A message line offering the repairs in `offer` (library/repoint-offer), one sentence per old key,
+   with a link that applies them; nil when `offer` is empty."
+  [offer]
+  (when (seq offer)
+    (into [:span]
+          (for [[[from to-key] rs] (group-by (juxt :target :to-key) offer)
+                :let [n (count (distinct (map (juxt :source :type :key) rs)))]]
+            [:span
+             (str n (if (= 1 n) " item" " items") " in other packs still "
+                  (if (= 1 n) "uses " "use ") from ". ")
+             [:span.pointer.underline
+              ;; stop the click: the banner closes on any click that reaches it.
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (dispatch [::e5/apply-repairs rs]))}
+              (str "Point " (if (= 1 n) "it" "them") " at " to-key)]
+             ". "]))))
+
 (reg-event-fx
  ::e5/change-builder-item-key
  ;; The ONE way an author changes a key. Keys are minted once and then fixed (D10a), so the name
@@ -5151,30 +5178,28 @@
          ;; wholesale discarded whatever they had typed since the last save, from app-db and from
          ;; the persisted draft alike. `:former-keys` comes across so the next save does not
          ;; write the breadcrumb back out.
-         ;; Links in this source follow now. Links in other sources follow once the builder's
-         ;; list shows the old key no longer answers (content-recon/settle-repoints): if built-in
-         ;; content still holds it, they keep pointing there.
-         {:db (-> db
-                  (assoc item-key (assoc item :key new-key
-                                         :former-keys (:former-keys moved))
-                         :builder-origin (assoc (:builder-origin db) plugin-key
-                                                {:source option-pack :key new-key
-                                                 :name (:name item)}))
-                  (update ::content-recon/pending-repoints (fnil conj [])
-                          {:type plugin-key :from old-key :to new-key :source option-pack}))
+         ;; Links in this source follow now; links in other sources are offered, never moved.
+         {:db (assoc db
+                     item-key (assoc item :key new-key
+                                     :former-keys (:former-keys moved))
+                     :builder-origin (assoc (:builder-origin db) plugin-key
+                                            {:source option-pack :key new-key
+                                             :name (:name item)}))
           ::persist-builder-origin (assoc (:builder-origin db) plugin-key
                                           {:source option-pack :key new-key
                                            :name (:name item)})
           ::persist-builder-wip [item-key (assoc item :key new-key
                                                  :former-keys (:former-keys moved))]
-          ;; Links in other sources still name the old key until settle-repoints moves them.
-          :dispatch-n [[::e5/set-plugins new-plugins {:retargeting [[plugin-key old-key]]}]
-                       [:set-builder-field-errors {}]
-                       [:show-warning-message
-                        {:title (str "Key changed to " new-key)
-                         :details [(str "Characters that stored " old-key
-                                        " are rebound when they next load.")]}
-                        10000]]})))))
+          :dispatch-n (let [offer (library/repoint-offer new-plugins plugin-key old-key new-key
+                                                         option-pack)]
+                        [[::e5/set-plugins new-plugins {:retargeting [[plugin-key old-key]]}]
+                         [:set-builder-field-errors {}]
+                         [:show-warning-message
+                          {:title (str "Key changed to " new-key)
+                           :details [(str "Characters that stored " old-key
+                                          " are rebound when they next load.")
+                                     (repoint-offer-line offer)]}
+                          (if (seq offer) :sticky 10000)]])})))))
 
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
@@ -6447,8 +6472,7 @@
          import-disables   (disable-targets :import)
          ;; rename-existing: keep the imported item's key as base and rename the
          ;; EXISTING one instead (the moderator's "decide what stays base"). Scoped
-         ;; to the existing item's source in :plugins; references are rewritten by
-         ;; apply-key-renames (subclass->class etc.).
+         ;; to the existing item's source in :plugins, whose references follow it.
          existing-renames (vec (keep (fn [{:keys [id key content-type existing-source]}]
                                        (let [d (get decisions id)]
                                          (when (= :rename-existing (:action d))
@@ -6496,7 +6520,17 @@
          success-msg (str "✅ Import successful"
                           (when (seq renames)
                             (str "\n\nRenamed " (count renames)
-                                 " key(s) to resolve conflicts.")))]
+                                 " key(s) to resolve conflicts.")))
+         ;; Links in other packs to a renamed key are offered, never moved.
+         final (if (or export-mode? library-mode?) renamed-data merged)
+         offer (vec (distinct (mapcat (fn [{:keys [source content-type from to]}]
+                                        (library/repoint-offer final content-type from to
+                                                               (or source import-name)))
+                                      (concat renames existing-renames))))
+         with-offer (fn [msg]
+                      (if (seq offer)
+                        [:show-warning-message {:title msg :details [(repoint-offer-line offer)]} :sticky]
+                        [:show-warning-message msg]))]
 
      (js/console.log "Applying conflict resolutions:" (clj->js {:renames renames}))
 
@@ -6520,20 +6554,20 @@
           [::e5/set-plugins renamed-data {:deleting? true}]
           (when merged
             [::e5/store-plugins merged
-             (when-not message [:show-warning-message success-msg])]))
+             (when-not message (with-offer success-msg))]))
 
         (when library-mode?
-          [:show-warning-message
+          (with-offer
            (str "✅ Resolved " (count renames) " key conflict"
-                (when (not= 1 (count renames)) "s") " in your content.")])
+                (when (not= 1 (count renames)) "s") " in your content.")))
 
         ;; Export-mode resolution message (import mode reports via store-plugins);
         ;; plus the set-aside notice if any entry was quarantined.
         (when export-mode?
-          [:show-warning-message
+          (with-offer
            (str "✅ Conflicts resolved"
                 (when (seq renames)
-                  (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts.")))])
+                  (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts.")))))
         (when message [:show-warning-message message])
 
         ;; Store import log

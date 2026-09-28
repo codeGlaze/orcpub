@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.races :as race5e]
             [orcpub.dnd.e5.classes :as class5e]
@@ -279,14 +280,19 @@
 (def local-storage-pre-fix-at-key "plugins:pre-fix-at")
 
 (defn keep-pre-fix-copy!
-  "Stores `plugins` in the `plugins:pre-fix` slot, with the time in `plugins:pre-fix-at`, once: a
-   slot already holding a copy is left alone. Returns the time when it stored one."
+  "Stores `plugins` in the `plugins:pre-fix` slot, with the time in `plugins:pre-fix-at`, once.
+   Returns {:at time} when it stored one, {:failed? true} when the write failed, and nil when the
+   slot already holds a copy or `plugins` holds no items."
   [plugins]
-  (when (and js/window.localStorage (nil? (.getItem js/window.localStorage local-storage-pre-fix-key)))
+  (when (and js/window.localStorage
+             (nil? (.getItem js/window.localStorage local-storage-pre-fix-key))
+             (not (library/empty-library? plugins)))
     (let [now (.now js/Date)]
-      (when (set-item local-storage-pre-fix-key (str plugins))
-        (set-item local-storage-pre-fix-at-key (str now))
-        now))))
+      (if (and (set-item local-storage-pre-fix-key (str plugins))
+               (set-item local-storage-pre-fix-at-key (str now)))
+        {:at now}
+        (do (.removeItem js/window.localStorage local-storage-pre-fix-key)
+            {:failed? true})))))
 
 (defn pre-fix-copy
   "{:plugins :at} for the kept pre-fix copy, or nil."

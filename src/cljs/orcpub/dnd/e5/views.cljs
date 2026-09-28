@@ -9142,19 +9142,16 @@
        [:div.f-w-b.f-s-18.m-b-5
         [:i.fa.fa-chain-broken.m-r-5]
         (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
-       [:div.f-s-12.m-b-10 "A rename left these pointing at the wrong thing, or at nothing."]
+       [:div.f-s-12.m-b-10 "A rename left these pointing at nothing."]
        (doall
-        (for [{:keys [source type key name to target to-key reason] :as r} repairs]
+        (for [{:keys [source type key name to target to-key] :as r} repairs]
           ^{:key (str source type key target)}
           [:div.flex.align-items-c.justify-cont-s-b.p-t-5.p-b-5
            [:div.f-s-14
             (str (quoted (or name (cljs.core/name key))) " uses "
                  (quoted (cljs.core/name target))
-                 (if (= :missing reason)
-                   ", which was renamed. Switch it to "
-                   (str " from another pack. It was probably written for "))
+                 ", which was renamed. Switch it to "
                  (quoted (item-name-in plugins to to-key))
-                 (when (= :other-copy reason) " in its own pack")
                  ".")]
            [:button.form-button.m-l-10 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
        [:div.m-t-10

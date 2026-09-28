@@ -729,46 +729,12 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
-
 (reg-sub
  ::langs5e/languages
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub

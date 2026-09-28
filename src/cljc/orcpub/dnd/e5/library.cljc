@@ -4,7 +4,10 @@
   (:require [orcpub.common :as common]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
-            [orcpub.dnd.e5.library-links :as links]))
+            [orcpub.dnd.e5.languages :as langs]
+            [orcpub.dnd.e5.library-links :as links]
+            [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.spells :as spells]))
 
 (defn- content-groups [plugins]
   (for [[src plugin] plugins
@@ -12,6 +15,11 @@
         [ct items] plugin
         :when (and (qualified-keyword? ct) (map? items))]
     [src ct items]))
+
+(defn empty-library?
+  "True when `plugins` holds no items."
+  [plugins]
+  (not-any? (fn [[_ _ items]] (seq items)) (content-groups plugins)))
 
 (defn normalize
   "`plugins` with every item's `:key` and `:option-pack` set to the key and source it is stored
@@ -59,13 +67,22 @@
                    (not (contains? (get-in old [src ct]) k)))]
     [src ct k]))
 
+(def ^:private built-in-names
+  "{content-type #{name}} of built-in content a `:by :name` link can name."
+  {:orcpub.dnd.e5/languages (into #{} (map :name) langs/languages)})
+
 (defn- follow-renamed-names
-  "`new` with each `:by :name` link naming an item `old` knew by another name renamed to match."
+  "`new` with each `:by :name` link naming an item `old` knew by another name renamed to match,
+   when nothing in `new` or built-in content still answers to the old name."
   [old new]
-  (let [renames (for [[src ct items] (content-groups new)
+  (let [names (reduce (fn [acc [_ ct items]]
+                        (update acc ct (fnil into #{}) (keep :name) (filter map? (vals items))))
+                      built-in-names (content-groups new))
+        renames (for [[src ct items] (content-groups new)
                       [k item] items
                       :let [was (get-in old [src ct k :name])]
-                      :when (and (string? was) (string? (:name item)) (not= was (:name item)))]
+                      :when (and (string? was) (string? (:name item)) (not= was (:name item))
+                                 (not (contains? (get names ct) was)))]
                   [ct was (:name item)])
         name-links (filter #(= :name (:by %)) links/links)]
     (reduce (fn [p [ct was now]]
@@ -84,11 +101,12 @@
   "What storing `new` in place of `old` does: {:plugins (normalize new) :broken [...]}, or
    {:refused {:broken [...] :invalid [...]}} when it would add a key the loader sets aside or
    leave a link pointing at nothing. `deleting?` lets a deliberate removal through and reports
-   the links it broke; `retargeting` is a collection of [type key] whose links are being moved."
-  [old new {:keys [deleting? retargeting]}]
+   the links it broke; `retargeting` is a collection of [type key] whose links are being moved;
+   `restoring?` lets keys the loader sets aside through (it sets them aside again)."
+  [old new {:keys [deleting? retargeting restoring?]}]
   (let [stored (follow-renamed-names old (normalize new))
         broken (vec (broken-links old stored (set retargeting)))
-        invalid (vec (invalid-keys old stored))]
+        invalid (if restoring? [] (vec (invalid-keys old stored)))]
     (if (or (seq invalid) (and (seq broken) (not deleting?)))
       {:refused {:broken broken :invalid invalid}}
       {:plugins stored :broken broken})))
@@ -139,20 +157,35 @@
                                t changed))
      :conflicts (vec (sort-by str conflicts))}))
 
+(def built-in-keys
+  "{content-type #{key}} of the built-in content links can name that is fixed data."
+  {:orcpub.dnd.e5/spells (set (keys spells/spell-map))
+   :orcpub.dnd.e5/languages (into #{} (map :key) langs/languages)
+   :orcpub.dnd.e5/monsters (set (keys monsters/monster-map))})
+
+(defn offered-by-type
+  "{content-type #{key}} a link can resolve to outside the library: the options of `template`'s
+   top-level :class and :race choices, and `built-in-keys`."
+  [template]
+  (let [under (fn [k] (into #{} (keep ::t/key)
+                            (some #(when (= k (::t/key %)) (::t/options %)) (::t/selections template))))]
+    (merge-with into
+                {:orcpub.dnd.e5/classes (under :class) :orcpub.dnd.e5/races (under :race)}
+                built-in-keys)))
+
 (defn dangling
   "{[source type key] [{:link :target}]} for every item in `plugins` with a link to nothing:
-   neither `offered` (every key the builder offers, built-in included) nor any library item holds
-   the target. A `:by :name` link to a language is found by name first. `offered` nil means not
-   yet known: {}."
+   neither `offered` (from `offered-by-type`) nor a library item of the link's type holds the
+   target. A `:by :name` link to a language is found by name first. `offered` nil means not yet
+   known: {}."
   [plugins offered]
   (if (nil? offered)
     {}
     (let [lib (held plugins)
-          answers? (fn [to k] (or (contains? offered k) (contains? (get lib to) k)))
-          names (into #{} (for [[_ ct items] (content-groups plugins)
-                                :when (= ct :orcpub.dnd.e5/languages)
-                                [_ item] items]
-                            (:name item)))]
+          answers? (fn [to k] (or (contains? (get offered to) k) (contains? (get lib to) k)))
+          names (reduce (fn [acc [_ ct items]]
+                          (update acc ct (fnil into #{}) (keep :name) (filter map? (vals items))))
+                        built-in-names (content-groups plugins))]
       (reduce (fn [acc [src ct items]]
                 (reduce-kv
                  (fn [acc k item]
@@ -160,7 +193,7 @@
                                        :when (and (map? item) (links/holds? link ct))
                                        target (links/targets link item)
                                        :when (if (= :name (:by link))
-                                               (not (or (contains? names target)
+                                               (not (or (contains? (get names (:to link)) target)
                                                         (answers? (:to link) (common/name-to-kw (str target)))))
                                                (not (answers? (:to link) target)))]
                                    {:link (:id link) :to (:to link) :target target})]
@@ -168,18 +201,32 @@
                  acc items))
               {} (content-groups plugins)))))
 
-(defn linking
-  "Items in `plugins` outside the sources in `except` with a `:by :key` link naming `k` of
-   content type `to`, as [{:source :type :key :name}]."
+(defn links-to
+  "Every `:by :key` link naming `k` of content type `to`, from items in `plugins` outside the
+   sources in `except`, as [{:source :type :key :name :link :to :target}]."
   [plugins to k except]
   (for [[src ct items] (content-groups plugins)
         :when (not (contains? except src))
         [ik item] items
-        :when (and (map? item)
-                   (some (fn [link] (and (= :key (:by link)) (= to (:to link)) (links/holds? link ct)
-                                         (some #{k} (links/targets link item))))
-                         links/links))]
-    {:source src :type ct :key ik :name (:name item)}))
+        :when (map? item)
+        link links/links
+        :when (and (= :key (:by link)) (= to (:to link)) (links/holds? link ct)
+                   (some #{k} (links/targets link item)))]
+    {:source src :type ct :key ik :name (:name item) :link (:id link) :to to :target k}))
+
+(defn linking
+  "Items in `plugins` outside the sources in `except` with a `:by :key` link naming `k` of
+   content type `to`, as [{:source :type :key :name}]."
+  [plugins to k except]
+  (distinct (map #(select-keys % [:source :type :key :name]) (links-to plugins to k except))))
+
+(defn repoint-offer
+  "The repairs (as `suggested-repairs`) that point links to `from`, of content type `to`, at
+   `to-key` instead: every such link in `plugins` outside `source` and outside any source that
+   holds its own `from`."
+  [plugins to from to-key source]
+  (let [holders (into #{source} (for [[s p] plugins :when (some? (get-in p [to from]))] s))]
+    (vec (for [r (links-to plugins to from holders)] (assoc r :to-key to-key :reason :rekeyed)))))
 
 (defn dropped
   "[source type key] of every item `before` holds and `after` does not."
@@ -200,9 +247,8 @@
 
 (defn suggested-repairs
   "Links a past rename left behind, each with the key it most likely meant, as
-   [{:source :type :key :name :link :to :target :to-key :reason}]. `:missing`: nothing answers the
-   target and exactly one item lists it among its :former-keys. `:other-copy`: only another
-   source holds the target, and exactly one item in the linking item's own source lists it.
+   [{:source :type :key :name :link :to :target :to-key :reason}], `:reason` `:missing`: nothing
+   of the link's type answers the target and exactly one item lists it among its :former-keys.
    `offered` as `dangling`; nil means not yet known: []."
   [plugins offered]
   (if (nil? offered)
@@ -217,25 +263,22 @@
              :when (and (= :key (:by link)) (links/holds? link ct))
              target (links/targets link item)
              :let [to (:to link)
-                   holders (for [[s p] plugins :when (some? (get-in p [to target]))] s)
                    claims (get formers [to target])
-                   own (filter #(= src (first %)) claims)
-                   [reason [_ to-key]]
-                   (cond
-                     (and (empty? holders) (not (contains? offered target)) (= 1 (count claims)))
-                     [:missing (first claims)]
-                     (and (seq holders) (not (some #{src} holders)) (= 1 (count own)))
-                     [:other-copy (first own)])]
-             :when reason]
+                   [_ to-key] (first claims)]
+             :when (and (not (contains? (get lib to) target))
+                        (not (contains? (get offered to) target))
+                        (= 1 (count claims)))]
          {:source src :type ct :key k :name (:name item) :link (:id link) :to to
-          :target target :to-key to-key :reason reason})))))
+          :target target :to-key to-key :reason :missing})))))
 
 (defn apply-repairs
   "`plugins` with each repair from `suggested-repairs` made."
   [plugins repairs]
   (let [by-id (into {} (map (juxt :id identity)) links/links)]
     (reduce (fn [p {:keys [source type key link target to-key]}]
-              (update-in p [source type key] #(links/retarget (by-id link) % target to-key)))
+              (cond-> p
+                (map? (get-in p [source type key]))
+                (update-in [source type key] #(links/retarget (by-id link) % target to-key))))
             plugins repairs)))
 
 (defn offered-keys

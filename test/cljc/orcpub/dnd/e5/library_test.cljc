@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.library-test
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.library :as library]))
 
 (def ^:private library
@@ -89,7 +90,7 @@
                         :orcpub.dnd.e5/classes {:warden {:name "Warden"}}
                         :orcpub.dnd.e5/races {:folk {:name "Folk" :languages #{"Tidetongue" "Nope"}}}
                         :orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}}}
-        out (library/dangling plugins #{:cleric :common})]
+        out (library/dangling plugins {:orcpub.dnd.e5/classes #{:cleric}})]
     (is (= [{:link :subclass->class :to :orcpub.dnd.e5/classes :target :gone}]
            (get out ["Pak" :orcpub.dnd.e5/subclasses :lost])))
     (is (nil? (get out ["Pak" :orcpub.dnd.e5/subclasses :srd])) "built-in content answers")
@@ -98,6 +99,47 @@
            (get out ["Pak" :orcpub.dnd.e5/races :folk]))
         "a language named by name is found by name; one nothing has that name is reported")
     (is (= {} (library/dangling plugins nil)) "nothing is reported before the builder's list exists")))
+
+(deftest a-built-in-of-another-type-does-not-answer-a-link
+  ;; The built-in LANGUAGE Orc is :orc; a subrace naming race :orc still points at nothing.
+  (let [plugins {"Pak" {:orcpub.dnd.e5/subraces {:grey {:name "Grey" :race :orc}}}}]
+    (is (= [:orc] (map :target (get (library/dangling plugins {:orcpub.dnd.e5/languages #{:orc}})
+                                    ["Pak" :orcpub.dnd.e5/subraces :grey]))))
+    (is (empty? (library/dangling plugins {:orcpub.dnd.e5/races #{:orc}})))))
+
+(deftest a-level-selection-is-answered-only-by-a-selection
+  ;; The builder names a class's generated choice after the selection it asks for, so the flat
+  ;; list of offered keys held the link's own target.
+  (let [plugins {"Pak" {:orcpub.dnd.e5/classes {:mage {:name "Mage" :level-selections [{:type :tricks}]}}}}]
+    (is (= [:tricks] (map :target (get (library/dangling plugins {:orcpub.dnd.e5/classes #{:tricks}})
+                                       ["Pak" :orcpub.dnd.e5/classes :mage]))))))
+
+(deftest offered-by-type-reads-classes-and-races-from-the-template
+  (let [template {::t/selections [(t/selection-cfg {:name "Race" :key :race
+                                                    :options [(t/option-cfg {:name "Elf" :key :elf})]})
+                                  (t/selection-cfg {:name "Class" :key :class
+                                                    :options [(t/option-cfg {:name "Wizard" :key :wizard})]})
+                                  (t/selection-cfg {:name "Feats" :key :feats
+                                                    :options [(t/option-cfg {:name "Elf" :key :orc})]})]}
+        offered (library/offered-by-type template)]
+    (is (= #{:elf} (:orcpub.dnd.e5/races offered)))
+    (is (= #{:wizard} (:orcpub.dnd.e5/classes offered)))
+    (is (contains? (:orcpub.dnd.e5/languages offered) :orc) "built-in languages by their keys")
+    (is (contains? (:orcpub.dnd.e5/spells offered) :fireball))
+    (is (not (contains? (:orcpub.dnd.e5/races offered) :orc)) "a feat's key is no race")))
+
+(deftest repoint-offer-finds-links-in-other-packs-that-do-not-hold-their-own-copy
+  (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:warden-x {:name "Warden X"}}}
+                 "Domains" {:orcpub.dnd.e5/subclasses {:tides {:name "Oath of Tides" :class :warden}}}
+                 "Twin"    {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}
+                            :orcpub.dnd.e5/subclasses {:own {:name "Own" :class :warden}}}}
+        offer (library/repoint-offer plugins :orcpub.dnd.e5/classes :warden :warden-x "Classes")]
+    (is (= [["Domains" :tides :warden :warden-x]] (map (juxt :source :key :target :to-key) offer))
+        "a pack holding its own :warden means its own")
+    (is (= :warden-x (get-in (library/apply-repairs plugins offer)
+                             ["Domains" :orcpub.dnd.e5/subclasses :tides :class])))
+    (is (= plugins (library/apply-repairs plugins [(assoc (first offer) :key :gone)]))
+        "a repair for an item that is gone changes nothing")))
 
 (deftest linking-finds-what-still-names-a-key-outside-some-sources
   (is (= [{:source "Domains" :type :orcpub.dnd.e5/subclasses :key :tides :name "Oath of Tides"}]
@@ -114,17 +156,19 @@
                  "Library" {:orcpub.dnd.e5/selections {:tricks {:name "Library Tricks"}}}
                  "Import"  {:orcpub.dnd.e5/selections {:tricks-imp {:name "Import Tricks" :former-keys [:tricks]}}
                             :orcpub.dnd.e5/classes {:mage {:name "Mage" :level-selections [{:type :tricks}]}}}}
-        repairs (library/suggested-repairs plugins #{})]
-    (is (= #{[:tides :missing :warden-x] [:mage :other-copy :tricks-imp]}
-           (set (map (juxt :key :reason :to-key) repairs)))
-        "a renamed target, and a link bound to another pack's copy; a link to nothing with no
-         rename behind it is not guessed at")
-    (let [fixed (library/apply-repairs plugins repairs)]
-      (is (= :warden-x (get-in fixed ["Domains" :orcpub.dnd.e5/subclasses :tides :class])))
-      (is (= :tricks-imp (get-in fixed ["Import" :orcpub.dnd.e5/classes :mage :level-selections 0 :type]))))
+        repairs (library/suggested-repairs plugins {})]
+    (is (= [[:tides :missing :warden-x]] (map (juxt :key :reason :to-key) repairs))
+        "a renamed target; a link another pack's copy answers is left to mean that copy, and a
+         link to nothing with no rename behind it is not guessed at")
+    (is (= :warden-x (get-in (library/apply-repairs plugins repairs)
+                             ["Domains" :orcpub.dnd.e5/subclasses :tides :class])))
+    (is (empty? (library/suggested-repairs plugins {:orcpub.dnd.e5/classes #{:warden}}))
+        "built-in content of the link's type answers the old key")
+    (is (= 1 (count (library/suggested-repairs plugins {:orcpub.dnd.e5/languages #{:warden}})))
+        "built-in content of another type does not")
     (is (not-any? #(= :tides (:key %))
                   (library/suggested-repairs
-                   (assoc-in plugins ["Classes" :orcpub.dnd.e5/classes :other :former-keys] [:warden]) #{}))
+                   (assoc-in plugins ["Classes" :orcpub.dnd.e5/classes :other :former-keys] [:warden]) {}))
         "two items claiming the old key: no suggestion, since it would be a guess")))
 
 (deftest renaming-a-language-carries-the-new-name-into-races
@@ -133,6 +177,29 @@
         new (assoc-in old ["Pak" :orcpub.dnd.e5/languages :tidetongue-tp :name] "Tide-tongue")]
     (is (= #{"Tide-tongue" "Common"}
            (get-in (:plugins (library/commit old new {})) ["Pak" :orcpub.dnd.e5/races :tidefolk :languages])))))
+
+(deftest a-renamed-language-is-not-followed-while-its-old-name-still-answers
+  (let [old {"Pak" {:orcpub.dnd.e5/languages {:elvish-tp {:name "Elvish"}}}
+             "Folk" {:orcpub.dnd.e5/races {:wood {:name "Wood" :languages #{"Elvish"}}}}}
+        renamed (assoc-in old ["Pak" :orcpub.dnd.e5/languages :elvish-tp :name] "Elvish (Old)")]
+    (is (= #{"Elvish"} (get-in (:plugins (library/commit old renamed {})) ["Folk" :orcpub.dnd.e5/races :wood :languages]))
+        "built-in Elvish still answers, so the race keeps meaning it"))
+  (let [old {"Pak" {:orcpub.dnd.e5/languages {:cant-a {:name "Cant"}}}
+             "Other" {:orcpub.dnd.e5/languages {:cant-b {:name "Cant"}}}
+             "Folk" {:orcpub.dnd.e5/races {:thief {:name "Thief" :languages #{"Cant"}}}}}
+        renamed (assoc-in old ["Pak" :orcpub.dnd.e5/languages :cant-a :name] "Old Cant")]
+    (is (= #{"Cant"} (get-in (:plugins (library/commit old renamed {})) ["Folk" :orcpub.dnd.e5/races :thief :languages]))
+        "another library language still answers to the old name")))
+
+(deftest restoring-lets-a-key-the-loader-sets-aside-through
+  (let [bad (assoc-in library ["Classes" :orcpub.dnd.e5/classes :9-lives] {:name "9 Lives"})]
+    (is (some? (:plugins (library/commit library bad {:deleting? true :restoring? true}))))))
+
+(deftest empty-library-is-a-library-with-no-items
+  (is (library/empty-library? {}))
+  (is (library/empty-library? {"Default Option Source" {}}))
+  (is (library/empty-library? {"Pak" {:orcpub.dnd.e5/classes {}}}))
+  (is (not (library/empty-library? library))))
 
 (deftest dropped-lists-items-the-second-library-lacks
   (is (= [["Classes" :orcpub.dnd.e5/classes :warden]]

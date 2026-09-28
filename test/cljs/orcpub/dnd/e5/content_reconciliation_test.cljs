@@ -693,24 +693,6 @@
     (is (empty? (reconcile/check-content-availability
                  (reconcile/extract-content-keys test-character) available-content nil)))))
 
-(deftest settle-repoints-follows-what-the-builder-offers
-  (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:caster-x {:key :caster-x}}}
-                 "Domains" {:orcpub.dnd.e5/subclasses {:oath {:key :oath :class :caster}}}}
-        pending [{:type :orcpub.dnd.e5/classes :from :caster :to :caster-x :source "Classes"}]
-        class-of #(get-in % ["Domains" :orcpub.dnd.e5/subclasses :oath :class])]
-    (testing "the builder does not offer the new key yet: wait"
-      (let [{:keys [plugins pending]} (reconcile/settle-repoints plugins pending #{})]
-        (is (= :caster (class-of plugins)))
-        (is (= 1 (count pending)))))
-    (testing "the old key no longer answers: links in other sources follow"
-      (let [{:keys [plugins pending]} (reconcile/settle-repoints plugins pending #{:caster-x})]
-        (is (= :caster-x (class-of plugins)))
-        (is (empty? pending))))
-    (testing "built-in content still answers to the old key: nothing moves"
-      (let [{:keys [plugins pending]} (reconcile/settle-repoints plugins pending #{:caster :caster-x})]
-        (is (= :caster (class-of plugins)))
-        (is (empty? pending))))))
-
 (deftest relink-to-ask-picks-a-rename-this-character-is-caught-by
   (let [relinks [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl :asked #{}}]
         plugins {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}

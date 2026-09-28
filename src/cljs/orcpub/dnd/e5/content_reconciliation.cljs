@@ -445,26 +445,6 @@
                       [former (first targets)])))
             claims))))
 
-(defn settle-repoints
-  "Settles `pending` cross-source repoints, each {:type :from :to :source}, against `offered`
-   (from `offered-keys`). An entry whose `:to` is not offered yet is kept for the next list. Once
-   it is: if `:from` is no longer offered, links to it in every source but `:source` are
-   repointed to `:to`; if `:from` is still offered (built-in content holds it), nothing moves.
-   Returns {:plugins :pending}."
-  [plugins pending offered]
-  (reduce (fn [{:keys [plugins] :as acc} {:keys [type from to source] :as entry}]
-            (cond
-              (not (contains? offered to)) (update acc :pending conj entry)
-              (contains? offered from) acc
-              :else (assoc acc :plugins
-                           (reduce-kv (fn [ps src plugin]
-                                        (assoc ps src (if (or (= src source) (not (map? plugin)))
-                                                        plugin
-                                                        (links/repoint plugin type from to))))
-                                      {} plugins))))
-          {:plugins plugins :pending []}
-          pending))
-
 (defn relink-to-ask
   "The index into `relinks` (db/pending-relinks) of the first rename to ask `character` about, or
    nil: a saved character not yet asked, holding the renamed item's old key, while `plugins` holds

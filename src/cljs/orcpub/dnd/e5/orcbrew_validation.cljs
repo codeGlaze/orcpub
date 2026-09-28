@@ -2182,8 +2182,8 @@
    - data: the import data (single or multi-plugin)
    - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
      is optional and renames the item's display name alongside its key.
-   GOTCHA: links are repointed in every source of `data`. Pass only the side of a clash
-   the renamed item belongs to: the import data, or the existing library.
+   Links follow only inside the renamed item's own source; `library/repoint-offer` finds the
+   ones elsewhere, to ask about.
 
    Returns updated data with all renames applied."
   [data renames]
@@ -2191,12 +2191,7 @@
     (reduce
      (fn [d {:keys [source content-type from to to-name]}]
        (if is-multi
-         (reduce-kv (fn [acc src plugin]
-                      (assoc acc src (if (and (not= src source) (map? plugin))
-                                       (links/repoint plugin content-type from to)
-                                       plugin)))
-                    {}
-                    (rename-key-in-plugins d source content-type from to to-name))
+         (rename-key-in-plugins d source content-type from to to-name)
          (rename-key-in-plugin d content-type from to to-name)))
      data
      renames)))
