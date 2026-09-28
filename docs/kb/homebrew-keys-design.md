@@ -463,7 +463,12 @@ is missing (fixed in `c0e38458`; on `integration` too).
 - **Missing-content warning, revised by the owner to spells and languages (2026-09-28): done**
   (`4e88b04c`). Found by the builder's own choice tags (`#{:spells}`, `:language-profs`); guarded on
   `warlock_test`'s real character, falsified by removing the tag restriction.
-- **Q3 browser test (second round): the flow runs to the last step, and the question never shows.**
+- **Q3 question: fixed and tested (`c50e6536`).** The cause was as suspected: the question was a
+  message, the route change into the builder hid it, and it was counted as asked when shown. It is
+  now a banner in the builder (`::e5/relink-question`) that waits for an answer, and only the answer
+  (`::e5/answer-relink`) records it. `test/e2e/relink-question.js` 9/9 on the seeded server
+  (`CSP_POLICY=none`); all ten e2e scripts 131/131.
+- **Q3 browser test (second round, superseded): the flow ran to the last step and the question never showed.**
   Sign-in, save (the character gets an id), import, "rename your existing one" and the recorded
   rename all pass. Likely cause, not yet confirmed: "Edit" dispatches `:set-character` (which shows
   the question) and then a route change, and every route change dispatches `:hide-message`, so the

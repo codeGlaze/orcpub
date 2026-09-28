@@ -75,9 +75,9 @@ cljs 500/2589, e2e 71/71, three pieces falsified). Q1–Q3 decided as recommende
 505/2598, seven e2e scripts 82/82; Q6 decided). All eight build steps are done. Next: review
 `port/save-gate` against the map's invariants, then land it on `integration`.
 
-**Open before the review (2026-09-28):** the Q3 browser test (half-built), and the owner's call on
-how to widen the missing-content warning without false alarms (see `homebrew-keys-design.md`,
-"Closing the open items").
+**Open items closed (2026-09-28):** the missing-content warning covers spells and languages
+(`4e88b04c`); the Q3 question is a banner that waits for an answer, tested in the real app
+(`c50e6536`). Nothing is open before the review.
 
 **#34's late push (2026-09-27, `f82f9444`)** was checked against `port/save-gate`: it is #34 catching
 up to integration's source-tagged keys (already on the port), a merge of the standing-duplicate fix
