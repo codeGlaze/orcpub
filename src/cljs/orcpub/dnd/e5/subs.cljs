@@ -1678,6 +1678,12 @@
    (::content-recon/offered-keys db)))
 
 (reg-sub
+ :orcpub.dnd.e5/relink-question
+ (fn [db _]
+   (let [q (:orcpub.dnd.e5/relink-question db)]
+     (when (and q (= (:character-id q) (get-in db [:character :db/id]))) q))))
+
+(reg-sub
  ::content-recon/choice-tags
  (fn [db _]
    (::content-recon/choice-tags db)))

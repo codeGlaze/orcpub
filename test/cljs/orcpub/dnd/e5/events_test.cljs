@@ -559,22 +559,48 @@
     (is (= "5" (.getItem js/window.localStorage "plugins:rev")) "and nothing was written"))
   (.clear js/window.localStorage))
 
-(deftest a-character-caught-by-an-import-rename-is-asked-once
+(def ^:private tidefolk-relinks
+  [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl
+    :to-name "Warden (Cl)" :import "Tide Pak" :asked #{}}])
+
+(def ^:private two-wardens
+  {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
+   "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}})
+
+(def ^:private warden-character {:db/id 7 :orcpub.entity/options {:class [{:orcpub.entity/key :warden}]}})
+
+(defn- asked [] (:asked (first (cljs.reader/read-string (.getItem js/window.localStorage "plugins:relinks")))))
+
+(deftest a-character-caught-by-an-import-rename-is-asked-until-it-answers
   (.clear js/window.localStorage)
-  (.setItem js/window.localStorage "plugins:relinks"
-            (pr-str [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl
-                      :to-name "Warden (Cl)" :import "Tide Pak" :asked #{}}]))
-  (let [character {:db/id 7 :orcpub.entity/options {:class [{:orcpub.entity/key :warden}]}}]
-    (reset! app-db {:plugins {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
-                              "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}}})
-    (run-through! [:set-character character])
-    (is (= "This character uses \u201cWarden\u201d, and importing \u201cTide Pak\u201d added a different one."
-           (get-in @app-db [:message :title])))
-    (is (= :warden (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
-        "nothing is switched until the author picks")
-    (swap! app-db dissoc :message)
-    (run-through! [:set-character character])
-    (is (nil? (:message @app-db)) "and it is asked once"))
+  (.setItem js/window.localStorage "plugins:relinks" (pr-str tidefolk-relinks))
+  (reset! app-db {:plugins two-wardens})
+  (run-through! [:set-character warden-character])
+  (is (= {:from :warden :to-name "Warden (Cl)" :from-name "Warden" :import "Tide Pak" :character-id 7}
+         (select-keys (:orcpub.dnd.e5/relink-question @app-db)
+                      [:from :to-name :from-name :import :character-id]))
+      "the builder has a question to show")
+  (is (empty? (asked)) "and it is not counted as asked just for being shown")
+  (run-through! [:set-character warden-character])
+  (is (some? (:orcpub.dnd.e5/relink-question @app-db)) "so a reload asks again")
+  (run-through! [::e5/answer-relink :keep])
+  (is (= #{7} (asked)) "an answer records it")
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)))
+  (is (= :warden (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
+      "keeping leaves the character on the imported one")
+  (run-through! [:set-character warden-character])
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)) "and it is not asked again")
+  (.clear js/window.localStorage))
+
+(deftest switching-points-the-character-at-its-renamed-item
+  (.clear js/window.localStorage)
+  (.setItem js/window.localStorage "plugins:relinks" (pr-str tidefolk-relinks))
+  (reset! app-db {:plugins two-wardens})
+  (run-through! [:set-character warden-character])
+  (run-through! [::e5/answer-relink :switch])
+  (is (= :warden-cl (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key])))
+  (is (= #{7} (asked)))
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)))
   (.clear js/window.localStorage))
 
 (deftest the-loaded-library-is-stored-once-when-nothing-is-lost

@@ -50,6 +50,9 @@ Four scripts cover one subject between them — where a save lands, and what an 
 it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
 
 - **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`relink-question.js`** — needs the seeded server (see its header). After an import renames the
+  library's copy of a race, a saved character using it is asked once, by a banner in the builder,
+  which one it meant; switching relinks it, and it is not asked again.
 - **`move-note.js`** — a Move that has to rename says how many items in other packs still use the copy
   already in the target.
 - **`links-to-nothing.js`** — invariant I11: one item per kind of link (read from the running app), each

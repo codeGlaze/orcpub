@@ -2122,18 +2122,6 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
-(defn- relink-question
-  "The message asking whether a character keeps the imported item under `from` (named
-   `from-name`) or switches to the renamed one it used before, `to`."
-  [{:keys [from to to-name import]} from-name]
-  {:title (str "This character uses \u201c" (or from-name (common/kw-to-name from true))
-               "\u201d, and importing "
-               (if import (str "\u201c" import "\u201d") "a pack") " added a different one.")
-   :details [[:span.pointer.underline.f-w-b
-              {:on-click #(dispatch [::char5e/relink-content from to])}
-              (str "Switch it to yours, now called \u201c" (or to-name (name to)) "\u201d")]
-             "Or leave it on the imported one."]})
-
 (reg-event-fx
  :set-character
  [db-char->local-store (inject-cofx ::e5/pending-relinks)]
@@ -2142,17 +2130,28 @@
          rewrote (get-in db' [:character-healed :rewrote])
          relinks (::e5/pending-relinks cofx)
          ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
-     ;; Asked once: recorded as soon as the question is shown (owner's decision, Q3).
-     (when ask
-       (set-pending-relinks! (update-in relinks [ask :asked] (fnil conj #{}) (:db/id (:character db')))))
-     (cond-> {:db db'}
+     ;; Asked once (owner's decision, Q3): the builder shows ::e5/relink-question as a banner until
+     ;; the author answers, and only the answer (::e5/answer-relink) records it as asked.
+     (cond-> {:db (assoc db' ::e5/relink-question
+                         (when ask
+                           (let [{:keys [content-type from] :as r} (get relinks ask)]
+                             (assoc (select-keys r [:content-type :from :to :to-name :import])
+                                    :from-name (some #(get-in % [content-type from :name]) (vals (:plugins db')))
+                                    :character-id (:db/id (:character db'))))))}
        ;; Only on an actual repair. A clean load stays silent.
-       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])
-       ask (assoc :dispatch
-                  (let [{:keys [content-type from] :as r} (get relinks ask)]
-                    [:show-warning-message
-                     (relink-question r (some #(get-in % [content-type from :name]) (vals (:plugins db'))))
-                     60000]))))))
+       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+
+(reg-event-fx
+ ::e5/answer-relink
+ ;; `choice` is :switch (to the renamed item the character used before) or :keep.
+ (fn [{:keys [db]} [_ choice]]
+   (let [{:keys [content-type from to character-id] :as q} (::e5/relink-question db)
+         same? #(and (= content-type (:content-type %)) (= from (:from %)) (= to (:to %)))]
+     (when q
+       (set-pending-relinks! (mapv #(cond-> % (same? %) (update :asked (fnil conj #{}) character-id))
+                                   (pending-relinks))))
+     (cond-> {:db (dissoc db ::e5/relink-question)}
+       (and q (= :switch choice)) (assoc :dispatch [::char5e/relink-content from to])))))
 
 (def character-values-path
   [::entity/values])
