@@ -37,16 +37,29 @@
   (testing "one artist across many layers is one credit, not many"
     (is (= 1 (count (re-seq #"Art:" (pa/format-credit ["A Person"])))))))
 
-(deftest an-unnamed-artist-gets-no-invented-byline
-  (testing "the illustrator has not yet said how they want to be credited, so
-            :artist/name is nil and every surface shows nothing rather than a
-            name nobody chose"
-    (is (nil? (pa/credit-line (portrait-with [:head :shirt :eyes])))))
+(deftest the-illustrator-is-credited
+  (testing "Fusspot drew this art and every surface says so"
+    (is (= "Art: Fusspot" (pa/credit-line (portrait-with [:head :shirt :eyes]))))))
+
+(deftest an-unnamed-artist-still-gets-no-invented-byline
+  (testing "This used to hold because the registry had no name in it. It has
+            one now, so the guarantee is asserted directly instead: an artist
+            who has not said how they want to be credited is SKIPPED, not given
+            a byline nobody chose. It matters for the next contributor as much
+            as it did for this one."
+    (try
+      (pa/set-artist-overrides! {:house-pack {:artist/name nil}})
+      (is (nil? (pa/credit-line (portrait-with [:head :shirt :eyes]))))
+      (testing "and the artist is still resolved -- only the byline is absent"
+        (is (= [:house-pack]
+               (pa/all-artists-for-layers
+                (:layers (portrait-with [:head :shirt :eyes]))))))
+      (finally (pa/set-artist-overrides! {}))))
   (is (nil? (pa/format-credit nil)))
   (is (nil? (pa/format-credit []))))
 
 (deftest artists-on-canvas-are-found-and-deduped
-  (testing "the lookup still works; only the name is missing"
+  (testing "one artist across three layers resolves once"
     (let [artists (pa/artists-for-layers (:layers (portrait-with [:head :shirt :eyes])))]
       (is (= 1 (count artists)) "one artist, once, across three layers")
       (is (= :house-pack (:artist/id (first artists)))))))

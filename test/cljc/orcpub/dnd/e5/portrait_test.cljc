@@ -378,3 +378,46 @@
   (testing "and an asset can override it, which is what a style with unusually
             small irises needs"
     (is (= 0.35 (pa/tint-gamma :eyes {:asset/slot :eyes :asset/gamma 0.35})))))
+
+;; ---------------------------------------------------------------------------
+;; Attribution
+;; ---------------------------------------------------------------------------
+
+(deftest the-artist-is-credited
+  (let [p {:layers (pa/compose-for-seed "credit-check") :colors {} :tweaks {}}]
+    (is (= "Art: Fusspot" (pa/credit-line p))
+        "a composed portrait names the illustrator who drew it")
+    (is (= "https://fusspot.rip/"
+           (:artist/link (first (pa/artists-for-layers (:layers p)))))
+        "and carries her link, so a surface can make the credit clickable")
+    (is (nil? (pa/credit-line {:layers {}}))
+        "nothing composed, nothing to credit")))
+
+(deftest a-deployment-can-restate-the-credit-but-not-reassign-the-art
+  (try
+    (pa/set-artist-overrides! {:house-pack {:artist/name "Someone Else"
+                                            :artist/link "https://example.test/"
+                                            :artist/id   :not-this-one
+                                            :artist/layers {}}})
+    (let [p {:layers (pa/compose-for-seed "credit-check")}]
+      (is (= "Art: Someone Else" (pa/credit-line p))
+          "the name a deployment supplies is the one that renders")
+      (let [a (first (pa/artists-for-layers (:layers p)))]
+        (is (= "https://example.test/" (:artist/link a)))
+        (testing "but the structure is not overridable -- only name, link and
+                  licence are honoured, so a config cannot quietly re-attribute
+                  someone's art to a different pack or empty their asset list"
+          (is (= :house-pack (:artist/id a)))
+          (is (seq (get-in a [:artist/layers :head]))))))
+    (finally
+      (pa/set-artist-overrides! {})))
+  (testing "and clearing the overrides restores the public default"
+    (is (= "Art: Fusspot" (pa/credit-line {:layers (pa/compose-for-seed "credit-check")})))))
+
+(deftest every-artist-on-canvas-is-credited
+  (testing "attribution resolves per ASSET, so a portrait mixing two artists'
+            pieces names both -- which is what lets more illustrators join"
+    (let [layers (pa/compose-for-seed "credit-check")]
+      (is (= [:house-pack] (pa/all-artists-for-layers layers)))
+      (is (= "Art: A, B" (pa/format-credit ["A" "B"]))
+          "several names join into one line"))))
