@@ -167,8 +167,9 @@
                      (:link fields)    (assoc :artist/link (:link fields))
                      (:links fields)   (assoc :artist/links
                                               (mapv (fn [l]
-                                                      {:link/label (:label l)
-                                                       :link/url   (:url l)})
+                                                      (cond-> {:link/label (:label l)
+                                                               :link/url   (:url l)}
+                                                        (:icon l) (assoc :link/icon (:icon l))))
                                                     (:links fields)))
                      (:license fields) (assoc :artist/license (:license fields)))]))
           (catch Exception e

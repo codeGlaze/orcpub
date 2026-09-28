@@ -434,7 +434,18 @@
     (is (every? #(re-find #"^https://" (:link/url %)) (:artist/links a))
         "every link is https")
     (is (not-any? #(re-find #"(?i)m\.twitch\.tv" (:link/url %)) (:artist/links a))
-        "the canonical twitch host, not the mobile one she happened to paste"))
+        "the canonical twitch host, not the mobile one she happened to paste")
+    (testing "each link names a mark that exists. An icon-only link with a
+              missing file renders as a blank gap -- the link still works and
+              nothing errors, so only a check like this notices."
+      (doseq [{:link/keys [icon label]} (:artist/links a)]
+        (is (some? icon) (str label " has no icon"))
+        (is (.exists (java.io.File.
+                      (str "resources/public/image/social/" icon ".svg")))
+            (str "/image/social/" icon ".svg is missing"))))
+    (testing "and every link keeps its label, which is the accessible name --
+              an icon with no text is unreadable to a screen reader"
+      (is (every? (comp seq :link/label) (:artist/links a)))))
   (testing "the credit LINE carries no links -- it is the string burned into
             share cards and PDFs, where a URL cannot be followed anyway"
     (is (= "Art: Fusspot"

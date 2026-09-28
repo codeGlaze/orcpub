@@ -244,10 +244,17 @@
    ;; than harvested: not every handle she has, the ones she wants on this.
    ;; Twitch is where she does most of the work, so it is not an afterthought
    ;; here -- someone who liked the art can go and watch it being made.
-   :artist/links   [{:link/label "Site"    :link/url "https://fusspot.rip/"}
-                    {:link/label "Twitch"  :link/url "https://www.twitch.tv/fusspot"}
-                    {:link/label "Bluesky" :link/url "https://bsky.app/profile/fusspot.rip"}
-                    {:link/label "Ko-fi"   :link/url "https://ko-fi.com/fusspot"}]
+   ;; :link/icon names a mark in /image/social. A link with no icon falls back
+   ;; to its label as text, so adding a service nobody has drawn yet degrades
+   ;; to a word rather than to an empty box.
+   :artist/links   [{:link/label "Site"    :link/icon "site"
+                     :link/url "https://fusspot.rip/"}
+                    {:link/label "Twitch"  :link/icon "twitch"
+                     :link/url "https://www.twitch.tv/fusspot"}
+                    {:link/label "Bluesky" :link/icon "bluesky"
+                     :link/url "https://bsky.app/profile/fusspot.rip"}
+                    {:link/label "Ko-fi"   :link/icon "kofi"
+                     :link/url "https://ko-fi.com/fusspot"}]
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
                               {} asset-inventory)})

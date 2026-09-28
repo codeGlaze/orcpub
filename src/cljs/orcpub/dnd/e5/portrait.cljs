@@ -639,19 +639,25 @@
 /* A credit is a line of prose, not a row of buttons. Boxed uppercase labels
    read as navigation and competed with the artist's name, which is the part
    that matters. These sit after it as quiet lowercase text. */
-.pl-artist-links { margin-left: 8px; white-space: nowrap; }
+.pl-artist-links { margin-left: 9px; display: inline-flex; align-items: center; gap: 9px; }
 .pl-artist-link {
   font: 400 11px/1 'Open Sans', system-ui, sans-serif;
   color: #77808f; text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 90ms ease, border-color 90ms ease;
+  display: inline-flex; align-items: center;
+  transition: color 90ms ease;
 }
-.pl-artist-link:hover { color: #f0a640; border-bottom-color: rgba(240,166,64,0.5); }
-.pl-artist-sep { color: #4a515e; margin: 0 6px; font-size: 10px; user-select: none; }
+.pl-artist-link:hover { color: #f0a640; }
+/* currentColor through a mask, so the mark is the link's colour and inherits
+   the hover with it -- an <img> would need a second asset per theme. */
+.pl-artist-icon {
+  display: block; width: 14px; height: 14px;
+  background-color: currentColor;
+  -webkit-mask-size: contain;   mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center;  mask-position: center;
+}
 .app.light-theme .pl-artist-link,
-.pl-root.light-theme .pl-artist-link { color: #7a7a7a; }
-.app.light-theme .pl-artist-sep,
-.pl-root.light-theme .pl-artist-sep { color: #c0c0c0; }
+.pl-root.light-theme .pl-artist-link { color: #8a8a8a; }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl { color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic; }
 .pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
@@ -1078,14 +1084,22 @@
            ;; where someone is looking at the art as it is being made.
            (when (seq links)
              [:span.pl-artist-links
-              (interpose
-               [:span.pl-artist-sep "\u00b7"]
-               (for [{:link/keys [label url]} links]
-                 ^{:key url}
-                 [:a.pl-artist-link
-                  {:href url :target "_blank" :rel "noopener"
-                   :title (str name " on " label)}
-                  (s/lower-case label)]))])])]
+              (for [{:link/keys [label url icon]} links]
+                ^{:key url}
+                [:a.pl-artist-link
+                 {:href url :target "_blank" :rel "noopener"
+                  :title (str name " on " label)
+                  ;; the label is the accessible name either way -- an icon
+                  ;; with no text is unreadable to a screen reader otherwise
+                  :aria-label (str name " on " label)
+                  :class (when icon "has-icon")}
+                 (if icon
+                   ;; mask rather than <img>, so the mark takes the link's own
+                   ;; colour and warms on hover with everything else
+                   [:span.pl-artist-icon
+                    {:style {:WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                             :maskImage (str "url(/image/social/" icon ".svg)")}}]
+                   (s/lower-case label))])])])]
 
        (seq infos)
        [:span.pl-attribution-empty "artist credit pending"]
