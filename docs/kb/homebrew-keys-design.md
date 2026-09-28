@@ -442,3 +442,25 @@ is missing (fixed in `c0e38458`; on `integration` too).
 - **Not covered:** building a character that *picks* an item with a broken link (the guard opens
   the character builder, which assembles every option, but selects nothing); the character sheet's
   display beyond the helpers the audit read; the combat tracker's monster display.
+
+## Closing the open items (2026-09-28)
+
+- **Missing-content warning, owner chose (b) "everything a character can pick from homebrew" —
+  backed out, not shipped.** Reporting any key the builder does not offer was tried and a
+  deterministic guard (`warlock_test`'s real character against its template) showed it would raise
+  false alarms on real older characters: a starting-equipment pick whose options differ between
+  the builder and the character's saved shape (`:any-simple-weapon`) is not missing homebrew. It
+  also showed a live false alarm in step 2b, fixed: a legacy trailing-dash key (`:dark-elf-drow-`),
+  which lookup matches through `common/canonical-key`, was reported missing. `library/offers?` now
+  matches the way lookup does (`23450f7f`). Widening needs a way to tell a homebrew choice from a
+  built-in one that is not a hand list; the template's selection `::t/tags` are a candidate.
+  **Owner decision needed.**
+- **Feat locked by a missing race** now says which race it needs (`23450f7f`).
+- **Character half of I11:** eleven characters, each picking an item with a link to nothing, build
+  against the real built template and read race, languages, spells known, traits, actions and
+  levels; each is checked to hold the broken item (`49a53522`).
+- **Q2 browser test:** `test/e2e/move-note.js`, 6/6 in the real app (`3e65f020`).
+- **Q3 browser test: not finished.** `test/e2e/relink-question.js` (uncommitted) signs in as the
+  seeded user on `e2e-boot` with `CSP_POLICY=none` and seeds a character draft, then stops at the
+  builder's Save control, which is not a `<button>`. The retry budget ran out on setup (the seeded
+  server's CSP blocks the dev build; the production bundle renames what the setup and reader use).
