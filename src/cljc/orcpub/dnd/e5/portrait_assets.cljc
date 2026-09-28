@@ -507,9 +507,12 @@
    With a `portrait`, a layer counts when its SELECTED asset names the slot --
    which is the only way the mouth appears under Lips, since the layer itself
    is mapped to nothing."
-  ([slot] (filterv #(= slot (color-slots %)) layer-order))
+  ([slot] (filterv #(and (not (hidden-layers %)) (= slot (color-slots %)))
+                   layer-order))
   ([portrait slot]
-   (filterv #(= slot (slot-for-asset % (selected-asset portrait %))) layer-order)))
+   (filterv #(and (not (hidden-layers %))
+                  (= slot (slot-for-asset % (selected-asset portrait %))))
+            layer-order)))
 
 (defn- hex-pair->int [s]
   #?(:clj  (Integer/parseInt s 16)

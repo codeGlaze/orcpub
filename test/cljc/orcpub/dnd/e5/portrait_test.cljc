@@ -138,8 +138,9 @@
   (is (re-matches #"#[0-9a-f]{6}" (pa/shade-hex "#5c3a1e" 15)) "output stays #rrggbb"))
 
 (deftest layers-in-slot-groups-by-slot
-  (is (= [:hair-bits :hair-back :scalp :hair-front :bangs] (pa/layers-in-slot :hair))
-      "the scalp draws from the hair slot -- that is the entire point of it")
+  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair))
+      "the scalp draws from the hair slot but is not LISTED as a hair piece --
+       the list drives a per-piece tweak panel, and there is nothing to tweak")
   (is (= [:head :ears :nose] (pa/layers-in-slot :skin)))
   (is (= [:eyes] (pa/layers-in-slot :eyes)))
   (is (= [:shirt] (pa/layers-in-slot :shirt)))
