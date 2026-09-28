@@ -296,18 +296,23 @@
             plugins repairs)))
 
 (def selection-types
-  "Content type of the picks under each character selection that holds one type only, and is the
-   only selection picks of that type sit under."
+  "Content type of the picks under each character selection that holds one type only."
   {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces
-   :class :orcpub.dnd.e5/classes :background :orcpub.dnd.e5/backgrounds})
+   :class :orcpub.dnd.e5/classes :background :orcpub.dnd.e5/backgrounds
+   :feats :orcpub.dnd.e5/feats})
+
+(def ^:private picked-only-at-home
+  "Content types picked under their own `selection-types` selection and nowhere else. (Feats are
+   also picked under other choices.)"
+  #{:orcpub.dnd.e5/races :orcpub.dnd.e5/subraces :orcpub.dnd.e5/classes :orcpub.dnd.e5/backgrounds})
 
 (defn pick-types
   "Of content `types`, those a character's pick under `selection` can be: the selection's own type
-   when `selection-types` names one, else every type but those."
+   when `selection-types` names one, else every type but `picked-only-at-home`."
   [selection types]
   (if-let [t (selection-types selection)]
     (filter #{t} types)
-    (remove (set (vals selection-types)) types)))
+    (remove picked-only-at-home types)))
 
 (defn offered-keys
   "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the

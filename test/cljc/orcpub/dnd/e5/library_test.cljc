@@ -221,3 +221,11 @@
     (is (= :tough-kt (:key item)))
     (is (= [:tough] (:former-keys item)))
     (is (= (library/normalize stale) (library/normalize (library/normalize stale))) "once only")))
+
+(deftest a-pick-is-only-what-its-selection-can-hold
+  (let [both [:orcpub.dnd.e5/feats :orcpub.dnd.e5/languages]]
+    (is (= [:orcpub.dnd.e5/feats] (library/pick-types :feats both)) "a feat pick is not a language")
+    (is (= both (library/pick-types :some-other-choice both)) "a feat can be picked under other choices")
+    (is (= [:orcpub.dnd.e5/languages]
+           (library/pick-types :languages [:orcpub.dnd.e5/races :orcpub.dnd.e5/languages]))
+        "a race is only ever picked under :race")))
