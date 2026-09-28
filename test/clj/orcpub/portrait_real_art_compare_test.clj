@@ -1134,3 +1134,139 @@
                         "and the eyes are drawn dark, below it -- so a gamma
                          that helps one hurts the other")))))))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; The whole thing, composed by the REGISTRY's own rules.
+;;
+;; Everything above tried one decision at a time. This asks portrait-assets
+;; what to do with each asset -- render-mode, slot-for-asset, tint-gamma -- and
+;; does exactly that, so what comes out is the specification for the renderer
+;; port rather than another opinion about it. If these busts are right, the
+;; port's job is to make three renderers agree with this picture.
+;; ---------------------------------------------------------------------------
+
+(def ^:private registry-asset-by-file
+  "Every registry asset, keyed by the filename the pack uses. The pack and the
+   registry name the same 28 files, which is what lets the harness run the
+   shipped rules instead of restating them."
+  (delay
+   (into {}
+         (for [layer-key pa/layer-order
+               asset (pa/assets-for-layer layer-key)]
+           [[layer-key (last (s/split (:asset/url asset) #"/"))] asset]))))
+
+(def ^:private full-palettes
+  "Hair / skin / eyes / shirt / lips, as the slots would be filled in."
+  [{:hair "#5c3a1e" :skin "#e8c69c" :eyes "#1d54ae" :shirt "#3a4a5c" :lips "#c46a6a"}
+   {:hair "#2e180c" :skin "#8d5a3c" :eyes "#834810" :shirt "#7a94b8" :lips "#9b3c55"}
+   {:hair "#e1a243" :skin "#f7e0c5" :eyes "#409543" :shirt "#633737" :lips "#c98d82"}
+   {:hair "#9b3d2e" :skin "#cd986e" :eyes "#8c37a8" :shirt "#3b6137" :lips "#6e334e"}
+   {:hair "#d4d4d4" :skin "#6e4622" :eyes "#37a8a8" :shirt "#303030" :lips "#a85c4a"}
+   {:hair "#813872" :skin "#f2ddc4" :eyes "#a83737" :shirt "#d8cdae" :lips "#d87a5c"}])
+
+(defn- hex->awt ^Color [hex]
+  (Color. (Integer/parseInt (subs hex 1 3) 16)
+          (Integer/parseInt (subs hex 3 5) 16)
+          (Integer/parseInt (subs hex 5 7) 16)))
+
+(defn- compose-by-registry
+  "One bust, every layer handled the way portrait-assets says to handle it."
+  [^File pack manifest palette picks]
+  (let [spec (iris-spec manifest)
+        canvas (BufferedImage. W H BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics canvas)]
+    (try
+      (doseq [layer-key pa/layer-order]
+        (when-let [choices (seq (assets-in pack layer-key))]
+          (let [^File f (nth choices (mod (get picks layer-key 0) (count choices)))
+                nm (.toLowerCase (.getName f))
+                asset (get @registry-asset-by-file [layer-key nm])
+                mode (pa/render-mode layer-key asset)
+                slot (pa/slot-for-asset layer-key asset)
+                colour (some-> (get palette slot) hex->awt)]
+            (when-let [art (scaled f)]
+              (cond
+                ;; already coloured by the illustrator: teeth, bare lines
+                (= :as-drawn mode) (.drawImage g art 0 0 nil)
+
+                ;; a hueless ramp mapped through the slot colour. The region is
+                ;; the authored iris for eyes, and the whole asset for lips,
+                ;; which are nothing but the thing being coloured.
+                (and (= :colorize mode) colour)
+                (binding [*iris-gamma* (pa/tint-gamma layer-key asset)]
+                  (.drawImage g (colorize-through
+                                 (if-let [sp (get spec (.getName f))]
+                                   (coverage-mask (iris-region sp))
+                                   (whole-asset-coverage art))
+                                 art colour)
+                              0 0 nil))
+
+                colour (.drawImage g ^BufferedImage (multiplied art colour) 0 0 nil)
+                :else (.drawImage g art 0 0 nil))))))
+      (finally (.dispose g)))
+    canvas))
+
+(deftest the-range-of-busts
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [n-eyes (count (assets-in pack :eyes))
+            n-mouth (count (assets-in pack :mouth))
+            ;; the lipped mouth, so the lips slot is exercised
+            lip-idx (first (keep-indexed
+                            (fn [i ^File f]
+                              (when (= :lips (pa/slot-for-asset
+                                              :mouth (get @registry-asset-by-file
+                                                          [:mouth (.toLowerCase (.getName f))])))
+                                i))
+                            (assets-in pack :mouth)))]
+        (binding [*iris-floor* 0.55]
+          ;; one sheet per eye style: six palettes, lips on
+          (dotimes [e n-eyes]
+            (write! (row (mapv (fn [p]
+                                 (compose-by-registry pack manifest p
+                                                      {:eyes e :mouth (or lip-idx 0)}))
+                               full-palettes))
+                    (str "busts-eyes-0" (inc e) "-with-lips")))
+          ;; and one showing every mouth on one palette, so the teeth can be
+          ;; checked against the lips they are not
+          (write! (row (mapv (fn [m]
+                               (compose-by-registry pack manifest (first full-palettes)
+                                                    {:eyes 0 :mouth m}))
+                             (range n-mouth)))
+                  "busts-every-mouth")
+          ;; the same range at a sixth scale, which is how a summary shows it
+          (write! (row (mapv (fn [p]
+                               (shrunk (compose-by-registry
+                                        pack manifest p
+                                        {:eyes 0 :mouth (or lip-idx 0)})
+                                       0.3))
+                             full-palettes))
+                  "busts-thumbnail-scale"))
+
+        (testing "the lipped mouth really did go down the colorize path -- if
+                  the registry lookup misses, every bust still renders and the
+                  only sign is lips that came out grey"
+          (is (some? lip-idx) "a mouth asset in this pack claims the lips slot")
+          (is (= 28 (count @registry-asset-by-file))
+              "every pack file found its registry asset"))
+
+        (testing "and the teeth did not take the lip colour"
+          (let [smile-idx (first (keep-indexed
+                                  (fn [i ^File f]
+                                    (when (re-find #"03" (.getName f)) i))
+                                  (assets-in pack :mouth)))
+                bust (compose-by-registry pack manifest
+                                          {:lips "#ff0000" :skin "#e8c69c"}
+                                          {:eyes 0 :mouth smile-idx})
+                reds (count (for [x (range W) y (range H)
+                                  :let [argb (.getRGB bust x y)]
+                                  :when (and (= 255 (bit-and (unsigned-bit-shift-right argb 24) 0xff))
+                                             (> (bit-and (unsigned-bit-shift-right argb 16) 0xff) 200)
+                                             (< (bit-and (unsigned-bit-shift-right argb 8) 0xff) 60)
+                                             (< (bit-and argb 0xff) 60))]
+                              1))]
+            (is (zero? reds)
+                (str "a pure-red lip colour put " reds " red pixels on a face "
+                     "whose mouth is teeth")))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
