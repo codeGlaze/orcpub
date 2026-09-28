@@ -37,6 +37,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.template :as t]
+            [orcpub.entity :as entity]
             [orcpub.common :as common]
             [reagent.core :as r]
             ;; Side effect: registers the subscriptions that build ::char5e/template
@@ -601,6 +602,88 @@
     (is (= stored (cljs.reader/read-string (.getItem js/window.localStorage "plugins")))
         "untouched: the dropped entry would otherwise be lost"))
   (.clear js/window.localStorage))
+
+;; Invariant I11, character half: a character that picks an item whose link points at nothing
+;; still builds. The items are the ones test/e2e/links-to-nothing.js seeds.
+
+(def ^:private links-to-nothing
+  {"Nothing Pak"
+   {:orcpub.dnd.e5/races
+    {:ghost-race    {:key :ghost-race :option-pack "Nothing Pak" :name "Ghost Race"
+                     :spells [{:level 1 :value {:key :no-such-spell :ability :orcpub.dnd.e5.character/int}}]}
+     :ghost-speaker {:key :ghost-speaker :option-pack "Nothing Pak" :name "Ghost Speaker"
+                     :props {:language {:no-such-language true}}}
+     :ghost-talker  {:key :ghost-talker :option-pack "Nothing Pak" :name "Ghost Talker"
+                     :languages #{"No Such Language"}}}
+    :orcpub.dnd.e5/classes
+    {:ghost-borrower {:key :ghost-borrower :option-pack "Nothing Pak" :name "Ghost Borrower" :hit-die 8
+                      :spellcasting {:level-factor 1 :ability :orcpub.dnd.e5.character/int
+                                     :spell-list-kw :no-such-class}}
+     :ghost-caster   {:key :ghost-caster :option-pack "Nothing Pak" :name "Ghost Caster" :hit-die 8
+                      :spellcasting {:level-factor 1 :ability :orcpub.dnd.e5.character/int
+                                     :spell-list {1 #{:no-such-spell}}}}
+     :ghost-granter  {:key :ghost-granter :option-pack "Nothing Pak" :name "Ghost Granter" :hit-die 8
+                      :level-modifiers [{:type :spell :level 1 :value {:key :no-such-spell}}]}
+     :ghost-chooser  {:key :ghost-chooser :option-pack "Nothing Pak" :name "Ghost Chooser" :hit-die 8
+                      :level-selections [{:type :no-such-selection :level 1}]}}
+    :orcpub.dnd.e5/subclasses
+    {:ghost-oath   {:key :ghost-oath :option-pack "Nothing Pak" :name "Ghost Oath" :class :paladin
+                    :paladin-spells {1 {0 :no-such-spell}}}
+     :ghost-domain {:key :ghost-domain :option-pack "Nothing Pak" :name "Ghost Domain" :class :cleric
+                    :cleric-spells {1 {0 :no-such-spell}}}
+     :ghost-patron {:key :ghost-patron :option-pack "Nothing Pak" :name "Ghost Patron" :class :warlock
+                    :warlock-spells {1 {0 :no-such-spell}}}}
+    :orcpub.dnd.e5/feats
+    {:ghost-feat {:key :ghost-feat :option-pack "Nothing Pak" :name "Ghost Feat"
+                  :path-prereqs {:race {:no-such-race true}}}}}})
+
+(defn- levels [n & [at-level]]
+  (vec (for [i (range 1 (inc n))]
+         (cond-> {:orcpub.entity/key (keyword (str "level-" i))}
+           (and at-level (= i (first at-level))) (assoc :orcpub.entity/options (second at-level))))))
+
+(defn- read-sub
+  "A subscription's value, read inside a reactive context the way the app reads it."
+  [query]
+  (let [out (atom nil)
+        watcher (r/track! (fn [] (reset! out @(rf/subscribe query))))]
+    (r/dispose! watcher)
+    @out))
+
+(deftest a-character-picking-an-item-with-a-link-to-nothing-still-builds
+  (reset! app-db {:plugins links-to-nothing})
+  (rf/clear-subscription-cache!)
+  (let [template (read-sub [::char5e/built-template nil])
+        cls (fn [k & [at-level n]] {:orcpub.entity/options
+                                    {:class [{:orcpub.entity/key k
+                                              :orcpub.entity/options {:levels (levels (or n 1) at-level)}}]}})]
+    (doseq [[label character]
+            {"a race granting a missing spell"    {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-race}}}
+             "a race granting a missing language" {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-speaker}}}
+             "a race naming a missing language"   {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-talker}}}
+             "a class borrowing a missing list"   (cls :ghost-borrower)
+             "a class listing a missing spell"    (cls :ghost-caster)
+             "a class granting a missing spell"   (cls :ghost-granter)
+             "a class offering a missing choice"  (cls :ghost-chooser)
+             "a paladin oath with a missing spell" (cls :paladin [3 {:sacred-oath {:orcpub.entity/key :ghost-oath}}] 3)
+             "a cleric domain with a missing spell" (cls :cleric [1 {:divine-domain {:orcpub.entity/key :ghost-domain}}])
+             "a warlock patron with a missing spell" (cls :warlock [1 {:otherworldly-patron {:orcpub.entity/key :ghost-patron}}])
+             "a feat requiring a missing race"    {:orcpub.entity/options {:feats [{:orcpub.entity/key :ghost-feat}]}}}]
+      (testing label
+        (let [built (try (entity/build character template) (catch :default e e))]
+          (is (not (instance? js/Error built)) (str "builds: " built))
+          (when-not (instance? js/Error built)
+            (when-let [race-key (get-in character [:orcpub.entity/options :race :orcpub.entity/key])]
+              (is (= (get-in links-to-nothing ["Nothing Pak" :orcpub.dnd.e5/races race-key :name])
+                     (char5e/race built))
+                  "the broken race really is the one built, so the test is not vacuous"))
+            (when-let [class-key (get-in character [:orcpub.entity/options :class 0 :orcpub.entity/key])]
+              (is (some #{class-key} (char5e/classes built))
+                  "the class really is the one built"))
+            (doseq [[what f] {"race" char5e/race "languages" char5e/languages "spells known" char5e/spells-known
+                              "traits" char5e/traits "actions" char5e/actions "levels" char5e/levels}]
+              (is (not (instance? js/Error (try (doall (f built)) (catch :default e e))))
+                  (str what " can be read")))))))))
 
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
