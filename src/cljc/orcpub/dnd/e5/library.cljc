@@ -57,13 +57,34 @@
                    (not (contains? (get-in old [src ct]) k)))]
     [src ct k]))
 
+(defn- follow-renamed-names
+  "`new` with each `:by :name` link naming an item `old` knew by another name renamed to match."
+  [old new]
+  (let [renames (for [[src ct items] (content-groups new)
+                      [k item] items
+                      :let [was (get-in old [src ct k :name])]
+                      :when (and (string? was) (string? (:name item)) (not= was (:name item)))]
+                  [ct was (:name item)])
+        name-links (filter #(= :name (:by %)) links/links)]
+    (reduce (fn [p [ct was now]]
+              (reduce (fn [p [src ict items]]
+                        (assoc-in p [src ict]
+                                  (reduce-kv (fn [m k item]
+                                               (assoc m k (reduce #(if (and (= ct (:to %2)) (links/holds? %2 ict))
+                                                                     (links/rename-target %2 %1 was now)
+                                                                     %1)
+                                                                  item name-links)))
+                                             {} items)))
+                      p (content-groups p)))
+            new renames)))
+
 (defn commit
   "What storing `new` in place of `old` does: {:plugins (normalize new) :broken [...]}, or
    {:refused {:broken [...] :invalid [...]}} when it would add a key the loader sets aside or
    leave a link pointing at nothing. `deleting?` lets a deliberate removal through and reports
    the links it broke; `retargeting` is a collection of [type key] whose links are being moved."
   [old new {:keys [deleting? retargeting]}]
-  (let [stored (normalize new)
+  (let [stored (follow-renamed-names old (normalize new))
         broken (vec (broken-links old stored (set retargeting)))
         invalid (vec (invalid-keys old stored))]
     (if (or (seq invalid) (and (seq broken) (not deleting?)))
@@ -157,3 +178,60 @@
                                          (some #{k} (links/targets link item))))
                          links/links))]
     {:source src :type ct :key ik :name (:name item)}))
+
+(defn dropped
+  "[source type key] of every item `before` holds and `after` does not."
+  [before after]
+  (for [[src ct items] (content-groups before)
+        k (keys items)
+        :when (nil? (get-in after [src ct k]))]
+    [src ct k]))
+
+(defn- former-index
+  "{[type former-key] [[source key] ...]} from every item's :former-keys."
+  [plugins]
+  (reduce (fn [acc [src ct items]]
+            (reduce-kv (fn [acc k item]
+                         (reduce #(update %1 [ct %2] (fnil conj []) [src k]) acc (links/former-keys item)))
+                       acc items))
+          {} (content-groups plugins)))
+
+(defn suggested-repairs
+  "Links a past rename left behind, each with the key it most likely meant, as
+   [{:source :type :key :name :link :to :target :to-key :reason}]. `:missing`: nothing answers the
+   target and exactly one item lists it among its :former-keys. `:other-copy`: only another
+   source holds the target, and exactly one item in the linking item's own source lists it.
+   `offered` as `dangling`; nil means not yet known: []."
+  [plugins offered]
+  (if (nil? offered)
+    []
+    (let [lib (held plugins)
+          formers (former-index plugins)]
+      (vec
+       (for [[src ct items] (content-groups plugins)
+             [k item] items
+             :when (map? item)
+             link links/links
+             :when (and (= :key (:by link)) (links/holds? link ct))
+             target (links/targets link item)
+             :let [to (:to link)
+                   holders (for [[s p] plugins :when (some? (get-in p [to target]))] s)
+                   claims (get formers [to target])
+                   own (filter #(= src (first %)) claims)
+                   [reason [_ to-key]]
+                   (cond
+                     (and (empty? holders) (not (contains? offered target)) (= 1 (count claims)))
+                     [:missing (first claims)]
+                     (and (seq holders) (not (some #{src} holders)) (= 1 (count own)))
+                     [:other-copy (first own)])]
+             :when reason]
+         {:source src :type ct :key k :name (:name item) :link (:id link) :to to
+          :target target :to-key to-key :reason reason})))))
+
+(defn apply-repairs
+  "`plugins` with each repair from `suggested-repairs` made."
+  [plugins repairs]
+  (let [by-id (into {} (map (juxt :id identity)) links/links)]
+    (reduce (fn [p {:keys [source type key link target to-key]}]
+              (update-in p [source type key] #(links/retarget (by-id link) % target to-key)))
+            plugins repairs)))

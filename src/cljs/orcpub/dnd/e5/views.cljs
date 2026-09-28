@@ -7162,8 +7162,8 @@
                    {:title (name kw)
                     :value (name kw)})
                  ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
+         ;; A subrace whose race is missing, or has no size, has no size to show.
+         :value (some-> (or (get subrace :size) (get race :size)) name)
          :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
       [:div.m-r-5
        [labeled-dropdown
@@ -8644,10 +8644,11 @@
                        (when-let [missing (get dangling [source-name type-key key])]
                          [:div.f-s-12 {:style {:color "#ffd21a"}}
                           [:i.fa.fa-chain-broken.m-r-5]
+                          ;; `name` here is the item's name (destructured above), not the function.
                           (str "Uses "
                                (s/join ", " (for [{:keys [to target]} missing]
                                               (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
-                                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+                                                   " \u201c" (if (keyword? target) (cljs.core/name target) target) "\u201d")))
                                ", which isn't in your library.")])
                        (when note
                          [:div.f-s-12
@@ -9123,6 +9124,57 @@
                           (dispatch [::e5/discard-quarantined-source src-name]))}
              "Discard"]])]))))
 
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- item-name-in
+  "The name of the item any source of `plugins` holds under `k` of type `ct`, else `k`'s name."
+  [plugins ct k]
+  (or (some #(get-in % [ct k :name]) (vals plugins)) (name k)))
+
+(defn repairs-panel
+  "Links a past rename left behind, each with its suggested fix; nothing changes until the author
+   picks. Renders nothing when there are none."
+  []
+  (let [repairs @(subscribe [::e5/suggested-repairs])
+        plugins @(subscribe [::e5/plugins])]
+    (when (seq repairs)
+      [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5 {:style {:border "2px solid #ffd21a"}}
+       [:div.f-w-b.f-s-18.m-b-5
+        [:i.fa.fa-chain-broken.m-r-5]
+        (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+       [:div.f-s-12.m-b-10 "A rename left these pointing at the wrong thing, or at nothing."]
+       (doall
+        (for [{:keys [source type key name to target to-key reason] :as r} repairs]
+          ^{:key (str source type key target)}
+          [:div.flex.align-items-c.justify-cont-s-b.p-t-5.p-b-5
+           [:div.f-s-14
+            (str (quoted (or name (cljs.core/name key))) " uses "
+                 (quoted (cljs.core/name target))
+                 (if (= :missing reason)
+                   ", which was renamed. Switch it to "
+                   (str " from another pack. It was probably written for "))
+                 (quoted (item-name-in plugins to to-key))
+                 (when (= :other-copy reason) " in its own pack")
+                 ".")]
+           [:button.form-button.m-l-10 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+       [:div.m-t-10
+        [:button.form-button.m-r-5 {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+        [:button.form-button {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]])))
+
+(defn pre-fix-copy-line
+  "The kept copy of the library from before it was first tidied, and the way back to it."
+  []
+  (when-let [at @(subscribe [::e5/pre-fix-at])]
+    [:div.f-s-12.m-b-10.m-l-10.m-r-10.main-text-color
+     (str "A copy of your library from " (.toLocaleDateString (js/Date. at))
+          ", before it was tidied, is kept. ")
+     [:span.pointer.underline
+      {:on-click #(when (js/confirm "Put your library back as it was then? Changes made since will be lost.")
+                    (dispatch [::e5/restore-pre-fix-library]))}
+      "Restore it"]
+     " \u00b7 "
+     [:span.pointer.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Remove the copy"]]))
+
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
    each source loaded normally; these are preserved, not discarded, so you can fix
@@ -9153,6 +9205,8 @@
    []
    [:div
     [quarantine-panel]
+    [repairs-panel]
+    [pre-fix-copy-line]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -9362,12 +9416,23 @@
    only way an author fixes a key minted from a typo. Renders nothing until the item has one."
   [item save-event]
   (when-let [k (:key item)]
-    [meta-edit-row
-     {:label "key"
-      :value (str k)
-      :placeholder (name k)
-      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
-      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
+    (let [missing (some (fn [[[src _ ik] m]] (when (and (= src (:option-pack item)) (= ik k)) m))
+                        @(subscribe [::e5/dangling-links]))]
+      [:div
+       [meta-edit-row
+        {:label "key"
+         :value (str k)
+         :placeholder (name k)
+         ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+         :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
+       (when missing
+         [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
+          [:i.fa.fa-chain-broken.m-r-5]
+          (str "The saved version uses "
+               (s/join ", " (for [{:keys [to target]} missing]
+                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+               ", which isn't in your library.")])])))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered

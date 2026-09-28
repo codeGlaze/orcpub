@@ -103,3 +103,37 @@
   (is (= [{:source "Domains" :type :orcpub.dnd.e5/subclasses :key :tides :name "Oath of Tides"}]
          (library/linking library :orcpub.dnd.e5/classes :warden #{"Classes"})))
   (is (empty? (library/linking library :orcpub.dnd.e5/classes :warden #{"Domains"}))))
+
+;; ── Damage a past rename left ───────────────────────────────────────────────
+
+(deftest suggested-repairs-finds-what-a-past-rename-left-behind
+  (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:warden-x {:name "Warden X" :former-keys [:warden]}
+                                                    :other    {:name "Other"}}}
+                 "Domains" {:orcpub.dnd.e5/subclasses {:tides {:name "Oath of Tides" :class :warden}
+                                                       :lost  {:name "Lost" :class :gone}}}
+                 "Library" {:orcpub.dnd.e5/selections {:tricks {:name "Library Tricks"}}}
+                 "Import"  {:orcpub.dnd.e5/selections {:tricks-imp {:name "Import Tricks" :former-keys [:tricks]}}
+                            :orcpub.dnd.e5/classes {:mage {:name "Mage" :level-selections [{:type :tricks}]}}}}
+        repairs (library/suggested-repairs plugins #{})]
+    (is (= #{[:tides :missing :warden-x] [:mage :other-copy :tricks-imp]}
+           (set (map (juxt :key :reason :to-key) repairs)))
+        "a renamed target, and a link bound to another pack's copy; a link to nothing with no
+         rename behind it is not guessed at")
+    (let [fixed (library/apply-repairs plugins repairs)]
+      (is (= :warden-x (get-in fixed ["Domains" :orcpub.dnd.e5/subclasses :tides :class])))
+      (is (= :tricks-imp (get-in fixed ["Import" :orcpub.dnd.e5/classes :mage :level-selections 0 :type]))))
+    (is (not-any? #(= :tides (:key %))
+                  (library/suggested-repairs
+                   (assoc-in plugins ["Classes" :orcpub.dnd.e5/classes :other :former-keys] [:warden]) #{}))
+        "two items claiming the old key: no suggestion, since it would be a guess")))
+
+(deftest renaming-a-language-carries-the-new-name-into-races
+  (let [old {"Pak" {:orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}
+                    :orcpub.dnd.e5/races {:tidefolk {:name "Tidefolk" :languages #{"Tidetongue" "Common"}}}}}
+        new (assoc-in old ["Pak" :orcpub.dnd.e5/languages :tidetongue-tp :name] "Tide-tongue")]
+    (is (= #{"Tide-tongue" "Common"}
+           (get-in (:plugins (library/commit old new {})) ["Pak" :orcpub.dnd.e5/races :tidefolk :languages])))))
+
+(deftest dropped-lists-items-the-second-library-lacks
+  (is (= [["Classes" :orcpub.dnd.e5/classes :warden]]
+         (library/dropped library (update library "Classes" dissoc :orcpub.dnd.e5/classes)))))

@@ -66,6 +66,10 @@
                                       watch-library-elsewhere!
                                       pending-relinks
                                       set-pending-relinks!
+                                      pre-fix-copy
+                                      drop-pre-fix-copy!
+                                      repairs-dismissed
+                                      set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
@@ -315,6 +319,7 @@
   (inject-cofx ::e5/builder-origin)
   (inject-cofx ::e5/plugins)
   (inject-cofx ::e5/plugins-rev)
+  (inject-cofx ::e5/library-extras)
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
@@ -344,7 +349,9 @@
           db
           (cond-> default-value
             plugins (assoc :plugins plugins) ;; library load
-            true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0))
+            true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0)
+                        ::e5/repairs-dismissed (get cofx ::e5/repairs-dismissed #{}))
+            (::e5/pre-fix-at cofx) (assoc ::e5/pre-fix-at (::e5/pre-fix-at cofx))
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
@@ -4761,12 +4768,13 @@
           {:db db :ok? false :dispatch-n [[:show-error-message (refusal-message refused)]]})
 
       :else
-      (do (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
-          (let [ok? (plugins->local-store stored)] ;; library gate
+      (let [kept-at (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
+            ok? (plugins->local-store stored)] ;; library gate
             (when ok? (set-plugins-rev! (inc rev)))
-            {:db (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
+            {:db (cond-> (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
+                   kept-at (assoc ::e5/pre-fix-at kept-at))
              :ok? ok?
-             :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])})))))
+             :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])}))))
 
 (reg-event-fx
  ::e5/library-changed-elsewhere
@@ -4775,6 +4783,53 @@
    {:db (assoc db ;; library load
                :plugins (or (::e5/plugins cofx) {})
                ::e5/plugins-rev (::e5/plugins-rev cofx))}))
+
+(reg-event-fx
+ ::e5/settle-loaded-library
+ ;; Once, after load: store the library as the loader kept it, so its clean-up stops re-running
+ ;; on every visit (owner's decision, Q6). Only when every entry it dropped is safe in quarantine.
+ (fn [{:keys [db]} _]
+   (let [stored (stored-plugins)
+         live (:plugins db)
+         aside (get-rejected-plugins)
+         lost (remove #(some? (get-in aside %)) (library/dropped stored live))]
+     (cond
+       (or (not (map? live)) (= stored (library/normalize live))) {}
+       (seq lost) (do (js/console.warn "Not storing the loaded library: entries it dropped are not in quarantine"
+                                       (clj->js lost))
+                      {})
+       :else (let [kept-at (keep-pre-fix-copy! stored)]
+               (cond-> {:dispatch [::e5/set-plugins live]}
+                 kept-at (assoc :db (assoc db ::e5/pre-fix-at kept-at))))))))
+
+(reg-event-fx
+ ::e5/apply-repairs
+ (fn [{:keys [db]} [_ repairs]]
+   {:dispatch-n [[::e5/set-plugins (library/apply-repairs (:plugins db) repairs)]
+                 [:show-message (str "Fixed " (count repairs) " link" (when (not= 1 (count repairs)) "s") ".")]]}))
+
+(reg-event-db
+ ::e5/dismiss-repairs
+ (fn [db [_ repairs]]
+   (let [dismissed (into (or (::e5/repairs-dismissed db) #{})
+                         (map (juxt :source :type :key :link :target))
+                         repairs)]
+     (set-repairs-dismissed! dismissed)
+     (assoc db ::e5/repairs-dismissed dismissed))))
+
+(reg-event-fx
+ ::e5/restore-pre-fix-library
+ (fn [_ _]
+   (if-let [{:keys [plugins]} (pre-fix-copy)]
+     {:dispatch-n [[::e5/set-plugins plugins {:deleting? true}]
+                   [:show-message "Restored your library as it was before it was tidied."]]}
+     {:dispatch [:show-error-message "There is no earlier copy to restore."]})))
+
+(reg-event-db
+ ::e5/drop-pre-fix-copy
+ (fn [db _]
+   (drop-pre-fix-copy!)
+   (dissoc db ::e5/pre-fix-at)))
 
 (defn start-library-watch!
   "Reloads the library into this tab whenever another tab writes it."

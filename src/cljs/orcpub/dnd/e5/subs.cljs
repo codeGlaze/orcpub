@@ -1649,6 +1649,23 @@
     :feats feats}))
 
 (reg-sub
+ :orcpub.dnd.e5/repairs-dismissed
+ (fn [db _] (or (:orcpub.dnd.e5/repairs-dismissed db) #{})))
+
+(reg-sub
+ :orcpub.dnd.e5/suggested-repairs
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ :<- [:orcpub.dnd.e5/repairs-dismissed]
+ (fn [[plugins offered dismissed] _]
+   (vec (remove #(contains? dismissed ((juxt :source :type :key :link :target) %))
+                (library/suggested-repairs plugins offered)))))
+
+(reg-sub
+ :orcpub.dnd.e5/pre-fix-at
+ (fn [db _] (:orcpub.dnd.e5/pre-fix-at db)))
+
+(reg-sub
  :orcpub.dnd.e5/dangling-links
  :<- [:orcpub.dnd.e5/plugins]
  :<- [::content-recon/offered-keys]

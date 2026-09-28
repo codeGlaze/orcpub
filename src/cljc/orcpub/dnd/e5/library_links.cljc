@@ -104,6 +104,13 @@
     item
     (rewrite item (:path link) #(if (= % old) new %))))
 
+(defn rename-target
+  "`item` with every name `old` that the `:by :name` `link` holds replaced by `new`."
+  [link item old new]
+  (if (= :name (:by link))
+    (rewrite item (:path link) #(if (= % old) new %))
+    item))
+
 (def former-key-cap
   "Former keys kept per item. A repair aid, not an archive."
   4)

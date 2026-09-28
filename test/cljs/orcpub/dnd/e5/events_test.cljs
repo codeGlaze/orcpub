@@ -576,6 +576,32 @@
     (is (nil? (:message @app-db)) "and it is asked once"))
   (.clear js/window.localStorage))
 
+(deftest the-loaded-library-is-stored-once-when-nothing-is-lost
+  (.clear js/window.localStorage)
+  (let [stored {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}                 ; no :key or :option-pack
+                                             :9-bad {:name "9 Bad" :option-pack "Pak"}}}}
+        kept {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}]
+    (.setItem js/window.localStorage "plugins" (pr-str stored))
+    (.setItem js/window.localStorage "plugins:rejected"
+              (pr-str {"Pak" {:orcpub.dnd.e5/feats {:9-bad {:name "9 Bad" :option-pack "Pak"}}}}))
+    (reset! app-db {:plugins kept :orcpub.dnd.e5/plugins-rev 0})
+    (run-through! [::e5/settle-loaded-library])
+    (is (= {:name "A" :key :a :option-pack "Pak"}
+           (get-in (cljs.reader/read-string (.getItem js/window.localStorage "plugins")) ["Pak" :orcpub.dnd.e5/feats :a]))
+        "stored as loaded, each item filed under its key and source")
+    (is (some? (.getItem js/window.localStorage "plugins:pre-fix")) "after keeping the copy from before"))
+  (.clear js/window.localStorage))
+
+(deftest the-loaded-library-is-not-stored-when-a-dropped-entry-is-not-in-quarantine
+  (.clear js/window.localStorage)
+  (let [stored {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"} :9-bad {:name "9 Bad"}}}}]
+    (.setItem js/window.localStorage "plugins" (pr-str stored))
+    (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}}}} :orcpub.dnd.e5/plugins-rev 0})
+    (run-through! [::e5/settle-loaded-library])
+    (is (= stored (cljs.reader/read-string (.getItem js/window.localStorage "plugins")))
+        "untouched: the dropped entry would otherwise be lost"))
+  (.clear js/window.localStorage))
+
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
 ;; (nil instead of false)" corruption by driving the REAL toggle event handlers in

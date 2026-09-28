@@ -272,14 +272,48 @@
   [k]
   (str k ":corrupt"))
 
+(declare get-local-storage-item)
+
 (def local-storage-pre-fix-key "plugins:pre-fix")
 
+(def local-storage-pre-fix-at-key "plugins:pre-fix-at")
+
 (defn keep-pre-fix-copy!
-  "Stores `plugins` in the `plugins:pre-fix` slot, once: a slot already holding a copy is left
-   alone. Called before the library gate first corrects stored items."
+  "Stores `plugins` in the `plugins:pre-fix` slot, with the time in `plugins:pre-fix-at`, once: a
+   slot already holding a copy is left alone. Returns the time when it stored one."
   [plugins]
   (when (and js/window.localStorage (nil? (.getItem js/window.localStorage local-storage-pre-fix-key)))
-    (set-item local-storage-pre-fix-key (str plugins))))
+    (let [now (.now js/Date)]
+      (when (set-item local-storage-pre-fix-key (str plugins))
+        (set-item local-storage-pre-fix-at-key (str now))
+        now))))
+
+(defn pre-fix-copy
+  "{:plugins :at} for the kept pre-fix copy, or nil."
+  []
+  (let [p (get-local-storage-item local-storage-pre-fix-key)]
+    (when (map? p) {:plugins p :at (get-local-storage-item local-storage-pre-fix-at-key)})))
+
+(defn drop-pre-fix-copy! []
+  (when js/window.localStorage
+    (.removeItem js/window.localStorage local-storage-pre-fix-key)
+    (.removeItem js/window.localStorage local-storage-pre-fix-at-key)))
+
+(def local-storage-repairs-dismissed-key "plugins:repairs-dismissed")
+
+(defn repairs-dismissed
+  "The repairs the author chose to leave, as a set of [source type key link target]."
+  []
+  (let [v (get-local-storage-item local-storage-repairs-dismissed-key)] (if (set? v) v #{})))
+
+(defn set-repairs-dismissed! [s] (set-item local-storage-repairs-dismissed-key (str s)))
+
+(re-frame/reg-cofx
+ ::e5/library-extras
+ (fn [cofx _]
+   (assoc cofx
+          ::e5/pre-fix-at (:at (pre-fix-copy))
+          ::e5/repairs-dismissed (repairs-dismissed))))
 
 (defn plugins->local-store [plugins]
   (when js/window.localStorage
