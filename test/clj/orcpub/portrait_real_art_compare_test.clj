@@ -498,3 +498,68 @@
                            (pr-str (keys (iris-spec manifest)))))
           (is (pos? (opaque-colour-count sheet))))))
     (println "\n  ORCPUB_PACK not set -- skipping.\n")))
+
+;; ---------------------------------------------------------------------------
+;; A grade over the finished portrait.
+;;
+;; Observed on a laptop with night-light on: everything looked warmer and
+;; richer. Worth testing rather than assuming, because a display filter warms
+;; the WHOLE field -- the art, the page, the chrome -- and the eye adapts to
+;; all of it. The same shift applied to the portrait ALONE has to survive
+;; sitting next to neutral white, which is a different question.
+;;
+;; Written here, in the shipping language, so that if any of it is worth
+;; keeping it is already the implementation rather than a sketch of one.
+;; ---------------------------------------------------------------------------
+
+(defn- grade
+  "Per-channel gain plus a pull toward or away from grey."
+  ^BufferedImage [^BufferedImage src [rg gg bg] sat]
+  (let [w (.getWidth src) h (.getHeight src)
+        out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)]
+    (dotimes [y h]
+      (dotimes [x w]
+        (let [argb (.getRGB src x y)
+              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)
+              r (* (bit-and (unsigned-bit-shift-right argb 16) 0xff) (double rg))
+              g (* (bit-and (unsigned-bit-shift-right argb 8) 0xff) (double gg))
+              b (* (bit-and argb 0xff) (double bg))
+              ;; luma with the usual weights, so saturation moves colour without
+              ;; moving brightness
+              l (+ (* 0.2126 r) (* 0.7152 g) (* 0.0722 b))
+              mix (fn [c] (int (max 0 (min 255 (+ l (* sat (- c l)))))))]
+          (.setRGB out x y
+                   (unchecked-int (bit-or (bit-shift-left a 24)
+                                          (bit-shift-left (mix r) 16)
+                                          (bit-shift-left (mix g) 8)
+                                          (mix b)))))))
+    out))
+
+(defn- stack [images]
+  (let [w (.getWidth ^BufferedImage (first images))
+        h (.getHeight ^BufferedImage (first images))
+        sheet (BufferedImage. w (* h (count images)) BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics sheet)]
+    (try
+      (.setColor g Color/WHITE)
+      (.fillRect g 0 0 w (* h (count images)))
+      (doseq [[i ^BufferedImage im] (map-indexed vector images)]
+        (.drawImage g im 0 (* i h) nil))
+      (finally (.dispose g)))
+    sheet))
+
+(deftest see-whether-a-grade-is-worth-having
+  (if-let [pack (pack-dir)]
+    (if-let [manifest (read-manifest pack)]
+      (let [base (contact-sheet (mapv #(compose-with-eyes pack manifest %) (range 4)))
+            ;; night-light knocks blue back hard and green a little
+            warm (grade base [1.0 0.96 0.82] 1.0)
+            ;; the same warmth with a touch more colour, since "pop" may be
+            ;; saturation rather than temperature
+            warm+ (grade base [1.0 0.96 0.82] 1.18)
+            ;; and saturation on its own, to separate the two
+            richer (grade base [1.0 1.0 1.0] 1.22)]
+        (write! (stack [base warm warm+ richer]) "grades")
+        (is (pos? (opaque-colour-count base))))
+      (println "\n  no manifest -- skipping\n"))
+    (println "\n  ORCPUB_PACK not set -- skipping.\n")))
