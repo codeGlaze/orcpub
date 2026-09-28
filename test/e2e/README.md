@@ -50,6 +50,9 @@ Four scripts cover one subject between them — where a save lands, and what an 
 it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
 
 - **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`links-to-nothing.js`** — invariant I11: one item per kind of link (read from the running app), each
+  pointing at nothing; My Content, every such item's builder and the character builder open with no
+  uncaught error. A new kind of link without a row fails it.
 - **`library-repairs.js`** — a library damaged by past renames: the load tidies it after keeping a copy,
   the repair panel offers the renamed target and fixes it, My Content and the builder mark a link to
   nothing, and renaming a language carries the new name into the race that names it.
