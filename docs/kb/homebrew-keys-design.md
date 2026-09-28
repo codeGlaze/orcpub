@@ -460,7 +460,17 @@ is missing (fixed in `c0e38458`; on `integration` too).
   against the real built template and read race, languages, spells known, traits, actions and
   levels; each is checked to hold the broken item (`49a53522`).
 - **Q2 browser test:** `test/e2e/move-note.js`, 6/6 in the real app (`3e65f020`).
-- **Q3 browser test: not finished.** `test/e2e/relink-question.js` (uncommitted) signs in as the
+- **Missing-content warning, revised by the owner to spells and languages (2026-09-28): done**
+  (`4e88b04c`). Found by the builder's own choice tags (`#{:spells}`, `:language-profs`); guarded on
+  `warlock_test`'s real character, falsified by removing the tag restriction.
+- **Q3 browser test (second round): the flow runs to the last step, and the question never shows.**
+  Sign-in, save (the character gets an id), import, "rename your existing one" and the recorded
+  rename all pass. Likely cause, not yet confirmed: "Edit" dispatches `:set-character` (which shows
+  the question) and then a route change, and every route change dispatches `:hide-message`, so the
+  question is hidden at once — and it is recorded as asked when shown, so it never returns. If so,
+  the question needs a place that survives the move into the builder. `test/e2e/relink-question.js`
+  is uncommitted until it passes.
+- **Q3 browser test: not finished (first round).** `test/e2e/relink-question.js` (uncommitted) signs in as the
   seeded user on `e2e-boot` with `CSP_POLICY=none` and seeds a character draft, then stops at the
   builder's Save control, which is not a `<button>`. The retry budget ran out on setup (the seeded
   server's CSP blocks the dev build; the production bundle renames what the setup and reader use).
