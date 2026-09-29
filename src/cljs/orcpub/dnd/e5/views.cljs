@@ -8571,8 +8571,8 @@
                :on-click (if global-off?
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
-              [:div.f-s-10 "enabled?"]
-              [comps/checkbox (not eff-off?) global-off?]]
+              [:span.dev-mode-switch.compact {:class (when-not eff-off? "on") :role "switch"
+                                              :aria-checked (str (not eff-off?)) :title "On in the builder"}]]
              [:div.h-48.flex.align-items-c
               {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
@@ -8633,10 +8633,9 @@
                                  :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                       [:div.f-s-10 "enabled?"]
-                       [comps/checkbox
-                        (not (get-in plugin [type-key key :disabled?]))
-                        false]]
+                       (let [on? (not (get-in plugin [type-key key :disabled?]))]
+                         [:span.dev-mode-switch.compact {:class (when on? "on") :role "switch"
+                                                         :aria-checked (str on?) :title "On in the builder"}])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
@@ -8679,9 +8678,9 @@
    {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
    {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
    {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
-   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon "woman-elf-face" :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
    {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
-   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon "mounted-knight" :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
    {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
    {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
    {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
@@ -8752,10 +8751,9 @@
           {:on-click #(swap! expanded? not)}
           [:div.m-r-10.flex.align-items-c.flex-column
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-           [:div.f-s-10 "enabled?"]
-           [comps/checkbox
-            (not (get plugin :disabled?))
-            false]]
+           (let [on? (not (get plugin :disabled?))]
+             [:span.dev-mode-switch {:class (when on? "on") :role "switch"
+                                     :aria-checked (str on?) :title "On in the builder"}])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
            ;; disabled badge(s), colored by reason — amber (app/compat) shown first
@@ -8790,7 +8788,7 @@
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
-                  [comps/checkbox show? false]
+                  [:span.dev-mode-switch.compact {:class (when show? "on") :role "switch" :aria-checked (str (boolean show?))}]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
               [:button.form-button
@@ -9001,7 +8999,8 @@
      [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
-       [comps/checkbox (not global-off?) false]
+       [:span.dev-mode-switch {:class (when-not global-off? "on") :role "switch"
+                               :aria-checked (str (not global-off?))}]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
