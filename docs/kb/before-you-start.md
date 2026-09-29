@@ -20,7 +20,7 @@ the gate exists and what it means when it fires.
 | remove or hide a field | `builder-gallery.js` diffs **labels and controls** against `test/e2e/builder-baseline.json` | a control count is blind to its own rendering; three checkboxes once vanished while the count read the same |
 | change a field's save shape | the per-builder pins read back what was **stored**, not what was typed | a form looked perfect and saved `[:school] "abjuration"` under a key vector |
 | write history into a comment or docstring, a docstring over 6 lines, or a comment block over 4 | `comment_discipline_test` (#38); how to fix or review a hit: `AGENTS.md`, "Comments and Docstrings" | the rule was a paragraph for months, and narrative kept arriving on branches that never carried it |
-| remove or reword a `;; FIELD NOTE (id):` comment | `field_notes_test` (#37); `AGENTS.md`, "Comments and Docstrings" | a verified fact about data reads like prose to a tightening pass |
+| remove or reword a `;; FIELD NOTE (id):` comment | `comment_discipline_test` (#38): a new, edited or removed note fails until its hash is recorded; `AGENTS.md`, "Comments and Docstrings" | a verified fact about data reads like prose to a tightening pass |
 
 If a gate fires and the change is deliberate: re-record the baseline / add the name, **and say why in
 the commit**. That is the whole point of it being a decision.
