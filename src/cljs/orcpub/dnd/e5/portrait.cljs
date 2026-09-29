@@ -664,7 +664,11 @@ a.lk-name:hover { color: #f0a640; }
 }
 .lk-marks { display: flex; justify-content: center; gap: 14px; }
 .lk-artist-block { display: flex; flex-direction: column; gap: 7px; }
-.lk-artist-block + .lk-artist-block { margin-top: 3px; }
+.lk-with {
+  font: italic 12px/1.55 'Vollkorn', Georgia, serif; color: var(--lk-dim);
+  text-align: center; padding: 0 8px; text-wrap: balance;
+}
+.lk-with .lk-name { font-size: 13px; }
 .lk-mark {
   display: inline-flex; color: var(--lk-dim); text-decoration: none;
   transition: filter 110ms ease, transform 110ms ease;
@@ -1088,27 +1092,43 @@ a.lk-name:hover { color: #f0a640; }
 
 (defn- rule [side] [:span.lk-rule {:class side :aria-hidden true}])
 
+(defn- name-list
+  "Names as prose: A / A and B / A, B and C. Each is its artist's link."
+  [artists]
+  (let [n (count artists)]
+    (for [[i a] (map-indexed vector artists)]
+      ^{:key (:artist/id a)}
+      [:<>
+       (cond (zero? i) nil
+             (= i (dec n)) " and "
+             :else ", ")
+       [credit-name a]])))
+
 (defn- credit-lockup
-  "Small label above, then one block per artist: their name on the rule, with
-   their marks as its end caps when that can be symmetric and on a centred
-   line below when it cannot (pa/credit-mark-layout). Each artist's marks stay
-   with their own name, so it is always clear whose link is whose."
+  "Small label, then the artists in credit order (pa/credit-order): whoever
+   drew most of the picture on the rule, with their link marks as its end caps
+   when those balance and centred below when not (pa/credit-mark-layout); then
+   everyone else on one line -- 'with A, B and C' -- each name its artist's
+   link. Height stays at three or four lines however many artists there are,
+   and the lead keeps the marks because the lead is who most people looking
+   at the picture want to find."
   [named]
-  [:<>
-   [:div.lk-cap "Art by"]
-   (for [{:keys [:artist/id :artist/name :artist/links] :as a} named
-         :let [{:keys [left right below]} (pa/credit-mark-layout links)]]
-     ^{:key id}
+  (let [[{:keys [:artist/name :artist/links] :as lead} & others] named
+        {:keys [left right below]} (pa/credit-mark-layout links)]
+    [:<>
+     [:div.lk-cap "Art by"]
      [:div.lk-artist-block
       [:div.lk-row
        [rule "l"]
        (for [l left] ^{:key (:link/url l)} [credit-mark name l])
-       [credit-name a]
+       [credit-name lead]
        (for [l right] ^{:key (:link/url l)} [credit-mark name l])
        [rule "r"]]
       (when (seq below)
         [:div.lk-marks
-         (for [l below] ^{:key (:link/url l)} [credit-mark name l])])])])
+         (for [l below] ^{:key (:link/url l)} [credit-mark name l])])]
+     (when (seq others)
+       [:div.lk-with "with " (name-list others)])]))
 
 (defn- attribution
   "Who drew what is on canvas.

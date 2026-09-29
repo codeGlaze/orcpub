@@ -476,3 +476,59 @@
     (testing "links keep their given order, left side first"
       (let [{:keys [left right]} (pa/credit-mark-layout (ls 4))]
         (is (= (ls 4) (into left right)))))))
+
+;; ---------------------------------------------------------------------------
+;; Credit order: most of the picture first, like the ingredients on a label.
+;; The registry has one artist, so these split its layers across stand-ins.
+;; ---------------------------------------------------------------------------
+
+(defn- split-registry [owners]
+  (let [layers (:artist/layers pa/house-pack)]
+    (mapv (fn [[id nm ks]]
+            (assoc pa/house-pack :artist/id id :artist/name nm
+                   :artist/layers (select-keys layers ks)))
+          owners)))
+
+(defn- pick-first [layer-keys]
+  (let [layers (:artist/layers pa/house-pack)]
+    (into {} (for [k layer-keys :let [a (first (get layers k))] :when a]
+               [k {:asset/id (:asset/id a)}]))))
+
+(defn- order-of [owners layer-keys]
+  (with-redefs [pa/registry (split-registry owners)]
+    (mapv (juxt :artist/id :credit/weight :credit/pieces)
+          (pa/credit-order (pick-first layer-keys)))))
+
+(deftest weight-ranks-before-piece-count
+  (testing "the artist who drew the head and shirt leads the one who drew the
+            ears, nose and hair bits, though the second drew more pieces"
+    (is (= [[:a 15 2] [:b 5 3]]
+           (order-of [[:b "B" [:ears :nose :hair-bits]] [:a "A" [:head :shirt]]]
+                     [:head :shirt :ears :nose :hair-bits])))))
+
+(deftest piece-count-breaks-a-weight-tie
+  (is (= [[:b 11 3] [:a 11 2]]
+         (order-of [[:a "A" [:head :nose]] [:b "B" [:hair-front :bangs :ears]]]
+                   [:head :nose :hair-front :bangs :ears]))))
+
+(deftest registry-order-breaks-a-full-tie-so-the-credit-never-reshuffles
+  (is (= [:a :b] (map first (order-of [[:a "A" [:eyes]] [:b "B" [:bangs]]] [:eyes :bangs]))))
+  (is (= [:b :a] (map first (order-of [[:b "B" [:bangs]] [:a "A" [:eyes]]] [:eyes :bangs])))))
+
+(deftest the-generated-scalp-carries-no-weight
+  (is (= [[:a 10 1] [:b 0 1]]
+         (order-of [[:b "B" [:scalp]] [:a "A" [:head]]] [:head :scalp]))))
+
+(deftest every-surface-names-artists-in-credit-order
+  (with-redefs [pa/registry (split-registry [[:b "Bee" [:ears]] [:a "Ay" [:head]]])]
+    (is (= "Art: Ay, Bee" (pa/credit-line {:layers (pick-first [:head :ears])}))
+        "the text burned into share cards and PDFs follows the same order")))
+
+(deftest one-artist-gets-all-the-weight
+  (let [[{:keys [:artist/id :credit/weight :credit/pieces]}]
+        (pa/credit-order (pick-first pa/layer-order))]
+    (is (= :house-pack id))
+    (is (= (count (keep #(first (get-in pa/house-pack [:artist/layers %])) pa/layer-order)) pieces))
+    (is (= (reduce + (for [k pa/layer-order :when (seq (get-in pa/house-pack [:artist/layers k]))]
+                       (get pa/layer-credit-weight k 1)))
+           weight))))
