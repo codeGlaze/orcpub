@@ -1,5 +1,6 @@
 (ns orcpub.db.schema
-  (:require [orcpub.modifiers :as mod]
+  (:require [datomic.api :as d]
+            [orcpub.modifiers :as mod]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.units :as units5e]
@@ -184,7 +185,16 @@
    ;; link icons -- as an EDN map. Public by nature, so not encrypted.
    {:db/ident :orcpub.user/artist-credit
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}])
+    :db/cardinality :db.cardinality/one}
+   ;; One per artist account the SERVER created, keyed "artist-id email".
+   ;; Unique, so when several app containers start at once and all see no
+   ;; account yet, only the first one's creation commits; the rest fail on
+   ;; this and skip, and the artist gets one account and one email.
+   ;; (Account emails themselves are not unique in this schema.)
+   {:db/ident :orcpub.artist-provision/key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/value}])
 
 (def entity-schema
   [{:db/ident ::se/key
@@ -430,8 +440,25 @@
      ::weapon5e/reach?
      ::weapon5e/ammunition?])))
 
+(def db-functions
+  "Transaction functions installed with the schema.
+
+   retract-if-equal retracts [e a v] only if the attribute still holds v, and
+   otherwise fails the transaction. Datomic's built-in :db/cas cannot set a
+   value to nothing, so this is the guarded REMOVAL to go with it: when two
+   app containers race to unlink an artist account, one commits and the other
+   fails, instead of both succeeding and both emailing."
+  [{:db/ident :orcpub.fn/retract-if-equal
+    :db/fn (d/function
+            '{:lang :clojure
+              :params [db e a v]
+              :code (if (= v (get (datomic.api/entity db e) a))
+                      [[:db/retract e a v]]
+                      (throw (ex-info "cas failed: value changed" {:e e :a a})))})}])
+
 (def all-schemas
   (concat
+   db-functions
    user-schema
    entity-schema
    entity-type-schema
