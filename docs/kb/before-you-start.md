@@ -66,6 +66,14 @@ A whole design system sat on `port/redesign-on-refactor` for two months while tw
 builder work invented colours and spacing from scratch. Grep the KB for the *thing* as well as the
 code (`grep -rin <term> docs/`), and `git log -S <identifier>`.
 
+### Before adding an icon
+
+**Don't, unless the icon is the control** (close ×, an expand chevron, a spinner) or follows an
+existing app convention (the header nav, an icon on a labelled button). A glyph in front of a title,
+a message or a row is decoration: it adds nothing the words don't say, and the owner reads it as
+agent slop (2026-09-29, the I-beam on "Which source name?"). Since August agents have added about
+fifty; PR #37 added three broken-chain glyphs. Take one out when you touch its line.
+
 ### Before borrowing a value from a mock or another branch
 
 **Check what it was designed against.** A card colour is a relationship to its page, not an absolute:
