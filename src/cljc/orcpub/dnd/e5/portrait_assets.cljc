@@ -250,9 +250,17 @@
    ;; Her site and her Twitch, which is what she asked for. The bluesky and
    ;; kofi marks stay in /image/social -- they cost nothing sitting there and
    ;; the next artist may want them.
+   ;; :link/color is the mark's own brand colour, and it is worn at REST, not
+   ;; only on hover. A credit rendered in the same quiet grey as everything
+   ;; around it is a credit designed to be skipped; the eye finds a purple
+   ;; Twitch mark and slides straight past a grey globe. Site takes the app's
+   ;; amber because her homepage has no mark of its own and it is the primary
+   ;; link.
    :artist/links   [{:link/label "Site"   :link/icon "site"
+                     :link/color "#f0a100"
                      :link/url "https://fusspot.rip/"}
                     {:link/label "Twitch" :link/icon "twitch"
+                     :link/color "#9146ff"
                      :link/url "https://www.twitch.tv/fusspot"}]
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
