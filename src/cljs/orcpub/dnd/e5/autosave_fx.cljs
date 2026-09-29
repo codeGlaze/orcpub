@@ -69,8 +69,7 @@
   (let [offered (content-recon/offered-keys template)
         by-type (library/offered-by-type template)
         character (:character db)
-        ;; :set-character heals nothing until this list exists, so a character that loaded
-        ;; first is healed here, once.
+        ;; The heal's indexes are empty until this list exists (heal-sites).
         heal? (and (nil? (::content-recon/offered-keys db))
                    character
                    (seq (:rewrote (content-recon/reconcile-former-keys

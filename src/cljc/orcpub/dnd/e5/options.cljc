@@ -2638,8 +2638,9 @@
                                  source
                                  edit-event]
                           :as background}]
-  ;; The stored key (D10); a background authored before keys were stored has none, and was offered
-  ;; under its name's key, which content-reconciliation/former-key-index still heals from.
+  ;; FIELD NOTE (background-name-key): saved characters hold backgrounds by (common/name-to-kw name)
+  ;; even when the item stores another :key; earlier versions offered them that way. The heal
+  ;; counts the name's key as a former key (content-reconciliation/items-with-formers).
   (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs

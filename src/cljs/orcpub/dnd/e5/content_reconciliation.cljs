@@ -289,15 +289,10 @@
 ;; Spell Selection Key Reconciliation
 ;; ============================================================================
 ;;
-;; During a regression window, the plugin-classes sub mutated class :name
-;; to "Cleric (Source)", which leaked into spell-selection :key derivation
-;; (selection keys are computed via name-to-kw of the class name + suffix).
-;; Characters built or re-saved during the window have selection keys like
-;; :cleric-source-cantrips-known. After reverting the mutation, the template
-;; uses the canonical :cleric-cantrips-known again, leaving the saved key
-;; orphaned and the selections invisible.
-;;
-;; This reconciler heals unambiguous orphans at character load.
+;; A class's spell selections are keyed :<class-key>-cantrips-known and :<class-key>-spells-known.
+;; FIELD NOTE (spell-selection-orphans): saved characters exist with the suffix under another
+;; prefix (:cleric-source-cantrips-known, :artificer-cantrips-known under :artificer-kibbles-tasty).
+;; Their selections render as nothing until rewritten.
 
 (def ^:private spell-selection-suffix-re
   #"^.+?-(cantrips-known|spells-known)$")
@@ -319,11 +314,8 @@
       (keyword (str (name class-key) "-spells-known"))}))
 
 (defn- reconcile-class-entry-options
-  "Walk one class entry's option map. Returns {:options reconciled :rewrote [...]}.
-   Orphan spell-selection keys with a single suffix-match candidate in the
-   expected set are rewritten in place; everything else passes through
-   unchanged. The existing missing-content banner surfaces class-level
-   orphans (entries whose class isn't loaded)."
+  "One class entry's `options` with each orphaned spell-selection key moved to the one key of
+   `expected-keys` sharing its suffix, as {:options :rewrote}. Anything else passes through."
   [class-key options expected-keys]
   (reduce-kv
    (fn [acc k v]
@@ -350,30 +342,10 @@
    options))
 
 (defn reconcile-spell-selection-keys
-  "Heal orphaned spell-selection keys on a
-   character. Runs at :set-character (lazy, per-character-on-view).
-
-   With key-based kw derivation, the canonical spell-selection key for a class
-   entry is :{class-key}-cantrips-known / :{class-key}-spells-known. Saved
-   characters bound to the older :name-derived shape (e.g.
-   :artificer-cantrips-known under a class entry whose :key is
-   :artificer-kibbles-tasty) get auto-rewritten via suffix match.
-
-   Args:
-   - character: character entity (with ::entity/options)
-   - loaded-class-keys: collection of class keys the system knows about right
-     now (built-ins + plugins; same source the class dropdown consumes via
-     ::classes5e/classes).
-
-   For each class entry in the character whose :key is in the loaded set,
-   walk its options and rewrite spell-selection-shaped keys to the canonical
-   class-key-derived form when there's a single suffix-match candidate.
-   Class entries whose :key is NOT loaded pass through unchanged — the
-   existing missing-content banner surfaces them for user-driven relink.
-
-   Returns:
-   {:character reconciled-character
-    :rewrote [{:class-key K :from K1 :to K2} ...]}"
+  "`character` with orphaned spell-selection keys rewritten under each class entry whose :key is
+   in `loaded-class-keys` (built-ins plus enabled plugin classes), as {:character :rewrote
+   [{:class-key :from :to}]}. A key moves only when exactly one expected key shares its suffix.
+   Entries of classes not loaded pass through; the missing-content report covers them."
   [character loaded-class-keys]
   (let [known-keys (set loaded-class-keys)
         class-entries (get-in character [::entity/options :class])]
@@ -400,20 +372,23 @@
       {:character character :rewrote []})))
 
 ;; ── Former keys ─────────────────────────────────────────────────────────────
-;; Resolving an import conflict renames a key. Every character that had already
-;; selected that content stored the OLD key, and would otherwise stop resolving --
-;; the option silently unbinds and the character loses whatever it granted.
+;; An item whose key changed lists its old keys in :former-keys. A "heal" rewrites a character's
+;; picks of an old key to the current one. It is in memory until the character is saved.
 ;;
-;; rename-key-in-plugin records the outgoing key as :former-key on the item, so
-;; the rename is reversible by lookup. This translates a character's stored keys
-;; through those records when it loads, and the result persists on the next save,
-;; so each character heals once.
+;; FIELD NOTE (heal-sites): every heal goes through reconcile-former-keys, from three places:
+;;   events/set-character          the builder's character, on every load
+;;   autosave-fx/cache-template    re-dispatches :set-character once, when the offered-key list
+;;                                 first exists (before it, the indexes are empty)
+;;   subs ::char5e/character       saved characters as pages read them; never stored
+;; A pick healed in the builder but not on a page (or the reverse) means a path skips one of these.
 ;;
-;; Done here rather than at match time on purpose: t/option-cfg builds template
-;; options from a fixed allow-list and drops unknown fields, so carrying
-;; :former-key through to matching would mean threading it through every
-;; per-content-type option builder. The character is right here, and :plugins are
-;; already hydrated at :set-character.
+;; FIELD NOTE (heal-typed): a key is unique only within its type. The built-in Dragonborn "Blue"
+;; ancestry and a background picked as :blue share :blue. A pick at a library/pick-homes path uses
+;; its own type's index; every other pick uses the flat index. A type with no offered list is
+;; unknown, never empty. typed-keys.md.
+;;
+;; GOTCHA: heal the character, not the matching. t/option-cfg drops fields it does not know, so
+;; :former-keys never reaches the template.
 
 (def former-key-cap links/former-key-cap)
 (def former-keys links/former-keys)
@@ -563,15 +538,9 @@
         :rewrote @rewrote}))))
 
 ;; ── Class binding report ────────────────────────────────────────────────────
-;; The reconcilers above REPAIR. This one only reports, and deliberately so: a
-;; report threaded through a repair function's return value is a report that gets
-;; dropped by the next caller who destructures only the part it wanted, which is
-;; precisely how :rewrote went unread for as long as it did.
-;;
-;; It answers two questions the missing-content banner could not. "Something is
-;; missing" is true but useless when a class fails to bind, because the builder
-;; resets every choice downstream of a class -- the person needs to know WHICH
-;; class, and whether the subclass hanging off it even belongs to it.
+;; Reports, never repairs: classes that do not bind, and subclasses filed under the wrong class.
+;; GOTCHA: an unbound class resets every choice below it, so the report names the class; the
+;; missing-content report alone does not say which.
 
 (defn- class-entry-subclass
   "The [selection-key subclass-key] a class entry carries, or nil. Mirrors the
@@ -583,21 +552,10 @@
         subclass-selection-keys))
 
 (defn class-binding-report
-  "What is wrong with this character's class bindings, if anything.
-
-   - `loaded-class-keys`  the classes that exist right now (built-ins union
-     plugins) -- the same set the class dropdown is built from, so the report
-     cannot disagree with what the person can actually pick.
-   - `subclass->class`    {subclass-key -> owning class-key}, as far as it is
-     known. Homebrew subclasses carry :class; anything absent from this map is
-     simply not judged.
-
-   Returns {:unbound-classes [...] :subclass-mismatches [...]}.
-
-   A subclass is only called a mismatch when the map SAYS it belongs elsewhere.
-   An unknown subclass is left alone -- accusing content of being misfiled
-   because we happen not to have loaded it would turn every missing plugin into
-   a second, wrong complaint."
+  "{:unbound-classes [{:class-key :subclass-key?}] :subclass-mismatches [{:class-key :subclass-key
+   :belongs-to :selection-key}]} for `character`. `loaded-class-keys`: the classes that exist now
+   (the class dropdown's set). `subclass->class`: {subclass-key class-key}, as far as known.
+   GOTCHA: a subclass absent from `subclass->class` is never a mismatch."
   [character loaded-class-keys subclass->class]
   (let [known (set loaded-class-keys)
         entries (get-in character [::entity/options :class])]
@@ -614,10 +572,8 @@
                      (cond-> {:class-key class-key}
                        subclass-key (assoc :subclass-key subclass-key)))
 
-             ;; Only a real disagreement counts. Note this fires even when the
-             ;; class IS loaded -- a subclass filed under the wrong class binds
-             ;; without error and then grants the wrong features, which is worse
-             ;; than not binding at all because nothing looks broken.
+             ;; Also when the class is loaded: a misfiled subclass binds without error and grants
+             ;; the wrong features.
              (and class-key subclass-key owner (not= owner class-key))
              (update :subclass-mismatches conj
                      {:class-key class-key

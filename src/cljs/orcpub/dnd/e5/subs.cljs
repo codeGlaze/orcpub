@@ -601,8 +601,7 @@
  (fn [[plugins offered-by-type] _]
    (content-recon/typed-former-key-index plugins offered-by-type)))
 
-;; A saved character, as every page reads it: its picks of renamed homebrew moved to the current
-;; keys, the same heal the builder applies at load. Nothing is written until it is saved.
+;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]

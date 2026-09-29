@@ -2072,13 +2072,8 @@
           class-key)))
 
 (defn set-character [db [_ character]]
-  ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
-  ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
-  ;; former-key index.
-  (let [;; Former keys first: a character that selected content before an import
-        ;; conflict renamed it is pointing at a key nothing answers to any more.
-        ;; Translating it back before anything else means the spell-selection pass
-        ;; below sees the class key it expects rather than an orphan.
+  ;; :plugins are hydrated before this runs (::e5/plugins is a sync cofx at :initialize-db).
+  (let [;; Former keys first: the spell-selection pass needs each class key already current.
         {character :character former-rewrote :rewrote}
         (content-recon/reconcile-former-keys
          character
@@ -2088,16 +2083,10 @@
         (content-recon/reconcile-spell-selection-keys
          character
          (loaded-class-keys db))
-        ;; Both reconcilers report what they repaired and it used to be dropped on
-        ;; the floor here, so every automatic heal was invisible AND undone by the
-        ;; next load -- the rewrite lives in memory only. Keeping it lets the save
-        ;; button say the character is worth saving, which is the difference
-        ;; between healing once and re-healing forever.
+        ;; Non-empty sets :character-healed, which makes Save offer to keep the heal; unsaved, it
+        ;; is redone on every load.
         rewrote (into (vec former-rewrote) spell-rewrote)
-        ;; Reported, not repaired: an unbound class cannot be fixed by guessing,
-        ;; and a subclass filed under the wrong class binds cleanly while granting
-        ;; the wrong features, so both need a person. Computed after the repairs
-        ;; so it describes what is STILL wrong, not what already got fixed.
+        ;; After the heals, so it lists only what is still wrong.
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -2108,15 +2097,11 @@
            :character-binding-report (when (or (seq (:unbound-classes binding-report))
                                                (seq (:subclass-mismatches binding-report)))
                                        binding-report)
-           ;; Cleared when there is nothing to report, which is what makes it
-           ;; self-resetting: after a save, :set-character runs again over the
-           ;; SAVED character, the reconcilers find nothing left to fix, and the
-           ;; prompt goes away on its own rather than needing to be dismissed.
+           ;; nil after a save: :set-character reruns on the saved character and finds nothing.
            :character-healed (when (seq rewrote) {:rewrote rewrote}))))
 
 (defn healed-message
-  "Toast copy for an automatic reconciliation. Says what moved and what to do
-   about it, because the repair is in memory until the character is saved."
+  "Toast text for an automatic heal: how many picks moved, and that saving keeps it."
   [rewrote]
   (let [n (count rewrote)]
     (str "Reconnected " n " reference" (when (not= 1 n) "s")
@@ -2125,13 +2110,9 @@
 (reg-event-fx
  ::char5e/relink-content
  (fn [{:keys [db]} [_ from-key to-key content-type]]
-   ;; Rung 4 of the resolution ladder. Rungs 2 and 3 rebind a stored key when the
-   ;; answer is unambiguous and DECLINE when it is not -- which is right, but on
-   ;; its own leaves the option quietly broken. This is where the person decides.
-   ;;
-   ;; `content-type` (optional) keeps the rewrite to picks of that type: a race and a subrace
-   ;; can share a key. Routing through :set-character means the other reconcilers run over the
-   ;; result and the rebuild happens the way it does on any load.
+   ;; The person's answer for a pick no heal could settle. `content-type` (optional) limits the
+   ;; rewrite to picks of that type; a race and a subrace can share a key. Goes through
+   ;; :set-character, so the heals and the rebuild run as on any load.
    (let [{:keys [character]}
          (content-recon/relink-picks (:character db) content-type from-key to-key)]
      {:dispatch-n [[:set-character character]
