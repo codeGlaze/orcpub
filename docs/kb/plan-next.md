@@ -14,14 +14,18 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   background was picked in the old app losing it on their character page. Recommended: revert
   (offer backgrounds by name-derived key, as `integration` does), then rerun the upgrade test.
   Blocks merging #37.
-- ☐ **A/B picks** for six notices: https://claude.ai/artifact/GeiEtXMPgsu7R7Xq98Y5nq (B lives on
-  local branch `design/ab-notices`). Blocks merging #37.
+- ☑ **A/B picks** (five rounds, 2026-09-29, https://claude.ai/artifact/GeiEtXMPgsu7R7Xq98Y5nq).
+  The notices #37 adds are on `port/save-gate` (`b1feb5b3`): one framed decision callout, names not
+  keys, no glyphs, link-style actions as real buttons. The modal pass, on/off switches and single
+  section icons are on `fix/modal-and-switch-pass` (off `integration`, `fdeab368`, pushed, no PR).
+- ☐ **Open a PR for `fix/modal-and-switch-pass`?**
 - ☐ **KB move:** whole KB or only the save-gate pages to `agents/develop`; push the prepared
   commits (`6f9dd297`, `6abb4a30`, local worktree); keep `docs/kb` on `grant-rows` until it merges
   outward (recommended).
 - ☐ **#37 checklist:** is `docs/branch-changelog.md` wanted? Are `#_` deprecated forms acceptable?
-- ☐ **Older decorative icons** (~50 on `integration` since August): strip on their own branch?
-- ☐ **Run `relink-question.js`** (seeded server) before merge?
+- ☐ **Older decorative icons** (~50 on `integration` since August): strip on their own branch? The
+  import-modal title icons are already gone on `fix/modal-and-switch-pass`.
+- ☑ `relink-question.js` run on `b1feb5b3` (seeded server): passes.
 - ☐ **Watch #37 again?** Paused 2026-09-28.
 - ☐ **Merge #37:** mark ready, merge into `integration` (owner only).
 
@@ -32,8 +36,8 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 **Agent follow-ups, no decision needed**
 - ☐ After the background decision: rerun `test/e2e/upgrade.js` and explain why run 1 and run 2
   differed.
-- ☐ Commit `test/e2e/upgrade.js` to `port/save-gate` (untracked).
-- ☐ Apply the chosen A/B variants; re-trigger Greptile after every push to #37.
+- ☑ `test/e2e/upgrade.js` committed to `port/save-gate` (`b1feb5b3`).
+- ☑ A/B variants applied; Greptile re-triggered on `b1feb5b3`.
 - ☐ Journey tests not yet written: one full lifecycle (make homebrew → character → rename/re-key →
   export → import elsewhere → share link → keep), and misuse (double import, broken file, delete
   in use, two tabs on one item, back button mid-builder, double-click save, full storage, cleared
