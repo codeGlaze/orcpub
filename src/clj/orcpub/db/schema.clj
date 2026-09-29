@@ -159,6 +159,31 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/last-login
     :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; When set, a password-reset link stays valid until this moment instead
+   ;; of the usual 24 hours. Used by the artist welcome email, which may sit
+   ;; unread for days; ordinary resets never set it.
+   {:db/ident :orcpub.user/password-reset-expires
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; What the person would like to be called in emails. Stored ENCRYPTED
+   ;; (orcpub.crypto): a stolen database or backup shows ciphertext. Encrypted
+   ;; from the first write because Datomic keeps every past value in its
+   ;; history, so a name written in plain text even once would stay readable.
+   {:db/ident :orcpub.user/preferred-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; The portrait artist this account speaks for, as the registry's
+   ;; :artist/id. Set only by the server from deployment config
+   ;; (orcpub.artist-accounts), never by the account holder.
+   {:db/ident :orcpub.user/artist
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The artist's own edits to how they are credited -- name, primary link,
+   ;; link icons -- as an EDN map. Public by nature, so not encrypted.
+   {:db/ident :orcpub.user/artist-credit
+    :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}])
 
 (def entity-schema
