@@ -635,41 +635,29 @@
   display: flex; flex-direction: column; gap: 10px;
   flex-shrink: 0;
 }
-/* One rhythm across the row, in multiples of 5px: things inside a group sit
-   one unit apart, groups two units apart. The gaps used to run 7/5/13/11 --
-   four values, no relationship between them -- so nothing read as grouped. */
 .pl-attribution {
-  display: flex; flex-wrap: wrap; align-items: center;
-  justify-content: center; gap: 3px 10px;
-  margin: 7px 0 2px; font-size: 12px; text-align: center;
-}
-.pl-attribution-label {
-  font: 700 10px/1 inherit; letter-spacing: 0.18em; text-transform: uppercase;
-  color: #616a7a;
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 7px; margin: 9px 0 3px; font-size: 12px; text-align: center;
 }
 .pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
 
-/* Credit lockups B, D and F -- temporary, see the switch in the source.
-   One typeface for the words, no ornament but the broken rule and the marks.
+/* The credit: a small label, then each artist's name on a broken rule with
+   their link marks as its end caps, or centred below when they cannot balance
+   (see credit-mark-layout). One typeface for the words; no ornament but the
+   rule and the marks' own colours.
    No double quotes anywhere in this stylesheet: it is a Clojure string. */
 .pl-root { --lk-rule: rgba(240,161,0,0.40); --lk-name: #ebeef4; --lk-dim: #7b8494; }
 .pl-root.light-theme { --lk-rule: rgba(51,101,138,0.45); --lk-name: #33465c; --lk-dim: #858c96; }
-.pl-attribution.lk {
-  flex-direction: column; flex-wrap: nowrap; align-items: stretch;
-  gap: 7px; margin: 9px 0 3px;
-}
 .lk-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .lk-rule { flex: 1; height: 1px; min-width: 10px; }
 .lk-rule.l { background: linear-gradient(90deg, transparent, var(--lk-rule)); }
 .lk-rule.r { background: linear-gradient(90deg, var(--lk-rule), transparent); }
-.lk-artist { display: inline-flex; align-items: center; gap: 10px; }
 .lk-name {
   font: italic 14px/1 'Vollkorn', Georgia, serif; color: var(--lk-name);
   text-decoration: none; white-space: nowrap; transition: color 110ms ease;
 }
 a.lk-name:hover { color: #f0a640; }
 .pl-root.light-theme a.lk-name:hover { color: #c8811f; }
-.lk-by { font: italic 13px/1 'Vollkorn', Georgia, serif; color: var(--lk-dim); white-space: nowrap; }
 .lk-cap {
   font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--lk-dim); text-align: center;
@@ -690,98 +678,6 @@ a.lk-name:hover { color: #f0a640; }
   -webkit-mask-position: center; mask-position: center;
 }
 .lk-mark-text { font: 400 11px/1 'Open Sans', system-ui, sans-serif; }
-.lk-switch { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 3px; }
-.lk-switch-label {
-  font: 600 8px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--lk-dim); opacity: 0.75; margin-right: 3px;
-}
-.lk-switch button {
-  font: 700 9px/1 'Open Sans', system-ui, sans-serif; padding: 3px 6px; cursor: pointer;
-  border: 1px dashed rgba(255,255,255,0.2); border-radius: 3px;
-  background: transparent; color: var(--lk-dim);
-}
-.pl-root.light-theme .lk-switch button { border-color: rgba(20,30,45,0.22); }
-.lk-switch button.on { border-style: solid; border-color: #f0a100; color: #f0a100; }
-.pl-root.light-theme .lk-switch button.on { border-color: #33658A; color: #33658A; }
-.lk-switch button:focus-visible { outline: 2px solid #f0a100; outline-offset: 1px; }
-/* A credit is a line of prose, not a row of buttons. Boxed uppercase labels
-   read as navigation and competed with the artist's name, which is the part
-   that matters. These sit after it as quiet lowercase text. */
-/* The icons sit a touch lower than a flexbox centre would put them: the text
-   beside them is small caps with no descenders, so its optical centre is
-   below its box centre and centring the marks left them floating. */
-.pl-artist-links {
-  /* the links sit INSIDE .pl-artist, so they inherit its 5px intra-group gap;
-     this takes them to 10, the same distance that separates the label from
-     the name -- marks are their own group, not part of the byline */
-  margin-left: 5px; display: inline-flex; align-items: center; gap: 10px;
-}
-.pl-artist-link {
-  font: 400 11px/1 'Open Sans', system-ui, sans-serif;
-  /* the fallback for a link with no colour of its own; anything with a
-     :link/color overrides this inline and wears it at rest */
-  color: #98a2b3; text-decoration: none;
-  display: inline-flex; align-items: center;
-  transition: filter 110ms ease, transform 110ms ease;
-}
-.pl-artist-link:hover { transform: translateY(-1px); filter: brightness(1.28); }
-/* currentColor through a mask, so the mark is the link's colour and inherits
-   the hover with it -- an <img> would need a second asset per theme. */
-/* 12px, not 15. A mark next to text is sized to the CAP HEIGHT of that text,
-   not to its line box. The name measures about 9px from cap to baseline and
-   the marks were 15px, so they broke the cap line top and bottom and read as
-   floating above it however carefully their boxes were centred.
-   (No double quotes in here: this stylesheet is a Clojure string.) */
-.pl-artist-icon {
-  display: block; width: 12px; height: 12px;
-  background-color: currentColor;
-  -webkit-mask-size: contain;   mask-size: contain;
-  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-  -webkit-mask-position: center;  mask-position: center;
-}
-.app.light-theme .pl-artist-link,
-.pl-root.light-theme .pl-artist-link { color: #7c8493; }
-.app.light-theme .pl-artist-link:hover,
-.pl-root.light-theme .pl-artist-link:hover { filter: brightness(0.86); }
-/* centre, not baseline: the name's box carries an underline and a pixel of
-   padding, so a shared baseline put its centre 1.5px below the swirl's and
-   the icons' -- five pixels of spread across the row, which is what made it
-   look unsettled */
-.pl-artist { display: inline-flex; align-items: center; gap: 5px; }
-.pl-artist-swirl {
-  color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic;
-  /* A highlight parked off the left edge. Both ends of the gradient are the
-     swirl's own colour, so at rest it is indistinguishable from the flat
-     glyph -- the sweep only exists while it is moving. */
-  background-image: linear-gradient(105deg,
-    #f0a100 0%, #f0a100 40%, #fff0c4 50%, #f0a100 60%, #f0a100 100%);
-  background-size: 320% 100%;
-  background-position: 100% 0;
-  -webkit-background-clip: text; background-clip: text;
-}
-/* Hovering the ARTIST, not the glyph: a 9px target is a poor thing to ask
-   anyone to find, and the flourish belongs to her name rather than to itself. */
-.pl-artist:hover .pl-artist-swirl {
-  color: transparent;
-  animation: pl-swirl-shimmer 900ms cubic-bezier(.33,0,.2,1) 1;
-}
-@keyframes pl-swirl-shimmer {
-  from { background-position: 100% 0; }
-  to   { background-position: 0% 0; }
-}
-/* Anyone who has asked for less motion gets the colour and none of the sweep. */
-@media (prefers-reduced-motion: reduce) {
-  .pl-artist:hover .pl-artist-swirl { color: #f0a100; animation: none; }
-}
-.pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
-  color: #ebeef4; text-decoration: none;
-  border-bottom: 1px dotted rgba(240,161,0,0.32);
-  /* the underline hangs below the text rather than growing the box, so the
-     name's centre matches the swirl's and the marks' */
-  padding-bottom: 1px; margin-top: 1px;
-  font: italic 13px/1 'Vollkorn', Georgia, serif;
-}
-.pl-artist a:not(.pl-artist-link):hover { color: #ffcc5e; border-bottom-color: #f0a100; }
 .pl-drawer-actions {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
@@ -805,17 +701,7 @@ a.lk-name:hover { color: #f0a640; }
 .pl-root.light-theme .pl-backdrop { background: rgba(0,0,0,0.32); }
 .pl-root.light-theme .pl-drawer-head,
 .pl-root.light-theme .pl-drawer-foot { background: #fff; border-color: rgba(0,0,0,0.10); }
-.pl-root.light-theme .pl-drawer-title-rune,
-.pl-root.light-theme .pl-artist-swirl {
-  color: #33658A;
-  /* the dark theme's cream highlight vanishes on a pale ground, so light gets
-     its own: a lift toward cyan rather than toward white */
-  background-image: linear-gradient(105deg,
-    #33658A 0%, #33658A 40%, #6fb3d8 50%, #33658A 60%, #33658A 100%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .pl-root.light-theme .pl-artist:hover .pl-artist-swirl { color: #33658A; }
-}
+.pl-root.light-theme .pl-drawer-title-rune { color: #33658A; }
 .pl-root.light-theme .pl-drawer-close {
   border-color: rgba(0,0,0,0.14); color: #5a5a5a;
 }
@@ -835,8 +721,7 @@ a.lk-name:hover { color: #f0a640; }
 .pl-root.light-theme .pl-empty-registry,
 .pl-root.light-theme .pl-attribution-empty,
 .pl-root.light-theme .pl-strip-label,
-.pl-root.light-theme .pl-panel-heading,
-.pl-root.light-theme .pl-attribution-label { color: #6b6b6b; }
+.pl-root.light-theme .pl-panel-heading { color: #6b6b6b; }
 .pl-root.light-theme .pl-btn { color: #363636; }
 .pl-root.light-theme .pl-btn-primary {
   background: linear-gradient(to bottom, #33658A, #2b5677);
@@ -887,11 +772,6 @@ a.lk-name:hover { color: #f0a640; }
   background: repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px);
   color: #8a8a8a;
 }
-.pl-root.light-theme .pl-artist a:not(.pl-artist-link),
-.pl-root.light-theme .pl-artist span.pl-artist-name {
-  color: #363636; border-bottom-color: rgba(51,101,138,0.4);
-}
-.pl-root.light-theme .pl-artist a:hover { color: #33658A; border-bottom-color: #33658A; }
 /* The launcher lives in the Description tab, not in the drawer, so it hangs
    off .app rather than .pl-root -- scoping it to .pl-root left an amber
    button sitting in an otherwise blue light theme. */
@@ -1180,33 +1060,12 @@ a.lk-name:hover { color: #f0a640; }
              name]
             [:span name])))])))
 
-;; ---------------- credit lockups (TEMPORARY SWITCH) ----------------
+;; ---------------- the artist credit ----------------
 ;;
-;; Three compositions of the credit are still in contention, and the owner is
-;; living with each in the real builder before choosing. The exploration that
-;; produced them, with screenshots of all six candidates, is stashed at
-;; docs/design/portrait-credit on agents/develop.
-;;
-;; All three share the same cuts: one typeface for the words, no ornament but
-;; the broken rule and the marks' own colours. They differ only in arrangement.
-;;
-;; Once one is picked, delete the switch, the atom, the two losing lockup-*
-;; fns and their CSS, and render the winner directly from `attribution`.
-
-(def ^:private lockups [["b" "B"] ["d" "D"] ["f" "F"]])
-
-(def ^:private lockup-storage-key "orcpub.portrait.credit-lockup")
-
-(defonce ^:private lockup
-  ;; remembered per browser, so a choice holds while someone works
-  (r/atom (or (try (let [v (.getItem js/localStorage lockup-storage-key)]
-                     (when (some #(= v (first %)) lockups) v))
-                   (catch :default _ nil))
-              "d")))
-
-(defn- set-lockup! [v]
-  (reset! lockup v)
-  (try (.setItem js/localStorage lockup-storage-key v) (catch :default _ nil)))
+;; Settled after an exploration whose screenshots are stashed at
+;; docs/design/portrait-credit on agents/develop: a small label, then each
+;; artist's name on a broken rule, the words in one typeface and nothing else
+;; decorated but the rule and the link marks' own colours.
 
 (defn- credit-mark
   "One of an artist's links, as its service's mark in the link's own colour.
@@ -1229,20 +1088,7 @@ a.lk-name:hover { color: #f0a640; }
 
 (defn- rule [side] [:span.lk-rule {:class side :aria-hidden true}])
 
-(defn- lockup-b
-  "One line: rule, art by, name, marks, rule."
-  [named]
-  [:div.lk-row
-   [rule "l"]
-   [:span.lk-by "art by"]
-   (for [{:keys [:artist/id :artist/name :artist/links] :as a} named]
-     ^{:key id}
-     [:span.lk-artist
-      [credit-name a]
-      (for [l links] ^{:key (:link/url l)} [credit-mark name l])])
-   [rule "r"]])
-
-(defn- lockup-d
+(defn- credit-lockup
   "Small label above, then one block per artist: their name on the rule, with
    their marks as its end caps when that can be symmetric and on a centred
    line below when it cannot (pa/credit-mark-layout). Each artist's marks stay
@@ -1264,31 +1110,6 @@ a.lk-name:hover { color: #f0a640; }
         [:div.lk-marks
          (for [l below] ^{:key (:link/url l)} [credit-mark name l])])])])
 
-(defn- lockup-f
-  "Three centred lines: label, name on the rule, marks."
-  [named]
-  [:<>
-   [:div.lk-cap "Art by"]
-   (for [{:keys [:artist/id] :as a} named]
-     ^{:key id}
-     [:div.lk-row [rule "l"] [credit-name a] [rule "r"]])
-   [:div.lk-marks
-    (for [{:keys [:artist/name :artist/links]} named
-          l links]
-      ^{:key (:link/url l)} [credit-mark name l])]])
-
-(defn- lockup-switch []
-  (let [current @lockup]
-    [:div.lk-switch {:role "group" :aria-label "Credit layout, temporary"}
-     [:span.lk-switch-label "credit layout"]
-     (for [[v label] lockups]
-       ^{:key v}
-       [:button {:type "button"
-                 :aria-pressed (= v current)
-                 :class (when (= v current) "on")
-                 :on-click #(set-lockup! v)}
-        label])]))
-
 (defn- attribution
   "Who drew what is on canvas.
 
@@ -1299,15 +1120,10 @@ a.lk-name:hover { color: #f0a640; }
   [layers]
   (let [infos (pa/artists-for-layers layers)
         named (filter :artist/name infos)]
-    [:div.pl-attribution.lk
+    [:div.pl-attribution
      (cond
        (seq named)
-       [:<>
-        (case @lockup
-          "b" [lockup-b named]
-          "f" [lockup-f named]
-          [lockup-d named])
-        [lockup-switch]]
+       [credit-lockup named]
 
        (seq infos)
        [:span.pl-attribution-empty "artist credit pending"]
