@@ -1,6 +1,7 @@
 ;; Written by orcpub.comment-discipline-test. An entry is [file signal text hash].
 ;; :baseline is debt from before the check: clean it, then prune.
 ;; :allowed is reviewed exceptions, each with the reason it is spec.
+;; :field-notes is {[file id] hash} per FIELD NOTE; record a new or edited one by hand.
 {:allowed {},
  :baseline
  [["src/clj/orcpub/config.clj"
@@ -1342,4 +1343,5 @@
   ["src/cljs/orcpub/image_capture.cljs"
    :long-docstring
    "ns orcpub.image-capture"
-   "e97c56a45d44"]]}
+   "e97c56a45d44"]],
+ :field-notes {}}

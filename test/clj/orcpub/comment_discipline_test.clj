@@ -3,8 +3,9 @@
    docstrings over `max-docstring-lines` and comment blocks over `max-comment-lines` in `src/` and
    `web/`. Every hit must be fixed or reviewed. See `verdict` for what fails, `baseline-file` for
    the recorded debt and the reviewed exceptions.
+   Also keeps every `FIELD NOTE (id):` as recorded (see `note-verdict`).
    Remove cleaned entries: `COMMENT_BASELINE=prune lein test :only orcpub.comment-discipline-test`.
-   GOTCHA: an entry names the hit's exact text by hash; editing the text needs a new review."
+   GOTCHA: an entry names the exact text by hash; editing the text needs a new review."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [clojure.java.io :as io]
@@ -124,7 +125,28 @@
                 (add! :long-docstring nm doc nm)))))
     @out))
 
+(defn field-notes-in
+  "Each `;; FIELD NOTE (id):` in source text `src`, as {:file :id :hash :line}. A note runs from its
+   marker line to a blank comment line, the next note or a GOTCHA."
+  [file src]
+  (let [out (atom [])]
+    (walk (p/parse-string-all src)
+          (fn [node]
+            (when (n/inner? node)
+              (doseq [block (comment-blocks (n/children node))
+                      [i line] (map-indexed vector block)
+                      :let [note-id (second (re-find #"FIELD NOTE \(([^)]+)\):" line))]
+                      :when note-id]
+                (let [body (cons line (take-while #(and (not (str/blank? %))
+                                                         (not (re-find #"^\s*(FIELD NOTE \(|GOTCHA)" %)))
+                                                   (drop (inc i) block)))]
+                  (swap! out conj {:file file :id note-id :hash (text-hash (str/join "\n" body))
+                                   :line (line-of src line)}))))))
+    @out))
+
 (defn- all-hits [] (mapcat #(hits-in % (slurp %)) (sources)))
+
+(defn- all-notes [] (mapcat #(field-notes-in % (slurp %)) (sources)))
 
 ;; ── Deciding ─────────────────────────────────────────────────────────────────
 
@@ -150,20 +172,31 @@
                                       (re-find placeholder-reason reason))]
                         k))}))
 
+(defn note-verdict
+  "What field `notes` owe, given `recorded` ({[file id] hash}): {:unrecorded :gone :duplicate}, each
+   failing unless empty. A note is unrecorded when it is new or its text changed."
+  [notes recorded]
+  (let [found (group-by (juxt :file :id) notes)]
+    {:unrecorded (vec (remove #(= (:hash %) (get recorded [(:file %) (:id %)])) notes))
+     :gone (vec (remove found (keys recorded)))
+     :duplicate (vec (keep (fn [[k ns]] (when (< 1 (count ns)) k)) found))}))
+
 ;; ── The baseline file ────────────────────────────────────────────────────────
 
 (defn- read-baseline []
   (let [f (io/file baseline-file)]
     (when (.exists f) (edn/read-string (slurp f)))))
 
-(defn- write-baseline! [{:keys [allowed baseline]}]
+(defn- write-baseline! [{:keys [allowed baseline field-notes]}]
   (spit baseline-file
         (binding [*print-length* nil *print-level* nil]
           (with-out-str
             (println ";; Written by orcpub.comment-discipline-test. An entry is [file signal text hash].")
             (println ";; :baseline is debt from before the check: clean it, then prune.")
             (println ";; :allowed is reviewed exceptions, each with the reason it is spec.")
-            (pprint/pprint {:allowed (into (sorted-map) allowed) :baseline (vec (sort baseline))})))))
+            (println ";; :field-notes is {[file id] hash} per FIELD NOTE; record a new or edited one by hand.")
+            (pprint/pprint {:allowed (into (sorted-map) allowed) :baseline (vec (sort baseline))
+                            :field-notes (into (sorted-map) field-notes)})))))
 
 (defn- remove-once
   "`v` without one occurrence of each of `ks`."
@@ -186,13 +219,15 @@
         mode (System/getenv "COMMENT_BASELINE")]
     (cond
       (and (= "seed" mode) (nil? recorded))
-      (do (write-baseline! {:allowed {} :baseline (map id hits)})
+      (do (write-baseline! {:allowed {} :baseline (map id hits)
+                            :field-notes (into {} (map (juxt (juxt :file :id) :hash)) (all-notes))})
           (println "seeded" (count hits) "entries to" baseline-file))
 
       (and (= "prune" mode) recorded)
       (let [{:keys [gone stale-allowed]} (verdict hits recorded)]
         (write-baseline! {:allowed (apply dissoc (:allowed recorded) stale-allowed)
-                          :baseline (remove-once (:baseline recorded) gone)})
+                          :baseline (remove-once (:baseline recorded) gone)
+                          :field-notes (:field-notes recorded)})
         (println "pruned" (count gone) "cleaned entries and" (count stale-allowed) "stale approvals"))
 
       :else
@@ -212,7 +247,17 @@
           (is (empty? stale-allowed) (str "approved text changed or was removed; review again: "
                                           (pr-str stale-allowed))))
         (testing "every approval has a written reason"
-          (is (empty? unreasoned) (str "reason missing or a placeholder: " (pr-str unreasoned))))))))
+          (is (empty? unreasoned) (str "reason missing or a placeholder: " (pr-str unreasoned))))
+        (let [{:keys [unrecorded gone duplicate]} (note-verdict (all-notes) (:field-notes recorded))]
+          (testing "every FIELD NOTE is recorded as it stands"
+            (when (seq unrecorded)
+              (println "\nFIELD NOTEs new or changed. Check each still states a verified fact, then record:")
+              (doseq [n unrecorded]
+                (println (str "  " (pr-str [(:file n) (:id n)]) " " (pr-str (:hash n)) "   ; line " (:line n)))))
+            (is (empty? unrecorded) "a field note is new or was edited: check it, then record its hash")
+            (is (empty? gone) (str "recorded field notes no longer in the source; delete by hand only if "
+                                   "the fact no longer holds: " (pr-str gone)))
+            (is (empty? duplicate) (str "two field notes share an id in one file: " (pr-str duplicate)))))))))
 
 ;; ── The check's own tests ────────────────────────────────────────────────────
 
@@ -225,6 +270,27 @@
        ";; FIELD NOTE (x): one\n;; two\n;; three\n;; four\n;; five\n(def z 1)\n"
        ";; Heals a previously-corrupted spot.\n(def w 1)\n"
        "(def data \"Previously, a dragon slept here.\")\n"))
+
+(deftest a-field-note-is-kept-as-recorded
+  (let [src (str ";; Intro.\n;;\n;; FIELD NOTE (a): fact one\n;; continues\n;;\n"
+                 ";; FIELD NOTE (b): fact two\n;; GOTCHA: not part of b\n(def z 1)\n")
+        notes (field-notes-in "x.clj" src)
+        recorded (into {} (map (juxt (juxt :file :id) :hash)) notes)
+        hash-of (fn [s note-id] (:hash (first (filter #(= note-id (:id %)) (field-notes-in "x.clj" s)))))]
+    (is (= ["a" "b"] (map :id notes)))
+    (is (= {:unrecorded [] :gone [] :duplicate []} (note-verdict notes recorded)) "recorded: passes")
+    (is (not= (hash-of src "a") (hash-of (str/replace src "continues" "goes on") "a"))
+        "the note's continuation lines are part of it")
+    (is (= (hash-of src "b") (hash-of (str/replace src "not part of b" "changed") "b"))
+        "a GOTCHA after it is not")
+    (is (= ["a"] (map :id (:unrecorded (note-verdict (field-notes-in "x.clj" (str/replace src "fact one" "fact 1")) recorded))))
+        "edited: must be recorded again")
+    (is (= [["x.clj" "b"]] (:gone (note-verdict (field-notes-in "x.clj" (str/replace src "FIELD NOTE (b)" "NOTE (b)")) recorded)))
+        "removed: fails")
+    (is (= ["c"] (map :id (:unrecorded (note-verdict (field-notes-in "x.clj" (str src ";; FIELD NOTE (c): new\n(def q 1)\n")) recorded))))
+        "new: must be recorded")
+    (is (= [["x.clj" "a"]] (:duplicate (note-verdict (field-notes-in "x.clj" (str src ";; FIELD NOTE (a): again\n(def q 1)\n")) recorded)))
+        "a repeated id fails")))
 
 (defn- tall-in [src] (first (filter #(= :long-docstring (:signal %)) (hits-in "x.clj" src))))
 
