@@ -388,6 +388,30 @@
   [layers-selection]
   (into [] (keep artist-info) (all-artists-for-layers layers-selection)))
 
+(def max-flanking-marks
+  "The most link marks that can sit either side of an artist's name, in
+   total. Two a side still fits the 247px drawer column beside a long name."
+  4)
+
+(defn credit-mark-layout
+  "Where an artist's link marks sit around their name in the credit.
+
+   Marks flank the name only when they can do it symmetrically -- an even
+   count, up to `max-flanking-marks`, split evenly. Anything else (one link,
+   three, more than four) goes on a centred line under the name instead. Both
+   outcomes balance on the name; the credit's broken rule is symmetric, and a
+   lone mark on one side of it reads as a mistake.
+
+   Returns {:left [...] :right [...] :below [...]}, links in their given order."
+  [links]
+  (let [links (vec links)
+        n (count links)]
+    (if (and (pos? n) (even? n) (<= n max-flanking-marks))
+      {:left (subvec links 0 (quot n 2))
+       :right (subvec links (quot n 2))
+       :below []}
+      {:left [] :right [] :below links})))
+
 (defn format-credit
   "The credit string for a list of artist names, or nil for none."
   [names]

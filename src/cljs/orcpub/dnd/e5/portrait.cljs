@@ -675,6 +675,8 @@ a.lk-name:hover { color: #f0a640; }
   text-transform: uppercase; color: var(--lk-dim); text-align: center;
 }
 .lk-marks { display: flex; justify-content: center; gap: 14px; }
+.lk-artist-block { display: flex; flex-direction: column; gap: 7px; }
+.lk-artist-block + .lk-artist-block { margin-top: 3px; }
 .lk-mark {
   display: inline-flex; color: var(--lk-dim); text-decoration: none;
   transition: filter 110ms ease, transform 110ms ease;
@@ -1241,21 +1243,26 @@ a.lk-name:hover { color: #f0a640; }
    [rule "r"]])
 
 (defn- lockup-d
-  "Small label above; the marks flank the name as the rule's end caps. With
-   two links it is symmetric about the name; with an odd count the extra one
-   goes on the left."
+  "Small label above, then one block per artist: their name on the rule, with
+   their marks as its end caps when that can be symmetric and on a centred
+   line below when it cannot (pa/credit-mark-layout). Each artist's marks stay
+   with their own name, so it is always clear whose link is whose."
   [named]
   [:<>
    [:div.lk-cap "Art by"]
    (for [{:keys [:artist/id :artist/name :artist/links] :as a} named
-         :let [[before after] (split-at (quot (inc (count links)) 2) links)]]
+         :let [{:keys [left right below]} (pa/credit-mark-layout links)]]
      ^{:key id}
-     [:div.lk-row
-      [rule "l"]
-      (for [l before] ^{:key (:link/url l)} [credit-mark name l])
-      [credit-name a]
-      (for [l after] ^{:key (:link/url l)} [credit-mark name l])
-      [rule "r"]])])
+     [:div.lk-artist-block
+      [:div.lk-row
+       [rule "l"]
+       (for [l left] ^{:key (:link/url l)} [credit-mark name l])
+       [credit-name a]
+       (for [l right] ^{:key (:link/url l)} [credit-mark name l])
+       [rule "r"]]
+      (when (seq below)
+        [:div.lk-marks
+         (for [l below] ^{:key (:link/url l)} [credit-mark name l])])])])
 
 (defn- lockup-f
   "Three centred lines: label, name on the rule, marks."

@@ -458,3 +458,21 @@
       (is (nil? (:artist/links (pa/artist-info :house-pack)))
           "nil removes them rather than falling back to the default")
       (finally (pa/set-artist-overrides! {})))))
+
+(deftest credit-marks-flank-the-name-only-when-they-can-balance
+  (let [ls (fn [n] (mapv #(hash-map :link/url (str "https://example.test/" %)) (range n)))
+        shape (fn [n] (let [{:keys [left right below]} (pa/credit-mark-layout (ls n))]
+                        [(count left) (count right) (count below)]))]
+    (testing "an even count up to four splits evenly either side of the name"
+      (is (= [1 1 0] (shape 2)))
+      (is (= [2 2 0] (shape 4))))
+    (testing "anything that cannot balance goes on a centred line below instead
+              of leaving a lone mark on one side of a symmetric rule"
+      (is (= [0 0 1] (shape 1)))
+      (is (= [0 0 3] (shape 3)))
+      (is (= [0 0 6] (shape 6)) "more than four would crowd the column"))
+    (testing "no links, nothing anywhere"
+      (is (= [0 0 0] (shape 0))))
+    (testing "links keep their given order, left side first"
+      (let [{:keys [left right]} (pa/credit-mark-layout (ls 4))]
+        (is (= (ls 4) (into left right)))))))
