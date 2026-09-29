@@ -247,14 +247,13 @@
    ;; :link/icon names a mark in /image/social. A link with no icon falls back
    ;; to its label as text, so adding a service nobody has drawn yet degrades
    ;; to a word rather than to an empty box.
-   :artist/links   [{:link/label "Site"    :link/icon "site"
+   ;; Her site and her Twitch, which is what she asked for. The bluesky and
+   ;; kofi marks stay in /image/social -- they cost nothing sitting there and
+   ;; the next artist may want them.
+   :artist/links   [{:link/label "Site"   :link/icon "site"
                      :link/url "https://fusspot.rip/"}
-                    {:link/label "Twitch"  :link/icon "twitch"
-                     :link/url "https://www.twitch.tv/fusspot"}
-                    {:link/label "Bluesky" :link/icon "bluesky"
-                     :link/url "https://bsky.app/profile/fusspot.rip"}
-                    {:link/label "Ko-fi"   :link/icon "kofi"
-                     :link/url "https://ko-fi.com/fusspot"}]
+                    {:link/label "Twitch" :link/icon "twitch"
+                     :link/url "https://www.twitch.tv/fusspot"}]
    :artist/license nil
    :artist/layers  (reduce-kv (fn [m k v] (assoc m k (assets-for k v)))
                               {} asset-inventory)})

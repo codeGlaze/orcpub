@@ -427,10 +427,9 @@
     (is (= "https://fusspot.rip/" (:artist/link a))
         "one link for surfaces that hold one -- her homepage, the list she
          maintains, so it cannot go stale the way a copied handle can")
-    (is (= ["Site" "Twitch" "Bluesky" "Ko-fi"]
-           (mapv :link/label (:artist/links a)))
-        "and the full set for the builder, Twitch high because that is where
-         she actually works")
+    (is (= ["Site" "Twitch"] (mapv :link/label (:artist/links a)))
+        "the two she asked for. Twitch is second rather than last because it
+         is where she actually works")
     (is (every? #(re-find #"^https://" (:link/url %)) (:artist/links a))
         "every link is https")
     (is (not-any? #(re-find #"(?i)m\.twitch\.tv" (:link/url %)) (:artist/links a))
