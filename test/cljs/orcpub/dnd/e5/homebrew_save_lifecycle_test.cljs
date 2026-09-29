@@ -165,7 +165,7 @@
     (swap! app-db assoc :plugins {SRC {ct {:tidewall moved}}})
     (let [character {:orcpub.entity/options {:languages [{:orcpub.entity/key :tideward}]}}
           index     (reconcile/former-key-index (:plugins @app-db) #{})
-          {:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
+          {:keys [character rewrote]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
       (is (= {:tideward :tidewall} index))
       (is (= [{:from :tideward :to :tidewall}] rewrote))
       (is (= :tidewall (get-in character [:orcpub.entity/options :languages 0 :orcpub.entity/key]))))))

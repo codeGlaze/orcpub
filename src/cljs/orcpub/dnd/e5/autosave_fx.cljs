@@ -74,8 +74,7 @@
                    character
                    (seq (:rewrote (content-recon/reconcile-former-keys
                                    character
-                                   (content-recon/former-key-index (:plugins db) offered)
-                                   (content-recon/typed-former-key-index (:plugins db) by-type)))))]
+                                   (content-recon/former-key-indexes (:plugins db) offered by-type)))))]
     (cond-> {:db (assoc db
                         ::cached-template template
                         ::content-recon/offered-keys offered

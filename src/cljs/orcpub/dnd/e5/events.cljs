@@ -2076,8 +2076,8 @@
         {character :character former-rewrote :rewrote}
         (content-recon/reconcile-former-keys
          character
-         (content-recon/former-key-index (:plugins db) (::content-recon/offered-keys db))
-         (content-recon/typed-former-key-index (:plugins db) (::content-recon/offered-by-type db)))
+         (content-recon/former-key-indexes (:plugins db) (::content-recon/offered-keys db)
+                                           (::content-recon/offered-by-type db)))
         {character :character spell-rewrote :rewrote}
         (content-recon/reconcile-spell-selection-keys
          character

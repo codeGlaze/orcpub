@@ -185,9 +185,9 @@
    [:feats] :orcpub.dnd.e5/feats})
 
 (def ^:private picked-only-at-home
-  "Content types picked at their `pick-homes` path and nowhere else. (Feats are also picked under
-   other choices.)"
-  #{:orcpub.dnd.e5/races :orcpub.dnd.e5/subraces :orcpub.dnd.e5/classes :orcpub.dnd.e5/backgrounds})
+  "Content types picked at their `pick-homes` path and nowhere else: all but feats, which are also
+   picked under other choices."
+  (disj (set (vals pick-homes)) :orcpub.dnd.e5/feats))
 
 (defn pick-types
   "Of content `types`, those a character's pick at selection path `path` can be: the type of its

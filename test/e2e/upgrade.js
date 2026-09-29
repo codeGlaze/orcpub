@@ -119,7 +119,8 @@ const characterEdn = (name, tree) => '{:orcpub.entity/options ' + edn(tree).repl
 // description, read from the bundle on disk (resources/public/js/compiled/out/orcpub/ver.js).
 function expectedFooter() {
   const src = fs.readFileSync(path.resolve(__dirname, '../../resources/public/js/compiled/out/orcpub/ver.js'), 'utf8');
-  const [version, date, description] = [...src.matchAll(/return "([^"]*)";/g)].map(m => m[1]);
+  const fn = name => (src.match(new RegExp(`orcpub\\.ver\\.${name} = \\(function[^{]*\\{\\s*return "([^"]*)"`)) || [])[1];
+  const [version, date, description] = ['version', 'date', 'description'].map(fn);
   return `Version ${version} (${date}) ${description} edition`;
 }
 

@@ -588,18 +588,12 @@
 
 
 (reg-sub
- ::content-recon/former-key-index
+ ::content-recon/former-key-indexes
  :<- [:orcpub.dnd.e5/plugins]
  :<- [::content-recon/offered-keys]
- (fn [[plugins offered] _]
-   (content-recon/former-key-index plugins offered)))
-
-(reg-sub
- ::content-recon/typed-former-key-index
- :<- [:orcpub.dnd.e5/plugins]
  :<- [::content-recon/offered-by-type]
- (fn [[plugins offered-by-type] _]
-   (content-recon/typed-former-key-index plugins offered-by-type)))
+ (fn [[plugins offered offered-by-type] _]
+   (content-recon/former-key-indexes plugins offered offered-by-type)))
 
 ;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
@@ -629,8 +623,7 @@
          (if int-id
            (:character (content-recon/reconcile-former-keys
                        (get-in @app-db [::char5e/character-map int-id] {})
-                       @(subscribe [::content-recon/former-key-index])
-                       @(subscribe [::content-recon/typed-former-key-index])))
+                       @(subscribe [::content-recon/former-key-indexes])))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after

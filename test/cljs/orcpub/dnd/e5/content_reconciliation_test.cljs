@@ -8,6 +8,7 @@
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.template :as t]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.entity :as entity]))
 
 ;; ============================================================================
@@ -430,7 +431,7 @@
                     :feats [{:orcpub.entity/key :keen-mind}]}}]
 
     (testing "a nested key is translated"
-      (let [{:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
+      (let [{:keys [character rewrote]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
         (is (= :dark-elf-drow
                (get-in character [:orcpub.entity/options :race
                                   :orcpub.entity/options :subrace
@@ -438,16 +439,16 @@
         (is (= [{:from :dark-elf-drow- :to :dark-elf-drow}] rewrote))))
 
     (testing "keys with no entry are left exactly as they were"
-      (let [{:keys [character]} (reconcile/reconcile-former-keys character index)]
+      (let [{:keys [character]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
         (is (= :elf (get-in character [:orcpub.entity/options :race :orcpub.entity/key])))
         (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
                                              :orcpub.entity/key])))))
 
     (testing "an empty index is a no-op"
-      (is (= character (:character (reconcile/reconcile-former-keys character {})))))
+      (is (= character (:character (reconcile/reconcile-former-keys character {:flat {} :typed {}})))))
 
     (testing "a character with no options is left alone"
-      (is (= {} (:character (reconcile/reconcile-former-keys {} index)))))))
+      (is (= {} (:character (reconcile/reconcile-former-keys {} {:flat index :typed {}})))))))
 
 (deftest reconcile-former-keys-reaches-inside-a-multi-select
   (testing "a chosen option inside a vector is translated too"
@@ -456,7 +457,7 @@
     (let [{:keys [character]}
           (reconcile/reconcile-former-keys
            {:orcpub.entity/options {:feats [{:orcpub.entity/key :keen-mind-}]}}
-           {:keen-mind- :keen-mind})]
+           {:flat {:keen-mind- :keen-mind} :typed {}})]
       (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
                                            :orcpub.entity/key]))))))
 
@@ -469,7 +470,7 @@
                      {:class [{:orcpub.entity/key :artificer-kibbles-tasty}]}}
           {:keys [character rewrote]}
           (reconcile/reconcile-former-keys character
-                                           {:artificer-kibbles-tasty :artificer})]
+                                           {:flat {:artificer-kibbles-tasty :artificer} :typed {}})]
       (is (= :artificer (get-in character [:orcpub.entity/options :class 0
                                            :orcpub.entity/key])))
       (is (= [{:from :artificer-kibbles-tasty :to :artificer}] rewrote))))
@@ -479,7 +480,7 @@
           (reconcile/reconcile-former-keys
            {:orcpub.entity/options {:race {:orcpub.entity/key :elf}
                                     :background {:orcpub.entity/key :spy}}}
-           {:elf :high-elf})]
+           {:flat {:elf :high-elf} :typed {}})]
       (is (= :high-elf (get-in character [:orcpub.entity/options :race
                                           :orcpub.entity/key])))
       (is (= :spy (get-in character [:orcpub.entity/options :background
@@ -521,7 +522,7 @@
         plugins {"Some Source" {:orcpub.dnd.e5/races
                                 {:half-elf {:key :half-elf :name "Half-Elf"}}}}
         index (index-of plugins)
-        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned index)]
+        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned {:flat index :typed {}})]
     (is (empty? index) "an SRD rename records no former key anywhere")
     (is (= orphaned character) "so the character is returned untouched")
     (is (empty? rewrote) "and nothing is reported as healed")))
@@ -536,7 +537,7 @@
                                                :former-key :half-elf-phb-2014
                                                :name "Half-Elf (UA)"}}}}
         index (index-of plugins)
-        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned index)]
+        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned {:flat index :typed {}})]
     (is (= {:half-elf-phb-2014 :half-elf-ua} index))
     (is (= :half-elf-ua (get-in character [::entity/options :race ::entity/key]))
         "the stored key is rewritten to the item's current key")
@@ -757,8 +758,7 @@
 
 (defn- heal [character offered offered-by-type]
   (reconcile/reconcile-former-keys character
-                                   (reconcile/former-key-index blue-background offered)
-                                   (reconcile/typed-former-key-index blue-background offered-by-type)))
+                                   (reconcile/former-key-indexes blue-background offered offered-by-type)))
 
 (deftest a-background-heals-past-another-types-key
   (let [{:keys [character rewrote]} (heal dragonborn-with-blue #{:dragonborn :blue :noble}
@@ -789,10 +789,26 @@
         "a class's own choice named :background is healed by the flat rule, which :blue blocks")))
 
 (deftest a-pick-is-missing-only-if-its-own-type-lacks-it
-  (let [items (fn [offered-by-type]
-                (map :key (reconcile/check-content-availability
-                           [{:key :blue :content-type :background :content-label "Background"}]
-                           {} #{:blue :noble} offered-by-type)))]
-    (is (= [:blue] (items {:orcpub.dnd.e5/backgrounds #{:noble}}))
+  (let [missing (fn [offered-by-type]
+                  (map :key (:items (reconcile/generate-missing-content-report
+                                     {::entity/options {:background {::entity/key :blue}}}
+                                     {} #{:blue :noble} nil offered-by-type))))]
+    (is (= [:blue] (missing {:orcpub.dnd.e5/backgrounds #{:noble}}))
         "a background under a dragon colour's key is missing, not found")
-    (is (empty? (items nil)) "no typed list: the flat rule, as before")))
+    (is (empty? (missing nil)) "no typed list: the flat rule")))
+
+(deftest every-extracted-pick-has-a-home-but-the-subclass
+  (let [character {::entity/options {:race {::entity/key :elf ::entity/options {:subrace {::entity/key :high-elf}}}
+                                     :background {::entity/key :sage}
+                                     :class [{::entity/key :fighter
+                                              ::entity/options {:martial-archetype {::entity/key :champion}}}]
+                                     :feats [{::entity/key :alert}]}}
+        entries (reconcile/extract-content-keys character)]
+    (is (= #{:race :subrace :background :class :subclass :feat} (set (map :content-type entries))))
+    (doseq [{:keys [content-type path]} entries]
+      (is (= (not= :subclass content-type) (contains? library/pick-homes path))
+          (str content-type " at " path)))))
+
+(deftest a-heal-without-the-typed-index-is-refused
+  (is (thrown? js/Error (reconcile/reconcile-former-keys dragonborn-with-blue {:flat {:blue :noble}}))
+      "a flat index alone would read one type's key as another's"))

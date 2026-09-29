@@ -51,17 +51,17 @@
   (let [race-opt (get options :race)]
     (cond-> []
       (::entity/key race-opt)
-      (conj {:key (::entity/key race-opt) :content-type :race :content-label "Race"})
+      (conj {:key (::entity/key race-opt) :content-type :race :content-label "Race" :path [:race]})
 
       (get-in race-opt [::entity/options :subrace ::entity/key])
       (conj {:key (get-in race-opt [::entity/options :subrace ::entity/key])
-             :content-type :subrace :content-label "Subrace"}))))
+             :content-type :subrace :content-label "Subrace" :path [:race :subrace]}))))
 
 (defn- extract-background-key
   "Extract background key from a character."
   [options]
   (when-let [k (get-in options [:background ::entity/key])]
-    [{:key k :content-type :background :content-label "Background"}]))
+    [{:key k :content-type :background :content-label "Background" :path [:background]}]))
 
 (defn- extract-class-keys
   "Extract class and subclass keys from a character.
@@ -80,7 +80,7 @@
                                   subclass-selection-keys)]
            (cond-> []
              class-key
-             (conj {:key class-key :content-type :class :content-label "Class"})
+             (conj {:key class-key :content-type :class :content-label "Class" :path [:class]})
 
              subclass-key
              (conj {:key subclass-key :content-type :subclass :content-label "Subclass"}))))
@@ -95,12 +95,12 @@
     (when (sequential? feats)
       (keep (fn [feat-opt]
               (when-let [k (::entity/key feat-opt)]
-                {:key k :content-type :feat :content-label "Feat"}))
+                {:key k :content-type :feat :content-label "Feat" :path [:feats]}))
             feats))))
 
 (defn extract-content-keys
   "Extract all content keys from a character's options.
-   Returns a seq of {:key :keyword :content-type :type :content-label \"Label\"}."
+   Returns a seq of {:key :content-type :content-label :path}; `:path` is the selection path read."
   [character]
   (let [options (::entity/options character)]
     (concat
@@ -231,23 +231,19 @@
 ;; all inline-custom content types at once.
 (def ^:private inline-content-sentinels #{:custom :none})
 
-(def ^:private extracted-types
-  "Content type of each `extract-content-keys` entry's `:content-type` that has a pick home."
-  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces :class :orcpub.dnd.e5/classes
-   :background :orcpub.dnd.e5/backgrounds :feat :orcpub.dnd.e5/feats})
-
 (defn check-content-availability
   "Entries of `character-keys` (from `extract-content-keys`) the builder does not offer, each with
    `:missing? true`, `:suggestions` drawn from `available-content` ({:classes [...] ...}) and
-   `:inferred-source`. An entry of a type `offered-by-type` lists is looked up in that type's keys;
-   any other in `offered` (from `offered-keys`). `offered` nil means not yet known: nothing is
+   `:inferred-source`. An entry whose `:path` is a `library/pick-homes` path of a type
+   `offered-by-type` lists is looked up in that type's keys; any other in `offered` (from
+   `offered-keys`). `offered` nil means not yet known: nothing is
    reported."
   [character-keys available-content offered & [offered-by-type]]
   (when (some? offered)
     (keep
-     (fn [{:keys [key content-type] :as entry}]
+     (fn [{:keys [key content-type path] :as entry}]
        (when-not (or (contains? inline-content-sentinels key)
-                     (library/offers? (get offered-by-type (extracted-types content-type) offered) key))
+                     (library/offers? (get offered-by-type (library/pick-homes path) offered) key))
          (let [field (get content-type->field content-type)
                suggestions (find-similar-content
                             key content-type
@@ -456,6 +452,13 @@
                       [t (claimed-once items (into offered (map :key) items))]))))
           (set (vals library/pick-homes)))))
 
+(defn former-key-indexes
+  "What a heal reads: {:flat (former-key-index plugins offered)
+   :typed (typed-former-key-index plugins offered-by-type)}."
+  [plugins offered offered-by-type]
+  {:flat (former-key-index plugins offered)
+   :typed (typed-former-key-index plugins offered-by-type)})
+
 (defn- walk-entries
   "`opts` (::entity/options) with `(f path entry)` applied to every chosen entry, where `path` is
    the vector of selection keys from the root down to it."
@@ -517,26 +520,25 @@
                            relinks)))))
 
 (defn reconcile-former-keys
-  "Rewrite a character's picks through the former-key indexes, as {:character .. :rewrote
-   [{:from .. :to ..}]}. A pick at a `library/pick-homes` path whose type `typed` (from
-   `typed-former-key-index`) lists goes through that type's index only; any other pick through
-   `index` (from `former-key-index`)."
-  ([character index] (reconcile-former-keys character index nil))
-  ([character index typed]
-   (if (or (and (empty? index) (every? empty? (vals typed))) (nil? (::entity/options character)))
-     {:character character :rewrote []}
-     (let [rewrote (atom [])
-           opts (walk-entries
-                 (::entity/options character)
-                 (fn [path e]
-                   (let [t (library/pick-homes path)
-                         idx (if (contains? typed t) (get typed t) index)]
-                     (if-let [to (get idx (::entity/key e))]
-                       (do (swap! rewrote conj {:from (::entity/key e) :to to})
-                           (assoc e ::entity/key to))
-                       e))))]
-       {:character (assoc character ::entity/options opts)
-        :rewrote @rewrote}))))
+  "`character` with its picks rewritten through `indexes` (from `former-key-indexes`), as
+   {:character :rewrote [{:from :to}]}. A pick at a `library/pick-homes` path whose type `:typed`
+   lists uses that type's index only; any other pick uses `:flat`."
+  [character {:keys [flat typed] :as indexes}]
+  {:pre [(contains? indexes :typed)]}
+  (if (or (and (empty? flat) (every? empty? (vals typed))) (nil? (::entity/options character)))
+    {:character character :rewrote []}
+    (let [rewrote (atom [])
+          opts (walk-entries
+                (::entity/options character)
+                (fn [path e]
+                  (let [t (library/pick-homes path)
+                        idx (if (contains? typed t) (get typed t) flat)]
+                    (if-let [to (get idx (::entity/key e))]
+                      (do (swap! rewrote conj {:from (::entity/key e) :to to})
+                          (assoc e ::entity/key to))
+                      e))))]
+      {:character (assoc character ::entity/options opts)
+       :rewrote @rewrote})))
 
 ;; ── Class binding report ────────────────────────────────────────────────────
 ;; Reports, never repairs: classes that do not bind, and subclasses filed under the wrong class.
