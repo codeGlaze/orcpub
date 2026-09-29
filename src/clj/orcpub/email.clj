@@ -49,11 +49,17 @@
   [{:type "text/html"
     :content (str (hiccup/html (verification-email-html first-and-last-name username verification-url)))}])
 
+(defn greeting
+  "The opening line: 'Hi Kaylee,' with a preferred name, 'Hi there,' without."
+  [preferred-name]
+  (str "Hi " (if (seq preferred-name) preferred-name "there") ","))
+
 (defn email-change-verification-html
   "Email body for existing users changing their email (distinct from registration)."
-  [username verification-url]
+  ([username verification-url] (email-change-verification-html nil username verification-url))
+  ([preferred-name username verification-url]
   [:div
-   (str "Dear " branding/app-name " User,")
+   (greeting preferred-name)
    [:br]
    [:br]
    "You requested to change the email address on your account (" username "). "
@@ -69,11 +75,13 @@
    "Sincerely,"
    [:br]
    [:br]
-   (str "The " branding/email-sender-name)])
+   (str "The " branding/email-sender-name)]))
 
-(defn email-change-verification-email [username verification-url]
-  [{:type "text/html"
-    :content (str (hiccup/html (email-change-verification-html username verification-url)))}])
+(defn email-change-verification-email
+  ([username verification-url] (email-change-verification-email nil username verification-url))
+  ([preferred-name username verification-url]
+   [{:type "text/html"
+     :content (str (hiccup/html (email-change-verification-html preferred-name username verification-url)))}]))
 
 (defn email-cfg []
   (try
@@ -145,13 +153,14 @@
 
   Throws:
     ExceptionInfo with :email-change-verification-failed error code if email cannot be sent"
-  [base-url {:keys [email username]} verification-key]
+  [base-url {:keys [email username preferred-name]} verification-key]
   (try
     (let [result (postal/send-message (email-cfg)
                                       {:from (str branding/email-sender-name " <" (emailfrom) ">")
                                        :to email
                                        :subject (str branding/app-name " Email Change Verification")
                                        :body (email-change-verification-email
+                                              preferred-name
                                               username
                                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})]
       (when (not= :SUCCESS (:error result))
@@ -171,7 +180,7 @@
 (defn reset-password-email-html [first-and-last-name reset-url]
   (into
    [:div
-    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
+    (greeting first-and-last-name)
     [:br]
     [:br]
     "We received a request to reset your password, to do so please go to the following URL to complete the reset."
