@@ -298,6 +298,8 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 - **`;; FIELD NOTE (id):` comments are protected.** They record a verified fact a reader would get
   wrong (data in the wild, a trap, where to trace a behaviour). Do not remove or shorten one in a
   cleanup; change it only when the fact changes, together with its entry in `field_notes_test`.
+- Checked by `comment_discipline_test` (PR #38): history phrasing, docstrings over 6 lines and
+  comment blocks over 4 fail unless recorded in `test/comment-baseline.edn`.
 - Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
 
 ---
