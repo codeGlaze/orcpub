@@ -76,6 +76,10 @@ Then **`docs/kb/plan-next.md`** for what is being worked on now.
   worked examples, no "this used to be…".** That belongs in `docs/kb/`, linked by name. A docstring
   over ~6 lines is almost certainly carrying something that is not spec. Comments follow the same
   rule: say what the code does and why it is surprising, not how it got here.
+- **Field notes survive a cleanup.** A `;; FIELD NOTE (id):` comment records a verified fact a
+  reader would otherwise get wrong: data that exists in the wild, a trap, or where to trace a
+  behaviour. Keep it short and factual; no history. A tightening pass does not remove or shorten
+  one. Change it only when the fact changes, and update its entry in `field_notes_test` with it.
 - **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
   `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
   Corrections section — never overwrite.
