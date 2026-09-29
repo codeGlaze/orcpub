@@ -648,6 +648,60 @@
   color: #616a7a;
 }
 .pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
+
+/* Credit lockups B, D and F -- temporary, see the switch in the source.
+   One typeface for the words, no ornament but the broken rule and the marks.
+   No double quotes anywhere in this stylesheet: it is a Clojure string. */
+.pl-root { --lk-rule: rgba(240,161,0,0.40); --lk-name: #ebeef4; --lk-dim: #7b8494; }
+.pl-root.light-theme { --lk-rule: rgba(51,101,138,0.45); --lk-name: #33465c; --lk-dim: #858c96; }
+.pl-attribution.lk {
+  flex-direction: column; flex-wrap: nowrap; align-items: stretch;
+  gap: 7px; margin: 9px 0 3px;
+}
+.lk-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.lk-rule { flex: 1; height: 1px; min-width: 10px; }
+.lk-rule.l { background: linear-gradient(90deg, transparent, var(--lk-rule)); }
+.lk-rule.r { background: linear-gradient(90deg, var(--lk-rule), transparent); }
+.lk-artist { display: inline-flex; align-items: center; gap: 10px; }
+.lk-name {
+  font: italic 14px/1 'Vollkorn', Georgia, serif; color: var(--lk-name);
+  text-decoration: none; white-space: nowrap; transition: color 110ms ease;
+}
+a.lk-name:hover { color: #f0a640; }
+.pl-root.light-theme a.lk-name:hover { color: #c8811f; }
+.lk-by { font: italic 13px/1 'Vollkorn', Georgia, serif; color: var(--lk-dim); white-space: nowrap; }
+.lk-cap {
+  font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--lk-dim); text-align: center;
+}
+.lk-marks { display: flex; justify-content: center; gap: 14px; }
+.lk-mark {
+  display: inline-flex; color: var(--lk-dim); text-decoration: none;
+  transition: filter 110ms ease, transform 110ms ease;
+}
+.lk-mark:hover { transform: translateY(-1px); filter: brightness(1.28); }
+.pl-root.light-theme .lk-mark:hover { filter: brightness(0.86); }
+.lk-ico {
+  display: block; width: 12px; height: 12px; background-color: currentColor;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+}
+.lk-mark-text { font: 400 11px/1 'Open Sans', system-ui, sans-serif; }
+.lk-switch { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 3px; }
+.lk-switch-label {
+  font: 600 8px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--lk-dim); opacity: 0.75; margin-right: 3px;
+}
+.lk-switch button {
+  font: 700 9px/1 'Open Sans', system-ui, sans-serif; padding: 3px 6px; cursor: pointer;
+  border: 1px dashed rgba(255,255,255,0.2); border-radius: 3px;
+  background: transparent; color: var(--lk-dim);
+}
+.pl-root.light-theme .lk-switch button { border-color: rgba(20,30,45,0.22); }
+.lk-switch button.on { border-style: solid; border-color: #f0a100; color: #f0a100; }
+.pl-root.light-theme .lk-switch button.on { border-color: #33658A; color: #33658A; }
+.lk-switch button:focus-visible { outline: 2px solid #f0a100; outline-offset: 1px; }
 /* A credit is a line of prose, not a row of buttons. Boxed uppercase labels
    read as navigation and competed with the artist's name, which is the part
    that matters. These sit after it as quiet lowercase text. */
@@ -1124,6 +1178,110 @@
              name]
             [:span name])))])))
 
+;; ---------------- credit lockups (TEMPORARY SWITCH) ----------------
+;;
+;; Three compositions of the credit are still in contention, and the owner is
+;; living with each in the real builder before choosing. The exploration that
+;; produced them, with screenshots of all six candidates, is stashed at
+;; docs/design/portrait-credit on agents/develop.
+;;
+;; All three share the same cuts: one typeface for the words, no ornament but
+;; the broken rule and the marks' own colours. They differ only in arrangement.
+;;
+;; Once one is picked, delete the switch, the atom, the two losing lockup-*
+;; fns and their CSS, and render the winner directly from `attribution`.
+
+(def ^:private lockups [["b" "B"] ["d" "D"] ["f" "F"]])
+
+(def ^:private lockup-storage-key "orcpub.portrait.credit-lockup")
+
+(defonce ^:private lockup
+  ;; remembered per browser, so a choice holds while someone works
+  (r/atom (or (try (let [v (.getItem js/localStorage lockup-storage-key)]
+                     (when (some #(= v (first %)) lockups) v))
+                   (catch :default _ nil))
+              "d")))
+
+(defn- set-lockup! [v]
+  (reset! lockup v)
+  (try (.setItem js/localStorage lockup-storage-key v) (catch :default _ nil)))
+
+(defn- credit-mark
+  "One of an artist's links, as its service's mark in the link's own colour.
+   The label is the accessible name: an icon alone is unreadable to a screen
+   reader, and a link with no icon falls back to the label as text."
+  [artist-name {:link/keys [label url icon color]}]
+  [:a.lk-mark {:href url :target "_blank" :rel "noopener"
+               :title (str artist-name " on " label)
+               :aria-label (str artist-name " on " label)
+               :style (when color {:color color})}
+   (if icon
+     [:span.lk-ico {:style {:WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                            :maskImage (str "url(/image/social/" icon ".svg)")}}]
+     [:span.lk-mark-text (s/lower-case label)])])
+
+(defn- credit-name [{:keys [:artist/name :artist/link]}]
+  (if link
+    [:a.lk-name {:href link :target "_blank" :rel "noopener"} name]
+    [:span.lk-name name]))
+
+(defn- rule [side] [:span.lk-rule {:class side :aria-hidden true}])
+
+(defn- lockup-b
+  "One line: rule, art by, name, marks, rule."
+  [named]
+  [:div.lk-row
+   [rule "l"]
+   [:span.lk-by "art by"]
+   (for [{:keys [:artist/id :artist/name :artist/links] :as a} named]
+     ^{:key id}
+     [:span.lk-artist
+      [credit-name a]
+      (for [l links] ^{:key (:link/url l)} [credit-mark name l])])
+   [rule "r"]])
+
+(defn- lockup-d
+  "Small label above; the marks flank the name as the rule's end caps. With
+   two links it is symmetric about the name; with an odd count the extra one
+   goes on the left."
+  [named]
+  [:<>
+   [:div.lk-cap "Art by"]
+   (for [{:keys [:artist/id :artist/name :artist/links] :as a} named
+         :let [[before after] (split-at (quot (inc (count links)) 2) links)]]
+     ^{:key id}
+     [:div.lk-row
+      [rule "l"]
+      (for [l before] ^{:key (:link/url l)} [credit-mark name l])
+      [credit-name a]
+      (for [l after] ^{:key (:link/url l)} [credit-mark name l])
+      [rule "r"]])])
+
+(defn- lockup-f
+  "Three centred lines: label, name on the rule, marks."
+  [named]
+  [:<>
+   [:div.lk-cap "Art by"]
+   (for [{:keys [:artist/id] :as a} named]
+     ^{:key id}
+     [:div.lk-row [rule "l"] [credit-name a] [rule "r"]])
+   [:div.lk-marks
+    (for [{:keys [:artist/name :artist/links]} named
+          l links]
+      ^{:key (:link/url l)} [credit-mark name l])]])
+
+(defn- lockup-switch []
+  (let [current @lockup]
+    [:div.lk-switch {:role "group" :aria-label "Credit layout, temporary"}
+     [:span.lk-switch-label "credit layout"]
+     (for [[v label] lockups]
+       ^{:key v}
+       [:button {:type "button"
+                 :aria-pressed (= v current)
+                 :class (when (= v current) "on")
+                 :on-click #(set-lockup! v)}
+        label])]))
+
 (defn- attribution
   "Who drew what is on canvas.
 
@@ -1134,43 +1292,15 @@
   [layers]
   (let [infos (pa/artists-for-layers layers)
         named (filter :artist/name infos)]
-    [:div.pl-attribution
+    [:div.pl-attribution.lk
      (cond
        (seq named)
        [:<>
-        [:span.pl-attribution-label "Art by"]
-        (for [{:keys [:artist/id :artist/name :artist/link :artist/links]} named]
-          ^{:key id}
-          [:span.pl-artist
-           [:span.pl-artist-swirl "\u00a7"]
-           (if link
-             [:a {:href link :target "_blank" :rel "noopener"} name]
-             [:span.pl-artist-name name])
-           ;; The full set lives only here. The baked card and the PDF carry
-           ;; the name as text -- a PNG cannot hold a link -- and the character
-           ;; page strip fits one. This is the surface with room, and the one
-           ;; where someone is looking at the art as it is being made.
-           (when (seq links)
-             [:span.pl-artist-links
-              (for [{:link/keys [label url icon color]} links]
-                ^{:key url}
-                [:a.pl-artist-link
-                 {:href url :target "_blank" :rel "noopener"
-                  :title (str name " on " label)
-                  ;; the mark's own colour, worn at rest -- the icon is a mask
-                  ;; over currentColor, so setting the link's colour paints it
-                  :style (when color {:color color})
-                  ;; the label is the accessible name either way -- an icon
-                  ;; with no text is unreadable to a screen reader otherwise
-                  :aria-label (str name " on " label)
-                  :class (when icon "has-icon")}
-                 (if icon
-                   ;; mask rather than <img>, so the mark takes the link's own
-                   ;; colour and warms on hover with everything else
-                   [:span.pl-artist-icon
-                    {:style {:WebkitMaskImage (str "url(/image/social/" icon ".svg)")
-                             :maskImage (str "url(/image/social/" icon ".svg)")}}]
-                   (s/lower-case label))])])])]
+        (case @lockup
+          "b" [lockup-b named]
+          "f" [lockup-f named]
+          [lockup-d named])
+        [lockup-switch]]
 
        (seq infos)
        [:span.pl-attribution-empty "artist credit pending"]
