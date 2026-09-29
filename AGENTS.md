@@ -288,6 +288,18 @@ Key environment variables (via `environ`):
 
 Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 
+### Comments and Docstrings — MUST FOLLOW
+
+- **Docstrings are spec:** what it does, its args, what it returns, and at most a one-or-two-line
+  GOTCHA where a reader would otherwise write a bug.
+- **Comments say what the code does and why it is surprising.** No history ("used to", "was
+  once"), no rationale or decision narrative, no worked examples. Those go in `docs/kb/`, and the
+  comment links the page by name (`key-collision-behavior.md`).
+- **`;; FIELD NOTE (id):` comments are protected.** They record a verified fact a reader would get
+  wrong (data in the wild, a trap, where to trace a behaviour). Do not remove or shorten one in a
+  cleanup; change it only when the fact changes, together with its entry in `field_notes_test`.
+- Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
+
 ---
 
 ## Documentation Standards
@@ -365,4 +377,4 @@ See [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md) for details and test result
 
 ---
 
-*Last updated: February 2026*
+*Last updated: September 2026*
