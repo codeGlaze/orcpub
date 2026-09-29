@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, block, check, colour, control, css, dragon, form, icon, invented, labelled, length, machine, owner, react, row, screenshot, unless
+**topics:** belong, block, check, control, css, docstrings, form, icon, invented, labelled, machine, months, owner, paragraph, react, row, screenshot, unless
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -151,7 +151,7 @@ _before-you-start · before you start_
 
 _branch-context-history · branch context history_
 
-**topics:** branch, catalog, charter, cljs, errors, golden, green, handoff, harness, history, intent, lint, locks, phase, registry, rotted, spine, subs
+**topics:** branch, catalog, charter, cljs, errors, golden, green, handoff, harness, intent, lint, locks, phase, registry, rotted, spine, subs, verification
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -166,7 +166,7 @@ _branch-context-history · branch context history_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
+**topics:** assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, head, heading, height, jpg, layout, mockup, range, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -296,7 +296,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, index, key, misfiled, offered, person, pick, prefix, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, index, indexes, key, misfiled, person, prefix, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -311,7 +311,7 @@ _character-heals · character heals_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, early, guard, intent, malformed, matters, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -438,7 +438,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, macro, performance, pool, registers, registry, routes, schema, spa
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, schema, spa
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -652,7 +652,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** appended, audit, before-you-start, css, directory, docstring, docstrings, documentation, documented, dotfiles, history, hook, learned, push, reminder, session, stale, violated
+**topics:** agents, appended, audit, before-you-start, css, directory, docstring, docstrings, documentation, documented, dotfiles, history, learned, machine, push, reminder, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -852,7 +852,7 @@ _homebrew-key-map · homebrew key map_
 
 _homebrew-keys-design · homebrew keys design_
 
-**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, grant-rows, holder, item, library, link, links, owner, rename, renames, report, revision, tab, write
+**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, grant-rows, holder, item, library, link, links, owner, rename, report, revision, step, tab, write
 
 - 1. What does not change (compatibility promises)
 - 2. One list of every kind of link
@@ -992,7 +992,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** 2026-09-25, 2026-09-27, 2026-09-28, delete, falsified, icons, lein, move, owner, paused, port, review, rounds, save, server, trunk, warforged, writer
+**topics:** 2026-09-25, 2026-09-27, 2026-09-28, 2026-09-29, delete, falsified, icons, lein, move, owner, paused, port, review, rounds, save, server, trunk, warforged
 
 - Open checklist for PR #37 and around it (2026-09-29)
 - 0. Standing, do these first
@@ -1152,7 +1152,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -1183,7 +1183,7 @@ _test-suite-state · test suite state_
 
 _typed-keys · typed keys_
 
-**topics:** ancestry, background, blue, built-in, flat, granted, heal, heals, home, index, offered, pick, picks, type, type-blind, typed, upgrade, walk
+**topics:** ancestry, background, blue, dragonborn, extracted, flat, heal, heals, home, index, offered, pick, picks, type, type-blind, typed, upgrade, walk
 
 - What went wrong (verified)
 - Where a pick's type is known

@@ -49,8 +49,10 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   and `pick-homes` as the only list of pick types, on #37 (`38dbaa91`); each rule stated once, the
   rest point to it; BRANCH.md's state reduced to roles and PRs (`282e5306`); the KB copied to
   agents/develop with a three-way merge, kb lint clean (`0006659e`).
-- ☐ **Owner: field notes and the comment check.** Fold `field_notes_test` (#37) into
-  `comment_discipline_test` (#38) as hash-recorded entries, or keep both? Held for the owner.
+- ☑ Field notes folded into `comment_discipline_test` (#38, `76395a16`): recorded by hash in
+  `:field-notes`. `field_notes_test` stays on #37 until the reconcile below, then goes.
+- ☐ **Reconcile #37 and #38** (whichever merges second): fix or review #37's 24 new hits, record
+  its 4 field notes, delete `field_notes_test`, prune.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").

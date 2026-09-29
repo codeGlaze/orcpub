@@ -72,7 +72,7 @@ Then **`docs/kb/plan-next.md`** for what is being worked on now.
   line per D-number. Check a design against it before proposing; do not re-derive from the history
   below it.
 - **Comments and docstrings: `AGENTS.md`, "Comments and Docstrings".** Spec only, history in
-  `docs/kb/`, `FIELD NOTE`s protected, every hit of `comment_discipline_test` fixed or reviewed.
+  `docs/kb/`, `FIELD NOTE`s recorded by hash, every hit of `comment_discipline_test` fixed or reviewed.
   Measurements and examples: `documentation-discipline.md`.
 - **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
   `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
