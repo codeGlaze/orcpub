@@ -671,8 +671,13 @@
 .pl-artist-link:hover { transform: translateY(-1px); filter: brightness(1.28); }
 /* currentColor through a mask, so the mark is the link's colour and inherits
    the hover with it -- an <img> would need a second asset per theme. */
+/* 12px, not 15. A mark next to text is sized to the CAP HEIGHT of that text,
+   not to its line box. The name measures about 9px from cap to baseline and
+   the marks were 15px, so they broke the cap line top and bottom and read as
+   floating above it however carefully their boxes were centred.
+   (No double quotes in here: this stylesheet is a Clojure string.) */
 .pl-artist-icon {
-  display: block; width: 15px; height: 15px;
+  display: block; width: 12px; height: 12px;
   background-color: currentColor;
   -webkit-mask-size: contain;   mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
