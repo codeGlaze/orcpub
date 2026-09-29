@@ -293,6 +293,81 @@
        nil)))))
 
 ;; ---------------------------------------------------------------------------
+;; Credit changes
+;; ---------------------------------------------------------------------------
+
+(defn credit-rows
+  "A credit as [label value] rows, for showing before and after."
+  [credit]
+  (let [{:artist/keys [name link links]} credit]
+    (concat [["Name" (or name "(default)")]
+             ["Link" (or link "(default)")]]
+            (if (seq links)
+              (for [{:link/keys [label url]} links] [label url])
+              [["Icons" "(default)"]]))))
+
+(defn- rows-table [rows]
+  [:table {:role "presentation" :cellpadding "0" :cellspacing "0" :border "0"
+           :style (str "margin:4px 0 16px;font:14px/1.7 " sans ";color:#2a2f36")}
+   (for [[k v] rows]
+     [:tr [:td {:style "color:#6b7280;padding-right:18px;vertical-align:top"} k]
+      [:td {:style "word-break:break-all"} v]])])
+
+(defn- rows-text [rows]
+  (s/join "\n" (for [[k v] rows] (str "  " k ": " v))))
+
+(defn credit-changed-message
+  "To the artist: their credit was changed, so a change they didn't make is
+   noticed by the one person who would know."
+  [base {:keys [artist-id user after]}]
+  (let [artist-name (or (:artist/name (pa/artist-info artist-id)) (name artist-id))
+        who (greeting-name {:artist-id artist-id :user user})
+        rows (credit-rows after)
+        settings (when base (credit-url base))]
+    (message
+     (:orcpub.user/email user)
+     (str "Your " branding/app-name " credit was updated")
+     (str "Hi " who ",\n\n"
+          "Your credit as " artist-name " was just updated. It now reads:\n\n"
+          (rows-text rows) "\n\n"
+          (when settings (str "You can change it any time: " settings "\n\n"))
+          "If this wasn't you, reply to this email and we'll put it back and lock it.\n\n"
+          branding/email-signoff)
+     (html
+      (shell
+       (list
+        (p "Hi " who ",")
+        (p "Your credit as " [:b artist-name] " was just updated. It now reads:")
+        (rows-table rows)
+        (when settings (p "You can change it any time from " [:a {:href settings} "your account"] "."))
+        (p [:b "If this wasn't you,"] " reply to this email and we'll put it back and lock it.")
+        (p [:span {:style (str "font-style:italic;font-family:" serif)} branding/email-signoff]))
+       nil)))))
+
+(defn credit-admin-message
+  "The admin's copy: before and after, and how to overrule it."
+  [{:keys [artist-id user before after]}]
+  (let [artist-name (or (:artist/name (pa/artist-info artist-id)) (name artist-id))
+        lead (str (:orcpub.user/username user) " updated the credit for " artist-name ".")
+        how (str "To overrule it, set the field for " (name artist-id)
+                 " in PORTRAIT_ARTISTS; the config always wins over an artist's own edits.")]
+    (message
+     (admin-recipient)
+     (str "Artist credit changed: " artist-name)
+     (str lead "\n\nBefore:\n" (rows-text (credit-rows before))
+          "\n\nAfter:\n" (rows-text (credit-rows after)) "\n\n" how)
+     (html
+      (shell
+       (list
+        (p [:b lead])
+        (small "Before")
+        (rows-table (credit-rows before))
+        (small "After")
+        (rows-table (credit-rows after))
+        (small how))
+       nil)))))
+
+;; ---------------------------------------------------------------------------
 ;; Sending
 ;; ---------------------------------------------------------------------------
 
@@ -329,3 +404,15 @@
                  (deliver! :upgraded (upgrade-message base event) event)
                  (println "artist-email: APP_URL is not set; upgrade email not sent")))
    :unlinked (fn [event] (deliver! :unlinked (unlinked-message event) event))})
+
+(defn credit-changed!
+  "Tell the artist and the admin that a credit changed. Unlike the startup
+   emails this needs no APP_URL -- the message reads fine without the link."
+  [event]
+  (if-not (email-on?)
+    (println "artist-email: email is off; credit change for"
+             (get-in event [:user :orcpub.user/username]) "not announced")
+    (do (send! (credit-changed-message (base-url) event))
+        (if (admin-recipient)
+          (send! (credit-admin-message event))
+          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent")))))

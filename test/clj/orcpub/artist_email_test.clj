@@ -82,3 +82,18 @@
                   postal.core/send-message (fn [_ m] (swap! sent conj m) {:error :SUCCESS})]
       ((:created ae/notify) created-event))
     (is (= ["hello@fusspot.rip" "admin@site.test"] (map :to @sent)))))
+
+(deftest a-credit-change-tells-the-artist-what-it-now-says
+  (with-redefs [ae/admin-recipient (constantly "admin@site.test")]
+    (let [event {:artist-id :house-pack
+                 :user {:orcpub.user/username "fusspot" :orcpub.user/email "hello@fusspot.rip"}
+                 :before nil
+                 :after {:artist/name "Fuss"
+                         :artist/links [{:link/label "Twitch" :link/url "https://twitch.tv/fusspot"}]}}
+          [text _] (parts (ae/credit-changed-message "https://site.test" event))
+          [admin _] (parts (ae/credit-admin-message event))]
+      (is (s/includes? text "Name: Fuss"))
+      (is (s/includes? text "Twitch: https://twitch.tv/fusspot"))
+      (is (s/includes? text "If this wasn't you"))
+      (is (s/includes? admin "Before:\n  Name: (default)"))
+      (is (s/includes? admin "PORTRAIT_ARTISTS")))))
