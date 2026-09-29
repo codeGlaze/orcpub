@@ -44,7 +44,8 @@ button the `save-healed` class. Unsaved, the same heal runs again on every load.
 
 ## What a heal will and will not do
 
-The **index** maps each former key to a current key. A former key comes from an item's
+The **indexes** (`former-key-indexes`: `:flat`, and `:typed` per type) map each former key to a
+current key. A former key comes from an item's
 `:former-keys`, and, for a background, from its name (`common/name-to-kw` of `:name`): earlier
 versions offered backgrounds by name even when the item stored another key, and characters hold
 those keys.
@@ -54,10 +55,8 @@ A former key is **left out** of the index, so picks of it are not moved, when:
 - a library item holds it now (the key still answers; moving the pick would change what it means);
 - the builder offers it now (the same, for built-in content).
 
-**By type.** A key is unique only within its type. Picks at a `library/pick-homes` path (race,
-subrace, class, background, feats) use their own type's index and offered keys. Every other pick
-uses the flat index, where a key offered or held by anything blocks the heal. Why, and the case
-that proved it: `typed-keys.md`.
+**By type.** A key is unique only within its type, so picks at a `library/pick-homes` path heal
+from their own type's index: `typed-keys.md`.
 
 **The character is rewritten, not the matching.** `t/option-cfg` builds template options from a
 fixed list of fields and drops the rest, so `:former-keys` never reaches the template. Healing at
@@ -105,8 +104,7 @@ cc.pr_str(cc.get_in(db, rd('[:orcpub.dnd.e5.character/character-map <id> :orcpub
 cc.pr_str(cc.get_in(cc.deref(rf.subscribe(rd('[:orcpub.dnd.e5.character/character <id>]'))),
                     rd('[:orcpub.entity/options :background]')));
 // the indexes, and whether a key is offered anywhere
-cc.pr_str(cc.deref(rf.subscribe(rd('[:orcpub.dnd.e5.content-reconciliation/former-key-index]'))));
-cc.pr_str(cc.deref(rf.subscribe(rd('[:orcpub.dnd.e5.content-reconciliation/typed-former-key-index]'))));
+cc.pr_str(cc.deref(rf.subscribe(rd('[:orcpub.dnd.e5.content-reconciliation/former-key-indexes]'))));
 cc.contains_QMARK_(cc.get(db, rd(':orcpub.dnd.e5.content-reconciliation/offered-keys')), rd(':blue'));
 ```
 

@@ -572,10 +572,5 @@ in Node, not by a repo test), and failed bookkeeping writes are logged.
 
 ## Typed keys (2026-09-29)
 
-The two-phase upgrade test (`test/e2e/upgrade.js`, old app's data opened by the new app) found a
-character losing its homebrew background on its page. Two causes, both fixed on `port/save-gate`:
-the character page read saved characters without the key heal (it now runs inside
-`::char5e/character`), and the heal and the missing-content check looked keys up in one flat set,
-so the built-in Dragonborn "Blue" ancestry blocked the background picked as `:blue`. Picks at a
-`library/pick-homes` path now use their own type's renames and offered keys, and every other pick
-keeps the flat rule. The findings, the guards and what they mean for grant pools: `typed-keys.md`.
+The upgrade test found saved characters losing a homebrew background on their page; fixed on
+`port/save-gate` by healing where characters are read and typing heals by pick path. `typed-keys.md`.

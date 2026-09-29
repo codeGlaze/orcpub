@@ -41,20 +41,17 @@ Stale content at the top is the most expensive kind.
 
 ## Docstrings are SPEC, not prose
 
-What it does, its args, what it returns — and at most a one-or-two-line **GOTCHA** where a reader
-would otherwise write a bug. No history, no rationale, no worked examples, no "this used to be…".
-That belongs here in the KB, linked by filename. Over ~6 lines is almost certainly carrying
-something that is not spec. Comments follow the same rule: what the code does and why it is
-surprising, never how it got here.
+The rule is `AGENTS.md`, "Comments and Docstrings": spec only, history here in the KB linked by
+filename, `FIELD NOTE`s protected, and every hit of `comment_discipline_test` fixed or reviewed.
+This section keeps the evidence.
 
 Measured 2026-09-11: 19 docstrings in the touched namespaces ran over six lines, some to eighteen,
 carrying migration history and worked examples. Trimmed to one. Everything cut already existed in a
 KB doc, so it was duplication as well as bloat.
 
-This rule was enforced nowhere — not in `CLAUDE.md`, not in `AGENTS.md` or `docs/DOC-CONVENTIONS.md`
-on `agents/develop`, and the only hook (`kb-doc-reminder.sh`, pre-push) checks KB docs. It lived in
-the maintainer's head, which is why it was violated. It lives here now because this file travels
-with the KB; `CLAUDE.md` is per-environment and not committed on code branches.
+Until 2026-09-29 the rule lived only here and in one feature branch's `BRANCH.md`, so agents on
+`integration` and its branches never saw it, and narrative kept arriving there. It is now in
+`AGENTS.md`, which every branch's agents read, and checked by `comment_discipline_test` (#38).
 
 ## Docstring what you touch
 

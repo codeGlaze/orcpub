@@ -10,7 +10,7 @@ content as another.
 
 Verified 2026-09-29 on `port/save-gate` (#37, `43f93777`) by the two-phase upgrade test (`test/e2e/upgrade.js`)
 and the tests named below. Code: `library.cljc` (`pick-homes`, `pick-types`, `offered-by-type`),
-`content_reconciliation.cljs` (`typed-former-key-index`, `reconcile-former-keys`,
+`content_reconciliation.cljs` (`former-key-indexes`, `reconcile-former-keys`,
 `check-content-availability`).
 
 ## What went wrong (verified)
@@ -48,8 +48,11 @@ Three things keep that safe:
 - **No list means unknown, not empty.** A type missing from `offered-by-type` falls back to the
   flat rule. Test: `a-type-with-no-offered-list-keeps-the-flat-rule`.
 - **Home by path, never by name.** `[:class :background]` is not `[:background]`.
-- **One table.** `offered-by-type`, the typed index and `pick-types` all read `pick-homes`, so a
-  new home is one entry.
+- **One table.** `offered-by-type`, the typed index, `pick-types` (and the types it treats as
+  picked only at home) and the missing-content check (each extracted pick carries its `:path`) all
+  read `pick-homes`, so a new home is one entry. Test: `every-extracted-pick-has-a-home-but-the-subclass`.
+- **No type-blind heal.** `reconcile-former-keys` takes the map `former-key-indexes` returns and
+  refuses one without `:typed`. Test: `a-heal-without-the-typed-index-is-refused`.
 
 Each guard's test was checked by removing the guard and watching the test fail.
 

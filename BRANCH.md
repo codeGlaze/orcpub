@@ -71,15 +71,9 @@ Then **`docs/kb/plan-next.md`** for what is being worked on now.
 - **The rules index is the status table at the top of `content-extensibility-decisions.md`** — one
   line per D-number. Check a design against it before proposing; do not re-derive from the history
   below it.
-- **Docstrings are SPEC, not prose.** What it does, its args, what it returns — and at most a
-  one-or-two-line GOTCHA where a reader would otherwise write a bug. **No history, no rationale, no
-  worked examples, no "this used to be…".** That belongs in `docs/kb/`, linked by name. A docstring
-  over ~6 lines is almost certainly carrying something that is not spec. Comments follow the same
-  rule: say what the code does and why it is surprising, not how it got here.
-- **Field notes survive a cleanup.** A `;; FIELD NOTE (id):` comment records a verified fact a
-  reader would otherwise get wrong: data that exists in the wild, a trap, or where to trace a
-  behaviour. Keep it short and factual; no history. A tightening pass does not remove or shorten
-  one. Change it only when the fact changes, and update its entry in `field_notes_test` with it.
+- **Comments and docstrings: `AGENTS.md`, "Comments and Docstrings".** Spec only, history in
+  `docs/kb/`, `FIELD NOTE`s protected, every hit of `comment_discipline_test` fixed or reviewed.
+  Measurements and examples: `documentation-discipline.md`.
 - **Record decisions where they are made.** The ledger in `roadmap.md`, the D-log in
   `content-extensibility-decisions.md`. Current truth at the top, history at the tail, reversals in a
   Corrections section — never overwrite.
@@ -154,32 +148,31 @@ issue with the *old* Datomic Free on Java 8/21 — it is history, not the curren
 
 ## Current State
 
-*Updated 2026-09-27. Update at every milestone.*
+**Live status is the open checklist at the top of `docs/kb/plan-next.md`.** This section holds only
+what changes rarely: what each branch is for, and which PRs carry the work. When a PR opens, merges
+or closes, or a branch changes role, update this section in the same commit.
 
-- **This session owns the authoritative homebrew-keys fix** (owner's decision, 2026-09-27). The agent
-  on PR #34 is paused for it, and its homebrew commits are inputs. The work branch is
-  `port/save-gate`, cut from `integration`. Inputs, scope, order and checkpoints:
-  `docs/kb/plan-next.md` §0a. The map is done (`docs/kb/homebrew-key-map.md`) and the design proposed
-  (`docs/kb/homebrew-keys-design.md`), both 2026-09-27. Approved; all eight build steps and the open items done on `port/save-gate`, reviewed against the map's invariants, and the review's findings fixed (2026-09-28, `homebrew-keys-design.md` "Review of `port/save-gate`"); next is a draft PR to `integration` for an outside review.
-- **This branch's own purpose is grants** (`plan-next.md` items 1–6). The key fix is a detour it is
-  hosting the planning for, not the branch's work; code for it lands on `port/save-gate`.
-- The account of the rework and its review rounds: `docs/kb/homebrew-save-rework.md`. The mechanism
-  as it stands: `docs/kb/key-collision-behavior.md`.
+- **This branch's purpose is grants** (`plan-next.md` items 1–6).
+- **It hosts the planning and the KB for the homebrew-keys fix** (owner's decision, 2026-09-27); the
+  code for that fix lands on `port/save-gate`. Map: `homebrew-key-map.md`; design and as-built log:
+  `homebrew-keys-design.md`; the rework's history: `homebrew-save-rework.md`; the mechanism:
+  `key-collision-behavior.md`.
 
-| branch | state |
+| branch | role |
 |---|---|
-| `feature/grant-rows` | this branch; carries all six review rounds of the save gate |
-| `refactor/content-extensibility` | the trunk; one round behind, carrying two bugs round six fixed |
-| `integration` | untouched by the rework; still has the copy-on-retarget and unguarded selection-save bugs |
-| `port/save-gate` | **the work branch for the authoritative fix.** Cut from `integration` `a0d9e1d2`; at `4968a3be` (2026-09-28) it carries the review's fixes on top of round six, #34's inputs, the built-in-key character fix, the link list, link-carrying key changes, the restore-screen fixes, the write gate, two-tab safety, step 7's reads and step 8's repairs |
-
-**Open PRs that touch this** (checked 2026-09-27):
+| `feature/grant-rows` | this branch: grants, and the KB for everything above |
+| `refactor/content-extensibility` | the refactor trunk |
+| `port/save-gate` | the homebrew-keys fix, cut from `integration`; PR #37 |
+| `fix/comment-check` | the comment-rule check, cut from `integration`; PR #38 |
+| `integration` | the active trunk; #37 and #38 target it |
 
 | PR | from → to | note |
 |---|---|---|
-| #32 | `integration` → `develop` | the route by which the fix reaches `develop` |
-| #34 | `f1852203-accounts` → `develop` | **paused.** Accounts rebuild; also carries 523 of #32's commits, 29 homebrew commits (inputs to the fix) and a refactor harvest. Missing `integration`'s last five commits |
-| #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix — 35 commits, none of `integration`'s or #34's |
+| #37 | `port/save-gate` → `integration` | draft; the homebrew-keys fix |
+| #38 | `fix/comment-check` → `integration` | draft; whichever of #37/#38 merges second reconciles the comment baseline |
+| #32 | `integration` → `develop` | the route by which both reach `develop` |
+| #34 | `f1852203-accounts` → `develop` | paused; its homebrew commits were inputs to #37 |
+| #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix |
 
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 
