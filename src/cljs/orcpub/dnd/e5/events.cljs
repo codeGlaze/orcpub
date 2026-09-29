@@ -1257,8 +1257,7 @@
                                         "Clearing browser data loses it. "
                                         [:span.pointer.underline
                                          ;; stop the click: the banner closes on any click that
-                                         ;; reaches it, so exporting used to pull the card out from
-                                         ;; under the reader mid-action.
+                                         ;; reaches it, which would close it mid-export.
                                          {:on-click (fn [e]
                                                       (.stopPropagation e)
                                                       (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
@@ -2148,8 +2147,9 @@
          rewrote (get-in db' [:character-healed :rewrote])
          relinks (::e5/pending-relinks cofx)
          ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
-     ;; Asked once (owner's decision, Q3): the builder shows ::e5/relink-question as a banner until
-     ;; the author answers, and only the answer (::e5/answer-relink) records it as asked.
+     ;; Asked once per character (homebrew-keys-design.md §9, Q3): the builder shows
+     ;; ::e5/relink-question as a banner until the author answers, and only the answer
+     ;; (::e5/answer-relink) records it as asked.
      (cond-> {:db (assoc db' ::e5/relink-question
                          (when ask
                            (let [{:keys [content-type from] :as r} (get relinks ask)]
@@ -4846,7 +4846,7 @@
 (reg-event-fx
  ::e5/settle-loaded-library
  ;; Once, after load: store the library as the loader kept it, so its clean-up stops re-running
- ;; on every visit (owner's decision, Q6). Only when every entry it dropped is safe in quarantine.
+ ;; on every visit (homebrew-keys-design.md §9, Q6). Only when every entry it dropped is safe in quarantine.
  (fn [{:keys [db]} _]
    (let [stored (stored-plugins)
          live (:plugins db)
@@ -4915,7 +4915,7 @@
 (reg-event-fx
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
-   ;; Import paths: re-importing a source replaces what it held (owner's decision, Q4).
+   ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
    (select-keys (commit-library db plugins {:deleting? true :on-success on-success})
                 [:db :dispatch-n])))
 
@@ -6091,7 +6091,7 @@
                                      :key-conflicts (:key-conflicts result)
                                      :key-warnings (:key-warnings result)}]
         {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)
-        ;; A re-import overwrites the entries the library already had (owner's decision, Q4): say which.
+        ;; A re-import overwrites the entries the library already had: say which (homebrew-keys-design.md §9, Q4).
         updated (when merged (library/overwritten (:plugins db) merged))
         user-message (if (and (seq updated) (map? user-message))
                        (update user-message :details #(conj (vec %) (updated-line updated)))
