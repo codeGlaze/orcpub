@@ -635,9 +635,12 @@
   display: flex; flex-direction: column; gap: 10px;
   flex-shrink: 0;
 }
+/* One rhythm across the row, in multiples of 5px: things inside a group sit
+   one unit apart, groups two units apart. The gaps used to run 7/5/13/11 --
+   four values, no relationship between them -- so nothing read as grouped. */
 .pl-attribution {
   display: flex; flex-wrap: wrap; align-items: center;
-  justify-content: center; gap: 2px 7px;
+  justify-content: center; gap: 3px 10px;
   margin: 7px 0 2px; font-size: 12px; text-align: center;
 }
 .pl-attribution-label {
@@ -652,8 +655,10 @@
    beside them is small caps with no descenders, so its optical centre is
    below its box centre and centring the marks left them floating. */
 .pl-artist-links {
-  margin-left: 8px; display: inline-flex; align-items: center; gap: 11px;
-  position: relative; top: 1px;
+  /* the links sit INSIDE .pl-artist, so they inherit its 5px intra-group gap;
+     this takes them to 10, the same distance that separates the label from
+     the name -- marks are their own group, not part of the byline */
+  margin-left: 5px; display: inline-flex; align-items: center; gap: 10px;
 }
 .pl-artist-link {
   font: 400 11px/1 'Open Sans', system-ui, sans-serif;
@@ -677,7 +682,11 @@
 .pl-root.light-theme .pl-artist-link { color: #7c8493; }
 .app.light-theme .pl-artist-link:hover,
 .pl-root.light-theme .pl-artist-link:hover { filter: brightness(0.86); }
-.pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
+/* centre, not baseline: the name's box carries an underline and a pixel of
+   padding, so a shared baseline put its centre 1.5px below the swirl's and
+   the icons' -- five pixels of spread across the row, which is what made it
+   look unsettled */
+.pl-artist { display: inline-flex; align-items: center; gap: 5px; }
 .pl-artist-swirl {
   color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic;
   /* A highlight parked off the left edge. Both ends of the gradient are the
@@ -706,7 +715,9 @@
 .pl-artist a:not(.pl-artist-link), .pl-artist span.pl-artist-name {
   color: #ebeef4; text-decoration: none;
   border-bottom: 1px dotted rgba(240,161,0,0.32);
-  padding-bottom: 1px;
+  /* the underline hangs below the text rather than growing the box, so the
+     name's centre matches the swirl's and the marks' */
+  padding-bottom: 1px; margin-top: 1px;
   font: italic 13px/1 'Vollkorn', Georgia, serif;
 }
 .pl-artist a:not(.pl-artist-link):hover { color: #ffcc5e; border-bottom-color: #f0a100; }
