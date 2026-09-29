@@ -197,3 +197,31 @@
     (is (= "Fusspot — portrait artist" (ap/page-title a)))
     (is (s/includes? (ap/share-description a) (str (ap/piece-count a) " hand-drawn pieces")))
     (is (not (s/includes? (ap/share-description a) "@")))))
+
+;; ---------- the artist can turn the page off ----------
+
+(deftest an-artist-can-turn-their-page-off
+  (is (ap/profile-enabled? (ap/artist-by-slug "fusspot")) "on unless turned off")
+  (try
+    (pa/set-artist-overrides! {:house-pack {:artist/profile? false}})
+    (testing "off means no page at all, not a page saying it is off"
+      (is (nil? (ap/artist-by-slug "fusspot")))
+      (is (= [] (ap/all-profiles)) "and they drop out of the list")
+      (is (nil? (ap/example-portraits :house-pack)))
+      (is (nil? (ap/profile-link [(pa/artist-info :house-pack)]))
+          "the credit loses its 'About the artist' line"))
+    (testing "but the credit itself is untouched: the name still goes where
+              the artist chose"
+      (is (= "https://fusspot.rip/" (:artist/link (pa/artist-info :house-pack))))
+      (is (= "Art: Fusspot" (pa/credit-line {:layers (pa/compose-for-seed "off-check")}))))
+    (finally (pa/set-artist-overrides! {})))
+  (is (some? (ap/artist-by-slug "fusspot")) "and turning it back on restores it"))
+
+(deftest one-artist-off-leaves-the-others
+  (with-redefs [pa/registry (stand-ins [[:placeholder-a "Placeholder A" [:head]]
+                                        [:placeholder-b "Placeholder B" [:eyes]
+                                         {:artist/profile? false}]])]
+    (is (= [:placeholder-a] (mapv :artist/id (ap/all-profiles))))
+    (is (= "/artists/placeholder-a"
+           (:href (ap/profile-link (map pa/artist-info [:placeholder-a :placeholder-b]))))
+        "with only one profile left among two artists, the credit links that one")))
