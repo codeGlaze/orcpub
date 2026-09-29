@@ -32,6 +32,10 @@
            [java.nio.charset StandardCharsets]))
 
 (def ^:private version "v1")
+
+(def preferred-name-purpose
+  "The purpose string a preferred name is bound to."
+  "user/preferred-name")
 (def ^:private iv-bytes 12)
 (def ^:private tag-bits 128)
 (def ^:private key-id-re #"[A-Za-z0-9_-]{1,16}")

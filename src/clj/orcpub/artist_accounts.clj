@@ -36,6 +36,7 @@
             [buddy.hashers :as hashers]
             [com.stuartsierra.component :as component]
             [orcpub.crypto :as crypto]
+            [orcpub.artist-email :as artist-email]
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.util Date UUID]))
 
@@ -44,7 +45,7 @@
    reset's 24 hours: a welcome can sit unread for days."
   7)
 
-(def preferred-name-purpose "user/preferred-name")
+(def preferred-name-purpose crypto/preferred-name-purpose)
 
 ;; ---------------------------------------------------------------------------
 ;; Config
@@ -67,7 +68,8 @@
                                    :revoke)}
                  (string? (:username fields)) (assoc :username (s/trim (:username fields)))
                  (string? (:preferred_name fields)) (assoc :preferred-name (s/trim (:preferred_name fields)))
-                 (string? (:welcome_note fields)) (assoc :welcome-note (:welcome_note fields)))]))
+                 (string? (:welcome_note fields)) (assoc :welcome-note (:welcome_note fields))
+                 (string? (:welcome_subject fields)) (assoc :welcome-subject (:welcome_subject fields)))]))
       (catch Exception e
         (println "artist-accounts: PORTRAIT_ARTISTS ignored --" (.getMessage e))
         nil))))
@@ -231,9 +233,13 @@
                (println "artist-accounts: unlinked" (:orcpub.user/username user) "from" artist-id))})
 
 (def notify
-  "What the running site does on each change. Log lines until the emails
-   are wired in."
-  log-only-notify)
+  "What the running site does on each change: the emails in
+   orcpub.artist-email, each also logged."
+  (into {}
+        (for [k [:created :upgraded :unlinked]]
+          [k (fn [event]
+               ((get log-only-notify k) event)
+               ((get artist-email/notify k) event))])))
 
 (defn reconcile!
   "Bring accounts in line with `config`. Returns {artist-id outcome}. Safe to
