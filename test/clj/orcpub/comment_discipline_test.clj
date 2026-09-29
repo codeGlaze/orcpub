@@ -1,17 +1,18 @@
 (ns orcpub.comment-discipline-test
-  "Flags comments and docstrings in `src/` and `web/` that break the comment rule (AGENTS.md,
-   \"Comments and Docstrings\"): history phrasing, docstrings over `max-docstring-lines`, comment
-   blocks over `max-comment-lines`. Hits recorded in `baseline-file` are listed on every run; a hit
-   not recorded fails, and so does a recorded hit that is gone. `:allowed` entries need a reason.
-   Re-record: `RECORD_COMMENT_BASELINE=1 lein test :only orcpub.comment-discipline-test`.
-   GOTCHA: a hit's identity is its file, signal and text, not its line, so moving code keeps it."
+  "Tripwire for the comment rule (AGENTS.md, \"Comments and Docstrings\"): flags history phrasing,
+   docstrings over `max-docstring-lines` and comment blocks over `max-comment-lines` in `src/` and
+   `web/`. Every hit must be fixed or reviewed. See `verdict` for what fails, `baseline-file` for
+   the recorded debt and the reviewed exceptions.
+   Remove cleaned entries: `COMMENT_BASELINE=prune lein test :only orcpub.comment-discipline-test`.
+   GOTCHA: an entry names the hit's exact text by hash; editing the text needs a new review."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [rewrite-clj.parser :as p]
-            [rewrite-clj.node :as n]))
+            [rewrite-clj.node :as n])
+  (:import (java.security MessageDigest)))
 
 (def roots ["src" "web"])
 (def baseline-file "test/comment-baseline.edn")
@@ -19,12 +20,22 @@
 (def max-comment-lines 4)
 
 (def history-phrase
-  "History or decision narrative. Matched case-insensitively against comment and docstring text."
+  "History or decision narrative, matched case-insensitively."
   #"(?i)\b(used to be|(?:this|it|they|we|that|which) used to|(?:was|were) once|originally|previously|until recently|historically|at one point|back when|owner'?s decision|regression window|this (?:fix|change|commit) (?:is|was|makes|made))\b")
+
+(def benign-phrase
+  "Wording that matches `history-phrase` but describes a state: \"a previously-saved character\"."
+  #"(?i)\bpreviously[- ][a-z]+ed\b")
+
+(def placeholder-reason
+  "A reason that has not been written yet."
+  #"(?i)^\s*(review|todo|tbd|fixme)\b")
 
 (def ^:private doc-forms
   "Forms whose third element is a docstring when more follows it."
   #{'defn 'defn- 'defmacro 'defmulti 'ns 'def 'defprotocol 'defrecord 'deftest})
+
+;; ── Finding hits ─────────────────────────────────────────────────────────────
 
 (defn- sources []
   (->> roots
@@ -37,10 +48,13 @@
 
 (defn- snippet [s] (let [t (normalize s)] (subs t 0 (min 70 (count t)))))
 
-(defn- comment-text
-  "A comment node's text without its semicolons."
-  [node]
-  (str/replace (str/trimr (n/string node)) #"^;+\s?" ""))
+(defn text-hash
+  "First 12 hex digits of the SHA-256 of `s`, whitespace-normalized."
+  [s]
+  (let [d (.digest (MessageDigest/getInstance "SHA-256") (.getBytes (normalize s) "UTF-8"))]
+    (subs (apply str (map #(format "%02x" %) d)) 0 12)))
+
+(defn- comment-text [node] (str/replace (str/trimr (n/string node)) #"^;+\s?" ""))
 
 (defn- counted-line?
   "True for a comment line with words: not blank, not a banner of rule characters."
@@ -58,15 +72,16 @@
       (= :whitespace (n/tag c)) (recur more run blocks)
       :else (recur more [] (cond-> blocks (seq run) (conj run))))))
 
+(defn- sexpr [node] (try (n/sexpr node) (catch Exception _ nil)))
+
 (defn- docstring
   "[name doc] of a docstring-bearing form node, or nil."
   [node]
   (when (= :list (n/tag node))
     (let [[head nm doc & more] (remove n/whitespace-or-comment? (n/children node))]
-      (when (and head nm doc (seq more) (contains? doc-forms (try (n/sexpr head) (catch Exception _ nil))))
-        (let [d (try (n/sexpr doc) (catch Exception _ nil))]
-          (when (string? d)
-            [(str (n/sexpr head) " " (try (n/sexpr nm) (catch Exception _ "?"))) d]))))))
+      (when (and head nm doc (seq more) (contains? doc-forms (sexpr head)))
+        (let [d (sexpr doc)]
+          (when (string? d) [(str (sexpr head) " " (or (sexpr nm) "?")) d]))))))
 
 (defn- walk [node f]
   (f node)
@@ -78,39 +93,84 @@
     (inc (count (re-seq #"\n" (subs src 0 i))))
     0))
 
-(defn hits
-  "Hits in one source file, each {:file :signal :text :line}. `:signal` is :history-phrase,
-   :long-docstring or :long-comment; `:text` identifies the hit."
-  [file]
-  (let [src (slurp file)
-        root (p/parse-string-all src)
-        out (atom [])
-        add! (fn [signal text locate]
-               (swap! out conj {:file file :signal signal :text text :line (line-of src locate)}))]
-    (walk root
+(defn- history [text]
+  (some-> (re-find history-phrase (str/replace text benign-phrase "")) first str/lower-case))
+
+(defn hits-in
+  "Hits in source text `src` of file `file`, each {:file :signal :text :hash :line}. `:signal` is
+   :history-phrase, :long-docstring or :long-comment; `:text` names the hit; `:hash` is of its
+   whole comment block or docstring."
+  [file src]
+  (let [out (atom [])
+        add! (fn [signal text whole locate]
+               (swap! out conj {:file file :signal signal :text text :hash (text-hash whole)
+                                :line (line-of src locate)}))]
+    (walk (p/parse-string-all src)
           (fn [node]
             (when (n/inner? node)
               (doseq [block (comment-blocks (n/children node))
-                      :let [joined (str/join " " block)
+                      :let [whole (str/join "\n" block)
                             first-line (first (filter counted-line? block))]
                       :when first-line]
-                (when-let [m (re-find history-phrase joined)]
-                  (add! :history-phrase (str (snippet first-line) " | " (str/lower-case (first m))) first-line))
+                (when-let [m (history whole)]
+                  (add! :history-phrase (str (snippet first-line) " | " m) whole first-line))
                 (when (and (< max-comment-lines (count (filter counted-line? block)))
                            (not (some #(str/includes? % "FIELD NOTE (") block)))
-                  (add! :long-comment (snippet first-line) first-line))))
+                  (add! :long-comment (snippet first-line) whole first-line))))
             (when-let [[nm doc] (docstring node)]
-              (when-let [m (re-find history-phrase doc)]
-                (add! :history-phrase (str nm " | " (str/lower-case (first m))) nm))
+              (when-let [m (history doc)]
+                (add! :history-phrase (str nm " | " m) doc nm))
               (when (< max-docstring-lines (count (str/split-lines (str/trim doc))))
-                (add! :long-docstring nm nm)))))
+                (add! :long-docstring nm doc nm)))))
     @out))
 
-(defn- id [{:keys [file signal text]}] [file signal text])
+(defn- all-hits [] (mapcat #(hits-in % (slurp %)) (sources)))
+
+;; ── Deciding ─────────────────────────────────────────────────────────────────
+
+(defn id [h] [(:file h) (:signal h) (:text h) (:hash h)])
+
+(defn verdict
+  "What `hits` owe, given the recorded `baseline` ([id ...], debt from before the check) and
+   `allowed` ({id reason}, reviewed exceptions):
+   {:listed :allowed :new :gone :stale-allowed :unreasoned}. Fails unless the last four are empty."
+  [hits {:keys [baseline allowed]}]
+  (let [allowed-ids (set (keys allowed))
+        counted (remove #(allowed-ids (id %)) hits)
+        want (frequencies baseline)
+        have (frequencies (map id counted))
+        found (set (map id hits))]
+    {:listed (filter #(contains? want (id %)) counted)
+     :allowed (filter #(allowed-ids (id %)) hits)
+     :new (filter #(> (get have (id %)) (get want (id %) 0)) counted)
+     :gone (vec (for [[k c] want, _ (range (- c (get have k 0)))] k))
+     :stale-allowed (vec (remove found allowed-ids))
+     :unreasoned (vec (for [[k reason] allowed
+                            :when (or (not (string? reason)) (str/blank? reason)
+                                      (re-find placeholder-reason reason))]
+                        k))}))
+
+;; ── The baseline file ────────────────────────────────────────────────────────
 
 (defn- read-baseline []
   (let [f (io/file baseline-file)]
-    (if (.exists f) (edn/read-string (slurp f)) {:allowed {} :baseline []})))
+    (when (.exists f) (edn/read-string (slurp f)))))
+
+(defn- write-baseline! [{:keys [allowed baseline]}]
+  (spit baseline-file
+        (binding [*print-length* nil *print-level* nil]
+          (with-out-str
+            (println ";; Written by orcpub.comment-discipline-test. An entry is [file signal text hash].")
+            (println ";; :baseline is debt from before the check: clean it, then prune.")
+            (println ";; :allowed is reviewed exceptions, each with the reason it is spec.")
+            (pprint/pprint {:allowed (into (sorted-map) allowed) :baseline (vec (sort baseline))})))))
+
+(defn- remove-once
+  "`v` without one occurrence of each of `ks`."
+  [v ks]
+  (reduce (fn [v k] (let [i (.indexOf ^java.util.List v k)]
+                      (if (neg? i) v (into (subvec v 0 i) (subvec v (inc i))))))
+          (vec v) ks))
 
 (defn- report [title hs]
   (when (seq hs)
@@ -121,46 +181,75 @@
         (println (format "    %5d  %-15s %s" line (name signal) text))))))
 
 (deftest comments-and-docstrings-are-spec
-  (let [all (mapcat hits (sources))
-        {:keys [allowed baseline]} (read-baseline)
-        allowed-ids (set (keys allowed))
-        counted (remove #(allowed-ids (id %)) all)]
-    (if (System/getenv "RECORD_COMMENT_BASELINE")
-      (do (spit baseline-file
-                (binding [*print-length* nil *print-level* nil]
-                  (with-out-str
-                  (println ";; Recorded by orcpub.comment-discipline-test. Each entry is [file signal text].")
-                  (println ";; Clean an entry, then delete it here. :allowed needs a reason for each.")
-                  (pprint/pprint {:allowed allowed :baseline (vec (sort (map id counted)))}))))
-          (println "recorded" (count counted) "hits to" baseline-file))
-      (let [want (frequencies baseline)
-            have (frequencies (map id counted))
-            new-ids (set (keep (fn [[k c]] (when (> c (get want k 0)) k)) have))
-            gone (keep (fn [[k c]] (when (> c (get have k 0)) k)) want)]
-        (report "Existing hits, recorded in the baseline: clean these" (filter #(and (contains? want (id %)) (not (new-ids (id %)))) counted))
-        (report "Allowed, with a reason in the baseline file" (filter #(allowed-ids (id %)) all))
-        (testing "no new narrative, long docstring or long comment block"
-          (report "NEW hits (not in the baseline)" (filter #(new-ids (id %)) counted))
-          (is (empty? new-ids) "shorten it to spec and move history to docs/kb/, or add it to :allowed with a reason"))
-        (testing "a cleaned hit is removed from the baseline"
-          (is (empty? gone) (str "no longer found; delete from " baseline-file ": " (pr-str (vec gone))))))))
-  (testing "every allowed entry has a reason"
-    (is (every? (fn [[_ reason]] (and (string? reason) (not (str/blank? reason))))
-                (:allowed (read-baseline))))))
+  (let [hits (all-hits)
+        recorded (read-baseline)
+        mode (System/getenv "COMMENT_BASELINE")]
+    (cond
+      (and (= "seed" mode) (nil? recorded))
+      (do (write-baseline! {:allowed {} :baseline (map id hits)})
+          (println "seeded" (count hits) "entries to" baseline-file))
+
+      (and (= "prune" mode) recorded)
+      (let [{:keys [gone stale-allowed]} (verdict hits recorded)]
+        (write-baseline! {:allowed (apply dissoc (:allowed recorded) stale-allowed)
+                          :baseline (remove-once (:baseline recorded) gone)})
+        (println "pruned" (count gone) "cleaned entries and" (count stale-allowed) "stale approvals"))
+
+      :else
+      (let [{:keys [listed allowed gone stale-allowed unreasoned] fresh :new} (verdict hits recorded)]
+        (is (some? recorded) (str baseline-file " is missing"))
+        (report "Existing debt, recorded in the baseline: clean these" listed)
+        (report "Reviewed exceptions (:allowed)" allowed)
+        (testing "every hit is fixed or reviewed"
+          (report "NEW: fix each, or review it and add it to :allowed" fresh)
+          (when (seq fresh)
+            (println "\nTo approve after review, add to :allowed with a real reason:")
+            (doseq [h fresh] (println (str "  " (pr-str (id h)) " \"REVIEW: why this is spec\""))))
+          (is (empty? fresh) "shorten to spec and move history to docs/kb/, or review and approve it"))
+        (testing "a cleaned entry leaves the baseline"
+          (is (empty? gone) (str "no longer found; run COMMENT_BASELINE=prune: " (pr-str gone))))
+        (testing "an approval names text that still exists unchanged"
+          (is (empty? stale-allowed) (str "approved text changed or was removed; review again: "
+                                          (pr-str stale-allowed))))
+        (testing "every approval has a written reason"
+          (is (empty? unreasoned) (str "reason missing or a placeholder: " (pr-str unreasoned))))))))
+
+;; ── The check's own tests ────────────────────────────────────────────────────
+
+(def ^:private fixture
+  (str "(ns x)\n"
+       ";; This used to drop entries here.\n"
+       "(defn short \"Spec.\" [] 1)\n"
+       "(defn tall \"One.\n Two.\n Three.\n Four.\n Five.\n Six.\n Seven.\" [] 1)\n"
+       ";; one\n;; two\n;; three\n;; four\n;; five\n(def y 1)\n"
+       ";; FIELD NOTE (x): one\n;; two\n;; three\n;; four\n;; five\n(def z 1)\n"
+       ";; Heals a previously-corrupted spot.\n(def w 1)\n"
+       "(def data \"Previously, a dragon slept here.\")\n"))
+
+(defn- tall-in [src] (first (filter #(= :long-docstring (:signal %)) (hits-in "x.clj" src))))
 
 (deftest the-signals-fire-on-what-they-describe
-  (let [f (java.io.File/createTempFile "comment-discipline" ".clj")]
-    (spit f (str "(ns x)\n"
-                 ";; This used to drop entries here.\n"
-                 "(defn short \"Spec.\" [] 1)\n"
-                 "(defn tall \"One.\n Two.\n Three.\n Four.\n Five.\n Six.\n Seven.\" [] 1)\n"
-                 ";; one\n;; two\n;; three\n;; four\n;; five\n(def y 1)\n"
-                 ";; FIELD NOTE (x): one\n;; two\n;; three\n;; four\n;; five\n(def z 1)\n"
-                 "(def data \"Previously, a dragon slept here.\")\n"))
-    (let [hs (hits (.getPath f))
-          signals (frequencies (map :signal hs))]
-      (is (= 1 (:history-phrase signals)) "the comment's history, not the data string's")
-      (is (= 1 (:long-docstring signals)))
-      (is (= 1 (:long-comment signals)) "a FIELD NOTE block is exempt from length")
-      (is (= "defn tall" (:text (first (filter #(= :long-docstring (:signal %)) hs))))))
-    (.delete f)))
+  (let [signals (frequencies (map :signal (hits-in "x.clj" fixture)))]
+    (is (= 1 (:history-phrase signals))
+        "the comment's history; not a data string, not a state (\"previously-corrupted\")")
+    (is (= 1 (:long-docstring signals)))
+    (is (= 1 (:long-comment signals)) "a FIELD NOTE block is exempt from length")
+    (is (= "defn tall" (:text (tall-in fixture))))
+    (is (not= (:hash (tall-in fixture)) (:hash (tall-in (str/replace fixture "Seven." "Seven!"))))
+        "editing the text changes its hash")))
+
+(deftest every-hit-needs-a-fix-or-a-review
+  (let [hs (hits-in "x.clj" fixture)
+        tall (tall-in fixture)
+        others (map id (remove #{tall} hs))
+        edited (tall-in (str/replace fixture "Seven." "Seven!"))
+        approved {(id tall) "Each line is an argument."}]
+    (is (= [tall] (:new (verdict hs {:baseline others :allowed {}}))) "unrecorded: new")
+    (is (empty? (:new (verdict hs {:baseline others :allowed approved}))) "reviewed with a reason: passes")
+    (is (= [(id tall)] (:unreasoned (verdict hs {:baseline others :allowed {(id tall) "REVIEW: why"}})))
+        "a placeholder reason fails")
+    (let [v (verdict (cons edited (remove #{tall} hs)) {:baseline others :allowed approved})]
+      (is (= [edited] (:new v)) "edited after approval: new again")
+      (is (= [(id tall)] (:stale-allowed v)) "and the old approval is stale"))
+    (is (= [(id tall)] (:gone (verdict (remove #{tall} hs) {:baseline (map id hs) :allowed {}})))
+        "cleaned debt must leave the baseline")))
