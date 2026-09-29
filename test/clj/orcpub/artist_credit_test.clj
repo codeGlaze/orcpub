@@ -4,7 +4,10 @@
             [orcpub.artist-credit :as ac]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.db.schema :as schema])
+            [orcpub.db.schema :as schema]
+            [orcpub.crypto]
+            [orcpub.artist-email]
+            [orcpub.routes])
   (:import [java.util UUID]))
 
 (defmacro with-conn [conn-binding & body]
@@ -98,3 +101,61 @@
       @(d/transact conn [{:db/id id :orcpub.user/artist-credit (pr-str {:artist/name "Fuss"})}])
       (ac/refresh! (d/db conn))
       (is (= "Fuss" (:artist/name (pa/artist-info :house-pack)))))))
+
+;; ---------------------------------------------------------------------------
+;; The account endpoints
+;; ---------------------------------------------------------------------------
+
+(def test-keys
+  (orcpub.crypto/parse-keys
+   (str "k1:" (.encodeToString (java.util.Base64/getEncoder) (byte-array 32 (byte 3))))))
+
+(defn- req [conn username params]
+  {:db (d/db conn) :conn conn :identity {:user username} :transit-params params})
+
+(deftest an-artist-saves-their-credit-and-both-sides-hear
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [told (atom [])]
+      (with-redefs [orcpub.artist-email/credit-changed! #(swap! told conj %)
+                    clojure.core/future-call (fn [f] (f) (delay nil))]
+        (let [bad (orcpub.routes/update-artist-credit
+                   (req conn "fusspot" {:link "http://x.test"}))
+              good (orcpub.routes/update-artist-credit
+                    (req conn "fusspot" {:name "Fuss"
+                                         :links [{:icon "twitch" :url "https://twitch.tv/fusspot"}]}))
+              again (orcpub.routes/update-artist-credit
+                     (req conn "fusspot" {:name "Fuss"
+                                          :links [{:icon "twitch" :url "https://twitch.tv/fusspot"}]}))]
+          (is (= 400 (:status bad)))
+          (is (= "Links must start with https://" (get-in bad [:body :errors :link])))
+          (is (= 200 (:status good)))
+          (is (= "Fuss" (get-in good [:body :current :artist/name])))
+          (is (= 200 (:status again)))
+          (is (= 1 (count @told)) "one notice per real change, none for a failed or no-op save")
+          (is (= {:artist/name "Fuss"} (select-keys (:after (first @told)) [:artist/name]))))))))
+
+(deftest a-non-artist-cannot-save-a-credit
+  (with-conn conn
+    (add-artist! conn "someone" nil)
+    (is (= 400 (:status (orcpub.routes/update-artist-credit (req conn "someone" {:name "Fusspot"})))))
+    (is (empty? (ac/db-edits (d/db conn))))))
+
+(deftest the-preferred-name-round-trips-encrypted
+  (with-conn conn
+    (let [id (add-artist! conn "someone" nil)]
+      (with-redefs [orcpub.crypto/configured-keys (constantly test-keys)]
+        (let [r (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "  Kaylee  "}))]
+          (is (= "Kaylee" (get-in r [:body :preferred-name])))
+          (is (not= "Kaylee" (:orcpub.user/preferred-name (d/entity (d/db conn) id))) "not readable in the db")
+          (is (= "Kaylee" (:preferred-name (orcpub.routes/user-body (d/db conn) (d/pull (d/db conn) '[*] id))))))
+        (testing "blank clears it"
+          (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name ""}))
+          (is (nil? (:orcpub.user/preferred-name (d/entity (d/db conn) id)))))
+        (is (= 400 (:status (orcpub.routes/update-user-preferences
+                             (req conn "someone" {:preferred-name (apply str (repeat 41 "x"))}))))))
+      (testing "without a key it refuses rather than storing it readable"
+        (with-redefs [orcpub.crypto/configured-keys (constantly nil)]
+          (is (= 400 (:status (orcpub.routes/update-user-preferences
+                               (req conn "someone" {:preferred-name "Kaylee"})))))
+          (is (nil? (:orcpub.user/preferred-name (d/entity (d/db conn) id)))))))))

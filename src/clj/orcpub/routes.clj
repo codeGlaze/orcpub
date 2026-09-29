@@ -41,6 +41,8 @@
             [orcpub.pdf :as pdf]
             [orcpub.portrait-render :as portrait-render]
             [orcpub.artist-credit :as artist-credit]
+            [orcpub.artist-email :as artist-email]
+            [orcpub.crypto :as crypto]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
@@ -256,6 +258,20 @@
   (map :orcpub.user/username
        (d/pull-many db '[:orcpub.user/username] ids)))
 
+(defn artist-credit-body
+  "What the account page needs to show an artist their credit."
+  [db user-id]
+  (when-let [{:keys [artist-id current own locked]} (artist-credit/credit-for-account db user-id)]
+    {:artist-id (name artist-id)
+     :current current
+     :own own
+     :locked locked
+     :services (for [[icon {:keys [label color]}] artist-credit/services]
+                 {:icon icon :label label :color color})
+     :max-links artist-credit/max-links}))
+
+(def max-preferred-name-length 40)
+
 (defn user-body
   "Build the user API response. Core fields are inline; fork-specific
    fields (e.g. tier data) are added by user-data/enrich-response."
@@ -267,7 +283,18 @@
             :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
            user)
     (:orcpub.user/pending-email user)
-    (assoc :pending-email (:orcpub.user/pending-email user))))
+    (assoc :pending-email (:orcpub.user/pending-email user))
+
+    ;; whether this deployment can store one at all (it needs a key)
+    true
+    (assoc :preferred-name-enabled? (crypto/enabled?))
+
+    (:orcpub.user/preferred-name user)
+    (assoc :preferred-name (crypto/decrypt crypto/preferred-name-purpose
+                                           (:orcpub.user/preferred-name user)))
+
+    (:orcpub.user/artist user)
+    (assoc :artist-credit (artist-credit-body db (:db/id user)))))
 
 (defn bad-credentials-response [db username ip]
   (security/add-failed-login-attempt! username ip)
@@ -517,14 +544,51 @@
   (let [username (:user identity)
         {:keys [:db/id]} (find-user-by-username db username)]
     (if id
-      (do (when (contains? transit-params :send-updates?)
-            @(d/transact conn [{:db/id id
-                                :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
-          ;; Re-read from DB after transact for authoritative response
-          (let [updated-user (d/entity (d/db conn) id)]
-            {:status 200
-             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
+      (let [pn (when (contains? transit-params :preferred-name)
+                 (some-> (:preferred-name transit-params) str s/trim (s/replace #"\s+" " ")))]
+        (cond
+          (and pn (> (count pn) max-preferred-name-length))
+          {:status 400 :body {:error (str "Names can be up to " max-preferred-name-length " characters")}}
+
+          ;; refuse rather than store it readable: the point was that it isn't
+          (and (seq pn) (not (crypto/enabled?)))
+          {:status 400 :body {:error "Preferred names aren't available on this site yet"}}
+
+          :else
+          (do (when (contains? transit-params :send-updates?)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+              (when (contains? transit-params :preferred-name)
+                (let [old (:orcpub.user/preferred-name (d/entity (d/db conn) id))]
+                  (cond
+                    (seq pn) @(d/transact conn [{:db/id id :orcpub.user/preferred-name
+                                                 (crypto/encrypt crypto/preferred-name-purpose pn)}])
+                    old @(d/transact conn [[:db/retract id :orcpub.user/preferred-name old]]))))
+              ;; Re-read from DB after transact for authoritative response
+              (let [updated-user (d/entity (d/db conn) id)]
+                {:status 200
+                 :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))
+                        :preferred-name (crypto/decrypt crypto/preferred-name-purpose
+                                                        (:orcpub.user/preferred-name updated-user))}}))))
       {:status 400 :body {:error "User not found"}})))
+
+(defn update-artist-credit
+  "PUT /user/artist-credit -- an artist edits how they're credited. The
+   artist and the admin both hear about every change."
+  [{:keys [transit-params db conn identity]}]
+  (let [user (find-user-by-username db (:user identity))
+        id (:db/id user)]
+    (if-not id
+      {:status 400 :body {:error "User not found"}}
+      (let [{:keys [errors unchanged saved before artist-id]}
+            (artist-credit/save! conn id (select-keys transit-params [:name :link :links]))]
+        (cond
+          errors {:status 400 :body {:errors errors}}
+          unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
+          :else
+          (do (future (artist-email/credit-changed! {:artist-id artist-id :user user
+                                                     :before before :after saved}))
+              {:status 200 :body (artist-credit-body (d/db conn) id)}))))))
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
@@ -2146,6 +2210,8 @@
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
+       [(route-map/path-for route-map/user-artist-credit-route) ^:interceptors [check-auth]
+        {:put `update-artist-credit}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]

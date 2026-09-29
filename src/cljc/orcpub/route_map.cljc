@@ -109,6 +109,7 @@
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
+(def user-artist-credit-route :user-artist-credit)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
 (def send-password-reset-route :send-password-reset)
@@ -133,7 +134,8 @@
                   "register" register-route
                   "login" login-route
                   "user" {"" user-route
-                          "/email" user-email-route}
+                          "/email" user-email-route
+                          "/artist-credit" user-artist-credit-route}
 
                   "character.pdf" character-pdf-route
                   "image-probe" image-probe-route
