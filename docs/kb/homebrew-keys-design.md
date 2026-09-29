@@ -569,3 +569,13 @@ two "not done" items above are done in the same commit: the first-load fetch wri
 still-empty library and bumps the revision (checked by rendering the page and running the script
 in Node, not by a repo test), and failed bookkeeping writes are logged.
 
+
+## Typed keys (2026-09-29)
+
+The two-phase upgrade test (`test/e2e/upgrade.js`, old app's data opened by the new app) found a
+character losing its homebrew background on its page. Two causes, both fixed on `port/save-gate`:
+the character page read saved characters without the key heal (it now runs inside
+`::char5e/character`), and the heal and the missing-content check looked keys up in one flat set,
+so the built-in Dragonborn "Blue" ancestry blocked the background picked as `:blue`. Picks at a
+`library/pick-homes` path now use their own type's renames and offered keys, and every other pick
+keeps the flat rule. The findings, the guards and what they mean for grant pools: `typed-keys.md`.

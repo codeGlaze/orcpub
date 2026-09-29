@@ -16,6 +16,9 @@ Markers: **VERIFIED** = read from code + test-backed. All cljs paths are in `spe
 - **Import:** duplicate keys are **detected** (within the import + against existing) and routed to a
   conflict-resolution modal (rename / skip / replace) — the "duplicate keys won't just load" behavior.
 - So keys are NOT globally unique-or-bust; uniqueness matters in different ways in different places.
+- **A key is unique only within its type** (2026-09-29): the built-in Dragonborn "Blue" ancestry and
+  a homebrew background picked as `:blue` share a key. Anything that looks a key up across types
+  misreads one as the other: `typed-keys.md`.
 
 ## The map (VERIFIED)
 

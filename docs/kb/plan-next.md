@@ -10,10 +10,10 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 ## Open checklist for PR #37 and around it (2026-09-29)
 
 **Needs the owner's answer**
-- ☐ **Background keys: revert the fix?** The upgrade test showed characters whose homebrew
-  background was picked in the old app losing it on their character page. Recommended: revert
-  (offer backgrounds by name-derived key, as `integration` does), then rerun the upgrade test.
-  Blocks merging #37.
+- ☑ **Background keys: no revert.** The upgrade test's lost background had two causes, both fixed
+  on #37 (`43f93777`, 2026-09-29): the character page read characters without the key heal, and the heal was
+  blocked by a dragon colour sharing the key `:blue`. Heals and missing-content checks are now
+  typed by pick path, and the upgrade test passes 12/12. `typed-keys.md`.
 - ☑ **A/B picks** (five rounds, 2026-09-29, https://claude.ai/artifact/GeiEtXMPgsu7R7Xq98Y5nq).
   The notices #37 adds are on `port/save-gate` (`b1feb5b3`): one framed decision callout, names not
   keys, no glyphs, link-style actions as real buttons. The modal pass, on/off switches and single
@@ -35,8 +35,11 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   optionally delete old revisions of the PR description and the two `@greptileai review` comments.
 
 **Agent follow-ups, no decision needed**
-- ☐ After the background decision: rerun `test/e2e/upgrade.js` and explain why run 1 and run 2
-  differed.
+- ☑ Reran `test/e2e/upgrade.js` after the typed-key fix: 12/12. Why the first two runs disagreed
+  is moot, since both ran before the fix; not investigated further.
+- ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
+- ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
+  checked").
 - ☑ `test/e2e/upgrade.js` committed to `port/save-gate` (`b1feb5b3`).
 - ☑ A/B variants applied; Greptile re-triggered on `b1feb5b3`.
 - ☐ Journey tests not yet written: one full lifecycle (make homebrew → character → rename/re-key →

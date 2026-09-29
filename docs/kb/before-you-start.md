@@ -66,6 +66,15 @@ A whole design system sat on `port/redesign-on-refactor` for two months while tw
 builder work invented colours and spacing from scratch. Grep the KB for the *thing* as well as the
 code (`grep -rin <term> docs/`), and `git log -S <identifier>`.
 
+### Before looking up, healing or matching a content key
+
+**Know the pick's type, or apply the strictest rule across every type.** `:blue` is a dragon colour
+under the Dragonborn's ancestry choice and a background under `:background`. A flat set of every
+offered key blocked a background's heal; relaxing it without typing the walk would have rewritten
+the dragon colour into the background (2026-09-29). Type a pick by its selection **path**
+(`library/pick-homes`), never by the selection's name or its parent, and treat a missing type list
+as unknown, not empty. `typed-keys.md`.
+
 ### Before creating a branch
 
 **Don't, unless the owner says yes to that branch.** A web agent can push a branch but cannot delete

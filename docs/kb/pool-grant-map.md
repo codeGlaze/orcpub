@@ -123,6 +123,15 @@ Two things follow:
 
 Detail and the measured table: `builder-disposition-audit.md` §"Row 31 is not fixed-class-safe".
 
+## A granted pick has no known type yet
+
+**Verified 2026-09-29** (`typed-keys.md`). A granted choice is a selection keyed by its pool's
+`:name` (`"Language"` gives `:language`), nested under the granting item. It is never at a
+`library/pick-homes` path, so key heals and missing-content checks give it the flat rule: safe, but
+nothing heals. When grants need typed picks, take the type from the pool's registration in
+`grant_pools.cljc`, reached through the template selection's pool tags. Never infer it from the
+granting parent or from the selection's name; both read one type of content as another.
+
 ## Provisional — set by one agent, not decided
 
 - `:offerable-by` sets on the three registered pools are guesses. One is now decided by evidence:
