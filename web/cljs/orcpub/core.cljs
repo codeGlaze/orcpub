@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views.artist-page :as artist-page]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -74,7 +75,9 @@
    routes/password-reset-success-route views/password-reset-success
    routes/password-reset-expired-route views/password-reset-expired-page
    routes/password-reset-used-route views/password-reset-used-page
-   routes/unsubscribe-success-route views/unsubscribe-success})
+   routes/unsubscribe-success-route views/unsubscribe-success
+   routes/artists-page-route artist-page/artists-page
+   routes/artist-page-route artist-page/artist-page})
 
 (defn handle-url-change [_]
   (let [route (when js/window.location

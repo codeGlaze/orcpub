@@ -18,6 +18,7 @@
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.fork.branding :as branding]))
 
@@ -709,6 +710,18 @@ a.lk-name:active { text-shadow: var(--lk-glow), var(--lk-glow); }
   -webkit-mask-position: center; mask-position: center;
 }
 .lk-mark-text { font: 400 11px/1 'Open Sans', system-ui, sans-serif; }
+/* The profile link: the foot of the credit, mirroring the ART BY label at its
+   head -- same size, same tracking, same dim colour -- so it reads as part of
+   the frame around the names rather than as another name. */
+.lk-about {
+  align-self: center; margin-top: 1px;
+  font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--lk-dim); text-decoration: none;
+  padding: 3px 2px; transition: color 160ms ease;
+}
+.lk-about-arrow { padding-left: 4px; letter-spacing: 0; }
+.lk-about:hover, .lk-about:focus-visible { color: var(--lk-glow-text); outline: none; }
+.lk-about:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .pl-drawer-actions {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
@@ -1155,7 +1168,13 @@ a.lk-name:active { text-shadow: var(--lk-glow), var(--lk-glow); }
         [:div.lk-marks
          (for [l below] ^{:key (:link/url l)} [credit-mark name l])])]
      (when (seq others)
-       [:div.lk-with "with " (name-list others)])]))
+       [:div.lk-with "with " (name-list others)])
+     ;; The way to the site's own page about them, kept apart from the name,
+     ;; which goes wherever the artist chose. A new tab, like every link in
+     ;; the credit, so an unsaved draft is not left behind.
+     (when-let [{:keys [href label]} (artist-profile/profile-link named)]
+       [:a.lk-about {:href href :target "_blank" :rel "noopener"}
+        label [:span.lk-about-arrow {:aria-hidden true} "\u203a"]])]))
 
 (defn- attribution
   "Who drew what is on canvas.

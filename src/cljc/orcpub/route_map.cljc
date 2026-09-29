@@ -92,6 +92,13 @@
 
 
 
+;; Public artist profiles: the site's showcase of each portrait artist. Not
+;; under /pages/ -- these are addresses people are handed, from a credit.
+(def artists-page-route :artists-page)
+(def artist-page-route :artist-page)
+;; Server-rendered example portrait, for the profile's og:image.
+(def artist-portrait-route :artist-portrait)
+
 (def register-route :register)
 (def register-page-route :register-page)
 (def my-account-page-route :my-account)
@@ -154,6 +161,10 @@
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
+
+                  "artists" {"" artists-page-route
+                             ["/" :slug] artist-page-route
+                             ["/" :slug "/portrait.png"] artist-portrait-route}
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route

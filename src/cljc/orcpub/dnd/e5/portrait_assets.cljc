@@ -235,6 +235,11 @@
    lets a fork credit its own contributors while the open-source repo still
    credits the artist whose work it ships."
   {:artist/id      :house-pack
+   ;; The profile page's address, /artists/fusspot. Not the id: saved
+   ;; portraits store :house-pack, so the id cannot change. Not overridable
+   ;; either -- a URL that moved whenever a deployment restated a name would
+   ;; break every link already shared. See artist-profile/slug.
+   :artist/slug    "fusspot"
    :artist/name    "Fusspot"
    ;; The single link, for surfaces that can only hold one -- the character
    ;; page credit is a 100px strip. Her homepage, because it is the list she

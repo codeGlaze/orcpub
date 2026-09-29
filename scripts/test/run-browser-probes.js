@@ -64,6 +64,7 @@ const PROBES = [
   { file: 'portrait_compositor_e2e.js',        needs: 'server' },
   { file: 'portrait_pdf_export_e2e.js',        needs: 'server' },
   { file: 'portrait_tab_e2e.js',               needs: 'server' },
+  { file: 'artist_profile_e2e.js',             needs: 'server' },
   { file: 'notification_flows_e2e.js',         needs: 'standalone' },
   { file: 'notifications_acceptance_e2e.js',   needs: 'standalone' },
   { file: 'spell_help_laziness_e2e.js',        needs: 'server' },
