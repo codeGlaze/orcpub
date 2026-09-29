@@ -149,7 +149,7 @@ async function checkProfile(page, themeLabel) {
     const html = await (await req.get(`${BASE}/artists/fusspot`)).text();
     check('share card is titled for the artist', html.includes('Fusspot — portrait artist'));
     check('og:image is the page\'s lead portrait',
-          /og:image[^>]+\/artists\/fusspot\/portrait\.png/.test(html));
+          /<meta(?=[^>]*property="og:image")(?=[^>]*content="[^"]*\/artists\/fusspot\/portrait\.png")[^>]*>/.test(html));
     const png = await req.get(`${BASE}/artists/fusspot/portrait.png`);
     check('the og image is served as a PNG',
           png.status() === 200 && png.headers()['content-type'] === 'image/png',
@@ -212,6 +212,9 @@ async function checkProfile(page, themeLabel) {
     await pg.locator('.pl-launcher').click();
     await pg.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
     await pg.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    // Composing grows the credit by a line, which slides the new link under
+    // the cursor left where Randomize was -- and a hovered link is lit.
+    await pg.mouse.move(5, 5);
     await pg.waitForTimeout(500);
 
     const nameHref = await pg.locator('.pl-attribution a.lk-name').first().getAttribute('href');
