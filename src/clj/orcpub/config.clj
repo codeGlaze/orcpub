@@ -52,6 +52,14 @@
       (env :signature)
       (some-> (System/getenv "SIGNATURE") not-empty)))
 
+(defn profile-encryption-keys
+  "Return PROFILE_ENCRYPTION_KEYS from Docker secret, env var, or nil.
+  Resolution order: /run/secrets/profile_encryption_keys > PROFILE_ENCRYPTION_KEYS.
+  Format and use: orcpub.crypto." []
+  (or (read-secret "profile_encryption_keys")
+      (env :profile-encryption-keys)
+      (some-> (System/getenv "PROFILE_ENCRYPTION_KEYS") not-empty)))
+
 (defn get-datomic-uri
   "Return the Datomic URI from the environment or the default.
 
@@ -275,7 +283,15 @@
     {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS"}
     {:group "email"    :var "EMAIL_ERRORS_TO"}
-    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}]
+    {:group "email"    :var "EMAIL_ADMIN_TO"
+     :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
+    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :secret? true
+     :note "encrypts preferred names; or the profile_encryption_keys secret"}
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}
+    {:group "content"  :var "PORTRAIT_ARTISTS"
+     :note "artist credits and artist accounts; see ARTISTS.md"}
+    {:group "content"  :var "APP_URL"
+     :note "public site address; artist emails need it for their links"}]
    [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
      :note "worker pool: requests of any kind in flight"}
     {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :get #(get-pdf-concurrency)
