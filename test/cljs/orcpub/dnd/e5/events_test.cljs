@@ -1350,3 +1350,23 @@
     (run-through! [::e5/import-stored [relink] nil])
     (is (= [relink] (db/pending-relinks)) "recorded once the write has stuck"))
   (.clear js/window.localStorage))
+
+;; A saved character's own page reads it through ::char5e/character, not the builder.
+
+(deftest a-saved-characters-page-sees-a-renamed-pick-healed
+  ;; Picked when the background was offered under its name's key, :blue.
+  (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/backgrounds
+                                   {:noble-pk {:name "Blue" :key :noble-pk :option-pack "Pak"}}}}
+                  ::content-recon/offered-keys #{}
+                  ::char5e/character-map {7 {:db/id 7 :orcpub.entity/options
+                                             {:background {:orcpub.entity/key :blue}}}}})
+  (rf/clear-subscription-cache!)
+  (is (= :noble-pk (get-in (read-sub [::char5e/character 7])
+                           [:orcpub.entity/options :background :orcpub.entity/key])))
+  (testing "before the builder's list exists, it reads as saved"
+    (swap! app-db dissoc ::content-recon/offered-keys)
+    (rf/clear-subscription-cache!)
+    (is (= :blue (get-in (read-sub [::char5e/character 7])
+                         [:orcpub.entity/options :background :orcpub.entity/key]))))
+  (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
+      "nothing is written back"))

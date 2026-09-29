@@ -587,6 +587,22 @@
    (get character-map id)))
 
 
+(reg-sub
+ ::content-recon/former-key-index
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ (fn [[plugins offered] _]
+   (content-recon/former-key-index plugins offered)))
+
+(reg-sub
+ ::content-recon/typed-former-key-index
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered-by-type] _]
+   (content-recon/typed-former-key-index plugins offered-by-type)))
+
+;; A saved character, as every page reads it: its picks of renamed homebrew moved to the current
+;; keys, the same heal the builder applies at load. Nothing is written until it is saved.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
@@ -612,7 +628,10 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (get-in @app-db [::char5e/character-map int-id] {})
+           (:character (content-recon/reconcile-former-keys
+                       (get-in @app-db [::char5e/character-map int-id] {})
+                       @(subscribe [::content-recon/former-key-index])
+                       @(subscribe [::content-recon/typed-former-key-index])))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after
@@ -1699,10 +1718,12 @@
    [(subscribe [:character])
     (subscribe [::char5e/available-content])
     (subscribe [::content-recon/offered-keys])
-    (subscribe [::content-recon/choice-tags])])
- (fn [[character available-content offered choice-tags]]
+    (subscribe [::content-recon/choice-tags])
+    (subscribe [::content-recon/offered-by-type])])
+ (fn [[character available-content offered choice-tags offered-by-type]]
    (when character
-     (content-recon/generate-missing-content-report character available-content offered choice-tags))))
+     (content-recon/generate-missing-content-report character available-content offered choice-tags
+                                                    offered-by-type))))
 
 (reg-sub
  ::char5e/has-missing-content?

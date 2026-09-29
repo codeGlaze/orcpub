@@ -177,15 +177,43 @@
    :orcpub.dnd.e5/languages (into #{} (map :key) langs/languages)
    :orcpub.dnd.e5/monsters (set (keys monsters/monster-map))})
 
+(def pick-homes
+  "{selection-path content-type}: where a character picks each type that has a selection of its
+   own. A selection path is the selection keys from the character's root down to the pick."
+  {[:race] :orcpub.dnd.e5/races [:race :subrace] :orcpub.dnd.e5/subraces
+   [:class] :orcpub.dnd.e5/classes [:background] :orcpub.dnd.e5/backgrounds
+   [:feats] :orcpub.dnd.e5/feats})
+
+(def ^:private picked-only-at-home
+  "Content types picked at their `pick-homes` path and nowhere else. (Feats are also picked under
+   other choices.)"
+  #{:orcpub.dnd.e5/races :orcpub.dnd.e5/subraces :orcpub.dnd.e5/classes :orcpub.dnd.e5/backgrounds})
+
+(defn pick-types
+  "Of content `types`, those a character's pick at selection path `path` can be: the type of its
+   `pick-homes` entry, feats under any `:feats` selection, else every type but `picked-only-at-home`.
+   GOTCHA: a selection that reuses a home's name elsewhere (`[:class :background]`) is not that home."
+  [path types]
+  (if-let [t (or (pick-homes path) (when (= :feats (peek path)) :orcpub.dnd.e5/feats))]
+    (filter #{t} types)
+    (remove picked-only-at-home types)))
+
+(defn- offered-at
+  "Set of option keys `template` offers at selection path `path`."
+  [template path]
+  (loop [sels (::t/selections template) [k & more] path]
+    (let [opts (mapcat ::t/options (filter #(= k (::t/key %)) sels))]
+      (if more
+        (recur (mapcat ::t/selections opts) more)
+        (into #{} (keep ::t/key) opts)))))
+
 (defn offered-by-type
-  "{content-type #{key}} a link can resolve to outside the library: the options of `template`'s
-   top-level :class and :race choices, and `built-in-keys`."
+  "{content-type #{key}} `template` offers per type: the options at each `pick-homes` path, and
+   `built-in-keys`. Links and character picks resolve against it."
   [template]
-  (let [under (fn [k] (into #{} (keep ::t/key)
-                            (some #(when (= k (::t/key %)) (::t/options %)) (::t/selections template))))]
-    (merge-with into
-                {:orcpub.dnd.e5/classes (under :class) :orcpub.dnd.e5/races (under :race)}
-                built-in-keys)))
+  (merge-with into
+              (into {} (map (fn [[path t]] [t (offered-at template path)])) pick-homes)
+              built-in-keys))
 
 (defn dangling
   "{[source type key] [{:link :target}]} for every item in `plugins` with a link to nothing:
@@ -294,25 +322,6 @@
                 (map? (get-in p [source type key]))
                 (update-in [source type key] #(links/retarget (by-id link) % target to-key))))
             plugins repairs)))
-
-(def selection-types
-  "Content type of the picks under each character selection that holds one type only."
-  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces
-   :class :orcpub.dnd.e5/classes :background :orcpub.dnd.e5/backgrounds
-   :feats :orcpub.dnd.e5/feats})
-
-(def ^:private picked-only-at-home
-  "Content types picked under their own `selection-types` selection and nowhere else. (Feats are
-   also picked under other choices.)"
-  #{:orcpub.dnd.e5/races :orcpub.dnd.e5/subraces :orcpub.dnd.e5/classes :orcpub.dnd.e5/backgrounds})
-
-(defn pick-types
-  "Of content `types`, those a character's pick under `selection` can be: the selection's own type
-   when `selection-types` names one, else every type but `picked-only-at-home`."
-  [selection types]
-  (if-let [t (selection-types selection)]
-    (filter #{t} types)
-    (remove picked-only-at-home types)))
 
 (defn offered-keys
   "Set of every selection and option `::t/key` in `template` (`::char5e/template`): the keys the

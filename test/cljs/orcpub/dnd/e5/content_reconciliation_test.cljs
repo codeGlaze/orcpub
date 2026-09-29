@@ -731,14 +731,68 @@
     (is (= :aarakocra-2 (get-in character [::entity/options :race ::entity/key])))
     (is (= :aarakocra (get-in character [::entity/options :race ::entity/options :subrace ::entity/key])))
     (is (= 1 (count rewrote))))
-  (is (= #{:aarakocra} (reconcile/picks-of {::entity/options {:subrace {::entity/key :aarakocra}}}
-                                           :orcpub.dnd.e5/subraces)))
-  (is (empty? (reconcile/picks-of {::entity/options {:subrace {::entity/key :aarakocra}}}
-                                  :orcpub.dnd.e5/races))
-      "a subrace pick does not make the question about the race"))
+  (let [character {::entity/options {:race {::entity/key :bird
+                                             ::entity/options {:subrace {::entity/key :aarakocra}}}}}]
+    (is (= #{:aarakocra} (reconcile/picks-of character :orcpub.dnd.e5/subraces)))
+    (is (= #{:bird} (reconcile/picks-of character :orcpub.dnd.e5/races))
+        "a subrace pick does not make the question about the race")))
 
 (deftest a-background-picked-by-its-name-heals-to-its-stored-key
   (let [plugins {"Pak" {:orcpub.dnd.e5/backgrounds {:folk-hero-pk {:name "Folk Hero" :key :folk-hero-pk}}}}]
     (is (= :folk-hero-pk (get (reconcile/former-key-index plugins #{}) :folk-hero)))
     (is (nil? (get (reconcile/former-key-index plugins #{:folk-hero}) :folk-hero))
         "a built-in background with that key still answers")))
+
+;; A key names nothing without its type: a heal or a lookup that ignores the type reads one kind
+;; of content as another (docs/kb/typed-keys.md).
+
+(def ^:private blue-background
+  {"Pak" {:orcpub.dnd.e5/backgrounds {:noble {:name "Blue" :key :noble :option-pack "Pak"}}}})
+
+(def ^:private dragonborn-with-blue
+  "Picked the background under its name's key, and the Blue draconic ancestry."
+  {::entity/options {:race {::entity/key :dragonborn
+                            ::entity/options {:draconic-ancestry {::entity/key :blue}}}
+                     :background {::entity/key :blue}}})
+
+(defn- heal [character offered offered-by-type]
+  (reconcile/reconcile-former-keys character
+                                   (reconcile/former-key-index blue-background offered)
+                                   (reconcile/typed-former-key-index blue-background offered-by-type)))
+
+(deftest a-background-heals-past-another-types-key
+  (let [{:keys [character rewrote]} (heal dragonborn-with-blue #{:dragonborn :blue :noble}
+                                          {:orcpub.dnd.e5/backgrounds #{:noble}
+                                           :orcpub.dnd.e5/races #{:dragonborn}})]
+    (is (= :noble (get-in character [::entity/options :background ::entity/key]))
+        "a dragon colour offered under :blue does not stop the background's heal")
+    (is (= :blue (get-in character [::entity/options :race ::entity/options :draconic-ancestry ::entity/key]))
+        "and the dragon colour is not rewritten into the background")
+    (is (= [{:from :blue :to :noble}] rewrote))))
+
+(deftest a-type-with-no-offered-list-keeps-the-flat-rule
+  (let [{:keys [character rewrote]} (heal dragonborn-with-blue #{:dragonborn :blue :noble}
+                                          {:orcpub.dnd.e5/races #{:dragonborn}})]
+    (is (= :blue (get-in character [::entity/options :background ::entity/key]))
+        "no list for backgrounds is not an empty list: :blue is offered somewhere, so it stays")
+    (is (empty? rewrote))))
+
+(deftest a-choice-reusing-a-homes-name-is-not-that-home
+  (let [character {::entity/options {:class [{::entity/key :herald
+                                              ::entity/options {:background {::entity/key :blue}}}]
+                                     :background {::entity/key :blue}}}
+        {:keys [character]} (heal character #{:herald :blue :noble}
+                                  {:orcpub.dnd.e5/backgrounds #{:noble}
+                                   :orcpub.dnd.e5/classes #{:herald}})]
+    (is (= :noble (get-in character [::entity/options :background ::entity/key])))
+    (is (= :blue (get-in character [::entity/options :class 0 ::entity/options :background ::entity/key]))
+        "a class's own choice named :background is healed by the flat rule, which :blue blocks")))
+
+(deftest a-pick-is-missing-only-if-its-own-type-lacks-it
+  (let [items (fn [offered-by-type]
+                (map :key (reconcile/check-content-availability
+                           [{:key :blue :content-type :background :content-label "Background"}]
+                           {} #{:blue :noble} offered-by-type)))]
+    (is (= [:blue] (items {:orcpub.dnd.e5/backgrounds #{:noble}}))
+        "a background under a dragon colour's key is missing, not found")
+    (is (empty? (items nil)) "no typed list: the flat rule, as before")))

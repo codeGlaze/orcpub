@@ -67,6 +67,7 @@
    the list now lets it heal, re-dispatches `:set-character`."
   [{:keys [db]} [_ template]]
   (let [offered (content-recon/offered-keys template)
+        by-type (library/offered-by-type template)
         character (:character db)
         ;; :set-character heals nothing until this list exists, so a character that loaded
         ;; first is healed here, once.
@@ -74,11 +75,12 @@
                    character
                    (seq (:rewrote (content-recon/reconcile-former-keys
                                    character
-                                   (content-recon/former-key-index (:plugins db) offered)))))]
+                                   (content-recon/former-key-index (:plugins db) offered)
+                                   (content-recon/typed-former-key-index (:plugins db) by-type)))))]
     (cond-> {:db (assoc db
                         ::cached-template template
                         ::content-recon/offered-keys offered
-                        ::content-recon/offered-by-type (library/offered-by-type template)
+                        ::content-recon/offered-by-type by-type
                         ::content-recon/choice-tags (library/choice-tags template))}
       heal? (assoc :dispatch [:set-character character]))))
 

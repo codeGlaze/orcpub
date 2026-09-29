@@ -231,17 +231,23 @@
 ;; all inline-custom content types at once.
 (def ^:private inline-content-sentinels #{:custom :none})
 
+(def ^:private extracted-types
+  "Content type of each `extract-content-keys` entry's `:content-type` that has a pick home."
+  {:race :orcpub.dnd.e5/races :subrace :orcpub.dnd.e5/subraces :class :orcpub.dnd.e5/classes
+   :background :orcpub.dnd.e5/backgrounds :feat :orcpub.dnd.e5/feats})
+
 (defn check-content-availability
-  "Entries of `character-keys` (from `extract-content-keys`) whose key is not in `offered`
-   (from `offered-keys`), each with `:missing? true`, `:suggestions` drawn from `available-content`
-   ({:classes [...] :races [...] ...}) and `:inferred-source`. `offered` nil means not yet known:
-   nothing is reported."
-  [character-keys available-content offered]
+  "Entries of `character-keys` (from `extract-content-keys`) the builder does not offer, each with
+   `:missing? true`, `:suggestions` drawn from `available-content` ({:classes [...] ...}) and
+   `:inferred-source`. An entry of a type `offered-by-type` lists is looked up in that type's keys;
+   any other in `offered` (from `offered-keys`). `offered` nil means not yet known: nothing is
+   reported."
+  [character-keys available-content offered & [offered-by-type]]
   (when (some? offered)
     (keep
      (fn [{:keys [key content-type] :as entry}]
        (when-not (or (contains? inline-content-sentinels key)
-                     (library/offers? offered key))
+                     (library/offers? (get offered-by-type (extracted-types content-type) offered) key))
          (let [field (get content-type->field content-type)
                suggestions (find-similar-content
                             key content-type
@@ -262,11 +268,11 @@
              :label \"Class\"
              :inferred-source \"Kibbles' Tasty\"
              :suggestions [{:key :bar :name \"Similar\" :similarity 0.8}]}]}"
-  [character available-content offered & [choice-tags]]
+  [character available-content offered & [choice-tags offered-by-type]]
   (let [char-keys (extract-content-keys character)
         known (set (map :key char-keys))
         missing (concat
-                 (check-content-availability char-keys available-content offered)
+                 (check-content-availability char-keys available-content offered offered-by-type)
                  ;; Spells and languages the character picked that the builder no longer offers.
                  (when (and (some? offered) choice-tags)
                    (for [{:keys [key tag]} (library/missing-picks character offered choice-tags
@@ -413,54 +419,91 @@
 (def former-keys links/former-keys)
 (def record-former-key links/record-former-key)
 
+(defn- items-with-formers
+  "[{:type :key :formers}] for every item in `plugins`. A background's name-derived key counts as
+   a former key."
+  [plugins]
+  (for [[_ plugin] plugins
+        :when (map? plugin)
+        [ct content] plugin
+        :when (map? content)
+        [k item] content
+        :when (map? item)]
+    ;; a background was offered under its name's key until the stored one was used
+    {:type ct
+     :key k
+     :formers (cond-> (vec (former-keys item))
+                (and (= ct :orcpub.dnd.e5/backgrounds) (string? (:name item)))
+                (conj (common/name-to-kw (:name item))))}))
+
+(defn- claimed-once
+  "{former-key -> current-key} of `items`' formers claimed by exactly one item and not in `live`."
+  [items live]
+  (let [claims (reduce (fn [acc {:keys [key formers]}]
+                         (reduce (fn [acc former]
+                                   (cond-> acc
+                                     (not= former key)
+                                     (update former (fnil conj #{}) key)))
+                                 acc
+                                 formers))
+                       {}
+                       items)]
+    (into {}
+          (keep (fn [[former targets]]
+                  (when (and (= 1 (count targets))
+                             (not (contains? live former)))
+                    [former (first targets)])))
+          claims)))
+
 (defn former-key-index
-  "{former-key -> current-key} across every source and content type in `plugins`. `offered` is
-   from `offered-keys`; nil means not yet known, and the index is empty.
-   A background's name-derived key counts as a former key.
+  "{former-key -> current-key} across every source and content type in `plugins`, for picks of
+   no known type. `offered` is from `offered-keys`; nil means not yet known, and the index is
+   empty.
    GOTCHA: drops a former key claimed by more than one item, held by any library item (disabled
    ones included), or in `offered` (built-in content included). Such a key still answers."
   [plugins offered]
   (if (nil? offered)
     {}
-    (let [items (for [[_ plugin] plugins
-                      :when (map? plugin)
-                      [ct content] plugin
-                      :when (map? content)
-                      [k item] content
-                      :when (map? item)]
-                  ;; a background was offered under its name's key until the stored one was used
-                  {:key k :formers (cond-> (vec (former-keys item))
-                                     (and (= ct :orcpub.dnd.e5/backgrounds) (string? (:name item)))
-                                     (conj (common/name-to-kw (:name item))))})
-          live (into offered (map :key) items)
-          claims (reduce (fn [acc {:keys [key formers]}]
-                           (reduce (fn [acc former]
-                                     (cond-> acc
-                                       (not= former key)
-                                       (update former (fnil conj #{}) key)))
-                                   acc
-                                   formers))
-                         {}
-                         items)]
-      (into {}
-            (keep (fn [[former targets]]
-                    (when (and (= 1 (count targets))
-                               (not (contains? live former)))
-                      [former (first targets)])))
-            claims))))
+    (let [items (items-with-formers plugins)]
+      (claimed-once items (into offered (map :key) items)))))
+
+(defn typed-former-key-index
+  "{content-type {former-key -> current-key}} for each `library/pick-homes` type that
+   `offered-by-type` (from `library/offered-by-type`) lists; a type it does not list is absent.
+   Per type, the same rule as `former-key-index`, against that type's items and offered keys only."
+  [plugins offered-by-type]
+  (let [by-type (group-by :type (items-with-formers plugins))]
+    (into {}
+          (keep (fn [t]
+                  (when-let [offered (get offered-by-type t)]
+                    (let [items (get by-type t)]
+                      [t (claimed-once items (into offered (map :key) items))]))))
+          (set (vals library/pick-homes)))))
+
+(defn- walk-entries
+  "`opts` (::entity/options) with `(f path entry)` applied to every chosen entry, where `path` is
+   the vector of selection keys from the root down to it."
+  [opts f]
+  (letfn [(entry [path e]
+            (if (map? e)
+              (let [e' (f path e)]
+                (cond-> e' (map? (::entity/options e')) (update ::entity/options #(walk path %))))
+              e))
+          (walk [path o]
+            (into {} (map (fn [[sel v]]
+                            (let [p (conj path sel)]
+                              [sel (if (sequential? v) (mapv #(entry p %) v) (entry p v))])))
+                  o))]
+    (if (map? opts) (walk [] opts) opts)))
 
 (defn- walk-picks
   "`opts` (::entity/options) with `f` applied to every pick that could be of `content-type`
    (`library/pick-types`); `content-type` nil: every pick."
   [opts content-type f]
-  (letfn [(entry [sel e]
-            (if (map? e)
-              (let [may? (or (nil? content-type) (seq (library/pick-types sel [content-type])))]
-                (cond-> (if may? (f e) e)
-                  (map? (::entity/options e)) (update ::entity/options walk)))
-              e))
-          (walk [o] (into {} (map (fn [[sel v]] [sel (if (sequential? v) (mapv #(entry sel %) v) (entry sel v))])) o))]
-    (if (map? opts) (walk opts) opts)))
+  (walk-entries opts (fn [path e]
+                       (if (or (nil? content-type) (seq (library/pick-types path [content-type])))
+                         (f e)
+                         e))))
 
 (defn picks-of
   "Set of `character`'s pick keys that could be of `content-type` (see `walk-picks`)."
@@ -498,30 +541,26 @@
                            relinks)))))
 
 (defn reconcile-former-keys
-  "Rewrite a character's stored content keys through `index`.
-
-   Walks ::entity/options and translates every ::entity/key it finds, which is
-   where a content key always lives -- nested under a selection, or inside a
-   vector for a multi-select like :feats. Selection keys, which are MAP keys, are
-   left alone; only chosen-option identity moves.
-
-   Returns {:character .. :rewrote [{:from .. :to ..}]}, matching
-   reconcile-spell-selection-keys, so a caller can report what healed."
-  [character index]
-  (if (or (empty? index) (nil? (::entity/options character)))
-    {:character character :rewrote []}
-    (let [rewrote (atom [])
-          walked (walk/postwalk
-                  (fn [x]
-                    (if (and (map? x) (contains? x ::entity/key))
-                      (if-let [to (get index (::entity/key x))]
-                        (do (swap! rewrote conj {:from (::entity/key x) :to to})
-                            (assoc x ::entity/key to))
-                        x)
-                      x))
-                  (::entity/options character))]
-      {:character (assoc character ::entity/options walked)
-       :rewrote @rewrote})))
+  "Rewrite a character's picks through the former-key indexes, as {:character .. :rewrote
+   [{:from .. :to ..}]}. A pick at a `library/pick-homes` path whose type `typed` (from
+   `typed-former-key-index`) lists goes through that type's index only; any other pick through
+   `index` (from `former-key-index`)."
+  ([character index] (reconcile-former-keys character index nil))
+  ([character index typed]
+   (if (or (and (empty? index) (every? empty? (vals typed))) (nil? (::entity/options character)))
+     {:character character :rewrote []}
+     (let [rewrote (atom [])
+           opts (walk-entries
+                 (::entity/options character)
+                 (fn [path e]
+                   (let [t (library/pick-homes path)
+                         idx (if (contains? typed t) (get typed t) index)]
+                     (if-let [to (get idx (::entity/key e))]
+                       (do (swap! rewrote conj {:from (::entity/key e) :to to})
+                           (assoc e ::entity/key to))
+                       e))))]
+       {:character (assoc character ::entity/options opts)
+        :rewrote @rewrote}))))
 
 ;; ── Class binding report ────────────────────────────────────────────────────
 ;; The reconcilers above REPAIR. This one only reports, and deliberately so: a

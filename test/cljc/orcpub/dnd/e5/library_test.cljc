@@ -134,7 +134,26 @@
     (is (= #{:wizard} (:orcpub.dnd.e5/classes offered)))
     (is (contains? (:orcpub.dnd.e5/languages offered) :orc) "built-in languages by their keys")
     (is (contains? (:orcpub.dnd.e5/spells offered) :fireball))
-    (is (not (contains? (:orcpub.dnd.e5/races offered) :orc)) "a feat's key is no race")))
+    (is (not (contains? (:orcpub.dnd.e5/races offered) :orc)) "a feat's key is no race")
+    (is (= #{:orc} (:orcpub.dnd.e5/feats offered)) "feats from the :feats choice")))
+
+(deftest offered-by-type-reads-each-pick-home-at-its-own-path
+  (let [template {::t/selections
+                  [(t/selection-cfg {:name "Race" :key :race
+                                     :options [(t/option-cfg {:name "Dragonborn" :key :dragonborn
+                                                              :selections [(t/selection-cfg {:name "Draconic Ancestry" :key :draconic-ancestry
+                                                                                             :options [(t/option-cfg {:name "Blue" :key :blue})]})]})
+                                               (t/option-cfg {:name "Elf" :key :elf
+                                                              :selections [(t/selection-cfg {:name "Subrace" :key :subrace
+                                                                                             :options [(t/option-cfg {:name "High" :key :high-elf})]})]})]})
+                   (t/selection-cfg {:name "Background" :key :background
+                                     :options [(t/option-cfg {:name "Blue" :key :noble})]})]}
+        offered (library/offered-by-type template)]
+    (is (= #{:noble} (:orcpub.dnd.e5/backgrounds offered)))
+    (is (= #{:high-elf} (:orcpub.dnd.e5/subraces offered)))
+    (is (not-any? #(contains? (get offered %) :blue) (vals library/pick-homes))
+        "a dragon colour is no pick of a type with a home")
+    (is (= #{} (:orcpub.dnd.e5/classes offered)) "a home the template offers nothing at is known and empty")))
 
 (deftest repoint-offer-finds-links-in-other-packs-that-do-not-hold-their-own-copy
   (let [plugins {"Classes" {:orcpub.dnd.e5/classes {:warden-x {:name "Warden X"}}}
@@ -224,8 +243,14 @@
 
 (deftest a-pick-is-only-what-its-selection-can-hold
   (let [both [:orcpub.dnd.e5/feats :orcpub.dnd.e5/languages]]
-    (is (= [:orcpub.dnd.e5/feats] (library/pick-types :feats both)) "a feat pick is not a language")
-    (is (= both (library/pick-types :some-other-choice both)) "a feat can be picked under other choices")
+    (is (= [:orcpub.dnd.e5/feats] (library/pick-types [:feats] both)) "a feat pick is not a language")
+    (is (= [:orcpub.dnd.e5/feats] (library/pick-types [:class :asi-or-feat :feats] both))
+        "nor under a :feats choice elsewhere")
+    (is (= both (library/pick-types [:some-other-choice] both)) "a feat can be picked under other choices")
     (is (= [:orcpub.dnd.e5/languages]
-           (library/pick-types :languages [:orcpub.dnd.e5/races :orcpub.dnd.e5/languages]))
-        "a race is only ever picked under :race")))
+           (library/pick-types [:languages] [:orcpub.dnd.e5/races :orcpub.dnd.e5/languages]))
+        "a race is only ever picked under :race"))
+  (let [types [:orcpub.dnd.e5/backgrounds :orcpub.dnd.e5/feats]]
+    (is (= [:orcpub.dnd.e5/backgrounds] (library/pick-types [:background] types)))
+    (is (= [:orcpub.dnd.e5/feats] (library/pick-types [:class :background] types))
+        "a class's own choice named :background is not the background")))

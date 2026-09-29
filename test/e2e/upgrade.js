@@ -121,7 +121,7 @@ async function sheetText(page, id) {
   await wait(5000);
   const t = await page.locator('#app').innerText().catch(() => '');
   return t.split('\n').map(s => s.trim()).filter(Boolean)
-    .filter(s => !/cookie|what's new|^\d+ (seconds?|minutes?) ago$/i.test(s));
+    .filter(s => !/cookie|what's new|^\d+ (seconds?|minutes?) ago$|^Version \d/i.test(s));
 }
 
 async function login(page) {

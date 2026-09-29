@@ -93,10 +93,9 @@
    under its selection can be (`library/pick-types`)."
   [idx character]
   (reduce (fn [acc {path ::t/path option ::t/key}]
-            (let [k (::entity/key option)
-                  selection (last (butlast path))]
+            (let [k (::entity/key option)]
               (reduce (fn [acc ct] (update acc ct (fnil conj #{}) k))
-                      acc (library/pick-types selection (types-of idx k)))))
+                      acc (library/pick-types (vec (take-nth 2 path)) (types-of idx k)))))
           {} (entity/flatten-options (::entity/options character))))
 
 ;; ── Transitive edges ─────────────────────────────────────────────────────────
