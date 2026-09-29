@@ -383,10 +383,76 @@
   [portrait]
   (boolean (seq (drawable-layers (:layers portrait)))))
 
-(defn artists-for-layers
-  "Full artist maps for a portrait's layer selection, in registry order."
+(def layer-credit-weight
+  "How much of a portrait each layer is, for ordering the credit.
+
+   Roughly by area and by how much the piece defines the character: the head
+   is the foundation everything else sits on, the hair is most of the
+   silhouette, a nose is a few strokes. Fixed numbers rather than measured
+   pixel area, so the browser and the server agree without loading a single
+   image, the numbers can be read and tuned, and a large mostly transparent
+   asset cannot climb the list.
+
+   The scalp is 0: it is a generated patch under the hair, not a drawing.
+   A layer missing from this map counts 1."
+  {:head 10
+   :hair-front 6
+   :hair-back 6
+   :shirt 5
+   :bangs 4
+   :eyes 4
+   :hair-bits 3
+   :mouth 2
+   :nose 1
+   :ears 1
+   :scalp 0})
+
+(defn credit-order
+  "The artists on canvas, in the order a credit should name them: most of the
+   picture first, like the ingredients on a label.
+
+   Ranked by the total `layer-credit-weight` of the pieces each drew, then by
+   how many pieces, then by registry order so the credit never reshuffles
+   between two renders of the same portrait. Weight comes before count because
+   count misleads: someone who drew the ears, nose and hair bits has three
+   pieces and one who drew the head and shirt has two, and the second drew the
+   face.
+
+   Pieces are attributed the way `all-artists-for-layers` attributes them --
+   through the registry by asset id first -- and an artist not in the registry
+   is left out, as there. Each artist map gains :credit/weight and
+   :credit/pieces."
   [layers-selection]
-  (into [] (keep artist-info) (all-artists-for-layers layers-selection)))
+  (if-not (map? layers-selection)
+    []
+    (let [credited (set (all-artists-for-layers layers-selection))
+          tally (reduce (fn [acc [layer-key sel]]
+                          (let [id (or (artist-for-asset layer-key (:asset/id sel))
+                                       (:artist/id sel))]
+                            (if (contains? credited id)
+                              (-> acc
+                                  (update-in [id :weight] (fnil + 0)
+                                             (get layer-credit-weight layer-key 1))
+                                  (update-in [id :pieces] (fnil inc 0)))
+                              acc)))
+                        {} layers-selection)
+          registry-rank (into {} (map-indexed (fn [i a] [(:artist/id a) i])) registry)]
+      (->> tally
+           (keep (fn [[id {:keys [weight pieces]}]]
+                   (when-let [a (artist-info id)]
+                     (assoc a :credit/weight weight :credit/pieces pieces))))
+           (sort-by (juxt (comp - :credit/weight)
+                          (comp - :credit/pieces)
+                          #(registry-rank (:artist/id %))))
+           vec))))
+
+(defn artists-for-layers
+  "Full artist maps for a portrait's layer selection, in credit order -- see
+   `credit-order`. Every surface that names artists goes through this, so the
+   drawer, the character page, the share card and the PDF agree on who comes
+   first."
+  [layers-selection]
+  (credit-order layers-selection))
 
 (def max-flanking-marks
   "The most link marks that can sit either side of an artist's name, in
