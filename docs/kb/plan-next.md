@@ -45,6 +45,12 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   are listed every run; a new one is fixed, or reviewed and approved with a reason, and an approval
   covers exact text by hash. **When #37 and #38 meet on `integration`, the second to merge
   reconciles:** #37 has 24 new hits and no longer matches 26 recorded entries.
+- ☑ Consolidation pass (2026-09-29): one heal input (`former-key-indexes`) with no type-blind form,
+  and `pick-homes` as the only list of pick types, on #37 (`38dbaa91`); each rule stated once, the
+  rest point to it; BRANCH.md's state reduced to roles and PRs (`282e5306`); the KB copied to
+  agents/develop with a three-way merge, kb lint clean (`0006659e`).
+- ☐ **Owner: field notes and the comment check.** Fold `field_notes_test` (#37) into
+  `comment_discipline_test` (#38) as hash-recorded entries, or keep both? Held for the owner.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").
