@@ -652,12 +652,39 @@
 .lk-rule { flex: 1; height: 1px; min-width: 10px; }
 .lk-rule.l { background: linear-gradient(90deg, transparent, var(--lk-rule)); }
 .lk-rule.r { background: linear-gradient(90deg, var(--lk-rule), transparent); }
+.pl-root {
+  --lk-under: rgba(240,161,0,0.45);
+  --lk-glow-text: #fff4d6;
+  --lk-glow: 0 0 4px rgba(255,236,170,0.85), 0 0 10px rgba(255,200,110,0.55), 0 0 18px rgba(240,161,0,0.35);
+}
+.pl-root.light-theme {
+  --lk-under: rgba(51,101,138,0.5);
+  --lk-glow-text: #1d5a86;
+  --lk-glow: 0 0 4px rgba(150,215,255,0.95), 0 0 10px rgba(111,179,216,0.7), 0 0 18px rgba(111,179,216,0.4);
+}
 .lk-name {
   font: italic 14px/1 'Vollkorn', Georgia, serif; color: var(--lk-name);
-  text-decoration: none; white-space: nowrap; transition: color 110ms ease;
+  text-decoration: none; white-space: nowrap;
 }
-a.lk-name:hover { color: #f0a640; }
-.pl-root.light-theme a.lk-name:hover { color: #c8811f; }
+/* A name that links reads as one: a thin dotted underline at rest, drawn as
+   a text decoration rather than a border so it does not grow the box and
+   pull the name off the rule's centre line. */
+a.lk-name {
+  text-decoration: underline dotted var(--lk-under);
+  text-decoration-thickness: 1px; text-underline-offset: 3px;
+  transition: color 220ms ease, text-shadow 260ms ease, text-decoration-color 220ms ease;
+}
+/* ...and a soft fey glow when someone reaches for it -- by mouse, keyboard
+   or tap. Warm on the dark ground, a pale sky glow on the light one, where a
+   warm halo would vanish. A little brighter at the moment of the click. */
+a.lk-name:hover, a.lk-name:focus-visible {
+  color: var(--lk-glow-text); text-shadow: var(--lk-glow);
+  text-decoration-color: currentColor; outline: none;
+}
+a.lk-name:active { text-shadow: var(--lk-glow), var(--lk-glow); }
+@media (prefers-reduced-motion: reduce) {
+  a.lk-name { transition: none; }
+}
 .lk-cap {
   font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--lk-dim); text-align: center;
