@@ -73,16 +73,31 @@
       (= :whitespace (n/tag c)) (recur more run blocks)
       :else (recur more [] (cond-> blocks (seq run) (conj run))))))
 
+(defn- note-spans
+  "[id start end] for each `FIELD NOTE (id):` in `block` (comment texts), `end` exclusive. A note
+   runs from its marker line to a blank comment line, the next note or a GOTCHA."
+  [block]
+  (keep (fn [[i line]]
+          (when-let [id (second (re-find #"FIELD NOTE \(([^)]+)\):" line))]
+            [id i (+ i 1 (count (take-while #(and (not (str/blank? %))
+                                                   (not (re-find #"^\s*(FIELD NOTE \(|GOTCHA)" %)))
+                                             (drop (inc i) block))))]))
+        (map-indexed vector block)))
+
 (defn- sexpr [node] (try (n/sexpr node) (catch Exception _ nil)))
 
 (defn- docstring
-  "[name doc] of a docstring-bearing form node, or nil."
+  "[name doc] of a docstring-bearing form node, or nil. The doc is the string after the name, the
+   name's `^{:doc ...}` metadata, or an attr-map's `:doc`."
   [node]
   (when (= :list (n/tag node))
-    (let [[head nm doc & more] (remove n/whitespace-or-comment? (n/children node))]
-      (when (and head nm doc (seq more) (contains? doc-forms (sexpr head)))
-        (let [d (sexpr doc)]
-          (when (string? d) [(str (sexpr head) " " (or (sexpr nm) "?")) d]))))))
+    (let [[head nm doc & more] (remove n/whitespace-or-comment? (n/children node))
+          name-form (some-> nm sexpr)]
+      (when (and head nm (contains? doc-forms (sexpr head)))
+        (when-let [d (or (let [d (some-> doc sexpr)] (when (and (string? d) (seq more)) d))
+                         (let [d (:doc (meta name-form))] (when (string? d) d))
+                         (let [m (some-> doc sexpr)] (when (and (map? m) (string? (:doc m))) (:doc m))))]
+          [(str (sexpr head) " " (or name-form "?")) d])))))
 
 (defn- walk [node f]
   (f node)
@@ -115,9 +130,11 @@
                       :when first-line]
                 (when-let [m (history whole)]
                   (add! :history-phrase (str (snippet first-line) " | " m) whole first-line))
-                (when (and (< max-comment-lines (count (filter counted-line? block)))
-                           (not (some #(str/includes? % "FIELD NOTE (") block)))
-                  (add! :long-comment (snippet first-line) whole first-line))))
+                (let [in-note (set (mapcat (fn [[_ a b]] (range a b)) (note-spans block)))
+                      rest-lines (keep-indexed #(when-not (in-note %1) %2) block)
+                      counted (filter counted-line? rest-lines)]
+                  (when (< max-comment-lines (count counted))
+                    (add! :long-comment (snippet (first counted)) (str/join "\n" rest-lines) (first counted))))))
             (when-let [[nm doc] (docstring node)]
               (when-let [m (history doc)]
                 (add! :history-phrase (str nm " | " m) doc nm))
@@ -126,22 +143,17 @@
     @out))
 
 (defn field-notes-in
-  "Each `;; FIELD NOTE (id):` in source text `src`, as {:file :id :hash :line}. A note runs from its
-   marker line to a blank comment line, the next note or a GOTCHA."
+  "Each `;; FIELD NOTE (id):` in source text `src`, as {:file :id :hash :line} (see `note-spans`)."
   [file src]
   (let [out (atom [])]
     (walk (p/parse-string-all src)
           (fn [node]
             (when (n/inner? node)
               (doseq [block (comment-blocks (n/children node))
-                      [i line] (map-indexed vector block)
-                      :let [note-id (second (re-find #"FIELD NOTE \(([^)]+)\):" line))]
-                      :when note-id]
-                (let [body (cons line (take-while #(and (not (str/blank? %))
-                                                         (not (re-find #"^\s*(FIELD NOTE \(|GOTCHA)" %)))
-                                                   (drop (inc i) block)))]
-                  (swap! out conj {:file file :id note-id :hash (text-hash (str/join "\n" body))
-                                   :line (line-of src line)}))))))
+                      [note-id a b] (note-spans block)
+                      :let [body (subvec block a b)]]
+                (swap! out conj {:file file :id note-id :hash (text-hash (str/join "\n" body))
+                                 :line (line-of src (first body))})))))
     @out))
 
 (defn- all-hits [] (mapcat #(hits-in % (slurp %)) (sources)))
@@ -270,6 +282,26 @@
        ";; FIELD NOTE (x): one\n;; two\n;; three\n;; four\n;; five\n(def z 1)\n"
        ";; Heals a previously-corrupted spot.\n(def w 1)\n"
        "(def data \"Previously, a dragon slept here.\")\n"))
+
+(deftest blocks-and-notes-end-where-they-should
+  (let [signals #(frequencies (map :signal (hits-in "x.clj" %)))]
+    (is (nil? (:long-comment (signals ";; one\n;; two\n;; three\n\n;; four\n;; five\n;; six\n(def y 1)\n")))
+        "a blank line ends a comment block")
+    (is (nil? (:long-comment (signals "(defn f []\n  ;; one\n  ;; two\n  ;; three\n\n  ;; four\n  ;; five\n  1)\n")))
+        "inside a form too")
+    (is (= 1 (:long-comment (signals ";; one\n;; two\n;; three\n;; four\n;; five\n;; FIELD NOTE (n): fact\n(def y 1)\n")))
+        "a note exempts only its own lines, not a long comment beside it")
+    (is (nil? (:long-comment (signals ";; Intro.\n;; FIELD NOTE (n): one\n;; two\n;; three\n;; four\n;; five\n(def y 1)\n")))
+        "a long note beside a short comment is exempt")
+    (is (= (map :hash (field-notes-in "x.clj" ";; FIELD NOTE (n): fact\n(def y 1)\n"))
+           (map :hash (field-notes-in "x.clj" ";; FIELD NOTE (n): fact\n\n;; after a blank line\n(def y 1)\n")))
+        "a note does not absorb text after a blank line")))
+
+(deftest metadata-docstrings-are-checked
+  (let [hs #(set (map (juxt :signal :text) (hits-in "x.clj" %)))]
+    (is (contains? (hs "(ns ^{:doc \"This used to load.\"} x.y)\n") [:history-phrase "ns x.y | this used to"]))
+    (is (contains? (hs "(defn f {:doc \"It used to\\nfail.\"} [] 1)\n") [:history-phrase "defn f | it used to"]))
+    (is (contains? (hs "(def ^{:doc \"1\\n2\\n3\\n4\\n5\\n6\\n7\"} v 1)\n") [:long-docstring "def v"]))))
 
 (deftest a-field-note-is-kept-as-recorded
   (let [src (str ";; Intro.\n;;\n;; FIELD NOTE (a): fact one\n;; continues\n;;\n"
