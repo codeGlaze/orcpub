@@ -1,0 +1,160 @@
+<title>Link Icon Options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.tw { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+thead th { font: 600 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+tbody th { font: 600 13px/1.3 var(--sans); white-space: nowrap; }
+tbody th span { display: block; font-weight: 400; font-size: 11px; color: var(--dim); white-space: normal; max-width: 18ch; }
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+td img { display: block; height: auto; max-width: 100%; }
+.fam { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.fam figure img { border: 0; }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · portrait artists</div>
+      <h1>Link icon options</h1>
+      <p class="sub">Each icon captured in the running site at real size: as the artist’s site mark in the drawer credit (12px, icon only, next to Twitch), and on the profile card’s featured link (16px, with its label). Amber at rest, like the current globe. Switch themes at the top right.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Screenshot theme">
+      <button type="button" data-t="dark">Dark</button>
+      <button type="button" data-t="light">Light</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>For the artist’s own site</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Icon</th><th>In the credit</th><th>On the card</th></tr></thead>
+      <tbody>
+      <tr><th scope="row">Globe (current)<span>the one in the credit today</span></th>
+        <td><img data-src="icons/credit-THEME-now-site.png" alt="Globe (current) in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-now-site.png" alt="Globe (current) on the card's site link"></td></tr>
+      <tr><th scope="row">Globe<span>Lucide</span></th>
+        <td><img data-src="icons/credit-THEME-lu-globe.png" alt="Globe in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-lu-globe.png" alt="Globe on the card's site link"></td></tr>
+      <tr><th scope="row">House<span>Lucide</span></th>
+        <td><img data-src="icons/credit-THEME-lu-house.png" alt="House in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-lu-house.png" alt="House on the card's site link"></td></tr>
+      <tr><th scope="row">House<span>Phosphor</span></th>
+        <td><img data-src="icons/credit-THEME-ph-house-line.png" alt="House in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-ph-house-line.png" alt="House on the card's site link"></td></tr>
+      <tr><th scope="row">WWW<span>Tabler</span></th>
+        <td><img data-src="icons/credit-THEME-tb-world-www.png" alt="WWW in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-tb-world-www.png" alt="WWW on the card's site link"></td></tr>
+      <tr><th scope="row">Chain link<span>Lucide</span></th>
+        <td><img data-src="icons/credit-THEME-lu-link.png" alt="Chain link in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-lu-link.png" alt="Chain link on the card's site link"></td></tr>
+      <tr><th scope="row">Quill and ink<span>game-icons, the site’s own icon family</span></th>
+        <td><img data-src="icons/credit-THEME-gi-lorc-quill-ink.png" alt="Quill and ink in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-gi-lorc-quill-ink.png" alt="Quill and ink on the card's site link"></td></tr>
+      <tr><th scope="row">Quill<span>game-icons</span></th>
+        <td><img data-src="icons/credit-THEME-gi-lorc-quill.png" alt="Quill in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-gi-lorc-quill.png" alt="Quill on the card's site link"></td></tr>
+      <tr><th scope="row">Pen nib<span>Phosphor</span></th>
+        <td><img data-src="icons/credit-THEME-ph-pen-nib.png" alt="Pen nib in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-ph-pen-nib.png" alt="Pen nib on the card's site link"></td></tr>
+      <tr><th scope="row">Feather<span>Phosphor</span></th>
+        <td><img data-src="icons/credit-THEME-ph-feather.png" alt="Feather in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-ph-feather.png" alt="Feather on the card's site link"></td></tr>
+      <tr><th scope="row">Palette<span>game-icons</span></th>
+        <td><img data-src="icons/credit-THEME-gi-delapouite-palette.png" alt="Palette in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-gi-delapouite-palette.png" alt="Palette on the card's site link"></td></tr>
+      <tr><th scope="row">Palette<span>Lucide</span></th>
+        <td><img data-src="icons/credit-THEME-lu-palette.png" alt="Palette in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-lu-palette.png" alt="Palette on the card's site link"></td></tr>
+      <tr><th scope="row">Paint brush<span>game-icons</span></th>
+        <td><img data-src="icons/credit-THEME-gi-delapouite-paint-brush.png" alt="Paint brush in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-gi-delapouite-paint-brush.png" alt="Paint brush on the card's site link"></td></tr>
+      <tr><th scope="row">Paint brush<span>Phosphor</span></th>
+        <td><img data-src="icons/credit-THEME-ph-paint-brush.png" alt="Paint brush in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-ph-paint-brush.png" alt="Paint brush on the card's site link"></td></tr>
+      <tr><th scope="row">Castle<span>game-icons</span></th>
+        <td><img data-src="icons/credit-THEME-gi-lorc-castle.png" alt="Castle in the drawer credit"></td>
+        <td><img data-src="icons/card-THEME-gi-lorc-castle.png" alt="Castle on the card's site link"></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>A whole link list, two families</h2>
+    <p>The card with several link types, each with its own icon and colour. game-icons is filled and chunky, like the site’s header icons. Lucide is hairline, closer to the credit’s rule. Twitch stays its own mark in both.</p>
+    <div class="fam">
+      <figure><img data-src="icons/family-THEME-gameicons.png" alt="Link list with game-icons"><figcaption>game-icons: quill and ink, paint brush, scroll, open book, chain</figcaption></figure>
+      <figure><img data-src="icons/family-THEME-lucide.png" alt="Link list with Lucide icons"><figcaption>Lucide: house, palette, scroll, open book, chain</figcaption></figure>
+    </div>
+  </section>
+
+  <div class="note">
+    <h3>Licences</h3>
+    <ul>
+      <li>game-icons.net: CC BY 3.0. Needs a credit, which the site’s footer already gives for its header icons (Lorc, Delapouite).</li>
+      <li>Lucide (ISC), Tabler (MIT), Phosphor (MIT): free, no credit required.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const current = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  function apply() {
+    const t = current();
+    document.querySelectorAll('img[data-src]').forEach(img => {
+      // captured at 2x; show at real size
+      img.onload = () => { img.style.width = (img.naturalWidth / 2) + 'px'; };
+      img.src = img.dataset.src.replace('THEME', t);
+    });
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+  }
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; apply(); }));
+  try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', apply); } catch (_) {}
+  apply();
+})();
+</script>
