@@ -194,7 +194,10 @@ them in the PR description and the handoff, so they do not vanish into the diff:
   `git show origin/agents/develop:AGENTS.md > AGENTS.md`.
 - **Stop rules and budgets (`AGENTS.md`) apply to every turn that does work.**
 - **`docs/kb/` and this file are committed here during development, and move to `agents/develop`
-  before this branch merges outward.** `integration` ships to the public repo.
+  before this branch merges outward.** `integration` ships to the public repo. Edit KB pages here
+  only: the copy on `agents/develop` (2026-09-29, `0006659e`) is a snapshot, and it takes the final
+  form when this branch merges (owner's decision, 2026-09-29). `AGENTS.md` is edited on
+  `agents/develop`, where it lives.
 - Commits are authored and committed as `codeGlaze <github@codeglaze.com>`, with no AI attribution
   in any pushed artifact.
 - Documentation changes with every commit: current truth at the top, history at the tail.

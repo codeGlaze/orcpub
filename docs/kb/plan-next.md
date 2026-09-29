@@ -51,6 +51,8 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   agents/develop with a three-way merge, kb lint clean (`0006659e`).
 - ☑ Field notes folded into `comment_discipline_test` (#38, `76395a16`): recorded by hash in
   `:field-notes`. `field_notes_test` stays on #37 until the reconcile below, then goes.
+- ☐ **When this branch merges:** bring the final KB over to `agents/develop`, three-way as on
+  2026-09-29 (`0006659e`); until then the KB is edited here only, and the copy there is a snapshot.
 - ☐ **Reconcile #37 and #38** (whichever merges second): fix or review #37's 24 new hits, record
   its 4 field notes, delete `field_notes_test`, prune.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
