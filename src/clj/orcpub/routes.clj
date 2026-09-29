@@ -1,5 +1,6 @@
 (ns orcpub.routes
   (:require [io.pedestal.http :as http]
+            [orcpub.artist-accounts :as artist-accounts]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -410,6 +411,14 @@
    db
    username))
 
+(defn- link-artist-on-confirm!
+  "An address was just confirmed. If it is an artist's configured account,
+   link it. Never lets a failure here fail the confirmation itself."
+  [conn id]
+  (try (artist-accounts/on-email-confirmed! conn id (artist-accounts/configured) artist-accounts/notify)
+       (catch Exception e
+         (println "artist-accounts: link on confirmation failed -" (.getMessage e)))))
+
 (defn verify [{:keys [query-params db conn] :as request}]
   (if-let [key (:key query-params)]
     (let [{:keys [:orcpub.user/verification-sent
@@ -446,11 +455,13 @@
                                    [:db/retract id :orcpub.user/pending-email pending-email]
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (link-artist-on-confirm! conn id)
                 (redirect route-map/verify-success-route)))
 
           :else
           (do @(d/transact conn [{:db/id id
                                   :orcpub.user/verified? true}])
+              (link-artist-on-confirm! conn id)
               (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
@@ -519,9 +530,14 @@
     (try
       @(d/transact
         conn
-        [{:db/id user-id
-          :orcpub.user/password-reset-key key
-          :orcpub.user/password-reset-sent (java.util.Date.)}])
+        (cond-> [{:db/id user-id
+                  :orcpub.user/password-reset-key key
+                  :orcpub.user/password-reset-sent (java.util.Date.)}]
+          ;; a fresh ordinary reset replaces a week-long welcome link, so it
+          ;; must not inherit that link's expiry
+          (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))
+          (conj [:db/retract user-id :orcpub.user/password-reset-expires
+                 (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))])))
       (email/send-reset-email
        (base-url request)
        {:first-and-last-name auth/verification-display-name
@@ -537,6 +553,14 @@
 
 (defn password-reset-expired? [password-reset-sent]
   (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+
+(defn reset-link-expired?
+  "Whether a reset link is past its expiry: its own expiry when it has one
+   (the artist welcome link lasts a week), otherwise the usual 24 hours."
+  [{:keys [:orcpub.user/password-reset-sent :orcpub.user/password-reset-expires]}]
+  (if password-reset-expires
+    (.after (java.util.Date.) password-reset-expires)
+    (password-reset-expired? password-reset-sent)))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
@@ -1284,7 +1308,7 @@
                   :orcpub.user/password-reset-sent
                   :orcpub.user/password-reset] :as user}
           (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
+          expired? (reset-link-expired? user)
           already-reset? (password-already-reset? password-reset password-reset-sent)]
       (cond
         expired? (redirect route-map/password-reset-expired-route)
