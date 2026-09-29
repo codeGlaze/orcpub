@@ -57,6 +57,12 @@
   "Display name for outbound emails (verification, password reset)."
   (or (env :app-email-sender-name) (str app-name " Team")))
 
+(def email-signoff
+  "Who the warmer emails (the artist welcome) are signed from. Defaults to
+   'The <sender name>'; a small team may prefer something personal, e.g.
+   'both of us at OrcPub'."
+  (or (not-empty (env :app-email-signoff)) (str "The " email-sender-name)))
+
 (def email-from-address
   "From address for outbound emails (verification, password reset, reports).
    Self-hosters MUST set EMAIL_FROM_ADDRESS to an address on a domain they
