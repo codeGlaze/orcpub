@@ -203,4 +203,7 @@
    :field-limits              field-limits
    :registration-logo-class   registration-logo-class
    :restrict-print-to-owner?  restrict-print-to-owner?
-   :portrait-artists          portrait-artists})
+   ;; What is in force, not just the config: on the server that also carries
+   ;; each artist's own edits (orcpub.artist-credit), which are layered in on
+   ;; every page render before this is called.
+   :portrait-artists          (portrait-assets/current-overrides)})

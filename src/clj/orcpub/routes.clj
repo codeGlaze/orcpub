@@ -40,6 +40,7 @@
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.portrait-render :as portrait-render]
+            [orcpub.artist-credit :as artist-credit]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
@@ -1281,6 +1282,8 @@
                            {:keys [title description image-url]}
                            & [response]]
   (let [host (headers "host")]
+    ;; before index-page reads the credits into __BRANDING__
+    (when-let [db (:db request)] (artist-credit/refresh! db))
     (merge
      response
      {:status 200
@@ -1992,6 +1995,7 @@
    404 when the character has no composed portrait, so a crawler falls back to
    whatever og:image the page did declare."
   [{:keys [db headers] {:keys [id]} :path-params}]
+  (artist-credit/refresh! db)
   (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
                        ::se/values
                        ::char5e/portrait)

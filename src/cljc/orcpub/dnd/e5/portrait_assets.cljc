@@ -331,6 +331,11 @@
                       :when (seq keep-fields)]
                   [id keep-fields]))))
 
+(defn current-overrides
+  "The overrides in force, as set by `set-artist-overrides!`."
+  []
+  @artist-overrides)
+
 (defn artist-info
   "Full `{:artist/id … :artist/name … :artist/link …}` map for an id, with any
    deployment override applied."
