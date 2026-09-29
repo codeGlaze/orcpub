@@ -53,6 +53,10 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   `:field-notes`. `field_notes_test` stays on #37 until the reconcile below, then goes.
 - ☐ **When this branch merges:** bring the final KB over to `agents/develop`, three-way as on
   2026-09-29 (`0006659e`); until then the KB is edited here only, and the copy there is a snapshot.
+- ☐ **The footer's build date goes stale on local production rebuilds** (found 2026-09-29, exists on
+  `integration`). `orcpub.ver/build-date` is a macro, and `lein fig:prod` reuses the cached compiled
+  `ver.js` in `target/public/cljs-out/prod` when `ver.cljc` is unchanged, so the footer keeps the
+  cache's date. Docker builds start clean and are right. Not fixed; small, own branch if wanted.
 - ☐ **Reconcile #37 and #38** (whichever merges second): fix or review #37's 24 new hits, record
   its 4 field notes, delete `field_notes_test`, prune.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
