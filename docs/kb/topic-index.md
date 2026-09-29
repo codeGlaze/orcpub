@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, belong, block, check, colour, control, css, dragon, forever, form, icon, invented, labelled, machine, owner, react, row, screenshot
+**topics:** 2026-09-29, block, check, colour, control, css, dragon, form, icon, invented, labelled, length, machine, owner, react, row, screenshot, unless
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -292,11 +292,26 @@ _built-character-representation · built character representation_
 - Where it bit us (this session)
 - Anchored in code
 
+## character-heals.md
+
+_character-heals · character heals_
+
+**topics:** binding, characters, former, former-key, heal, healed, heals, index, key, misfiled, offered, person, pick, prefix, report, saved, spell-selection, toast
+
+- The three things that happen when a character loads
+- Where heals run
+- What a heal will and will not do
+- The spell-selection heal
+- The class binding report
+- Tracing a heal
+- Tests
+- History
+
 ## character-validation.md
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, matters, modern, modernization, own-branch, pdf, realized, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, early, guard, history, intent, malformed, modern, modernization, own-branch, pdf, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -308,7 +323,7 @@ _character-validation · character validation_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, divine, extraction, features, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, divine, extraction, inspiration, lay, level, level-schedule, monk, multi-part, scaling, sorcery, summaries, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -371,7 +386,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, hof, indirection, part, pool, re-derivation, readability, rejected
+**topics:** boilerplate, catalog, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, indirection, part, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -423,7 +438,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** builder-item, component, conventions, d22, draconic, events, form, framework, generated, irreducible, loops, performance, pool, registers, registry, routes, schema, spa
+**topics:** builder-item, component, conventions, d22, draconic, events, framework, generated, irreducible, loops, macro, performance, pool, registers, registry, routes, schema, spa
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -513,7 +528,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, items, magic, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, localstorage, magic, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -574,7 +589,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
+**topics:** asi, caster, choices, custom, expanded, feat-only, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, spells, subclass, sustainability, templates
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -710,7 +725,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, end, fighting, great, interception, prop, property, protection, style, styles, thrown, unarmed, warrior, weapon
+**topics:** archery, attack, blindsight, damage, dueling, fighting, great, interception, prop, property, protection, style, styles, thrown, two-weapon, unarmed, warrior, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -725,7 +740,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** 118, browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, ofl, re-add, sans, subset, subsets, vietnamese, visitor
+**topics:** 118, csp, cyrillic, directives, external, font, fonts, google, hosts, latin, latin-ext, ofl, re-add, sans, subset, subsets, vietnamese, visitor
 
 - Why
 - What is checked in
@@ -837,7 +852,7 @@ _homebrew-key-map · homebrew key map_
 
 _homebrew-keys-design · homebrew keys design_
 
-**topics:** 2026-09-27, 2026-09-28, built-in, characters, grant-rows, holder, item, library, link, links, owner, rename, renames, report, revision, step, tab, write
+**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, grant-rows, holder, item, library, link, links, owner, rename, renames, report, revision, tab, write
 
 - 1. What does not change (compatibility promises)
 - 2. One list of every kind of link
@@ -1168,7 +1183,7 @@ _test-suite-state · test suite state_
 
 _typed-keys · typed keys_
 
-**topics:** ancestry, background, blue, built-in, flat, former, granted, heal, home, index, offered, pick, picks, type, type-blind, typed, upgrade, walk
+**topics:** ancestry, background, blue, built-in, flat, granted, heal, heals, home, index, offered, pick, picks, type, type-blind, typed, upgrade, walk
 
 - What went wrong (verified)
 - Where a pick's type is known

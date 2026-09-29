@@ -37,6 +37,7 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 **Agent follow-ups, no decision needed**
 - ☑ Reran `test/e2e/upgrade.js` after the typed-key fix: 12/12. Why the first two runs disagreed
   is moot, since both ran before the fix; not investigated further.
+- ☑ Heals documented end to end: `character-heals.md` (2026-09-29).
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").

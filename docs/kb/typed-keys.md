@@ -1,5 +1,7 @@
 # A key means nothing without its type
 
+How heals work end to end: `character-heals.md`. This page is the type rule.
+
 **Rule.** A content key names something only together with the type it was picked as. `:blue` is a
 dragon colour under the Dragonborn's ancestry choice and a background under `:background`. Any code
 that looks up, heals, matches or reports a key must know the type, or else apply the strictest
