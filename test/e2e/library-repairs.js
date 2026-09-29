@@ -59,7 +59,7 @@ const editRow = (page, name) => page.evaluate(nm => {
     for (let i = 0; i < 3 && await expandAll(page); i++) await page.waitForTimeout(400);
     let text = await page.locator('#app').innerText();
 
-    check('the load kept a copy before tidying', /A copy of your library from .* is kept/.test(text));
+    check('the load kept a copy before tidying', /Library tidied on .*The copy from before is kept/s.test(text));
     check('the repair panel offers the renamed race',
           /1 link to fix/.test(text) && text.includes('“Hill Folk” uses “folk”, which was renamed. Switch it to “Folk X”.'),
           text.split('\n').filter(l => /link|Hill Folk/.test(l)).join(' | '));

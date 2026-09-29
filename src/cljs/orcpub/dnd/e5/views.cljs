@@ -8643,7 +8643,6 @@
                        [:span name]
                        (when-let [missing (get dangling [source-name type-key key])]
                          [:div.f-s-12 {:style {:color "#ffd21a"}}
-                          [:i.fa.fa-chain-broken.m-r-5]
                           ;; `name` here is the item's name (destructured above), not the function.
                           (str "Uses "
                                (s/join ", " (for [{:keys [to target]} missing]
@@ -9138,39 +9137,40 @@
   (let [repairs @(subscribe [::e5/suggested-repairs])
         plugins @(subscribe [::e5/plugins])]
     (when (seq repairs)
-      [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5 {:style {:border "2px solid #ffd21a"}}
-       [:div.f-w-b.f-s-18.m-b-5
-        [:i.fa.fa-chain-broken.m-r-5]
-        (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
-       [:div.f-s-12.m-b-10 "A rename left these pointing at nothing."]
-       (doall
-        (for [{:keys [source type key name to target to-key] :as r} repairs]
-          ^{:key (str source type key target)}
-          [:div.flex.align-items-c.justify-cont-s-b.p-t-5.p-b-5
-           [:div.f-s-14
-            (str (quoted (or name (cljs.core/name key))) " uses "
-                 (quoted (cljs.core/name target))
-                 ", which was renamed. Switch it to "
-                 (quoted (item-name-in plugins to to-key))
-                 ".")]
-           [:button.form-button.m-l-10 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
-       [:div.m-t-10
-        [:button.form-button.m-r-5 {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
-        [:button.form-button {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]])))
+      [:div.decision-callout
+       [:div
+        [:div
+         [:div.message-title (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+         [:div.message-detail "A rename left these pointing at nothing."]
+         (doall
+          (for [{:keys [source type key name to target to-key] :as r} repairs]
+            ^{:key (str source type key target)}
+            [:div.flex.align-items-c.m-t-5
+             [:div.f-s-14
+              (str (quoted (or name (cljs.core/name key))) " uses "
+                   (quoted (cljs.core/name target))
+                   ", which was renamed. Switch it to "
+                   (quoted (item-name-in plugins to to-key))
+                   ". ")]
+             [:button.link-button.underline.m-l-5 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+         [:div.decision-actions
+          [:button.form-button {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+          [:button.link-button.underline {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]]]])))
 
 (defn pre-fix-copy-line
   "The kept copy of the library from before it was first tidied, and the way back to it."
   []
   (when-let [at @(subscribe [::e5/pre-fix-at])]
-    [:div.f-s-12.m-b-10.m-l-10.m-r-10.main-text-color
-     (str "A copy of your library from " (.toLocaleDateString (js/Date. at))
-          ", before it was tidied, is kept. ")
-     [:span.pointer.underline
-      {:on-click #(when (js/confirm "Put your library back as it was then? Changes made since will be lost.")
+    [:div.decision-callout.quiet
+     [:div
+      [:div.message-title (str "Library tidied on " (.toLocaleDateString (js/Date. at)))]
+      [:div.message-detail "The copy from before is kept, in case you need it."]]
+     [:div.decision-actions
+     [:button.link-button.underline
+      {:on-click #(when (js/confirm "Replace your library with the copy from before it was tidied? Changes made since will be lost.")
                     (dispatch [::e5/restore-pre-fix-library]))}
-      "Restore it"]
-     " \u00b7 "
-     [:span.pointer.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Remove the copy"]]))
+      "Restore that copy"]
+     [:button.link-button.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Discard it"]]]))
 
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
@@ -9424,7 +9424,6 @@
          :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
        (when missing
          [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
-          [:i.fa.fa-chain-broken.m-r-5]
           (str "The saved version uses "
                (s/join ", " (for [{:keys [to target]} missing]
                               (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))

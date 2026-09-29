@@ -2402,15 +2402,16 @@
    Stays until the author answers."
   []
   (when-let [{:keys [from to-name from-name import]} @(subscribe [:orcpub.dnd.e5/relink-question])]
-    [:div.p-10.m-b-10.b-rad-5.main-text-color {:style {:border "2px solid #ffd21a"}}
-     [:div.f-w-b.f-s-14
-      (str "This character uses \u201c" (or from-name (name from)) "\u201d, and importing "
-           (if import (str "\u201c" import "\u201d") "a pack") " added a different one.")]
-     [:div.m-t-10
-      [:button.form-button.m-r-5 {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])}
-       (str "Switch it to yours, now called \u201c" to-name "\u201d")]
-      [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :keep])}
-       "Keep the imported one"]]]))
+    (let [item (or from-name (name from))]
+      [:div.decision-callout
+       [:div.message-title (str "Which \u201c" item "\u201d did this character mean?")]
+       [:div.message-detail
+        (str "Importing " (if import (str "\u201c" import "\u201d") "a pack") " added a different \u201c"
+             item "\u201d. Yours is now called \u201c" to-name "\u201d.")]
+       [:div.decision-actions
+        [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])} "Use yours"]
+        [:button.link-button.underline {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :keep])}
+         "Use the imported one"]]])))
 
 (defn missing-content-warning
   "Displays a warning when the character references content that isn't loaded."

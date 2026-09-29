@@ -3307,8 +3307,9 @@
 (reg-event-db
  :show-message
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when-not (= :sticky ttl)
+     (go (<! (timeout (or ttl 5000)))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
@@ -5177,16 +5178,16 @@
   (when (seq offer)
     (into [:span]
           (for [[[from to-key] rs] (group-by (juxt :target :to-key) offer)
-                :let [n (count (distinct (map (juxt :source :type :key) rs)))]]
+                :let [items (distinct (map #(str "\u201c" (:name %) "\u201d (" (:source %) ")") rs))
+                      n (count items)]]
             [:span
-             (str n (if (= 1 n) " item" " items") " in other packs still "
-                  (if (= 1 n) "uses " "use ") from ". ")
+             (str (s/join ", " items) " in other packs still " (if (= 1 n) "uses" "use") " the old key. ")
              [:span.pointer.underline
               ;; stop the click: the banner closes on any click that reaches it.
               {:on-click (fn [e]
                            (.stopPropagation e)
                            (dispatch [::e5/apply-repairs rs]))}
-              (str "Point " (if (= 1 n) "it" "them") " at " to-key)]
+              (str "Point " (if (= 1 n) "it" "them") " at the new one")]
              ". "]))))
 
 (reg-event-fx
@@ -5272,7 +5273,7 @@
                :on-success [::e5/builder-saved item-key plugin-key
                             (assoc item :key new-key :former-keys (:former-keys moved))
                             (origin-of (assoc moved :option-pack option-pack :key new-key))
-                            [:show-warning-message
+                            [:show-message
                              {:title (str "Key changed to " new-key)
                               :details [(str "Characters that stored " old-key
                                              " are rebound when they next load.")

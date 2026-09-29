@@ -84,10 +84,10 @@ const raceOf = page => dbAt(page, '[:character :orcpub.entity/options :race :orc
     await page.waitForTimeout(4000);
     await page.getByText('Edit', { exact: true }).first().click();
     await page.waitForTimeout(3000);
-    const QUESTION = 'This character uses \u201cTidefolk\u201d, and importing \u201cTide Pak\u201d added a different one.';
+    const QUESTION = 'Which \u201cTidefolk\u201d did this character mean?';
     check('the builder asks which one it meant', (await page.locator('#app').innerText()).includes(QUESTION));
     await page.screenshot({ path: path.join(SHOTS, 'relink-2-asked.png'), fullPage: true });
-    await page.getByRole('button', { name: /switch it to yours/i }).click();
+    await page.getByRole('button', { name: /use yours/i }).click();
     await page.waitForTimeout(1500);
     check('switching points it at the renamed race', (await raceOf(page)) === `:${renamedTo}`, await raceOf(page));
 

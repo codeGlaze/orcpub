@@ -1177,7 +1177,7 @@
   (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :keeper])) "the key changed")
   (is (= :warden (get-in @app-db [:plugins "Domains" :orcpub.dnd.e5/subclasses :tides :class]))
       "the other pack's link is not moved")
-  (is (re-find #"1 item in other packs still uses :warden\. Point it at :keeper"
+  (is (re-find #"“Oath of Tides” \(Domains\) in other packs still uses the old key\. Point it at the new one"
                (texts (get-in @app-db [:message :details])))
       "it is offered")
   (run-through! [::e5/apply-repairs (library/repoint-offer (:plugins @app-db) :orcpub.dnd.e5/classes

@@ -78,11 +78,11 @@ const clickLeaf = (page, text) => page.evaluate(t => {
 
     const msg = (await page.locator('#app .message').first().innerText().catch(() => '')).trim();
     check('the message offers the other pack\'s link',
-          msg.includes('1 item in other packs still uses :cant. Point it at :thieves-cant'), msg);
+          msg.includes('“Thieves” (Folk Pak) in other packs still uses the old key. Point it at the new one'), msg);
     check('the other pack is not changed yet', /:cant true/.test(await dbAt(page, RACE_LANGS)));
     await page.screenshot({ path: path.join(SHOTS, 'key-change-offer.png'), fullPage: true });
 
-    check('accepted the offer', await clickLeaf(page, 'Point it at :thieves-cant'));
+    check('accepted the offer', await clickLeaf(page, 'Point it at the new one'));
     await page.waitForTimeout(1200);
     check('the race now grants the renamed language', /:thieves-cant true/.test(await dbAt(page, RACE_LANGS)),
           await dbAt(page, RACE_LANGS));
