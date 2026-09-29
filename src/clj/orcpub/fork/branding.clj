@@ -169,7 +169,8 @@
                                               (mapv (fn [l]
                                                       (cond-> {:link/label (:label l)
                                                                :link/url   (:url l)}
-                                                        (:icon l) (assoc :link/icon (:icon l))))
+                                                        (:icon l)  (assoc :link/icon (:icon l))
+                                                        (:color l) (assoc :link/color (:color l))))
                                                     (:links fields)))
                      (:license fields) (assoc :artist/license (:license fields)))]))
           (catch Exception e

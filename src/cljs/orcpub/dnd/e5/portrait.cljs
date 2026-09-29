@@ -657,13 +657,13 @@
 }
 .pl-artist-link {
   font: 400 11px/1 'Open Sans', system-ui, sans-serif;
-  /* dimmer than the name on purpose -- these are an offer, the byline is the
-     point, and at equal weight the icons won the strip */
-  color: #667082; text-decoration: none;
+  /* the fallback for a link with no colour of its own; anything with a
+     :link/color overrides this inline and wears it at rest */
+  color: #98a2b3; text-decoration: none;
   display: inline-flex; align-items: center;
-  transition: color 110ms ease, transform 110ms ease;
+  transition: filter 110ms ease, transform 110ms ease;
 }
-.pl-artist-link:hover { color: #f0a640; transform: translateY(-1px); }
+.pl-artist-link:hover { transform: translateY(-1px); filter: brightness(1.28); }
 /* currentColor through a mask, so the mark is the link's colour and inherits
    the hover with it -- an <img> would need a second asset per theme. */
 .pl-artist-icon {
@@ -674,9 +674,9 @@
   -webkit-mask-position: center;  mask-position: center;
 }
 .app.light-theme .pl-artist-link,
-.pl-root.light-theme .pl-artist-link { color: #9aa0aa; }
+.pl-root.light-theme .pl-artist-link { color: #7c8493; }
 .app.light-theme .pl-artist-link:hover,
-.pl-root.light-theme .pl-artist-link:hover { color: #c8811f; }
+.pl-root.light-theme .pl-artist-link:hover { filter: brightness(0.86); }
 .pl-artist { display: inline-flex; align-items: baseline; gap: 5px; }
 .pl-artist-swirl {
   color: #f0a100; font-family: 'Vollkorn', Georgia, serif; font-style: italic;
@@ -1136,11 +1136,14 @@
            ;; where someone is looking at the art as it is being made.
            (when (seq links)
              [:span.pl-artist-links
-              (for [{:link/keys [label url icon]} links]
+              (for [{:link/keys [label url icon color]} links]
                 ^{:key url}
                 [:a.pl-artist-link
                  {:href url :target "_blank" :rel "noopener"
                   :title (str name " on " label)
+                  ;; the mark's own colour, worn at rest -- the icon is a mask
+                  ;; over currentColor, so setting the link's colour paints it
+                  :style (when color {:color color})
                   ;; the label is the accessible name either way -- an icon
                   ;; with no text is unreadable to a screen reader otherwise
                   :aria-label (str name " on " label)
