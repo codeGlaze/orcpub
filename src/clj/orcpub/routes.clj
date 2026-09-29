@@ -25,6 +25,7 @@
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -2037,6 +2038,45 @@
                           :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
 
+(defn artists-page
+  "The list of portrait artists. The page itself is the SPA's; this only
+   gives the share card a title of its own."
+  [request]
+  (index-page-response request {:title "Portrait artists"
+                                :description "The artists who drew the portrait pieces here."}))
+
+(defn artist-page
+  "An artist's profile. The body is the SPA's, like the character page; the
+   share tags are set here because a crawler never runs the JavaScript. An
+   unknown slug is a real 404, so a mistyped link is not indexed as a page --
+   the SPA still loads and says there is nobody here."
+  [{:keys [headers] {:keys [slug]} :path-params :as request}]
+  (if-let [artist (artist-profile/artist-by-slug slug)]
+    (index-page-response
+     request
+     {:title (artist-profile/page-title artist)
+      :description (artist-profile/share-description artist)
+      :image-url (str "https://" (headers "host")
+                      (route-map/path-for route-map/artist-portrait-route
+                                          :slug (artist-profile/slug artist)))})
+    (assoc (index-page-response request {:title "No such artist"}) :status 404)))
+
+(defn artist-portrait-png
+  "The artist's first example portrait as a PNG, for og:image. The examples
+   are seeded from the slug, so this is the same picture the page leads with."
+  [{{:keys [slug]} :path-params}]
+  (let [artist (artist-profile/artist-by-slug slug)
+        png (some-> artist :artist/id artist-profile/example-portraits first
+                    portrait-render/render-png)]
+    (if png
+      {:status 200
+       :headers {"Content-Type" "image/png"
+                 "Cache-Control" "public, max-age=300"
+                 ;; contributed artwork -- see character-portrait-png
+                 "X-Robots-Tag" "noai, noimageai"}
+       :body (ByteArrayInputStream. png)}
+      {:status 404 :body "no such artist"})))
+
 (def header-style
   {:style "color:#2c3445"})
 
@@ -2148,6 +2188,12 @@
         {:get `character-page}]
        [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
         {:get `character-portrait-png}]
+       [(route-map/path-for route-map/artists-page-route)
+        {:get `artists-page}]
+       [(route-map/path-for route-map/artist-page-route :slug ":slug")
+        {:get `artist-page}]
+       [(route-map/path-for route-map/artist-portrait-route :slug ":slug")
+        {:get `artist-portrait-png}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]
