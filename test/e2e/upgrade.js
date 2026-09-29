@@ -115,7 +115,25 @@ const characterEdn = (name, tree) => '{:orcpub.entity/options ' + edn(tree).repl
   ' :orcpub.dnd.e5.character/int 12 :orcpub.dnd.e5.character/wis 12 :orcpub.dnd.e5.character/cha 12}}}' +
   ` :orcpub.entity/values {:orcpub.dnd.e5.character/character-name "${name}"}}`;
 
+// The footer line the served bundle must show: its version, compile-time build date and
+// description, read from the bundle on disk (resources/public/js/compiled/out/orcpub/ver.js).
+function expectedFooter() {
+  const src = fs.readFileSync(path.resolve(__dirname, '../../resources/public/js/compiled/out/orcpub/ver.js'), 'utf8');
+  const [version, date, description] = [...src.matchAll(/return "([^"]*)";/g)].map(m => m[1]);
+  return `Version ${version} (${date}) ${description} edition`;
+}
+
+// The page's footer shows exactly one version line, and it is the served bundle's.
+async function checkFooter(page, check) {
+  const lines = (await page.locator('#app').innerText()).split('\n').map(l => l.trim()).filter(l => /^Version \d/.test(l));
+  const want = expectedFooter();
+  check('the footer names the bundle being served', lines.length === 1 && lines[0] === want,
+        `shown: ${lines.join(' | ') || 'none'}  expected: ${want}`);
+  return lines[0];
+}
+
 // What a person sees on a saved character's page, with the lines that change between loads removed.
+// The version line changes with every build; checkFooter checks it.
 async function sheetText(page, id) {
   await page.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
   await wait(5000);
@@ -254,6 +272,7 @@ async function oldPhase(page, check, errors) {
     c.sheet = await sheetText(page, c.id);
     await shot(page, `3-sheet-${c.name.replace(/ /g, '-')}`);
   }
+  log.footer = await checkFooter(page, check);
 
   // A builder left open on a library item, with an unsaved change.
   await myContent(page);
@@ -309,8 +328,10 @@ async function newPhase(page, check, errors) {
   await shot(page, '1-my-content');
 
   log.characters = [];
+  let footerChecked = false;
   for (const c of old.characters) {
     const now = await sheetText(page, c.id);
+    if (!footerChecked) { log.footer = await checkFooter(page, check); footerChecked = true; }
     const gone = c.sheet.filter(l => !now.includes(l));
     const added = now.filter(l => !c.sheet.includes(l));
     await shot(page, `2-sheet-${c.name.replace(/ /g, '-')}`);

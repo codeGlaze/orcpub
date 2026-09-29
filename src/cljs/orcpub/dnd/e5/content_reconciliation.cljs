@@ -374,6 +374,7 @@
 ;; ── Former keys ─────────────────────────────────────────────────────────────
 ;; An item whose key changed lists its old keys in :former-keys. A "heal" rewrites a character's
 ;; picks of an old key to the current one. It is in memory until the character is saved.
+;; Long form and tracing: character-heals.md.
 ;;
 ;; FIELD NOTE (heal-sites): every heal goes through reconcile-former-keys, from three places:
 ;;   events/set-character          the builder's character, on every load
