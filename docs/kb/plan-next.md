@@ -17,8 +17,9 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ **A/B picks** (five rounds, 2026-09-29, https://claude.ai/artifact/GeiEtXMPgsu7R7Xq98Y5nq).
   The notices #37 adds are on `port/save-gate` (`b1feb5b3`): one framed decision callout, names not
   keys, no glyphs, link-style actions as real buttons. The modal pass, on/off switches and single
-  section icons are on `fix/modal-and-switch-pass` (off `integration`, `fdeab368`, pushed, no PR).
-- ☐ **Open a PR for `fix/modal-and-switch-pass`?**
+  section icons are folded into #37 too (`7ae78fc6`).
+- ☐ **Owner: delete the branch `fix/modal-and-switch-pass`** on GitHub (it holds nothing #37 doesn't;
+  a web agent cannot delete branches).
 - ☐ **KB move:** whole KB or only the save-gate pages to `agents/develop`; push the prepared
   commits (`6f9dd297`, `6abb4a30`, local worktree); keep `docs/kb` on `grant-rows` until it merges
   outward (recommended).

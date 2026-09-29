@@ -66,6 +66,13 @@ A whole design system sat on `port/redesign-on-refactor` for two months while tw
 builder work invented colours and spacing from scratch. Grep the KB for the *thing* as well as the
 code (`grep -rin <term> docs/`), and `git log -S <identifier>`.
 
+### Before creating a branch
+
+**Don't, unless the owner says yes to that branch.** A web agent can push a branch but cannot delete
+one, so every branch it makes is one more the owner has to track and clean up by hand (2026-09-29: a
+UI pass pushed as its own branch, then folded back into PR #37, leaving an empty branch behind). Put
+the work on the branch you were given; if it seems to belong elsewhere, ask first.
+
 ### Before adding an icon
 
 **Don't, unless the icon is the control** (close ×, an expand chevron, a spinner) or follows an
