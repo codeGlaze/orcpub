@@ -6,8 +6,9 @@ The portrait art in this repository was drawn by hand. It is not generated.
 
 - Site: <https://fusspot.rip/>
 - Twitch: <https://www.twitch.tv/fusspot> — where most of the work happens, live
-- Bluesky: <https://bsky.app/profile/fusspot.rip>
-- Ko-fi: <https://ko-fi.com/fusspot>
+
+These are the two she asked to be listed. She has others; they are on her site,
+which is the point of linking it.
 
 Every portrait layer in `resources/public/image/portraits/` is Fusspot's work:
 the heads, hair, ears, eyes, noses, mouths and shirts that the portrait maker
