@@ -37,15 +37,16 @@
   4)
 
 (def services
-  "The marks an artist can pick from, each with its own brand colour and, for
-   a service, the hosts its links must point at. An icon is a promise about
-   where the link goes: a Twitch mark that opens somewhere else is exactly the
-   trick a lookalike phishing link plays, so it is refused. `site` is their
-   own homepage and may be anywhere."
-  {"site"    {:label "Site"    :color "#f0a100" :hosts nil}
+  "The marks a link can wear, each with its brand colour and the hosts it
+   belongs to. The icon is worked out from the link, never chosen, so it
+   can't disagree with where the link goes -- a Twitch mark that opened some
+   other site is exactly the trick a lookalike phishing link plays. Anything
+   that isn't a known service gets `site`, a plain globe."
+  (array-map
    "twitch"  {:label "Twitch"  :color "#9146ff" :hosts #{"twitch.tv"}}
    "bluesky" {:label "Bluesky" :color "#1185fe" :hosts #{"bsky.app"}}
-   "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}}})
+   "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}}
+   "site"    {:label "Site"    :color "#f0a100" :hosts nil}))
 
 (defn- host-of [url]
   (try (some-> (URI. url) .getHost s/lower-case) (catch Exception _ nil)))
@@ -53,23 +54,34 @@
 (defn- host-matches? [host allowed]
   (some #(or (= host %) (s/ends-with? host (str "." %))) allowed))
 
+(defn icon-for-url
+  "The mark for a link: the service whose host it points at, else `site`."
+  [url]
+  (let [host (or (host-of (some-> url s/trim)) "")]
+    (or (some (fn [[icon {:keys [hosts]}]] (when (and hosts (host-matches? host hosts)) icon))
+              services)
+        "site")))
+
 (defn url-problem
-  "Why `url` cannot be used for `icon`, or nil when it can."
-  ([url] (url-problem url "site"))
-  ([url icon]
-   (let [url (some-> url s/trim)
-         uri (try (URI. url) (catch Exception _ nil))
-         host (host-of url)
-         {:keys [label hosts]} (services icon)]
-     (cond
-       (s/blank? url) "Add a link"
-       (> (count url) max-url-length) (str "Links can be up to " max-url-length " characters")
-       (or (nil? uri) (not= "https" (some-> uri .getScheme s/lower-case)))
-       "Links must start with https://"
-       (or (s/blank? host) (not (s/includes? host "."))) "That doesn't look like a web address"
-       (some? (.getUserInfo uri)) "That doesn't look like a web address"
-       (and hosts (not (host-matches? host hosts)))
-       (str "A " label " link should go to " (first hosts))))))
+  "Why `url` can't be used as a credit link, or nil when it can. Only https:
+   a credit link is followed by strangers, and an http one can be rewritten
+   on the way."
+  [url]
+  (let [url (some-> url s/trim)
+        uri (try (URI. url) (catch Exception _ nil))
+        host (host-of url)]
+    (cond
+      (s/blank? url) "Add a link"
+      (> (count url) max-url-length) (str "Links can be up to " max-url-length " characters")
+      (or (nil? uri) (not= "https" (some-> uri .getScheme s/lower-case)))
+      "Links must start with https://"
+      (or (s/blank? host) (not (s/includes? host "."))) "That doesn't look like a web address"
+      (some? (.getUserInfo uri)) "That doesn't look like a web address")))
+
+(defn- link-entry [url]
+  (let [icon (icon-for-url url)
+        {:keys [label color]} (services icon)]
+    {:link/label label :link/icon icon :link/color color :link/url url}))
 
 (defn- clean-name [n]
   (let [n (some-> n str s/trim (s/replace #"\s+" " "))]
@@ -77,23 +89,19 @@
 
 (defn check
   "Validate an edit submitted from the settings page:
-     {:name \"..\" :link \"..\" :links [{:icon \"twitch\" :url \"..\"}]}
+     {:name \"..\" :link \"..\" :links [{:url \"..\"}]}
+   Each link's icon is worked out from its address.
    Returns {:credit <clean stored form>} or {:errors {field message}}.
    A blank name or link means \"use the default\"."
   [{:keys [name link links]}]
   (let [nm (clean-name name)
         link (some-> link s/trim not-empty)
         links (->> links
-                   (map (fn [l] {:icon (some-> (:icon l) str s/trim)
-                                 :url (some-> (:url l) str s/trim)}))
-                   (remove #(s/blank? (:url %))))
+                   (map #(some-> (:url %) str s/trim))
+                   (remove s/blank?))
         link-errors (into {}
-                          (keep-indexed
-                           (fn [i {:keys [icon url]}]
-                             (if-not (services icon)
-                               [i "Pick one of the listed services"]
-                               (when-let [p (url-problem url icon)] [i p])))
-                           links))
+                          (keep-indexed (fn [i url] (when-let [p (url-problem url)] [i p])))
+                          links)
         errors (cond-> {}
                  (and nm (> (count nm) max-name-length))
                  (assoc :name (str "Names can be up to " max-name-length " characters"))
@@ -105,12 +113,7 @@
       {:credit (cond-> {}
                  nm (assoc :artist/name nm)
                  link (assoc :artist/link link)
-                 (seq links) (assoc :artist/links
-                                    (mapv (fn [{:keys [icon url]}]
-                                            (let [{:keys [label color]} (services icon)]
-                                              {:link/label label :link/icon icon
-                                               :link/color color :link/url url}))
-                                          links)))})))
+                 (seq links) (assoc :artist/links (mapv link-entry links)))})))
 
 (defn read-stored
   "The stored EDN, re-checked. Anything that no longer passes is dropped
@@ -121,19 +124,16 @@
     (when (map? m)
       (let [nm (clean-name (:artist/name m))
             link (:artist/link m)
-            links (filterv (fn [{:link/keys [icon url]}]
-                             (and (services icon) (string? url) (nil? (url-problem url icon))))
-                           (take max-links (when (sequential? (:artist/links m)) (:artist/links m))))]
+            links (->> (when (sequential? (:artist/links m)) (:artist/links m))
+                       (keep :link/url)
+                       (filter #(and (string? %) (nil? (url-problem %))))
+                       (take max-links))]
         (not-empty
          (cond-> {}
            (and nm (<= (count nm) max-name-length)) (assoc :artist/name nm)
            (and (string? link) (nil? (url-problem link))) (assoc :artist/link link)
-           (seq links) (assoc :artist/links
-                              (mapv (fn [{:link/keys [icon url]}]
-                                      (let [{:keys [label color]} (services icon)]
-                                        {:link/label label :link/icon icon
-                                         :link/color color :link/url url}))
-                                    links))))))))
+           ;; icons re-derived from the links, whatever was stored
+           (seq links) (assoc :artist/links (mapv link-entry links))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Layering

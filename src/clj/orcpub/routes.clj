@@ -267,8 +267,9 @@
      :current (select-keys current [:artist/id :artist/name :artist/link :artist/links])
      :own own
      :locked locked
-     :services (for [[icon {:keys [label color]}] artist-credit/services]
-                 {:icon icon :label label :color color})
+     ;; so the page can show which icon a link will get as it's typed
+     :services (for [[icon {:keys [label color hosts]}] artist-credit/services]
+                 {:icon icon :label label :color color :hosts (vec hosts)})
      :max-links artist-credit/max-links}))
 
 (def max-preferred-name-length 40)

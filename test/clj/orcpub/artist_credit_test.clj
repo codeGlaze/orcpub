@@ -28,39 +28,51 @@
                         artist (assoc :orcpub.user/artist artist))])
   (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] (d/db conn) username))
 
-(deftest links-must-be-safe-and-honest
+(deftest links-must-be-https
   (is (nil? (ac/url-problem "https://fusspot.rip/")))
   (is (= "Links must start with https://" (ac/url-problem "http://fusspot.rip/")))
+  (is (= "Links must start with https://" (ac/url-problem "fusspot.rip")))
   (is (= "Links must start with https://" (ac/url-problem "javascript:alert(1)")))
-  (is (some? (ac/url-problem "https://user@evil.test/")) "no credentials-in-URL tricks")
-  (is (nil? (ac/url-problem "https://www.twitch.tv/fusspot" "twitch")))
-  (is (= "A Twitch link should go to twitch.tv"
-         (ac/url-problem "https://twitch.tv.evil.test/fusspot" "twitch"))
-      "a Twitch mark cannot open somewhere else"))
+  (is (some? (ac/url-problem "https://user@evil.test/")) "no credentials-in-URL tricks"))
+
+(deftest the-icon-comes-from-the-link
+  (is (= "twitch" (ac/icon-for-url "https://www.twitch.tv/fusspot")))
+  (is (= "bluesky" (ac/icon-for-url "https://bsky.app/profile/fusspot.rip")))
+  (is (= "kofi" (ac/icon-for-url "https://ko-fi.com/fusspot")))
+  (is (= "site" (ac/icon-for-url "https://fusspot.rip/")))
+  (is (= "site" (ac/icon-for-url "https://twitch.tv.evil.test/fusspot"))
+      "a lookalike host gets the plain globe, not the Twitch mark"))
 
 (deftest checking-an-edit
-  (testing "a good edit is stored with the service's own label and colour"
+  (testing "a good edit is stored with each link's own icon, label and colour"
     (is (= {:credit {:artist/name "Fuss"
                      :artist/links [{:link/label "Twitch" :link/icon "twitch"
-                                     :link/color "#9146ff" :link/url "https://www.twitch.tv/fusspot"}]}}
+                                     :link/color "#9146ff" :link/url "https://www.twitch.tv/fusspot"}
+                                    {:link/label "Site" :link/icon "site"
+                                     :link/color "#f0a100" :link/url "https://fusspot.rip/"}]}}
            (ac/check {:name "  Fuss " :link ""
-                      :links [{:icon "twitch" :url "https://www.twitch.tv/fusspot"}
-                              {:icon "kofi" :url " "}]}))))
+                      :links [{:url "https://www.twitch.tv/fusspot"}
+                              {:url " "}
+                              {:icon "twitch" :url "https://fusspot.rip/"}]}))
+        "blank rows drop out, and a claimed icon is ignored"))
   (testing "problems are named per field"
     (let [{:keys [errors]} (ac/check {:name (apply str (repeat 61 "x"))
                                       :link "ftp://x.test"
-                                      :links [{:icon "myspace" :url "https://myspace.com/x"}]})]
+                                      :links [{:url "http://myspace.com/x"}]})]
       (is (contains? errors :name))
       (is (contains? errors :link))
-      (is (= {0 "Pick one of the listed services"} (:link-errors errors)))))
+      (is (= {0 "Links must start with https://"} (:link-errors errors)))))
   (is (= {:links "Up to 4 links"}
-         (:errors (ac/check {:links (repeat 5 {:icon "site" :url "https://a.test/"})})))))
+         (:errors (ac/check {:links (repeat 5 {:url "https://a.test/"})})))))
 
 (deftest stored-values-are-rechecked-on-the-way-out
   (is (= {:artist/name "Fuss"}
          (ac/read-stored (pr-str {:artist/name "Fuss"
                                   :artist/link "javascript:alert(1)"
                                   :artist/links [{:link/icon "site" :link/url "data:text/html,x"}]}))))
+  (is (= "site" (-> (ac/read-stored (pr-str {:artist/links [{:link/icon "twitch" :link/url "https://evil.test/"}]}))
+                    :artist/links first :link/icon))
+      "a stored icon that disagrees with its link is re-derived")
   (is (nil? (ac/read-stored "#=(java.lang.System/exit 0)")) "no reader evaluation")
   (is (nil? (ac/read-stored "not edn {"))))
 
@@ -123,10 +135,10 @@
                    (req conn "fusspot" {:link "http://x.test"}))
               good (orcpub.routes/update-artist-credit
                     (req conn "fusspot" {:name "Fuss"
-                                         :links [{:icon "twitch" :url "https://twitch.tv/fusspot"}]}))
+                                         :links [{:url "https://twitch.tv/fusspot"}]}))
               again (orcpub.routes/update-artist-credit
                      (req conn "fusspot" {:name "Fuss"
-                                          :links [{:icon "twitch" :url "https://twitch.tv/fusspot"}]}))]
+                                          :links [{:url "https://twitch.tv/fusspot"}]}))]
           (is (= 400 (:status bad)))
           (is (= "Links must start with https://" (get-in bad [:body :errors :link])))
           (is (= 200 (:status good)))

@@ -2191,7 +2191,8 @@
       :gap "8px"
       :margin-top "10px"}]
 
-    [:.dev-mode-switch
+    ;; also the account page's settings switches
+    [:.dev-mode-switch :.toggle-switch
      {:position :relative
       :display :inline-block
       :width "34px"
@@ -2217,6 +2218,11 @@
      [:&:focus-visible
       {:outline (str "2px solid " orange)
        :outline-offset "3px"}]]
+
+    ;; the off track has to show on a light page too
+    [:.app.light-theme :.app.light-plus-theme :.app.parchment-theme
+     [:.toggle-switch {:background-color "rgba(0,0,0,0.22)"}
+      [:&.on {:background-color orange}]]]
 
     [:.dev-mode-label
      {:font-size "12px"

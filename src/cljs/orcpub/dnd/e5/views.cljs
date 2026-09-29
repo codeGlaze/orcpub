@@ -9212,6 +9212,23 @@
            "Save"]
           [save-note save-status]])])))
 
+(defn- icon-for-url
+  "Which mark a link will get, worked out the way the server does it: the
+   service whose host it points at, else the plain site globe."
+  [services url]
+  (let [host (or (some->> (s/trim (or url "")) (re-find #"^[a-zA-Z]+://([^/?#:]+)") second s/lower-case) "")]
+    (or (some (fn [{:keys [icon hosts]}]
+                (when (some #(or (= host %) (s/ends-with? host (str "." %))) hosts) icon))
+              services)
+        "site")))
+
+(defn- https-hint
+  "Said while typing, so the rule isn't a surprise on save."
+  [url]
+  (let [u (s/trim (or url ""))]
+    (when (and (seq u) (not (s/starts-with? (s/lower-case u) "https://")))
+      [:div.m-t-5.f-s-12 {:style {:color "#d9a520"}} "Links must start with https://"])))
+
 (defn- credit-edit
   "The form's state as the edit the server takes. Blank rows are dropped here
    so the server's per-row errors line up with what is on screen."
@@ -9229,8 +9246,9 @@
                (seq name) (assoc :artist/name name)
                (seq link) (assoc :artist/link link)
                (seq links) (assoc :artist/links
-                                  (vec (for [{:keys [icon url]} links
-                                             :let [{:keys [label color]} (by-icon icon)]]
+                                  (vec (for [{:keys [url]} links
+                                             :let [icon (icon-for-url services url)
+                                                   {:keys [label color]} (by-icon icon)]]
                                          {:link/icon icon :link/label label
                                           :link/color color :link/url url}))))]
     (merge (assoc default :artist/id (keyword (or (:artist/id current) "preview")))
@@ -9241,8 +9259,7 @@
   [{:keys [own locked services max-links default] :as credit}]
   (r/with-let [nm (r/atom (or (:artist/name own) ""))
                link (r/atom (or (:artist/link own) ""))
-               links (r/atom (vec (for [l (:artist/links own)]
-                                    {:icon (:link/icon l) :url (:link/url l)})))]
+               links (r/atom (vec (for [l (:artist/links own)] {:url (:link/url l)})))]
     (let [save-status @(subscribe [:account-save-status :artist-credit-save])
           errors (:errors save-status)
           link-errors (:link-errors errors)
@@ -9270,36 +9287,47 @@
                        :style {:max-width "420px"}
                        :on-change #(do (reset! link (event-value %)) (clear!))}]
         (when (locked? :artist/link) fixed-note)
-        (when-let [e (:link errors)] [:div.m-t-5.red.f-s-14 e])]
+        (if-let [e (:link errors)] [:div.m-t-5.red.f-s-14 e] (https-hint @link))]
        [:div.p-5
         [:div.f-s-14.f-w-b "Link icons"]
-        [:div.f-s-12.m-b-5.opacity-7 "Shown beside your name, in this order. Leave empty to use the site's default."]
+        [:div.f-s-12.m-b-5.opacity-7
+         "Shown beside your name, in this order. Paste a link and its icon is picked for you: "
+         (s/join ", " (keep #(when (seq (:hosts %)) (:label %)) services))
+         " get their own; anything else gets a globe. Leave empty to use the site's default."]
         (if (locked? :artist/links)
           fixed-note
           [:div
            (doall
-            (for [[i {:keys [icon url]}] (map-indexed vector @links)]
-              ^{:key i}
-              [:div.m-b-5
-               [:div.flex.align-items-c
-                [:select.input {:value (or icon "site")
-                                :style {:width "auto" :margin-right "6px"}
-                                :on-change #(do (swap! links assoc-in [i :icon] (event-value %)) (clear!))}
-                 (for [{:keys [icon label]} services]
-                   ^{:key icon} [:option {:value icon} label])]
-                [:input.input {:type "url" :value (or url "")
-                               :placeholder "https://"
-                               :style {:max-width "360px"}
-                               :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
-                [:button.link-button.m-l-10.f-s-14
-                 {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
-                 "Remove"]]
-               ;; server errors index the non-blank rows
-               (when-let [e (get link-errors (count (remove #(s/blank? (:url %)) (take i @links))))]
-                 (when-not (s/blank? url) [:div.m-t-5.red.f-s-14 e]))]))
+            (for [[i {:keys [url]}] (map-indexed vector @links)]
+              (let [icon (icon-for-url services url)
+                    {:keys [label color]} (some #(when (= icon (:icon %)) %) services)]
+                ^{:key i}
+                [:div.m-b-5
+                 [:div.flex.align-items-c
+                  ;; the mark this link will wear, in its own colour
+                  [:span {:title label :aria-label label
+                          :style {:width "20px" :height "20px" :flex-shrink 0 :margin-right "8px"
+                                  :background-color color
+                                  :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                                  :maskImage (str "url(/image/social/" icon ".svg)")
+                                  :WebkitMaskSize "contain" :maskSize "contain"
+                                  :WebkitMaskRepeat "no-repeat" :maskRepeat "no-repeat"
+                                  :WebkitMaskPosition "center" :maskPosition "center"}}]
+                  [:input.input {:type "url" :value (or url "")
+                                 :placeholder "https://"
+                                 :style {:max-width "380px"}
+                                 :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
+                  [:button.link-button.m-l-10.f-s-14
+                   {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
+                   "Remove"]]
+                 ;; server errors index the non-blank rows
+                 (if-let [e (when-not (s/blank? url)
+                              (get link-errors (count (remove #(s/blank? (:url %)) (take i @links)))))]
+                   [:div.m-t-5.red.f-s-14 e]
+                   (https-hint url))])))
            (when (< (count @links) (or max-links 4))
              [:button.link-button.f-s-14
-              {:on-click #(swap! links conj {:icon "site" :url ""})}
+              {:on-click #(swap! links conj {:url ""})}
               "+ Add a link"])
            (when-let [e (:links errors)] [:div.m-t-5.red.f-s-14 e])])]
        [:div.p-5.m-t-5
@@ -9425,21 +9453,24 @@
                   "Resend"]
                  (when error
                    [:span.m-l-5.red.f-s-14 error])])])]
-          ;; ─── Email Updates Toggle ─────────────────────────────────
-          [:div.p-5
-           [:span.f-w-b "Email Updates: "]
-           (let [send-updates? @(subscribe [:send-updates?])]
-             [:span
-              [:i.fa.fa-check.f-s-14.pointer.m-r-5
-               {:class (if send-updates? "orange" "white")
-                :style {:border-color "#f0a100"
-                        :border-style :solid
-                        :border-width "1px"
-                        :border-bottom-width "3px"}
-                :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
-              (if send-updates?
-                (str "Receiving updates from " branding/app-name)
-                "Not receiving updates")])]
+          ;; ─── Email Updates ────────────────────────────────────────
+          (let [send-updates? @(subscribe [:send-updates?])
+                toggle #(dispatch [:toggle-send-updates (not send-updates?)])]
+            [:div.p-5.m-t-10
+             [:div.f-w-b "News and updates"]
+             [:div.flex.align-items-c.m-t-5.pointer
+              {:on-click toggle}
+              [:span.toggle-switch
+               {:class (when send-updates? "on")
+                :role "switch"
+                :aria-checked (str send-updates?)
+                :aria-label (str "Email me news and updates from " branding/app-name)
+                :tabIndex 0
+                :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (toggle))}]
+              [:span.m-l-10.f-s-16
+               (str "Email me news and updates from " branding/app-name)]]
+             [:div.f-s-14.m-t-5.opacity-7
+              "Emails about your account, like password resets, are sent either way."]])
           ;; ─── Preferred name ───────────────────────────────────────
           (let [saved @(subscribe [:preferred-name])]
             ^{:key (str "pn-" saved)} [preferred-name-setting saved])
