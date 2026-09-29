@@ -1,0 +1,880 @@
+;; Recorded by orcpub.comment-discipline-test. Each entry is [file signal text].
+;; Clean an entry, then delete it here. :allowed needs a reason for each.
+{:allowed
+ {["src/cljc/orcpub/common.cljc"
+   :history-phrase
+   "defn toggle-in | previously"]
+  "describes a state (\"a previously-corrupted spot\"), not history"},
+ :baseline
+ [["src/clj/orcpub/config.clj"
+   :long-comment
+   "Content Security Policy configuration"]
+  ["src/clj/orcpub/config.clj" :long-docstring "def settings"]
+  ["src/clj/orcpub/config.clj" :long-docstring "defn get-datomic-uri"]
+  ["src/clj/orcpub/config.clj"
+   :long-docstring
+   "defn get-pdf-concurrency"]
+  ["src/clj/orcpub/config.clj"
+   :long-docstring
+   "defn get-pdf-max-cards"]
+  ["src/clj/orcpub/config.clj"
+   :long-docstring
+   "defn get-pdf-max-caster-sections"]
+  ["src/clj/orcpub/config.clj" :long-docstring "defn redact-secrets"]
+  ["src/clj/orcpub/config.clj" :long-docstring "defn strict-csp?"]
+  ["src/clj/orcpub/csp.clj" :long-docstring "defn build-csp-header"]
+  ["src/clj/orcpub/email.clj"
+   :long-docstring
+   "defn send-email-change-verification"]
+  ["src/clj/orcpub/email.clj" :long-docstring "defn send-error-email"]
+  ["src/clj/orcpub/email.clj" :long-docstring "defn send-reset-email"]
+  ["src/clj/orcpub/email.clj"
+   :long-docstring
+   "defn send-verification-email"]
+  ["src/clj/orcpub/fork/branding.clj"
+   :long-comment
+   "─── Social Links ──────────────────────────────────────────────────"]
+  ["src/clj/orcpub/fork/integrations.clj"
+   :long-comment
+   "─── Client-Side Config Bridge ──────────────────────────────────"]
+  ["src/clj/orcpub/fork/integrations.clj"
+   :long-comment
+   "─── How to add an integration ───────────────────────────────────────"]
+  ["src/clj/orcpub/index.clj"
+   :long-comment
+   "Homebrew rescue, a dead-man's switch: present by default, removed by t"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "(2026-09) One index rather than a lookup per value. PDAcroForm.getFiel"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "A cantrips bar gives the whole wide compartment to the name."]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "Blank back — a large, CENTERED logo (~80% of the card). logo-img is"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "Both branches insert. PDPageTree.add walks the whole object graph look"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "Only the lettering's own band. The bar's rules sit a few points"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "The label overprints the icon. Three treatments (draw-spell-field is t"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "The name is indented further than anything else and set larger, so"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "Whether the description spills is settled before it is drawn, so"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "─── Generating a sheet from a master ─────────────────────────────────"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "─── Relabelling a spell level box ────────────────────────────────────"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-comment
+   "─── Reusing the cantrips box ─────────────────────────────────────────"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def annotation-columns"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def cantrips-label-pad"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def cantrips-word-patch"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def hexagon-offset"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "def image-transfer-deadline-ms"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def merged-fields"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def numeral-boxes"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def row-right-edge-key"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def sheet-masters"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def unsupported-fields"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "def widget-entries"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn add-image-predictors!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn add-missing-spell-pages!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn add-spell-pages!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn annotate-spell-rows!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn apply-relabel-instructions!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn content-stream"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn decode-image-bytes"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn disambiguate-duplicate-fields!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn draw-column-heading!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn draw-image-bytes!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn draw-svg-icon!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn draw-svg-path!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn fetch-image"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn fit-text"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn grow-spell-sections!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn item-charges"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn last-svg-path"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn magic-item-subtitle"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn make-image-loader"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn name-death-save-checkboxes!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn name-prepared-checkboxes!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn name-slots-expended!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn print-items"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn safe-image-url?"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn share-checkbox-appearances!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn share-duplicate-images!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn spill-overflow!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn split-fields-across-pages!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn stamp-site-line!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn svg-form"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn svg-path-ops"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn valid-relabel?"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn write-fields!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- bar-compartments"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- draw-charge-track!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- draw-rarity-rail!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- draw-site-stamp!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- failure-reason"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- fit-heading"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- normalize-text"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- open-image-stream"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- paeth-filtered"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn- pinned-connection-manager"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- private-address?"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- proxied?"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "defn- round-unit"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn- shrink-single-line-to-fit!"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn- shrink-slots-expended!"]
+  ["src/clj/orcpub/pdf.clj" :long-docstring "ns orcpub.pdf"]
+  ["src/clj/orcpub/pedestal.clj"
+   :long-docstring
+   "defn make-nonce-interceptor"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "(2026-09) One master per style, grown to the character's shape, rather"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Both images are resolved BEFORE either is drawn, and any that has to b"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Fillable in every browser by default. The old non-Chrome flattening wa"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Narrowing the rows must happen before the values are written: the"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "No prune here. The masters are pruned by dev/prepare_templates.clj and"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Only rate-limit if the last key was generated for a pending email chan"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "PDFBox 3.x: Use Loader class instead of PDDocument.load() static metho"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn add-magic-item-cards!"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn bound-request"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn create-new-character"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn delete-character"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn delete-item"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn delete-user"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn follow-user"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn get-character"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn image-probe"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn unfollow-user"]
+  ["src/clj/orcpub/routes.clj" :long-docstring "defn- busy-page"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn- with-export-slot"]
+  ["src/clj/orcpub/routes/party.clj"
+   :long-docstring
+   "defn create-party"]
+  ["src/clj/orcpub/routes/party.clj"
+   :long-docstring
+   "defn remove-character"]
+  ["src/clj/orcpub/routes/party.clj"
+   :long-docstring
+   "defn update-party-name"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "600px was set for a short warning and inherited by the conflict panel,"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "A gradient ring around the whole box, not a rail down one side. The ri"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "Accent rails for a callout. The rail is the same device .health-rail u"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "An expanded source's own row: search, show-disabled, then its actions."]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "Flyout menus: hidden by default, shown on hover (desktop) or focus-wit"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "On a phone the panel is the screen. The footer is the part that actual"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "Ported from port/redesign-on-refactor (option_menu_views.cljs). Self-c"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "The modal chrome is always dark (#1a1e28) in both themes, so give the "]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "── Export busy page ──────────────────────────────────────────────────"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "── Library health status ─────────────────────────────────────────────"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "── Library-header \"disabled\" badges ──────────────────────────────────"]
+  ["src/clj/orcpub/styles/core.clj"
+   :long-comment
+   "── save button, carrying an unsaved repair ───────────────────────────"]
+  ["src/clj/orcpub/system.clj"
+   :long-comment
+   "Cap what a request body may be before it reaches"]
+  ["src/clj/orcpub/system.clj"
+   :long-comment
+   "Jetty's worker pool caps how many requests of any kind are in flight."]
+  ["src/clj/orcpub/time.clj" :long-docstring "defn instant"]
+  ["src/clj/orcpub/time.clj" :long-docstring "ns orcpub.time"]
+  ["src/clj/orcpub/tools/orcbrew.clj"
+   :long-docstring
+   "ns orcpub.tools.orcbrew"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "An initialism with a description after it -- \"UA - Giant Options\","]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "Display name with an obvious placeholder, not a blank: any unusable na"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "Drop a TRAILING separator. Edge whitespace and terminal punctuation bo"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "Matches EITHER a full \"string literal\" OR a bare-colon token (the prin"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "Never emit the empty keyword `:` — a name that reduced to \"\" (blank,"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-comment
+   "── Number-word translation, for repairing keyword-trap names ─────────"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "def source-abbreviation-overrides"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "def word-separator-re"]
+  ["src/cljc/orcpub/common.cljc" :long-docstring "defn canonical-key"]
+  ["src/cljc/orcpub/common.cljc" :long-docstring "defn disambiguated"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "defn repair-name-lead"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "defn sanitize-edn-colons"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "defn source-abbreviation"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "defn source-tagged-key"]
+  ["src/cljc/orcpub/common.cljc" :long-docstring "defn toggle-flag"]
+  ["src/cljc/orcpub/common.cljc"
+   :long-docstring
+   "defn- abbreviation-suffix-re"]
+  ["src/cljc/orcpub/dnd/e5/char_filter.cljc"
+   :long-docstring
+   "defn char-matches?"]
+  ["src/cljc/orcpub/dnd/e5/content_specs.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.content-specs"]
+  ["src/cljc/orcpub/dnd/e5/event_utils.cljc"
+   :long-docstring
+   "defn get-auth-token"]
+  ["src/cljc/orcpub/dnd/e5/modifiers.cljc"
+   :history-phrase
+   "defn unarmored-ac-bonus | it used to"]
+  ["src/cljc/orcpub/dnd/e5/modifiers.cljc"
+   :long-docstring
+   "defn unarmored-ac-bonus"]
+  ["src/cljc/orcpub/dnd/e5/options.cljc"
+   :long-comment
+   "DEFERRED on purpose. spell-help renders the spell's whole description "]
+  ["src/cljc/orcpub/dnd/e5/options.cljc"
+   :long-comment
+   "Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirr"]
+  ["src/cljc/orcpub/dnd/e5/options.cljc"
+   :long-comment
+   "Reconcile pre-2024 wizard-possessive spell keys (e.g."]
+  ["src/cljc/orcpub/dnd/e5/options.cljc"
+   :long-comment
+   "Rich starting-equipment choice groups — the full SRD form as serializa"]
+  ["src/cljc/orcpub/dnd/e5/share_bundle.cljc"
+   :long-comment
+   "── Structural whitelist (security layer 5) ───────────────────────────"]
+  ["src/cljc/orcpub/dnd/e5/share_bundle.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.share-bundle"]
+  ["src/cljc/orcpub/dnd/e5/spell_annotations.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.spell-annotations"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-comment
+   "The slot total belongs to the class that holds the box, at the"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-comment
+   "Where to write each class's name: the cantrips box its column starts"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "def pact-column"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "def sheet-geometry"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn pack"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn packed-fields"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn relabel-instructions"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn unplaced"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn- assign"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn- box-may-hold?"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "defn- spread-across-page"]
+  ["src/cljc/orcpub/dnd/e5/spell_packing.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.spell-packing"]
+  ["src/cljc/orcpub/dnd/e5/spells.cljc"
+   :long-docstring
+   "def spell-key-aliases"]
+  ["src/cljc/orcpub/dnd/e5/srd_starting_equipment.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.srd-starting-equipment"]
+  ["src/cljc/orcpub/dnd/e5/starting_equipment_ledger.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.starting-equipment-ledger"]
+  ["src/cljc/orcpub/dnd/e5/template_base.cljc"
+   :long-comment
+   "(if melee?"]
+  ["src/cljc/orcpub/dnd/e5/template_base.cljc"
+   :long-comment
+   "Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are "]
+  ["src/cljc/orcpub/entity.cljc"
+   :long-comment
+   "Exact path first. On a miss, retry with the STORED key canonicalised"]
+  ["src/cljc/orcpub/entity.cljc"
+   :long-docstring
+   "defn index-matching-key"]
+  ["src/cljc/orcpub/entity.cljc" :long-docstring "defn kahn-sort"]
+  ["src/cljc/orcpub/errors.cljc"
+   :long-docstring
+   "defmacro with-db-error-handling"]
+  ["src/cljc/orcpub/errors.cljc"
+   :long-docstring
+   "defmacro with-email-error-handling"]
+  ["src/cljc/orcpub/errors.cljc"
+   :long-docstring
+   "defmacro with-validation"]
+  ["src/cljc/orcpub/errors.cljc" :long-docstring "defn create-error"]
+  ["src/cljc/orcpub/errors.cljc" :long-docstring "defn log-error"]
+  ["src/cljc/orcpub/errors.cljc"
+   :long-docstring
+   "defn with-error-handling*"]
+  ["src/cljc/orcpub/image_url.cljc" :long-docstring "defn advise"]
+  ["src/cljc/orcpub/image_url.cljc"
+   :long-docstring
+   "ns orcpub.image-url"]
+  ["src/cljc/orcpub/pdf_spec.cljc"
+   :long-docstring
+   "defn attacks-and-spellcasting-fields"]
+  ["src/cljc/orcpub/pdf_spec.cljc"
+   :long-docstring
+   "defn default-spell-layout"]
+  ["src/cljc/orcpub/pdf_spec.cljc"
+   :long-docstring
+   "defn level-max-spells"]
+  ["src/cljc/orcpub/pdf_spec.cljc"
+   :long-docstring
+   "defn packing-classes"]
+  ["src/cljc/orcpub/pdf_spec.cljc"
+   :long-docstring
+   "defn spellcasting-fields"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-comment
+   "An http picture cannot be displayed by this page at all -- the CSP all"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-comment
+   "DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets "]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-comment
+   "DO NOT wrap the handler factories below in cljs.core/memoize."]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-comment
+   "Stays a THUNK all the way to the expanded? gate. This"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-comment
+   "The suggestions were already computed and shown as prose,"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn image-field-notice"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn image-load-fn"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn image-paste-fn"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn inventory-combobox"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn inventory-datalist"]
+  ["src/cljs/orcpub/character_builder.cljs"
+   :long-docstring
+   "defn inventory-picker"]
+  ["src/cljs/orcpub/dnd/e5.cljc"
+   :long-docstring
+   "defn reconcile-rejected"]
+  ["src/cljs/orcpub/dnd/e5.cljc"
+   :long-docstring
+   "defn rekey-content-group"]
+  ["src/cljs/orcpub/dnd/e5.cljc"
+   :long-docstring
+   "defn salvage-plugin-items"]
+  ["src/cljs/orcpub/dnd/e5/api_subs.cljs"
+   :history-phrase
+   "ns orcpub.dnd.e5.api-subs | previously"]
+  ["src/cljs/orcpub/dnd/e5/api_subs.cljs"
+   :long-docstring
+   "defn reg-api-sub"]
+  ["src/cljs/orcpub/dnd/e5/api_subs.cljs"
+   :long-docstring
+   "ns orcpub.dnd.e5.api-subs"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :history-phrase
+   "Spell Selection Key Reconciliation | regression window"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-comment
+   "Sentinel keys that are NOT references to loadable content, so they can"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-comment
+   "Spell Selection Key Reconciliation"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-comment
+   "── Class binding report ──────────────────────────────────────────────"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-comment
+   "── Former keys ───────────────────────────────────────────────────────"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn check-content-availability"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn class-binding-report"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn former-key-index"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn generate-missing-content-report"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn reconcile-former-keys"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn reconcile-spell-selection-keys"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "defn subclass->class-index"]
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   :long-docstring
+   "ns orcpub.dnd.e5.content-reconciliation"]
+  ["src/cljs/orcpub/dnd/e5/db.cljs"
+   :long-comment
+   "PER-ENTRY salvage: keep each source's valid items, set aside"]
+  ["src/cljs/orcpub/dnd/e5/db.cljs"
+   :long-comment
+   "Resilient plugins loader. The old all-or-nothing version returned nil "]
+  ["src/cljs/orcpub/dnd/e5/equipment_subs.cljs"
+   :long-comment
+   "ORPHANED: Cross-user item detail fetch chain — commented out, kept for"]
+  ["src/cljs/orcpub/dnd/e5/equipment_subs.cljs"
+   :long-comment
+   "Silent 401 is deliberate: the handle-api-response default is"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :history-phrase
+   "Both reconcilers report what they repaired and it used to be dropped o | it used to"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :history-phrase
+   "Filter spell list by name. Only stores the filter text — the | previously"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :history-phrase
+   "Headline carries the point — it is saved, and only | it used to"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :history-phrase
+   "defn builder-error-message | it used to"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "\"Check my content\" — reuse the export analysis (correct-library) to fi"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "A key duplicated across N sources within the import"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Apply the user's edits, re-key, then salvage PER ENTRY: valid entries"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Both kinds stop the save. They differ in what is at stake, so they"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Both reconcilers report what they repaired and it used to be dropped o"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Enabling a collision-risk item enforces the ≤1-enabled invariant: any "]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Errors are NOT fleeting: they persist until the user dismisses them"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Filter spell list by name. Only stores the filter text — the"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "For internal, user picks which source to rename."]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Freshly-imported sources are stored the SAME way the boot loader reads"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Headline carries the point — it is saved, and only"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Import mode goes through the SAME store gate as the direct import, so"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "MINTED ONCE, AND TAGGED WITH ITS SOURCE. The key is an address, not a "]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "No capture is started here, deliberately. A read asks for the same URL"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "ORPHANED: see equipment_subs.cljs — ::mi5e/remote-item block-comment."]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "One trailing OS/browser file-dedup marker left on the NAME (extension "]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Only filter-by-name-xform is still used locally (in search-results bel"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Opinionated default: pre-resolve every conflict with the safe choice s"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Permanently discard a quarantined source the user can't (or doesn't wa"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Persist-then-report: write the library to localStorage FIRST and only "]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Repair a quarantined source and merge it back into the live library."]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Reset to default empty plugins state."]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Rung 4 of the resolution ladder. Rungs 2 and 3 rebind a stored key whe"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Shared-content loading (viewing a character shared with embedded homeb"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "Starting-equipment setter shared by the fixed-grant maps (:weapons/:ar"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The ONE way an author changes a key. Keys are minted once and then fix"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The browser was refused. Ask the server NOW rather than at export time"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The debug hatch: the whole library, pretty-printed, with NO validation"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The overlays arrive asynchronously (decode is a promise), AFTER the"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The release panel is held while the cookie notice is up so a first vis"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The type dropdown shows its first option (\"Wondrous Item\") even when"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "── Character pictures read in the browser ────────────────────────────"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "── Disable hierarchy: the two LOCAL-OVERLAY levels ───────────────────"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "── Inline \"Custom\" options ───────────────────────────────────────────"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn builder-error-message"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn drop-skipped-imports"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn incoming-sources"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn opinionated-default-decision"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn save-collision"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn save-into-plugins"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn source-name-mismatch"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn spec-field-problems"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn- validate-and-show-modal-or-export"]
+  ["src/cljs/orcpub/dnd/e5/http_safe.cljs"
+   :long-docstring
+   "ns orcpub.dnd.e5.http-safe"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :history-phrase
+   "A relocation that has to rename disambiguates by NAME and | this used to"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :history-phrase
+   "defn sanitize-item-names | it used to"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "A relocation that has to rename disambiguates by NAME and"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "A trailing 0 means the spec problem is about a map KEY itself (0 = key"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "Error Message Formatting"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "Fuzzy Key Matching"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "Keep original functions for backwards compatibility"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "Only rename when the item actually exists. A redundant rename (e.g. a "]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "Step 1: Rename the key in its content group. Update the item's OWN"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-comment
+   "`:in` paths of the more specific (non-boolean) failures. When a"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "def required-fields"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn apply-key-renames"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn apply-user-edits-to-plugin"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn correct-library"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn count-non-ascii"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn dedup-options-in-item"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn detect-duplicate-keys"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn generate-new-identity"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn import-progressive"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn relocate-content"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn rename-empty-plugin-key-with-log"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn rename-key-in-plugin"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn rename-key-in-plugins"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn twin-note"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn validate-import"]
+  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
+   :long-docstring
+   "defn validate-plugin-progressive"]
+  ["src/cljs/orcpub/dnd/e5/share_url.cljs"
+   :long-docstring
+   "defn build-share-payload"]
+  ["src/cljs/orcpub/dnd/e5/share_url.cljs"
+   :long-docstring
+   "ns orcpub.dnd.e5.share-url"]
+  ["src/cljs/orcpub/dnd/e5/spell_subs.cljs"
+   :long-comment
+   "Ephemeral overlay for a SHARED character being viewed: content that ar"]
+  ["src/cljs/orcpub/dnd/e5/spell_subs.cljs"
+   :long-comment
+   "Memoized library-health detectors."]
+  ["src/cljs/orcpub/dnd/e5/spell_subs.cljs"
+   :long-docstring
+   "defn- process-plugin-vals"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-comment
+   "Both inputs are derived from app-db, so ONE interaction dirties both"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-comment
+   "No :set-event / :on-success — the :user sub is fire-and-forget"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-comment
+   "Records that a character's server response could not be decoded even a"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-comment
+   "Response was unreadable even after self-heal: don't feed"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-docstring
+   "defn reg-filtered-sub"]
+  ["src/cljs/orcpub/dnd/e5/subs.cljs"
+   :long-docstring
+   "defn user-sub-on-401-actions"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :history-phrase
+   "Grouped by what a setting changes: the sheet, the cards behind it, the | used to be"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "(Library-health status is rendered by content-page at the top of every"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "---- Rich equipment choices (:equipment-selections) ------------------"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "---- Starting equipment (homebrew class builder) ---------------------"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "Library-health status — shown on every content page (it self-"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "NOT \"Save to Browser Storage\", which is what every other"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "One data-driven table for the My Content library, replacing 13 near-id"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "One header, sticky, rather than a fixed copy of it above an"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "The builder renders character-display with an explicit nil id, so this"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "we have to dispatch-sync because in the case where id is nil,"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn capture-images"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn error-boundary"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn feature-render-error"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn isolate-culprit"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn meta-edit-row"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn- fit-flyout!"]
+  ["src/cljs/orcpub/dnd/e5/views/notifications.cljs"
+   :history-phrase
+   "defn- as-parts | used to be"]
+  ["src/cljs/orcpub/dnd/e5/views/notifications.cljs"
+   :long-docstring
+   "defn callout"]
+  ["src/cljs/orcpub/dnd/e5/views/notifications.cljs"
+   :long-docstring
+   "defn message"]
+  ["src/cljs/orcpub/dnd/e5/views/notifications.cljs"
+   :long-docstring
+   "defn- as-parts"]
+  ["src/cljs/orcpub/fork/integrations.cljs"
+   :long-comment
+   "─── Sharing ─────────────────────────────────────────────────"]
+  ["src/cljs/orcpub/fork/integrations.cljs"
+   :long-docstring
+   "defn share-controls"]
+  ["src/cljs/orcpub/fork/integrations.cljs"
+   :long-docstring
+   "defn sheet-styles"]
+  ["src/cljs/orcpub/fork/integrations.cljs"
+   :long-docstring
+   "ns orcpub.fork.integrations"]
+  ["src/cljs/orcpub/image_capture.cljs"
+   :long-docstring
+   "def print-edge"]
+  ["src/cljs/orcpub/image_capture.cljs"
+   :long-docstring
+   "defn capture-clipboard"]
+  ["src/cljs/orcpub/image_capture.cljs"
+   :long-docstring
+   "defn- encode-attempts"]
+  ["src/cljs/orcpub/image_capture.cljs"
+   :long-docstring
+   "ns orcpub.image-capture"]]}
