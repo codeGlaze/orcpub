@@ -42,8 +42,9 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   #37's narrative comments rewritten (`0ad30947`).
 - ◐ **The narrative check: draft PR #38** (`fix/comment-check`, from `integration`). Two signals,
   history phrasing and length (docstrings over 6 lines, comment blocks over 4). 336 existing hits
-  are listed every run; new ones fail; cleaned ones must leave the baseline. **When #37 and #38
-  meet on `integration`, the second to merge reconciles:** #37 adds 18 hits and cleans 20 entries.
+  are listed every run; a new one is fixed, or reviewed and approved with a reason, and an approval
+  covers exact text by hash. **When #37 and #38 meet on `integration`, the second to merge
+  reconciles:** #37 has 24 new hits and no longer matches 26 recorded entries.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").
