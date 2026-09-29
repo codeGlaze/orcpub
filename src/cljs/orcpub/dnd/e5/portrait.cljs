@@ -654,13 +654,25 @@
 .lk-rule.r { background: linear-gradient(90deg, var(--lk-rule), transparent); }
 .pl-root {
   --lk-under: rgba(240,161,0,0.45);
-  --lk-glow-text: #fff4d6;
-  --lk-glow: 0 0 4px rgba(255,236,170,0.85), 0 0 10px rgba(255,200,110,0.55), 0 0 18px rgba(240,161,0,0.35);
+  /* pastel spectrum for the dark ground; both ends match so the loop is seamless */
+  --lk-prism: linear-gradient(100deg, #ffd3ef 0%, #d4c2ff 17%, #a9e4ff 33%, #b9ffe0 50%,
+                               #fff0b3 67%, #ffc9d9 83%, #ffd3ef 100%);
+  --lk-halo: drop-shadow(0 0 3px rgba(214,186,255,0.7)) drop-shadow(0 0 9px rgba(140,210,255,0.4));
+  --lk-halo-hot: drop-shadow(0 0 4px rgba(255,214,245,0.9)) drop-shadow(0 0 12px rgba(160,220,255,0.6));
+  --lk-under-lit: #d8c6ff;
 }
 .pl-root.light-theme {
   --lk-under: rgba(51,101,138,0.5);
-  --lk-glow-text: #1d5a86;
-  --lk-glow: 0 0 4px rgba(150,215,255,0.95), 0 0 10px rgba(111,179,216,0.7), 0 0 18px rgba(111,179,216,0.4);
+  /* jewel tones for the light ground, where pastels would wash out */
+  --lk-prism: linear-gradient(100deg, #b0258a 0%, #6d3fe0 17%, #1f6fd1 33%, #0c9c86 50%,
+                               #c77a0a 67%, #c43565 83%, #b0258a 100%);
+  --lk-halo: drop-shadow(0 0 3px rgba(150,120,255,0.45)) drop-shadow(0 0 8px rgba(80,170,255,0.3));
+  --lk-halo-hot: drop-shadow(0 0 4px rgba(190,110,255,0.6)) drop-shadow(0 0 10px rgba(80,170,255,0.45));
+  --lk-under-lit: #6d3fe0;
+}
+@keyframes lk-prism {
+  from { background-position: 0% 50%; }
+  to   { background-position: 300% 50%; }
 }
 .lk-name {
   font: italic 14px/1 'Vollkorn', Georgia, serif; color: var(--lk-name);
@@ -672,18 +684,26 @@
 a.lk-name {
   text-decoration: underline dotted var(--lk-under);
   text-decoration-thickness: 1px; text-underline-offset: 3px;
-  transition: color 220ms ease, text-shadow 260ms ease, text-decoration-color 220ms ease;
+  transition: filter 240ms ease, text-decoration-color 240ms ease;
 }
-/* ...and a soft fey glow when someone reaches for it -- by mouse, keyboard
-   or tap. Warm on the dark ground, a pale sky glow on the light one, where a
-   warm halo would vanish. A little brighter at the moment of the click. */
+/* ...and when someone reaches for it -- mouse, keyboard or tap -- the letters
+   turn prismatic: a spectrum clipped to the glyphs, drifting slowly, under a
+   two-colour halo. Only while it is being reached for; nothing moves at rest.
+   The halo is a drop-shadow filter, not a text-shadow, because with the text
+   itself transparent a text-shadow would show through the letters. */
 a.lk-name:hover, a.lk-name:focus-visible {
-  color: var(--lk-glow-text); text-shadow: var(--lk-glow);
-  text-decoration-color: currentColor; outline: none;
+  color: transparent;
+  background-image: var(--lk-prism); background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  animation: lk-prism 3.2s linear infinite;
+  filter: var(--lk-halo);
+  text-decoration-color: var(--lk-under-lit); outline: none;
 }
-a.lk-name:active { text-shadow: var(--lk-glow), var(--lk-glow); }
+a.lk-name:active { filter: var(--lk-halo-hot); }
+/* Anyone who has asked for less motion gets the spectrum standing still. */
 @media (prefers-reduced-motion: reduce) {
   a.lk-name { transition: none; }
+  a.lk-name:hover, a.lk-name:focus-visible { animation: none; }
 }
 .lk-cap {
   font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
