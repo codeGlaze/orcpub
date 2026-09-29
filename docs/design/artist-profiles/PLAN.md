@@ -100,3 +100,77 @@ Considered and not chosen:
 
 Artist accounts, editing a profile, anything tied to a site user, and any link the
 artist did not list.
+
+---
+
+## Added after the plan: the artist can turn their page off
+
+The owner asked for a way for an artist to turn their page off from their account. Artist
+accounts are being built elsewhere, so this branch adds only the switch the page obeys:
+`:artist/profile?`, on unless it is set to `false`. It can be set through
+`set-artist-overrides!` next to the other credit fields, so the account setting only has
+to write it. When it is off:
+
+- `/artists/<slug>` and its `portrait.png` return 404, the same as for a name nobody
+  has, and the 404's share tags don't name the artist;
+- the artist drops out of `/artists`;
+- the credit loses its "About the artist" line;
+- the credit's name still links to the artist's own `:artist/link`.
+
+## What was built
+
+| Piece | Where |
+|---|---|
+| Pure functions: slug, lookup, pieces, listed links, examples, profile link, the off switch | `src/cljc/orcpub/dnd/e5/artist_profile.cljc` |
+| `:artist/slug "fusspot"`; `:artist/profile?` accepted as an override | `portrait_assets.cljc` |
+| Routes `/artists`, `/artists/:slug`, `/artists/:slug/portrait.png` | `route_map.cljc`, `routes.clj` |
+| The pages (profile, list, not-found) | `src/cljs/orcpub/dnd/e5/views/artist_page.cljs`, registered in `web/cljs/orcpub/core.cljs` |
+| "About the artist ›" at the foot of the drawer credit | `portrait.cljs` (`credit-lockup`, `.lk-about`) |
+
+## What was verified
+
+- `lein test`: the new `artist-profile-test` (19 tests) and `artist-page-test` (5 tests)
+  pass, as do the existing `portrait-test`, `portrait-og-test` and `routes-test`.
+  Other artists in the tests are obvious placeholders set up with `with-redefs`. No
+  registry entry was added.
+- `lein fig:build` compiles clean. `lein garden once` runs.
+- `test/browser/artist_profile_e2e.js` passes all 51 checks against `lein e2e-server`. It
+  is now in `run-browser-probes.js` and the baseline. It covers:
+  - the share tags, the og PNG and the 404;
+  - both themes: the page repaints and the portrait frames stay dark;
+  - Vollkorn italic for the name;
+  - exactly the two listed links, opening in new tabs;
+  - no email address or `mailto:` anywhere on the page;
+  - no sideways scroll at 390px;
+  - the list page;
+  - in both themes, the drawer credit's name still going to `https://fusspot.rip/` and its
+    new profile link sitting at the same dim colour as "ART BY".
+
+  The probe once failed on that last check because the mouse was resting on the link;
+  the probe now moves the mouse away first.
+- Screenshots, taken with the placeholder silhouettes only: `shots/profile-dark.png`,
+  `profile-light.png`, `profile-phone.png`, `index-dark.png`, `drawer-credit-{dark,light}.png`
+  and their `-hover` versions.
+- Not run: the full `lein test` suite and the other browser probes.
+
+## For the owner to decide
+
+1. **The credit on the character page.** The profile link is only in the drawer credit.
+   The 100px credit under the portrait on the character page is where viewers see a
+   credit, but adding a line there changes that strip.
+2. **Piece tiles.** Every piece is drawn in the full portrait frame, so small pieces (nose,
+   mouth, eyes) are specks in their tiles. Cropping each tile to the piece's own bounds
+   would fix it. That needs either bounds stored in the registry or measuring at load.
+   It is worth doing once the real art is in.
+3. **Example colours** are picked from the picker's presets by a seed. An artist may want
+   to choose their own showcase portraits instead, which could be a registry field or an
+   account feature later.
+4. **When a page is turned off**, the address simply 404s. A short "this artist has made
+   their page private" message would be kinder, but it would also confirm that someone
+   is registered there.
+5. **The slug cannot be overridden** by a deployment, so a fork that renames Fusspot keeps
+   `/artists/fusspot`. That's deliberate, so shared links keep working, but a fork might
+   want its own.
+6. **Signing:** commits are GPG-signed as codeGlaze with a key generated in this
+   container. GitHub will show them as Unverified until the public key is added to the
+   account.

@@ -75,5 +75,9 @@
   "portrait_pdf_export_e2e.js": {
     "checks": 10,
     "seconds": 45
+  },
+  "artist_profile_e2e.js": {
+    "checks": 51,
+    "seconds": 60
   }
 }
