@@ -359,6 +359,13 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
+(defn preferred-name-of
+  "The account's preferred name for an email greeting, decrypted, else the
+   fork's fallback (nil: 'Hi there')."
+  [user]
+  (or (crypto/decrypt crypto/preferred-name-purpose (:orcpub.user/preferred-name user))
+      auth/verification-display-name))
+
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
    (base-url request)
@@ -504,7 +511,7 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name auth/verification-display-name})
+                              {:first-and-last-name (preferred-name-of user)})
                        conn
                        {:db/id id}))))
 
@@ -606,7 +613,7 @@
                  (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))])))
       (email/send-reset-email
        (base-url request)
-       {:first-and-last-name auth/verification-display-name
+       {:first-and-last-name (preferred-name-of (d/entity (d/db conn) user-id))
         :email email}
        key)
       {:status 200}
@@ -1913,7 +1920,8 @@
                         (< elapsed (* 5 60 1000)))))
             (try
               (send-email-change-verification request
-                                              {:email new-email :username username}
+                                              {:email new-email :username username
+                                                 :preferred-name (preferred-name-of user)}
                                               (:orcpub.user/verification-key user))
               {:status 200 :body {:pending-email new-email}}
               (catch Throwable e
@@ -1930,7 +1938,8 @@
               ;; Roll back pending-email if verification email fails to send
               (try
                 (send-email-change-verification request
-                                                {:email new-email :username username}
+                                                {:email new-email :username username
+                                                 :preferred-name (preferred-name-of user)}
                                                 verification-key)
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e

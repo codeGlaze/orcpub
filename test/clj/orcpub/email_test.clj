@@ -36,3 +36,18 @@
           content (body {:char-id "1" :user-email "a@b.com" :error "e" :raw huge})]
       (is (< (count content) 110000) "body is capped well under the raw size")
       (is (s/includes? content "[truncated")))))
+
+(defn- html-of [parts] (get-in parts [0 :content]))
+
+(deftest emails-greet-by-preferred-name
+  (testing "with a preferred name"
+    (is (s/includes? (html-of (email/reset-password-email "Kaylee" "https://x.test/r")) "Hi Kaylee,"))
+    (is (s/includes? (html-of (email/email-change-verification-email "Kaylee" "kaylee" "https://x.test/v")) "Hi Kaylee,"))
+    (is (s/includes? (html-of (email/verification-email "Kaylee" "kaylee" "https://x.test/v")) "Welcome to"))
+    (is (s/includes? (html-of (email/verification-email "Kaylee" "kaylee" "https://x.test/v")) ", Kaylee!")))
+  (testing "without one: a plain hello, not a stand-in like 'Dear User'"
+    (doseq [h [(html-of (email/reset-password-email nil "https://x.test/r"))
+               (html-of (email/email-change-verification-email "kaylee" "https://x.test/v"))]]
+      (is (s/includes? h "Hi there,"))
+      (is (not (s/includes? h "User,"))))
+    (is (not (s/includes? (html-of (email/verification-email nil "kaylee" "https://x.test/v")) ", User!")))))
