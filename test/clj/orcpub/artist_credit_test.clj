@@ -1,0 +1,100 @@
+(ns orcpub.artist-credit-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [datomic.api :as d]
+            [orcpub.artist-credit :as ac]
+            [orcpub.fork.branding :as branding]
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.db.schema :as schema])
+  (:import [java.util UUID]))
+
+(defmacro with-conn [conn-binding & body]
+  `(let [uri# (str "datomic:mem:artist-credit-test-" (UUID/randomUUID))
+         ~conn-binding (do (d/create-database uri#) (d/connect uri#))]
+     (try @(d/transact ~conn-binding schema/all-schemas)
+          ~@body
+          (finally (d/delete-database uri#)))))
+
+(use-fixtures :each
+  (fn [t]
+    (let [before (pa/current-overrides)]
+      (try (t) (finally (pa/set-artist-overrides! before))))))
+
+(defn- add-artist! [conn username artist]
+  @(d/transact conn [(cond-> {:orcpub.user/username username
+                               :orcpub.user/email (str username "@example.test")}
+                        artist (assoc :orcpub.user/artist artist))])
+  (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] (d/db conn) username))
+
+(deftest links-must-be-safe-and-honest
+  (is (nil? (ac/url-problem "https://fusspot.rip/")))
+  (is (= "Links must start with https://" (ac/url-problem "http://fusspot.rip/")))
+  (is (= "Links must start with https://" (ac/url-problem "javascript:alert(1)")))
+  (is (some? (ac/url-problem "https://user@evil.test/")) "no credentials-in-URL tricks")
+  (is (nil? (ac/url-problem "https://www.twitch.tv/fusspot" "twitch")))
+  (is (= "A Twitch link should go to twitch.tv"
+         (ac/url-problem "https://twitch.tv.evil.test/fusspot" "twitch"))
+      "a Twitch mark cannot open somewhere else"))
+
+(deftest checking-an-edit
+  (testing "a good edit is stored with the service's own label and colour"
+    (is (= {:credit {:artist/name "Fuss"
+                     :artist/links [{:link/label "Twitch" :link/icon "twitch"
+                                     :link/color "#9146ff" :link/url "https://www.twitch.tv/fusspot"}]}}
+           (ac/check {:name "  Fuss " :link ""
+                      :links [{:icon "twitch" :url "https://www.twitch.tv/fusspot"}
+                              {:icon "kofi" :url " "}]}))))
+  (testing "problems are named per field"
+    (let [{:keys [errors]} (ac/check {:name (apply str (repeat 61 "x"))
+                                      :link "ftp://x.test"
+                                      :links [{:icon "myspace" :url "https://myspace.com/x"}]})]
+      (is (contains? errors :name))
+      (is (contains? errors :link))
+      (is (= {0 "Pick one of the listed services"} (:link-errors errors)))))
+  (is (= {:links "Up to 4 links"}
+         (:errors (ac/check {:links (repeat 5 {:icon "site" :url "https://a.test/"})})))))
+
+(deftest stored-values-are-rechecked-on-the-way-out
+  (is (= {:artist/name "Fuss"}
+         (ac/read-stored (pr-str {:artist/name "Fuss"
+                                  :artist/link "javascript:alert(1)"
+                                  :artist/links [{:link/icon "site" :link/url "data:text/html,x"}]}))))
+  (is (nil? (ac/read-stored "#=(java.lang.System/exit 0)")) "no reader evaluation")
+  (is (nil? (ac/read-stored "not edn {"))))
+
+(deftest config-beats-the-artist-beats-the-code
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (is (:saved (ac/save! conn id {:name "Fuss" :link "https://fuss.example/"})))
+      (testing "the artist's edit shows"
+        (is (= "Fuss" (:artist/name (pa/artist-info :house-pack))))
+        (is (= "https://fuss.example/" (:artist/link (pa/artist-info :house-pack)))))
+      (testing "and the deployment's config wins, field by field"
+        (with-redefs [branding/portrait-artists {:house-pack {:artist/name "Fusspot (config)"}}]
+          @(d/transact conn [{:db/id id :orcpub.user/username "fusspot"}]) ; move the db on
+          (ac/refresh! (d/db conn))
+          (is (= "Fusspot (config)" (:artist/name (pa/artist-info :house-pack))))
+          (is (= "https://fuss.example/" (:artist/link (pa/artist-info :house-pack))))
+          (is (= #{:artist/name} (:locked (ac/credit-for-account (d/db conn) id)))
+              "the settings page can say which fields the site has fixed")))
+      (testing "clearing the edit goes back to the code's default"
+        (ac/save! conn id {})
+        (is (= "Fusspot" (:artist/name (pa/artist-info :house-pack))))))))
+
+(deftest only-artists-can-save-and-bad-edits-change-nothing
+  (with-conn conn
+    (let [plain (add-artist! conn "someone" nil)
+          fuss (add-artist! conn "fusspot" :house-pack)]
+      (is (:errors (ac/save! conn plain {:name "Me"})))
+      (is (:errors (ac/save! conn fuss {:link "http://insecure.test"})))
+      (is (nil? (:own (ac/credit-for-account (d/db conn) fuss))))
+      (ac/save! conn fuss {:name "Fuss"})
+      (is (:unchanged (ac/save! conn fuss {:name "Fuss"})) "so no change email for a no-op save"))))
+
+(deftest an-edit-saved-elsewhere-reaches-this-container
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (ac/refresh! (d/db conn))
+      ;; another container writes it directly
+      @(d/transact conn [{:db/id id :orcpub.user/artist-credit (pr-str {:artist/name "Fuss"})}])
+      (ac/refresh! (d/db conn))
+      (is (= "Fuss" (:artist/name (pa/artist-info :house-pack)))))))

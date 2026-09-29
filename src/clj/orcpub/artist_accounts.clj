@@ -37,6 +37,7 @@
             [com.stuartsierra.component :as component]
             [orcpub.crypto :as crypto]
             [orcpub.artist-email :as artist-email]
+            [orcpub.artist-credit :as artist-credit]
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.util Date UUID]))
 
@@ -277,6 +278,9 @@
   (start [this]
     ;; off the startup path: a slow mail server must not hold up the site
     (when-let [c (:conn conn)]
+      ;; artists' own credit edits, so the emails below use their chosen name
+      (try (artist-credit/refresh! (d/db c))
+           (catch Exception e (println "artist-accounts: credits not refreshed -" (.getMessage e))))
       (when (seq (configured))
         (future
           (try (println "artist-accounts:" (reconcile! c (configured) (or (:notify this) notify)))
