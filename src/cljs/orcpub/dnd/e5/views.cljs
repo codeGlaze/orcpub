@@ -656,6 +656,17 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  (when (#{" " "Enter"} (.-key e))
+                                    (.preventDefault e)
+                                    (handler e))))
+    (nil? handler) (assoc :aria-disabled "true")))
+
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
@@ -1109,12 +1120,10 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           {:class (when dev? "on")
-            :role "switch"
-            :aria-checked (str (boolean dev?))
-            :tabIndex 0
-            :title "Show diagnostic tools for getting your content out"
-            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+                  {:class (when dev? "on")
+                   :title "Show diagnostic tools for getting your content out"
+                   :on-click (make-event-handler ::e5/toggle-dev-mode)})]
           [:span.dev-mode-label
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
@@ -8571,8 +8580,11 @@
                :on-click (if global-off?
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
-              [:span.dev-mode-switch.compact {:class (when-not eff-off? "on") :role "switch"
-                                              :aria-checked (str (not eff-off?)) :title "On in the builder"}]]
+              [:span.dev-mode-switch.compact
+               (merge (switch-attrs (not eff-off?)
+                                    (when-not global-off?
+                                      (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
+                      {:class (when-not eff-off? "on") :title "On in the builder"})]]
              [:div.h-48.flex.align-items-c
               {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
@@ -8634,8 +8646,9 @@
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
                        (let [on? (not (get-in plugin [type-key key :disabled?]))]
-                         [:span.dev-mode-switch.compact {:class (when on? "on") :role "switch"
-                                                         :aria-checked (str on?) :title "On in the builder"}])]
+                         [:span.dev-mode-switch.compact
+                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                                 {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
@@ -8752,8 +8765,9 @@
           [:div.m-r-10.flex.align-items-c.flex-column
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
            (let [on? (not (get plugin :disabled?))]
-             [:span.dev-mode-switch {:class (when on? "on") :role "switch"
-                                     :aria-checked (str on?) :title "On in the builder"}])]
+             [:span.dev-mode-switch
+              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+                     {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
            ;; disabled badge(s), colored by reason — amber (app/compat) shown first
@@ -8788,7 +8802,9 @@
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
-                  [:span.dev-mode-switch.compact {:class (when show? "on") :role "switch" :aria-checked (str (boolean show?))}]
+                  [:span.dev-mode-switch.compact
+                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                          {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
               [:button.form-button
@@ -8999,8 +9015,9 @@
      [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
-       [:span.dev-mode-switch {:class (when-not global-off? "on") :role "switch"
-                               :aria-checked (str (not global-off?))}]
+       [:span.dev-mode-switch
+        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+               {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
@@ -9025,8 +9042,8 @@
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
   [_ _]
-  ;; Only what the user has typed. Everything else is read from `plugin` on every render, so the
-  ;; panel shows what is still set aside after each restore.
+  ;; Only what the user has typed, kept across restores: an entry that restored leaves `plugin`, so
+  ;; its typing stops showing; one still set aside keeps what was typed for the next try.
   (let [typed (r/atom {})]
     (fn [src-name plugin]
       (let [entries (vec (for [[ct items] plugin
@@ -9095,8 +9112,7 @@
             ;; stays quarantined (no silent auto-naming).
             (when (seq entries)
               [:button.form-button.m-r-5
-               {:on-click #(do (dispatch [::e5/repair-quarantined-source src-name edit-map false])
-                               (reset! typed {}))}
+               {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map false])}
                "Restore"])
             ;; Auto: salvage a leading number to a word ("9 Lives" -> "Nine Lives")
             ;; else a placeholder. Amber when it will replace rather than salvage.
@@ -9106,8 +9122,7 @@
                ;; red-orange one in the panel's own attention hue (#d94b20, the
                ;; border color above) — distinct from the default action buttons,
                ;; but part of this panel's palette rather than a foreign color.
-               (cond-> {:on-click #(do (dispatch [::e5/repair-quarantined-source src-name edit-map true])
-                                       (reset! typed {}))}
+               (cond-> {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map true])}
                  any-replace? (assoc :style {:background-image "linear-gradient(to bottom, #e0602c, #d94b20)"}))
                "Auto-name & Restore"])
             [:button.form-button.m-r-5

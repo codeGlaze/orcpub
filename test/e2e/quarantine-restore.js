@@ -44,8 +44,26 @@ const message = async page =>
 
     // Fix one by hand, leave the other: the panel must then list only what is still set aside.
     const inputs = page.locator('#app input.input');
-    const junk = (await inputs.evaluateAll(els => els.map(e => e.value))).indexOf('@@@');
+    const values = () => inputs.evaluateAll(els => els.map(e => e.value));
+    const junk = (await values()).indexOf('@@@');
     await inputs.nth(junk).fill('Stone Elf');
+
+    // First with the library write failing: nothing is restored, and what was typed stays.
+    await page.evaluate(() => {
+      const set = Storage.prototype.setItem;
+      window.__setItem = set;
+      Storage.prototype.setItem = function (k, v) {
+        if (k === 'plugins') throw new DOMException('full', 'QuotaExceededError');
+        return set.call(this, k, v);
+      };
+    });
+    await page.getByRole('button', { name: 'Restore', exact: true }).first().click();
+    await page.waitForTimeout(1200);
+    check('a restore whose write fails keeps what was typed',
+          /2 entries couldn't load/.test(await panelText(page)) && (await values())[junk] === 'Stone Elf',
+          JSON.stringify(await values()));
+    await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+    await page.locator('.message .close, .message button').first().click().catch(() => {});
     await page.getByRole('button', { name: 'Restore', exact: true }).first().click();
     await page.waitForTimeout(1200);
     text = await panelText(page);
@@ -56,6 +74,7 @@ const message = async page =>
           msg1.includes('Restored 1 to “Tide Pak”') && msg1.includes('“@@@” is now “Stone Elf”') &&
           msg1.includes('“9 Lives” needs a name that starts with a letter'), msg1);
     await page.screenshot({ path: path.join(SHOTS, 'quarantine-2-partial.png'), fullPage: true });
+
 
     await page.getByRole('button', { name: 'Auto-name & Restore' }).first().click();
     await page.waitForTimeout(1200);

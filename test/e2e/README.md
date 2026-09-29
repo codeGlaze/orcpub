@@ -64,8 +64,14 @@ it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
 - **`two-tabs.js`** — two tabs saving to the library: a stale tab's save is merged onto the other's,
   and the other tab picks it up without a reload.
 - **`quarantine-restore.js`** — restoring entries the loader set aside: the panel lists only what is
-  still set aside after each click, an empty source is filled from the pack, the message says what
-  came back and what each is now called, and working keys are kept.
+  still set aside after each click, a restore whose write fails keeps what was typed, an empty
+  source is filled from the pack, the message says what came back and what each is now called, and
+  working keys are kept.
+- **`switches-keyboard.js`** — every on/off switch on My Content takes focus and toggles with Space
+  or Enter, and the library records it.
+- **`move-homebrew-keeps-dependents.js`** — moving a class into a source that already has its key:
+  the renamed class keeps its subclass, the other source's subclass stays put, and it survives a
+  reload.
 - **`change-item-key.js`** — the key control: what it accepts, and that a change records
   `:former-keys` so characters rebind.
 - **`source-key-tag.js`** — a source's own abbreviation, and that keys already minted do not move

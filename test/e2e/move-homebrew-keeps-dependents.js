@@ -1,6 +1,6 @@
 // Does moving a class into a source that already has its key take the class's subclasses with it?
 //
-//   ./scripts/e2e/run.sh move-homebrew-keeps-dependents.js
+// Prereqs:  lein fig:build && lein garden once && lein e2e-server
 //
 // Two sources each hold a class keyed :e2e-artificer, each with a subclass of its own. Moving Alpha's
 // class into Beta through My Content's Move / copy bar has to rename it, since Beta already holds that
@@ -9,7 +9,7 @@
 // :e2e-artificer, where it attached to Beta's class. The rules themselves are in orcbrew_validation_test.
 // Needs no account: My Content is the browser's local library.
 const { chromium } = require('playwright');
-const { BASE, EXECUTABLE, newContext, checker } = require('./lib');
+const { BASE, findChrome, checker, dismissCookieBar, dismissWhatsNew } = require('./lib');
 
 const ALPHA = 'E2E Alpha';
 const BETA = 'E2E Beta';
@@ -40,17 +40,25 @@ const library = page => page.evaluate(() => {
 });
 
 (async () => {
-  const { check, failures } = checker();
-  const browser = await chromium.launch({ executablePath: EXECUTABLE });
-  const ctx = await newContext(browser, LIBRARY);
-  const page = await ctx.newPage();
+  const { check, report } = checker();
+  const browser = await chromium.launch({ executablePath: findChrome() });
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 1000 } })).newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
 
+  // Seed the library once, then load it; a reload later must read back what the move wrote.
+  await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'load' });
+  await dismissWhatsNew(page);
+  await dismissCookieBar(page);
+  await page.evaluate(lib => {
+    ['plugins', 'plugins:rev', 'plugins:pre-fix', 'plugins:pre-fix-at'].forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('plugins', lib);
+  }, LIBRARY);
   await page.goto(`${BASE}/dnd/5e/my-content`, { waitUntil: 'networkidle', timeout: 120000 });
   await page.waitForTimeout(2000);
+  await dismissWhatsNew(page);
   const before = await library(page);
-  check(before.filter(r => r.type === 'classes').length === 2, 'both sources load their class', JSON.stringify(before));
+  check('both sources load their class', before.filter(r => r.type === 'classes').length === 2, JSON.stringify(before));
 
   await page.locator('button.b-move').click();
   // Sources and the content types inside them render collapsed, each with its own "expand" link.
@@ -73,25 +81,21 @@ const library = page => page.evaluate(() => {
   const alchemist = after.find(r => r.key === 'e2e-alchemist');
   const armorer = after.find(r => r.key === 'e2e-armorer');
 
-  check(!classes.some(r => r.source === ALPHA), 'the class left Alpha', JSON.stringify(classes));
-  check(!!moved, 'it arrived in Beta under a new key', JSON.stringify(classes));
-  check(!!betaOwn && betaOwn.name === 'E2E Artificer', "Beta's own class is untouched", JSON.stringify(betaOwn));
-  check(!!moved && alchemist && alchemist.class === moved.key,
-        "Alpha's subclass follows the moved class", JSON.stringify({ alchemist, moved: moved && moved.key }));
-  check(!!armorer && armorer.class === 'e2e-artificer', "Beta's subclass stays on Beta's class", JSON.stringify(armorer));
-  check(!!moved && (moved.formerKeys || []).includes('e2e-artificer'),
-        'the moved class remembers its old key', JSON.stringify(moved));
+  check('the class left Alpha', !classes.some(r => r.source === ALPHA), JSON.stringify(classes));
+  check('it arrived in Beta under a new key', !!moved, JSON.stringify(classes));
+  check("Beta's own class is untouched", !!betaOwn && betaOwn.name === 'E2E Artificer', JSON.stringify(betaOwn));
+  check("Alpha's subclass follows the moved class", !!moved && alchemist && alchemist.class === moved.key, JSON.stringify({ alchemist, moved: moved && moved.key }));
+  check("Beta's subclass stays on Beta's class", !!armorer && armorer.class === 'e2e-artificer', JSON.stringify(armorer));
+  check('the moved class remembers its old key', !!moved && (moved.formerKeys || []).includes('e2e-artificer'), JSON.stringify(moved));
 
   // The move persists like any edit: a reload reads it back from local storage.
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
   const reloaded = await library(page);
   const alchemistAgain = reloaded.find(r => r.key === 'e2e-alchemist');
-  check(!!moved && alchemistAgain && alchemistAgain.class === moved.key, 'and it survives a reload',
-        JSON.stringify(alchemistAgain));
-  check(errors.length === 0, 'no uncaught page errors', errors.join(' | '));
+  check('and it survives a reload', !!moved && alchemistAgain && alchemistAgain.class === moved.key, JSON.stringify(alchemistAgain));
+  check('no uncaught page errors', errors.length === 0, errors.join(' | '));
 
   await browser.close();
-  console.log(failures() ? `\nFAILURES: ${failures()}` : '\nall checks passed');
-  process.exit(failures() ? 1 : 0);
+  process.exit(report() ? 1 : 0);
 })();

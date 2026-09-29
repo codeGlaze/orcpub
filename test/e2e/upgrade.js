@@ -5,6 +5,7 @@
 //                                  # leave a builder draft open; record what the old app shows
 //   node test/e2e/upgrade.js new   # same browser profile, NEW bundle: compare
 //
+// Both bundles are dev builds (`lein fig:build`); the footer check reads the build's out/orcpub/ver.js.
 // Both phases need the seeded server (logged-in user, character endpoints) and one browser profile
 // (UPGRADE_PROFILE) kept between them. The bundle under resources/public/js/compiled is swapped
 // between phases; the server keeps running, so saved characters carry across.
@@ -116,9 +117,12 @@ const characterEdn = (name, tree) => '{:orcpub.entity/options ' + edn(tree).repl
   ` :orcpub.entity/values {:orcpub.dnd.e5.character/character-name "${name}"}}`;
 
 // The footer line the served bundle must show: its version, compile-time build date and
-// description, read from the bundle on disk (resources/public/js/compiled/out/orcpub/ver.js).
+// description, read from the bundle on disk (resources/public/js/compiled/out/orcpub/ver.js), or
+// null when the served bundle has no such file (a production build).
 function expectedFooter() {
-  const src = fs.readFileSync(path.resolve(__dirname, '../../resources/public/js/compiled/out/orcpub/ver.js'), 'utf8');
+  const file = path.resolve(__dirname, '../../resources/public/js/compiled/out/orcpub/ver.js');
+  if (!fs.existsSync(file)) return null;
+  const src = fs.readFileSync(file, 'utf8');
   const fn = name => (src.match(new RegExp(`orcpub\\.ver\\.${name} = \\(function[^{]*\\{\\s*return "([^"]*)"`)) || [])[1];
   const [version, date, description] = ['version', 'date', 'description'].map(fn);
   return `Version ${version} (${date}) ${description} edition`;
@@ -128,8 +132,9 @@ function expectedFooter() {
 async function checkFooter(page, check) {
   const lines = (await page.locator('#app').innerText()).split('\n').map(l => l.trim()).filter(l => /^Version \d/.test(l));
   const want = expectedFooter();
-  check('the footer names the bundle being served', lines.length === 1 && lines[0] === want,
-        `shown: ${lines.join(' | ') || 'none'}  expected: ${want}`);
+  check('the footer names the bundle being served', want !== null && lines.length === 1 && lines[0] === want,
+        want === null ? 'the served bundle has no out/orcpub/ver.js: serve dev builds (lein fig:build)'
+                      : `shown: ${lines.join(' | ') || 'none'}  expected: ${want}`);
   return lines[0];
 }
 
