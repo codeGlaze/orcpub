@@ -1,0 +1,576 @@
+# Homebrew keys — the design
+
+**Status, 2026-09-28: steps 1–8 and the open items built; reviewed against the invariants, and the
+review's findings fixed on `port/save-gate` (`7c199b20`, `5209eb97`, plus the last small ones — see
+"Review of `port/save-gate`" at the end). Next: a draft PR to `integration` for an outside review.**
+(Approved to build 2026-09-27.) It was the second checkpoint of `plan-next.md` §0a. It answers the map (`homebrew-key-map.md`): its ten invariants (§6) and its ranked gaps
+(§7). Link integrity is in scope (owner, 2026-09-27).
+
+**Priorities, in order (owner):**
+1. **Backward compatibility** (D9: non-negotiable, zero-migration).
+2. **Ruggedness.** No code that gets more fragile with every patch.
+
+**The approach in one line:** replace every scattered, partial answer with three single mechanisms:
+- one list of every kind of link;
+- one way to change a key;
+- one gate every library write passes through.
+
+Then write tests that fail when someone goes around them.
+
+---
+
+## 1. What does not change (compatibility promises)
+
+Each promise is tested (§7), not just assumed.
+
+| # | promise |
+|---|---|
+| C1 | **No existing key is changed**, and no required field is added. Keys change only through the four actions that change them today (§3). The only stored corrections are the two quiet fixes in §4a, each saved once after a backup copy of the library is kept. |
+| C2 | Every `.orcbrew` file already in the wild imports. Old untagged keys, the legacy `:former-key`, and races naming languages by display name all still work. |
+| C3 | Files exported after the fix still import into older versions of the app. **No new field is required, and no existing field changes shape.** |
+| C4 | Characters on the server are never rewritten by the library code. They heal at load through `:former-keys`, as today. |
+| C5 | A key that works today keeps working. Nothing is re-keyed just for being untagged or old. |
+| C6 | Nothing a user did before the fix is undone. Where old data is already damaged (links stranded by past renames), the fix **reports it and offers a repair**. It never repairs silently. |
+| C7 | **Overriding built-in content keeps working.** A homebrew item keyed `:cleric` still replaces the built-in Cleric (D10b: deleting the tag is how an override is asked for). The builder key control and the source-abbreviation control in My Content both stay. |
+
+## 2. One list of every kind of link
+
+**New: `library_links.cljc`**, a dependency-leaf namespace (D7). It holds one data entry per kind of
+link from one library item to another:
+
+```clojure
+{:id :subclass->class  :from ::e5/subclasses :to ::e5/classes :at [:value :class]}
+{:id :spell->class     :from ::e5/spells     :to ::e5/classes :at [:map-keys :spell-lists]}
+{:id :race->spell      :from ::e5/races      :to ::e5/spells  :at [:each :spells [:value :value :key]]}
+{:id :race->language   :from ::e5/races      :to ::e5/languages :at [:each-name :languages]}
+;; ...one entry for each of the fourteen kinds in homebrew-key-map.md §4
+```
+
+`:at` uses a small, closed vocabulary of five **locators**:
+- `:value`: a key at a path;
+- `:map-keys`: the keys of a map at a path;
+- `:each`: every element of a vector, with an optional `:when` filter and a sub-locator;
+- `:nested-vals`: the values of a map of maps, as in `{level {slot spell}}`;
+- `:each-name`: names, not keys.
+
+Each locator implements exactly two functions, **read the links** and **replace a link**. That is the
+whole engine.
+
+**What reads this list:**
+
+| reader | today | after |
+|---|---|---|
+| Key change (§3) | `key-reference-map` (two links) | every entry |
+| Share-link closure | `share_bundle` `outgoing-refs` (its own list of six) | every entry |
+| Move ordering (targets before what points at them) | #34's `ec4a3c50`, classes and races only | every entry |
+| Broken-link report (§5) | nothing | every entry |
+| Link probe tests | #34's `reference_web_test` (its own list of thirteen) | generated from this list |
+
+That is three hand-kept lists replaced by one (D29). Adding a kind of link is one entry: grants add
+theirs when they reach `integration`, and rename, share, move and the report all cover them at once.
+That is the registration rule this branch runs on.
+
+## 3. One way to change a key
+
+**New: `library/rekey`**, a pure function that is **the only code that changes an existing item's
+key**:
+
+```
+(rekey library content-type old-key new-key repoint-within) → library
+```
+
+It does three things together:
+- moves the item to its new address and records `old-key` in `:former-keys` (existing mechanism,
+  cap 4);
+- **repoints every link to `old-key`**, found through §2, among the items in `repoint-within`;
+- never touches characters. They follow through `:former-keys` at load (C4).
+
+**`repoint-within` is the decision that makes clash renames correct.** When a key changes because
+another item holds it, the key names two items, and each link means the one it came with:
+
+| why the key changes | the other holder of the old key | links repointed | links left pointing at the other holder |
+|---|---|---|---|
+| The user edits the key in the builder | none (the gate refuses a taken key) | **the whole library** | — |
+| Import clash, the **incoming** item is renamed | the library's item | **the incoming file's sources** | the existing library |
+| Import clash, the **existing** item is renamed | the incoming item | **the existing library** | the incoming file's sources |
+| A Move lands on a taken key | the target source's item | **the moved item's origin source** | everything else |
+| Quarantine repair of an invalid key | none | **the quarantined source** | — |
+
+**Built-in content counts as a holder of its key.** An override is a homebrew item holding a
+built-in key:
+- **Making an override** (`:cleric-tc` → `:cleric`): no library item holds `:cleric`, so links
+  repoint across the whole library. Links that meant the built-in Cleric now mean the override, which
+  is what an override is. The report says so in one line: "Replaces the built-in Cleric."
+- **Undoing an override** (`:cleric` → `:cleric-tc`): the built-in still holds `:cleric`, so only the
+  item's own source is repointed. Everything else goes back to the built-in.
+
+This is the fix for the map's worst finding: a stranded link binding to the wrong item. Today an
+import-clash rename leaves the incoming file's own spells, feats and selections pointing at the
+library's item. With this, they follow the item they were written for.
+
+Every path that changes a key today is rewired onto `rekey` (§6). `rename-key-in-plugin` and
+`key-reference-map` are retired under D34: struck through with a date, and removed about three
+months later.
+
+## 4. One gate for every library write
+
+**Today:** `::e5/set-plugins` sends writes through one interceptor, but four events call
+`plugins->local-store` directly, and some write `(assoc db :plugins …)` themselves. Only the four
+builder saves check anything.
+
+**New: every write goes through `::library/commit`**, as an **operation** rather than a finished
+library:
+
+```
+[::library/commit {:op (fn [library] → library) :says "…"}]
+```
+
+### 4a. The two quiet fixes
+
+These are the only stored corrections this work makes, and **neither changes a key or touches a
+character**. Before the first one is written, the untouched library is copied into its own slot
+(`"plugins:pre-fix"`), and My Content offers "Restore the previous library".
+1. **An item's own `:key`/`:option-pack` fields are made to match where it is stored.** grant-rows
+   already does this in memory on every read; this makes it stick. What a character resolves is
+   unchanged, because resolution already goes by where the item is stored.
+2. **The repair the loader already makes on every visit is saved once**, so it stops re-running.
+
+### 4b. The gate, step by step
+
+The gate does five things, always in this order:
+
+1. **Reads the library fresh** if another tab changed it since this tab loaded it (see below), then
+   **runs the op on it**. Ops are pure functions of the library, so replaying one is safe. That is
+   what lets two tabs stop losing each other's work.
+2. **Normalises addresses.** Every item's `:key` and `:option-pack` are set from where it is stored.
+   What grant-rows does at read time becomes true in storage. It closes the Auto-name desync and
+   the stale-field problem on `integration` for any writer, including a future one. It is
+   idempotent and adds no field (C1, C3).
+3. **Checks the invariants:**
+   - every key is valid;
+   - every address is consistent;
+   - **no link that resolved before the write is broken after it**, unless the op deleted its
+     target on purpose.
+
+   A violation refuses the write and says why. It never half-writes.
+4. **Writes storage once,** and bumps a revision counter in a new `"plugins:rev"` slot. The slot is
+   optional: absent means 0, which covers C1.
+5. **Reports** the op's message, and any links the write left pointing at nothing (a delete, a
+   same-source re-import).
+
+**Two tabs.** A `storage` listener reloads the library when another tab writes it. The revision
+check in step 1 catches the race the listener can miss. A save in this tab then runs against the
+library as it really is, and grant-rows' origin check (vanished, moved) does the rest. An older
+version of the app open in another tab doesn't bump the revision, but the listener still sees its
+write.
+
+**The builder save gate from grant-rows** (`save-destination`, `:builder-origin`, six review rounds)
+becomes the op for builder saves. It runs inside step 1, so it sees the fresh library.
+
+## 5. Reads that don't lie
+
+- **Broken links are shown, never silent.** My Content marks an item whose links point at nothing,
+  and the builder shows which link is broken and where. Grants currently grant nothing when their
+  key is missing; they get the same mark. This does not replace the character missing-content
+  banner, which keeps its own scope.
+- **Links by display name resolve by name.** A race names its languages by display name, and the
+  link is resolved by deriving a key from that name (`name-to-kw`). A source-tagged language
+  (`:elvish-tc`) can't be found that way, so tagged keys may already have broken this link. That is **unverified**: the share closure breaks
+  for certain, and the character-side resolution is checked in build step 7.
+  The fix is read-side only: match the language's `:name` first and keep the derived key as a
+  fallback. No stored shape changes (C2, C3).
+- **A character is never rebound away from built-in content.** *Live bug, found 2026-09-27, on
+  `integration` and grant-rows.* `former-key-index` treats only **library** keys as live, so undoing an
+  override (`:cleric` → `:cleric-tc`) leaves `:cleric` looking unclaimed. The next time any character
+  that took the **built-in** Cleric loads, it is rebound to the homebrew class. The same happens with
+  any old untagged key that shadows a built-in one (`:fireball`). The fix: built-in keys count as live
+  in the index. It is the first code change after step 1 (§8) because it damages characters.
+- **An ambiguous character link is asked once, not guessed.** A character may point at a key that
+  one item holds now and another item held before a rename. Today `former-key-index` silently picks
+  the current holder. That is right after an incoming item is renamed, and wrong after an existing
+  item is renamed. The gate records which side was renamed, and in the second case the character
+  gets the existing relink choice (`::char5e/relink-content`) once, instead of a silent guess
+  (§9, Q3).
+
+## 6. Every existing path, rewired
+
+| path | today | after |
+|---|---|---|
+| Builder saves (4) | `save-destination` on grant-rows; `save-collision` on `integration` | grant-rows' gate, as an op through the commit gate |
+| Builder key control | `rename-key-in-plugin`, two links | `rekey`, whole library |
+| Import clash rename | `apply-key-renames` → `rename-key-in-plugin`, own source, two links | `rekey`, scoped as in §3 |
+| Move onto a taken key | inline rename; no history, no repointing (`integration`, grant-rows) | `rekey`, origin source; targets moved before what points at them (§2) |
+| Quarantine repair | `rekey-content-group`, no history | `rekey`, quarantined source |
+| Auto-name & Restore | `sanitize-item-names` re-derives every key | stops deriving keys; renames only. The gate normalises anyway |
+| Save-anyway | fixed on `integration` and grant-rows | unchanged |
+| Delete (item, source, everything) | removes, no word on dependants | op through the gate; the report names what now points at nothing |
+| Same-source re-import | replaces silently | op through the gate; the report says what was replaced and what now dangles (§9, Q4) |
+| Export write-back | writes corrections silently | op through the gate with a one-line notice, or export stops writing back (§9, Q5) |
+| Keep shared content | direct write | op through the gate |
+| Load salvage | recomputed every boot, never written | committed once through the gate; #34's `mend-library` is the input (§9, Q6) |
+| Toggles, abbreviation, reset | `set-plugins` | ops through the gate |
+
+## 7. Tests that make going around it fail
+
+- **Link table test**, generated from §2. For every entry it builds an item carrying the link, runs
+  `rekey` on the target and asserts the link followed, then runs it in clash mode and asserts only
+  the scoped side followed. A new entry gets its test for free. #34's probes (`d7640dd8`,
+  `cd82f249`) become the regression cases for the wrong-item binding.
+- **No-undeclared-link test.** It walks every content type's spec and fails on any keyword-valued
+  field that names other content and is neither in §2 nor on a short, explicit "not a link" list.
+  A new link field added without an entry fails the build.
+- **Only-the-gate-writes test.** A source scan that fails if anything but `::library/commit` writes
+  `:plugins` in app-db or the `"plugins"` slot in storage. This encodes the map's writer enumeration
+  as a check, so the next writer can't skip it.
+- **Invariant test over every op.** Each op runs against a fixture library (tagged, untagged,
+  legacy, clashing), and the test asserts the gate's invariants hold afterwards.
+- **Compatibility fixtures.** A frozen set of real old libraries and `.orcbrew` files that must load
+  and import byte-for-byte equivalent (C1, C2). A file exported after the fix is checked against the
+  **old** import specs (C3).
+- **Two-tab e2e.** Two pages against `lein e2e-server`: save in one tab, save in the other, and both
+  edits survive.
+
+Every test is checked falsifiable by removing its fix and watching it fail.
+
+## 8. Build order on `port/save-gate`
+
+Each step lands green, with its tests, before the next begins:
+
+1. Bring `port/save-gate` level: grant-rows' round six, plus #34's `054e42c1`, `ec4a3c50`,
+   `d7640dd8`, `cd82f249` as inputs. The probes land first, marked as known gaps.
+2. **Stop characters being rebound off built-in content** (§5): built-in keys count as live in
+   `former-key-index`. Moved ahead of everything else because it damages characters.
+   **Done `1d804217`.** The template watcher (`autosave_fx`, the one already mirroring
+   `::char5e/template` into app-db so events never subscribe) also stores `offered-keys`: every
+   key the builder can offer. `set-character` never redirects a key on that list and redirects
+   nothing until it exists; the first list heals a character that loaded before it.
+   **2b, done in the same commit:** the missing-content warning reads the same list instead of
+   hand-kept built-in sets. Those sets were wrong: seven subclass keys that do not exist
+   (`:lore`, `:life`, …; the real keys come from names, `:college-of-lore`) and five subraces the
+   app does not offer (Drow, Stout, Wood Elf, Mountain Dwarf, Forest Gnome, all commented out of
+   `spell_subs.cljs`). A character using one of those five now gets the warning, which is true:
+   the builder cannot build it.
+3. **Done `1042c746`.** The link list (§2) and its table test. `share_bundle` reads it; no behaviour change except the
+   share closure growing to cover every link.
+4. **Done `b5f2a1b6`.** `rekey` (§3), including the built-in holder rule, and every key-changing path moved onto it (§6, rows 2–6). The probe gaps flip to
+   passing.
+5. **Done `31329bcd`, `12eb5a23`.** The commit gate (§4), steps 2–5, with every writer moved onto it and the only-the-gate-writes
+   test.
+6. **Done `bf1ca6a5`.** Two tabs: the replay in step 1, the revision slot, and the listener, with the two-tab e2e.
+7. **Done `8e76bbf3`.** Reads (§5): broken-link marks, languages resolved by name, ambiguous character links asked.
+8. **Done `c0e38458`.** A one-time report of damage already in a library (C6), with an offered repair.
+9. **Later, decided 2026-09-27: "which of my characters use this".** One server request, made only
+   before a delete or a key change, asking which of the account's characters hold the affected keys,
+   so the prompt can say "3 of your characters use Warden". The server answers from the characters
+   it already stores; nothing about the library is sent or kept there, and no ledger is stored (a
+   stored copy would drift with every save on every device). Not a record of changes: a key change
+   means something only inside the library it happened in, and each browser has its own library, so
+   an account-wide change log would apply one browser's renames to another's copy. That stays with
+   former keys. **An account-side library** (one library per account, synced) would make an
+   account-side usage record and change log sound — that is an accounts decision (#34), and it would
+   overturn "the library never touches the server".
+
+Then review against the map's invariants, land on `integration`, and pull down as `plan-next.md`
+§0a orders.
+
+## 9. Decisions for the owner
+
+| # | question | recommendation |
+|---|---|---|
+| Q1 | Races link languages by display name. Should new saves also store the key? | No. Resolve by name at read time only; adding a field risks C3 for no gain |
+| Q2 | Links **from other sources** during a clash rename stay with the other holder of the key. Tell the user? | Yes, one line in the rename report: "3 items in other sources still point at the other X" |
+| Q3 | After an import renames an **existing** item, should characters be asked which one they meant? | Yes, once per character, through the existing relink |
+| Q4 | Same-source re-import replaces entries. Keep replacing? | Keep it (it is how a pack gets updated), but the import summary says what it replaced |
+| Q5 | Should export keep writing its corrections back into the library? | No. Export corrects the file only; the library is fixed through the gate when the user asks |
+| Q6 | Load-time repair: adopt #34's `mend-library` field repairs, or only commit what salvage already does? | Commit salvage only in this fix. `mend-library` changes item shapes and deserves its own review |
+| Q7 | Deleting an item that others point at: confirm first, naming them? | Yes. The report alone comes after the damage |
+
+## 10. What this replaces (D17 audit)
+
+| retired | replaced by | how |
+|---|---|---|
+| `key-reference-map` | §2 | D34 strike |
+| `rename-key-in-plugin`, `apply-key-renames`' inner rename | `rekey` | D34 strike |
+| `share_bundle` `spell-key-refs`, `language-name-refs`, `prop-language-refs`, `selection-refs` | §2 locators | D34 strike |
+| inline rename in `relocate-content` | `rekey` | replaced |
+| key derivation in `sanitize-item-names` | the gate's normalisation | removed; branch-local behaviour |
+| direct `plugins->local-store` calls, direct `(assoc db :plugins …)` | `::library/commit` | replaced |
+| read-time stamping on grant-rows | stamping in storage | kept as a cheap second line until one release proves the gate |
+
+Nothing new duplicates an existing path. The three new pieces each absorb several old ones.
+
+## Corrections
+
+- **2026-09-27, the same day.** The first draft said "no migration" in C1, and a follow-up spoke of a
+  "one-time migration". Both overstated it. No key is migrated. The only stored corrections are the
+  two quiet fixes in §4a, saved once after a backup. C7 (overrides keep working) and the built-in
+  holder rule were added after the owner asked about overriding `cleric`. That question is what
+  turned up the `former-key-index` bug in §5.
+
+- **2026-09-28, after the review.** Four "As built" statements below no longer hold; the review
+  section at the end has what replaced them. (1) Other packs' links no longer follow a key change on
+  their own: `settle-repoints` and the pending list are gone, and links outside the item's own pack
+  are offered instead. (2) `apply-key-renames` repoints only inside the renamed item's own source.
+  (3) The repair panel no longer guesses `:other-copy`. (4) A language rename is followed only when
+  nothing else still answers to the old name.
+
+## As built (steps 3–4)
+
+- **`library_links.cljc` has fifteen entries**, not fourteen: the three spell-grant maps
+  (`:paladin-spells`, `:cleric-spells`, `:warlock-spells`) are one entry each. Each also carries
+  `:bundle` — `:follow`, `:reverse` (a spell's `:spell-lists`) or `:none` (a feat's race
+  prerequisite, which is not something a character depends on). The locator vocabulary gained
+  `:*true-keys`, so a spell whose entry for a list is `false` stays off that list, as it did.
+- **`rekey` is not a new function.** `rename-key-in-plugin` was already the one rename path for the
+  key control, import clashes and a renaming Move; it now repoints through the link list (D29, D17).
+  `apply-key-renames` repoints across every source of the data it is given, which is the design's
+  scope for both import sides. `key-reference-map` and the per-field updaters are struck (D34).
+- **The built-in holder rule is applied after the change, not before.** Nothing can say "built-in
+  content holds this key" while a homebrew override replaces it in the template. So the builder key
+  control repoints its own source immediately and records a pending repoint; the template watcher
+  settles it once the new key is offered — other sources follow only if the old key stopped
+  answering (`content-recon/settle-repoints`). The pending entry lives in app-db: a reload in the few
+  milliseconds before it settles leaves those links for step 8's damage report.
+
+## As built (step 5) and the owner's decisions
+
+- **Decisions taken 2026-09-27:** Q4, Q5 and Q7 as recommended. Q1–Q3 and Q6 are still open.
+- **The gate is `library/commit` (pure, cljc) behind `events/commit-library`**, the one place the
+  library is written. `::e5/set-plugins` and `::e5/store-plugins` call it, and so do the four writers
+  that used to write storage themselves (quarantine repair, the export form, Keep shared content,
+  store-plugins). The `plugins-interceptors` pair is struck (D34). A write says what it intends:
+  `:deleting?` for delete, delete-a-source, delete-everything and the import paths;
+  `:retargeting` for the key control, whose other-source links are settled later.
+  `test/clj/orcpub/library_gate_test.clj` fails on any library write not marked as the gate, the
+  initial load, or a map that is not app-db. Two enumeration methods agreed: 18 dispatches of
+  `set-plugins` and 4 direct writes.
+- **Q4, as it turned out.** The import the UI uses merges item by item: a re-import overwrites the
+  entries a source already had and keeps the rest; nothing is removed. (`::e5/import-plugin-strict`,
+  which replaces a whole source, is registered but nothing dispatches it.) So the decision is carried
+  out by naming the overwritten entries in the import message (`library/overwritten`).
+- **Q5.** Export no longer writes its silent corrections (text clean-up, option dedup) back into the
+  library. The fixes an author types into the export form still save, through the gate — that is the
+  user asking.
+- **Q7.** Deleting an item or a source that other items link to shows who uses it and offers "Delete
+  it anyway". Who uses it is what `library/commit` reports the delete would strand.
+- **§4a backup.** Before the gate first corrects stored items, the library as it was is kept once in
+  `plugins:pre-fix`. **There is no restore control for it yet**; it comes with step 8's damage report.
+- **Not done in step 5:** writing load-time salvage back (§6; Q6 still open). The replay-on-conflict
+  half of step 1 of §4 belongs to step 6 (two tabs).
+- **Found, not changed:** the source **delete** button in My Content deletes a whole source with no
+  confirmation when nothing else uses it. Q7 covered only deletes others depend on.
+
+## As built (step 6)
+
+- **No writer was rewritten as an operation.** A three-way merge gives the same result: when the
+  revision in `plugins:rev` is ahead of the one this tab read, `commit-library` takes what this tab
+  loaded (`base`), what it wants to write (`mine`) and what storage holds (`theirs`), and applies
+  every entry `mine` changed since `base` onto `theirs` (`library/three-way`). Entries are sources,
+  a source's own fields, and items.
+- **A real conflict writes nothing.** When both tabs changed the same entry differently, this tab
+  reloads the library and says which entry changed in another tab; the author makes the change
+  again, now against the current library.
+- **A tab only checks once it knows its revision.** `initialize-db` records it; an app-db without
+  one (an event test that resets app-db) skips the check.
+- **Limit:** an older version of the app open in another tab writes the library without bumping the
+  revision. The storage listener still reloads this tab when it does, but a write this tab makes in
+  the moment before that event arrives is not merged.
+
+## As built (step 7) and the owner's decisions
+
+- **Decisions taken 2026-09-27:** Q1, Q2 and Q3 as recommended. Q6 is still open.
+- **Q1, languages by name.** Confirmed first: `race-option` turned each language name into
+  `(name-to-kw name)`, so a homebrew language minted with its source's tag was never matched. Race
+  options (`options/language-key`) and share links (`share-bundle/resolve-target`) now look the
+  language up by name first and fall back to the derived key, so built-in languages resolve as
+  before. The stored shape is unchanged (C3). **Still open:** renaming a language's display name
+  strands the races that name it; #34's probe row for it stays a gap.
+- **Broken-link marks.** My Content marks an item with a link neither the builder's list (built-in
+  included) nor any library item answers (`library/dangling`, sub `::e5/dangling-links`). **Not
+  done:** the same mark inside the builder.
+- **Q2.** A Move that has to rename says how many items in other packs still use the one already
+  in the target (`library/linking`).
+- **Q3.** An import that renames one of the library's existing items records the rename in
+  `plugins:relinks` (browser-local, like the library). A saved character using the old key is asked
+  once — recorded as soon as the question shows — whether to switch to the renamed item (the
+  existing relink) or stay on the imported one; only while both items exist.
+- **Tests.** The pure pieces and the events are unit-tested and each was falsified. The six e2e
+  scripts pass (71/71) but none drives the new mark, the Move line or the question in a browser.
+
+## As built (step 8) and what is left
+
+- **Q6 decided 2026-09-28 as recommended.** On load, the library as the loader kept it is stored
+  once through the gate (`::e5/settle-loaded-library`), after the untouched library is copied to
+  `plugins:pre-fix`, and only when every entry it dropped is in quarantine. My Content shows the
+  copy's date with Restore and Remove. #34's `mend-library` field repairs were not adopted.
+- **Repairs.** `library/suggested-repairs` finds two kinds of damage and offers, never applies:
+  a target renamed away that exactly one item lists among its former keys (`:missing`), and a link
+  bound to another pack's copy while its own pack holds the renamed one (`:other-copy`). My Content
+  lists them with Fix, Fix all and Leave these (dismissals kept in `plugins:repairs-dismissed`).
+- **Language renames.** `library/commit` carries a renamed item's new name into every `:by :name`
+  link to it, so renaming a language updates the races that name it. Closes step 7's open item.
+- **The builder** marks a saved item's link to nothing beside its key.
+- **Found by the new browser test and fixed:** step 7's My Content mark crashed the page when a
+  row had a link to nothing (the row's destructured `name` shadowed the function); and the subrace
+  builder, on `integration` too, crashed on a subrace whose race is missing or has no size.
+- **A new write:** a first-ever visit now stores the default (empty) library once, where before
+  nothing was written until the first save. Harmless; noted because it is a change.
+
+**Left open after step 8:**
+1. No browser test drives the Move note (Q2) or the character question (Q3); they need the conflict
+   screen and a server-side character. Both are unit- and event-tested.
+2. The missing-content warning still checks six kinds of content.
+3. Step 9 (later): a server request for "which of my characters use this".
+4. The character draft slot (`multi-tab-character-contamination.md` on `agents/develop`): the owner is
+   open to suggestions; proposed 2026-09-28 — each tab keeps the id of the character it edits in
+   `sessionStorage`, drafts are stored per id, existing single-slot drafts move under their own
+   `:db/id` (a draft without one is the new-character draft), new characters get a temporary id.
+
+**Next, per `plan-next.md` §0a:** review `port/save-gate` against the map's invariants, then land it
+on `integration` (by PR, which the owner opens or asks for).
+
+## Invariant I11 — a link to nothing never breaks a page (added 2026-09-28)
+
+The gate and the repairs make a library that holds links to nothing a normal state (a delete the
+author confirmed, an import, damage reported rather than silently rebound), so every reader of a
+link has to survive a missing target. Found when the subrace builder crashed on a subrace whose race
+is missing (fixed in `c0e38458`; on `integration` too).
+
+- **Guard:** `test/e2e/links-to-nothing.js` (`26f01b9f`) seeds one item per kind of link, read from
+  `library-links/links` at runtime, each pointing at nothing, and opens My Content, every such
+  item's builder and the character builder. 34/34; fails on the subrace crash when its fix is put
+  back. A new kind of link without a row fails it.
+- **Audit** (read-only, both enumeration methods): no other code that follows a link throws on a
+  missing target. Most readers were already defensive (fallback names, `some?`/`contains?`,
+  `select-keys` on nil).
+- **Not crashes, but broken for the user:**
+  1. A feat whose race prerequisite names a missing race shows a blank label (" Only") and admits no
+     character — the feat is locked for everyone.
+  2. A subrace whose race is missing disappears from the character builder without a word. My
+     Content and the builder now mark it (step 7/8), but the character builder does not.
+- **Not covered:** building a character that *picks* an item with a broken link (the guard opens
+  the character builder, which assembles every option, but selects nothing); the character sheet's
+  display beyond the helpers the audit read; the combat tracker's monster display.
+
+## Closing the open items (2026-09-28)
+
+- **Missing-content warning, owner chose (b) "everything a character can pick from homebrew" —
+  backed out, not shipped.** Reporting any key the builder does not offer was tried and a
+  deterministic guard (`warlock_test`'s real character against its template) showed it would raise
+  false alarms on real older characters: a starting-equipment pick whose options differ between
+  the builder and the character's saved shape (`:any-simple-weapon`) is not missing homebrew. It
+  also showed a live false alarm in step 2b, fixed: a legacy trailing-dash key (`:dark-elf-drow-`),
+  which lookup matches through `common/canonical-key`, was reported missing. `library/offers?` now
+  matches the way lookup does (`23450f7f`). Widening needs a way to tell a homebrew choice from a
+  built-in one that is not a hand list; the template's selection `::t/tags` are a candidate.
+  **Owner decision needed.**
+- **Feat locked by a missing race** now says which race it needs (`23450f7f`).
+- **Character half of I11:** eleven characters, each picking an item with a link to nothing, build
+  against the real built template and read race, languages, spells known, traits, actions and
+  levels; each is checked to hold the broken item (`49a53522`).
+- **Q2 browser test:** `test/e2e/move-note.js`, 6/6 in the real app (`3e65f020`).
+- **Missing-content warning, revised by the owner to spells and languages (2026-09-28): done**
+  (`4e88b04c`). Found by the builder's own choice tags (`#{:spells}`, `:language-profs`); guarded on
+  `warlock_test`'s real character, falsified by removing the tag restriction.
+- **Q3 question: fixed and tested (`c50e6536`).** The cause was as suspected: the question was a
+  message, the route change into the builder hid it, and it was counted as asked when shown. It is
+  now a banner in the builder (`::e5/relink-question`) that waits for an answer, and only the answer
+  (`::e5/answer-relink`) records it. `test/e2e/relink-question.js` 9/9 on the seeded server
+  (`CSP_POLICY=none`); all ten e2e scripts 131/131.
+- **Q3 browser test (second round, superseded): the flow ran to the last step and the question never showed.**
+  Sign-in, save (the character gets an id), import, "rename your existing one" and the recorded
+  rename all pass. Likely cause, not yet confirmed: "Edit" dispatches `:set-character` (which shows
+  the question) and then a route change, and every route change dispatches `:hide-message`, so the
+  question is hidden at once — and it is recorded as asked when shown, so it never returns. If so,
+  the question needs a place that survives the move into the builder. `test/e2e/relink-question.js`
+  is uncommitted until it passes.
+- **Q3 browser test: not finished (first round).** `test/e2e/relink-question.js` (uncommitted) signs in as the
+  seeded user on `e2e-boot` with `CSP_POLICY=none` and seeds a character draft, then stops at the
+  builder's Save control, which is not a `<button>`. The retry budget ran out on setup (the seeded
+  server's CSP blocks the dev build; the production bundle renames what the setup and reader use).
+
+## Review of `port/save-gate` (2026-09-28)
+
+Four read-only reviewers checked `a0d9e1d2..c50e6536` against I1–I11 and C1–C7; every finding
+listed as verified was confirmed against the code before it was reported. Seventeen held. Ten were
+introduced by this work, four were already on `integration` and were missed by the map, and one was
+an old gap the link list claimed to cover.
+
+**Why so many (owner asked):** contracts changed without finding every caller (the gate's result;
+the offered-key set); a shortcut — one flat set of offered keys answering questions that depend on
+type; each step tested the behaviour it added, not the invariants across every path; parts were built
+that hardening did not need; and one design claim (items are read by where they are stored) was true
+of `grant-rows`, not of `integration`, the base.
+
+**Decided with the owner:** keep the pre-tidy copy (fixed, not cut); replace the three rules for
+"should other packs' links follow a key change" with one — the item's own pack follows, other packs
+are asked; narrow language-name following.
+
+**What changed (`7c199b20`, structural):**
+- `library/offered-by-type`: what a link can resolve to outside the library, by content type —
+  classes and races from the template's top-level choices, spells, languages and monsters from fixed
+  data (`library/built-in-keys`). `dangling` and `suggested-repairs` use it; character-side checks
+  keep the flat `offered-keys`, because a character's picks are not typed.
+- `library/repoint-offer` + `events/repoint-offer-line`: after a key change (builder key control,
+  import rename either side, library/export conflict renames) links in other packs that do not hold
+  their own copy are offered in the same message — `:sticky` — and move only on the click, through
+  `::e5/apply-repairs`. `settle-repoints` and `::content-recon/pending-repoints` are gone.
+- `follow-renamed-names` follows only when no library or built-in language still has the old name.
+- The pre-tidy copy is not kept for a library with no items (a first visit had kept `{}`, whose
+  Restore emptied the library); a failed copy stops the load-time tidy; Restore passes
+  `:restoring?`, which lets keys the loader sets aside through.
+- `test/e2e/cljs-harness.js` reads the auto-testing page's totals (it waited for a "Ran N tests" line
+  the page does not print, and reported "(none)" on a pass), names failing tests, exits 1 on failure.
+
+**What changed (`5209eb97`, data loss and characters):**
+- Quarantine restore never moves an item onto a key the live source holds (`e5/rekey-plugin`'s
+  `live` argument). This was on `integration`.
+- The builder records the fetched item's content (`events/version-of` in `origin-of`); saving over an
+  item changed since then refuses `:changed` with "Save yours over it".
+- Builder saves and key changes record builder state and show their message only on the write's
+  success (`events/builder-save-fx`, `::e5/builder-saved`); so do the other writes that showed a
+  success message beside the write. Keep shared content keeps the overlay when the write is refused.
+- The export fix screen and export/library conflict resolution apply their edits to the library as
+  stored now, and no longer write export corrections into it (Q5 was incomplete).
+- `library/normalize` keeps a corrected `:key` in `:former-keys`. Without it, an item whose own `:key`
+  differed from its storage key (Auto-name & Restore on `integration` makes these) was offered under
+  a new key and characters lost the pick — the one backward-compatibility break the review found.
+- A copy drops the original's `:former-keys`.
+- The relink question and its switch look only at picks of the renamed item's type
+  (`content-recon/relink-picks`, `picks-of`).
+- Homebrew backgrounds are offered under their stored key (on `integration` they were offered under
+  their name's key); `former-key-index` treats the name's key as a former key, so characters heal.
+
+**The last small ones** (three narrow branches, merged after): the race/background language-choice
+link and `:*true-keys` for race prerequisites and granted languages (`fix/review-links`); share links
+bundling every content type holding a picked key; an unreadable library in one tab no longer empties
+the others', and a two-tab merge reports a conflict instead of resurrecting a deleted source
+(`fix/review-storage`); a pre-upgrade builder draft no longer saves as a duplicate
+(`fix/review-draft`). Merged as `a376470b`, `f3578592`, `4968a3be`. The last changes one
+message: a new item named like an older, untagged item in the same pack is now refused as
+`:occupied` ("Replace it" / "Or rename this one"), where it used to become a second item silently;
+Replace lands on the old item's own address. After all of it: JVM 528 tests, ClojureScript 529,
+e2e 10 scripts (132 checks), all passing, each fix seen failing without it.
+
+**Process note:** git's stash is shared by every worktree of a repository. Two agents in separate
+worktrees each used `git stash` to revert a fix for falsification, and one popped the other's work.
+It was recovered from the dangling commit. Agents in parallel worktrees copy files aside instead.
+
+**Not done:** the server's first-load fetch (`index.clj`) still writes the slot directly; a failed
+write of `plugins:relinks` or `plugins:repairs-dismissed` is ignored. Both low.
+
+**Outside review (Greptile, PR #37, 2026-09-28).** Four findings, all valid, fixed in `4f7ebf3b`:
+two tabs that read the same revision and write within moments of each other (each tab now keeps
+`::e5/last-write` and merges its change back when another write lands at that revision); the key
+control skipped the builder's version check; an import recorded relink questions before its write
+stuck (now `::e5/import-stored`); and the share-link seeding fixed above over-included an unrelated
+item of another type sharing a key (now `library/pick-types`, which the relink walk uses too). The
+two "not done" items above are done in the same commit: the first-load fetch writes only into a
+still-empty library and bumps the revision (checked by rendering the page and running the script
+in Node, not by a repo test), and failed bookkeeping writes are logged.
+
+
+## Typed keys (2026-09-29)
+
+The upgrade test found saved characters losing a homebrew background on their page; fixed on
+`port/save-gate` by healing where characters are read and typing heals by pick path. `typed-keys.md`.

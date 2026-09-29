@@ -19,6 +19,8 @@ the gate exists and what it means when it fires.
 | add a CSS class in the builder block | `builder_class_names_test` — must be `bf-`/`opt-`/`select-menu` prefixed, or allow-listed deliberately | a global `.field {margin-top:30px}` silently gave every declarative field 30px it never asked for |
 | remove or hide a field | `builder-gallery.js` diffs **labels and controls** against `test/e2e/builder-baseline.json` | a control count is blind to its own rendering; three checkboxes once vanished while the count read the same |
 | change a field's save shape | the per-builder pins read back what was **stored**, not what was typed | a form looked perfect and saved `[:school] "abjuration"` under a key vector |
+| write history into a comment or docstring, a docstring over 6 lines, or a comment block over 4 | `comment_discipline_test` (#38); how to fix or review a hit: `AGENTS.md`, "Comments and Docstrings" | the rule was a paragraph for months, and narrative kept arriving on branches that never carried it |
+| remove or reword a `;; FIELD NOTE (id):` comment | `field_notes_test` (#37); `AGENTS.md`, "Comments and Docstrings" | a verified fact about data reads like prose to a tightening pass |
 
 If a gate fires and the change is deliberate: re-record the baseline / add the name, **and say why in
 the commit**. That is the whole point of it being a decision.
@@ -84,6 +86,27 @@ A whole design system sat on `port/redesign-on-refactor` for two months while tw
 builder work invented colours and spacing from scratch. Grep the KB for the *thing* as well as the
 code (`grep -rin <term> docs/`), and `git log -S <identifier>`.
 
+### Before looking up, healing or matching a content key
+
+**Know the pick's type, or apply the strictest rule across every type.** Type a pick by its
+selection path (`library/pick-homes`), never by the selection's name or its parent; a missing type
+list is unknown, not empty. `typed-keys.md`.
+
+### Before creating a branch
+
+**Don't, unless the owner says yes to that branch.** A web agent can push a branch but cannot delete
+one, so every branch it makes is one more the owner has to track and clean up by hand (2026-09-29: a
+UI pass pushed as its own branch, then folded back into PR #37, leaving an empty branch behind). Put
+the work on the branch you were given; if it seems to belong elsewhere, ask first.
+
+### Before adding an icon
+
+**Don't, unless the icon is the control** (close ×, an expand chevron, a spinner) or follows an
+existing app convention (the header nav, an icon on a labelled button). A glyph in front of a title,
+a message or a row is decoration: it adds nothing the words don't say, and the owner reads it as
+agent slop (2026-09-29, the I-beam on "Which source name?"). Since August agents have added about
+fifty; PR #37 added three broken-chain glyphs. Take one out when you touch its line.
+
 ### Before borrowing a value from a mock or another branch
 
 **Check what it was designed against.** A card colour is a relationship to its page, not an absolute:
@@ -106,6 +129,25 @@ builder forms pass the item being edited — so the moment that item carries `:k
 save or when opened for editing), every field in the list renders under the item's key and React
 sees a list of identical keys. Give the list explicit `^{:key …}` metadata instead of relying on
 what the props map happens to hold.
+
+### Before de-emphasising a control
+
+Take the muted treatment from the block you are rendering into, not from a hex you picked. The
+builder CSS already has one — `rgba(255,255,255,0.14)` hairlines, `rgba(255,255,255,0.55)` labels,
+`var(--accent, …)` for anything clickable (`frontend-redesign-parallel-work.md`). An invented grey
+on a dark ground reads as *unstyled*, not as quiet.
+
+And dimming is not the lever. 12px at half opacity is a smudge; a collapsed section labelled
+"Advanced" above the form draws MORE attention, because a thing visibly trying not to be seen is a
+thing you look at. Position it where that kind of information belongs — after the form, under a
+rule — and let it be legible.
+
+### Before writing an explanation onto the form
+
+`with-help` (`views.cljs`) puts a `?` on the end of a row and opens the line beneath it, on click
+rather than hover because the builder is used on phones. A sentence that will be true forever does
+not need to be on screen forever — and a permanent sentence beside a control is the loudest thing
+in the row.
 
 ### Before believing a CSS change worked
 

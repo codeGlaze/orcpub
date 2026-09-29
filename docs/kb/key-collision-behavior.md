@@ -16,6 +16,7 @@ Markers: **VERIFIED** = read from code + test-backed. All cljs paths are in `spe
 - **Import:** duplicate keys are **detected** (within the import + against existing) and routed to a
   conflict-resolution modal (rename / skip / replace) — the "duplicate keys won't just load" behavior.
 - So keys are NOT globally unique-or-bust; uniqueness matters in different ways in different places.
+- **A key is unique only within its type** (2026-09-29): `typed-keys.md`.
 
 ## The map (VERIFIED)
 
@@ -38,6 +39,330 @@ stays. The class/race/spell combines put `(reverse plugin-options)` **before** t
 this: a `{::t/key :fighter}` plugin option placed before a built-in `:fighter` yields a 1-element set
 containing the **plugin** one; distinct keys both survive; a plain `concat` (the pool/list shape) keeps
 **both** same-key entries.
+
+## Open: tagging every minted key with its source
+
+A key carrying its source's abbreviation at MINT time — `:stone-elf-tc` rather than `:stone-elf` —
+instead of only when a collision forces it, with deleting the tag being how an author says they mean
+to override an SRD item. Decided, not built; the default source tags as `dflt`.
+**`source-tagged-keys.md`.**
+
+## Where a save lands — `save-destination` (2026-09-18)
+
+One pure function decides, and the save handler only carries out the verdict. It takes the library,
+the origin the builder recorded, the target source, the key, and the item:
+
+| the item | the target slot | verdict |
+|---|---|---|
+| no key yet | free, key answers nowhere | **create** |
+| no key yet | taken **here** | **refuse** — offers *Replace it* |
+| no key yet | taken **in another source** | **refuse**, no offer — a key is a global address |
+| came from here | — | **in place** |
+| came from another source | free | **move** — write here, remove there |
+| came from another source | taken | **refuse** — offers *Replace it*, which moves onto the slot |
+| origin unknown, key answers nowhere | — | **create** |
+| origin unknown, key answers in 2+ sources | — | **refuse** — reopen it from My Content |
+
+**Option Source Name is an instruction.** Retyping it moves the item. Before this, the save could
+only ever `assoc-in`, because it did not know where the item had been — so retyping the source left
+a COPY, one key answering in two libraries, and that state then refused every later save of either
+copy as a collision with its twin. Three bugs, one missing fact.
+
+**A move does not touch the key**, so characters are unaffected and there is no `:former-keys`
+breadcrumb to leave: they store the address, not the library. The source the item left is emptied,
+and an emptied source drops out of My Content the same way it does when its last item is deleted.
+
+### The origin, and why it is checked rather than trusted
+
+`reg-edit-homebrew` records `{:source :key}` when an item is opened; `reg-new-homebrew` clears it;
+the save re-stamps it to where the item now lives. It is **verified against the library before
+use** — the recorded address must still answer to that key for that content type. Three reasons,
+each a way the record goes stale:
+
+- it survives the move that invalidates it (the next save would dissoc an entry already gone, and
+  leave the copy it just made);
+- it survives a walk to another builder, and two content types in one source share a key for one
+  name (a race and a subrace both called Aarakocra), so an unverified record can name an item
+  nobody opened — and the save would delete it;
+- the source may have been deleted meanwhile, in which case the dissoc would resurrect it as an
+  empty shell.
+
+With no usable record the single source holding the key is the origin. With several there is no
+honest answer, so the save refuses and says to reopen the item from My Content, which records one.
+
+Pinned by `save-destination-decides-by-where-the-item-came-from`,
+`save-destination-does-not-trust-a-record-the-library-contradicts`, the scenario tests around them,
+and `test/e2e/move-between-sources.js` end to end.
+
+### The address says something answers; the NAME says what (2026-09-21)
+
+Sixth review round. Round five certified that nothing writes through the gate without the author
+being asked. That was true for the two cases anyone had enumerated — an entry **deleted** out from
+under an open builder, and one **relocated**. The third is an entry **replaced**, and it got through.
+
+An import under the *same source name* does not collide: `detect-duplicate-keys` deliberately
+filters same-source collisions out, and `merge-plugins` lets the incoming item win. So
+`[source key]` still answers, `recorded-src` still verifies, and the save reads `:in-place` and
+writes over what was just imported — under a banner reading "saved".
+
+**The record now carries which item, not just where it was.** `origin-of` stores the name at open
+time; when the occupant's name no longer matches, the save refuses as `:occupied` and offers
+*Replace it*. The address only ever proved that *something* answers.
+
+Two more from the same round:
+
+- **`:builder-origin` was ONE slot for thirteen builders**, whose drafts are all live at once. New
+  in any builder cleared it globally; edit in any builder overwrote it. So deleting an item,
+  clicking "add feat", and coming back **resurrected the deleted item** — the safety valve added the
+  round before was off for any session that touched a second builder — and a move was available
+  only to whichever builder wrote the slot last. It is one slot **per content type** now, which also
+  deletes the `:content-type` guard: the slot a record lives in *is* its content type.
+- **The key control still located the entry by the typed Option Source Name field** — the last
+  surviving instance of the guess this whole rework removes, at the one site with the most to lose.
+  Retype the source to a library that answers to the same key, then change the key, and it re-keyed
+  *that* library's entry and loaded it over the open draft, discarding every unsaved edit from
+  app-db and the persisted draft alike. It locates through the verified record now, and keeps the
+  author's item rather than replacing it with the library copy.
+
+Banner corrections: `:occupied` no longer tells a keyed author to rename (D10a — it cannot help),
+and `:ambiguous` names the sources instead of asserting there are two.
+
+### A save that deletes has to say so (2026-09-21)
+
+Fifth review round, the first against a target that was not changing underneath it. It found **no
+reachable write that destroys an entry through the gate without the author being asked** — the
+remaining problems were about what the author is *told*, and one door nobody had counted.
+
+- **A move deleted the origin entry and the banner never mentioned it.** Open Fireball from Pak A,
+  retype the source, save — gone from Pak A, and Pak A drops out of My Content if that was its last
+  item. Integration REFUSED this save, so converting it to a silent move was a regression in the
+  told dimension even though the move itself is the feature. All four success banners now read
+  *"… moved to "Pak B""* with *"Removed from "Pak A"."* under it. The vocabulary already existed —
+  the consented replace says it.
+- **`:vanished`.** Delete, Move/copy or import conflict resolution can rewrite `:plugins` while a
+  builder holds the item. The next save put it straight back, silently undoing what the author had
+  just done somewhere else. The record says *"you opened `[A k type]`"* and the library saying that
+  no longer answers is a reportable fact, not the same as a key nobody has used. It refuses with
+  *""Pak A" no longer has this language"* and offers **Save it again**.
+- **The twelfth edit door.** `options.cljc`'s dangling-spell "define it here" pencil synthesizes an
+  edit event from a spell that has no source at all. It cannot drive a move (a half-record never
+  validates), but it is the one door that reads through neither stamping helper. Counted here so the
+  next person does not have to rediscover it.
+- **The stamp moved into `process-plugins-with-sources` itself.** Round four stamped in one of that
+  helper's two callers; the other (`::classes5e/plugin-classes`) stayed unstamped. The address
+  belongs on the way out of `:plugins`, not in a caller — which is how one ended up stamped and the
+  other not.
+- **`save-destination` asserts it has a target.** With a nil `option-pack` and no known home,
+  `(= lives-in option-pack)` was `(= nil nil)` ⇒ `:in-place` ⇒ a write to a source named `nil`.
+  Unreachable only by caller discipline, and one `cond` reorder from being reachable.
+- **The NAME is flagged only while an item is still minting one.** Telling somebody whose item has a
+  key to rename it points at a control that provably cannot help (D10a).
+
+`reg-delete-homebrew` had **zero** tests — new arity, fallback and error path alike. It has four now.
+
+### The content type is bound at registration (2026-09-20)
+
+Fourth review round. The stamp reached nine of the ten item-only edit doors — **the subclass pencil
+reads through a different subscription** (`::e5/plugins-with-sources`, which filters but does not
+stamp), so its item still carried whatever source it declared. With the same key in two sources and
+one of them disabled, editing the visible copy wrote over the invisible one and left the edited
+entry untouched. That sub stamps now, and passes the row's address like My Content does.
+
+And the gap left open twice is closed, because it turned out to be cheap: the content type a builder
+edits is **statically known at registration**, so `reg-edit-homebrew` takes it as a parameter and
+every record carries one without any call site supplying it. The check is strict again — a record
+that names another builder's content type no longer validates.
+
+Smaller, same round:
+
+- The `:occupied` banner asked consent for one destructive act and performed two. Where the refusal
+  carries an origin, it now reads **"Replace it, and move this one out of X"**.
+- `::persist-builder-origin` ignored `set-item`'s failure. A failed write leaves the PREVIOUS value
+  in the store, which comes back on the next boot beside a draft it does not describe; it clears the
+  key instead. No record refuses a move, a wrong one performs the wrong move.
+- `compute-plugin-vals` (`compute.cljc`) is a hand-maintained replica of `process-plugin-vals` and
+  had silently diverged from it. It stamps too — a replica that drifts is how the next reader gets
+  it wrong (D29).
+- The selection save validated a placeholder-filled copy rather than the author's input, against the
+  rule `reg-save-homebrew` states. It matters more now that the saved item is written back into the
+  form, where a placeholder would look like something the author typed.
+
+### The origin is persisted beside the draft (2026-09-20)
+
+Closes the gap the two sections below both leaned on. `:builder-origin` lived only in app-db, so a
+page refresh lost it and a restored draft could not be moved until it was reopened from My Content —
+which was the entire cost of the `:unrecorded` refusal.
+
+It is persisted now, under its own localStorage key, restored by a cofx on boot like every other
+device-local value, and cleared by New. It cannot be derived from the draft: the item's
+`:option-pack` is whatever the author currently has typed in the field, so after a refresh nothing
+else says where the item came from.
+
+`test/e2e/move-between-sources.js` reloads the page between opening the item and retyping its
+source, and the move still works — verified by disabling the restore and watching four of its
+eleven checks fail.
+
+The refusal stays for the case where the origin is genuinely absent, which is a Move/copy from My
+Content rearranging `:plugins` under an open builder. That is the one the guess would get wrong.
+
+### The READ path stamps the address (2026-09-20)
+
+Third review round, and it found the hole under the section below. That one says identity is
+established when the builder fetches the item, and justified deleting the old name-probe on exactly
+that basis. **The premise was true at one of eleven doors.** `reg-edit-homebrew` stamps only what
+the caller passes, and only My Content passed it — the Spells and Monsters list pages and the
+character-builder pencil (background, race, subrace, subclass, feat, invocation, boon, spell) all
+dispatch the item alone. A key-less item edited from any of them minted a fresh key and **forked**:
+the original left holding the pre-edit data, no `:former-keys`, nothing on screen. Precisely what
+the deleted probe existed to prevent.
+
+Fixed one level down instead of at eleven call sites: **`process-plugin-vals` stamps `:key` and
+`:option-pack` onto every item on the way out of `:plugins`.** That map is the one place both are
+known for certain, so no reader has to guess and no caller has to remember. It also repairs a stale
+declared source for free, and it makes the delete button's fallback correct on the list pages, which
+otherwise still deleted a same-keyed entry in the wrong library.
+
+Also from that round: the **mint** branch of `save-destination` had the opposite ordering to the
+move branch, so it offered *Replace it* where another library also held the key — consent that
+destroys the entry here and leaves the duplicate standing. Both branches now test `:elsewhere`
+first.
+
+`:content-type` on the record is required only when present: the ten doors that pass the item alone
+cannot name it, and a record without one is no weaker than it was before it existed. Threading the
+content type through registration would let it be required everywhere — worth doing, not done.
+
+### A move needs a RECORD, not a guess (2026-09-20)
+
+Second review round, on top of the section below. Five more, and the shape is the same one twice:
+**a guess is fine for a save that cannot lose anything, and never fine for one that deletes.**
+
+- **An empty Option Source Name was a move.** `::option-pack` is `string?`, so `""` satisfies the
+  save spec and never reached the missing-field banner — only the *save-anyway* path guarded it.
+  Clearing the box to retype it and pressing Save deleted the item from its library and re-homed it
+  under a source named `""`; the next save was a clean in-place, so nothing ever flagged it. It is a
+  missing required field and now says so. The source name is also **trimmed**: `" Pak"` is not a
+  second library, and treating it as one moved the item into a twin that renders identically.
+- **The delete button still read identity off the item** — one line below the edit button that had
+  just been fixed. For a pre-keys library it deleted nothing at all; against a stale `:option-pack`
+  it conjured an empty source; and where another source answered to the same key it deleted **that**
+  entry and left the clicked one in place.
+- **`replacing` could leave a cross-source duplicate.** The `:occupied` offer was tested before the
+  third-library check, so consent to discarding one entry still left the key answering elsewhere —
+  the state the move rule exists to prevent. The `:elsewhere` refusal now comes first.
+- **A record left by another builder validated.** `:builder-origin` is one slot for all fourteen
+  builders, and one source holds a race and a subrace under one key for one name. The record now
+  carries the content type it was made for, and every stamp site sets it.
+- **A key change did not re-stamp the origin**, leaving it pointing at a key it could never verify
+  again.
+
+**And the rule that came out of it:** with no verified record, the single library holding a key
+tells you where an item *lives* — enough to save back into it, never enough to MOVE, because a move
+deletes that entry and the builder may be holding an item the library has moved on from. That is not
+hypothetical: Move/copy in My Content rewrites `:plugins` under an open builder, and the old
+behaviour silently reverted the relocation the author had just performed. A move now refuses with
+*"This language is in X — open it from My Content to move it somewhere else"* (`:unrecorded`).
+
+**Open, and the reason the refusal above exists at all:** `:builder-origin` is not persisted, so a
+page refresh loses it and a restored draft cannot move until it is reopened. Persisting it alongside
+the draft removes that cost entirely, and is the obvious next step.
+
+### Identity is established when the builder FETCHES the item (2026-09-19)
+
+**Corrects the section below.** `address-for` originally identified a key-less stored item by
+probing the target source for `name-to-kw` of its name. A review pulled four bugs out of that one
+decision, all of them silent:
+
+| | |
+|---|---|
+| a NEW item whose name matched an untagged entry | was handed that entry's address and overwrote it in place — no banner, no offer |
+| renaming a key-less item | minted a key from the NEW name and left the original behind holding the pre-edit data |
+| a key-less item with a twin elsewhere | refused forever: the origin recorded `(:key item)`, which is nil, so it never validated |
+| an item whose `:option-pack` went stale | a no-op edit read as a move and relocated it |
+
+The common cause: **identity was re-derived at save time, from fields on the item.** A name matches
+any entry that happens to share it. `:option-pack` is what the item *declares*, which an import
+that renamed the source leaves stale. `:key` is absent on libraries authored before keys were
+stored. All three are guesses, and the save only needs to ask once.
+
+`reg-edit-homebrew` now takes the address of the ROW My Content took the item from, and **stamps it
+onto the item** — `:key` and `:option-pack` both. Everything downstream then falls out: the form
+shows the source that really holds it, a rename cannot re-address it, the save writes back where it
+came from, and the draft carries all of it across a refresh, which `:builder-origin` alone does not
+because it is not persisted. `address-for` is left with one rule — the item's own key, or a fresh
+tagged mint — and a key-less item is now, reliably, a new one.
+
+Two smaller corrections from the same review:
+
+- **A blank Option Source Name is a missing FIELD, not an instruction to move.** "Save anyway with
+  placeholders" substituted the placeholder source and handed that to `save-destination`, which read
+  the change as a retarget and deleted the item from the library it lived in. It now falls back to
+  the source the item came from; only an item from nowhere lands in the placeholder.
+- **A move is refused when a third library also answers.** Emptying the origin does not help when
+  another source already holds the key — the result is the duplicate refused everywhere else.
+
+Pinned by six regression tests, each verified by removing its fix and watching exactly it fail.
+
+### A stored item may have no `:key` (2026-09-18)
+
+`:key` is OPTIONAL on a stored item — libraries authored before keys were stored do not carry one,
+and the read path derives it from the NAME, untagged. Minting a tagged key for such an item on its
+next save wrote a SECOND entry and left the original holding the pre-edit data, with no
+`:former-keys` to heal it and nothing on screen to say so.
+
+`address-for` resolves this once for all four save paths: the item's own key, else **the address it
+is already stored under in this source**, else a freshly minted tagged one. It hands
+`save-destination` the item carrying that key, so a legacy item reads as an edit in place rather
+than a new item landing on a taken address — and a genuinely new item stays keyless, so the mint
+refusals still fire.
+
+The probe is scoped to the source being saved to. An untagged entry of the same name in a different
+library must not capture a new item onto its address.
+
+**This fix was made on `feat/source-tagged-keys` during review and never came back to
+`feature/grant-rows`**, so the branch carried the bug for five days while the cut branch did not.
+Anything found on a cut branch has to land on both. Pinned by the four
+`an-old-item-*` / `*-keeps-an-old-address` tests plus two negative controls, verified by removing
+the branch and watching exactly those four fail.
+
+### Replacing on purpose, and the two refusals (2026-09-18)
+
+A refusal with no way through is a trap, so `:occupied` asks instead of just saying no. `replacing`
+is the pure re-decision: consent turns that refusal into the `:move` or `:create` it would have been.
+The other two refusals pass through it unchanged, and that asymmetry is the point.
+
+| reason | what is in the way | the banner |
+|---|---|---|
+| `:occupied` | ONE item, in this source | *"Tide Pak" already has a language called "Tideward."* → **Replace it** / Or rename this one. |
+| `:elsewhere` | nothing here — another source holds the key | *"Tide Pak" already uses the key :tideward-tepk.* → Rename this one, or change its key. No offer |
+| `:ambiguous` | two entries the save cannot tell apart | *Two sources have a language with the key …* → Open this one from My Content and save again. No offer |
+
+**A headline and one line, and no word the author has to learn.** These fire mid-task, on somebody
+who wants to get back to authoring — an explanation of why keys are global belongs behind the key
+row's `?`, not in the way. Pinned by length assertions in `replace-or-refuse.js`, because copy grows
+back. Words to keep out: an address "answering", an item "resolving" — internal vocabulary for what
+the reader sees as a name clash.
+
+**Consent is to discarding one named thing.** For `:elsewhere` there is nothing in the way to
+replace, so a yes would not resolve the collision — it would *create* it, which is the state that
+used to make both copies uneditable. For `:ambiguous` the save cannot say which of two entries the
+author is looking at, and consent to an unnamed one of two is not consent. Neither gets a button.
+
+**Replacing still moves.** Consent is to the occupant going, not to a copy being left behind: an
+item that came from another source is removed there, exactly as an unobstructed move would.
+
+**All four save paths go through this gate.** The ordinary save, its "Save anyway with
+placeholders", and both selection saves — the last three used to write with a bare `assoc-in`.
+`::selections5e/save-selection` had no collision check of any kind, so a selection could replace
+another silently, on an ordinary save, with no banner. `save-anyway` also stamps the key back onto
+the builder item now; without it the next save minted a second key and refused as a collision with
+its own entry.
+
+"Save anyway" is the **missing-fields** escape hatch, not a collision one — it is offered only from
+the spec-validation branch, and placeholders fill the fields, not the address.
+
+Pinned by `consent-only-re-decides-the-refusal-that-named-what-would-be-lost` and the eight
+scenario tests after it, and by `test/e2e/replace-or-refuse.js` end to end (both banners, the
+replace, and that a refusal writes nothing).
 
 ## The builder's own save gate (2026-09-12)
 
@@ -70,11 +395,36 @@ What that removes, rather than what it adds:
 **The key and the name can therefore diverge** — "Tidewall" living at `:tideward`. That is the
 point: the key is an address, the name is display text. Exports show it.
 
-Changing a key is a separate, deliberate act — import conflict resolution and the manual relink,
-both through `rename-key-in-plugin` — and those record `:former-keys`. There is no control in the
-builder for it yet.
+Changing a key is a separate, deliberate act, and there are three ways in — all through
+`rename-key-in-plugin`, all recording `:former-keys`:
+
+| | |
+|---|---|
+| the builder's **key row** | `::e5/change-builder-item-key`, wired for every builder from `builder-drafts` |
+| import conflict resolution | the modal's rename |
+| the manual relink | `::char5e/relink-content` |
+
+The builder's row sits **after the form**, under a hairline, and appears only once the item has a
+key (an unsaved one has none yet). A key is an address the app mints, not a field an author fills
+in, so it reads as a footnote to the form rather than part of it. It refuses a key any other item
+already answers to, and it changes the key alone — the NAME is left as it is, because a key change
+is not a rename.
+
+It was a collapsed "Advanced" disclosure first, and that was worse: a thing visibly trying not to
+be seen is a thing you look at. `.bf-meta` uses the hairline and muted label colour the builder CSS
+already defines (`rgba(255,255,255,0.14)` / `rgba(255,255,255,0.55)`) and `var(--accent, …)` for the
+link, rather than a bespoke grey — which is what made an earlier attempt read as unstyled.
 
 ### What the save refuses
+
+**Only a MINT.** An item that already answers to the key it is saving to is returning to its own
+slot, and the check does not run for it at all — whatever else the library holds. That matters for
+a library that already has the same key in two sources (an import where someone chose "keep both"):
+the duplicate is real and the health card reports it, but this save did not create it, and refusing
+the save fixed nothing while trapping the item. Under mint-once the author could not even rename
+their way out, because renaming no longer moves the key. Pinned by
+`editing-your-own-item-works-even-when-another-source-answers-to-its-key`.
+
 
 **Minting a key something else already holds — in any source.** A key is an address and the address
 space is global: the combines that dedupe by key pick their winner by the hash-iteration order of
@@ -135,12 +485,18 @@ item is dropped, and so is one that is some item's live key.
   source-name strings** — deterministic for a fixed set of source names, but arbitrary and NOT
   "last-imported" or user-controllable. "Plugin overrides built-in" is predictable; "which plugin wins
   a plugin-vs-plugin key" is effectively a coin flip. Do not build reliable override behavior on it.
-- **Spell → spell-list is a genuine misbehavior, not clean coexistence.** A spell's class-list
-  membership lives on the spell (`:spell-lists {class-key true}`), and `plugin-spell-lists` reduces
-  over the **non-deduped** spell seq. So a duplicate-key spell (a) gets `conj`-ed once per copy →
-  **duplicate membership entries**, and (b) has its membership **unioned across all copies** — meaning
-  you **cannot narrow** a spell's class access by overriding it, and the spell *data* (single winner)
-  and its *list membership* (union) disagree. No exception; just wrong.
+- **Spell data and spell-list membership resolve differently for the same key.** A spell's class
+  membership lives on the spell (`:spell-lists {class-key true}`). `::spells5e/plugin-spell-lists`
+  (`spell_subs.cljs:1495`) reduces over `plugin-spells`, which is **not deduped by key**, while the
+  spell itself comes from a set that **is** (`:1228`). For two spells sharing a key:
+  - the key is `conj`-ed onto a class list once per copy that names that class — **duplicate
+    entries in the list**;
+  - membership is the **union** of every copy's `:spell-lists`, so an override can add a class but
+    **cannot remove one**;
+  - the spell's data is one winner, its membership is all of them.
+
+  Pinned by `two-spells-sharing-a-key-resolve-inconsistently`
+  (`homebrew_save_lifecycle_test.cljs`).
 - **Design direction (see `content-tiers-and-key-resolution.md`):** the clean fix for all of the above
   is not per-type dedup but a single invariant — **≤1 *enabled* item per key** — enforced by a
   disable-based resolution (disable one side of a collision rather than relying on implicit last-wins).
