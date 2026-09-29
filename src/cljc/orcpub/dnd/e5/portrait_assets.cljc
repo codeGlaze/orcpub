@@ -324,7 +324,13 @@
 
 (defn set-artist-overrides!
   "Replace the runtime artist overrides. `m` is {artist-id {field value}};
-   only :artist/name, :artist/link and :artist/license are honoured."
+   only :artist/name, :artist/link, :artist/links, :artist/license and
+   :artist/profile? are honoured.
+
+   :artist/profile? false turns the artist's public profile page off (see
+   artist-profile/profile). It is here, beside the credit fields, so whatever
+   ends up owning the artist's choice -- a deployment's config today, the
+   artist's own account setting later -- can flip it without touching code."
   [m]
   (reset! artist-overrides
           (into {}
@@ -332,7 +338,8 @@
                       :let [keep-fields (select-keys fields [:artist/name
                                                              :artist/link
                                                              :artist/links
-                                                             :artist/license])]
+                                                             :artist/license
+                                                             :artist/profile?])]
                       :when (seq keep-fields)]
                   [id keep-fields]))))
 

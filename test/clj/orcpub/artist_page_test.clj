@@ -4,7 +4,8 @@
    only the registry."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as s]
-            [orcpub.routes :as routes]))
+            [orcpub.routes :as routes]
+            [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (defn- req [slug]
   {:headers {"host" "example.test"}
@@ -37,3 +38,13 @@
 (deftest the-list-page-is-served
   (is (= 200 (:status (routes/artists-page {:headers {"host" "example.test"}
                                              :uri "/artists"})))))
+
+(deftest a-page-the-artist-turned-off-is-a-404
+  (try
+    (pa/set-artist-overrides! {:house-pack {:artist/profile? false}})
+    (is (= 404 (:status (routes/artist-page (req "fusspot")))))
+    (is (= 404 (:status (routes/artist-portrait-png (req "fusspot"))))
+        "the preview image goes with it")
+    (is (not (s/includes? (:body (routes/artist-page (req "fusspot"))) "Fusspot"))
+        "and the 404's share tags do not name them")
+    (finally (pa/set-artist-overrides! {}))))

@@ -27,14 +27,23 @@
 (defn- registry-entry [artist-id]
   (some #(when (= artist-id (:artist/id %)) %) pa/registry))
 
+(defn profile-enabled?
+  "Whether the artist wants a profile page. On unless :artist/profile? is
+   explicitly false -- the switch an artist's account setting will flip. Off
+   means no page at all, not a page saying it is off: the address 404s like a
+   slug nobody has, they drop out of /artists, and the credit loses its
+   'About the artist' line. The credit's name still goes to their own link."
+  [artist]
+  (not (false? (:artist/profile? artist))))
+
 (defn profile
-  "The artist, overrides applied, if they have a profile: they are registered
-   and have said how they want to be named. An artist with no :artist/name is
-   skipped the way the credit skips them, rather than given a page nobody
-   chose."
+  "The artist, overrides applied, if they have a profile: they are registered,
+   have said how they want to be named, and have not turned the page off. An
+   artist with no :artist/name is skipped the way the credit skips them,
+   rather than given a page nobody chose."
   [artist-id]
   (when-let [a (pa/artist-info artist-id)]
-    (when-not (s/blank? (:artist/name a))
+    (when (and (not (s/blank? (:artist/name a))) (profile-enabled? a))
       (assoc a :artist/slug (slug (registry-entry artist-id))))))
 
 (defn artist-by-slug
