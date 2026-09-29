@@ -261,9 +261,10 @@
 (defn artist-credit-body
   "What the account page needs to show an artist their credit."
   [db user-id]
-  (when-let [{:keys [artist-id current own locked]} (artist-credit/credit-for-account db user-id)]
+  (when-let [{:keys [artist-id default current own locked]} (artist-credit/credit-for-account db user-id)]
     {:artist-id (name artist-id)
-     :current current
+     :default default
+     :current (select-keys current [:artist/id :artist/name :artist/link :artist/links])
      :own own
      :locked locked
      :services (for [[icon {:keys [label color]}] artist-credit/services]

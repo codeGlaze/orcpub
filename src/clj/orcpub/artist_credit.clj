@@ -188,6 +188,7 @@
             config (get branding/portrait-artists artist)
             base (some #(when (= artist (:artist/id %)) %) pa/registry)]
         {:artist-id artist
+         :default (select-keys base [:artist/name :artist/link :artist/links])
          :current (merge base own config)
          :own own
          :locked (set (keys config))}))))

@@ -322,6 +322,26 @@
    (-> db :user-data :user-data :pending-email)))
 
 (reg-sub
+ :preferred-name
+ (fn [db _]
+   (-> db :user-data :user-data :preferred-name)))
+
+(reg-sub
+ :preferred-name-enabled?
+ (fn [db _]
+   (boolean (-> db :user-data :user-data :preferred-name-enabled?))))
+
+(reg-sub
+ :artist-credit
+ (fn [db _]
+   (-> db :user-data :user-data :artist-credit)))
+
+(reg-sub
+ :account-save-status
+ (fn [db [_ k]]
+   (get db k)))
+
+(reg-sub
  :send-updates?
  (fn [db _]
    (boolean (-> db :user-data :user-data :send-updates?))))

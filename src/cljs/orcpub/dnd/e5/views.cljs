@@ -9173,8 +9173,166 @@
               :on-change import-file}]]
     [my-content]]])
 
+;; ─── Account settings: preferred name, artist credit ─────────────────
+
+(defn- save-note
+  "The line under a Save button: saving, saved, or what went wrong."
+  [{:keys [status error]}]
+  (case status
+    :saving [:span.m-l-10.f-s-14 "Saving…"]
+    :saved [:span.m-l-10.f-s-14 [:i.fa.fa-check.orange.m-r-5] "Saved"]
+    :error (when error [:div.m-t-5.red.f-s-14 error])
+    nil))
+
+(defn preferred-name-setting
+  "What the site calls them in emails. Everyone gets this, not just artists."
+  [saved]
+  (r/with-let [value (r/atom (or saved ""))]
+    (let [enabled? @(subscribe [:preferred-name-enabled?])
+          save-status @(subscribe [:account-save-status :preferred-name-save])
+          changed? (not= (s/trim @value) (or saved ""))]
+      [:div.p-5.m-t-10
+       [:div.f-w-b "What should we call you?"]
+       [:div.f-s-14.m-t-5.m-b-5.opacity-7
+        "A first name, a nickname, whatever you like. We'll use it to greet you in emails. "
+        "It's stored encrypted, so it isn't readable even from a copy of our database."]
+       (if-not enabled?
+         [:div.f-s-14.opacity-7 [:i "Not available on this site yet."]]
+         [:div.flex.align-items-c.flex-wrap
+          [:input.input {:type "text"
+                         :value @value
+                         :max-length 40
+                         :placeholder "e.g. Kaylee"
+                         :style {:max-width "260px"}
+                         :on-change #(do (reset! value (event-value %))
+                                         (dispatch [:clear-account-save-status :preferred-name-save]))}]
+          [:button.form-button.m-l-10
+           {:disabled (not changed?)
+            :on-click #(dispatch [:save-preferred-name (s/trim @value)])}
+           "Save"]
+          [save-note save-status]])])))
+
+(defn- credit-edit
+  "The form's state as the edit the server takes. Blank rows are dropped here
+   so the server's per-row errors line up with what is on screen."
+  [nm link links]
+  {:name (s/trim nm)
+   :link (s/trim link)
+   :links (vec (remove #(s/blank? (:url %)) links))})
+
+(defn- credit-preview-info
+  "What the credit will look like once saved: the code's default, under the
+   artist's form, under whatever the site's config has fixed."
+  [{:keys [default current locked services]} {:keys [name link links]}]
+  (let [by-icon (into {} (map (juxt :icon identity) services))
+        form (cond-> {}
+               (seq name) (assoc :artist/name name)
+               (seq link) (assoc :artist/link link)
+               (seq links) (assoc :artist/links
+                                  (vec (for [{:keys [icon url]} links
+                                             :let [{:keys [label color]} (by-icon icon)]]
+                                         {:link/icon icon :link/label label
+                                          :link/color color :link/url url}))))]
+    (merge (assoc default :artist/id (keyword (or (:artist/id current) "preview")))
+           form
+           (select-keys current locked))))
+
+(defn artist-credit-form
+  [{:keys [own locked services max-links default] :as credit}]
+  (r/with-let [nm (r/atom (or (:artist/name own) ""))
+               link (r/atom (or (:artist/link own) ""))
+               links (r/atom (vec (for [l (:artist/links own)]
+                                    {:icon (:link/icon l) :url (:link/url l)})))]
+    (let [save-status @(subscribe [:account-save-status :artist-credit-save])
+          errors (:errors save-status)
+          link-errors (:link-errors errors)
+          clear! #(dispatch [:clear-account-save-status :artist-credit-save])
+          edit (credit-edit @nm @link @links)
+          locked? (fn [k] (contains? (set locked) k))
+          fixed-note [:div.f-s-12.m-t-5.opacity-7 "Set by the site's admins. Reply to any of our emails if it needs changing."]]
+      [:div
+       [:div.m-t-10.m-b-10
+        [portrait/credit-preview (credit-preview-info credit edit)]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Credited as"]
+        [:input.input {:type "text" :value @nm :max-length 60
+                       :disabled (locked? :artist/name)
+                       :placeholder (:artist/name default)
+                       :style {:max-width "320px"}
+                       :on-change #(do (reset! nm (event-value %)) (clear!))}]
+        (when (locked? :artist/name) fixed-note)
+        (when-let [e (:name errors)] [:div.m-t-5.red.f-s-14 e])]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Your name links to"]
+        [:input.input {:type "url" :value @link
+                       :disabled (locked? :artist/link)
+                       :placeholder (:artist/link default)
+                       :style {:max-width "420px"}
+                       :on-change #(do (reset! link (event-value %)) (clear!))}]
+        (when (locked? :artist/link) fixed-note)
+        (when-let [e (:link errors)] [:div.m-t-5.red.f-s-14 e])]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Link icons"]
+        [:div.f-s-12.m-b-5.opacity-7 "Shown beside your name, in this order. Leave empty to use the site's default."]
+        (if (locked? :artist/links)
+          fixed-note
+          [:div
+           (doall
+            (for [[i {:keys [icon url]}] (map-indexed vector @links)]
+              ^{:key i}
+              [:div.m-b-5
+               [:div.flex.align-items-c
+                [:select.input {:value (or icon "site")
+                                :style {:width "auto" :margin-right "6px"}
+                                :on-change #(do (swap! links assoc-in [i :icon] (event-value %)) (clear!))}
+                 (for [{:keys [icon label]} services]
+                   ^{:key icon} [:option {:value icon} label])]
+                [:input.input {:type "url" :value (or url "")
+                               :placeholder "https://"
+                               :style {:max-width "360px"}
+                               :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
+                [:button.link-button.m-l-10.f-s-14
+                 {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
+                 "Remove"]]
+               ;; server errors index the non-blank rows
+               (when-let [e (get link-errors (count (remove #(s/blank? (:url %)) (take i @links))))]
+                 (when-not (s/blank? url) [:div.m-t-5.red.f-s-14 e]))]))
+           (when (< (count @links) (or max-links 4))
+             [:button.link-button.f-s-14
+              {:on-click #(swap! links conj {:icon "site" :url ""})}
+              "+ Add a link"])
+           (when-let [e (:links errors)] [:div.m-t-5.red.f-s-14 e])])]
+       [:div.p-5.m-t-5
+        [:button.form-button
+         {:on-click #(do (reset! links (:links edit))
+                         (dispatch [:save-artist-credit edit]))}
+         "Save credit"]
+        [save-note save-status]
+        (when (seq errors) [:div.m-t-5.red.f-s-14 "Nothing was saved. Fix the fields above and try again."])]
+       [:div.f-s-12.p-5.opacity-7
+        "Every change is emailed to you and to the site's admins, so a change you didn't make gets noticed."]])))
+
+(defn artist-credit-setting
+  "For artist accounts: how their art is credited across the site."
+  [credit]
+  (r/create-class
+   {:component-did-mount
+    (fn [_]
+      ;; the welcome and upgrade emails link straight here
+      (when (= "#artist-credit" (.. js/window -location -hash))
+        (some-> (.getElementById js/document "artist-credit") (.scrollIntoView #js {:block "start"}))))
+    :reagent-render
+    (fn [credit]
+      [:div#artist-credit.p-5.m-t-20
+       [:div.f-w-b "Artist credit"]
+       [:div.f-s-14.m-t-5.opacity-7
+        "How your art is credited everywhere it appears: the portrait builder, character sheets and shared cards."]
+       ;; remount with fresh fields whenever the saved credit changes
+       ^{:key (pr-str (:own credit))} [artist-credit-form credit]])}))
+
 (defn my-account-page []
-    (r/with-let [editing? (r/atom false)
+    (r/with-let [_ (dispatch [:load-account])
+                 editing? (r/atom false)
                  new-email (r/atom "")
                  confirm-email (r/atom "")]
       (let [current-email @(subscribe [:email])
@@ -9281,7 +9439,13 @@
                 :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
               (if send-updates?
                 (str "Receiving updates from " branding/app-name)
-                "Not receiving updates")])]]])))
+                "Not receiving updates")])]
+          ;; ─── Preferred name ───────────────────────────────────────
+          (let [saved @(subscribe [:preferred-name])]
+            ^{:key (str "pn-" saved)} [preferred-name-setting saved])
+          ;; ─── Artist credit (artist accounts only) ─────────────────
+          (when-let [credit @(subscribe [:artist-credit])]
+            [artist-credit-setting credit])]])))
 
 
 (defn newb-character-builder-page []

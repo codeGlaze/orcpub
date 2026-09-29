@@ -1728,6 +1728,88 @@
  (fn [db _]
    (dissoc db :email-change-sent? :email-change-error)))
 
+;; ─── Account Settings ──────────────────────────────────────────────
+;; The account page re-reads the user on open: what the login response cached
+;; can be stale -- an account made an artist account since, say.
+
+(reg-event-fx
+ :load-account
+ (fn [{:keys [db]} _]
+   (when (event-utils/get-auth-token db)
+     {:http {:method :get
+             :headers (authorization-headers db)
+             :url (backend-url (routes/path-for routes/user-route))
+             :on-success [:load-account-success]
+             :on-failure [:account-request-failed]}})))
+
+(reg-event-db
+ :load-account-success
+ [user->local-store-interceptor]
+ (fn [db [_ response]]
+   (update-in db [:user-data :user-data] merge (:body response))))
+
+(reg-event-db
+ :account-request-failed
+ (fn [db _] db))
+
+(reg-event-fx
+ :save-preferred-name
+ (fn [{:keys [db]} [_ preferred-name]]
+   {:db (assoc db :preferred-name-save {:status :saving})
+    :http {:method :put
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-route))
+           :transit-params {:preferred-name preferred-name}
+           :on-success [:save-preferred-name-success]
+           :on-failure [:save-preferred-name-failure]}}))
+
+(reg-event-db
+ :save-preferred-name-success
+ [user->local-store-interceptor]
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:user-data :user-data :preferred-name] (get-in response [:body :preferred-name]))
+       (assoc :preferred-name-save {:status :saved}))))
+
+(reg-event-db
+ :save-preferred-name-failure
+ (fn [db [_ response]]
+   (assoc db :preferred-name-save
+          {:status :error
+           :error (or (get-in response [:body :error]) "Couldn't save that. Please try again.")})))
+
+(reg-event-fx
+ :save-artist-credit
+ (fn [{:keys [db]} [_ edit]]
+   {:db (assoc db :artist-credit-save {:status :saving})
+    :http {:method :put
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-artist-credit-route))
+           :transit-params edit
+           :on-success [:save-artist-credit-success]
+           :on-failure [:save-artist-credit-failure]}}))
+
+(reg-event-db
+ :save-artist-credit-success
+ [user->local-store-interceptor]
+ (fn [db [_ response]]
+   (-> db
+       (assoc-in [:user-data :user-data :artist-credit] (:body response))
+       (assoc :artist-credit-save {:status :saved}))))
+
+(reg-event-db
+ :save-artist-credit-failure
+ (fn [db [_ response]]
+   (assoc db :artist-credit-save
+          {:status :error
+           :errors (get-in response [:body :errors])
+           :error (when-not (get-in response [:body :errors])
+                    "Couldn't save that. Please try again.")})))
+
+(reg-event-db
+ :clear-account-save-status
+ (fn [db [_ k]] (dissoc db k)))
+
 ;; ─── Email Preferences ─────────────────────────────────────────────
 
 (reg-event-fx

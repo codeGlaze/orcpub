@@ -639,6 +639,7 @@
   display: flex; flex-direction: column; align-items: stretch;
   gap: 7px; margin: 9px 0 3px; font-size: 12px; text-align: center;
 }
+.pl-credit-preview { background: #0e131a; border-radius: 8px; padding: 10px 22px 14px; max-width: 440px; }
 .pl-attribution-empty { color: #616a7a; font-style: italic; font-family: 'Vollkorn', Georgia, serif; }
 
 /* The credit: a small label, then each artist's name on a broken rule with
@@ -1176,6 +1177,15 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
          (for [l below] ^{:key (:link/url l)} [credit-mark name l])])]
      (when (seq others)
        [:div.lk-with "with " (name-list others)])]))
+
+(defn credit-preview
+  "One artist's credit exactly as the builder draws it, for the account page:
+   an artist editing their credit should see the thing itself, not a
+   description of it."
+  [info]
+  [:div.pl-root.pl-credit-preview
+   [:style drawer-styles]
+   [:div.pl-attribution [credit-lockup [info]]]])
 
 (defn- attribution
   "Who drew what is on canvas.
