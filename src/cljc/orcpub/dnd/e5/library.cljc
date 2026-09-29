@@ -184,19 +184,19 @@
    [:class] :orcpub.dnd.e5/classes [:background] :orcpub.dnd.e5/backgrounds
    [:feats] :orcpub.dnd.e5/feats})
 
-(def ^:private picked-only-at-home
-  "Content types picked at their `pick-homes` path and nowhere else: all but feats, which are also
-   picked under other choices."
+(def ^:private one-place-types
+  "Content types a character picks in one place only, their `pick-homes` path: all but feats, which
+   are also picked under other choices."
   (disj (set (vals pick-homes)) :orcpub.dnd.e5/feats))
 
 (defn pick-types
   "Of content `types`, those a character's pick at selection path `path` can be: the type of its
-   `pick-homes` entry, feats under any `:feats` selection, else every type but `picked-only-at-home`.
+   `pick-homes` entry, feats under any `:feats` selection, else every type but `one-place-types`.
    GOTCHA: a selection that reuses a home's name elsewhere (`[:class :background]`) is not that home."
   [path types]
   (if-let [t (or (pick-homes path) (when (= :feats (peek path)) :orcpub.dnd.e5/feats))]
     (filter #{t} types)
-    (remove picked-only-at-home types)))
+    (remove one-place-types types)))
 
 (defn- offered-at
   "Set of option keys `template` offers at selection path `path`."
