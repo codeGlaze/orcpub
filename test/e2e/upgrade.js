@@ -5,7 +5,6 @@
 //                                  # leave a builder draft open; record what the old app shows
 //   node test/e2e/upgrade.js new   # same browser profile, NEW bundle: compare
 //
-// Both bundles are dev builds (`lein fig:build`); the footer check reads the build's out/orcpub/ver.js.
 // Both phases need the seeded server (logged-in user, character endpoints) and one browser profile
 // (UPGRADE_PROFILE) kept between them. The bundle under resources/public/js/compiled is swapped
 // between phases; the server keeps running, so saved characters carry across.
@@ -116,25 +115,23 @@ const characterEdn = (name, tree) => '{:orcpub.entity/options ' + edn(tree).repl
   ' :orcpub.dnd.e5.character/int 12 :orcpub.dnd.e5.character/wis 12 :orcpub.dnd.e5.character/cha 12}}}' +
   ` :orcpub.entity/values {:orcpub.dnd.e5.character/character-name "${name}"}}`;
 
-// The footer line the served bundle must show: its version, compile-time build date and
-// description, read from the bundle on disk (resources/public/js/compiled/out/orcpub/ver.js), or
-// null when the served bundle has no such file (a production build).
-function expectedFooter() {
-  const file = path.resolve(__dirname, '../../resources/public/js/compiled/out/orcpub/ver.js');
-  if (!fs.existsSync(file)) return null;
-  const src = fs.readFileSync(file, 'utf8');
-  const fn = name => (src.match(new RegExp(`orcpub\\.ver\\.${name} = \\(function[^{]*\\{\\s*return "([^"]*)"`)) || [])[1];
-  const [version, date, description] = ['version', 'date', 'description'].map(fn);
-  return `Version ${version} (${date}) ${description} edition`;
+// The text of the served build that holds its version, build date and description: the dev
+// build's out/orcpub/ver.js when orcpub.js is only the dev loader, else the production orcpub.js.
+function buildInfoText() {
+  const dir = path.resolve(__dirname, '../../resources/public/js/compiled');
+  const main = fs.readFileSync(path.join(dir, 'orcpub.js'), 'utf8');
+  return main.includes('/js/compiled/out/') ? fs.readFileSync(path.join(dir, 'out/orcpub/ver.js'), 'utf8') : main;
 }
 
-// The page's footer shows exactly one version line, and it is the served bundle's.
+// The page's footer shows exactly one version line, and its version, date and description are the
+// ones compiled into the build being served.
 async function checkFooter(page, check) {
   const lines = (await page.locator('#app').innerText()).split('\n').map(l => l.trim()).filter(l => /^Version \d/.test(l));
-  const want = expectedFooter();
-  check('the footer names the bundle being served', want !== null && lines.length === 1 && lines[0] === want,
-        want === null ? 'the served bundle has no out/orcpub/ver.js: serve dev builds (lein fig:build)'
-                      : `shown: ${lines.join(' | ') || 'none'}  expected: ${want}`);
+  const parts = lines.length === 1 && lines[0].match(/^Version (\S+) \((\d\d-\d\d-\d{4})\) (.+) edition$/);
+  const build = buildInfoText();
+  const missing = parts ? parts.slice(1).filter(v => !build.includes(`"${v}"`)) : ['a well-formed version line'];
+  check('the footer names the build being served', missing.length === 0,
+        `shown: ${lines.join(' | ') || 'none'}${missing.length ? '  not in the served build: ' + missing.join(', ') : ''}`);
   return lines[0];
 }
 
