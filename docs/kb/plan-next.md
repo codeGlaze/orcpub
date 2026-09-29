@@ -40,11 +40,10 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ Heals documented end to end: `character-heals.md` (2026-09-29).
 - ☑ Comment rule in `AGENTS.md` on agents/develop (`e2830db1`), so every branch's agents see it;
   #37's narrative comments rewritten (`0ad30947`).
-- ☐ **A check that catches narrative comments** (owner's requirement, 2026-09-29): a JVM test scans
-  `src` comments for history and decision phrasing ("used to", "was once", "originally",
-  "previously", "owner's decision", "regression window"). **Existing hits are listed in the test's
-  output every run**, so they stay visible until cleaned; a hit not in the recorded baseline fails.
-  Not started; the owner chose to hold it.
+- ◐ **The narrative check: draft PR #38** (`fix/comment-check`, from `integration`). Two signals,
+  history phrasing and length (docstrings over 6 lines, comment blocks over 4). 336 existing hits
+  are listed every run; new ones fail; cleaned ones must leave the baseline. **When #37 and #38
+  meet on `integration`, the second to merge reconciles:** #37 adds 18 hits and cleans 20 entries.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").

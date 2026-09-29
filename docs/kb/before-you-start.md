@@ -19,6 +19,7 @@ the gate exists and what it means when it fires.
 | add a CSS class in the builder block | `builder_class_names_test` — must be `bf-`/`opt-`/`select-menu` prefixed, or allow-listed deliberately | a global `.field {margin-top:30px}` silently gave every declarative field 30px it never asked for |
 | remove or hide a field | `builder-gallery.js` diffs **labels and controls** against `test/e2e/builder-baseline.json` | a control count is blind to its own rendering; three checkboxes once vanished while the count read the same |
 | change a field's save shape | the per-builder pins read back what was **stored**, not what was typed | a form looked perfect and saved `[:school] "abjuration"` under a key vector |
+| write history into a comment or docstring, a docstring over 6 lines, or a comment block over 4 | `comment_discipline_test` (#38): new hits fail; the recorded ones are listed every run as the cleanup list; a cleaned one must be deleted from `test/comment-baseline.edn` | the comment rule was a paragraph for months, and narrative kept arriving on branches that never carried it |
 | remove or reword a `;; FIELD NOTE (id):` comment | `field_notes_test` (on `port/save-gate`, #37): the note must exist and still contain the phrases listed for it | tightening passes strip comments by length, and a verified fact about data (where heals run, which keys collide) reads like prose |
 
 If a gate fires and the change is deliberate: re-record the baseline / add the name, **and say why in
