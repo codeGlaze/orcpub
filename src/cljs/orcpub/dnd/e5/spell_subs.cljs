@@ -156,17 +156,10 @@
    (get db :strict-import?)))
 
 (defn process-plugin-vals
-  "Filter out malformed/disabled plugin data so a bad entry can't break the
-   subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps, each item carrying the address it lives at
-   (`:key`, `:option-pack`) -- see the stamp below. Public because that stamp is
-   what lets the builders' edit and delete buttons trust the item they are given.
-
-   `overlay` (optional) applies the two LOCAL disable levels on top of the data
-   levels: :global? drops everything, and :sections drops a whole [source
-   content-type] pair. It's ORed with the source/item :disabled? flags, so an
-   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
-   path) applies only the data levels."
+  "Clean {content-type {key def}} maps from `plugins`, dropping malformed and disabled items so one
+   bad entry cannot break the subscription chain. Each item carries its address (`:key`,
+   `:option-pack`), which the builders' edit and delete buttons trust. `overlay` (optional) adds the
+   local disable levels: :global? drops everything, :sections drops [source content-type] pairs."
   ([plugins] (process-plugin-vals plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -191,14 +184,9 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             ;; Carry the ADDRESS on the item. Everything downstream reads items
-                             ;; from here -- the list pages' edit and delete buttons, the
-                             ;; character-builder pencil -- and a stored item may carry neither
-                             ;; its key (libraries authored before keys were stored) nor a
-                             ;; truthful :option-pack (an import that renames a source leaves the
-                             ;; declaration behind). The map it lives in is the one place both are
-                             ;; known for certain, so they are stamped on the way out rather than
-                             ;; guessed at by every reader.
+                             ;; Stamp the address on the item: a stored item may lack `:key` (from
+                             ;; before keys were stored) or carry a stale `:option-pack` (a renamed
+                             ;; source), and this map is the one place both are known.
                              [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
@@ -279,13 +267,9 @@
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
 (defn process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed. Each item
-  ;; carries the address it lives at, exactly as process-plugin-vals stamps it -- the address
-  ;; belongs on the way out of :plugins, not in one of the two callers, which is how one of them
-  ;; ended up stamped and the other not.
-  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
-  ;; everything and a section pair drops that content-type from the source, so the
-  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+  ;; [source-name plugin-data] pairs, skipping disabled and malformed entries. Items carry their
+  ;; address as process-plugin-vals stamps it, and the same disable overlay applies, so the
+  ;; dropdowns hide what the rest of the builder hides.
   ([plugins] (process-plugins-with-sources plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -804,8 +788,7 @@
     acolyte-bg
     plugin-backgrounds)))
 
-;; The built-in language list moved to languages.cljc so a cljc pool registry can read it.
-;; This var is kept as an alias: existing readers here are unchanged.
+;; Alias of langs5e/languages for this namespace's readers.
 (def languages langs5e/languages)
 
 (reg-sub
@@ -813,7 +796,7 @@
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub

@@ -1032,6 +1032,34 @@
      :line-height "1.45"
      :color :white}]
 
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
+
    [:.message.tone-success
     {:background-color "rgba(112, 168, 0, 0.16)"
      :border-color "rgba(112, 168, 0, 0.5)"}]
@@ -2300,7 +2328,9 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
      ;; 600px was set for a short warning and inherited by the conflict panel,
@@ -2310,18 +2340,23 @@
      ;; a modal still shrinks to its content -- the export warning is unchanged --
      ;; and the clamp keeps it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
       :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -2364,8 +2399,9 @@
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
 
     ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
     ;; the same warning-yellow language as the My Content health card, so the modal
@@ -2590,7 +2626,13 @@
       [:&:after {:transform "translateX(16px)"}]]
      [:&:focus-visible
       {:outline (str "2px solid " orange)
-       :outline-offset "3px"}]]
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
 
     [:.dev-mode-label
      {:font-size "12px"

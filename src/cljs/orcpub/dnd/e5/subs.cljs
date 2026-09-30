@@ -28,6 +28,7 @@
             [orcpub.dnd.e5.compute :as compute]
             [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
             [reagent.ratom :as ra]
@@ -589,6 +590,15 @@
    (get character-map id)))
 
 
+(reg-sub
+ ::content-recon/former-key-indexes
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered offered-by-type] _]
+   (content-recon/former-key-indexes plugins offered offered-by-type)))
+
+;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
@@ -614,7 +624,9 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (get-in @app-db [::char5e/character-map int-id] {})
+           (:character (content-recon/reconcile-former-keys
+                       (get-in @app-db [::char5e/character-map int-id] {})
+                       @(subscribe [::content-recon/former-key-indexes])))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after
@@ -1651,13 +1663,62 @@
     :feats feats}))
 
 (reg-sub
+ :orcpub.dnd.e5/repairs-dismissed
+ (fn [db _] (or (:orcpub.dnd.e5/repairs-dismissed db) #{})))
+
+(reg-sub
+ :orcpub.dnd.e5/suggested-repairs
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ :<- [:orcpub.dnd.e5/repairs-dismissed]
+ (fn [[plugins offered dismissed] _]
+   (vec (remove #(contains? dismissed ((juxt :source :type :key :link :target) %))
+                (library/suggested-repairs plugins offered)))))
+
+(reg-sub
+ :orcpub.dnd.e5/pre-fix-at
+ (fn [db _] (:orcpub.dnd.e5/pre-fix-at db)))
+
+(reg-sub
+ :orcpub.dnd.e5/dangling-links
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered] _]
+   (library/dangling plugins offered)))
+
+(reg-sub
+ ::content-recon/offered-keys
+ (fn [db _]
+   (::content-recon/offered-keys db)))
+
+(reg-sub
+ ::content-recon/offered-by-type
+ (fn [db _]
+   (::content-recon/offered-by-type db)))
+
+(reg-sub
+ :orcpub.dnd.e5/relink-question
+ (fn [db _]
+   (let [q (:orcpub.dnd.e5/relink-question db)]
+     (when (and q (= (:character-id q) (get-in db [:character :db/id]))) q))))
+
+(reg-sub
+ ::content-recon/choice-tags
+ (fn [db _]
+   (::content-recon/choice-tags db)))
+
+(reg-sub
  ::char5e/missing-content-report
  (fn [_]
    [(subscribe [:character])
-    (subscribe [::char5e/available-content])])
- (fn [[character available-content]]
+    (subscribe [::char5e/available-content])
+    (subscribe [::content-recon/offered-keys])
+    (subscribe [::content-recon/choice-tags])
+    (subscribe [::content-recon/offered-by-type])])
+ (fn [[character available-content offered choice-tags offered-by-type]]
    (when character
-     (content-recon/generate-missing-content-report character available-content))))
+     (content-recon/generate-missing-content-report character available-content offered choice-tags
+                                                    offered-by-type))))
 
 (reg-sub
  ::char5e/has-missing-content?

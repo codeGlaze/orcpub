@@ -264,8 +264,11 @@ html {
     (when homebrew-url
       (script-tag {:nonce nonce}
        (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
+        const noLibrary = () => {
+          const p = localStorage.getItem('plugins');
+          return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
+        };
+        if (noLibrary()) {
           fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
@@ -274,8 +277,10 @@ html {
               return resp.text();
             })
             .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
+              // only into a library that is still empty, and bumped like any write so other tabs reload
+              if (!text.toUpperCase().includes('NOT FOUND') && noLibrary()) {
                 localStorage.setItem('plugins', text);
+                localStorage.setItem('plugins:rev', String(Number(localStorage.getItem('plugins:rev') || 0) + 1));
                 window.location.reload(false);
               }
             })
