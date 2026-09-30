@@ -483,11 +483,59 @@
        :below []}
       {:left [] :right [] :below links})))
 
-(defn format-credit
-  "The credit string for a list of artist names, or nil for none."
+(defn- and-list
+  "Names as prose: A / A and B / A, B and C."
   [names]
-  (when (seq names)
-    (str "Art: " (s/join ", " names))))
+  (let [names (vec names)
+        n (count names)]
+    (case n
+      0 ""
+      1 (first names)
+      (str (s/join ", " (pop names)) " and " (peek names)))))
+
+(defn- others [n] (str n (if (= 1 n) " other" " others")))
+
+(defn credit-variants
+  "Every way to write the credit for `names` (in credit order), longest first.
+   The same shape as the builder's lockup: whoever drew most of the picture
+   leads, everyone else follows 'with', and when there isn't room the tail
+   collapses into a count rather than being cut off mid-name:
+
+     Art: Fusspot with Bex, Cy and Dee
+     Art: Fusspot with Bex, Cy and 1 other
+     Art: Fusspot with Bex and 2 others
+     Art: Fusspot and 3 others
+
+   Every surface that has to fit the credit somewhere takes the first variant
+   that fits (`fit-credit`), so a share card, a PDF and a page all drop the
+   same people in the same order -- the smallest contributors, last."
+  [names]
+  (let [[lead & more] names
+        n (count more)]
+    (cond
+      (nil? lead) []
+      (zero? n) [(str "Art: " lead)]
+      :else (concat [(str "Art: " lead " with " (and-list more))]
+                    (for [k (range (dec n) 0 -1)]
+                      (str "Art: " lead " with " (s/join ", " (take k more)) " and " (others (- n k))))
+                    [(str "Art: " lead " and " (others n))]))))
+
+(defn fit-credit
+  "The longest variant of the credit that `fits?`, else the shortest."
+  [names fits?]
+  (let [vs (credit-variants names)]
+    (or (first (filter fits? vs)) (last vs))))
+
+(defn format-credit
+  "The credit string for a list of artist names, or nil for none: the full
+   variant, for surfaces with room for it."
+  [names]
+  (first (credit-variants names)))
+
+(defn credit-names
+  "The named artists on canvas, in credit order."
+  [portrait]
+  (into [] (keep :artist/name) (artists-for-layers (:layers portrait))))
 
 (defn credit-line
   "One-line attribution for a composed portrait.
@@ -496,9 +544,10 @@
    want to be credited -- an unnamed artist is skipped rather than given an
    invented byline. Every caller can `when-let` and drop the surface entirely.
    Shared by the PDF export, the share card and the character summary so all
-   three credit the same people the same way."
+   three credit the same people the same way. Surfaces with a width to fit
+   use `credit-names` + `fit-credit` instead."
   [portrait]
-  (format-credit (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))))
+  (format-credit (credit-names portrait)))
 
 ;; ---------- pure helpers for seeded randomization ----------
 ;;

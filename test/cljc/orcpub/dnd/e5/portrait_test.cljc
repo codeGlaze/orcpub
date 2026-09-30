@@ -419,7 +419,7 @@
             pieces names both -- which is what lets more illustrators join"
     (let [layers (pa/compose-for-seed "credit-check")]
       (is (= [:house-pack] (pa/all-artists-for-layers layers)))
-      (is (= "Art: A, B" (pa/format-credit ["A" "B"]))
+      (is (= "Art: A with B" (pa/format-credit ["A" "B"]))
           "several names join into one line"))))
 
 (deftest the-artist-links-are-drawer-only-and-overridable
@@ -521,7 +521,7 @@
 
 (deftest every-surface-names-artists-in-credit-order
   (with-redefs [pa/registry (split-registry [[:b "Bee" [:ears]] [:a "Ay" [:head]]])]
-    (is (= "Art: Ay, Bee" (pa/credit-line {:layers (pick-first [:head :ears])}))
+    (is (= "Art: Ay with Bee" (pa/credit-line {:layers (pick-first [:head :ears])}))
         "the text burned into share cards and PDFs follows the same order")))
 
 (deftest one-artist-gets-all-the-weight

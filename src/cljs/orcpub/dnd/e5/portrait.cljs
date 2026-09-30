@@ -123,11 +123,17 @@
    travels with it. Dark fill under a white outline, because a transparent PNG
    may land on a white page or a dark chat client and one of the two always
    reads."
-  [ctx text w h]
-  (let [{:keys [size halo center-x baseline outline fill]} (layout/credit-layout w h)
+  [ctx names w h]
+  (let [{:keys [halo center-x baseline outline fill]} (layout/credit-layout w h)
+        font-at #(str "italic " % "px '" layout/credit-font-family "', Georgia, serif")
+        {:keys [text size]} (layout/fit-credit
+                             (pa/credit-variants names) w h
+                             (fn [text size]
+                               (set! (.-font ctx) (font-at size))
+                               (.-width (.measureText ctx text))))
         rgba (fn [[r g b :as c]]
                (str "rgba(" r "," g "," b "," (layout/alpha->unit c) ")"))]
-    (set! (.-font ctx) (str "italic " size "px '" layout/credit-font-family "', Georgia, serif"))
+    (set! (.-font ctx) (font-at size))
     (set! (.-textAlign ctx) "center")
     (set! (.-textBaseline ctx) "alphabetic")
     (set! (.-lineWidth ctx) (* 2 halo))
@@ -211,11 +217,11 @@
                                                              raster-width raster-height)]
                         (.drawImage tctx img x y dw dh)))
                     (.drawImage ctx tmp 0 0))
-                  (when-let [credit (pa/credit-line portrait)]
+                  (when-let [names (not-empty (pa/credit-names portrait))]
                     ;; The face has to be resident before fillText or the
                     ;; canvas silently substitutes; document.fonts.load is
                     ;; awaited up in `rasterize` before we get here.
-                    (draw-credit! ctx credit raster-width raster-height))
+                    (draw-credit! ctx names raster-width raster-height))
                   (some-> (.toDataURL canvas "image/png")
                           (s/split #",")
                           second))
@@ -883,11 +889,26 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   font: 500 9px/1.25 'Open Sans', system-ui, sans-serif;
   color: #8b95a5;
   letter-spacing: 0.02em;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  position: relative;
 }
+.pl-thumb-more {
+  font: 700 9px/1 'Open Sans', system-ui, sans-serif; color: #f0a100;
+  background: rgba(240,161,0,0.12); border: 1px solid rgba(240,161,0,0.45);
+  border-radius: 8px; padding: 1px 5px; cursor: pointer; vertical-align: 1px;
+}
+.pl-thumb-more:hover, .pl-thumb-more[aria-expanded=true] { background: rgba(240,161,0,0.24); }
+.pl-thumb-more:focus-visible { outline: 2px solid #f0a100; outline-offset: 1px; }
+.pl-thumb-more-list {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 20;
+  min-width: 150px; max-width: 220px; padding: 8px 10px;
+  background: #131924; border: 1px solid rgba(240,161,0,0.35); border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  font: 500 12px/1.6 'Open Sans', system-ui, sans-serif; color: #c9d0da;
+}
+.pl-thumb-more-lead { font-weight: 700; color: #ebeef4; }
+.pl-thumb-more-cap { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #7b8494; margin-top: 2px; }
+.app.light-theme .pl-thumb-more-list { background: #fff; color: #363636; border-color: rgba(51,101,138,0.35); }
+.app.light-theme .pl-thumb-more-lead { color: #1f2a37; }
 .app.light-theme .pl-thumb-credit { color: #6a6a6a; }
 .pl-thumb-credit-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .pl-thumb-credit-link:hover { color: #f0a640; }
@@ -1084,33 +1105,66 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
      (when (= open-layer layer-key)
        [:div.pl-layer-panel [sub-row portrait layer-key]])]))
 
-(defn- linked-credit
-  "The credit line with each named artist turned into a link where one is
-   known.
+(def ^:private thumb-credit-chars
+  "About what the 100px strip holds in two lines of its 9px type."
+  34)
 
-   The drawer has done this since it was built; this is the character page,
-   which is where the art actually travels. A share link, a PDF and a baked
-   PNG can only carry the name as text -- an image cannot hold a link and a
-   social unfurl renders its description as plain text -- so this is the one
-   surface downstream of the builder that can send someone to the artist, and
-   it was printing a dead string."
-  [portrait credit]
-  (let [named (filter :artist/name (pa/artists-for-layers (:layers portrait)))
-        linked (filter :artist/link named)]
-    (if (empty? linked)
-      credit
-      [:<>
-       "Art: "
-       (interpose
-        ", "
-        (for [{:keys [:artist/id :artist/name :artist/link]} named]
-          ^{:key id}
-          (if link
-            [:a.pl-thumb-credit-link
-             {:href link :target "_blank" :rel "noopener"
-              :on-click #(.stopPropagation %)}
-             name]
-            [:span name])))])))
+(defn- artist-ref
+  "An artist's name, as a link where they have one."
+  [{:keys [:artist/name :artist/link]}]
+  (if link
+    [:a.pl-thumb-credit-link
+     {:href link :target "_blank" :rel "noopener"
+      :on-click #(.stopPropagation %)}
+     name]
+    [:span name]))
+
+(defn- linked-credit
+  "The credit under the character page's thumbnail, each name a link where
+   the artist has one.
+
+   The strip is 100px, so it can't hold many names. When the whole line fits
+   it's shown whole; when it doesn't, the artist who drew most of the picture
+   is named and everyone else collapses into a '+N' that opens the full list,
+   every name still a link. Before, the strip clipped after two lines and the
+   smallest contributors just vanished.
+
+   This is the one surface downstream of the builder that can send someone to
+   the artist -- a PNG, a PDF and a social unfurl can only carry the name as
+   text -- so nobody's link is allowed to drop off it."
+  [portrait]
+  (r/with-let [open? (r/atom false)]
+    (let [[lead & more :as named] (filter :artist/name (pa/artists-for-layers (:layers portrait)))
+          full (pa/format-credit (map :artist/name named))]
+      (cond
+        (nil? lead) nil
+
+        (<= (count full) thumb-credit-chars)
+        [:<> "Art: " [artist-ref lead]
+         (when (seq more)
+           [:<> " with "
+            (for [[i a] (map-indexed vector more)]
+              ^{:key (:artist/id a)}
+              [:<> (cond (zero? i) nil (= i (dec (count more))) " and " :else ", ")
+               [artist-ref a]])])]
+
+        :else
+        [:<> "Art: " [artist-ref lead] " "
+         [:button.pl-thumb-more
+          {:type "button"
+           :aria-expanded (str @open?)
+           :aria-label (str "Show all " (count named) " artists")
+           :title (str "Show all " (count named) " artists")
+           :on-click #(do (.stopPropagation %) (swap! open? not))
+           :on-key-down #(when (= "Escape" (.-key %)) (reset! open? false))}
+          (str "+" (count more))]
+         (when @open?
+           [:div.pl-thumb-more-list {:role "dialog" :aria-label "Everyone who drew this portrait"
+                                     :on-click #(.stopPropagation %)}
+            [:div.pl-thumb-more-lead [artist-ref lead]]
+            [:div.pl-thumb-more-cap "with"]
+            (for [a more]
+              ^{:key (:artist/id a)} [:div [artist-ref a]])])]))))
 
 ;; ---------------- the artist credit ----------------
 ;;
@@ -1360,7 +1414,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
          {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]
         (when editable? [edit-overlay])]
        (when-let [credit (pa/credit-line portrait-data)]
-         [:div.pl-thumb-credit {:title credit} [linked-credit portrait-data credit]])]
+         [:div.pl-thumb-credit {:title credit} [linked-credit portrait-data]])]
 
       image-url
       (if editable?

@@ -213,10 +213,14 @@
    PNG is transparent, so it may land on a white page or a dark chat client,
    and one of the two always reads. Not a watermark -- a crop removes it --
    just a credit that survives being right-click-saved."
-  [^Graphics2D g text w h]
-  (let [{:keys [size halo baseline]
+  [^Graphics2D g names w h]
+  (let [{:keys [halo baseline]
          [or* og ob oa] :outline
          [fr fg fb fa] :fill} (layout/credit-layout w h)
+        {:keys [text size]} (layout/fit-credit
+                             (pa/credit-variants names) w h
+                             (fn [text size]
+                               (.stringWidth (.getFontMetrics g (face credit-face size)) ^String text)))
         font (face credit-face size)
         fm (.getFontMetrics g font)
         tw (.stringWidth fm text)
@@ -322,8 +326,8 @@
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
            (try
-             (when-let [credit (pa/credit-line portrait)]
-               (draw-credit! g credit w h))
+             (when-let [names (not-empty (pa/credit-names portrait))]
+               (draw-credit! g names w h))
              (when-let [mark (site-mark)]
                (draw-site-mark! g mark w h))
              (catch Exception e

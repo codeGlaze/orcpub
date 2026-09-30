@@ -78,6 +78,32 @@
    :outline [255 255 255 90]
    :fill [20 20 20 128]})
 
+(defn credit-max-width
+  "How wide the burned credit may run in a `w`x`h` frame. Centred, so the
+   margin is the same on both sides, and wide enough on the right to clear
+   the site mark running up that edge -- a long credit used to run under it,
+   and off the picture altogether at five artists."
+  [w h]
+  (let [{:keys [size x]} (site-mark-layout w h)
+        margin (+ (- w x) size (max 4 (Math/round (* w 0.012))))]
+    (max 1 (- w (* 2 margin)))))
+
+(defn fit-credit
+  "{:text :size} for the burned credit: the longest of `variants` (longest
+   first, from portrait-assets/credit-variants) that fits in the frame at the
+   layout's size, shrinking the type only when even the shortest does not --
+   a readable 'and 3 others' beats every name at an unreadable size.
+   `measure` is (fn [text size] width), from whatever the renderer draws with."
+  [variants w h measure]
+  (let [base (:size (credit-layout w h))
+        room (credit-max-width w h)
+        sizes (distinct (map #(max 9 (Math/round (* base %))) [1.0 0.88 0.76]))]
+    (or (first (for [size sizes
+                     text variants
+                     :when (<= (measure text size) room)]
+                 {:text text :size size}))
+        {:text (last variants) :size (last sizes)})))
+
 (defn alpha->unit
   "An [r g b a] alpha, as a canvas wants it."
   [[_ _ _ a]]

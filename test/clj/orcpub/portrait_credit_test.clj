@@ -33,9 +33,47 @@
 
 (deftest formats-one-credit-for-the-artists-named
   (is (= "Art: A Person" (pa/format-credit ["A Person"])))
-  (is (= "Art: A Person, B Person" (pa/format-credit ["A Person" "B Person"])))
+  (is (= "Art: A Person with B Person" (pa/format-credit ["A Person" "B Person"])))
+  (is (= "Art: A with B, C and D" (pa/format-credit ["A" "B" "C" "D"]))
+      "whoever drew most leads and the rest follow, like the builder's lockup")
   (testing "one artist across many layers is one credit, not many"
     (is (= 1 (count (re-seq #"Art:" (pa/format-credit ["A Person"])))))))
+
+(deftest the-tail-collapses-into-a-count-not-a-cut
+  (is (= ["Art: Fusspot with Bex, Cy and Dee"
+          "Art: Fusspot with Bex, Cy and 1 other"
+          "Art: Fusspot with Bex and 2 others"
+          "Art: Fusspot and 3 others"]
+         (pa/credit-variants ["Fusspot" "Bex" "Cy" "Dee"])))
+  (is (= ["Art: Fusspot with Bex" "Art: Fusspot and 1 other"] (pa/credit-variants ["Fusspot" "Bex"])))
+  (is (= ["Art: Fusspot"] (pa/credit-variants ["Fusspot"])))
+  (is (= [] (pa/credit-variants [])))
+  (testing "fit-credit takes the longest that fits, else the shortest"
+    (is (= "Art: Fusspot with Bex and 2 others"
+           (pa/fit-credit ["Fusspot" "Bex" "Cyrano" "Dee"] #(<= (count %) 35))))
+    (is (= "Art: Fusspot and 3 others" (pa/fit-credit ["Fusspot" "Bex" "Cy" "Dee"] (constantly false))))))
+
+(def five-long-names
+  ["Fusspot the Magnificent" "Bexley Wintergreen" "Cyrano Delacroix" "Dee Ashworth-Valentine" "Esme Nightingale"])
+
+(deftest five-artists-fit-the-share-card
+  (testing "measured with the real face, the burned credit stays inside the frame
+            and clear of the site mark -- it used to run 609px in a 600px image"
+    (let [img (java.awt.image.BufferedImage. 600 600 java.awt.image.BufferedImage/TYPE_INT_ARGB)
+          g (.createGraphics img)
+          face @#'pr/face
+          measure (fn [text size] (.stringWidth (.getFontMetrics g (face pr/credit-face size)) ^String text))
+          {:keys [text size]} (orcpub.dnd.e5.portrait-layout/fit-credit
+                               (pa/credit-variants five-long-names) 600 600 measure)]
+      (is (<= (measure text size) (orcpub.dnd.e5.portrait-layout/credit-max-width 600 600)))
+      (is (clojure.string/starts-with? text "Art: Fusspot the Magnificent") "the lead is never dropped")
+      (is (re-find #"other" text) "the rest are counted, not silently cut")
+      (.dispose g))))
+
+(deftest the-pdf-metadata-drops-whole-names
+  (let [fitted (pa/fit-credit five-long-names #(<= (count %) 78))]
+    (is (<= (count fitted) 78))
+    (is (= fitted (routes/pdf-safe-text fitted)) "short enough that the server never has to cut it with ...")))
 
 (deftest the-illustrator-is-credited
   (testing "Fusspot drew this art and every surface says so"
