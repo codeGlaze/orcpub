@@ -2684,7 +2684,9 @@
          [:div
           [missing-content-warning]
           [relink-question-banner]]
-         [:div.flex
+         ;; on phones .content has no side padding; keep the toggles off the edge
+         [:div.flex.flex-wrap.justify-cont-end
+          {:class (when mobile? "p-r-10")}
           [theme-toggle]
           [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c

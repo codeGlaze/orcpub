@@ -914,6 +914,12 @@
     [:th.visible-xs,
      :td.visible-xs {:display "table-cell !important"}])
 
+   ;; Six 68px roll buttons need 432px, wider than a phone; share the row instead.
+   (at-media xs-query
+    [:.ability-scores
+     [:>div {:flex "1 1 0" :min-width 0}]
+     [:.roll-button {:min-width 0 :width "calc(100% - 4px)"}]])
+
    (at-media xs-query
     [:.visible-xs-block
      {:display "block !important"}])
