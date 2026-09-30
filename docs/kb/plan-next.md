@@ -31,8 +31,9 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ **#37 merged into `integration`** (`614c17ff`, 2026-09-30), on the owner's instruction.
 - ☑ **`integration` merged into `refactor/content-extensibility`** (`90886b01`, 2026-09-30), and the
   trunk's 80 comment-check hits fixed, none approved (`1055149a`). JVM 765, cljs 656, dev build
-  clean. Pre-existing on the trunk, not fixed: `lein lint` reports "Unresolved symbol
-  ?ability-bonuses" at `classes.cljc:91` and `options.cljc`.
+  clean. The two "Unresolved symbol ?ability-bonuses" lint errors were `ac-formula` missing from
+  `.clj-kondo/config.edn` (fixed, `e8614ff1`). ☐ Still on the trunk: `legacy_shim_equivalence_test.clj`
+  requires `orcpub.common :as common` twice (lint error "Conflicting alias"); delete line 24.
 - ☑ **The trunk merged into `feature/grant-rows`** (2026-09-30): grant-rows now carries the
   reviewed save gate. JVM 765, cljs 656, dev build clean, comment check clean. Task 7 (integration
   down through trunk and branch) is done.
