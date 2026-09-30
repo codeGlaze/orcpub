@@ -23,69 +23,22 @@
             [clojure.string :as s]
             [datomic.api :as d]
             [orcpub.fork.branding :as branding]
-            [orcpub.dnd.e5.portrait-assets :as pa])
-  (:import [java.net URI]))
+            [orcpub.artist-links :as links]
+            [orcpub.dnd.e5.portrait-assets :as pa]))
 
 ;; ---------------------------------------------------------------------------
-;; What an artist may set
+;; What an artist may set -- the rules live in orcpub.artist-links, which the
+;; account page also runs as you type
 ;; ---------------------------------------------------------------------------
 
-(def max-name-length 60)
-(def max-url-length 200)
-(def max-links
-  "The credit lockup flanks the name with at most four marks."
-  4)
-
-(def services
-  "The marks a link can wear, each with its brand colour and the hosts it
-   belongs to. The icon is worked out from the link, never chosen, so it
-   can't disagree with where the link goes -- a Twitch mark that opened some
-   other site is exactly the trick a lookalike phishing link plays. Anything
-   that isn't a known service gets `site`, a plain globe."
-  (array-map
-   "twitch"  {:label "Twitch"  :color "#9146ff" :hosts #{"twitch.tv"}}
-   "bluesky" {:label "Bluesky" :color "#1185fe" :hosts #{"bsky.app"}}
-   "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}}
-   "site"    {:label "Site"    :color "#f0a100" :hosts nil}))
-
-(defn- host-of [url]
-  (try (some-> (URI. url) .getHost s/lower-case) (catch Exception _ nil)))
-
-(defn- host-matches? [host allowed]
-  (some #(or (= host %) (s/ends-with? host (str "." %))) allowed))
-
-(defn icon-for-url
-  "The mark for a link: the service whose host it points at, else `site`."
-  [url]
-  (let [host (or (host-of (some-> url s/trim)) "")]
-    (or (some (fn [[icon {:keys [hosts]}]] (when (and hosts (host-matches? host hosts)) icon))
-              services)
-        "site")))
-
-(defn url-problem
-  "Why `url` can't be used as a credit link, or nil when it can. Only https:
-   a credit link is followed by strangers, and an http one can be rewritten
-   on the way."
-  [url]
-  (let [url (some-> url s/trim)
-        uri (try (URI. url) (catch Exception _ nil))
-        host (host-of url)]
-    (cond
-      (s/blank? url) "Add a link"
-      (> (count url) max-url-length) (str "Links can be up to " max-url-length " characters")
-      (or (nil? uri) (not= "https" (some-> uri .getScheme s/lower-case)))
-      "Links must start with https://"
-      (or (s/blank? host) (not (s/includes? host "."))) "That doesn't look like a web address"
-      (some? (.getUserInfo uri)) "That doesn't look like a web address")))
-
-(defn- link-entry [url]
-  (let [icon (icon-for-url url)
-        {:keys [label color]} (services icon)]
-    {:link/label label :link/icon icon :link/color color :link/url url}))
-
-(defn- clean-name [n]
-  (let [n (some-> n str s/trim (s/replace #"\s+" " "))]
-    (when-not (s/blank? n) n)))
+(def max-name-length links/max-name-length)
+(def max-url-length links/max-url-length)
+(def max-links links/max-links)
+(def services links/services)
+(def icon-for-url links/icon-for-url)
+(def url-problem links/url-problem)
+(def ^:private link-entry links/link-entry)
+(def ^:private clean-name links/clean-name)
 
 (defn check
   "Validate an edit submitted from the settings page:
@@ -93,27 +46,17 @@
    Each link's icon is worked out from its address.
    Returns {:credit <clean stored form>} or {:errors {field message}}.
    A blank name or link means \"use the default\"."
-  [{:keys [name link links]}]
-  (let [nm (clean-name name)
+  [{:keys [name link links] :as edit}]
+  (let [errors (links/edit-errors edit)
+        nm (clean-name name)
         link (some-> link s/trim not-empty)
-        links (->> links
-                   (map #(some-> (:url %) str s/trim))
-                   (remove s/blank?))
-        link-errors (into {}
-                          (keep-indexed (fn [i url] (when-let [p (url-problem url)] [i p])))
-                          links)
-        errors (cond-> {}
-                 (and nm (> (count nm) max-name-length))
-                 (assoc :name (str "Names can be up to " max-name-length " characters"))
-                 (and link (url-problem link)) (assoc :link (url-problem link))
-                 (> (count links) max-links) (assoc :links (str "Up to " max-links " links"))
-                 (seq link-errors) (assoc :link-errors link-errors))]
+        urls (->> links (map #(some-> (:url %) str s/trim)) (remove s/blank?))]
     (if (seq errors)
       {:errors errors}
       {:credit (cond-> {}
                  nm (assoc :artist/name nm)
                  link (assoc :artist/link link)
-                 (seq links) (assoc :artist/links (mapv link-entry links)))})))
+                 (seq urls) (assoc :artist/links (mapv link-entry urls)))})))
 
 (defn read-stored
   "The stored EDN, re-checked. Anything that no longer passes is dropped
