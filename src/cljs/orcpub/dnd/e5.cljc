@@ -51,16 +51,11 @@
 
 
 (defn salvage-plugin-items
-  "Per-ENTRY salvage of ONE source. Walks each content group and splits its items
-   by `valid-item?` (a fn of [content-type item-key item]) — valid items go to
-   :kept, invalid to :rejected. Non-content entries (e.g. `:disabled?`, or a
-   content group that is a boolean) stay with :kept. Returns {:kept <plugin>
-   :rejected <plugin>}; a content-type key is absent on a side that has nothing.
-
-   This is what lets ONE bad entry be siloed WITHOUT quarantining its whole source:
-   the source keeps its valid items, only the broken ones are set aside for repair.
-   `valid-item?` is injected (content-specs supplies the load-floor version) so this
-   stays pure/JVM-testable. Non-map input yields two empty maps."
+  "Per-ENTRY salvage of ONE source: splits each content group's items by `valid-item?` (a fn of
+   [content-type item-key item]) into {:kept <plugin> :rejected <plugin>}, so one bad entry is set
+   aside without quarantining its source. Non-content entries (`:disabled?`, a boolean content
+   group) stay in :kept; a content type is absent on a side with nothing. Non-map input yields two
+   empty maps. `valid-item?` is injected (content-specs supplies it) so this stays JVM-testable."
   [valid-item? plugin]
   (if (map? plugin)
     (reduce-kv
@@ -95,13 +90,10 @@
     {:kept {} :rejected {}}))
 
 (defn reconcile-rejected
-  "Maintain the name-keyed quarantine map (`plugins:rejected`) across loads: merge
-   this load's rejected sources into the already-quarantined ones (latest-wins per
-   name, so nothing accumulates), then drop any whose name reappears in `kept` — a
-   repaired source clears itself. Returns the cleaned `{name → bad-source}` map
-   (caller removes the storage key when empty).
-
-   Pure/dependency-free for JVM tests. Non-map `old-rejected` is treated as empty."
+  "Merges this load's `new-rejected` sources into `old-rejected` (the name-keyed `plugins:rejected`
+   quarantine map; latest wins per name), then drops any name present in `kept`, so a repaired
+   source clears itself. Returns the cleaned {name → bad-source} map; the caller removes the
+   storage key when it is empty. A non-map `old-rejected` or `new-rejected` counts as empty."
   [old-rejected new-rejected kept]
   (let [old (if (map? old-rejected) old-rejected {})
         incoming (if (map? new-rejected) new-rejected {})

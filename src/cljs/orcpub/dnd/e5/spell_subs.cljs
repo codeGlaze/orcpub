@@ -52,16 +52,9 @@
    (boolean (:dev-mode? db))))
 
 ;; ---------------------------------------------------------------------------
-;; Memoized library-health detectors.
-;;
-;; These walk the WHOLE library (every source × content-type × item), and the
-;; My Content views call them from several places — the twin index alone was
-;; being rebuilt once per content-type section per source, i.e. dozens of full
-;; walks on every render (and every search keystroke). As re-frame reactions
-;; keyed on ::e5/plugins they compute once per plugins change and share that one
-;; result across every row, section, and page, instead of recomputing in each
-;; component's render body. Keep them here (not inline in views) so the caching
-;; is structural, not something a future caller can accidentally bypass.
+;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
+;; they compute once per library change and share one result across every row, section and page.
+;; Keep them here, not inline in views, so no caller can bypass the caching.
 ;; ---------------------------------------------------------------------------
 
 ;; Cross-source same-key index for the collision-risk types — backs the
@@ -95,12 +88,10 @@
  (fn [plugins _]
    (orcbrew-val/mutual-exclusion-off-count plugins)))
 
-;; Ephemeral overlay for a SHARED character being viewed: content that arrived
-;; embedded in a share link (view-once) lives here, NOT in :plugins, so it is
-;; never persisted to the recipient's library and vanishes on reload without the
-;; link. The content-lookup subs below fold it in (last, so it wins key
-;; collisions for the shared view); the library manager / export read :plugins
-;; directly and never see it. See orcpub.dnd.e5.share-url / share-bundle.
+;; Ephemeral overlay for a SHARED character being viewed: content embedded in a share link lives
+;; here, NOT in :plugins, so it is never persisted and vanishes on reload. The content-lookup subs
+;; fold it in last (it wins key collisions for the shared view); the library manager and export
+;; read :plugins and never see it. See orcpub.dnd.e5.share-url / share-bundle.
 (reg-sub
  ::e5/shared-plugins
  (fn [db _]

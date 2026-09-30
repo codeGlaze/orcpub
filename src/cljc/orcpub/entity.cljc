@@ -251,35 +251,12 @@
               g)))
 
 (defn kahn-sort
-  "Proposes a topological sort for directed graph g using Kahn's
-   algorithm, where g is a map of nodes to sets of nodes. If g is
-   cyclic, returns nil.
-
-   THE RESULT ORDER IS LOAD-BEARING. apply-options feeds it to order-modifiers, which
-   turns it into modifier application order, so two equally valid topological orders are
-   NOT interchangeable — swapping them can change a computed AC. Pinned against the
-   pre-rewrite implementation in entity_build_perf_test (JVM) and by an in-browser
-   equivalence run (CLJS).
-
-   What changed: the old version called no-incoming — a full pass over the graph — once
-   per node, making the sort O(V*(V+E)) and 74% of entity/build. In-degrees are now
-   decremented as edges are consumed, so the same answer costs O(V+E).
-
-   Reproducing the order exactly takes more care than it looks. The frontier `s` is a
-   set and the next node is (first s), so the SET'S ITERATION ORDER picks it — and in
-   ClojureScript a set of <= 8 elements is array-map backed, i.e. iterates in INSERTION
-   order. So it is not enough to compute the right members; they must be inserted the way
-   clojure.set/intersection would have inserted them. Building the frontier addition with
-   `(into #{} ...)` instead diverged on 159 of 808 random graphs in the browser (and on
-   none of them on the JVM, where sets are always hash-ordered — which is why this needed
-   checking in both runtimes).
-
-   So the two branches below are clojure.set/intersection's own two branches, inlined
-   with the in-degree map standing in for the no-incoming set:
-   `(contains? no-incoming x)` is exactly `(zero? (indeg x))`, and `zero-count` tracks
-   `(count no-incoming)` so the branch is chosen identically. The second branch needs the
-   set itself, so it is materialized there — reachable only when a node's out-degree
-   exceeds the number of nodes already emitted, which real dependency graphs never hit."
+  "Proposes a topological sort for directed graph g (a map of nodes to sets of nodes) using
+   Kahn's algorithm in O(V+E); returns nil if g is cyclic.
+   GOTCHA: the ORDER is load-bearing (order-modifiers makes it modifier order, so another valid
+   order can change a computed AC; pinned in entity_build_perf_test). The frontier set is built
+   with clojure.set/intersection's own two branches, because (first s) picks the next node and
+   a small CLJS set iterates in INSERTION order."
   [g0]
   (let [g     (normalize g0)
         nodes (set (keys g))
@@ -347,21 +324,10 @@
 (declare get-template-selection-path)
 
 (defn index-matching-key
-  "Index of the first item in `items` whose `key-fn` is `k`, or nil.
-
-   Two passes. An exact match anywhere in the collection wins outright. Only when
-   nothing matches exactly does it retry on canonical keys, and then only if
-   exactly ONE item matches -- an ambiguous fallback would bind a character to
-   whichever copy happened to be first, which is worse than leaving it unresolved.
-
-   This is what lets a character that stored `:dark-elf-drow-` keep working after
-   the derivation stopped emitting that trailing dash. It can only ever resolve
-   something that would otherwise be nil, so it cannot change an answer that is
-   already correct.
-
-   Two passes rather than a looser `=` inside one pass, because a per-element
-   comparison cannot see whether a second element would also have matched, and so
-   cannot tell an unambiguous rebind from a coin flip."
+  "Index of the first item in `items` whose `key-fn` is `k`, or nil. An exact match anywhere
+   wins; only when there is none does it retry on `common/canonical-key`s, and then only if
+   exactly ONE item matches, so an ambiguous fallback stays unresolved. It can only resolve
+   what would otherwise be nil, such as a stored trailing-dash key (`:dark-elf-drow-`)."
   [items key-fn k]
   (or (first (keep-indexed (fn [i x] (when (= (key-fn x) k) i)) items))
       (let [ck (common/canonical-key k)]
@@ -634,14 +600,9 @@
      (fn [{path ::t/path
            option-value ::value
            :as option}]
-       (let [;; Exact path first. On a miss, retry with the STORED key canonicalised
-             ;; -- a character that selected this option before the derivation
-             ;; stopped emitting a trailing separator has ":foo-" in its path where
-             ;; the template now has ":foo". Canonicalising the lookup maps the old
-             ;; form onto the new one; canonicalising the template would be a no-op,
-             ;; since its keys are already in the new form.
-             ;;
-             ;; Miss-only, so a path that resolves today resolves identically.
+       (let [;; Exact path first. On a miss, retry with the STORED last key canonicalised,
+             ;; so a path saved with a trailing separator (":foo-") finds the template's
+             ;; ":foo". Miss-only, so a path that resolves exactly is unaffected.
              template-option (or (template-option-map path)
                                  (when (seq path)
                                    (let [ck (common/canonical-key (last path))]

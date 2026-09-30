@@ -247,12 +247,9 @@
   (pr-str bundle))
 
 ;; ── Structural whitelist (security layer 5) ──────────────────────────────────
-;; The fail-closed shape gate for an UNTRUSTED shared bundle. It keeps only the
-;; parts that match the exact {source {content-type {item-key def}}} shape with a
-;; known content type and a letter-leading keyword key; everything else is
-;; dropped. This is a SHAPE gate only — item CONTENT is validated and sanitized
-;; afterward by the same .orcbrew import path a file upload goes through
-;; (salvage-library-items + per-type spec + sanitize-item-names).
+;; Fail-closed SHAPE gate for an untrusted bundle: keeps only {source {content-type
+;; {item-key def}}} with a known content type and a letter-leading keyword key. CONTENT
+;; is checked later by the .orcbrew import path (salvage + spec + sanitize-item-names).
 
 (defn- flatten-by-type
   "Collapse {source {content-type {key def}}} into {content-type {key def}},

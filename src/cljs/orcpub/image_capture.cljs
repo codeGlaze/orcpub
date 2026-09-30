@@ -1,21 +1,10 @@
 (ns orcpub.image-capture
-  "Reads a character's picture in the browser, so an export can carry the bytes
-   instead of an address for the server to fetch.
-
-   The route is a CORS-attributed <img> drawn to a canvas, and only that: the app's
-   CSP is `connect-src 'self'` and `img-src 'self' data: https:`, so an image host
-   is reachable by the image loader and not by the fetch stack, and a fetch would
-   log a violation on every export. Reading the canvas is therefore always a
-   re-encode, bounded by scaling to the printed size first.
-
-   A host that sends no Access-Control-Allow-Origin refuses every read, and the
-   browser logs a CORS error saying so -- that is the host's rule being reported
-   and cannot be suppressed from here. The caller then falls back to the server,
-   and past that to a copy or a file.
-
-   There is no way round a refusal from here: a tab or iframe showing the picture
-   is a different origin the opener cannot read, and a service worker fetching it
-   no-cors gets an opaque response whose bytes it cannot read either."
+  "Reads a character's picture in the browser, so an export can carry the bytes instead of
+   an address for the server to fetch. The only route is a CORS-attributed <img> drawn to a
+   canvas (the CSP lets image hosts reach the image loader, not fetch), so a read is always
+   a re-encode, scaled to the printed size first. GOTCHA: a host sending no
+   Access-Control-Allow-Origin refuses every read and the browser logs a CORS error; the
+   caller falls back to the server, then to a copy or a file."
   (:require [clojure.string :as s]))
 
 (def ^:private max-bytes
@@ -29,13 +18,9 @@
   (* 2000 2000))
 
 (def ^:private print-edge
-  "Longest edge the sheet can actually show, in pixels.
-
-   The portrait box is 2.35 x 3.15 inches and 300dpi is the print target, so 945px
-   on the long side. The in-app thumbnail is 200x100, far smaller, so the printed
-   size is the one that decides. Pixels past this are thrown away by the
-   rasteriser, which is why size is given up before quality: it costs nothing
-   visible until this point, and quality costs something immediately."
+  "Longest edge the sheet can actually show, in pixels: the 2.35 x 3.15 inch portrait box
+   at 300dpi. Pixels past it are thrown away by the rasteriser, so size is given up before
+   quality."
   945)
 
 (def ^:private quality-steps
@@ -78,13 +63,9 @@
   (apply max (dimensions source)))
 
 (defn- encode-attempts
-  "Longest edge and JPEG quality to try, in order, for a picture whose natural
-   long edge is `natural`.
-
-   Size is spent first, but only down to what the sheet can show: a picture
-   already smaller than the printed size is never scaled at all, and just gets the
-   quality ladder. Going below the printed size comes last, when quality alone
-   cannot reach the ceiling."
+  "Longest edge and JPEG quality to try, in order, for a picture whose natural long edge is
+   `natural`: every quality step at min(natural, print-edge), then each smaller
+   fallback-edge at the lowest quality. Nothing is shrunk until quality is spent."
   [natural]
   (let [edge (min natural print-edge)]
     (concat (for [q quality-steps] [edge q])
@@ -221,15 +202,10 @@
         (array-seq items)))
 
 (defn capture-clipboard
-  "Reads a picture the viewer has already copied and hands it to `k` like any
-   other local file, or nil when the clipboard holds no picture.
-
-   The copy has to be the VIEWER's -- \"Copy image\" in the browser's own menu.
-   A page-initiated copy of a cross-origin image puts its markup on the clipboard
-   and not its pixels, by the same rule that taints the canvas: if a page could
-   copy pixels it could read any image anywhere, and no host's rules would mean
-   anything. Reading the clipboard needs a user gesture and, the first time, the
-   viewer's permission."
+  "Reads a picture the viewer has already copied and hands it to `k` like any other local
+   file, or nil when the clipboard holds no picture. GOTCHA: the copy must be the VIEWER's
+   (the browser's own \"Copy image\"): a page-initiated copy of a cross-origin image carries
+   markup, not pixels. Reading needs a user gesture and, the first time, permission."
   [k]
   (let [k (once k)]
     (if-not (and js/navigator.clipboard (.-read js/navigator.clipboard))

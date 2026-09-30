@@ -59,21 +59,16 @@
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
    ;; See orcpub.config for details
    ::http/secure-headers (config/get-secure-headers-config)
-   ;; Jetty's worker pool caps how many requests of any kind are in flight.
-   ;; Pedestal's own default is 50 until roughly sixteen cores, which is well
-   ;; under what a large host can carry; ORCPUB_HTTP_MAX_THREADS raises it, and
-   ;; unset leaves Pedestal to decide. Exports are bounded separately -- see
-   ;; docs/PDF-EXPORT-CAPACITY.md.
+   ;; Jetty's worker pool caps how many requests of any kind are in flight. Unset
+   ;; ORCPUB_HTTP_MAX_THREADS leaves Pedestal's default (50 until roughly sixteen cores).
+   ;; Exports are bounded separately -- see docs/PDF-EXPORT-CAPACITY.md.
    ::http/container-options (cond-> {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
                                                        (.setGzipHandler c gzip-handler)
-                                                       ;; Cap what a request body may be before it reaches
-                                                       ;; a handler. /character.pdf is unauthenticated and
-                                                       ;; parses its body with edn/read-string, and a 50MB
-                                                       ;; POST was neither rejected nor completed -- the
-                                                       ;; connection simply stayed open. 2MB is generous for
-                                                       ;; a character spec and leaves room for an image
-                                                       ;; supplied as bytes rather than a URL.
+                                                       ;; Cap request bodies before a handler:
+                                                       ;; /character.pdf is unauthenticated and
+                                                       ;; parses its body with edn/read-string.
+                                                       ;; The cap leaves room for image bytes.
                                                        (.setMaxFormContentSize c max-form-content-size)
                                                        ;; A body with an absurd number of distinct keys is
                                                        ;; the other shape of the same attack.
