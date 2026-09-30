@@ -299,7 +299,7 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
   wrong (data in the wild, a trap, where to trace a behaviour). Do not remove or shorten one in a
   cleanup; change it only when the fact changes, and record its new hash in
   `test/comment-baseline.edn` `:field-notes` (`comment_discipline_test` prints the line).
-- Checked by `comment_discipline_test` (PR #38): history phrasing, docstrings over 6 lines and
+- Checked by `comment_discipline_test` (PR #37): history phrasing, docstrings over 6 lines and
   comment blocks over 4 fail. **Review each hit:** fix it, or approve it in
   `test/comment-baseline.edn` `:allowed` with a written reason. Never approve unread.
 - Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
