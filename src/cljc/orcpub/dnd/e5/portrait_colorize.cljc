@@ -77,3 +77,78 @@
                  :x1 (px* (:x1 lid)) :y1 (py* (:y1 lid))
                  ;; the region above the curve runs off the top of the frame
                  :top (- y h)})}))))
+
+;; ---------------------------------------------------------------------------
+;; Feathering the region's edge
+;;
+;; Antialiasing alone stops the colour on a crisp oval, and where that oval is
+;; a hair off the drawn iris line the seam shows up close or in print. The
+;; coverage is blurred and then only allowed to FALL: the colour fades out
+;; inside the shape, into the drawn ring, and never spills past it into the
+;; white or under the lashes. Chosen by eye on the real art at 6px on a
+;; 1500px-tall drawing; 8 took the colour out of the far eye, whose iris is
+;; about 12px across at its narrowest.
+;; ---------------------------------------------------------------------------
+
+(def feather-fraction
+  "Feather radius as a fraction of the drawn asset's height."
+  (/ 6.0 1500.0))
+
+(defn feather-radius
+  "The feather radius in pixels for an asset drawn `drawn-height` tall."
+  [drawn-height]
+  (int (Math/round (* feather-fraction (double drawn-height)))))
+
+(defn- new-doubles [n]
+  #?(:clj (double-array n) :cljs (js/Float64Array. n)))
+
+;; typed on the JVM, where an untyped aget over a million pixels reflects
+#?(:clj  (defn- ag ^double [^doubles a ^long i] (aget a i))
+   :cljs (defn- ag [a i] (aget a i)))
+#?(:clj  (defn- as! [^doubles a ^long i ^double v] (aset a i v))
+   :cljs (defn- as! [a i v] (aset a i v)))
+
+(defn feather
+  "Coverage (0..255 per pixel, `w` x `h`, row-major) with its edge faded
+   inward over radius `r`: a gaussian blur, then never more than the
+   original covered. Only the area around covered pixels is touched."
+  [cov w h r]
+  (if (< r 1)
+    cov
+    (let [n (* w h)
+          ;; bounding box of anything covered, grown by the radius
+          [x0 y0 x1 y1] (loop [i 0 x0 w y0 h x1 -1 y1 -1]
+                          (if (= i n)
+                            [x0 y0 x1 y1]
+                            (if (pos? (ag cov i))
+                              (let [x (mod i w) y (quot i w)]
+                                (recur (inc i) (min x0 x) (min y0 y) (max x1 x) (max y1 y)))
+                              (recur (inc i) x0 y0 x1 y1))))]
+      (if (neg? x1)
+        cov
+        (let [x0 (max 0 (- x0 r)) y0 (max 0 (- y0 r))
+              x1 (min (dec w) (+ x1 r)) y1 (min (dec h) (+ y1 r))
+              sigma (max 0.5 (/ r 2.0))
+              kernel (let [ws (mapv #(Math/exp (- (/ (* % %) (* 2 sigma sigma)))) (range (- r) (inc r)))
+                           s (reduce + ws)
+                           k (new-doubles (count ws))]
+                       (doseq [[i v] (map-indexed vector ws)] (as! k i (/ v s)))
+                       k)
+              pass (fn [src horizontal?]
+                     (let [out (new-doubles n)]
+                       (doseq [y (range y0 (inc y1)) x (range x0 (inc x1))]
+                         (as! out (+ x (* y w))
+                               (loop [k 0 acc 0.0]
+                                 (if (> k (* 2 r))
+                                   acc
+                                   (let [d (- k r)
+                                         xx (if horizontal? (max 0 (min (dec w) (+ x d))) x)
+                                         yy (if horizontal? y (max 0 (min (dec h) (+ y d))))]
+                                     (recur (inc k) (+ acc (* (ag kernel k) (ag src (+ xx (* yy w)))))))))))
+                       out))
+              blurred (pass (pass cov true) false)
+              out (new-doubles n)]
+          (dotimes [i n]
+            (as! out i (min (ag cov i) (* 2.0 (max 0.0 (- (ag blurred i) 127.5))))))
+          out)))))
+

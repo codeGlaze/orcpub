@@ -1157,7 +1157,14 @@
              {:on-click #(swap! expanded? not)
               :title "Browser and build details, for a bug report"}
              [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
-             "Debug info"]])
+             "Debug info"]
+            ;; lives with two placements of one iris before choosing; see
+            ;; portrait/iris-alternative?
+            [:span.dev-mode-tool
+             {:on-click #(portrait/toggle-iris-alternative!)
+              :title "Draw the far iris of Eyes 01 at the alternative placement, in the builder and PDF only"}
+             [:i.fa.fa-eye.m-r-5]
+             (str "Eyes 01 far iris: " (if @portrait/iris-alternative? "alternative" "artist's"))]])
          ;; One box, not the two identical ones that were here: the same map was
          ;; rendered twice, once with str and once with clj->json.
          (when (and dev? @expanded?)

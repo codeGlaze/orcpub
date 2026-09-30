@@ -189,8 +189,9 @@
 
 (defn- iris-coverage
   "How much of each pixel the placed iris region covers, 0..255, filled with
-   antialiasing on so the edge is a blend weight rather than a stair-step."
-  ^bytes [asset rect w h]
+   antialiasing on and then feathered inward (portrait-colorize/feather), so
+   the edge is a soft blend weight rather than a stair-step or a seam."
+  ^doubles [asset rect w h]
   (let [region (Area.)]
     (doseq [{:keys [iris pupil lid]} (colorize/iris-shapes asset rect)]
       (let [a (ellipse iris)]
@@ -204,7 +205,11 @@
         (.setColor g Color/WHITE)
         (.fill g region)
         (finally (.dispose g)))
-      (.. img getRaster getDataBuffer getData))))
+      (let [^bytes raw (.. img getRaster getDataBuffer getData)
+            cov (double-array (* w h))]
+        (dotimes [i (* w h)] (aset cov i (double (bit-and (aget raw i) 0xff))))
+        ;; faded inward over a radius set by how tall the asset is drawn
+        (colorize/feather cov w h (colorize/feather-radius (nth rect 3)))))))
 
 (defn- colorize!
   "Map the drawing's luminance through `color` wherever `cov` covers it, in
@@ -217,7 +222,7 @@
     (dotimes [i (* (.getWidth img) (.getHeight img))]
       (let [argb (aget ^ints dst i)
             a (bit-and (unsigned-bit-shift-right argb 24) 0xff)
-            k (if cov (/ (bit-and (aget ^bytes cov i) 0xff) 255.0) 1.0)]
+            k (if cov (/ (aget ^doubles cov i) 255.0) 1.0)]
         (when (and (pos? a) (pos? k))
           (let [[r g b] (colorize/colorize-rgb (bit-and (unsigned-bit-shift-right argb 16) 0xff)
                                                (bit-and (unsigned-bit-shift-right argb 8) 0xff)

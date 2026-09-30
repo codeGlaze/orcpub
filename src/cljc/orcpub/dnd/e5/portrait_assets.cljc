@@ -805,6 +805,22 @@
   (or (:asset/gamma asset)
       (if (= :lips (slot-for-asset layer-key asset)) 2.2 0.5)))
 
+(def eyes-01-far-iris-alternative
+  "A second placement for the far (right-hand) iris of Eyes 01, to live with
+   before deciding. The registry above carries the illustrator's own; this is
+   an edit that sits a little further left. Developer mode can switch the
+   builder and the PDF to it (orcpub.dnd.e5.portrait); the share card and
+   every other visitor always get the registry's."
+  {:asset-id :l6-eyes-01 :iris-index 1 :cx 0.72 :cy 0.36102})
+
+(defn with-iris-alternative
+  "`asset` with the alternative far iris swapped in, if it is Eyes 01."
+  [asset]
+  (let [{:keys [asset-id iris-index cx cy]} eyes-01-far-iris-alternative]
+    (if (and (= asset-id (:asset/id asset)) (< iris-index (count (:asset/iris asset))))
+      (update-in asset [:asset/iris iris-index] assoc :cx cx :cy cy)
+      asset)))
+
 (def depth-steps
   "How far the Brightness slider on a colorized piece goes each way."
   3)
