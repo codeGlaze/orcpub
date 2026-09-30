@@ -32,7 +32,10 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ **`integration` merged into `refactor/content-extensibility`** (`90886b01`, 2026-09-30), and the
   trunk's 80 comment-check hits fixed, none approved (`1055149a`). JVM 765, cljs 656, dev build
   clean. Pre-existing on the trunk, not fixed: `lein lint` reports "Unresolved symbol
-  ?ability-bonuses" at `classes.cljc:91` and `options.cljc`. ☐ Next: the trunk into grant-rows.
+  ?ability-bonuses" at `classes.cljc:91` and `options.cljc`.
+- ☑ **The trunk merged into `feature/grant-rows`** (2026-09-30): grant-rows now carries the
+  reviewed save gate. JVM 765, cljs 656, dev build clean, comment check clean. Task 7 (integration
+  down through trunk and branch) is done.
 - ☐ **Fix `integration`'s 303 recorded comment-check hits** instead of leaving them listed.
 
 **Owner's manual clean-up on GitHub**
