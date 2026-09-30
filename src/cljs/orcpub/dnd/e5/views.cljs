@@ -154,8 +154,13 @@
                                        ;; the server has the baked pixels but
                                        ;; not the layer selection, so the
                                        ;; credit has to travel with them
+                                       ;; fitted to the length the PDF's
+                                       ;; metadata keeps, so it drops whole
+                                       ;; names rather than being cut mid-name
                                        :portrait-credit
-                                       (portrait-assets5e/credit-line portrait)))))
+                                       (portrait-assets5e/fit-credit
+                                        (portrait-assets5e/credit-names portrait)
+                                        #(<= (count %) 78))))))
                    (.submit (.getElementById js/document "download-form"))))))))
 
 (defn download-form [built-char]
