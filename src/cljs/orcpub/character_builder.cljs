@@ -2397,6 +2397,22 @@
 ;; Missing Content Warning
 ;; ============================================================================
 
+(defn relink-question-banner
+  "Asks, once, which item a character meant after an import renamed the library's copy of it.
+   Stays until the author answers."
+  []
+  (when-let [{:keys [from to-name from-name import]} @(subscribe [:orcpub.dnd.e5/relink-question])]
+    (let [item (or from-name (name from))]
+      [:div.decision-callout
+       [:div.message-title (str "Which \u201c" item "\u201d did this character mean?")]
+       [:div.message-detail
+        (str "Importing " (if import (str "\u201c" import "\u201d") "a pack") " added a different \u201c"
+             item "\u201d. Yours is now called \u201c" to-name "\u201d.")]
+       [:div.decision-actions
+        [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])} "Use yours"]
+        [:button.link-button.underline {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :keep])}
+         "Use the imported one"]]])))
+
 (defn missing-content-warning
   "Displays a warning when the character references content that isn't loaded."
   []
@@ -2654,7 +2670,8 @@
        [:div.content
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
-          [missing-content-warning]]
+          [missing-content-warning]
+          [relink-question-banner]]
          [:div.flex
           [theme-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c

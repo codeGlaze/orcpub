@@ -117,16 +117,11 @@
  (fn [db _]
    (get db :quarantined-plugins)))
 
-(defn- process-plugin-vals
-  "Filter out malformed/disabled plugin data so a bad entry can't break the
-   subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps.
-
-   `overlay` (optional) applies the two LOCAL disable levels on top of the data
-   levels: :global? drops everything, and :sections drops a whole [source
-   content-type] pair. It's ORed with the source/item :disabled? flags, so an
-   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
-   path) applies only the data levels."
+(defn process-plugin-vals
+  "Clean {content-type {key def}} maps from `plugins`, dropping malformed and disabled items so one
+   bad entry cannot break the subscription chain. Each item carries its address (`:key`,
+   `:option-pack`), which the builders' edit and delete buttons trust. `overlay` (optional) adds the
+   local disable levels: :global? drops everything, :sections drops [source content-type] pairs."
   ([plugins] (process-plugin-vals plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -151,7 +146,10 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             [k v]))
+                             ;; Stamp the address on the item: a stored item may lack `:key` (from
+                             ;; before keys were stored) or carry a stale `:option-pack` (a renamed
+                             ;; source), and this map is the one place both are known.
+                             [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
                 p)))
@@ -227,11 +225,10 @@
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
-  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
-  ;; everything and a section pair drops that content-type from the source, so the
-  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+(defn process-plugins-with-sources
+  ;; [source-name plugin-data] pairs, skipping disabled and malformed entries. Items carry their
+  ;; address as process-plugin-vals stamps it, and the same disable overlay applies, so the
+  ;; dropdowns hide what the rest of the builder hides.
   ([plugins] (process-plugins-with-sources plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -241,9 +238,18 @@
         (fn [[source-name plugin-data]]
           (when (and (map? plugin-data) (not (:disabled? plugin-data)))
             [source-name
-             (into {} (remove (fn [[type-k _]]
-                                (contains? sections [source-name type-k]))
-                              plugin-data))]))
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
         plugins)))))
 
 (reg-sub
@@ -611,7 +617,8 @@
                                                       subclass-key)
                    :levels levels
                    :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+                   :edit-event [::classes5e/edit-subclass subclass-with-key
+                                source-name subclass-key ::e5/subclasses])))
         (catch js/Error e
           (js/console.warn "Skipping malformed subclass:" subclass-key e)
           nil)))
@@ -706,46 +713,12 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
-
 (reg-sub
  ::langs5e/languages
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub

@@ -26,10 +26,14 @@
   (set! js/window.location.protocol "https"))
 
 (dispatch-sync [:initialize-db])
+(dispatch [:orcpub.dnd.e5/settle-loaded-library])
 
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
 (autosave-fx/init-template-cache!)
+
+;; Another tab's library write reloads this tab's copy.
+(events/start-library-watch!)
 
 (def pages
   {nil views-2/splash-page

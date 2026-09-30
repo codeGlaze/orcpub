@@ -656,6 +656,17 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  (when (#{" " "Enter"} (.-key e))
+                                    (.preventDefault e)
+                                    (handler e))))
+    (nil? handler) (assoc :aria-disabled "true")))
+
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
@@ -1109,12 +1120,10 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           {:class (when dev? "on")
-            :role "switch"
-            :aria-checked (str (boolean dev?))
-            :tabIndex 0
-            :title "Show diagnostic tools for getting your content out"
-            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+                  {:class (when dev? "on")
+                   :title "Show diagnostic tools for getting your content out"
+                   :on-click (make-event-handler ::e5/toggle-dev-mode)})]
           [:span.dev-mode-label
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
@@ -7162,8 +7171,8 @@
                    {:title (name kw)
                     :value (name kw)})
                  ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
+         ;; A subrace whose race is missing, or has no size, has no size to show.
+         :value (some-> (or (get subrace :size) (get race :size)) name)
          :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
       [:div.m-r-5
        [labeled-dropdown
@@ -8543,6 +8552,7 @@
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
             twin-idx   @(subscribe [::e5/collision-twin-index])
+            dangling   @(subscribe [::e5/dangling-links])
             select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
@@ -8570,8 +8580,11 @@
                :on-click (if global-off?
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
-              [:div.f-s-10 "enabled?"]
-              [comps/checkbox (not eff-off?) global-off?]]
+              [:span.dev-mode-switch.compact
+               (merge (switch-attrs (not eff-off?)
+                                    (when-not global-off?
+                                      (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
+                      {:class (when-not eff-off? "on") :title "On in the builder"})]]
              [:div.h-48.flex.align-items-c
               {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
@@ -8632,14 +8645,22 @@
                                  :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                       [:div.f-s-10 "enabled?"]
-                       [comps/checkbox
-                        (not (get-in plugin [type-key key :disabled?]))
-                        false]]
+                       (let [on? (not (get-in plugin [type-key key :disabled?]))]
+                         [:span.dev-mode-switch.compact
+                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                                 {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
                        [:span name]
+                       (when-let [missing (get dangling [source-name type-key key])]
+                         [:div.f-s-12 {:style {:color "#ffd21a"}}
+                          ;; `name` here is the item's name (destructured above), not the function.
+                          (str "Uses "
+                               (s/join ", " (for [{:keys [to target]} missing]
+                                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                                   " \u201c" (if (keyword? target) (cljs.core/name target) target) "\u201d")))
+                               ", which isn't in your library.")])
                        (when note
                          [:div.f-s-12
                           {:class (when (= :off (:kind note)) "b-color-gray")
@@ -8652,10 +8673,10 @@
                             (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                       [:div
                        [:button.form-button.m-l-5
-                        {:on-click (make-event-handler edit-event item)}
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
                         "edit"]
                        [:button.form-button.m-l-5
-                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
                         "delete"]]])))
                  visible))]])]))))))
 
@@ -8670,9 +8691,9 @@
    {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
    {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
    {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
-   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon "woman-elf-face" :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
    {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
-   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon "mounted-knight" :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
    {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
    {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
    {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
@@ -8743,10 +8764,10 @@
           {:on-click #(swap! expanded? not)}
           [:div.m-r-10.flex.align-items-c.flex-column
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-           [:div.f-s-10 "enabled?"]
-           [comps/checkbox
-            (not (get plugin :disabled?))
-            false]]
+           (let [on? (not (get plugin :disabled?))]
+             [:span.dev-mode-switch
+              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+                     {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
            ;; disabled badge(s), colored by reason — amber (app/compat) shown first
@@ -8781,7 +8802,9 @@
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
-                  [comps/checkbox show? false]
+                  [:span.dev-mode-switch.compact
+                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                          {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
               [:button.form-button
@@ -8992,7 +9015,9 @@
      [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
-       [comps/checkbox (not global-off?) false]
+       [:span.dev-mode-switch
+        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+               {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
@@ -9016,17 +9041,22 @@
    the now-valid entries into the live library (::e5/repair-quarantined-source) —
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
-  [src-name plugin]
-  (let [entries (vec (for [[ct items] plugin
-                           :when (and (qualified-keyword? ct) (map? items))
-                           [ik item] items]
-                       {:ct ct :ik ik :item item}))
-        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
-                                         [[[ct ik :name] (or (:name item) "")]
-                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
-                                       entries)))]
+  [_ _]
+  ;; Only what the user has typed, kept across restores: an entry that restored leaves `plugin`, so
+  ;; its typing stops showing; one still set aside keeps what was typed for the next try.
+  (let [typed (r/atom {})]
     (fn [src-name plugin]
-      (let [current @edits]
+      (let [entries (vec (for [[ct items] plugin
+                               :when (and (qualified-keyword? ct) (map? items))
+                               [ik item] items]
+                           {:ct ct :ik ik :item item}))
+            default-of (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                          [[[ct ik :name] (or (:name item) "")]
+                                           [[ct ik :option-pack] (or (not-empty (:option-pack item))
+                                                                     src-name)]])
+                                        entries))
+            current (merge default-of (select-keys @typed (keys default-of)))
+            edits typed]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
          (if (seq entries)
@@ -9044,6 +9074,9 @@
                ^{:key (str ct "/" ik)}
                [:div.m-t-5.m-b-5
                 [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                (when-let [d (not-empty (str (get-in plugin [ct ik :description])))]
+                  [:div.f-s-12.i.m-t-5 {:style {:opacity 0.8}}
+                   (if (> (count d) 140) (str (subs d 0 140) "…") d)])
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
@@ -9063,7 +9096,7 @@
            [:div.f-s-12.m-t-5 "No entries to repair."])
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
-                                      @edits))
+                                      current))
                ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
                ;; entry's current name is invalid AND repair-name-lead can't
                ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
@@ -9104,6 +9137,55 @@
                           (dispatch [::e5/discard-quarantined-source src-name]))}
              "Discard"]])]))))
 
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- item-name-in
+  "The name of the item any source of `plugins` holds under `k` of type `ct`, else `k`'s name."
+  [plugins ct k]
+  (or (some #(get-in % [ct k :name]) (vals plugins)) (name k)))
+
+(defn repairs-panel
+  "Links a past rename left behind, each with its suggested fix; nothing changes until the author
+   picks. Renders nothing when there are none."
+  []
+  (let [repairs @(subscribe [::e5/suggested-repairs])
+        plugins @(subscribe [::e5/plugins])]
+    (when (seq repairs)
+      [:div.decision-callout
+       [:div
+        [:div
+         [:div.message-title (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+         [:div.message-detail "A rename left these pointing at nothing."]
+         (doall
+          (for [{:keys [source type key name to target to-key] :as r} repairs]
+            ^{:key (str source type key target)}
+            [:div.flex.align-items-c.m-t-5
+             [:div.f-s-14
+              (str (quoted (or name (cljs.core/name key))) " uses "
+                   (quoted (cljs.core/name target))
+                   ", which was renamed. Switch it to "
+                   (quoted (item-name-in plugins to to-key))
+                   ". ")]
+             [:button.link-button.underline.m-l-5 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+         [:div.decision-actions
+          [:button.form-button {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+          [:button.link-button.underline {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]]]])))
+
+(defn pre-fix-copy-line
+  "The kept copy of the library from before it was first tidied, and the way back to it."
+  []
+  (when-let [at @(subscribe [::e5/pre-fix-at])]
+    [:div.decision-callout.quiet
+     [:div
+      [:div.message-title (str "Library tidied on " (.toLocaleDateString (js/Date. at)))]
+      [:div.message-detail "The copy from before is kept, in case you need it."]]
+     [:div.decision-actions
+     [:button.link-button.underline
+      {:on-click #(when (js/confirm "Replace your library with the copy from before it was tidied? Changes made since will be lost.")
+                    (dispatch [::e5/restore-pre-fix-library]))}
+      "Restore that copy"]
+     [:button.link-button.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Discard it"]]]))
+
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
    each source loaded normally; these are preserved, not discarded, so you can fix
@@ -9134,6 +9216,8 @@
    []
    [:div
     [quarantine-panel]
+    [repairs-panel]
+    [pre-fix-copy-line]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -9343,12 +9427,22 @@
    only way an author fixes a key minted from a typo. Renders nothing until the item has one."
   [item save-event]
   (when-let [k (:key item)]
-    [meta-edit-row
-     {:label "key"
-      :value (str k)
-      :placeholder (name k)
-      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
-      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
+    (let [missing (some (fn [[[src _ ik] m]] (when (and (= src (:option-pack item)) (= ik k)) m))
+                        @(subscribe [::e5/dangling-links]))]
+      [:div
+       [meta-edit-row
+        {:label "key"
+         :value (str k)
+         :placeholder (name k)
+         ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+         :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
+       (when missing
+         [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
+          (str "The saved version uses "
+               (s/join ", " (for [{:keys [to target]} missing]
+                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+               ", which isn't in your library.")])])))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; Draft event is derived from save-event (events/draft-event-for) and registered

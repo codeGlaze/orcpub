@@ -2265,6 +2265,13 @@
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
 
+(defn language-key
+  "The key of the language `language-map` ({key language}) holds under the display name `nm`,
+   else the key derived from `nm`."
+  [language-map nm]
+  (or (some (fn [[k l]] (when (= nm (:name l)) k)) language-map)
+      (common/name-to-kw nm)))
+
 (defn race-option [spell-lists
                    spells-map
                    language-map
@@ -2324,7 +2331,7 @@
                     (darkvision-modifiers darkvision))
                   (map
                    (fn [language]
-                     (modifiers/language (common/name-to-kw language)))
+                     (modifiers/language (language-key language-map language)))
                    languages)
                   (map
                    (fn [[k v]]
@@ -2612,6 +2619,7 @@
 (defn background-option [language-map
                          weapon-map
                          {:keys [name
+                                 key
                                  help
                                  page
                                  profs
@@ -2630,7 +2638,10 @@
                                  source
                                  edit-event]
                           :as background}]
-  (let [kw (common/name-to-kw name)
+  ;; FIELD NOTE (background-name-key): saved characters hold backgrounds by (common/name-to-kw name)
+  ;; even when the item stores another :key; earlier versions offered them that way. The heal
+  ;; counts the name's key as a former key (content-reconciliation/items-with-formers).
+  (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs
         {skill-num :choose options :options} skill-options
@@ -3376,8 +3387,15 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-names (map (comp :name race-map) race-keys)]
-         [(race-prereq race-names)])))))
+       ;; A race the library no longer holds can never match; if none of them is held, the feat
+       ;; stays locked and says which race it needs.
+       (let [race-names (keep (comp :name race-map) race-keys)]
+         (if (seq race-names)
+           [(race-prereq race-names)]
+           [(t/option-prereq
+             (str "Needs " (common/list-print (map #(str "\u201c" (common/kw-to-name % true) "\u201d") race-keys) "or")
+                  ", which isn't in your library")
+             (constantly false))]))))))
 
 (def filter-true (filter val))
 
