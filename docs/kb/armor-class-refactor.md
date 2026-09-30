@@ -713,6 +713,13 @@ what we believed and when.
 | `0abc1f53` | pinned the Bracers no-shield clause; named the two kinds of magic | yes — "the with-shield channel is redundant" |
 | `73de3a03` | symmetric `:shield?`/`:armor?` tags | no |
 
+## Dex caps are per armor type
+
+`armor-class/dex-cap` takes `caps` as {armor-type cap}, not one medium-armor scalar, so a heavy armor
+that allows 2 Dex is expressible and features raise a type's entry (Medium Armor Master is
+`{:medium 3}`). It takes the more permissive of the type's cap and the item's `:max-dex-mod`: every
+shipped medium armor prints 2, so reading the item alone would switch the feat off.
+
 ## Corrections
 
 - **A claim that was wrong:** an earlier draft said the live engine "drops bonuses when a calculation

@@ -128,3 +128,10 @@ function signature (`armor-class/reconcile`'s contract never changed; see
 Short pointers to this doc live on `orcpub.entity-spec/entity-val`, `orcpub.entity/build`,
 and the `built-character` subscription (`subs.cljs`), so this is findable from the code,
 not only the KB.
+
+## Where a chosen option is looked up
+
+`template/make-modifier-map` builds the path-keyed index `entity/build` looks chosen options up in.
+Hoisting `::ref` selections into that index is the whole mechanism behind a selection appearing
+somewhere other than where it was declared. In `entity_spec.cljc`, `dependencies` and `conditions`
+are what the cell macros use internally to declare a cell's inputs and its guards.

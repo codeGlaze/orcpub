@@ -308,3 +308,9 @@ So a builder is `/pages/dnd/5e/<route-seg>` while My Content is `/dnd/5e/my-cont
 wrong prefix returns the server's plain `Not Found`, which reads like a broken page rather than a
 bad URL — it cost a browser-test debugging round. `/pages/` is long-standing: it is on `master`,
 `develop` and `integration`, not something this refactor introduced.
+
+## Why `register-homebrew-content!` exists
+
+A content type's wiring was otherwise spread across `events.cljs`: save, delete, edit, new, set,
+prop and reset events, each registered by hand in a different place. The function gathers them into
+one call per type, so adding a type is one entry and nothing is left half-registered.

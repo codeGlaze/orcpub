@@ -215,3 +215,9 @@ containers may each put their +1 on STR, and the two stack (STR 15 → 17). Prov
   cleared browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render,
   attribute to their own container, and stack. No seeded localStorage — the round-tripped data is what
   the front-end forms actually produced.
+
+## Feats and the legacy format
+
+A feat's legacy ability set (with `:saves?`) is read unchanged: saves have no spread model, so that
+format is the only place a feat grants a saving throw, and released feat data keeps working. The
+spread gives feats what the set cannot: amounts, named groups and several increments.

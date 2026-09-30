@@ -89,6 +89,11 @@ numeric *choice* (a fixed small set, e.g. ASI `+1/+2/+3`) → a `:typed?` dropdo
 can't constrain to a set). There is no native "numeric `<select>`" — a `<select>` is string-valued by
 the DOM spec, which is the whole reason `:typed?` has to do the index-round-trip.
 
+## Multi-select reads back a DOMStringList
+
+A native `<select multiple>` reports its selection through `selectedOptions`, a live collection, not
+an array: map it to values before storing, as `render-builder-field`'s `:multi-enum` branch does.
+
 ## Guard / convergence rule
 
 - **New dropdowns whose `:value`s are not already strings → use `:typed? true`** (or `number-field`

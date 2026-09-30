@@ -324,6 +324,23 @@ form field, and it reaches every silo for free. The **choice** side (`make-feat-
 *not* shared — wiring it into races/subraces/subclasses (and generalizing the spell-choice
 templates) is the highest-leverage cross-silo + sustainability work.
 
+## Finding your way around `options.cljc`
+
+The namespace turns authored content (race, class, background, feat; built-in or homebrew, one path)
+into the `option-cfg`s and `selection-cfg`s `template.cljc` assembles. It sits below `template.cljc`,
+above `modifiers.cljc` and `entity_spec.cljc`, and `views.cljs`, `spell_subs.cljs` and `pdf.clj` also
+read it directly. Names tell you what a function is:
+
+| suffix | is | carries |
+|---|---|---|
+| `*-option` | one choosable thing | `:modifiers`, `:selections`, `:prereqs` |
+| `*-selection` | a pick among options | `:options`, `:min`/`:max`, `:prereq-fn` |
+| `*-modifiers` | authored data to `mod5e/*` primitives, no choice | modifiers |
+
+The bare `def`s are closed vocabularies (`abilities`, `alignments`, `damage-types`, `levels`). The
+bridge prototype block mirrors the draconic-ancestry pool + grant pattern to test that it
+generalizes, and is additive: removing it reverts cleanly (its comment gives the steps).
+
 ## Status / next cycles
 **Done (backward trace, verified):** Feat, Race, Subrace, Class, Subclass, Background — builder
 form → assembly fn, plus the cross-silo capability table and the four-place duplication finding.
