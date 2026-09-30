@@ -40,7 +40,7 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ Heals documented end to end: `character-heals.md` (2026-09-29).
 - ☑ Comment rule in `AGENTS.md` on agents/develop (`e2830db1`), so every branch's agents see it;
   #37's narrative comments rewritten (`0ad30947`).
-- ◐ **The narrative check: draft PR #38** (`fix/comment-check`, from `integration`). Two signals,
+- ☑ **The narrative check** (built as #38, folded into #37 on 2026-09-30). Two signals,
   history phrasing and length (docstrings over 6 lines, comment blocks over 4). 336 existing hits
   are listed every run; a new one is fixed, or reviewed and approved with a reason, and an approval
   covers exact text by hash. **When #37 and #38 meet on `integration`, the second to merge
