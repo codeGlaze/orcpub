@@ -344,7 +344,8 @@ See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier stru
 
 1. **Always run `lein test`** before committing server changes
 2. **Always run `lein fig:build`** after frontend/CLJS changes
-3. **Run `lein lint`** to catch syntax issues
+3. **Lint the files you changed** while iterating; run the full **`lein lint`** at milestones (before a
+   merge, before a PR is opened or marked ready), so errors outside your diff are seen too
 4. Large schema changes require migration scripts and tests
 5. **See `docs/TESTING.md`** for test suite inventory, gotchas, and patterns
 6. **See `docs/ENTITY-BUILD.md`** for the character build pipeline architecture
