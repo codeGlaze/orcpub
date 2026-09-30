@@ -171,7 +171,8 @@
 (defn flatten-fields
   "The fields of `schema`, a vector of nodes: a field is itself, a `:group` its lead field plus its
   tags, a `:rows` node every field of its kinds, and a vector `:rows` node none (its fields come
-  from the pool registry at render time). Every walker of a schema's fields goes through here."
+  from the pool registry at render time). Every walker of a schema's fields goes through here.
+  Node kinds: builder-form-schemas.md."
   [schema]
   (mapcat (fn [node]
             (cond
