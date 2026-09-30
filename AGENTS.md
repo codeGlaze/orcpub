@@ -71,6 +71,9 @@ Rules that apply every time:
 - **Attempt budgets, in the prompt.** Give every subagent a hard limit: one implementation
   attempt, a set number of verification runs, and a tool-call ceiling. When it hits the
   limit, it restores its changes and reports.
+- **Contained fixes are done, not asked.** A fix that only removes a bug, with no knock-on effect
+  (a duplicate require, a missing config entry, a stale comment), is made and reported. Ask when a
+  fix changes behaviour, makes a design choice, or touches someone else's branch.
 - **Verify once.** After committing, run one verification pass and report. Do not loop
   back into fixing.
 - **Watch the only budget signal there is.** Task notifications show a subagent's
