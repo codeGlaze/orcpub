@@ -57,8 +57,9 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   `integration`). `orcpub.ver/build-date` is a macro, and `lein fig:prod` reuses the cached compiled
   `ver.js` in `target/public/cljs-out/prod` when `ver.cljc` is unchanged, so the footer keeps the
   cache's date. Docker builds start clean and are right. Not fixed; small, own branch if wanted.
-- ☐ **Reconcile #37 and #38** (whichever merges second): fix or review #37's 24 new hits, record
-  its 4 field notes, delete `field_notes_test`, prune.
+- ☑ **#38 folded into #37** (2026-09-30, `332ae1dd`): 25 hits trimmed to spec or approved, 4 field
+  notes recorded, `field_notes_test` removed, 26 entries pruned. #38 closed. JVM 536, cljs 541, all
+  13 e2e scripts (162 checks). ☐ Owner: delete `fix/comment-check`.
 - ☐ **Typing granted picks** when grants need heals (`typed-keys.md`, "Grant pools").
 - ☐ **Check `content_pools/pool` for same-key entries within one pool** (`typed-keys.md`, "Not
   checked").
