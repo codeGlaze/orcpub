@@ -301,10 +301,8 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 - **Comments say what the code does and why it is surprising.** No history ("used to", "was
   once"), no rationale or decision narrative, no worked examples. Those go in `docs/kb/`, and the
   comment links the page by name (`key-collision-behavior.md`).
-- **Keep KB pointers.** A filename like `key-collision-behavior.md` is how agents find what was moved
-  out of the code; a cleanup keeps it, and a comment that loses its history gains the pointer to
-  where the history went. Change or remove one only when the page moved or is gone, the code it
-  annotates is gone, or it points to the wrong page, and then point to the right page if there is one.
+- **Keep KB pointers** (`page.md`). Trimming history leaves a pointer to where it went. Change one
+  only if the page moved, the code is gone, or it names the wrong page.
 - **`;; FIELD NOTE (id):` comments are protected.** They record a verified fact a reader would get
   wrong (data in the wild, a trap, where to trace a behaviour). Do not remove or shorten one in a
   cleanup; change it only when the fact changes, and record its new hash in
