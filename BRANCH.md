@@ -90,7 +90,7 @@ proven to fail when the defect is reinstated. See
 [`docs/kb/filtered-list-staleness.md`](docs/kb/filtered-list-staleness.md).
 
 **Blocker: the work is on `claude/fix-custom-items-disappearing-DW8rb`, and `claude/*` branches do
-not merge.** They are harness auto-branches (the `git-branch` skill mints them). Re-home the commits
+not merge.** They are harness auto-branches. Re-home the commits
 onto a typed branch first — `fix/…`, matching `fix/ac-unarmored-natural-stacking`,
 `fix/item-stable-identity`.
 
@@ -163,7 +163,6 @@ is unset on a fresh clone, and nothing enforcing below fires without it.**
 | `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration |
 | `.claude/hooks/kb-doc-reminder.sh` | On push: code changed, no docs? Nudge. Register in `.claude/settings.json` |
 | `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop. Register under `Stop` |
-| `.claude/skills/git-branch/` | Branch-creation conventions |
 | `docs/kb/README.md` | The index. An unlinked KB doc is invisible; `check-docs` fails the commit |
 
 ## Rules
