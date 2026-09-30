@@ -76,10 +76,10 @@ list is unknown, not empty. `typed-keys.md`.
 
 ### Before creating a branch
 
-**Don't, unless the owner says yes to that branch.** A web agent can push a branch but cannot delete
-one, so every branch it makes is one more the owner has to track and clean up by hand (2026-09-29: a
-UI pass pushed as its own branch, then folded back into PR #37, leaving an empty branch behind). Put
-the work on the branch you were given; if it seems to belong elsewhere, ask first.
+**Don't, unless the owner approved that branch by name** (`AGENTS.md`, Agent Workflow Rules 8). Ask
+it as its own yes/no question naming the branch. A yes to a plan that mentions "its own PR" is not
+a yes to the branch: that is how `fix/comment-check` got made on 2026-09-29, the same day this rule
+was written, and it was folded back into #37 the next day.
 
 ### Before adding an icon
 
