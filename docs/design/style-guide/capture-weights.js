@@ -54,6 +54,17 @@ const VARIANTS = {
           clip: { x: Math.max(0, box.x - 10), y: Math.max(0, box.y - 6), width: Math.min(1280, box.width + 20), height: box.height + 12 } });
       }
     }
+    // the pair together, in context: [tabs, title]
+    for (const [tw, hw] of [[400, 400], [500, 600], [700, 600]]) {
+      await page.evaluate(css => { document.querySelectorAll('style[data-w]').forEach(e => e.remove());
+        const e = document.createElement('style'); e.dataset.w = '1'; e.textContent = css; document.head.appendChild(e); },
+        `.header-tab, .header-tab * { font-weight: ${tw} !important; } h1.f-s-36 { font-weight: ${hw} !important; }`);
+      await page.waitForTimeout(150);
+      const top = await page.locator('.header-tab').first().evaluate(el => el.parentElement.getBoundingClientRect().y);
+      const h1 = await page.locator('h1.f-s-36').first().boundingBox();
+      await page.screenshot({ path: path.join(OUT, `${theme}-pair-${tw}-${hw}.png`),
+        clip: { x: 0, y: Math.max(0, top - 10), width: 1280, height: (h1.y + h1.height + 30) - Math.max(0, top - 10) } });
+    }
     await ctx.close();
     console.log('  ' + theme + ' done');
   }
