@@ -20,6 +20,11 @@
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
+;; Text on the amber buttons is small and low-contrast either way, so it gets a
+;; faint edge in the opposite tone: dark under white text, light under dark.
+(def text-lift-dark "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)")
+(def text-lift-light "0 0 2px rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.3)")
+
 (def container-style
   {:display :flex
    :justify-content :center})
@@ -1222,12 +1227,17 @@
     ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
-      {:color "#15202e"}]]
+      {:color "#15202e"
+       :text-shadow text-lift-light}]]
 
     ;; Browsers give buttons their own default font (Arial), not the page's, so every
     ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
     [:button
      {:font-family font-family}]
+
+    ;; Amber everywhere except .form-button in the light theme, which is slate.
+    [".app:not(.light-theme) .form-button" :.mc-btn :.roll-button
+     {:text-shadow text-lift-dark}]
 
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white

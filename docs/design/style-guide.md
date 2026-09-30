@@ -137,6 +137,17 @@ theme only) switches `.form-button`, `.mc-btn` and `.roll-button` to dark text. 
 saved in the browser with the theme, and on the account when logged in
 (`:orcpub.user/dark-button-text?`); at login a choice saved on the account wins.
 
+**Text lift on amber (decided).** Text on the amber buttons gets a faint edge in the opposite
+tone: `text-lift-dark` (a soft dark shadow) under the default white text, `text-lift-light` (a
+soft light glow) under the opt-in dark text. It sharpens the letters without changing the colours
+people know. Applied to `.form-button` (dark theme only, since it's slate in the light theme),
+`.mc-btn` and `.roll-button` (amber in both themes). A survey of every text-on-amber element on
+11 pages found one other place: the active header tab (inline `active-style`), proposed.
+
+**Light-theme inconsistency.** `.form-button` turns slate blue in the light theme, but its copies
+`.mc-btn` and `.roll-button` stay amber, because the light-theme rule was only written for one
+copy. The shared button base (section 5) fixes this properly.
+
 **My Content tab wrap (open).** At 700, "MY CONTENT" wraps to two lines at 1280px. Letter
 spacing −2% on the tab titles fits it on one line; captured with −4%, 13px and 600 for comparison.
 

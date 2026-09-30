@@ -23,6 +23,7 @@ header tab wrapping (the label needs 92.5px of a fixed 90px). Captures of both a
 
 ## Fixed
 
+- White text on the yellow buttons has a faint dark edge, and the optional dark text a faint light one, so the letters stand out from the amber.
 - Text marked bold now renders bold: Open Sans is loaded at 400, 600 and 700, not 400 alone. (`4159164c`)
 - Buttons use the site font instead of the browser's default Arial. (`4159164c`)
 
