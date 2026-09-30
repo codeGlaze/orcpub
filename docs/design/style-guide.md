@@ -101,10 +101,22 @@ These recur as literals. **Proposed:** give each a name.
 | **Vollkorn** italic | `@font-face` in the portrait drawer's CSS string, a Latin-1 subset | Artist names in credits; the baked portrait caption |
 | `ui-monospace, Menlo, monospace` | system | Code and seed values in the portrait drawer |
 
-**Faux bold.** Only Open Sans 400 is loaded (`css?family=Open+Sans`), but buttons, tabs and labels
-ask for 600 and 700. Browsers synthesise those by smearing the regular weight, which is why bold
-UI text looks slightly soft. **Proposed:** load `Open+Sans:400,600,700`. It's a one-line change
-that sharpens every button and heading.
+**Bold is missing.** Only Open Sans 400 is loaded (`css?family=Open+Sans`), but tabs, titles
+and labels ask for 600 and 700. In Chrome and Edge that text renders at **regular** weight: the
+browser doesn't even fake the bold. Firefox and Safari may fake it by smearing the regular weight.
+Loading `Open+Sans:wght@400;600;700` fixes both. For a modern browser that's one more file, about
+48 KB for Latin text. Before/after, captured from the site: `style-guide/bold.html`.
+
+**Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
+because browsers give buttons their own default font and nothing here sets `button
+{font-family: inherit}`. Confirmed with the browser's own font report: the builder's buttons use
+Arial Bold (Liberation Sans on Linux), the header tabs Open Sans.
+
+**Screenshot caveat.** In the Claude Code sandbox, the headless browser can't verify the network
+proxy's certificate for Google Fonts, so pages silently fall back to another sans. Captures made
+before 2026-09-30 (the artist-profile mockups included) show that fallback, not Open Sans.
+`style-guide/capture-bold.js` shows the fix: fetch font requests on the Node side with
+`NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`, which keeps certificate checks on.
 
 Sizes come from the `.f-s-*` utilities (`core.clj:66`): 10, 11, 12, 14, 16, 18, 20, 24, 28, 32,
 36, 48 px. UI chrome is 12px/600 uppercase (buttons, tabs); body text is 14px.
@@ -204,7 +216,7 @@ belong in it as tokens.
 
 ## 7. Open decisions
 
-1. Load Open Sans 600 and 700 (section 3).
+1. Load Open Sans 600 and 700, and make buttons inherit the site font (section 3).
 2. Replace the global `outline: 0` with focus-visible rings (section 4).
 3. Name the surface colours and the light accent (section 2).
 4. Build the shared button base on a branch off `integration` (section 5).

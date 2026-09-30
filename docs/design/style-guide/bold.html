@@ -1,0 +1,98 @@
+<title>Open Sans Weights</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; width: 1280px; max-width: none; height: auto; border-radius: 6px; }
+.state { font: 700 11px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · style guide</div>
+      <h1>Open Sans weights, before and after</h1>
+      <p class="sub">The character builder in the running site. <b>Before</b> is the site as it ships: Open Sans loaded at weight 400 only. <b>After</b> adds the 600 and 700 weights from Google Fonts and changes nothing else. Toggle between them and watch the header tabs, the page title and the class name.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="State">
+        <button type="button" data-s="before">Before</button>
+        <button type="button" data-s="after">After</button>
+      </div>
+      <div class="seg" role="group" aria-label="Screenshot theme">
+        <button type="button" data-t="dark">Dark</button>
+        <button type="button" data-t="light">Light</button>
+      </div>
+    </div>
+  </header>
+  <section>
+    <div class="state" id="state-label"></div>
+    <div class="shot"><img id="shot" alt="Character builder header"></div>
+  </section>
+  <div class="note">
+    <h3>What changes</h3>
+    <ul>
+      <li><b>Header tabs, page title, class name:</b> the stylesheet asks for bold, but in Chrome and Edge they render at regular weight, because only regular is loaded. After the fix they’re bold as intended. Firefox and Safari may fake the bold instead, which looks smeared.</li>
+      <li><b>The amber buttons don’t change.</b> They aren’t in Open Sans at all. Buttons get the browser’s own default font (Arial), and nothing in the stylesheet tells them to use the site font. That’s a second one-line fix: <code>button { font-family: inherit }</code>.</li>
+      <li><b>The fix itself:</b> in <code>index.clj</code>, load <code>Open+Sans:wght@400;600;700</code> instead of plain <code>Open+Sans</code>. For a modern browser that’s one more font file, about 48 KB for Latin text, shared by both weights.</li>
+    </ul>
+  </div>
+</div>
+<script>
+let s = 'before';
+const root = document.documentElement;
+const theme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+function render() {
+  const t = theme();
+  document.getElementById('shot').src = `bold/${t}-${s}-builder.png`;
+  document.getElementById('state-label').textContent = s === 'before' ? 'Before: weight 400 only' : 'After: 400, 600 and 700';
+  document.querySelectorAll('[data-s]').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+}
+document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { s = b.dataset.s; render(); }));
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; render(); }));
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', render); } catch (_) {}
+render();
+</script>
