@@ -162,14 +162,13 @@ or closes, or a branch changes role, update this section in the same commit.
 |---|---|
 | `feature/grant-rows` | this branch: grants, and the KB for everything above |
 | `refactor/content-extensibility` | the refactor trunk |
-| `port/save-gate` | the homebrew-keys fix, cut from `integration`; PR #37 |
+| `port/save-gate` | the homebrew-keys fix; merged into `integration` as `614c17ff` (#37, 2026-09-30) |
 | `fix/comment-check` | folded into #37 (2026-09-30); PR #38 closed. Owner to delete the branch |
-| `integration` | the active trunk; #37 targets it |
+| `integration` | the active trunk; carries the homebrew-keys fix |
 
 | PR | from → to | note |
 |---|---|---|
-| #37 | `port/save-gate` → `integration` | draft; the homebrew-keys fix, with the comment check folded in |
-| #32 | `integration` → `develop` | the route by which both reach `develop` |
+| #32 | `integration` → `develop` | the route by which the homebrew-keys fix reaches `develop` |
 | #34 | `f1852203-accounts` → `develop` | paused; its homebrew commits were inputs to #37 |
 | #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix |
 
