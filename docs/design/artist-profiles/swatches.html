@@ -57,69 +57,79 @@ code { font: 12px/1 ui-monospace, Menlo, monospace; }
 .crop img { display: block; width: 250px; max-width: none; margin-left: -50px; height: auto; }
 .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .panels img { border: 0; width: 100%; max-width: 570px; height: auto; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; }
 </style>
 <div class="wrap">
   <header>
     <div>
       <div class="cap">OrcPub · portrait artists</div>
       <h1>Site mark colour pairs</h1>
-      <p class="sub">Each colour the artist can pick is a pair: one version for the dark theme, one for the light, shown as a split swatch. Visitors see whichever matches their theme. Everything below is captured from the running site. Switch themes at the top right to see the other half of each pair.</p>
+      <p class="sub">Each colour an artist can pick has a dark-theme half and a light-theme half, shown as a split swatch. Visitors see the half that matches their theme. Two ways to pair them are shown. Everything is captured from the running site.</p>
     </div>
-    <div class="seg" role="group" aria-label="Screenshot theme">
-      <button type="button" data-t="dark">Dark</button>
-      <button type="button" data-t="light">Light</button>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Colour set">
+        <button type="button" data-set="paired">Paired colours</button>
+        <button type="button" data-set="deeper">Same colour, deeper</button>
+      </div>
+      <div class="seg" role="group" aria-label="Screenshot theme">
+        <button type="button" data-t="dark">Dark</button>
+        <button type="button" data-t="light">Light</button>
+      </div>
     </div>
   </header>
+  <p class="sub" id="set-note"></p>
 
   <section>
     <h2>The picker</h2>
     <p>Drawn inside the site in place of the profile card, since the account page it belongs on doesn’t exist yet. The preview at the bottom is the real credit markup.</p>
-    <div class="panels">
-      <figure><img data-src="swatches/panel-THEME-ph-browser-fill-teal.png" alt="Picker with browser window in teal"><figcaption>Browser window, teal</figcaption></figure>
-      <figure><img data-src="swatches/panel-THEME-ph-sparkle-fill-yellow.png" alt="Picker with sparkle in yellow"><figcaption>Sparkle, yellow</figcaption></figure>
-    </div>
+    <div class="panels" id="panels"></div>
   </section>
 
   <section class="grid">
     <h2>In the credit</h2>
-    <div class="tw"><table><thead><tr><th>Icon</th><th><span class="sw" style="background:linear-gradient(135deg,#ff6b57 0 50%,#d9432f 50% 100%)"></span>coral</th><th><span class="sw" style="background:linear-gradient(135deg,#1fb5a3 0 50%,#0f8577 50% 100%)"></span>teal</th><th><span class="sw" style="background:linear-gradient(135deg,#ffd21a 0 50%,#9a7400 50% 100%)"></span>yellow</th><th><span class="sw" style="background:linear-gradient(135deg,#f06aa6 0 50%,#c2386f 50% 100%)"></span>rose</th><th><span class="sw" style="background:linear-gradient(135deg,#43b85c 0 50%,#2f8a44 50% 100%)"></span>green</th></tr></thead><tbody>
-<tr><th scope="row">Browser window</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-coral.png" alt="Browser window in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-teal.png" alt="Browser window in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-yellow.png" alt="Browser window in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-rose.png" alt="Browser window in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-green.png" alt="Browser window in green"></div></td></tr>
-<tr><th scope="row">House</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-coral.png" alt="House in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-teal.png" alt="House in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-yellow.png" alt="House in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-rose.png" alt="House in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-green.png" alt="House in green"></div></td></tr>
-<tr><th scope="row">Compass</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-coral.png" alt="Compass in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-teal.png" alt="Compass in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-yellow.png" alt="Compass in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-rose.png" alt="Compass in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-green.png" alt="Compass in green"></div></td></tr>
-<tr><th scope="row">Sparkle</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-coral.png" alt="Sparkle in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-teal.png" alt="Sparkle in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-yellow.png" alt="Sparkle in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-rose.png" alt="Sparkle in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-green.png" alt="Sparkle in green"></div></td></tr>
-    </tbody></table></div>
+    <div class="tw"><table><thead><tr id="grid-head"></tr></thead><tbody id="grid-body"></tbody></table></div>
   </section>
 
   <section>
     <h2>The pairs</h2>
-    <p>Every colour is at least 4.3:1 on its own background (icons need 3:1). The dark versions alone fail on white; yellow is 1.4:1. That’s why each colour is a pair.</p>
-    <div class="tw"><table style="min-width:0"><thead><tr><th>Colour</th><th>Dark theme</th><th>Light theme</th></tr></thead><tbody>
-<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#ff6b57 0 50%,#d9432f 50% 100%)"></span>coral</th><td><code>#ff6b57</code></td><td><code>#d9432f</code></td></tr>
-<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#1fb5a3 0 50%,#0f8577 50% 100%)"></span>teal</th><td><code>#1fb5a3</code></td><td><code>#0f8577</code></td></tr>
-<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#ffd21a 0 50%,#9a7400 50% 100%)"></span>yellow</th><td><code>#ffd21a</code></td><td><code>#9a7400</code></td></tr>
-<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#f06aa6 0 50%,#c2386f 50% 100%)"></span>rose</th><td><code>#f06aa6</code></td><td><code>#c2386f</code></td></tr>
-<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#43b85c 0 50%,#2f8a44 50% 100%)"></span>green</th><td><code>#43b85c</code></td><td><code>#2f8a44</code></td></tr>
-    </tbody></table></div>
+    <p>Every colour is at least 4.3:1 on its own background (icons need 3:1).</p>
+    <div class="tw"><table style="min-width:0"><thead><tr><th>Colour</th><th>Dark theme</th><th>Light theme</th></tr></thead><tbody id="pairs"></tbody></table></div>
   </section>
 
   <div class="note">
-    <h3>One thing about the yellow</h3>
+    <h3>Trade-off</h3>
     <ul>
-      <li>It’s the site’s <code>warning-yellow</code> (<code>#ffd21a</code>), which also marks unresolved conflicts and missing fields in the library health bar. As a small icon in a credit it doesn’t read as a warning, but if the health bar ever sits near a credit, the two could be confused.</li>
+      <li><b>Paired colours</b> give each theme its best colour, the way the site pairs amber with slate blue. But the artist’s mark changes colour when a visitor switches themes, and gold on light is the site’s own slate blue.</li>
+      <li><b>Same colour, deeper</b> keeps the mark recognisably the same in both themes, the way Twitch stays purple, but the light theme gets muddier versions.</li>
+      <li>The yellow in both sets is the site’s <code>warning-yellow</code>, which also marks problems in the library health bar.</li>
     </ul>
   </div>
 </div>
 <script>
-(() => {
-  const root = document.documentElement;
-  const current = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  function apply() {
-    const t = current();
-    document.querySelectorAll('img[data-src]').forEach(img => { img.src = img.dataset.src.replace('THEME', t); });
-    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
-  }
-  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; apply(); }));
-  try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', apply); } catch (_) {}
-  apply();
-})();
+const SETS = {"paired": {"dir": "swatches-rehue", "label": "Paired colours", "sel": [["ph-browser-fill", "tide"], ["ph-sparkle-fill", "gold"]], "pairs": [["gold", "#ffd21a", "#33658A"], ["ember", "#ff6b57", "#0f7c80"], ["tide", "#1fb5a3", "#b4532a"], ["bloom", "#f06aa6", "#1f7a4a"], ["moss", "#43b85c", "#8e3a78"]]}, "deeper": {"dir": "swatches", "label": "Same colour, deeper", "sel": [["ph-browser-fill", "teal"], ["ph-sparkle-fill", "yellow"]], "pairs": [["coral", "#ff6b57", "#d9432f"], ["teal", "#1fb5a3", "#0f8577"], ["yellow", "#ffd21a", "#9a7400"], ["rose", "#f06aa6", "#c2386f"], ["green", "#43b85c", "#2f8a44"]]}};
+const ICONS = [["ph-browser-fill", "Browser window"], ["ph-house-fill", "House"], ["ph-compass-fill", "Compass"], ["ph-sparkle-fill", "Sparkle"]];
+const NOTES = {
+  paired: 'Paired colours: each light half is roughly the opposite of its dark half, as the site pairs amber with slate blue.',
+  deeper: 'Same colour, deeper: each light half is the dark colour darkened until it reads on white.'
+};
+let set = 'paired';
+const root = document.documentElement;
+const theme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+const sw = (d, l) => `<span class="sw" style="background:linear-gradient(135deg,${d} 0 50%,${l} 50% 100%)"></span>`;
+function render() {
+  const s = SETS[set], t = theme();
+  document.getElementById('set-note').textContent = NOTES[set];
+  document.getElementById('panels').innerHTML = s.sel.map(([i, c]) =>
+    `<figure><img src="${s.dir}/panel-${t}-${i}-${c}.png" alt="Picker with ${i} in ${c}"><figcaption>${i.replace('ph-', '').replace('-fill', '')}, ${c}</figcaption></figure>`).join('');
+  document.getElementById('grid-head').innerHTML = '<th>Icon</th>' + s.pairs.map(([n, d, l]) => `<th>${sw(d, l)}${n}</th>`).join('');
+  document.getElementById('grid-body').innerHTML = ICONS.map(([f, lab]) =>
+    `<tr><th scope="row">${lab}</th>` + s.pairs.map(([n]) => `<td><div class="crop"><img src="${s.dir}/credit-${t}-${f}-${n}.png" alt="${lab} in ${n}"></div></td>`).join('') + '</tr>').join('');
+  document.getElementById('pairs').innerHTML = s.pairs.map(([n, d, l]) => `<tr><th scope="row">${sw(d, l)}${n}</th><td><code>${d}</code></td><td><code>${l}</code></td></tr>`).join('');
+  document.querySelectorAll('[data-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.set === set));
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+}
+document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => { set = b.dataset.set; render(); }));
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; render(); }));
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', render); } catch (_) {}
+render();
 </script>
