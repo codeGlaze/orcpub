@@ -354,3 +354,45 @@
     (testing "and the decode is what decides: undecodable bytes yield nothing"
       (is (nil? (pdf/decode-artwork-bytes "!!!not base64!!!")))
       (is (nil? (pdf/decode-artwork-bytes nil))))))
+
+;; ---------- irises and lips ----------
+
+(deftest an-eye-style-without-a-placed-region-is-not-colorized
+  (let [eyes (first (pa/assets-for-layer :eyes))]
+    (is (pr/colorizes? :eyes eyes))
+    (is (not (pr/colorizes? :eyes (dissoc eyes :asset/iris)))
+        "colouring the whole asset would paint the whites and the lashes too")))
+
+(defn- grey-png-uri
+  "A data: URI for a flat grey square -- a stand-in iris drawn near-black,
+   which is how the real art draws them."
+  [n grey]
+  (let [img (java.awt.image.BufferedImage. n n java.awt.image.BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics img)
+        out (java.io.ByteArrayOutputStream.)]
+    (.setColor g (java.awt.Color. (int grey) (int grey) (int grey)))
+    (.fillRect g 0 0 n n)
+    (.dispose g)
+    (ImageIO/write img "png" out)
+    (str "data:image/png;base64," (.encodeToString (java.util.Base64/getEncoder) (.toByteArray out)))))
+
+(deftest the-share-card-paints-the-iris-inside-its-region
+  (let [eyes (assoc (first (pa/assets-for-layer :eyes))
+                    :asset/url (grey-png-uri 200 40)
+                    :asset/pupil 0.2
+                    :asset/iris [{:cx 0.5 :cy 0.5 :rx 0.2 :ry 0.2 :rot 0.0}])
+        p {:layers {:eyes {:asset/id (:asset/id eyes)}} :colors {:eyes "#1e90ff"}}
+        img (with-redefs [pa/asset-by-id (fn [_ _] eyes)]
+              (ImageIO/read (ByteArrayInputStream. (pr/render-png p 400 400))))
+        rgb (fn [x y] (let [argb (.getRGB img x y)]
+                        [(bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                         (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                         (bit-and argb 0xff)]))
+        [r _ b] (rgb 245 200)       ; inside the iris, clear of the pupil
+        [cr cg cb] (rgb 110 110)]   ; the square's corner, outside the region
+    (testing "inside the region the dark ink is lifted into the colour --
+              multiply would have left it near-black"
+      (is (> b 100) (str "blue " b))
+      (is (> (- b r) 60)))
+    (testing "outside it the drawing is untouched -- multiply would have tinted it"
+      (is (= [40 40 40] [cr cg cb])))))

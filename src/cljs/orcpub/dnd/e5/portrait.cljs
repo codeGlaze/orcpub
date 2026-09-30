@@ -18,6 +18,7 @@
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.fork.branding :as branding]))
 
@@ -72,6 +73,127 @@
    :z-index z
    :pointer-events "none"})
 
+;; ---------------- colorized layers: irises and lips ----------------
+;;
+;; CSS has no way to map a drawing's luminance through a colour, so a layer
+;; that wants it is drawn on a canvas instead -- the same maths the share card
+;; runs (orcpub.dnd.e5.portrait-colorize), at the asset's own size.
+
+(defn colorizes?
+  "Whether this asset is drawn by colorizing. An eye style with no placed
+   region is multiplied instead -- colouring the whole asset would paint the
+   whites and the lashes too. Mirrors portrait-render/colorizes?."
+  [layer-key asset]
+  (and (= :colorize (pa/render-mode layer-key asset))
+       (or (seq (:asset/iris asset))
+           (not= :eyes (pa/slot-for-asset layer-key asset)))))
+
+(defn- new-canvas [w h]
+  (let [c (.createElement js/document "canvas")]
+    (set! (.-width c) w)
+    (set! (.-height c) h)
+    c))
+
+(defn- trace-ellipse! [ctx {:keys [cx cy rx ry rot]}]
+  (.beginPath ctx)
+  (.ellipse ctx cx cy rx ry rot 0 (* 2 js/Math.PI))
+  (.fill ctx))
+
+(defn- iris-coverage
+  "The placed iris region's coverage per pixel (the alpha of a canvas the
+   region is filled into, antialiased by the canvas itself)."
+  [asset w h]
+  (let [m (new-canvas w h)
+        ctx (.getContext m "2d")
+        shapes (colorize/iris-shapes asset [0 0 w h])]
+    (set! (.-fillStyle ctx) "#fff")
+    (doseq [{:keys [iris]} shapes] (trace-ellipse! ctx iris))
+    (set! (.-globalCompositeOperation ctx) "destination-out")
+    (doseq [{:keys [pupil lid]} shapes]
+      (trace-ellipse! ctx pupil)
+      (when-let [{:keys [x0 y0 mx my x1 y1 top]} lid]
+        (.beginPath ctx)
+        (.moveTo ctx x0 y0)
+        (.quadraticCurveTo ctx mx my x1 y1)
+        (.lineTo ctx x1 top)
+        (.lineTo ctx x0 top)
+        (.closePath ctx)
+        (.fill ctx)))
+    (.-data (.getImageData ctx 0 0 w h))))
+
+(defn- colorize-image
+  "A canvas the size of `img` holding it coloured through `hex`."
+  [img layer-key asset hex]
+  (let [w (.-naturalWidth img) h (.-naturalHeight img)
+        c (new-canvas w h)
+        ctx (.getContext c "2d")
+        _ (.drawImage ctx img 0 0)
+        image-data (.getImageData ctx 0 0 w h)
+        px (.-data image-data)
+        cov (when (seq (:asset/iris asset)) (iris-coverage asset w h))
+        [er eg eb] (colorize/hex->rgb hex)
+        gamma (pa/tint-gamma layer-key asset)]
+    (dotimes [p (* w h)]
+      (let [i (* 4 p)
+            k (if cov (/ (aget cov (+ i 3)) 255) 1)]
+        (when (and (pos? (aget px (+ i 3))) (pos? k))
+          (let [[r g b] (colorize/colorize-rgb (aget px i) (aget px (+ i 1)) (aget px (+ i 2))
+                                               er eg eb gamma k)]
+            (aset px i r)
+            (aset px (+ i 1) g)
+            (aset px (+ i 2) b)))))
+    (.putImageData ctx image-data 0 0)
+    c))
+
+(defonce ^:private colorized-cache (atom {}))
+
+(defn- colorized
+  "`colorize-image`, remembered: dragging a colour picker re-renders the
+   drawer many times a second, and each asset/colour pair only needs doing
+   once. Kept small -- a picker drag walks through many colours."
+  [img layer-key asset hex]
+  (let [k [(:asset/url asset) hex]]
+    (or (get @colorized-cache k)
+        (let [c (colorize-image img layer-key asset hex)]
+          (swap! colorized-cache #(assoc (if (> (count %) 48) {} %) k c))
+          c))))
+
+(defonce ^:private loaded-images (atom {}))
+
+(defn- with-image
+  "Call `f` with the loaded image for `url`, now if it is already loaded."
+  [url f]
+  (if-let [img (get @loaded-images url)]
+    (f img)
+    (let [img (js/Image.)]
+      (set! (.-onload img) #(do (swap! loaded-images assoc url img) (f img)))
+      (set! (.-src img) url))))
+
+(defn- colorized-layer
+  "A layer the drawer draws on a canvas rather than in CSS, sized by
+   object-fit: contain so it sits exactly where the CSS layers do."
+  [layer-key asset tint z]
+  (let [node (atom nil)
+        paint! (fn [layer-key asset tint]
+                 (with-image (:asset/url asset)
+                   (fn [img]
+                     (when-let [^js el @node]
+                       (let [src (colorized img layer-key asset tint)]
+                         (set! (.-width el) (.-width src))
+                         (set! (.-height el) (.-height src))
+                         (.drawImage (.getContext el "2d") src 0 0))))))]
+    (r/create-class
+     {:component-did-mount (fn [_] (paint! layer-key asset tint))
+      :component-did-update (fn [this _]
+                              (let [[_ layer-key asset tint] (r/argv this)]
+                                (paint! layer-key asset tint)))
+      :reagent-render
+      (fn [_ _ _ z]
+        [:canvas.portrait-layer.portrait-layer-colorized
+         {:ref #(reset! node %)
+          :style {:position "absolute" :inset 0 :width "100%" :height "100%"
+                  :object-fit "contain" :z-index z :pointer-events "none"}}])})))
+
 (defn composite
   "Stacked, tinted portrait for a `portrait` map (see ns doc). `attrs`
    (optional) merges into the outer div so callers can size/position it."
@@ -85,12 +207,15 @@
           (when-let [asset (some->> (get layers layer-key)
                                     :asset/id
                                     (pa/asset-by-id layer-key))]
-            ^{:key layer-key}
-            [:div.portrait-layer
-             {:style (if (= :as-drawn (pa/render-mode layer-key asset))
-                       (as-drawn-style (:asset/url asset) z)
-                       (mask-style (:asset/url asset)
-                                   (pa/tint-for portrait layer-key) z))}]))
+            (if (colorizes? layer-key asset)
+              ^{:key layer-key}
+              [colorized-layer layer-key asset (pa/tint-for portrait layer-key) z]
+              ^{:key layer-key}
+              [:div.portrait-layer
+               {:style (if (= :as-drawn (pa/render-mode layer-key asset))
+                         (as-drawn-style (:asset/url asset) z)
+                         (mask-style (:asset/url asset)
+                                     (pa/tint-for portrait layer-key) z))}])))
         pa/layer-order)])))
 
 ;; ---------------- rasterization (for PDF export) ----------------
@@ -205,7 +330,21 @@
                     ;; :as-drawn skips it entirely. Teeth are white because
                     ;; they were drawn white; tinting them through the mouth's
                     ;; category colour is what made them red.
-                    (when-not (= :as-drawn (pa/render-mode layer-key asset))
+                    (cond
+                      (= :as-drawn (pa/render-mode layer-key asset)) nil
+
+                      ;; irises and lips: coloured through their luminance,
+                      ;; the same picture the drawer and the share card show
+                      (colorizes? layer-key asset)
+                      (let [[x y dw dh] (layout/contain-rect (.-naturalWidth img)
+                                                             (.-naturalHeight img)
+                                                             raster-width raster-height)]
+                        (.clearRect tctx 0 0 raster-width raster-height)
+                        (.drawImage tctx (colorized img layer-key asset (pa/tint-for portrait layer-key))
+                                    x y dw dh))
+
+                      :else
+                      (do
                       (set! (.-globalCompositeOperation tctx) "multiply")
                       (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
                       (.fillRect tctx 0 0 raster-width raster-height)
@@ -215,7 +354,7 @@
                       (let [[x y dw dh] (layout/contain-rect (.-naturalWidth img)
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
-                        (.drawImage tctx img x y dw dh)))
+                        (.drawImage tctx img x y dw dh))))
                     (.drawImage ctx tmp 0 0))
                   (when-let [names (not-empty (pa/credit-names portrait))]
                     ;; The face has to be resident before fillText or the

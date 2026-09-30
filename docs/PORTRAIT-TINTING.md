@@ -49,10 +49,20 @@ Two things were tried and rejected:
 - **Runtime iris detection.** Fragile on stylised art, and it has to run on
   every render for a fact that never changes.
 
-What ships instead: the iris region is **authored once per asset** and stored in
-the registry -- an ellipse, a pupil radius, a pupil offset, and a lid curve per
-eye -- and the renderer maps the drawing's own luminance through the chosen
-colour inside it. Dark stays dark, mid becomes the colour, the highlight stays a
+What ships instead: the iris region is **authored once per asset** in the Loom
+and stored in the registry as `:asset/iris` / `:asset/pupil` on each eye style
+(`portrait_assets.cljc`) -- an ellipse, a pupil radius, a pupil offset, and a lid
+curve per eye -- and the renderer maps the drawing's own luminance through the
+chosen colour inside it.
+
+All three renderers do this, from one module, `portrait_colorize.cljc`: the maths
+and the region geometry live there, and only the pixel loop and the drawing of
+the region are per renderer. The share card fills the region with Java2D; the
+builder's drawer and the PDF bake fill it on a canvas, and the drawer shows those
+layers as `<canvas>` elements with `object-fit: contain`, since CSS can't map
+luminance through a colour. The lips use the same function over the whole asset.
+An eye style with no placed region is multiplied instead, because colouring the
+whole asset would paint the whites and the lashes too. Dark stays dark, mid becomes the colour, the highlight stays a
 highlight. It is opaque where the drawing is opaque.
 
 The region is rasterised **antialiased** (`Graphics2D.fill` with
