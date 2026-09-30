@@ -56,3 +56,37 @@
         "a malformed stored value reads as 0")
     (is (= [:eyes] (pa/tweaked-layers-in-slot {:tweaks {:eyes {:depth 2}}} :eyes))
         "a brightness tweak counts as a tweak, for the badge and the clear button")))
+
+(defn- disc
+  "A w x w coverage array holding a hard-edged disc of radius r."
+  [w r]
+  (let [a #?(:clj (double-array (* w w)) :cljs (js/Float64Array. (* w w)))
+        c (/ w 2.0)]
+    (dotimes [i (* w w)]
+      (let [x (mod i w) y (quot i w)]
+        (aset a i (if (<= (+ (Math/pow (- x c) 2) (Math/pow (- y c) 2)) (* r r)) 255.0 0.0))))
+    a))
+
+(deftest the-feather-fades-inward-only
+  (let [w 60 src (disc w 20) out (c/feather src w w 6)
+        at (fn [a x y] (aget a (+ x (* y w))))]
+    (is (every? true? (map #(<= (aget out %) (aget src %)) (range (* w w))))
+        "never covers more than the shape did: no colour spills past the ring")
+    (is (== 255.0 (at out 30 30)) "the middle is untouched")
+    (is (< 0 (at out 30 11) 255) "just inside the edge, part coloured: the fade")
+    (is (zero? (at out 30 5)) "outside stays uncoloured")
+    (is (identical? src (c/feather src w w 0)) "radius 0 is a no-op")))
+
+(deftest the-feather-scales-with-the-drawing
+  (is (= 6 (c/feather-radius 1500)) "6px at 1500px tall: the setting chosen on the real art")
+  (is (= 3 (c/feather-radius 750)) "half that on the share card's 750")
+  (is (<= 2 (c/feather-radius 638) 3) "and on the pack's own 638"))
+
+(deftest the-developer-alternative-only-moves-one-iris
+  (let [eyes (first (pa/assets-for-layer :eyes))
+        alt (pa/with-iris-alternative eyes)]
+    (is (= 0.72 (get-in alt [:asset/iris 1 :cx])))
+    (is (= (get-in eyes [:asset/iris 0]) (get-in alt [:asset/iris 0])) "the near iris is left alone")
+    (is (= (second (pa/assets-for-layer :eyes)) (pa/with-iris-alternative (second (pa/assets-for-layer :eyes))))
+        "other eye styles are untouched")
+    (is (= 0.72166 (get-in eyes [:asset/iris 1 :cx])) "the registry keeps the artist's placement")))

@@ -15,6 +15,7 @@
    (portrait-assets/tint-for), so one asset renders in any hair / skin /
    eye color. `composite` is shared with the character summary."
   (:require [re-frame.core :refer [dispatch subscribe]]
+            [re-frame.db]
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
@@ -73,6 +74,34 @@
    :z-index z
    :pointer-events "none"})
 
+;; ---------------- developer: the Eyes 01 far-iris alternative ----------------
+;;
+;; A switch in the footer's Developer mode tools, remembered per browser, that
+;; draws Eyes 01's far iris at the alternative placement in
+;; portrait-assets/eyes-01-far-iris-alternative -- so the two can be lived
+;; with side by side for a while before one is chosen. It applies only while
+;; Developer mode is on, and only here in the browser: the share card and
+;; everyone else always get the registry's placement.
+
+(def ^:private iris-alt-key "orcpub.portrait.eyes-01-far-iris")
+
+(defonce iris-alternative?
+  (r/atom (try (= "alternative" (.getItem js/localStorage iris-alt-key))
+               (catch :default _ false))))
+
+(defn toggle-iris-alternative! []
+  (let [on (swap! iris-alternative? not)]
+    (try (.setItem js/localStorage iris-alt-key (if on "alternative" "artist"))
+         (catch :default _ nil))))
+
+(defn- as-placed
+  "The asset as it should be drawn: the registry's, unless Developer mode is
+   on (`dev?`) and the switch asks for the alternative far iris."
+  [asset dev?]
+  (if (and dev? @iris-alternative?)
+    (pa/with-iris-alternative asset)
+    asset))
+
 ;; ---------------- colorized layers: irises and lips ----------------
 ;;
 ;; CSS has no way to map a drawing's luminance through a colour, so a layer
@@ -100,8 +129,9 @@
   (.fill ctx))
 
 (defn- iris-coverage
-  "The placed iris region's coverage per pixel (the alpha of a canvas the
-   region is filled into, antialiased by the canvas itself)."
+  "The placed iris region's coverage per pixel, 0..255: filled into a canvas
+   (antialiased by the canvas itself), then feathered inward with the same
+   blur the share card uses (portrait-colorize/feather)."
   [asset w h]
   (let [m (new-canvas w h)
         ctx (.getContext m "2d")
@@ -119,7 +149,10 @@
         (.lineTo ctx x0 top)
         (.closePath ctx)
         (.fill ctx)))
-    (.-data (.getImageData ctx 0 0 w h))))
+    (let [rgba (.-data (.getImageData ctx 0 0 w h))
+          cov (js/Float64Array. (* w h))]
+      (dotimes [p (* w h)] (aset cov p (aget rgba (+ 3 (* 4 p)))))
+      (colorize/feather cov w h (colorize/feather-radius h)))))
 
 (defn- colorize-image
   "A canvas the size of `img` holding it coloured through `hex`."
@@ -134,7 +167,7 @@
         [er eg eb] (colorize/hex->rgb hex)]
     (dotimes [p (* w h)]
       (let [i (* 4 p)
-            k (if cov (/ (aget cov (+ i 3)) 255) 1)]
+            k (if cov (/ (aget cov p) 255) 1)]
         (when (and (pos? (aget px (+ i 3))) (pos? k))
           (let [[r g b] (colorize/colorize-rgb (aget px i) (aget px (+ i 1)) (aget px (+ i 2))
                                                er eg eb gamma k)]
@@ -151,7 +184,7 @@
    drawer many times a second, and each asset/colour pair only needs doing
    once. Kept small -- a picker drag walks through many colours."
   [img asset hex gamma]
-  (let [k [(:asset/url asset) hex gamma]]
+  (let [k [(:asset/url asset) hex gamma (:asset/iris asset)]]
     (or (get @colorized-cache k)
         (let [c (colorize-image img asset hex gamma)]
           (swap! colorized-cache #(assoc (if (> (count %) 48) {} %) k c))
@@ -208,7 +241,8 @@
                                     (pa/asset-by-id layer-key))]
             (if (colorizes? layer-key asset)
               ^{:key layer-key}
-              [colorized-layer asset (pa/tint-for portrait layer-key)
+              [colorized-layer (as-placed asset @(subscribe [:orcpub.dnd.e5/dev-mode?]))
+               (pa/tint-for portrait layer-key)
                (pa/effective-gamma portrait layer-key asset) z]
               ^{:key layer-key}
               [:div.portrait-layer
@@ -340,7 +374,11 @@
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
                         (.clearRect tctx 0 0 raster-width raster-height)
-                        (.drawImage tctx (colorized img asset (pa/tint-for portrait layer-key)
+                        (.drawImage tctx (colorized img
+                                                    ;; not a component, so no subscription:
+                                                    ;; read Developer mode once, at bake time
+                                                    (as-placed asset (:dev-mode? @re-frame.db/app-db))
+                                                    (pa/tint-for portrait layer-key)
                                                     (pa/effective-gamma portrait layer-key asset))
                                     x y dw dh))
 
