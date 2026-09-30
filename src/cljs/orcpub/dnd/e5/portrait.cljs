@@ -123,7 +123,7 @@
 
 (defn- colorize-image
   "A canvas the size of `img` holding it coloured through `hex`."
-  [img layer-key asset hex]
+  [img asset hex gamma]
   (let [w (.-naturalWidth img) h (.-naturalHeight img)
         c (new-canvas w h)
         ctx (.getContext c "2d")
@@ -131,8 +131,7 @@
         image-data (.getImageData ctx 0 0 w h)
         px (.-data image-data)
         cov (when (seq (:asset/iris asset)) (iris-coverage asset w h))
-        [er eg eb] (colorize/hex->rgb hex)
-        gamma (pa/tint-gamma layer-key asset)]
+        [er eg eb] (colorize/hex->rgb hex)]
     (dotimes [p (* w h)]
       (let [i (* 4 p)
             k (if cov (/ (aget cov (+ i 3)) 255) 1)]
@@ -151,10 +150,10 @@
   "`colorize-image`, remembered: dragging a colour picker re-renders the
    drawer many times a second, and each asset/colour pair only needs doing
    once. Kept small -- a picker drag walks through many colours."
-  [img layer-key asset hex]
-  (let [k [(:asset/url asset) hex]]
+  [img asset hex gamma]
+  (let [k [(:asset/url asset) hex gamma]]
     (or (get @colorized-cache k)
-        (let [c (colorize-image img layer-key asset hex)]
+        (let [c (colorize-image img asset hex gamma)]
           (swap! colorized-cache #(assoc (if (> (count %) 48) {} %) k c))
           c))))
 
@@ -172,21 +171,21 @@
 (defn- colorized-layer
   "A layer the drawer draws on a canvas rather than in CSS, sized by
    object-fit: contain so it sits exactly where the CSS layers do."
-  [layer-key asset tint z]
+  [asset tint gamma z]
   (let [node (atom nil)
-        paint! (fn [layer-key asset tint]
+        paint! (fn [asset tint gamma]
                  (with-image (:asset/url asset)
                    (fn [img]
                      (when-let [^js el @node]
-                       (let [src (colorized img layer-key asset tint)]
+                       (let [src (colorized img asset tint gamma)]
                          (set! (.-width el) (.-width src))
                          (set! (.-height el) (.-height src))
                          (.drawImage (.getContext el "2d") src 0 0))))))]
     (r/create-class
-     {:component-did-mount (fn [_] (paint! layer-key asset tint))
+     {:component-did-mount (fn [_] (paint! asset tint gamma))
       :component-did-update (fn [this _]
-                              (let [[_ layer-key asset tint] (r/argv this)]
-                                (paint! layer-key asset tint)))
+                              (let [[_ asset tint gamma] (r/argv this)]
+                                (paint! asset tint gamma)))
       :reagent-render
       (fn [_ _ _ z]
         [:canvas.portrait-layer.portrait-layer-colorized
@@ -209,7 +208,8 @@
                                     (pa/asset-by-id layer-key))]
             (if (colorizes? layer-key asset)
               ^{:key layer-key}
-              [colorized-layer layer-key asset (pa/tint-for portrait layer-key) z]
+              [colorized-layer asset (pa/tint-for portrait layer-key)
+               (pa/effective-gamma portrait layer-key asset) z]
               ^{:key layer-key}
               [:div.portrait-layer
                {:style (if (= :as-drawn (pa/render-mode layer-key asset))
@@ -340,7 +340,8 @@
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
                         (.clearRect tctx 0 0 raster-width raster-height)
-                        (.drawImage tctx (colorized img layer-key asset (pa/tint-for portrait layer-key))
+                        (.drawImage tctx (colorized img asset (pa/tint-for portrait layer-key)
+                                                    (pa/effective-gamma portrait layer-key asset))
                                     x y dw dh))
 
                       :else
@@ -671,6 +672,7 @@
 .pl-sub-chip.shaded { border-color: #f0a100; border-style: dashed; }
 .pl-sub-chip.overridden { border-color: #f0a100; box-shadow: 0 0 0 1px rgba(240,161,0,0.4); }
 .pl-sub-row input[type=range] { width: 100%; accent-color: #f0a100; height: 22px; margin: 0; }
+.pl-sub-depth-icon { font-size: 13px; line-height: 1; color: #8b95a5; text-align: center; }
 .pl-sub-shade-val {
   font: 500 10px/1 ui-monospace, Menlo, monospace; color: #8b95a5;
   text-align: right; font-variant-numeric: tabular-nums;
@@ -1090,10 +1092,13 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    picker inside), shade slider, readout, clear. Used both inside the slot
    panel (all pieces of a slot) and inline under a picker card."
   [portrait layer-key]
-  (let [{:keys [override shade]} (get-in portrait [:tweaks layer-key])
+  (let [{:keys [override shade depth]} (get-in portrait [:tweaks layer-key])
         shade (or shade 0)
+        depth (or depth 0)
+        asset (pa/selected-asset portrait layer-key)
+        colorized? (and asset (colorizes? layer-key asset))
         eff   (pa/tint-for portrait layer-key)
-        any?  (boolean (or override (not (zero? shade))))
+        any?  (boolean (or override (not (zero? shade)) (not (zero? depth))))
         label (pa/layer-labels layer-key)]
     [:div.pl-sub-row
      [:span.pl-sub-name label]
@@ -1117,7 +1122,21 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
       {:type "button" :disabled (not any?)
        :title (str "Use base color for " label)
        :on-click #(dispatch [:portrait/clear-layer-tweak layer-key])}
-      "×"]]))
+      "×"]
+     ;; Eyes and lips are coloured through their own shading, so they get a
+     ;; second knob on a line of its own: how far into the colour the
+     ;; shading reaches. 0 is the settled look.
+     (when colorized?
+       [:<>
+        [:span.pl-sub-depth-icon {:aria-hidden true :title "Brightness"} "\u2600"]
+        [:input.pl-sub-depth
+         {:type "range" :min (- pa/depth-steps) :max pa/depth-steps :step 1
+          :value depth
+          :aria-label (str "Brightness of " label)
+          :title "Brightness: lift or deepen the colour, keeping the shading"
+          :on-change #(dispatch [:portrait/set-layer-tweak layer-key
+                                 {:depth (js/parseInt (target-value %) 10)}])}]
+        [:span.pl-sub-shade-val (str (when (pos? depth) "+") depth)]])]))
 
 (defn- slot-chip [portrait slot open-slot]
   (let [cur     (get-in portrait [:colors slot])

@@ -44,3 +44,15 @@
     (is (= :colorize (pa/render-mode :mouth (by-id :l8-mouth-02))) "lips")
     (is (= :as-drawn (pa/render-mode :mouth (by-id :l8-mouth-01))) "a closed line")
     (is (= :as-drawn (pa/render-mode :mouth (by-id :l8-mouth-03))) "teeth stay white")))
+
+(deftest brightness-moves-the-gamma-around-the-settled-look
+  (let [eyes (first (pa/assets-for-layer :eyes))
+        at (fn [depth] (pa/effective-gamma {:tweaks {:eyes {:depth depth}}} :eyes eyes))]
+    (is (= (pa/tint-gamma :eyes eyes) (at 0) (pa/effective-gamma {} :eyes eyes))
+        "0, or no tweak at all, is exactly the settled look")
+    (is (< (at 3) (at 1) (at 0) (at -1) (at -3)) "up lifts the colour, down deepens it")
+    (is (= (at 3) (at 99)) "clamped to the slider's range")
+    (is (= (at 0) (pa/effective-gamma {:tweaks {:eyes {:depth "junk"}}} :eyes eyes))
+        "a malformed stored value reads as 0")
+    (is (= [:eyes] (pa/tweaked-layers-in-slot {:tweaks {:eyes {:depth 2}}} :eyes))
+        "a brightness tweak counts as a tweak, for the badge and the clear button")))

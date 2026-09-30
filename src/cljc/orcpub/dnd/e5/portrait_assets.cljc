@@ -805,6 +805,20 @@
   (or (:asset/gamma asset)
       (if (= :lips (slot-for-asset layer-key asset)) 2.2 0.5)))
 
+(def depth-steps
+  "How far the Brightness slider on a colorized piece goes each way."
+  3)
+
+(defn effective-gamma
+  "The gamma a :colorize piece is actually drawn with: the settled value from
+   `tint-gamma`, moved by the piece's Brightness tweak. Each step up lifts the
+   colour (a lower gamma raises the midtones), each step down deepens it; 0 is
+   exactly the settled look. Junk in a stored tweak reads as 0."
+  [portrait layer-key asset]
+  (let [depth (get-in portrait [:tweaks layer-key :depth])
+        depth (if (number? depth) (max (- depth-steps) (min depth-steps depth)) 0)]
+    (* (tint-gamma layer-key asset) (Math/pow 1.25 (- depth)))))
+
 (defn tint-for
   "Effective render color for a layer: per-piece override → shaded base →
    base."
@@ -821,6 +835,8 @@
    slot chip."
   [portrait slot]
   (filterv (fn [k]
-             (let [{:keys [override shade]} (get-in portrait [:tweaks k])]
-               (boolean (or override (and shade (not (zero? shade)))))))
+             (let [{:keys [override shade depth]} (get-in portrait [:tweaks k])]
+               (boolean (or override
+                            (and (number? shade) (not (zero? shade)))
+                            (and (number? depth) (not (zero? depth)))))))
            (layers-in-slot slot)))
