@@ -22,9 +22,10 @@
             [orcpub.fork.branding :as branding]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.dnd.e5.portrait-layout :as layout])
+            [orcpub.dnd.e5.portrait-layout :as layout]
+            [orcpub.dnd.e5.portrait-colorize :as colorize])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
-           [java.awt.geom Path2D$Double]
+           [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util Base64]
@@ -171,6 +172,80 @@
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     (let [img (placed src w h)]
       (when color (multiply! img color))
+      (.drawImage g img 0 0 nil))))
+
+(defn- ellipse ^Area [{:keys [cx cy rx ry rot]}]
+  (Area. (.createTransformedShape
+          (doto (AffineTransform.) (.translate (double cx) (double cy)) (.rotate (double rot)))
+          (Ellipse2D$Double. (- rx) (- ry) (* 2 rx) (* 2 ry)))))
+
+(defn- above-lid ^Area [{:keys [x0 y0 mx my x1 y1 top]}]
+  (Area. (doto (Path2D$Double.)
+           (.moveTo (double x0) (double y0))
+           (.quadTo (double mx) (double my) (double x1) (double y1))
+           (.lineTo (double x1) (double top))
+           (.lineTo (double x0) (double top))
+           (.closePath))))
+
+(defn- iris-coverage
+  "How much of each pixel the placed iris region covers, 0..255, filled with
+   antialiasing on so the edge is a blend weight rather than a stair-step."
+  ^bytes [asset rect w h]
+  (let [region (Area.)]
+    (doseq [{:keys [iris pupil lid]} (colorize/iris-shapes asset rect)]
+      (let [a (ellipse iris)]
+        (.subtract a (ellipse pupil))
+        (when lid (.subtract a (above-lid lid)))
+        (.add region a)))
+    (let [img (BufferedImage. w h BufferedImage/TYPE_BYTE_GRAY)
+          g (.createGraphics img)]
+      (try
+        (.setRenderingHint g RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+        (.setColor g Color/WHITE)
+        (.fill g region)
+        (finally (.dispose g)))
+      (.. img getRaster getDataBuffer getData))))
+
+(defn- colorize!
+  "Map the drawing's luminance through `color` wherever `cov` covers it, in
+   place (orcpub.dnd.e5.portrait-colorize). nil `cov` means every opaque
+   pixel: the lips, which are nothing but the thing being coloured."
+  [^BufferedImage img ^Color color gamma cov]
+  (let [dst (.. img getRaster getDataBuffer getData)
+        er (.getRed color) eg (.getGreen color) eb (.getBlue color)
+        gamma (double gamma)]
+    (dotimes [i (* (.getWidth img) (.getHeight img))]
+      (let [argb (aget ^ints dst i)
+            a (bit-and (unsigned-bit-shift-right argb 24) 0xff)
+            k (if cov (/ (bit-and (aget ^bytes cov i) 0xff) 255.0) 1.0)]
+        (when (and (pos? a) (pos? k))
+          (let [[r g b] (colorize/colorize-rgb (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                               (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                               (bit-and argb 0xff)
+                                               er eg eb gamma k)]
+            (aset-int dst i (unchecked-int (bit-or (bit-shift-left a 24)
+                                                   (bit-shift-left r 16)
+                                                   (bit-shift-left g 8)
+                                                   b)))))))))
+
+(defn colorizes?
+  "Whether this asset is drawn by colorizing. An eye style with no placed
+   region is multiplied instead -- colouring the whole asset would paint the
+   whites and the lashes too."
+  [layer-key asset]
+  (and (= :colorize (pa/render-mode layer-key asset))
+       (or (seq (:asset/iris asset))
+           (not= :eyes (pa/slot-for-asset layer-key asset)))))
+
+(defn- draw-colorized-layer!
+  "Place the asset in the frame and colour it through its luminance: the iris
+   inside its placed region, the lips all over."
+  [^Graphics2D g ^bytes data layer-key asset ^Color color w h]
+  (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
+    (let [img (placed src w h)
+          rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)
+          cov (when (seq (:asset/iris asset)) (iris-coverage asset rect w h))]
+      (colorize! img color (pa/tint-gamma layer-key asset) cov)
       (.drawImage g img 0 0 nil))))
 
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
@@ -320,9 +395,14 @@
                      color (when-not as-drawn?
                              (hex->color (pa/tint-for portrait layer-key)))]
                  (when (and mime bytes (or as-drawn? color))
-                   (if (s/includes? mime "svg")
+                   (cond
+                     (s/includes? mime "svg")
                      (draw-vector-layer! g (String. ^bytes bytes "UTF-8") color w h)
-                     (draw-raster-layer! g bytes color w h))))
+
+                     (and color (colorizes? layer-key asset))
+                     (draw-colorized-layer! g bytes layer-key asset color w h)
+
+                     :else (draw-raster-layer! g bytes color w h))))
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
            (try

@@ -140,13 +140,28 @@
    :eyes
    [{:asset/id :l6-eyes-01
      :asset/label "Eyes 01"
-     :asset/file  "l6_eyes_01.png"}
+     :asset/file  "l6_eyes_01.png"
+     :asset/pupil 0.45
+     :asset/iris  [{:cx 0.60033 :cy 0.35908 :rx 0.03361 :ry 0.01451 :rot 1.68176
+                    :lid {:x0 0.55737 :y0 0.35064 :mx 0.60947 :my 0.32271 :x1 0.63098 :y1 0.35064}}
+                   {:cx 0.72407 :cy 0.36102 :rx 0.02701 :ry 0.00847 :rot 1.72173
+                    :lid {:x0 0.70293 :y0 0.35691 :mx 0.73066 :my 0.33104 :x1 0.74333 :y1 0.35384}}]}
     {:asset/id :l6-eyes-02
      :asset/label "Eyes 02"
-     :asset/file  "l6_eyes_02.png"}
+     :asset/file  "l6_eyes_02.png"
+     :asset/pupil 0.42
+     :asset/iris  [{:cx 0.71955 :cy 0.362 :rx 0.02347 :ry 0.00897 :rot 1.79
+                    :lid {:x0 0.69844 :y0 0.37473 :mx 0.73247 :my 0.3285 :x1 0.74017 :y1 0.36866}}
+                   {:cx 0.59777 :cy 0.36454 :rx 0.02322 :ry 0.01912 :rot 0.12573
+                    :lid {:x0 0.5527 :y0 0.36819 :mx 0.59764 :my 0.33364 :x1 0.6291 :y1 0.37006}}]}
     {:asset/id :l6-eyes-03
      :asset/label "Eyes 03"
-     :asset/file  "l6_eyes_03.png"}]
+     :asset/file  "l6_eyes_03.png"
+     :asset/pupil 0.45
+     :asset/iris  [{:cx 0.72311 :cy 0.36017 :rx 0.01609 :ry 0.01372 :rot 3.13
+                    :lid {:x0 0.70014 :y0 0.36467 :mx 0.72176 :my 0.35583 :x1 0.74676 :y1 0.36369}}
+                   {:cx 0.59266 :cy 0.36083 :rx 0.02106 :ry 0.01568 :rot 3.15
+                    :lid {:x0 0.55828 :y0 0.36811 :mx 0.58665 :my 0.35386 :x1 0.63124 :y1 0.36271}}]}]
    :nose
    [{:asset/id :l7-nose-01
      :asset/label "Nose 01"
@@ -218,13 +233,15 @@
 
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file slot gamma]}]
+  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil]}]
           (cond-> {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)
                    :asset/tags  #{layer-key}}
             slot  (assoc :asset/slot slot)
-            gamma (assoc :asset/gamma gamma)))
+            gamma (assoc :asset/gamma gamma)
+            iris  (assoc :asset/iris iris)
+            pupil (assoc :asset/pupil pupil)))
         entries))
 
 (def house-pack
