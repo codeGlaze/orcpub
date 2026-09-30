@@ -396,3 +396,28 @@
       (is (> (- b r) 60)))
     (testing "outside it the drawing is untouched -- multiply would have tinted it"
       (is (= [40 40 40] [cr cg cb])))))
+
+(deftest the-share-card-fills-the-whites-under-the-eye
+  (let [;; a see-through square with a dark iris dot in the middle: an eye
+        ;; style drawn without its whites
+        n 200
+        img (java.awt.image.BufferedImage. n n java.awt.image.BufferedImage/TYPE_INT_ARGB)
+        _ (doto (.createGraphics img) (.setColor (java.awt.Color. 20 20 20)) (.fillOval 90 90 20 20) (.dispose))
+        out (java.io.ByteArrayOutputStream.)
+        _ (ImageIO/write img "png" out)
+        eyes (assoc (first (pa/assets-for-layer :eyes))
+                    :asset/url (str "data:image/png;base64," (.encodeToString (java.util.Base64/getEncoder) (.toByteArray out)))
+                    :asset/whites true
+                    :asset/iris [{:cx 0.5 :cy 0.5 :rx 0.05 :ry 0.05 :rot 0.0
+                                  :lid {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.3 :x1 0.7 :y1 0.5}
+                                  :lower {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.7 :x1 0.7 :y1 0.5}}])
+        render (fn [colors]
+                 (with-redefs [pa/asset-by-id (fn [_ _] eyes)]
+                   (ImageIO/read (ByteArrayInputStream. (pr/render-png {:layers {:eyes {:asset/id (:asset/id eyes)}} :colors colors} 400 400)))))
+        rgb (fn [^java.awt.image.BufferedImage i x y] (let [v (.getRGB i x y)] [(bit-and (bit-shift-right v 16) 0xff) (bit-and (bit-shift-right v 8) 0xff) (bit-and v 0xff) (bit-and (unsigned-bit-shift-right v 24) 0xff)]))
+        white (render {:eyes "#3a7bd5"})
+        fiend (render {:eyes "#3a7bd5" :whites "#a8322c"})]
+    (is (= [255 255 255 255] (rgb white 160 200)) "between the lids, beside the iris: white by default")
+    (is (= [168 50 44 255] (rgb fiend 160 200)) "or the colour picked")
+    (is (zero? (nth (rgb white 200 60) 3)) "outside the lids nothing is filled")
+    (is (> 60 (first (rgb white 200 200))) "and the iris is drawn over the whites, not under them")))

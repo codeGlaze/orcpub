@@ -233,6 +233,20 @@
                                                    (bit-shift-left g 8)
                                                    b)))))))))
 
+(defn- draw-whites!
+  "Fill the whites of an eye style drawn without them, under the eye art."
+  [^Graphics2D g ^bytes data asset ^Color color w h]
+  (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
+    (let [rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
+      (doseq [[[x0 y0] [mx my x1 y1] [lx1 ly1] [lmx lmy lx0 ly0]] (colorize/whites-outlines asset rect)]
+        (.setColor g color)
+        (.fill g (doto (Path2D$Double.)
+                   (.moveTo (double x0) (double y0))
+                   (.quadTo (double mx) (double my) (double x1) (double y1))
+                   (.lineTo (double lx1) (double ly1))
+                   (.quadTo (double lmx) (double lmy) (double lx0) (double ly0))
+                   (.closePath)))))))
+
 (defn colorizes?
   "Whether this asset is drawn by colorizing. An eye style with no placed
    region is multiplied instead -- colouring the whole asset would paint the
@@ -399,6 +413,9 @@
                      as-drawn? (= :as-drawn (pa/render-mode layer-key asset))
                      color (when-not as-drawn?
                              (hex->color (pa/tint-for portrait layer-key)))]
+                 ;; the whites go down first, so the eye art sits on them
+                 (when (and bytes (:asset/whites asset) (not (s/includes? (str mime) "svg")))
+                   (draw-whites! g bytes asset (hex->color (pa/whites-colour portrait)) w h))
                  (when (and mime bytes (or as-drawn? color))
                    (cond
                      (s/includes? mime "svg")

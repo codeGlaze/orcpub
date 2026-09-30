@@ -233,7 +233,7 @@
 
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil]}]
+  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil whites]}]
           (cond-> {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)
@@ -241,7 +241,10 @@
             slot  (assoc :asset/slot slot)
             gamma (assoc :asset/gamma gamma)
             iris  (assoc :asset/iris iris)
-            pupil (assoc :asset/pupil pupil)))
+            pupil (assoc :asset/pupil pupil)
+            ;; the style is drawn without painted whites, and each iris
+            ;; carries a :lower lid; the whites are between the two lids
+            whites (assoc :asset/whites true)))
         entries))
 
 (def house-pack
@@ -657,18 +660,18 @@
    :mouth      nil})
 
 (def color-slot-order
-  "Slot order in the picker. `:lips` is last because it only applies to some
-   mouth assets; `slot-in-use?` decides whether to show it."
-  [:hair :skin :eyes :shirt :lips])
+  "Slot order in the picker. `:whites` and `:lips` only apply to some assets;
+   `slot-in-use?` decides whether to show them."
+  [:hair :skin :eyes :whites :shirt :lips])
 
 (def color-slot-labels
-  {:hair "Hair" :skin "Skin" :eyes "Eyes" :shirt "Shirt" :lips "Lips"})
+  {:hair "Hair" :skin "Skin" :eyes "Eyes" :whites "Whites" :shirt "Shirt" :lips "Lips"})
 
 (def conditional-slots
   "Slots that only apply when an asset asks for them, rather than to a whole
    layer. Showing a Lips swatch against a closed-mouth asset would be a control
    that does nothing."
-  #{:lips})
+  #{:lips :whites})
 
 (def color-presets
   "One-tap starting points per slot; a native picker covers the rest."
@@ -679,13 +682,24 @@
    ;; bare through berry, then plum and coral. These read as lips rather than
    ;; as a stripe of paint because the art supplies the shading and only the
    ;; hue comes from here.
-   :lips  ["#c98d82" "#c46a6a" "#b04a5a" "#9b3c55" "#6e334e" "#d87a5c" "#a85c4a" "#7a4442"]})
+   :lips  ["#c98d82" "#c46a6a" "#b04a5a" "#9b3c55" "#6e334e" "#d87a5c" "#a85c4a" "#7a4442"]
+   ;; white, then the everyday off-whites, then the fantastic ones: the
+   ;; all-black and red of a fiend or an undead
+   :whites ["#ffffff" "#f4efe4" "#e6e2d8" "#dfe6ee" "#efe3c2" "#f0d4cf" "#2a2a2e" "#a8322c"]})
 
 (def default-slot-colors
   "What a slot renders as before anyone picks. Only :lips has one: the other
    slots fall back to their layer's category tint, but a lipped mouth with no
    lip colour would render in greys, which is the bug this slot exists to fix."
-  {:lips "#c98d82"})
+  {:lips "#c98d82"
+   ;; only for an eye style drawn without painted whites (:asset/whites), where
+   ;; the whites are filled in underneath it; white unless someone picks
+   :whites "#ffffff"})
+
+(defn whites-colour
+  "What an eye style's filled-in whites are drawn in."
+  [portrait]
+  (or (get-in portrait [:colors :whites]) (default-slot-colors :whites)))
 
 (defn selected-asset
   "The asset a portrait has chosen for `layer-key`, or nil."
@@ -715,7 +729,10 @@
     (boolean
      (some (fn [layer-key]
              (when-let [asset-id (:asset/id (get-in portrait [:layers layer-key]))]
-               (= slot (:asset/slot (asset-by-id layer-key asset-id)))))
+               (let [asset (asset-by-id layer-key asset-id)]
+                 (or (= slot (:asset/slot asset))
+                     ;; an eye style whose whites are filled in, not painted
+                     (and (= slot :whites) (:asset/whites asset))))))
            layer-order))))
 
 (defn active-color-slots
