@@ -62,6 +62,17 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      keep-pre-fix-copy!
+                                      plugins-rev
+                                      set-plugins-rev!
+                                      stored-plugins
+                                      watch-library-elsewhere!
+                                      pending-relinks
+                                      set-pending-relinks!
+                                      pre-fix-copy
+                                      drop-pre-fix-copy!
+                                      repairs-dismissed
+                                      set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
                                       health-dismissed->local-store
@@ -84,6 +95,7 @@
                                       default-class
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -158,7 +170,8 @@
 
 (def class->local-store-interceptor (after class->local-store))
 
-(def plugins->local-store-interceptor (after plugins->local-store))
+;; DEPRECATED 2026-09-27, remove after 2026-12: the library is written only by commit-library.
+#_(def plugins->local-store-interceptor (after plugins->local-store))
 
 (def dev-mode->local-store-interceptor
   (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
@@ -259,8 +272,9 @@
    (when-let [store-key (builder-wip-store-key item-key)]
      (set-item store-key (str item)))))
 
-(def plugins-interceptors [(path :plugins)
-                           plugins->local-store-interceptor])
+;; DEPRECATED 2026-09-27, remove after 2026-12: see plugins->local-store-interceptor.
+#_(def plugins-interceptors [(path :plugins)
+                             plugins->local-store-interceptor])
 
 
 ;; -- Event Handlers --------------------------------------------------
@@ -278,6 +292,8 @@
   (inject-cofx :local-store-builder-items)
   (inject-cofx ::e5/builder-origin)
   (inject-cofx ::e5/plugins)
+  (inject-cofx ::e5/plugins-rev)
+  (inject-cofx ::e5/library-extras)
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
@@ -301,23 +317,25 @@
               ::e5/demo-hidden
               ::e5/whats-new-seen
               ::e5/dev-mode
-              ::combat/tracker-item]} _]
+              ::combat/tracker-item]
+       :as cofx} _]
    {:db (if (seq db)
           db
           (cond-> default-value
-            plugins (assoc :plugins plugins)
+            plugins (assoc :plugins plugins) ;; library load
+            true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0)
+                        ::e5/repairs-dismissed (get cofx ::e5/repairs-dismissed #{}))
+            (::e5/pre-fix-at cofx) (assoc ::e5/pre-fix-at (::e5/pre-fix-at cofx))
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
             (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
             (some? dev-mode) (assoc :dev-mode? dev-mode)
-            ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id — at launch, not on a later trigger. Reading the
-            ;; stamp here (not at render) keeps it to one showing per browser rather
-            ;; than one per page view. It shares the screen with the cookie notice
-            ;; rather than queueing behind it: the panel measures the notice and
-            ;; stops above it (views/whats_new.cljs).
+            ;; The release panel opens once per release, on the first boot that sees a new id.
+            ;; Reading the stamp here, not at render, makes it one showing per browser, not per
+            ;; page view. It shares the screen with the cookie notice, measuring it and stopping
+            ;; above it (views/whats_new.cljs).
             (whats-new/unseen? whats-new-seen)
             (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
@@ -809,29 +827,17 @@
    (update db :builder-field-errors dissoc field)))
 
 (defn save-collision
-  "What a save to [source content-type key] would land on, or nil when the way is
-   clear.
-
-   `assoc-in` cannot tell replacing yourself from replacing somebody else, so this
-   asks before the write. Both kinds are about MINTING a key something else holds:
-   an item that already owns the key gets nil, whatever else is in the library.
-
-     :overwrite  the key already holds a DIFFERENT item in this same source, so
-                 saving would silently discard it.
-     :cross      the key exists in ANOTHER source. Not data loss, but not benign:
-                 the combines that dedupe by key pick their winner by the hash
-                 order of source names, and the ones that don't show both copies.
-
-   Returns {:kind :overwrite|:cross :source .. :name ..}."
+  "What saving `item` at [option-pack plugin-key key] in `plugins` would displace, or nil.
+   Returns {:kind :overwrite|:cross :source .. :name ..}. :overwrite: the key holds a DIFFERENT
+   item in this source, which the save would discard. :cross: the key exists in ANOTHER source,
+   where key-deduping combines pick a winner by source-name hash order.
+   GOTCHA: an item whose own :key is `key` gets nil, even when another source holds it too."
   [plugins option-pack plugin-key key item]
   (let [occupant (get-in plugins [option-pack plugin-key key])
         self?    (= key (:key item))]
-    ;; An item that already answers to this key is returning to its own slot, and neither kind
-    ;; applies to it -- INCLUDING :cross. A library can already hold the same key in two sources
-    ;; (an import where someone chose "keep both"), and that duplicate is not created by this save.
-    ;; Refusing it fixed nothing and trapped the item: under mint-once the author cannot rename
-    ;; their way out either, because renaming no longer moves the key. The library health card is
-    ;; where a standing duplicate is reported; the save is not.
+    ;; An item that already answers to this key is returning to its own slot: neither kind
+    ;; applies, INCLUDING :cross. A duplicate already in the library (an import's "keep both")
+    ;; is not this save's doing and is reported by the library health card, not refused here.
     (when-not self?
       (if occupant
         {:kind :overwrite :source option-pack :name (:name occupant)}
@@ -849,25 +855,19 @@
         :when (and (map? plugin) (some? (get-in plugin [plugin-key key])))]
     src))
 
+(defn version-of
+  "A fingerprint of `item`'s content, leaving out the address it is stored at."
+  [item]
+  (hash (dissoc item :key :option-pack)))
+
 (defn save-destination
-  "Where a save lands, and whether it may land there.
-
-     {:action :create}                      a key nothing answers to yet
-     {:action :in-place}                    the item's own address
-     {:action :move :from <source>}         Option Source Name was retyped; the old entry goes
-     {:action :refuse :reason .. :occupant/:holders ..}
-
-   `recorded` is the `[source key]` the builder opened the item from, or nil.
-
-   GOTCHA: the record is trusted only when that address STILL answers to this key for this content
-   type. It survives a move, a delete and a walk to another builder, and two content types in one
-   source share a key for one name (a race and a subrace both called Aarakocra), so an unverified
-   record can name an item nobody opened.
-
-   With no usable record the one source holding the key is where the item lives -- enough to save
-   back into it, never enough to MOVE, since that deletes an entry on a guess. With several there
-   is no honest answer at all, so it refuses and says to reopen the item from My Content."
-  [plugins recorded plugin-key option-pack key item]
+  "Where a save lands: {:action :create} for a key nothing answers to, :in-place at the item's own
+   address, :move :from <source> when Option Source Name was retyped, or :refuse :reason ..
+   (:changed when the stored item differs from the version fetched). `recorded` is the [source key]
+   the builder opened, or nil; `mint-name` the name a fresh key derives from.
+   GOTCHA: `recorded` counts only while it still answers to this key and content type. Without it,
+   the one source holding the key allows an in-place save, never a move; several mean a refusal."
+  [plugins recorded plugin-key option-pack key item & [mint-name]]
   (let [;; every caller gates on this, but the function is not safe on its own terms without
         ;; it: `(= lives-in option-pack)` is (= nil nil) for a nil target with no known home,
         ;; which would write a source literally named nil
@@ -889,15 +889,39 @@
       ;; Minting: no key of its own yet, so anything already answering belongs to somebody else --
       ;; here or in another library, since a key is a global address.
       (nil? (:key item))
-      (let [elsewhere (disj holders option-pack)]
+      (let [elsewhere (disj holders option-pack)
+            ;; A library from before keys were stored holds this item under its UNTAGGED name key,
+            ;; which `occupant` (probing the tagged key) misses: probe it too, within `option-pack`
+            ;; only.
+            untagged-key (some->> mint-name common/name-to-kw)
+            legacy-occupant (when (and untagged-key (not= untagged-key key))
+                              (get-in plugins [option-pack plugin-key untagged-key]))]
         (cond
           ;; before the occupied offer, for the same reason the move branch tests it first:
           ;; replacing what is here cannot resolve a key another library also holds
-          (seq elsewhere) {:action :refuse :reason :elsewhere :holders elsewhere
-                           :minting? true}
-          occupant        {:action :refuse :reason :occupied :occupant occupant
-                           :minting? true}
-          :else           {:action :create}))
+          (seq elsewhere)   {:action :refuse :reason :elsewhere :holders elsewhere
+                             :minting? true}
+          occupant          {:action :refuse :reason :occupied :occupant occupant
+                             :minting? true}
+          ;; Consent replaces the LEGACY entry in place (at its own, untagged address) rather than
+          ;; creating the tagged duplicate minting was about to make.
+          legacy-occupant   {:action :refuse :reason :occupied :occupant legacy-occupant
+                             :minting? true :address untagged-key}
+          :else             {:action :create}))
+
+      ;; The address still answers -- but is it still the same ITEM? An import under the same
+      ;; source name replaces an entry without colliding (the conflict gate filters same-source
+      ;; collisions out) and without saying so, and an in-place save then writes over what was
+      ;; just imported. The recorded name is what tells them apart.
+      (and (= lives-in option-pack) occupant (:name recorded)
+           (not= (:name occupant) (:name recorded)))
+      {:action :refuse :reason :occupied :occupant occupant}
+
+      ;; Same item, but its stored content changed since the builder fetched it: another tab, or
+      ;; a re-import, wrote it. Saving would silently undo that.
+      (and (= lives-in option-pack) occupant (:version recorded)
+           (not= (:version recorded) (version-of occupant)))
+      {:action :refuse :reason :changed :occupant occupant}
 
       ;; The address still answers -- but is it still the same ITEM? An import under the same
       ;; source name replaces an entry without colliding (the conflict gate filters same-source
@@ -945,7 +969,27 @@
    collisions are filtered out of the conflict gate) and does not notify, so `[source key]`
    verifying proves nothing about whether it is still the item on screen."
   [item]
-  {:source (:option-pack item) :key (:key item) :name (:name item)})
+  {:source (:option-pack item) :key (:key item) :name (:name item) :version (version-of item)})
+
+(defn builder-save-fx
+  "Effects for a builder save that writes `new-plugins`: once the write has stuck, the builder
+   holds `item`, records it as fetched from `[source plugin-key key]`, and shows `message`."
+  [new-plugins item-key plugin-key source key item message]
+  {:dispatch-n [[:set-builder-field-errors {}]
+                [::e5/set-plugins new-plugins
+                 {:on-success [::e5/builder-saved item-key plugin-key item
+                               (origin-of (assoc (get-in new-plugins [source plugin-key key])
+                                                 :option-pack source :key key))
+                               message]}]]})
+
+(reg-event-fx
+ ::e5/builder-saved
+ (fn [{:keys [db]} [_ item-key plugin-key item origin message]]
+   (let [origins (assoc (:builder-origin db) plugin-key origin)]
+     (cond-> {:db (assoc db item-key item :builder-origin origins)
+              ::persist-builder-origin origins
+              ::persist-builder-wip [item-key item]}
+       message (assoc :dispatch message)))))
 
 (defn- fetched-from
   "The source the builder took this item out of, or nil when that address no longer answers.
@@ -956,34 +1000,32 @@
     (:source recorded)))
 
 (defn address-for
-  "The key `item` saves under: its own, or a freshly minted one carrying the source's tag (D10b).
-
-   `mint-name` is the name a fresh key derives from -- `(:name item)` for an ordinary save, the
-   sanitized name where a save placeholder-fills it.
-
-   GOTCHA: a keyless item here is a genuinely NEW one, and minting is always right, BECAUSE
-   `reg-edit-homebrew` stamps the address onto anything the builder fetches -- including a library
-   authored before keys were stored, which carries none of its own. Identity is established once,
-   where the item is taken from a known row, rather than guessed at from its name every save: a
-   name matches any entry that happens to share it, and guessing handed new items somebody else's
-   address to overwrite."
+  "The key `item` saves under: its own, or one minted from `mint-name` carrying the source's tag
+   (D10b). `mint-name` is `(:name item)`, or the sanitized name where a save placeholder-fills it.
+   GOTCHA: a keyless item here is new, so minting is right: `reg-edit-homebrew` stamps the address
+   onto anything the builder fetches, including libraries from before keys were stored."
   [plugins plugin-key option-pack item mint-name]
   (or (:key item)
       (common/source-tagged-key mint-name option-pack
                                 (get-in plugins [option-pack :abbreviation]))))
 
 (defn replacing
-  "The same destination with the author's consent to discard the occupant applied.
-
-   Only an `:occupied` refusal is negotiable: it names one item, in this source, that the author
-   can see on screen. `:elsewhere` and `:ambiguous` pass through unchanged -- nothing is in the
-   way there to replace, so consenting would create the duplicate rather than resolve it."
-  [{:keys [action reason origin] :as destination}]
+  "`destination` with the author's consent to discard the occupant. Only an `:occupied` refusal
+   changes (one item, in this source, on screen); `:elsewhere` and `:ambiguous` pass through, since
+   consenting there would create the duplicate.
+   GOTCHA: an `:occupied` refusal while minting can carry `:address`, the occupant's own (untagged)
+   key; consent writes there, so callers read `(or (:key destination) key)`."
+  [{:keys [action reason origin address] :as destination}]
   (cond
     (not= :refuse action)  destination
-    (= :occupied reason)   (if origin {:action :move :from origin} {:action :create})
+    (= :occupied reason)   (cond
+                             origin  {:action :move :from origin}
+                             address {:action :create :key address}
+                             :else   {:action :create})
     ;; the entry is gone; consent is to writing it back
     (= :vanished reason)   {:action :create}
+    ;; consent is to writing this version over the one stored now
+    (= :changed reason)    {:action :in-place}
     :else                  destination))
 
 (defn save-into-plugins
@@ -1013,13 +1055,9 @@
                     [:show-error-message fallback-message builder-error-ttl]]})))
 
 (defn collision-error-fx
-  "Effects for a save the destination refused: one message per reason, and an offer only where
-   there is something to offer.
-
-   `:occupied` names ONE item, in this source, that the author can see -- so it offers
-   `replace-event` and the decision is theirs. `:elsewhere` and `:ambiguous` get no such button:
-   nothing sits in the way to replace, and saving would MAKE the duplicate rather than resolve it.
-
+  "Effects for a save `destination` refused: one message per reason. Only `:occupied` (one item, in
+   this source, on screen) offers `replace-event`; `:elsewhere` and `:ambiguous` have nothing to
+   replace.
    GOTCHA: the banner closes on any click that reaches it, so the offer needs no cancel."
   [type-name option-pack key {:keys [reason occupant holders] :as destination} replace-event]
   (let [lower (s/lower-case type-name)
@@ -1045,6 +1083,13 @@
            :details [(if (:minting? destination)
                        "Keys are shared across your whole library. Rename this one."
                        "Keys are shared across your whole library. Change its key.")]}
+
+          :changed
+          {:title (str "\"" (:name occupant) "\" was changed somewhere else since you opened it.")
+           :details [[:span.pointer.underline.f-w-b
+                      {:on-click #(dispatch replace-event)}
+                      "Save yours over it"]
+                     "Or open it again from My Content to see that version."]}
 
           :vanished
           {:title (str (pr-str (:source destination)) " no longer has this " lower ".")
@@ -1089,11 +1134,9 @@
              ;; into a twin that renders identically in My Content. nil when nothing is left.
              option-pack (some-> (:option-pack raw-item) s/trim not-empty)
              item (cond-> raw-item option-pack (assoc :option-pack option-pack))
-             ;; MINTED ONCE (D10a), TAGGED WITH ITS SOURCE (D10b). The key is an address, not a
-             ;; label: derived from the name at creation, carrying the source's abbreviation, then
-             ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
-             ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
-             ;; is a separate, deliberate act that records :former-keys.
+             ;; Minted once (D10a), tagged with its source (D10b): the key is an address derived
+             ;; from the name at creation, then fixed; a rename is a name edit. Changing a key is a
+             ;; separate act that records :former-keys.
              key (address-for (:plugins db) plugin-key option-pack item name)
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
@@ -1103,16 +1146,16 @@
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)
-             ;; A key is an ADDRESS and it is global: two items answering to one is the same
-             ;; problem wherever the second one lives, since the combines that dedupe pick their
-             ;; winner by the hash order of source names and the ones that do not show both
-             ;; copies. (Wanting both IS legitimate and arrives through IMPORT, where the conflict
-             ;; modal asks.)
+             ;; A key is a global address: two items answering to one collide wherever the second
+             ;; lives. Wanting both arrives through import, where the conflict modal asks.
              {:keys [action from] :as destination}
              (when (and option-pack (nil? explanation))
                (cond-> (save-destination plugins (get-in db [:builder-origin plugin-key]) plugin-key option-pack key
-                                         item)
-                 replace? replacing))]
+                                         item name)
+                 replace? replacing))
+             ;; Consenting to replace a legacy, untagged occupant lands the write on ITS address
+             ;; (see `replacing`'s GOTCHA), not the tagged one this key variable holds.
+             final-key (or (:key destination) key)]
          (cond
            ;; `::option-pack` is `string?`, so "" satisfies the spec and never reaches the
            ;; missing-field banner on its own. Clearing the field to retype it and pressing Save
@@ -1134,25 +1177,16 @@
            (builder-field-error-fx type-name explanation item error-message anyway-event-key)
 
            :else
-           (let [new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key key
+           (let [item-with-key (assoc item-with-key :key final-key)
+                 new-plugins (cond-> (save-into-plugins plugins option-pack plugin-key final-key
                                                         item-with-key nil)
                                ;; a move, not a copy: the entry it came from goes
-                               (= :move action) (update-in [from plugin-key] dissoc key))]
+                               (= :move action) (update-in [from plugin-key] dissoc final-key))]
              ;; The key goes back onto the item still open in the builder, and the origin is
              ;; re-stamped to where it now lives: leaving the old address recorded would make the
              ;; next save read as another move, off an entry that has already gone.
-             {:db (assoc db
-                         item-key item-with-key
-                         :builder-origin (assoc (:builder-origin db) plugin-key
-                                                {:source option-pack :key key
-                                                 :name (:name item-with-key)}))
-              ::persist-builder-origin (assoc (:builder-origin db) plugin-key
-                                              {:source option-pack :key key
-                                               :name (:name item-with-key)})
-              ::persist-builder-wip [item-key item-with-key]
-              :dispatch-n [[::e5/set-plugins new-plugins]
-                           [:set-builder-field-errors {}]
-                           [:show-warning-message
+             (builder-save-fx new-plugins item-key plugin-key option-pack final-key item-with-key
+              [:show-warning-message
                             ;; Headline carries the point -- it is saved, and only here. The
                             ;; caveat and the way out sit under it.
                             {:title (if (= :move action)
@@ -1165,14 +1199,13 @@
                                         "Clearing browser data loses it. "
                                         [:span.pointer.underline
                                          ;; stop the click: the banner closes on any click that
-                                         ;; reaches it, so exporting used to pull the card out from
-                                         ;; under the reader mid-action.
+                                         ;; reaches it, which would close it mid-export.
                                          {:on-click (fn [e]
                                                       (.stopPropagation e)
                                                       (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
                                          "Export this source"]
                                         " to keep a copy."]]}
-                            60000]]})))))
+                            60000]))))))
 
     ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
     ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
@@ -1199,36 +1232,29 @@
              ;; Placeholders fill the FIELDS; they do not buy an address. Sanitizing a name must
              ;; not re-address an item that already has one, so a fresh key is minted from the
              ;; sanitized name and everything else keeps the address it has.
-             final-key (address-for (:plugins db) plugin-key src item (:name sanitized))
-             item-with-key (assoc sanitized :option-pack src :key final-key)
+             mint-key (address-for (:plugins db) plugin-key src item (:name sanitized))
              {:keys [action from] :as destination}
-             (cond-> (save-destination (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key src final-key
-                                       item)
-               replace? replacing)]
+             (cond-> (save-destination (:plugins db) (get-in db [:builder-origin plugin-key]) plugin-key src mint-key
+                                       item (:name sanitized))
+               replace? replacing)
+             ;; See the ordinary save handler: consenting to replace a legacy occupant lands on
+             ;; ITS address, not the freshly minted one.
+             final-key (or (:key destination) mint-key)
+             item-with-key (assoc sanitized :option-pack src :key final-key)]
          (if (= :refuse action)
-           (collision-error-fx type-name src final-key destination
+           (collision-error-fx type-name src mint-key destination
                                [anyway-event-key {:replace? true}])
            (let [new-plugins (cond-> (save-into-plugins (:plugins db) src plugin-key final-key
                                                         item-with-key nil)
                                (= :move action) (update-in [from plugin-key] dissoc final-key))]
              ;; Same stamp the ordinary save makes: without it the item in the builder still has
              ;; no key, so saving again mints a second one and lands on its own entry.
-             {:db (assoc db
-                         item-key item-with-key
-                         :builder-origin (assoc (:builder-origin db) plugin-key
-                                                {:source src :key final-key
-                                                 :name (:name item-with-key)}))
-              ::persist-builder-origin (assoc (:builder-origin db) plugin-key
-                                              {:source src :key final-key
-                                               :name (:name item-with-key)})
-              ::persist-builder-wip [item-key item-with-key]
-              :dispatch-n [[::e5/set-plugins new-plugins]
-                           [:set-builder-field-errors {}]
-                           [:show-warning-message
+             (builder-save-fx new-plugins item-key plugin-key src final-key item-with-key
+              [:show-warning-message
                             (str type-name " saved to My Content under \"" src
                                  "\" with placeholders for missing fields."
                                  (when (= :move action) (str " Removed from " (pr-str from) "."))
-                                 " Review it and re-export before sharing.")]]})))))))
+                                 " Review it and re-export before sharing.")]))))))))
 
 (reg-save-homebrew
  "Spell"
@@ -1309,8 +1335,10 @@
          {:keys [action from] :as destination}
          (when (and option-pack (nil? explanation))
            (cond-> (save-destination plugins (get-in db [:builder-origin ::e5/selections]) ::e5/selections option-pack key
-                                     item)
-             replace? replacing))]
+                                     item name)
+             replace? replacing))
+         ;; See reg-save-homebrew: consenting to replace a legacy occupant lands on ITS address.
+         final-key (or (:key destination) key)]
      (cond
        ;; an empty Option Source Name satisfies `string?`, so it never reaches the missing-field
        ;; banner on its own -- and the save then read it as a retarget
@@ -1346,22 +1374,13 @@
                            [::selections5e/save-selection {:replace? true}])
        ;; All good — save
        :else
-       (let [new-plugins (cond-> (save-into-plugins plugins option-pack ::e5/selections key
+       (let [item-with-key (assoc item-with-key :key final-key)
+             new-plugins (cond-> (save-into-plugins plugins option-pack ::e5/selections final-key
                                                     item-with-key nil)
                            (= :move action)
-                           (update-in [from ::e5/selections] dissoc key))]
-         {:db (assoc db
-                     ::selections5e/builder-item item-with-key
-                     :builder-origin (assoc (:builder-origin db) ::e5/selections
-                                            {:source option-pack :key key
-                                             :name (:name item-with-key)}))
-          ::persist-builder-origin (assoc (:builder-origin db) ::e5/selections
-                                          {:source option-pack :key key
-                                           :name (:name item-with-key)})
-          ::persist-builder-wip [::selections5e/builder-item item-with-key]
-          :dispatch-n [[::e5/set-plugins new-plugins]
-                       [:set-builder-field-errors {}]
-                       [:show-warning-message
+                           (update-in [from ::e5/selections] dissoc final-key))]
+         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections option-pack final-key item-with-key
+          [:show-warning-message
                         {:title (if (= :move action)
                                    (str "Selection moved to " (pr-str option-pack)
                                         " — in this browser only")
@@ -1376,7 +1395,7 @@
                                                   (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
                                      "Export this source"]
                                     " to keep a copy."]]}
-                        60000]]})))))
+                        60000]))))))
 
 ;; Selection is a standalone handler (for its option-name checks), so it doesn't
 ;; get reg-save-homebrew's auto-generated -anyway event and needs its own:
@@ -1392,34 +1411,26 @@
                  (fetched-from (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections
                                (:key item))
                  orcbrew-val/default-option-source)
-         key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
-         item-with-key (assoc filled-item :key key :option-pack src)
+         mint-key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
          {:keys [action from] :as destination}
-         (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src key
-                                   item)
-           replace? replacing)]
+         (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src mint-key
+                                   item (:name filled-item))
+           replace? replacing)
+         ;; See reg-save-homebrew: consenting to replace a legacy occupant lands on ITS address.
+         final-key (or (:key destination) mint-key)
+         item-with-key (assoc filled-item :key final-key :option-pack src)]
      (if (= :refuse action)
-       (collision-error-fx "Selection" src key destination
+       (collision-error-fx "Selection" src mint-key destination
                            [::selections5e/save-selection-anyway {:replace? true}])
-       (let [new-plugins (cond-> (save-into-plugins (:plugins db) src ::e5/selections key
+       (let [new-plugins (cond-> (save-into-plugins (:plugins db) src ::e5/selections final-key
                                                     item-with-key nil)
-                           (= :move action) (update-in [from ::e5/selections] dissoc key))]
-         {:db (assoc db
-                     ::selections5e/builder-item item-with-key
-                     :builder-origin (assoc (:builder-origin db) ::e5/selections
-                                            {:source src :key key
-                                             :name (:name item-with-key)}))
-          ::persist-builder-origin (assoc (:builder-origin db) ::e5/selections
-                                          {:source src :key key
-                                           :name (:name item-with-key)})
-          ::persist-builder-wip [::selections5e/builder-item item-with-key]
-          :dispatch-n [[::e5/set-plugins new-plugins]
-                       [:set-builder-field-errors {}]
-                       [:show-warning-message
+                           (= :move action) (update-in [from ::e5/selections] dissoc final-key))]
+         (builder-save-fx new-plugins ::selections5e/builder-item ::e5/selections src final-key item-with-key
+          [:show-warning-message
                         (str "Selection saved to My Content under \"" src
                              "\" with placeholders for missing fields."
                              (when (= :move action) (str " Removed from " (pr-str from) "."))
-                             " Review it and re-export before sharing.")]]})))))
+                             " Review it and re-export before sharing.")]))))))
 
 (reg-save-homebrew
  "Feat"
@@ -1456,22 +1467,44 @@
  ::e5/classes
  "You must specify 'Name', 'Option Source Name'")
 
+(defn- still-used-fx
+  "The prompt shown instead of a delete that would leave `broken` (library/commit's report)
+   pointing at nothing: who uses `what`, and an offer to delete anyway via `confirm-event`."
+  [what broken confirm-event]
+  (let [names (distinct (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") broken))
+        shown (s/join ", " (take 2 names))
+        more (- (count names) 2)]
+    {:dispatch [:show-warning-message
+                {:title (str shown (when (pos? more) (str " and " more " more"))
+                             (if (= 1 (count names)) " uses " " use ") what ".")
+                 :details [[:span.pointer.underline.f-w-b {:on-click #(dispatch confirm-event)}
+                            "Delete it anyway"]
+                           (str (if (= 1 (count names)) "It" "They")
+                                " will point at nothing until you change "
+                                (if (= 1 (count names)) "it." "them."))]}]}))
+
 (defn reg-delete-homebrew [event-key plugin-key]
   (reg-event-fx
    event-key
-   ;; The ROW's address, for the same reason the edit button passes it: `:option-pack` on the item
-   ;; is a declaration an import can leave stale, and `:key` is absent on libraries authored
-   ;; before keys were stored. Reading them here deleted nothing at all for a pre-keys library,
-   ;; conjured an empty source from a stale declaration, or -- where another source answered to
-   ;; the same key -- deleted THAT entry and left the clicked one in place.
-   (fn [{:keys [db]} [_ item source key]]
+   ;; The ROW's address, as the edit button passes it: the item's `:option-pack` can be stale after
+   ;; an import, and its `:key` is absent in libraries from before keys were stored.
+   (fn [{:keys [db]} [_ item source key confirmed?]]
      (let [source (or source (:option-pack item))
-           key    (or key (:key item))]
-       (if (and source key (get-in db [:plugins source plugin-key key]))
-         {:dispatch [::e5/set-plugins (update-in (:plugins db) [source plugin-key] dissoc key)]}
+           key    (or key (:key item))
+           after  (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
+           broken (when after (:broken (library/commit (:plugins db) after {:deleting? true})))]
+       (cond
+         (not (and source key (get-in db [:plugins source plugin-key key])))
          {:dispatch [:show-error-message
                      "That entry could not be found — reload My Content and try again."
-                     builder-error-ttl]})))))
+                     builder-error-ttl]}
+
+         (and (seq broken) (not confirmed?))
+         (still-used-fx (str "\u201c" (or (get-in db [:plugins source plugin-key key :name]) (name key)) "\u201d")
+                        broken [event-key item source key true])
+
+         :else
+         {:dispatch [::e5/set-plugins after {:deleting? true}]})))))
 
 (reg-delete-homebrew
  ::spells/delete-spell
@@ -1971,31 +2004,21 @@
           class-key)))
 
 (defn set-character [db [_ character]]
-  ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
-  ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
-  ;; former-key index.
-  (let [;; Former keys first: a character that selected content before an import
-        ;; conflict renamed it is pointing at a key nothing answers to any more.
-        ;; Translating it back before anything else means the spell-selection pass
-        ;; below sees the class key it expects rather than an orphan.
+  ;; :plugins are hydrated before this runs (::e5/plugins is a sync cofx at :initialize-db).
+  (let [;; Former keys first: the spell-selection pass needs each class key already current.
         {character :character former-rewrote :rewrote}
         (content-recon/reconcile-former-keys
          character
-         (content-recon/former-key-index (:plugins db)))
+         (content-recon/former-key-indexes (:plugins db) (::content-recon/offered-keys db)
+                                           (::content-recon/offered-by-type db)))
         {character :character spell-rewrote :rewrote}
         (content-recon/reconcile-spell-selection-keys
          character
          (loaded-class-keys db))
-        ;; Both reconcilers report what they repaired and it used to be dropped on
-        ;; the floor here, so every automatic heal was invisible AND undone by the
-        ;; next load -- the rewrite lives in memory only. Keeping it lets the save
-        ;; button say the character is worth saving, which is the difference
-        ;; between healing once and re-healing forever.
+        ;; Non-empty sets :character-healed, which makes Save offer to keep the heal; unsaved, it
+        ;; is redone on every load.
         rewrote (into (vec former-rewrote) spell-rewrote)
-        ;; Reported, not repaired: an unbound class cannot be fixed by guessing,
-        ;; and a subclass filed under the wrong class binds cleanly while granting
-        ;; the wrong features, so both need a person. Computed after the repairs
-        ;; so it describes what is STILL wrong, not what already got fixed.
+        ;; After the heals, so it lists only what is still wrong.
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -2006,15 +2029,11 @@
            :character-binding-report (when (or (seq (:unbound-classes binding-report))
                                                (seq (:subclass-mismatches binding-report)))
                                        binding-report)
-           ;; Cleared when there is nothing to report, which is what makes it
-           ;; self-resetting: after a save, :set-character runs again over the
-           ;; SAVED character, the reconcilers find nothing left to fix, and the
-           ;; prompt goes away on its own rather than needing to be dismissed.
+           ;; nil after a save: :set-character reruns on the saved character and finds nothing.
            :character-healed (when (seq rewrote) {:rewrote rewrote}))))
 
 (defn healed-message
-  "Toast copy for an automatic reconciliation. Says what moved and what to do
-   about it, because the repair is in memory until the character is saved."
+  "Toast text for an automatic heal: how many picks moved, and that saving keeps it."
   [rewrote]
   (let [n (count rewrote)]
     (str "Reconnected " n " reference" (when (not= 1 n) "s")
@@ -2022,17 +2041,12 @@
 
 (reg-event-fx
  ::char5e/relink-content
- (fn [{:keys [db]} [_ from-key to-key]]
-   ;; Rung 4 of the resolution ladder. Rungs 2 and 3 rebind a stored key when the
-   ;; answer is unambiguous and DECLINE when it is not -- which is right, but on
-   ;; its own leaves the option quietly broken. This is where the person decides.
-   ;;
-   ;; Reuses reconcile-former-keys with a one-entry index, so a manual relink and
-   ;; an automatic one rewrite the character by exactly the same code. Routing
-   ;; through :set-character means the other reconcilers run over the result and
-   ;; the rebuild happens the way it does on any load.
+ (fn [{:keys [db]} [_ from-key to-key content-type]]
+   ;; The person's answer for a pick no heal could settle. `content-type` (optional) limits the
+   ;; rewrite to picks of that type; a race and a subrace can share a key. Goes through
+   ;; :set-character, so the heals and the rebuild run as on any load.
    (let [{:keys [character]}
-         (content-recon/reconcile-former-keys (:character db) {from-key to-key})]
+         (content-recon/relink-picks (:character db) content-type from-key to-key)]
      {:dispatch-n [[:set-character character]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
@@ -2060,13 +2074,48 @@
 
 (reg-event-fx
  :set-character
- [db-char->local-store]
- (fn [{:keys [db]} event]
+ [db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ (fn [{:keys [db] :as cofx} event]
    (let [db' (set-character db event)
-         rewrote (get-in db' [:character-healed :rewrote])]
-     (cond-> {:db db'}
+         rewrote (get-in db' [:character-healed :rewrote])
+         relinks (::e5/pending-relinks cofx)
+         ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
+     ;; Asked once per character (homebrew-keys-design.md §9, Q3): the builder shows
+     ;; ::e5/relink-question as a banner until the author answers, and only the answer
+     ;; (::e5/answer-relink) records it as asked.
+     (cond-> {:db (assoc db' ::e5/relink-question
+                         (when ask
+                           (let [{:keys [content-type from] :as r} (get relinks ask)]
+                             (assoc (select-keys r [:content-type :from :to :to-name :import])
+                                    :from-name (some #(get-in % [content-type from :name]) (vals (:plugins db')))
+                                    :character-id (:db/id (:character db'))))))}
        ;; Only on an actual repair. A clean load stays silent.
        (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+
+(defn- record-relinks!
+  "Stores `relinks` as the pending relink questions; says so in the console when it cannot."
+  [relinks]
+  (when-not (set-pending-relinks! relinks)
+    (js/console.warn "Could not store which characters to ask about renamed items")))
+
+(reg-event-fx
+ ::e5/import-stored
+ ;; After an import's write has stuck: record its relink questions, then show `message`.
+ (fn [_ [_ relinks message]]
+   (when (seq relinks) (record-relinks! (into (pending-relinks) relinks)))
+   (cond-> {} message (assoc :dispatch message))))
+
+(reg-event-fx
+ ::e5/answer-relink
+ ;; `choice` is :switch (to the renamed item the character used before) or :keep.
+ (fn [{:keys [db]} [_ choice]]
+   (let [{:keys [content-type from to character-id] :as q} (::e5/relink-question db)
+         same? #(and (= content-type (:content-type %)) (= from (:from %)) (= to (:to %)))]
+     (when q
+       (record-relinks! (mapv #(cond-> % (same? %) (update :asked (fnil conj #{}) character-id))
+                                   (pending-relinks))))
+     (cond-> {:db (dissoc db ::e5/relink-question)}
+       (and q (= :switch choice)) (assoc :dispatch [::char5e/relink-content from to content-type])))))
 
 (def character-values-path
   [::entity/values])
@@ -3011,25 +3060,23 @@
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ item source key content-type]]
-     ;; The caller passes the address of the ROW it took the item from. Neither field on the item
-     ;; is that address: `:option-pack` is what the item DECLARES, which an import that renamed
-     ;; the source leaves stale, and `:key` is absent on libraries authored before keys were
-     ;; stored.
-     ;;
-     ;; The address goes ONTO the item, not just into `:builder-origin`. That is what makes
-     ;; every later question easy: the form shows the source that really holds it, the save
-     ;; writes back where it came from, and a rename cannot re-address it.
-     ;; Ten of the eleven edit buttons pass only the item -- the list pages and the
-     ;; character-builder pencil. They can, because `process-plugin-vals` stamps the address on
-     ;; the way out of `:plugins`; My Content passes it explicitly because it has it to hand.
+     ;; `address` is the ROW the caller took the item from; the item's `:option-pack` can be stale
+     ;; and its `:key` absent. It goes onto the item as well as `:builder-origin`, so the form, the
+     ;; save and a rename all read the real address. Callers passing only the item rely on
+     ;; `process-plugin-vals` having stamped it.
      (let [located (cond-> item
                      source (assoc :option-pack source)
                      key    (assoc :key key))
            ;; the content type is known at REGISTRATION -- a builder only ever edits its own kind
            ;; -- so the caller never has to supply it and every record carries one
-           content-type (or content-type plugin-key)]
-       {:db (assoc-in db [:builder-origin content-type] (origin-of located))
-        ::persist-builder-origin (assoc (:builder-origin db) content-type (origin-of located))
+           content-type (or content-type plugin-key)
+           ;; the version is the stored entry's: the item handed over may carry display fields
+           stored (get-in (:plugins db) [(:option-pack located) content-type (:key located)])
+           origin (if (map? stored)
+                    (origin-of (assoc stored :option-pack (:option-pack located) :key (:key located)))
+                    (dissoc (origin-of located) :version))]
+       {:db (assoc-in db [:builder-origin content-type] origin)
+        ::persist-builder-origin (assoc (:builder-origin db) content-type origin)
         :dispatch-n [[set-event located]
                      [:route route]]}))))
 
@@ -3164,8 +3211,9 @@
 (reg-event-db
  :show-message
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when-not (= :sticky ttl)
+     (go (<! (timeout (or ttl 5000)))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
@@ -3183,9 +3231,11 @@
 
 (reg-event-db
  :show-warning-message
+ ;; `ttl` :sticky keeps the message until it is dismissed.
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when-not (= :sticky ttl)
+     (go (<! (timeout (or ttl 5000)))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
@@ -4641,11 +4691,148 @@
  (fn [_ [_ item]]
    item))
 
+(defn- refusal-message [{:keys [broken invalid]}]
+  (if (seq invalid)
+    "That change wasn't saved: it would give an item a key the app can't load."
+    (str "That change wasn't saved: it would leave "
+         (s/join ", " (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") (take 3 broken)))
+         (when (> (count broken) 3) (str " and " (- (count broken) 3) " more"))
+         " pointing at nothing.")))
+
+(defn- changed-elsewhere-message [theirs conflicts]
+  (let [names (distinct (map (fn [[src ct k :as path]]
+                               (str "\u201c" (or (get-in theirs [src ct k :name])
+                                                 (some-> (last path) name)) "\u201d"))
+                             conflicts))]
+    {:title (str (s/join ", " (take 2 names))
+                 (when (> (count names) 2) (str " and " (- (count names) 2) " more"))
+                 " changed in another tab, so this wasn't saved.")
+     :details ["This tab now shows that version. Make your change again to keep it."]}))
+
+(defn commit-library
+  "Stores `plugins` through the library gate (library/commit), the one place the library is
+   written. Returns {:db :ok? :dispatch-n}: on success `:db` holds the stored library; when the
+   gate refuses, `:db` is unchanged and `:dispatch-n` carries the error. `opts` as
+   library/commit, plus `:on-success`, an event dispatched once the write has stuck."
+  [db plugins opts]
+  (let [rev (plugins-rev)
+        ;; Another tab wrote since this one last read: apply this tab's change onto that write.
+        elsewhere? (and (some? (::e5/plugins-rev db)) (not= rev (::e5/plugins-rev db)))
+        theirs (when elsewhere? (stored-plugins))
+        {merged :plugins conflicts :conflicts}
+        (if elsewhere? (library/three-way (:plugins db) plugins theirs) {:plugins plugins})
+        old (if elsewhere? theirs (:plugins db))
+        {stored :plugins refused :refused} (when (empty? conflicts) (library/commit old merged opts))]
+    (cond
+      (seq conflicts)
+      {:db (assoc db :plugins theirs ::e5/plugins-rev rev) ;; library load
+       :ok? false
+       :dispatch-n [[:show-error-message (changed-elsewhere-message theirs conflicts)]]}
+
+      refused
+      (do (js/console.warn "Library write refused" (clj->js refused))
+          {:db db :ok? false :dispatch-n [[:show-error-message (refusal-message refused)]]})
+
+      :else
+      (let [kept (when (not= old (library/normalize old)) (keep-pre-fix-copy! old))
+            kept-at (:at kept)
+            _ (when (:failed? kept)
+                (js/console.warn "No room to keep a copy of the library before tidying it"))
+            ok? (plugins->local-store stored)] ;; library gate
+            (when ok? (set-plugins-rev! (inc rev)))
+            {:db (cond-> (assoc db :plugins stored ::e5/plugins-rev (if ok? (inc rev) rev)) ;; library gate
+                   kept-at (assoc ::e5/pre-fix-at kept-at)
+                   ;; what this write replaced and stored, for ::e5/library-changed-elsewhere
+                   ok? (assoc ::e5/last-write {:rev (inc rev) :base old :mine stored}))
+             :ok? ok?
+             :dispatch-n (if (and ok? (:on-success opts)) [(:on-success opts)] [])}))))
+
+(reg-event-fx
+ ::e5/library-changed-elsewhere
+ [(inject-cofx ::e5/plugins) (inject-cofx ::e5/plugins-rev)]
+ (fn [{:keys [db] :as cofx} _]
+   (let [theirs (::e5/plugins cofx)
+         rev (::e5/plugins-rev cofx)
+         {:keys [base mine] written :rev} (::e5/last-write db)]
+     (cond
+       ;; the slot is absent or unreadable (another tab set a corrupt value aside), not empty:
+       ;; keep this tab's copy, and its next write re-creates the slot through the gate
+       (nil? theirs) {}
+
+       ;; Another tab wrote at the revision this tab's last write took: both read the same
+       ;; revision, and theirs replaced this one. Put this tab's change back onto theirs.
+       (and written (= written rev) (not= mine theirs))
+       (let [{merged :plugins conflicts :conflicts} (library/three-way base mine theirs)
+             db' (assoc db :plugins theirs ::e5/plugins-rev rev ::e5/last-write nil)] ;; library load
+         (if (seq conflicts)
+           {:db db' :dispatch [:show-error-message (changed-elsewhere-message theirs conflicts)]}
+           {:db db' :dispatch [::e5/set-plugins merged]}))
+
+       :else
+       {:db (assoc db :plugins theirs ::e5/plugins-rev rev)})))) ;; library load
+
+(reg-event-fx
+ ::e5/settle-loaded-library
+ ;; Once, after load: store the library as the loader kept it, so its clean-up stops re-running
+ ;; on every visit (homebrew-keys-design.md §9, Q6). Only when every entry it dropped is safe in quarantine.
+ (fn [{:keys [db]} _]
+   (let [stored (stored-plugins)
+         live (:plugins db)
+         aside (get-rejected-plugins)
+         lost (remove #(some? (get-in aside %)) (library/dropped stored live))]
+     (cond
+       (or (not (map? live)) (= stored (library/normalize live))) {}
+       (seq lost) (do (js/console.warn "Not storing the loaded library: entries it dropped are not in quarantine"
+                                       (clj->js lost))
+                      {})
+       :else (let [kept (keep-pre-fix-copy! stored)]
+               (if (:failed? kept)
+                 (do (js/console.warn "Not storing the loaded library: no room to keep a copy of it first")
+                     {})
+                 (cond-> {:dispatch [::e5/set-plugins live]}
+                   (:at kept) (assoc :db (assoc db ::e5/pre-fix-at (:at kept))))))))))
+
+(reg-event-fx
+ ::e5/apply-repairs
+ (fn [{:keys [db]} [_ repairs]]
+   {:dispatch [::e5/set-plugins (library/apply-repairs (:plugins db) repairs)
+               {:on-success [:show-message (str "Fixed " (count repairs) " link"
+                                                (when (not= 1 (count repairs)) "s") ".")]}]}))
+
 (reg-event-db
+ ::e5/dismiss-repairs
+ (fn [db [_ repairs]]
+   (let [dismissed (into (or (::e5/repairs-dismissed db) #{})
+                         (map (juxt :source :type :key :link :target))
+                         repairs)]
+     (when-not (set-repairs-dismissed! dismissed)
+       (js/console.warn "Could not store the dismissed repairs; they will be offered again"))
+     (assoc db ::e5/repairs-dismissed dismissed))))
+
+(reg-event-fx
+ ::e5/restore-pre-fix-library
+ (fn [_ _]
+   (if-let [{:keys [plugins]} (pre-fix-copy)]
+     {:dispatch [::e5/set-plugins plugins
+                 {:deleting? true :restoring? true
+                  :on-success [:show-message "Restored your library as it was before it was tidied."]}]}
+     {:dispatch [:show-error-message "There is no earlier copy to restore."]})))
+
+(reg-event-db
+ ::e5/drop-pre-fix-copy
+ (fn [db _]
+   (drop-pre-fix-copy!)
+   (dissoc db ::e5/pre-fix-at)))
+
+(defn start-library-watch!
+  "Reloads the library into this tab whenever another tab writes it."
+  []
+  (watch-library-elsewhere! #(dispatch [::e5/library-changed-elsewhere])))
+
+(reg-event-fx
  ::e5/set-plugins
- plugins-interceptors
- (fn [_ [_ plugins]]
-   plugins))
+ (fn [{:keys [db]} [_ plugins opts]]
+   (select-keys (commit-library db plugins opts) [:db :dispatch-n])))
 
 ;; Persist-then-report: write the library to localStorage FIRST and only fire the
 ;; success dispatch if the write actually stuck. A failed write (typically quota)
@@ -4656,9 +4843,9 @@
 (reg-event-fx
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
-   (let [ok? (plugins->local-store plugins)]
-     (cond-> {:db (assoc db :plugins plugins)}
-       (and ok? on-success) (assoc :dispatch on-success)))))
+   ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
+   (select-keys (commit-library db plugins {:deleting? true :on-success on-success})
+                [:db :dispatch-n])))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -4677,6 +4864,42 @@
                   {:on-click #(dispatch [::e5/emergency-export-raw nil])}
                   "Download a full backup now"]]]
                builder-error-ttl]}))
+
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- listed
+  "Up to three phrases joined with semicolons, then \"and N more\"."
+  [phrases]
+  (let [shown (take 3 phrases) more (- (count phrases) 3)]
+    (str (s/join "; " shown) (when (pos? more) (str "; and " more " more")))))
+
+(defn restore-message
+  "What a quarantine restore tells the user: how many entries came back to `source-name`, what
+   each renamed one is now called, and why any in `still-bad` cannot load yet. `before` is the
+   set-aside source; `kept` and `still-bad` are its entries after the repair."
+  [source-name before kept still-bad]
+  (let [entries (fn [plugin] (for [[ct items] plugin
+                                   :when (and (qualified-keyword? ct) (map? items))
+                                   [k item] items]
+                               [ct k item]))
+        n-kept (count (entries kept))
+        renamed (for [[ct k item] (entries kept)
+                      :let [was (get-in before [ct (if (get-in before [ct k]) k (last (:former-keys item))) :name])]
+                      :when (and was (not= was (:name item)))]
+                  (str (quoted was) " is now " (quoted (:name item))))
+        stuck (for [[_ _ item] (entries still-bad)]
+                (str (quoted (or (:name item) "Unnamed"))
+                     (if (common/starts-with-letter? (str (:name item)))
+                       " can't load yet"
+                       " needs a name that starts with a letter")))]
+    (s/join " " (remove s/blank?
+                        [(if (pos? n-kept)
+                           (str "Restored " n-kept " to " (quoted source-name) ".")
+                           "Nothing restored yet.")
+                         (when (seq renamed) (str (listed renamed) "."))
+                         (when (seq stuck)
+                           (str (when (pos? n-kept) (str (count stuck) " still can't load: "))
+                                (listed stuck) "."))]))))
 
 ;; Repair a quarantined source and merge it back into the live library.
 ;; rekey-plugin re-derives the map key from the fixed name (the keyword-trap case).
@@ -4701,9 +4924,10 @@
        ;; (quarantine's job). The AUTO path (Auto-name & Restore) additionally runs
        ;; coerce-invalid-names, which salvages a leading number to its word form
        ;; ("9 Lives" -> "Nine Lives") and only falls to "Unnamed <Type>" for junk.
-       (let [fixed (cond-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+       (let [fixed (cond-> (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                               (orcbrew-val/fill-option-pack source-name))
                      auto? (orcbrew-val/coerce-invalid-names)
-                     true  (e5/rekey-plugin))
+                     true  (e5/rekey-plugin (get (:plugins db) source-name)))
              {kept-items :kept still-bad :rejected}
              (e5/salvage-plugin-items content-specs/valid-item-for-load? fixed)
              new-rejected (if (seq still-bad)
@@ -4718,22 +4942,13 @@
              n-fixed (count-items kept-items)
              n-left (count-items still-bad)]
          ;; Persist live + quarantine together so they never disagree, and show now.
-         (plugins->local-store live)
-         (set-rejected-plugins new-rejected)
-         {:db (-> db
-                  (assoc :plugins live)
-                  (assoc :quarantined-plugins new-rejected))
-          :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
-                     (cond
-                       (and (pos? n-fixed) (zero? n-left))
-                       (str "Restored " n-fixed " entr" (if (= 1 n-fixed) "y" "ies")
-                            " from \"" source-name "\" to My Content.")
-                       (pos? n-fixed)
-                       (str "Restored " n-fixed "; " n-left " still need a name "
-                            "starting with a letter and an option source.")
-                       :else
-                       (str "Couldn't restore \"" source-name "\" yet — each entry "
-                            "needs a name starting with a letter and an option source."))]})))))
+         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
+           (if-not ok?
+             {:db db' :dispatch-n refused}
+             (do (set-rejected-plugins new-rejected)
+                 {:db (assoc db' :quarantined-plugins new-rejected)
+                  :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
+                             (restore-message source-name bad kept-items still-bad)]}))))))))
 
 ;; Permanently discard a quarantined source the user can't (or doesn't want to)
 ;; repair — e.g. a stale entry from an earlier bad import that no longer
@@ -4863,6 +5078,25 @@
                       (nil? normalized) (update source dissoc :abbreviation))]
      {:dispatch [::e5/set-plugins plugins]})))
 
+(defn repoint-offer-line
+  "A message line offering the repairs in `offer` (library/repoint-offer), one sentence per old key,
+   with a link that applies them; nil when `offer` is empty."
+  [offer]
+  (when (seq offer)
+    (into [:span]
+          (for [[[from to-key] rs] (group-by (juxt :target :to-key) offer)
+                :let [items (distinct (map #(str "\u201c" (:name %) "\u201d (" (:source %) ")") rs))
+                      n (count items)]]
+            [:span
+             (str (s/join ", " items) " in other packs still " (if (= 1 n) "uses" "use") " the old key. ")
+             [:span.pointer.underline
+              ;; stop the click: the banner closes on any click that reaches it.
+              {:on-click (fn [e]
+                           (.stopPropagation e)
+                           (dispatch [::e5/apply-repairs rs]))}
+              (str "Point " (if (= 1 n) "it" "them") " at the new one")]
+             ". "]))))
+
 (reg-event-fx
  ::e5/change-builder-item-key
  ;; The ONE way an author changes a key. Keys are minted once and then fixed (D10a), so the name
@@ -4889,11 +5123,21 @@
          option-pack (fetched-from plugins (get-in db [:builder-origin plugin-key])
                                    plugin-key old-key)
          trimmed (s/trim (str typed))
-         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))]
+         new-key (when-not (s/blank? trimmed) (common/name-to-kw trimmed))
+         recorded (get-in db [:builder-origin plugin-key])
+         stored (when option-pack (get-in plugins [option-pack plugin-key old-key]))]
      (cond
        (or (nil? old-key) (nil? option-pack))
        {:dispatch [:show-error-message
                    "Save this first — a key is only assigned once the item is in your library."
+                   builder-error-ttl]}
+
+       ;; the same check a save makes: re-keying would carry the stored item's newer content
+       ;; while the builder keeps the version it opened
+       (and (:version recorded) (map? stored) (not= (:version recorded) (version-of stored)))
+       {:dispatch [:show-error-message
+                   (str "\"" (:name stored) "\" was changed somewhere else since you opened it. "
+                        "Open it again from My Content before changing its key.")
                    builder-error-ttl]}
 
        (nil? new-key)
@@ -4923,27 +5167,23 @@
                                                        plugin-key old-key new-key)
              new-plugins (assoc plugins option-pack renamed)
              moved (get-in renamed [plugin-key new-key])]
-         ;; The builder keeps the AUTHOR's item, re-keyed -- not the library copy. Replacing it
-         ;; wholesale discarded whatever they had typed since the last save, from app-db and from
-         ;; the persisted draft alike. `:former-keys` comes across so the next save does not
-         ;; write the breadcrumb back out.
-         {:db (assoc db item-key (assoc item :key new-key
-                                        :former-keys (:former-keys moved))
-                     :builder-origin (assoc (:builder-origin db) plugin-key
-                                            {:source option-pack :key new-key
-                                             :name (:name item)}))
-          ::persist-builder-origin (assoc (:builder-origin db) plugin-key
-                                          {:source option-pack :key new-key
-                                           :name (:name item)})
-          ::persist-builder-wip [item-key (assoc item :key new-key
-                                                 :former-keys (:former-keys moved))]
-          :dispatch-n [[::e5/set-plugins new-plugins]
-                       [:set-builder-field-errors {}]
-                       [:show-warning-message
-                        {:title (str "Key changed to " new-key)
-                         :details [(str "Characters that stored " old-key
-                                        " are rebound when they next load.")]}
-                        10000]]})))))
+         ;; Keep the author's item, re-keyed, not the library copy, so unsaved edits survive;
+         ;; `:former-keys` comes across so the next save does not write it back out. Links in this
+         ;; source follow now; links in other sources are offered.
+         (let [offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
+           {:dispatch-n
+            [[:set-builder-field-errors {}]
+             [::e5/set-plugins new-plugins
+              {:retargeting [[plugin-key old-key]]
+               :on-success [::e5/builder-saved item-key plugin-key
+                            (assoc item :key new-key :former-keys (:former-keys moved))
+                            (origin-of (assoc moved :option-pack option-pack :key new-key))
+                            [:show-message
+                             {:title (str "Key changed to " new-key)
+                              :details [(str "Characters that stored " old-key
+                                             " are rebound when they next load.")
+                                        (repoint-offer-line offer)]}
+                             (if (seq offer) :sticky 10000)]]}]]}))))))
 
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
@@ -4968,16 +5208,13 @@
    (text normalization, semantic cleaning, option dedup) so a per-source file
    and an all-sources file agree on the same content, then either shows the
    fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). Corrections are persisted back so a second export finds
-   nothing left to fix."
+   (spec failure). The library itself is not changed."
   [db plugin-name plugin {:keys [pretty-print?]}]
   (let [{corrected :plugin cleanup-changes :changes}
         (correct-single-plugin plugin-name plugin)
         library (:plugins db)
-        ;; Only write back a source the store actually holds: export-plugin is
-        ;; also called with a just-built plugin that never reached storage.
-        persist (when (and (not= plugin corrected) (contains? library plugin-name))
-                  [[::e5/set-plugins (assoc library plugin-name corrected)]])
+        ;; Export corrects the file only; the library is left as the author saved it (Q5).
+        persist nil
         validation (orcbrew-val/validate-before-export corrected)]
 
     (when (seq cleanup-changes)
@@ -5113,8 +5350,7 @@
  :export-with-auto-fix
  (fn [{:keys [db]} _]
    (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
-         ;; Auto-fix = user edits + dummy-fill for blanks. The same fixed data goes
-         ;; to the file AND back to the library, so My Content matches the export.
+         ;; Auto-fix = user edits + dummy-fill for blanks, in the file and in My Content.
          ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
                         (fn [{:keys [name plugin]}]
@@ -5128,11 +5364,15 @@
                       (reduce (fn [acc {:keys [name plugin]}] (assoc acc name plugin))
                               all-plugins fixed-plugins)
                       (:plugin (first fixed-plugins)))
-         ;; Library gets the same fixed data as the file (multi: the merged map;
-         ;; single: the fixed plugin under its source name).
-         new-plugins (if (= mode :multi)
-                       final-data
-                       (assoc all-plugins (:name (first fixed-plugins)) final-data))
+         ;; The library gets the same edits and fills, applied to each source as it is stored
+         ;; NOW: the modal's copy was taken when it opened, and carries export corrections the
+         ;; library does not take (Q5).
+         new-plugins (reduce (fn [acc {:keys [name]}]
+                               (cond-> acc
+                                 (map? (get acc name))
+                                 (update name orcbrew-val/apply-user-edits-to-plugin name edits)))
+                             all-plugins plugins)
+         {db' :db ok? :ok? refused :dispatch-n} (commit-library db new-plugins {})
          filename (if (= mode :multi)
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
@@ -5141,9 +5381,7 @@
      ;; Strip meaningless blanks (false/nil/empty) on normal export.
      (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
                          :pretty-print? pretty-print?)
-     (plugins->local-store new-plugins)
-     {:db (-> db
-              (assoc :plugins new-plugins)
+     {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
                                   :import-name (if (= mode :multi)
@@ -5152,10 +5390,12 @@
                                   :changes log-entries
                                   :errors []
                                   :skipped-items []}))
-      :dispatch [:show-warning-message
-                 (str "Exported and saved to My Content. Placeholders were filled "
-                      "in for any fields left blank — review them (see the log) and "
-                      "replace before sharing.")]})))
+      :dispatch-n (if ok?
+                    [[:show-warning-message
+                      (str "Exported and saved to My Content. Placeholders were filled "
+                           "in for any fields left blank — review them (see the log) and "
+                           "replace before sharing.")]]
+                    refused)})))
 
 (reg-event-fx
  :export-cancel-with-log
@@ -5216,9 +5456,8 @@
          ;; Per-plugin required-field / spec check on the corrected library.
          {:keys [fillable blockers]}
          (orcbrew-val/classify-plugins-for-export corrected)
-         ;; Persist silent corrections back so the store matches the file and a
-         ;; second export finds nothing left to fix (the checks converge).
-         persist (when library-changed? [[::e5/set-plugins corrected]])]
+         ;; Export corrects the file only; the library is left as the author saved it (Q5).
+         persist nil]
 
      (when (seq cleanup-changes)
        (js/console.log "Export cleanup:" (clj->js cleanup-changes)))
@@ -5297,8 +5536,13 @@
 
 (reg-event-fx
  ::e5/delete-plugin
- (fn [{:keys [db]} [_ name]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (dissoc name))]}))
+ (fn [{:keys [db]} [_ source-name confirmed?]]
+   (let [after (dissoc (:plugins db) source-name)
+         broken (:broken (library/commit (:plugins db) after {:deleting? true}))]
+     (if (and (seq broken) (not confirmed?))
+       (still-used-fx (str "content from \u201c" source-name "\u201d") broken
+                      [::e5/delete-plugin source-name true])
+       {:dispatch [::e5/set-plugins after {:deleting? true}]}))))
 
 (reg-event-fx
  ::e5/toggle-plugin
@@ -5330,14 +5574,15 @@
        (let [[ts tct tk] (first twins)
              twin-name   (get-in plugins [ts tct tk :name])
              more        (dec (count twins))]
-         {:dispatch-n [[::e5/set-plugins after-swap]
-                       [:show-message
-                        ;; name + source, because same-key twins usually share a
-                        ;; name — "Fireball (Pack A)" reads unambiguously.
-                        (str "Turned off \"" twin-name "\" (" ts ")"
-                             (when (pos? more) (str " and " more " other" (when (> more 1) "s")))
-                             " so \"" this-name "\" (" plugin-name ") is the one that's on.")
-                        6000]]})
+         {:dispatch [::e5/set-plugins after-swap
+                     {:on-success
+                      [:show-message
+                       ;; name + source, because same-key twins usually share a
+                       ;; name — "Fireball (Pack A)" reads unambiguously.
+                       (str "Turned off \"" twin-name "\" (" ts ")"
+                            (when (pos? more) (str " and " more " other" (when (> more 1) "s")))
+                            " so \"" this-name "\" (" plugin-name ") is the one that's on.")
+                       6000]}]})
        {:dispatch [::e5/set-plugins after-swap]}))))
 
 ;; ── Disable hierarchy: the two LOCAL-OVERLAY levels ─────────────────────────
@@ -5446,6 +5691,11 @@
              (orcbrew-val/relocate-content (:plugins db) selections target op)
              verb    (if (= op :copy) "Copied" "Moved")
              ren-n   (count renamed)
+             ;; Links in other packs to a renamed key stay with the item already under it (Q2).
+             elsewhere (when (= op :move)
+                         (count (distinct (mapcat (fn [{:keys [from ct source]}]
+                                                    (library/linking plugins ct from #{source target}))
+                                                  renamed))))
              msg (str verb " " placed " item" (when (not= 1 placed) "s")
                       " to \"" target "\""
                       (when (pos? ren-n)
@@ -5454,10 +5704,13 @@
                              ")"))
                       (when (pos? missing)
                         (str " — " missing " could not be found and " (if (= 1 missing) "was" "were") " skipped"))
-                      ".")]
+                      "."
+                      (when (and elsewhere (pos? elsewhere))
+                        (str " " elsewhere (if (= 1 elsewhere) " item" " items")
+                             " in other packs still " (if (= 1 elsewhere) "uses" "use")
+                             " the one already in \u201c" target "\u201d.")))]
          {:db (-> db (dissoc :content-selection) (assoc :content-select-mode? false))
-          :dispatch-n [[::e5/set-plugins plugins]
-                       [:show-message msg 6000]]})))))
+          :dispatch [::e5/set-plugins plugins {:on-success [:show-message msg 6000]}]})))))
 
 ;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
 ;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)
@@ -5576,11 +5829,9 @@
 ;; ============================================================================
 ;; Demo content pack (app-shipped example content)
 ;; ============================================================================
-;; The bundled pack is fetched at boot and loaded through the SAME pure validate +
-;; per-item load-floor path a file import uses — so loading it exercises the real
-;; import pipeline — into :demo-plugins, an overlay the content-lookup subs fold in
-;; but export / the library manager never read. It is never persisted to
-;; localStorage: the file is the source of truth and reloads every boot.
+;; Fetched at boot and loaded through the same validate + per-item load-floor path a file
+;; import uses, into :demo-plugins: an overlay the content-lookup subs fold in but export and
+;; the library manager never read. Never persisted to localStorage; it reloads every boot.
 
 (def demo-content-url "/demo/demo-content.orcbrew")
 
@@ -5625,11 +5876,14 @@
                                            (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
                                            (vals shared))}
              live (e5/merge-all-plugins (:plugins db) collapsed)]
-         (plugins->local-store live)
-         {:db (-> db (assoc :plugins live) (dissoc :shared-plugins :shared-content-info))
-          :dispatch [:show-message
-                     (str "Saved this character's custom content to your library as \""
-                          source-name "\".")]})))))
+         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
+           (if ok?
+             {:db (dissoc db' :shared-plugins :shared-content-info)
+              :dispatch [:show-message
+                         (str "Saved this character's custom content to your library as \""
+                              source-name "\".")]}
+             ;; the shared content stays on view, so Keep can be tried again
+             {:db db' :dispatch-n refused})))))))
 
 ;; Dismiss the shared-content banner without keeping (content stays view-only for
 ;; this session; the overlay itself is cleared on the next character route).
@@ -5776,6 +6030,17 @@
                      " set aside in “My Content”. The rest imported fine; open it "
                      "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
 
+(defn updated-line
+  "One line naming the entries a re-import overwrote: `updated` is library/overwritten's report."
+  [updated]
+  (let [by-source (group-by :source updated)
+        names (distinct (map #(str "\u201c" (or (:name %) (name (:key %))) "\u201d") updated))
+        more (- (count names) 3)]
+    (str "Updated " (count updated) (if (= 1 (count updated)) " entry " " entries ")
+         (s/join " and " (map #(str "\u201c" % "\u201d") (sort (keys by-source))))
+         " already had: " (s/join ", " (take 3 names))
+         (when (pos? more) (str " and " more " more")) ".")))
+
 (defn store-single-import
   "Store a validated import (`incoming`, the flat {source plugin} shape) through the
    shared quarantine gate and return the {:db :dispatch-n} the import handler yields.
@@ -5791,7 +6056,12 @@
                                      :skipped-items (:skipped-items result)
                                      :key-conflicts (:key-conflicts result)
                                      :key-warnings (:key-warnings result)}]
-        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)]
+        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)
+        ;; A re-import overwrites the entries the library already had: say which (homebrew-keys-design.md §9, Q4).
+        updated (when merged (library/overwritten (:plugins db) merged))
+        user-message (if (and (seq updated) (map? user-message))
+                       (update user-message :details #(conj (vec %) (updated-line updated)))
+                       user-message)]
     {:db (assoc db :quarantined-plugins quarantine)
      :dispatch-n (remove nil?
                    [(when merged
@@ -5944,10 +6214,10 @@
 
      (if (:success result)
        (let [plugin (:data result)]
-         {:dispatch-n [[::e5/set-plugins (if (= :multi-plugin (:strategy result))
-                                           (e5/merge-all-plugins (:plugins db) plugin)
-                                           (assoc (:plugins db) plugin-name plugin))]
-                       [:show-warning-message user-message]]})
+         {:dispatch [::e5/set-plugins (if (= :multi-plugin (:strategy result))
+                                        (e5/merge-all-plugins (:plugins db) plugin)
+                                        (assoc (:plugins db) plugin-name plugin))
+                     {:deleting? true :on-success [:show-warning-message user-message]}]})
 
        {:dispatch [:show-error-message user-message]}))))
 
@@ -6240,8 +6510,7 @@
          import-disables   (disable-targets :import)
          ;; rename-existing: keep the imported item's key as base and rename the
          ;; EXISTING one instead (the moderator's "decide what stays base"). Scoped
-         ;; to the existing item's source in :plugins; references are rewritten by
-         ;; apply-key-renames (subclass->class etc.).
+         ;; to the existing item's source in :plugins, whose references follow it.
          existing-renames (vec (keep (fn [{:keys [id key content-type existing-source]}]
                                        (let [d (get decisions id)]
                                          (when (= :rename-existing (:action d))
@@ -6260,9 +6529,13 @@
                                 plugins paths))
 
          ;; Apply renames to import data
+         ;; Export and library modes rename in the library as it is stored NOW: `import-data`
+         ;; was taken when the dialog opened, and export mode's copy carries export corrections
+         ;; the library does not take (Q5).
+         base-data (if (or export-mode? library-mode?) (:plugins db) import-data)
          renamed-data (if (seq renames)
-                        (orcbrew-val/apply-key-renames import-data renames)
-                        import-data)
+                        (orcbrew-val/apply-key-renames base-data renames)
+                        base-data)
 
          ;; Import mode goes through the SAME store gate as the direct import, so
          ;; a resolved source that still wouldn't survive a reload is quarantined
@@ -6277,13 +6550,29 @@
          existing-base (-> (:plugins db)
                            (orcbrew-val/apply-key-renames existing-renames)
                            (set-disabled existing-disables))
+         ;; Characters that used a renamed existing item are asked once which one they meant (Q3),
+         ;; recorded once the import's write has stuck.
+         new-relinks (when-not (or export-mode? library-mode?)
+                       (mapv #(assoc (select-keys % [:content-type :from :to :to-name])
+                                     :import import-name :asked #{})
+                             existing-renames))
          {:keys [merged quarantine message]}
          (when-not (or export-mode? library-mode?)
            (store-imported-sources existing-base incoming))
          success-msg (str "✅ Import successful"
                           (when (seq renames)
                             (str "\n\nRenamed " (count renames)
-                                 " key(s) to resolve conflicts.")))]
+                                 " key(s) to resolve conflicts.")))
+         ;; Links in other packs to a renamed key are offered, never moved.
+         final (if (or export-mode? library-mode?) renamed-data merged)
+         offer (vec (distinct (mapcat (fn [{:keys [source content-type from to]}]
+                                        (library/repoint-offer final content-type from to
+                                                               (or source import-name)))
+                                      (concat renames existing-renames))))
+         with-offer (fn [msg]
+                      (if (seq offer)
+                        [:show-warning-message {:title msg :details [(repoint-offer-line offer)]} :sticky]
+                        [:show-warning-message msg]))]
 
      (js/console.log "Applying conflict resolutions:" (clj->js {:renames renames}))
 
@@ -6303,24 +6592,26 @@
         ;; resumes the export; import mode persists the kept (valid) items via
         ;; store-plugins, whose on-success ("✅ Import successful") only fires if
         ;; the write actually stuck and nothing was set aside.
-        (if (or export-mode? library-mode?)
-          [::e5/set-plugins renamed-data]
-          (when merged
-            [::e5/store-plugins merged
-             (when-not message [:show-warning-message success-msg])]))
+        (cond
+          library-mode?
+          [::e5/set-plugins renamed-data
+           {:on-success (with-offer
+                         (str "✅ Resolved " (count renames) " key conflict"
+                              (when (not= 1 (count renames)) "s") " in your content."))}]
 
-        (when library-mode?
-          [:show-warning-message
-           (str "✅ Resolved " (count renames) " key conflict"
-                (when (not= 1 (count renames)) "s") " in your content.")])
+          export-mode?
+          [::e5/set-plugins renamed-data
+           {:on-success (with-offer
+                         (str "✅ Conflicts resolved"
+                              (when (seq renames)
+                                (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts."))))}]
 
-        ;; Export-mode resolution message (import mode reports via store-plugins);
-        ;; plus the set-aside notice if any entry was quarantined.
-        (when export-mode?
-          [:show-warning-message
-           (str "✅ Conflicts resolved"
-                (when (seq renames)
-                  (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts.")))])
+          merged
+          [::e5/store-plugins merged
+           [::e5/import-stored new-relinks (when-not message (with-offer success-msg))]])
+
+        ;; the set-aside notice if any entry was quarantined
+        (when message [:show-warning-message message])
         (when message [:show-warning-message message])
 
         ;; Store import log
@@ -6506,7 +6797,6 @@
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ option-pack option]]
-     ;; a new item came from nowhere, so it has no origin to return to
      ;; a new item came from nowhere, so THIS builder has no origin to return to. Only this
      ;; one: the slot is per content type, and the other twelve drafts are still open.
      {:db (update db :builder-origin dissoc plugin-key)
@@ -6517,35 +6807,28 @@
                    [:route route]]})))
 
 (defn register-homebrew-content!
-  "Register the full set of re-frame handlers for one homebrew content type from a
-   single descriptor, composing the existing reg-*-homebrew factories. The win is
-   colocation: a content type's wiring is otherwise scattered across this file
-   (save / delete / edit / new + set / set-prop / reset), and this gathers it into one
-   call so adding or reading a type is a single place.
-
-   Scope: the 'basic' homebrew types whose only persistence is the in-browser :plugins
-   map. Richer types (race, class, …) additionally call reg-option-traits/modifiers/
-   selections themselves; server-persisted content (magic items) does not use this.
-
-   Every event keyword is passed explicitly (not derived) so it stays greppable."
+  "Registers every re-frame handler for one homebrew content type from one descriptor: save,
+   delete, edit and new via the reg-*-homebrew factories, plus set, set-prop, reset and the
+   optional remove-prop / toggle-prop. For types persisted only in the in-browser :plugins map;
+   richer types (race, class, ...) also register their own trait/modifier/selection handlers,
+   and server-persisted magic items do not use this. Takes each event keyword explicitly."
   [{:keys [type-name save-error
            save-event delete-event edit-event new-event
            set-event set-prop-event remove-prop-event toggle-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
-  ;; persistence + builder lifecycle — the existing, trusted factories.
-  ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
-  ;; plugin-key, not passed per-call — so `spec` from the descriptor is unused here now.)
+  ;; persistence + builder lifecycle. The save spec comes from the content-specs registry by
+  ;; plugin-key, so the descriptor's `spec` is not passed on.
   (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
   (reg-delete-homebrew delete-event plugin-key)
   (reg-edit-homebrew edit-event set-event route plugin-key)
   (reg-new-homebrew new-event set-event default route plugin-key)
-  ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
+  ;; in-place builder edits
   (reg-event-db set-event interceptors (fn [_ [_ item]] item))
   (reg-event-db set-prop-event interceptors
                 (fn [item [_ prop-key prop-value]]
                   ;; prop-key may be a single key (assoc) or a path vector (assoc-in) so a
                   ;; declarative builder field can target nested data (e.g. [:breath-weapon
-                  ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
+                  ;; :damage-type]).
                   (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
   (when remove-prop-event
     (reg-event-db remove-prop-event interceptors
@@ -6557,13 +6840,10 @@
                     (common/toggle-in item (if (sequential? prop-key) prop-key [prop-key])))))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
-;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
-;; convention EVERY homebrew builder follows: in the builder-item's namespace, the verbs
-;; save-/delete-/edit-/new-/set-/reset-<base> and set-<base>-prop, where <base> is the
-;; builder-item name minus the "-builder-item" suffix (e.g. ::class5e/boon-builder-item ->
-;; ::class5e/save-boon). These same keywords are referenced LITERALLY at their dispatch
-;; sites in views (builder-page, simple-content-builder, the new/edit/delete buttons), so
-;; grepping a specific event still finds where it's used.
+;; A homebrew type's event keywords, in its builder-item's namespace: save-/delete-/edit-/new-/
+;; set-/reset-<base> and set-/remove-/toggle-<base>-prop, where <base> is the builder-item name
+;; minus "-builder-item". Views dispatch these keywords literally, so grepping an event finds
+;; its uses.
 (defn- homebrew-event-keys [builder-item]
   (let [ns   (namespace builder-item)
         base (let [n (name builder-item)]
@@ -7090,7 +7370,7 @@
    ;; references so the Missing Content Warning can properly show what's missing.
    ;; The warning system will help users understand which homebrew they need
    ;; to re-import to restore their character.
-   {:dispatch-n [[::e5/set-plugins {"Default Option Source" {}}]
+   {:dispatch-n [[::e5/set-plugins {"Default Option Source" {}} {:deleting? true}]
                  [::char5e/hide-delete-plugin-confirmation]]}))
 
 (reg-event-fx

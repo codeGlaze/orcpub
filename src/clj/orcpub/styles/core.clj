@@ -263,14 +263,11 @@
    [:.flex-wrap
     {:flex-wrap :wrap}]
    ;; ==== BUILDER-FORM CSS: START ====================================================
-   ;; Everything between these sentinels is rendered by the declarative builder framework, and is
-   ;; gated by builder_class_names_test: each class must be prefixed (bf-/opt-/select-menu) or on
-   ;; that test's allow-list. Move the sentinels if the block moves — the test says so when it
-   ;; cannot find them. See docs/kb/before-you-start.md.
-   ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
-   ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
-   ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
-   ;; Keep the two in step: the mockup is the design record and this is its implementation.
+   ;; Rendered by the declarative builder framework. builder_class_names_test requires every class
+   ;; here to be prefixed bf-/opt-/select-menu or allow-listed, and fails if it cannot find these
+   ;; sentinels. See docs/kb/before-you-start.md.
+
+   ;; Effect rows: implements docs/kb/assets/builder-form-mockup.html. Keep the two in step.
    [:.effect-row
     {:border "1px solid rgba(255,255,255,0.14)"
      :border-radius "6px"
@@ -283,12 +280,9 @@
      {:color "var(--accent, #f0a100)"
       :font-size "13px"
       :letter-spacing "0.04em"}]]
-   ;; A dashed outline chip reads as "there is more you could add", where a solid button reads as
-   ;; "do this now" — an add-bar of solid buttons competes with Save.
-   ;; --accent, not the literal. port/redesign-on-refactor makes the accent a per-theme token
-   ;; (themes.cljs: Classic and Dwarven #f0a100, Arcane #7c8cff) and wires it as a CSS var; the
-   ;; fallback keeps this identical until that lands. Hardcoding the orange would have made every
-   ;; builder chip the wrong colour under any theme but the default.
+   ;; A dashed outline chip reads as "more you could add"; a solid button reads as "do this now"
+   ;; and would compete with Save. Colour is the per-theme --accent var; #f0a100 is the fallback
+   ;; used when no theme defines it. Never hardcode the orange.
    [:.chip
     {:background :transparent
      :border "1px dashed var(--accent, #f0a100)"
@@ -321,20 +315,10 @@
      :text-transform :uppercase
      :letter-spacing "0.07em"
      :margin "2px 0 7px"}]
-   ;; Declarative fields FLOW; they do not each take a page width. A hand-written form put Level
-   ;; and School on one row and ran the checkboxes inline, and a generated form has to do the same
-   ;; or it trades the page's cohesion for brevity in the source. Sizes are intrinsic to the field
-   ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
-   ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
-   ;; tighter sizing.
-   ;; A GRID, not a flex row. Flexbox distributes leftover space per ROW, so every row laid itself
-   ;; out independently: measured on the spell form, the second control started at x=611, 332 and
-   ;; 607 on three consecutive rows, and Casting Time came out 318px wide against Duration's 573px
-   ;; — the same kind of field at different widths, because they landed in rows with different item
-   ;; counts. Fixed tracks make a field's width depend on the field, not on its neighbours.
-   ;;
-   ;; It also restores the hand-written pairing for free: with :text spanning two columns, Casting
-   ;; Time and Range fall onto one row and Duration onto the next, which is what the original did.
+   ;; Declarative fields flow on a fixed four-track GRID (not flex), so a field's width depends on
+   ;; its type, not its row's neighbours: :text and `:span :wide` take two tracks, number and toggle
+   ;; one, `:span :full` and :multi-enum the whole row. Direct-child selectors only, so fields
+   ;; inside an effect row keep their own sizing. See builder-conversion-gallery.md.
    [:.bf-flow
     {:display :grid
      :grid-template-columns "repeat(4, 1fr)"
@@ -382,10 +366,8 @@
      :align-self :flex-end
      :padding-bottom "4px"}
     [:.bf-field {:margin-bottom "0 !important"}]]
-   ;; No margin rule for .bf-section: every titled section is now an .opt-section card, and the
-   ;; card carries its own margin-bottom. (A `:not()` selector here is not valid Clojure — the
-   ;; reader takes `.opt-section` inside parens for a member expression — and garden failed to
-   ;; compile, which is silent unless you read its exit code.)
+   ;; No margin rule for .bf-section: every titled section is an .opt-section card with its own
+   ;; margin. GOTCHA: `(:not .opt-section)` reads as a member expression; garden fails silently.
    ;; a section heading, or a :rows node, owns its own line
    [:.bf-break
     {:flex "1 1 100%"
@@ -437,18 +419,12 @@
    [:.chip-row
     {:gap "8px"
      :margin-bottom "6px"}]
-   ;; ── section cards: ported from port/redesign-on-refactor (option_menu_views/card) ────────
-   ;; The suggested spell-builder page is built out of these — a flat card per section with an
-   ;; amber accent tab beside the title. Verbatim apart from the accent becoming a var. Note its
-   ;; own comment about dropping legacy `.field` margins inside a card: that is the same global
-   ;; `.field {margin-top:30px}` that made a mess of the builder rows here.
+   ;; ── section cards (option_menu_views/card) ────────────────────────────────────────────────────
+   ;; A flat card per section with an accent tab beside the title. The global
+   ;; `.field {margin-top:30px}` is zeroed inside a card.
    [:.opt-section
-    ;; DEVIATION from the verbatim port, and the reason for it: the literal #1b232f was chosen
-    ;; against the mock's #161d27 page — a +6 lift, barely there. This builder page sits on
-    ;; rgb(8,10,13), so the same literal lifts +19 and the cards read as chunky pale blocks rather
-    ;; than a grouping. A translucent white overlay lifts RELATIVE to whatever is behind it, so it
-    ;; lands the same on both pages and survives the redesign's light/dark work instead of needing
-    ;; a second literal.
+    ;; A translucent white overlay, not a fixed colour: it lifts the card RELATIVE to whatever page
+    ;; it sits on, so the lift is the same on every background.
     {:background "rgba(255,255,255,0.035)"
      :border "1px solid rgba(255,255,255,0.08)"
      :border-radius "14px"
@@ -1031,6 +1007,34 @@
      :border "1px solid transparent"
      :line-height "1.45"
      :color :white}]
+
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
 
    [:.message.tone-success
     {:background-color "rgba(112, 168, 0, 0.16)"
@@ -2300,7 +2304,9 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
      ;; 600px was set for a short warning and inherited by the conflict panel,
@@ -2310,18 +2316,23 @@
      ;; a modal still shrinks to its content -- the export warning is unchanged --
      ;; and the clamp keeps it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
       :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -2364,8 +2375,9 @@
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
 
     ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
     ;; the same warning-yellow language as the My Content health card, so the modal
@@ -2590,7 +2602,13 @@
       [:&:after {:transform "translateX(16px)"}]]
      [:&:focus-visible
       {:outline (str "2px solid " orange)
-       :outline-offset "3px"}]]
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
 
     [:.dev-mode-label
      {:font-size "12px"
@@ -2655,8 +2673,7 @@
       :width "100%"
       :max-width "620px"
       ;; 100% is the backdrop's content box, which SHRINKS while the cookie notice is up (the
-      ;; backdrop stops above it) and grows back when it goes. 84vh alone would overflow into
-      ;; the notice on a short viewport.
+      ;; backdrop stops above it). 84vh alone would overflow into the notice on a short viewport.
       :max-height "min(84vh, 100%)"
       :display :flex
       :flex-direction :column

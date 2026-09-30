@@ -4277,13 +4277,10 @@ An affected creature is aware of the spell and can thus avoid answering question
 (def durations     (distinct-vals :duration))
 
 (def spell-fields
-  "Declarative field schema for the homebrew spell builder. Everything the bespoke form drew by
-   hand EXCEPT the \"add to which class spell lists\" checkboxes, which are built from a live
-   subscription and stay a passed-through widget — see the note at spell-builder in views.cljs.
-
-   The three components and the two flags are the first users of `:type :boolean`, which routes
-   through common/toggle-in; nested keys like [:components :verbal] are why the toggle needed path
-   support at all."
+  "Declarative field schema for the homebrew spell builder: every spell field EXCEPT the class
+   spell-list checkboxes, which come from a live subscription and stay a passed-through widget
+   (see spell-builder in views.cljs). The components and flags are `:type :boolean`; toggling a
+   nested key like [:components :verbal] relies on common/toggle-in's path support."
   (let []
     (concat
      ;; NOT :required? — the marker would claim something the hand-written spell spec does not
@@ -4306,10 +4303,9 @@ An affected creature is aware of the spell and can thus avoid answering question
       ;; and a :combo still accepts anything an author types.
       {:key :casting-time :type :combo :label "Casting Time" :options casting-times}
       {:key :range :type :combo :label "Range" :options ranges}
-      ;; Duration sits with the spell's own facts. It used to be declared after the components,
-      ;; which — once a :section groups the fields that FOLLOW it — put Duration inside Components.
-      ;; Duration takes two tracks: its values are the longest of the three ("Concentration, up to
-      ;; 10 minutes") and it squares the second row at four.
+      ;; Duration must stay before the components: a :section groups the fields that FOLLOW it,
+      ;; so declared later it would land inside Components. It takes two tracks: its values are
+      ;; the longest of the three ("Concentration, up to 10 minutes").
       {:key :duration :type :combo :label "Duration" :options durations :span :wide}]
      ;; components: three flags, then the material text that only means anything with Material on
      [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}

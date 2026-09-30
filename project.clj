@@ -269,7 +269,8 @@
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
-                                           ]
+                                           ;; comment_discipline_test parses source with it
+                                           [rewrite-clj "0.5.2"]]
                             :env       {:dev-mode  "true"
                                         :signature "dev-secret-do-not-use-in-production"}
                             ;; need to add dev source path here to get user.clj loaded

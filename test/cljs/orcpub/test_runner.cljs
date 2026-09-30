@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.homebrew-save-lifecycle-test]
             [orcpub.dnd.e5.grant-vocabulary-cljs-test]
             [orcpub.dnd.e5.ability-increase-grant-cljs-test]
+            [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
@@ -54,6 +55,7 @@
              'orcpub.dnd.e5.homebrew-save-lifecycle-test
              'orcpub.dnd.e5.grant-vocabulary-cljs-test
              'orcpub.dnd.e5.ability-increase-grant-cljs-test
+             'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test

@@ -72,6 +72,11 @@
         (doseq [ev evs] (rf/dispatch-sync ev))
         (recur (inc n))))))
 
+(defn- address-recorded
+  "The address half of the language builder's record (it also carries the fetched version)."
+  []
+  (select-keys (get-in @app-db [:builder-origin ::e5/languages]) [:source :key :name]))
+
 (defn- save! [] (dispatch! [::langs5e/save-language]))
 
 (defn- set-name! [n]
@@ -150,7 +155,7 @@
   (set-name! "Tidewall")
   (save!)
   (is (contains? (stored) (k "Tideward")) "the key a character stored is still the live one")
-  (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and there is nothing to heal"))
+  (is (= {} (reconcile/former-key-index (:plugins @app-db) #{})) "and there is nothing to heal"))
 
 (deftest a-deliberate-key-change-still-records-the-move
   ;; The rename path that remains: import conflict resolution and the manual relink go through
@@ -159,8 +164,8 @@
         moved (reconcile/record-former-key (assoc item :key :tidewall) :tideward)]
     (swap! app-db assoc :plugins {SRC {ct {:tidewall moved}}})
     (let [character {:orcpub.entity/options {:languages [{:orcpub.entity/key :tideward}]}}
-          index     (reconcile/former-key-index (:plugins @app-db))
-          {:keys [character rewrote]} (reconcile/reconcile-former-keys character index)]
+          index     (reconcile/former-key-index (:plugins @app-db) #{})
+          {:keys [character rewrote]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
       (is (= {:tideward :tidewall} index))
       (is (= [{:from :tideward :to :tidewall}] rewrote))
       (is (= :tidewall (get-in character [:orcpub.entity/options :languages 0 :orcpub.entity/key]))))))
@@ -178,7 +183,7 @@
   (let [item (moved-through [:alpha :beta :gamma])]
     (swap! app-db assoc :plugins {SRC {ct {:gamma item}}})
     (is (= [:alpha :beta] (:former-keys item)))
-    (is (= {:alpha :gamma :beta :gamma} (reconcile/former-key-index (:plugins @app-db)))
+    (is (= {:alpha :gamma :beta :gamma} (reconcile/former-key-index (:plugins @app-db) #{}))
         "every former key points at the live one")))
 
 (deftest the-history-is-capped-and-the-prime-key-is-never-dropped
@@ -192,7 +197,7 @@
   ;; vector at its next key change.
   (swap! app-db assoc :plugins {SRC {ct {:new-name {:key :new-name :name "New Name"
                                                     :option-pack SRC :former-key :old-name}}}})
-  (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= {:old-name :new-name} (reconcile/former-key-index (:plugins @app-db) #{})))
   (let [next-move (reconcile/record-former-key
                    (assoc (get-in @app-db [:plugins SRC ct :new-name]) :key :newer-name)
                    :new-name)]
@@ -265,7 +270,7 @@
   (is (= #{:tideward} (set (keys (stored)))) "moved, not copied")
   (is (= [(k "Tidewrad")] (get-in (stored) [:tideward :former-keys])) "and the move is recorded")
   (is (= :tideward (:key (in-builder))) "the open form follows its own item")
-  (is (= {(k "Tidewrad") :tideward} (reconcile/former-key-index (:plugins @app-db))))
+  (is (= {(k "Tidewrad") :tideward} (reconcile/former-key-index (:plugins @app-db) #{})))
   (is (= "Tidewrad" (get-in (stored) [:tideward :name])) "the NAME is untouched"))
 
 (deftest a-key-change-is-refused-when-the-key-is-taken-anywhere
@@ -398,7 +403,7 @@
   (let [moved (get-in @app-db [:plugins OTHER ct (k "Tideward")])]
     (is (= (k "Tideward") (:key moved)) "same key")
     (is (empty? (:former-keys moved)) "nothing to record")
-    (is (= {} (reconcile/former-key-index (:plugins @app-db))) "and nothing to heal")))
+    (is (= {} (reconcile/former-key-index (:plugins @app-db) #{})) "and nothing to heal")))
 
 (deftest a-move-onto-an-occupied-address-is-refused-and-loses-nothing
   (open! (draft "Tideward"))
@@ -798,23 +803,32 @@
 ;; The negative controls that were missing (review, 2026-09-19)
 ;; ---------------------------------------------------------------------------
 
-(deftest a-new-item-does-not-capture-an-untagged-entry-of-the-same-name
-  ;; The one that was never written. `a-new-item-may-not-take-a-key-another-item-in-this-source-
-  ;; holds` files the tenant under the TAGGED key, which an untagged address never matches, so it
-  ;; passed without exercising this at all.
-  ;;
-  ;; Untagged entries are ordinary: imported content keeps the keys it arrived with, and stripping
-  ;; the tag is how an author asks to override an SRD item. Identifying a keyless item by NAME
-  ;; handed this new item that entry's address, and the save then overwrote it in place -- no
-  ;; banner, no Replace offer, an item the author never opened.
+;; A restored pre-key draft carries no :key and no :builder-origin (`with-legacy-item!` +
+;; `open!` is exactly that shape). This used to mint a TAGGED key nothing held and CREATE a
+;; second entry beside the untagged one -- a silent duplicate a character could still be on the
+;; original for. It must not silently overwrite the untagged entry either: that would discard a
+;; different item that only happens to share a name. It refuses, same as any other occupied
+;; address, and leaves the choice ("Replace it" / "Or rename this one.") to the author.
+(deftest a-new-item-does-not-capture-or-duplicate-an-untagged-entry-of-the-same-name
   (with-legacy-item!)
   (open! (assoc (draft "Tideward") :description "a different language, same name"))
   (save!)
-  (is (nil? (get-in (stored) [old-key :description])) "the entry already there is untouched")
-  (is (= "a different language, same name" (get-in (stored) [(k "Tideward") :description]))
-      "and the new one minted its own tagged key beside it")
-  (is (= #{old-key (k "Tideward")} (set (keys (stored)))) "both survive")
-  (is (empty? (:builder-field-errors @app-db)) "with nothing flagged — they do not collide"))
+  (is (= 1 (count (stored))) "refused: no duplicate was minted")
+  (is (nil? (get-in (stored) [(k "Tideward")])) "no second, tagged entry")
+  (is (nil? (get-in (stored) [old-key :description])) "and the entry already there is untouched")
+  (is (= :invalid (:name (:builder-field-errors @app-db))) "flagged, same as any other occupied name"))
+
+(deftest replacing-a-legacy-untagged-entry-lands-on-its-own-address
+  ;; Consent updates the entry the author was shown -- at ITS address -- rather than creating the
+  ;; tagged duplicate minting was about to make.
+  (with-legacy-item!)
+  (open! (assoc (draft "Tideward") :description "a different language, same name"))
+  (save!)
+  (save-replacing!)
+  (is (= #{old-key} (set (keys (stored)))) "one entry, still at the untagged address")
+  (is (= "a different language, same name" (get-in (stored) [old-key :description]))
+      "carrying the replacement's data")
+  (is (empty? (:builder-field-errors @app-db))))
 
 (deftest save-anyway-with-a-blank-source-does-not-move-the-item-out-of-its-library
   ;; A blank Option Source Name is the field the banner is complaining about. Substituting the
@@ -946,7 +960,7 @@
   ;; ...meanwhile, in the selections builder
   (dispatch! [::selections5e/new-selection OTHER])
   (is (= {:source SRC :key (k "Tideward") :name "Tideward"}
-         (get-in @app-db [:builder-origin ct]))
+         (address-recorded))
       "the language builder's record is untouched")
   (is (nil? (get-in @app-db [:builder-origin sct])) "and the selection builder's is cleared")
   ;; the move is still available here
@@ -972,7 +986,7 @@
   (change-key! "tideward")
   ;; the record carries WHICH item as well as where: the address alone only says something
   ;; still answers there (see `origin-of`)
-  (is (= {:source SRC :key :tideward :name "Tidewrad"} (get-in @app-db [:builder-origin ct])))
+  (is (= {:source SRC :key :tideward :name "Tidewrad"} (address-recorded)))
   (swap! app-db assoc-in [::langs5e/builder-item :description] "edited after the key change")
   (save!)
   (is (= #{:tideward} (set (keys (stored)))) "one entry")
@@ -996,7 +1010,7 @@
     ;; what those call sites dispatch: the item, and nothing else. The content type still
     ;; reaches the record, because it is bound at REGISTRATION rather than passed here.
     (dispatch! [::langs5e/edit-language as-read])
-    (is (= {:source SRC :key old-key :name "Tideward"} (get-in @app-db [:builder-origin ct]))
+    (is (= {:source SRC :key old-key :name "Tideward"} (address-recorded))
         "a door that passes only the item still records a complete address")
     (swap! app-db assoc-in [::langs5e/builder-item :description] "edited from the pencil")
     (save!)

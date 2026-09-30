@@ -9,12 +9,21 @@ const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[
  const br=await chromium.launch({executablePath:fc()});const pg=await br.newPage();const out=[];
  pg.on('console',m=>out.push(m.text()));pg.on('pageerror',e=>out.push('PAGEERROR '+e));
  await pg.goto(`http://localhost:${port}/runner-all.html`);
- try{await pg.waitForFunction(()=>/Ran \d+ tests/.test(document.body.innerText),null,{timeout:240000});}catch(e){out.push('TIMEOUT waiting for Ran N tests');}
+ // Figwheel's auto-testing page reports a "Totals" block, not cljs.test's "Ran N tests" line.
+ try{await pg.waitForFunction(()=>/Ran \d+ tests|Totals\s+\d+ Tests/.test(document.body.innerText),null,{timeout:240000});}catch(e){out.push('TIMEOUT waiting for the totals');}
  const body=await pg.evaluate(()=>document.body.innerText);
  const all=out.join('\n')+'\n'+body;
  const ran=all.match(/Ran \d+ tests containing \d+ assertions\./g)||[]; const tot=all.match(/\d+ failures?, \d+ errors?\./g)||[];
- console.log('SUMMARY:',ran.slice(-1)[0]||'(none)',tot.slice(-1)[0]||'');
- const fails=[...new Set((all.match(/(FAIL|ERROR) in \([^)]*\)/g)||[]))];
+ const lines=body.split('\n').map(l=>l.trim()).filter(Boolean);const ti=lines.indexOf('Totals');
+ const totals=ti>=0?lines.slice(ti+1,lines.indexOf('Hide/Show Passing',ti)).join(', '):'';
+ const verdict=ti>0?lines[ti-1]:'';
+ console.log('SUMMARY:',ran.slice(-1)[0]||(totals?`${verdict}: ${totals}`:'(none)'),tot.slice(-1)[0]||'');
+ const passed=ran.length?/ 0 failures, 0 errors/.test(' '+(tot.slice(-1)[0]||'')):verdict==='All Tests Passed';
+ process.exitCode=passed?0:1;
+ // The auto-testing page marks each failed assertion with a .test-fail node inside its test's node.
+ const shown=await pg.evaluate(()=>[...document.querySelectorAll('.test-fail')].map(n=>
+   (n.parentElement.innerText.split('\n')[0]+' :: '+n.innerText.replace(/\s+/g,' ')).slice(0,300)));
+ const fails=[...new Set([...(all.match(/(FAIL|ERROR) in \([^)]*\)/g)||[]),...shown])];
  console.log(`distinct FAIL/ERROR: ${fails.length}`); fails.slice(0,40).forEach(f=>console.log('  '+f));
  fs.writeFileSync('target/test/cljs-run.log',all);
  await br.close();srv.close();})();

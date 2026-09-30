@@ -1,11 +1,8 @@
 (ns orcpub.dnd.e5.requirements
-  "Registry of facts an effect can gate on: `:dual-wielding?`, `:armor?`.
-
-   Entry: `{:gate :build|:toggle|:text  :text <phrasing>  :pred (fn [ctx] …)}`.
-   `:text` entries are triggers and carry NO `:pred`.
-
-   Pure leaf — `modifiers.cljc` requires it.
-   Reference: docs/kb/requirements-registry.md."
+  "Registry of facts an effect can gate on, such as `:dual-wielding?` and `:armor?`.
+   Entry: `{:gate :build|:toggle|:text  :text <phrasing>  :pred (fn [ctx] …)}`; `:text` entries
+   are triggers and carry NO `:pred`. Pure leaf; `modifiers.cljc` requires it.
+   See docs/kb/requirements-registry.md."
   #?(:clj (:refer-clojure :exclude [])))
 
 (def requirements

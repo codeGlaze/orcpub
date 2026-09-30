@@ -563,15 +563,11 @@
   (mods/vec-mod ?melee-damage-bonus-fns bonus-fn))
 
 ;; ── Conditional weapon bonuses ────────────────────────────────────────────────────────────────
-;; Both take the same three-state tag map as the AC vocabulary, read by weapons/matches?. They use
-;; the GENERAL channels rather than the melee/ranged-specific ones, which is what the note on
-;; damage-bonus-fn above already suspected was right: with a predicate, ?melee-damage-bonus-fns and
-;; ?ranged-damage-bonus-fns have nothing left to do. (?ranged-damage-bonus-fns never had anything —
-;; both are commented out of the engine at template_base.cljc:223.)
-;;
-;; LIMIT, deliberate: the engine hands these fns ONE argument, the weapon. They cannot see whether
-;; it is the off-hand attack or what else is being wielded, so "no other weapons" (Dueling) and
-;; "the extra attack" (Two-Weapon Fighting) are NOT expressible without widening that signature.
+;; Both take the AC vocabulary's three-state tag map, read by weapons/matches?, on the GENERAL
+;; attack/damage channels; with a predicate the melee/ranged-specific channels are not needed.
+
+;; LIMIT: the engine passes these fns only the weapon, so "no other weapons" (Dueling) and "the
+;; extra attack" (Two-Weapon Fighting) are not expressible without widening that signature.
 
 (defn attack-bonus
   "A bonus to attack rolls with weapons matching `tags` — Archery is (attack-bonus 2 {:ranged? true})."

@@ -1,11 +1,8 @@
 (ns orcpub.build.demo-emit
-  "Build-time emitter for the bundled demo-content pack. Reads the cljc recipe
-   (orcpub.dnd.e5.demo-content), verifies it would survive a real import, then
-   writes it to resources/public/demo/ via the shared serializer.
-
-   Run via `lein gen-demo`. The generated file is committed (the same pattern the
-   compiled CSS uses); the golden test proves the committed file matches this
-   output and fails the build if it's stale. See docs/kb/demo-content-tier.md."
+  "Build-time emitter for the bundled demo-content pack. Reads the recipe
+   (orcpub.dnd.e5.demo-content), verifies it would survive a real import, and writes it to
+   resources/public/demo/ via the shared serializer. Run via `lein gen-demo`; the output is
+   committed, and a golden test fails if it is stale. See docs/kb/demo-content-tier.md."
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.spec.alpha :as spec]

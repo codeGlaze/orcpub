@@ -1,13 +1,8 @@
 (ns orcpub.dnd.e5.demo-content
-  "The demo/example content pack, as a declarative recipe built in code so it's
-   proofed by the compiler and the build — never hand-typed EDN. The build-time
-   emitter (orcpub.build.demo-emit) serializes this to the bundled .orcbrew the app
-   loads at boot.
-
-   Grow this pack as content features land: each addition doubles as a built-in
-   test that the feature exports, imports, and builds. Every item must carry
-   :option-pack (the load floor) and satisfy its content type's save spec. See
-   docs/kb/demo-content-tier.md."
+  "The demo content pack as a declarative recipe in code, checked by the compiler and the build,
+   never hand-typed EDN. orcpub.build.demo-emit serializes it to the bundled .orcbrew the app
+   loads at boot. Every item must carry :option-pack (the load floor) and satisfy its content
+   type's save spec. See docs/kb/demo-content-tier.md."
   (:require [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spells :as spells]))
 

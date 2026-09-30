@@ -8,11 +8,9 @@
 (spec/def ::option-pack string?)
 (spec/def ::homebrew-language (spec/keys :req-un [::name ::key ::option-pack]))
 
-;; The 16 built-in languages. Lived in spell_subs.cljs (a cljs subs namespace) until the grant-pool
-;; registry needed to read them from cljc. Data only — the pool that wraps them, and the option
-;; constructor, live in grant_pools.cljc / options.cljc.
 (def languages
-[{:name "Common"
+  "The built-in languages, as {:name :key}."
+  [{:name "Common"
     :key :common}
    {:name "Dwarvish"
     :key :dwarvish}

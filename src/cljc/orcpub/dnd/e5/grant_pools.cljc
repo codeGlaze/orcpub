@@ -1,13 +1,10 @@
 (ns orcpub.dnd.e5.grant-pools
-  "THE registry of grantable pools. Registering a pool is one entry here and nothing else.
-
-   Entry: `{:name <label>  :offerable-by #{silo…}  :tags #{…}  :options-fn (fn [plugin-vals] -> [option-cfg …])}`
-
-   `:options-fn` is a fn, not a description, so each pool absorbs its own shape — no branch over
-   pool kind anywhere else. Options must carry `::t/key`. `:tags` ride onto the grant's selection
-   so it lands on the same tab as the bespoke choice it replaces.
-
-   Reference: docs/kb/pool-grant-map.md."
+  "THE registry of grantable pools; registering a pool is one entry here and nothing else.
+   Entry: `{:name <label> :offerable-by #{silo…} :tags #{…}
+            :options-fn (fn [plugin-vals] -> [option-cfg …])}`.
+   `:options-fn` builds the pool's own options, so nothing else branches on pool kind; each option
+   must carry `::t/key`. `:tags` ride onto the grant's selection so it lands on the same tab as the
+   bespoke choice it replaces. See docs/kb/pool-grant-map.md."
   (:require [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-pools :as pools]
