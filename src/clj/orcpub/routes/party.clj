@@ -82,9 +82,9 @@
                       character-id :transit-params
                       {:keys [id]} :path-params}]
   (try
-    @(d/transact conn [{:db/id id
-                        ::party/character-ids character-id}])
-    {:status 200 :body (d/pull db '[*] id)}
+    (let [{:keys [db-after]} @(d/transact conn [{:db/id id
+                                                  ::party/character-ids character-id}])]
+      {:status 200 :body (d/pull db-after '[*] id)})
     (catch Exception e
       (println "ERROR: Failed to add character" character-id "to party" id ":" (.getMessage e))
       (throw (ex-info "Unable to add character to party. Please try again or contact support."
@@ -113,8 +113,8 @@
     (errors/with-db-error-handling :party-remove-character-failed
       {:party-id id :character-id char-id}
       "Unable to remove character from party. Please try again or contact support."
-      @(d/transact conn [[:db/retract id ::party/character-ids char-id]])
-      {:status 200 :body (d/pull db '[*] id)})))
+      (let [{:keys [db-after]} @(d/transact conn [[:db/retract id ::party/character-ids char-id]])]
+        {:status 200 :body (d/pull db-after '[*] id)}))))
 
 (defn delete-party [{:keys [db conn identity]
                      {:keys [id]} :path-params}]
