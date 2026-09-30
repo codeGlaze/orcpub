@@ -20,13 +20,16 @@ const findChrome = () => {
 const uri = f => 'data:image/svg+xml;base64,' + fs.readFileSync(path.join(ICONS, f + '.svg')).toString('base64');
 
 // [dark-theme colour, light-theme colour]; each >= 4.3:1 on its own ground
-const PAIRS = {
+// PAIRS_JSON and SELECTED_JSON override these, to capture another set.
+const PAIRS = process.env.PAIRS_JSON ? JSON.parse(process.env.PAIRS_JSON) : {
   coral:  ['#ff6b57', '#d9432f'],
   teal:   ['#1fb5a3', '#0f8577'],
   yellow: ['#ffd21a', '#9a7400'],
   rose:   ['#f06aa6', '#c2386f'],
   green:  ['#43b85c', '#2f8a44']
 };
+const SELECTED = process.env.SELECTED_JSON ? JSON.parse(process.env.SELECTED_JSON)
+  : [['ph-browser-fill', 'teal'], ['ph-sparkle-fill', 'yellow']];
 const ICON_SET = [['ph-browser-fill', 'Browser'], ['ph-house-fill', 'House'], ['ph-compass-fill', 'Compass'], ['ph-sparkle-fill', 'Sparkle']];
 
 const mark = (u, color, size) =>
@@ -73,7 +76,7 @@ const PANEL_CSS = `
     await page.goto(`${BASE}/artists/fusspot`, { waitUntil: 'networkidle' });
     await settle();
     await page.addStyleTag({ content: PANEL_CSS });
-    for (const [selIcon, selColor] of [['ph-browser-fill', 'teal'], ['ph-sparkle-fill', 'yellow']]) {
+    for (const [selIcon, selColor] of SELECTED) {
       const c = PAIRS[selColor][ti];
       const html = `
         <h2>Your artist page</h2>
