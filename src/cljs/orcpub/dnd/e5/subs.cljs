@@ -1230,6 +1230,11 @@
    (get-in db [:user-data :theme])))
 
 (reg-sub
+ :dark-button-text?
+ (fn [db _]
+   (boolean (get-in db [:user-data :dark-button-text?]))))
+
+(reg-sub
  ::show-class-source-suffix
  (fn [db _]
    (boolean (get-in db [:user-data :show-class-source-suffix]))))

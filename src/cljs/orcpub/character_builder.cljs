@@ -2575,6 +2575,18 @@
      [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
+(defn button-text-toggle
+  "Dark text on the amber buttons. Dark theme only: the light theme's buttons
+   are slate blue and already read well in white."
+  []
+  (let [theme @(subscribe [:theme])
+        on? @(subscribe [:dark-button-text?])]
+    (when (not= "light-theme" theme)
+      [:div.pointer.m-l-20
+       {:on-click #(dispatch [:toggle-dark-button-text])}
+       [:span.m-r-5 (comps/checkbox on? false)]
+       [:span.main-text-color "Dark Button Text"]])))
+
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
@@ -2674,6 +2686,7 @@
           [relink-question-banner]]
          [:div.flex
           [theme-toggle]
+          [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)

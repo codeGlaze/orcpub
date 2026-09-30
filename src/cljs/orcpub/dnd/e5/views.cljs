@@ -1585,10 +1585,11 @@
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
+              dark-button-text? @(subscribe [:dark-button-text?])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
           [:div.app.min-h-full
-           {:class theme
+           {:class (str theme (when dark-button-text? " dark-button-text"))
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?

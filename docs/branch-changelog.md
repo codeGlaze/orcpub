@@ -12,12 +12,13 @@ and the first fixes it turned up. Open Sans was loaded at regular weight only, s
 stylesheet marks bold rendered bold in Chrome; buttons had no font set and drew in Arial. The
 header weights (tabs 700, page title 600) were chosen by the owner from captures of the running
 site. Bold across the site was then tuned by a size rule (700 small capitals, 600 at 18px and up,
-400 for sentences). Open before merge: button contrast (white on amber is 2.1:1) and the My Content
-header tab wrapping at 1280px. Captures of both are on
+400 for sentences). Button contrast is an opt-in (white on amber is 2.1:1). Open before merge: the My Content
+header tab wrapping (the label needs 92.5px of a fixed 90px). Captures of both are on
 `claude/artist-profile-pages` under `docs/design/style-guide/`.
 
 ## Added
 
+- A "Dark Button Text" option beside "Light Theme": dark text on the yellow buttons, which are hard to read in white. Off by default; remembered in the browser and on the account.
 - A style guide for the site: palette and roles, type, spacing, radius, focus, buttons, and rules for new work (`docs/design/style-guide.md`). (`4159164c`)
 
 ## Fixed

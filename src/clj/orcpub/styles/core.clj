@@ -1218,6 +1218,12 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; Opt-in dark text on the amber buttons: white on this amber is 2.1:1, dark
+    ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
+    [".app.dark-button-text:not(.light-theme)"
+     [:.form-button :.mc-btn :.roll-button
+      {:color "#15202e"}]]
+
     ;; Browsers give buttons their own default font (Arial), not the page's, so every
     ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
     [:button

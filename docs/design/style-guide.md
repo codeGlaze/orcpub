@@ -130,9 +130,12 @@ Why: at display sizes 700 thickens mixed-case letters and reads plump, while sma
 sentence and My Content's "Import Option Source"; a survey of every bold element on four pages
 (`survey-weights.js` on `claude/artist-profile-pages`) showed the same split.
 
-**Button contrast (open).** White on the amber button gradient is 2.1:1, under the 4.5:1 minimum
-for text. Weight 700 helps but doesn't fix it. Dark text (`#15202e`) on amber is 7.8:1, and the
-portrait drawer's primary button already uses it. Captured for comparison, not built.
+**Button contrast: opt-in dark text.** White on the amber button gradient is 2.1:1, under the
+4.5:1 minimum for text; dark text (`#15202e`) is 7.8:1. Long-time dark-theme users know the
+white, so it stays the default, and a "Dark Button Text" checkbox beside "Light Theme" (dark
+theme only) switches `.form-button`, `.mc-btn` and `.roll-button` to dark text. The choice is
+saved in the browser with the theme, and on the account when logged in
+(`:orcpub.user/dark-button-text?`); at login a choice saved on the account wins.
 
 **My Content tab wrap (open).** At 700, "MY CONTENT" wraps to two lines at 1280px. Letter
 spacing −2% on the tab titles fits it on one line; captured with −4%, 13px and 600 for comparison.
