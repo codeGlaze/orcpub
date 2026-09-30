@@ -126,6 +126,11 @@
     {:font-weight :bold}]
    [:.f-w-600
     {:font-weight 600}]
+   ;; Bold at display sizes renders at 600: at 18px and up, 700 thickens
+   ;; mixed-case letters. Small caps labels keep 700. See the style guide.
+   [:.f-w-b.f-s-18 :.f-w-b.f-s-20 :.f-w-b.f-s-24 :.f-w-b.f-s-28
+    :.f-w-b.f-s-32 :.f-w-b.f-s-36 :.f-w-b.f-s-48
+    {:font-weight 600}]
 
    [:.l-h-19
     {:line-height "19px"}]
@@ -1444,7 +1449,7 @@
 
     [:.form-button
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"
@@ -1525,7 +1530,7 @@
     [:.mc-right {:display :flex :align-items :center :gap "10px"}]
     [:.mc-btn
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"

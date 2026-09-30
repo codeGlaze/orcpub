@@ -117,6 +117,26 @@ plump, so it takes 600. Both share the generic `.f-w-b` bold class today, so eac
 weight in Garden: `.header-tab` 700, the page title (`h1.f-s-36` in `views/header`) 600. Chosen
 from the pair captured together: `style-guide/weights.html`.
 
+### Weights (decided 2026-09-30)
+
+| Weight | For | How |
+|---|---|---|
+| **700** | Small capitals labels, 14px and under: header tabs, sheet tabs, `.form-button`, `.mc-btn` | `.f-w-b`; the button classes set 700 |
+| **600** | Bold text 18px and up: page and panel titles, section headings, spell and monster names, big numbers | One rule: `.f-w-b` combined with `.f-s-18` or larger renders at 600 (155 call sites, no per-site edits) |
+| **400** | Sentences, e.g. the builder's info boxes (`info-block`) | No weight class; links inside them keep `.f-w-b` |
+
+Why: at display sizes 700 thickens mixed-case letters and reads plump, while small capitals carry
+700 well and read more easily for it. Found by the owner on the builder's "Race" heading, its info
+sentence and My Content's "Import Option Source"; a survey of every bold element on four pages
+(`survey-weights.js` on `claude/artist-profile-pages`) showed the same split.
+
+**Button contrast (open).** White on the amber button gradient is 2.1:1, under the 4.5:1 minimum
+for text. Weight 700 helps but doesn't fix it. Dark text (`#15202e`) on amber is 7.8:1, and the
+portrait drawer's primary button already uses it. Captured for comparison, not built.
+
+**My Content tab wrap (open).** At 700, "MY CONTENT" wraps to two lines at 1280px. Letter
+spacing −2% on the tab titles fits it on one line; captured with −4%, 13px and 600 for comparison.
+
 **Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
 because browsers give buttons their own default font and nothing here sets `button
 {font-family: inherit}`. Confirmed with the browser's own font report: the builder's buttons use

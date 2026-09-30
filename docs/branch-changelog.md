@@ -11,8 +11,9 @@ A style guide for the site, written from the Garden stylesheet (`docs/design/sty
 and the first fixes it turned up. Open Sans was loaded at regular weight only, so nothing the
 stylesheet marks bold rendered bold in Chrome; buttons had no font set and drew in Arial. The
 header weights (tabs 700, page title 600) were chosen by the owner from captures of the running
-site. Two side effects are open for review before merge: every element marked bold across the
-site is now visibly bold, and the My Content header tab wraps at 1280px. Captures of both are on
+site. Bold across the site was then tuned by a size rule (700 small capitals, 600 at 18px and up,
+400 for sentences). Open before merge: button contrast (white on amber is 2.1:1) and the My Content
+header tab wrapping at 1280px. Captures of both are on
 `claude/artist-profile-pages` under `docs/design/style-guide/`.
 
 ## Added
@@ -26,4 +27,7 @@ site is now visibly bold, and the My Content header tab wraps at 1280px. Capture
 
 ## Changed
 
+- Bold text at 18px and up renders at 600, not 700: page titles, headings, spell and monster names. One stylesheet rule; 700 looked plump at those sizes.
+- The builder's info boxes are regular weight, not bold; their CLICK HERE links stay bold.
+- The yellow buttons are 700, restoring the stroke weight they had in Arial Bold.
 - Page titles are 600 rather than bold, which looked heavy at 36px. (`4159164c`)

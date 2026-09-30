@@ -1693,7 +1693,7 @@
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
-  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.white
+  [:div.bg-light.b-rad-5.p-10.m-l-5.m-r-5.m-b-5.white
    text])
 
 (defn known-mode-info []
@@ -1746,7 +1746,7 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a " type-name " here that you want to use? ")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route event])}
                  (str "CLICK HERE TO ADD A " (s/upper-case type-name))]]]))
 
@@ -1760,11 +1760,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a race or subrace here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-race-builder-page-route])}
                  "CLICK HERE TO ADD A RACE"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subrace-builder-page-route])}
                  "CLICK HERE TO ADD A SUBRACE"]]]))
 
@@ -1775,11 +1775,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a class or subclass here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-class-builder-page-route])}
                  "CLICK HERE TO ADD A CLASS"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subclass-builder-page-route])}
                  "CLICK HERE TO ADD A SUBCLASS"]]]))
 
