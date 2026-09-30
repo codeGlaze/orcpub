@@ -30,6 +30,11 @@ correct this table rather than working around it — see `docs/kb/documentation-
 5. `claude/*` branches do not merge. Re-home the commits first
 6. Source or test changes do not belong on `agents/develop`
 7. **Declare stop rules before starting work** — see below
+8. **Never create a branch the owner has not approved by name.** A web agent can push a branch but
+   cannot delete one, so every branch it makes is the owner's to clean up. Ask it as its own yes/no
+   question naming the branch (`Create fix/comment-check from integration?`). A yes to a plan that
+   mentions "its own PR" or "a separate branch" is not a yes to the branch. Unapproved, the work goes
+   on the branch you were given.
 
 **Removed 2026-09-24, verified absent from the remote:** this section named
 `modernize-stack` as PR-protected and instructed agents to "branch new features from
@@ -56,6 +61,7 @@ person can see them and interrupt if something looks wrong:
 > - the attempt budget for each risky item (usually one)
 > - what makes it stop and report instead of retrying
 > - anything it will NOT do (push, touch another branch, run a second suite)
+> - new branches: none, or the one the owner approved by name
 
 Rules that apply every time:
 

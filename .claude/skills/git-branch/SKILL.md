@@ -1,86 +1,41 @@
 ---
 name: git-branch
-description: Create a new git branch from agents/develop with proper naming conventions. Use when Claude needs to create a new feature branch, start working on a new task, or branch from agents/develop.
+description: Create a new git branch, only after the owner has approved it by name. Use when a task seems to need a branch other than the one the session was given.
 ---
 # Git Branch Creator
 
 ## Workflow
 
-When this skill is invoked, follow these steps:
+A web agent can push a branch but cannot delete one, so a branch is the owner's to clean up.
+Nothing here runs until the owner has approved the branch by name (`AGENTS.md`, Agent Workflow
+Rules 8).
 
-1. **Prompt for Branch Name**
-   Ask the user: "What is the purpose or topic of this branch? (I'll format it as `claude/<your-input>-<session-id>`)"
+1. **Ask, as its own question, whether to create it, naming it.** Propose the name and base:
+   `Create fix/<topic> from integration?`. Wait for a yes to that question. A yes to a plan that
+   mentions a separate PR or branch is not a yes to the branch.
 
-   Wait for the user's response before proceeding.
+2. **Name it with a typed prefix** (`AGENTS.md`, Branch Protection): `feature/`, `fix/`,
+   `hotfix/`, `perf/`, `refactor/` or `docs/`, then the topic in lowercase with hyphens. Never
+   `claude/`: harness branches do not merge.
 
-2. **Prompt for Branch Assignment** (if not already provided)
-   If the user hasn't already described what they'll be working on, ask:
-   "What's the assignment or goal for this branch? (e.g., 'Implement X feature', 'Fix Y bug', 'Explore feasibility of Z')"
+3. **Pick the base.** Code that must ship branches from `integration`. Docs and agent tooling
+   branch from `agents/develop`.
 
-   This helps document the branch purpose and can be used in commit messages or documentation.
+4. **Check for uncommitted changes** with `git status`. If there are any, ask whether to commit
+   them first or leave them where they are. Do not stash: the stash is shared by every worktree of
+   the repository.
 
-3. **Get Current Session ID**
-   Extract the session ID from the current branch name or context. The session ID is the suffix after the last hyphen in branches that follow the pattern `claude/*-<SESSION_ID>`.
-
-4. **Create Branch Name**
-   Format: `claude/<user-input-slugified>-<session-id>`
-   - Convert the user's input to lowercase
-   - Replace spaces with hyphens
-   - Remove special characters except hyphens
-   - Ensure it follows git branch naming conventions
-
-5. **Check for Uncommitted Changes**
-   Run `git status` to check for uncommitted changes.
-
-   If there are uncommitted changes, ask the user if they want to:
-   - Stash the changes
-   - Commit the changes first
-   - Continue anyway (may fail)
-
-6. **Fetch Latest Changes**
+5. **Fetch, then create it.**
    ```bash
-   git fetch origin agents/develop
+   git fetch origin <base>
+   git checkout -b <name> origin/<base>
    ```
+   If the fetch fails on the network, retry up to 4 times with backoff (2s, 4s, 8s, 16s).
 
-   If network failures occur, retry up to 4 times with exponential backoff (2s, 4s, 8s, 16s).
-
-7. **Create and Switch to New Branch**
-   ```bash
-   git checkout -b <new-branch-name> origin/agents/develop
-   ```
-
-8. **Confirm Success**
-   Display to the user:
-   - The new branch name
-   - The base branch (agents/develop)
-   - Current branch status
-   - The assignment/purpose (for reference)
-
-   Example output:
-   ```
-   ✓ Created new branch: claude/cloud-storage-integration-SC31k
-   ✓ Branched from: agents/develop
-   ✓ Current branch: claude/cloud-storage-integration-SC31k
-   ✓ Assignment: Explore feasibility of browser-based cloud storage integration
-   ```
-
-## Important Notes
-
-- **Branch Naming**: All branches must start with `claude/` and end with the session ID
-- **Base Branch**: Always branch from `agents/develop` unless explicitly instructed otherwise
-- **Network Retries**: Use exponential backoff for git fetch operations (2s, 4s, 8s, 16s)
-- **Assignment Documentation**: The assignment/purpose helps track branch goals and can be referenced later
+6. **Record it.** Add the branch and its role to the working branch's `BRANCH.md` Current State in
+   the same commit that first pushes it, so the owner can see every branch that exists.
 
 ## Error Handling
 
-- If the branch already exists, ask the user if they want to:
-  - Switch to the existing branch
-  - Delete and recreate it
-  - Choose a different name
-
-- If there are uncommitted changes, ask the user if they want to:
-  - Stash the changes
-  - Commit the changes first
-  - Continue anyway (may fail)
-
-- If git fetch fails after 4 retries, report the error and ask how to proceed
+- The branch already exists: ask whether to switch to it or use another name. Never delete one.
+- The fetch fails after 4 retries: report it and ask how to proceed.
