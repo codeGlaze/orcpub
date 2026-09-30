@@ -240,12 +240,12 @@
 (defn- draw-colorized-layer!
   "Place the asset in the frame and colour it through its luminance: the iris
    inside its placed region, the lips all over."
-  [^Graphics2D g ^bytes data layer-key asset ^Color color w h]
+  [^Graphics2D g ^bytes data portrait layer-key asset ^Color color w h]
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     (let [img (placed src w h)
           rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)
           cov (when (seq (:asset/iris asset)) (iris-coverage asset rect w h))]
-      (colorize! img color (pa/tint-gamma layer-key asset) cov)
+      (colorize! img color (pa/effective-gamma portrait layer-key asset) cov)
       (.drawImage g img 0 0 nil))))
 
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
@@ -400,7 +400,7 @@
                      (draw-vector-layer! g (String. ^bytes bytes "UTF-8") color w h)
 
                      (and color (colorizes? layer-key asset))
-                     (draw-colorized-layer! g bytes layer-key asset color w h)
+                     (draw-colorized-layer! g bytes portrait layer-key asset color w h)
 
                      :else (draw-raster-layer! g bytes color w h))))
                (catch Exception e
