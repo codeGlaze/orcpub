@@ -1,5 +1,5 @@
 // Gradient outline options for dark text on the ability buttons (round11.html). Needs the app on
-// :8890 (prod build). Run from this folder: NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt node capture-outline-gradient.js
+// :8890 (prod build). DPR=1 or 2 sets the pixel density. Run from this folder: NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt node capture-outline-gradient.js
 // A stroke can't take a gradient, so each option draws a copy of the label behind the real one
 // (::before) with a transparent stroke and a gradient clipped to the text; Chrome paints the clip
 // into the stroke area too. The real label keeps its dark fill and the built light glow.
@@ -23,7 +23,7 @@ const OPT = {
   const fs=require('fs'); const d=fs.readdirSync('/opt/pw-browsers').filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).pop();
   const b = await chromium.launch({ executablePath: `/opt/pw-browsers/${d}/chrome-linux/chrome` });
   for (const dark of [false, true]) {
-    const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 3 });
+    const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: +(process.env.DPR || 2) });
     await ctx.addInitScript(dk => { try { localStorage.setItem('user', `{:theme "dark-theme" :dark-button-text? ${dk}}`); } catch (_) {} }, dark);
     await ctx.route(/fonts\.(googleapis|gstatic)\.com/, async r => r.fulfill({ response: await r.fetch() }));
     const p = await ctx.newPage();
@@ -38,8 +38,7 @@ const OPT = {
         const e = document.createElement('style'); e.dataset.x = 1; e.textContent = c || ''; document.head.appendChild(e); }, css);
       await p.waitForTimeout(120);
       const r = await p.locator('.roll-button').first().boundingBox(); const r2 = await p.locator('.roll-button').nth(5).boundingBox();
-      await p.screenshot({ path: `round11/roll-${k}.png`, clip: { x: r.x - 8, y: r.y - 8, width: r2.x + r2.width - r.x + 16, height: r.height + 16 } });
-      await p.screenshot({ path: `round11/zoom-${k}.png`, clip: { x: r.x, y: r.y, width: r.width, height: r.height } });
+      await p.screenshot({ path: `round11/roll-${k}${process.env.DPR ? "@" + process.env.DPR : ""}.png`, clip: { x: r.x - 8, y: r.y - 8, width: r2.x + r2.width - r.x + 16, height: r.height + 16 } });
     }
     await ctx.close();
   }

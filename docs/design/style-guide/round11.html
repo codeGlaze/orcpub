@@ -50,27 +50,26 @@ li::marker { color: var(--accent); }
 figcaption b { color: var(--fg); }
 </style>
 <style>
-.zooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-.shot img { width: 1200px; }
-.zooms img { width: 100%; max-width: 206px; image-rendering: auto; }
+.rows { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+.row { display: grid; grid-template-columns: 170px auto; align-items: center; gap: 12px; }
+.row span { font-size: 12px; color: var(--dim); }
+.row span b { color: var(--fg); }
+.a1 img { width: 600px; image-rendering: pixelated; }
+.a2 img { width: 600px; }
+.s75 img { width: 450px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 2px; } }
 </style>
 <div class="wrap">
   <header>
     <div>
       <div class="cap">OrcPub · feature/style-guide · options, not built</div>
-      <h1>Gradient outlines</h1>
-      <p class="sub">Dark Button Text on the ability buttons, dark theme, from the running branch at three times actual size. Every option keeps the built light glow. The gradient runs over the height of the letters, not the whole button.</p>
+      <h1>Gradient outlines, actual size</h1>
+      <p class="sub">Dark Button Text on the ability buttons, dark theme, from the running branch. Every option keeps the light glow. The rows are stacked so you can compare them straight down.</p>
     </div>
   </header>
-  <section><h2>One button, close up</h2><div class="zooms"><figure><figcaption><b>(k)</b></figcaption><img src="round11/zoom-k-built.png" alt="(k) As built"></figure><figure><figcaption><b>(o)</b></figcaption><img src="round11/zoom-o-reverse.png" alt="(o) Reverse of the button"></figure><figure><figcaption><b>(p)</b></figcaption><img src="round11/zoom-p-bottom-solid.png" alt="(p) Bottom colour, solid"></figure><figure><figcaption><b>(q)</b></figcaption><img src="round11/zoom-q-yellow-reverse.png" alt="(q) Yellow to bottom colour"></figure><figure><figcaption><b>(r)</b></figcaption><img src="round11/zoom-r-bevel.png" alt="(r) Bevel"></figure><figure><figcaption><b>Default white)</b></figcaption><img src="round11/zoom-w-white.png" alt="Default white"></figure></div></section>
-  <section><h2>The row</h2><div class="list">
-<figure><figcaption><b>(k) As built</b> · solid yellow rim, #ffd21a</figcaption><div class="shot"><img src="round11/roll-k-built.png" alt="(k)"></div></figure>
-<figure><figcaption><b>(o) Reverse of the button</b> · #dbab50 at the top of the letters to #f1a20f at the bottom: the button’s own two colours, flipped</figcaption><div class="shot"><img src="round11/roll-o-reverse.png" alt="(o)"></div></figure>
-<figure><figcaption><b>(p) Bottom colour, solid</b> · #dbab50 all round, the colour at the foot of the button</figcaption><div class="shot"><img src="round11/roll-p-bottom-solid.png" alt="(p)"></div></figure>
-<figure><figcaption><b>(q) Yellow to bottom colour</b> · #ffd21a at the top of the letters fading to #dbab50: lit from above</figcaption><div class="shot"><img src="round11/roll-q-yellow-reverse.png" alt="(q)"></div></figure>
-<figure><figcaption><b>(r) Bevel</b> · #ffd21a at the top to a darker amber #b37a00 at the bottom: light edge above, shadow edge below</figcaption><div class="shot"><img src="round11/roll-r-bevel.png" alt="(r)"></div></figure>
-<figure><figcaption><b>Default white</b> · for comparison</figcaption><div class="shot"><img src="round11/roll-w-white.png" alt="Default white)"></div></figure>
-  </div></section>
+  <section><h2>Actual size, standard screen</h2><p>Rendered at 1 pixel per CSS pixel, as on a typical desktop monitor.</p><div class="rows a1"><div class="row"><span><b>(k) As built</b> · solid yellow</span><img src="round11/roll-k-built@1.png" alt="(k) As built"></div><div class="row"><span><b>(o) Reversed gradient</b> · button colours flipped</span><img src="round11/roll-o-reverse@1.png" alt="(o) Reversed gradient"></div><div class="row"><span><b>(p) Bottom colour</b> · solid #dbab50</span><img src="round11/roll-p-bottom-solid@1.png" alt="(p) Bottom colour"></div><div class="row"><span><b>(q) Lit from above</b> · yellow → bottom colour</span><img src="round11/roll-q-yellow-reverse@1.png" alt="(q) Lit from above"></div><div class="row"><span><b>(r) Bevel</b> · yellow → dark amber</span><img src="round11/roll-r-bevel@1.png" alt="(r) Bevel"></div><div class="row"><span><b>Default white</b> · for comparison</span><img src="round11/roll-w-white@1.png" alt="Default white"></div></div></section>
+  <section><h2>Actual size, sharp screen</h2><p>Rendered at 2×, shown at the same size, as on a laptop Retina display or a phone.</p><div class="rows a2"><div class="row"><span><b>(k) As built</b> · solid yellow</span><img src="round11/roll-k-built@2.png" alt="(k) As built"></div><div class="row"><span><b>(o) Reversed gradient</b> · button colours flipped</span><img src="round11/roll-o-reverse@2.png" alt="(o) Reversed gradient"></div><div class="row"><span><b>(p) Bottom colour</b> · solid #dbab50</span><img src="round11/roll-p-bottom-solid@2.png" alt="(p) Bottom colour"></div><div class="row"><span><b>(q) Lit from above</b> · yellow → bottom colour</span><img src="round11/roll-q-yellow-reverse@2.png" alt="(q) Lit from above"></div><div class="row"><span><b>(r) Bevel</b> · yellow → dark amber</span><img src="round11/roll-r-bevel@2.png" alt="(r) Bevel"></div><div class="row"><span><b>Default white</b> · for comparison</span><img src="round11/roll-w-white@2.png" alt="Default white"></div></div></section>
+  <section><h2>Smaller, 75%</h2><p>The sharp render shrunk to three quarters.</p><div class="rows s75"><div class="row"><span><b>(k) As built</b> · solid yellow</span><img src="round11/roll-k-built@2.png" alt="(k) As built"></div><div class="row"><span><b>(o) Reversed gradient</b> · button colours flipped</span><img src="round11/roll-o-reverse@2.png" alt="(o) Reversed gradient"></div><div class="row"><span><b>(p) Bottom colour</b> · solid #dbab50</span><img src="round11/roll-p-bottom-solid@2.png" alt="(p) Bottom colour"></div><div class="row"><span><b>(q) Lit from above</b> · yellow → bottom colour</span><img src="round11/roll-q-yellow-reverse@2.png" alt="(q) Lit from above"></div><div class="row"><span><b>(r) Bevel</b> · yellow → dark amber</span><img src="round11/roll-r-bevel@2.png" alt="(r) Bevel"></div><div class="row"><span><b>Default white</b> · for comparison</span><img src="round11/roll-w-white@2.png" alt="Default white"></div></div></section>
   <div class="note"><h3>What the captures show</h3>
   <p>The button’s own colours, reversed (o) or solid (p), blend in: #dbab50 and #f1a20f are about as light as the button, so all that shows is the glow. It takes a colour lighter than the button at the top to “stand it up”: (q) reads as lit from above, and (r) adds a darker edge below, which reads as raised.</p>
   <p>Building a gradient outline needs a markup change: a stroke can’t take a gradient, so the label is drawn twice (a copy behind it carries the gradient). The ability button would need its label in a <code>data-label</code> attribute for the stylesheet to copy. The solid rim (k) needs no markup change.</p></div>
