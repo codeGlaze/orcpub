@@ -20,8 +20,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
-            [orcpub.dnd.e5.weapons :as weapons5e]
-            [orcpub.common :as common]))
+            [orcpub.dnd.e5.weapons :as weapons5e]))
 
 (def ^:private language-map (common/map-by-key [{:name "Common" :key :common}]))
 (def ^:private pools (gp/assemble []))
