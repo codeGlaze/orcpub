@@ -1,14 +1,8 @@
 (ns orcpub.dnd.e5.template-base
-  "The blank 5e character — the attribute cells every build starts from, before a single option is
-   applied. Pure data, no functions.
-
-   `template-base` is one `es/make-entity` form: each `?attr` is a cell whose body may read other
-   cells, and modifiers from chosen options overwrite or accumulate onto them. A default declared
-   here is what a character has when nothing grants otherwise; a formula here is the rule content
-   plugs into. Adding a `?attr` is how you give modifiers something to write to.
-
-   `warlock-spell-slot-schedule` is a lookup table, here only because the base references it.
-
+  "The blank 5e character: one `es/make-entity` form of `?attr` cells every build starts from.
+   A cell's body may read other cells; chosen options' modifiers overwrite or accumulate onto it.
+   Add a `?attr` to give modifiers somewhere to write. `warlock-spell-slot-schedule` is a lookup
+   table the base references.
    docs/kb/built-character-representation.md, docs/kb/content-to-character-pipeline.md"
   (:require [orcpub.entity-spec :as es]
             [orcpub.template :as t]

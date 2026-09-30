@@ -332,12 +332,10 @@
             (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
             (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
             (some? dev-mode) (assoc :dev-mode? dev-mode)
-            ;; The release panel opens itself once per release, on the boot that
-            ;; first sees a new id — at launch, not on a later trigger. Reading the
-            ;; stamp here (not at render) keeps it to one showing per browser rather
-            ;; than one per page view. It shares the screen with the cookie notice
-            ;; rather than queueing behind it: the panel measures the notice and
-            ;; stops above it (views/whats_new.cljs).
+            ;; The release panel opens once per release, on the first boot that sees a new id.
+            ;; Reading the stamp here, not at render, makes it one showing per browser, not per
+            ;; page view. It shares the screen with the cookie notice, measuring it and stopping
+            ;; above it (views/whats_new.cljs).
             (whats-new/unseen? whats-new-seen)
             (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
@@ -829,29 +827,17 @@
    (update db :builder-field-errors dissoc field)))
 
 (defn save-collision
-  "What a save to [source content-type key] would land on, or nil when the way is
-   clear.
-
-   `assoc-in` cannot tell replacing yourself from replacing somebody else, so this
-   asks before the write. Both kinds are about MINTING a key something else holds:
-   an item that already owns the key gets nil, whatever else is in the library.
-
-     :overwrite  the key already holds a DIFFERENT item in this same source, so
-                 saving would silently discard it.
-     :cross      the key exists in ANOTHER source. Not data loss, but not benign:
-                 the combines that dedupe by key pick their winner by the hash
-                 order of source names, and the ones that don't show both copies.
-
-   Returns {:kind :overwrite|:cross :source .. :name ..}."
+  "What saving `item` at [option-pack plugin-key key] in `plugins` would displace, or nil.
+   Returns {:kind :overwrite|:cross :source .. :name ..}. :overwrite: the key holds a DIFFERENT
+   item in this source, which the save would discard. :cross: the key exists in ANOTHER source,
+   where key-deduping combines pick a winner by source-name hash order.
+   GOTCHA: an item whose own :key is `key` gets nil, even when another source holds it too."
   [plugins option-pack plugin-key key item]
   (let [occupant (get-in plugins [option-pack plugin-key key])
         self?    (= key (:key item))]
-    ;; An item that already answers to this key is returning to its own slot, and neither kind
-    ;; applies to it -- INCLUDING :cross. A library can already hold the same key in two sources
-    ;; (an import where someone chose "keep both"), and that duplicate is not created by this save.
-    ;; Refusing it fixed nothing and trapped the item: under mint-once the author cannot rename
-    ;; their way out either, because renaming no longer moves the key. The library health card is
-    ;; where a standing duplicate is reported; the save is not.
+    ;; An item that already answers to this key is returning to its own slot: neither kind
+    ;; applies, INCLUDING :cross. A duplicate already in the library (an import's "keep both")
+    ;; is not this save's doing and is reported by the library health card, not refused here.
     (when-not self?
       (if occupant
         {:kind :overwrite :source option-pack :name (:name occupant)}
@@ -5835,11 +5821,9 @@
 ;; ============================================================================
 ;; Demo content pack (app-shipped example content)
 ;; ============================================================================
-;; The bundled pack is fetched at boot and loaded through the SAME pure validate +
-;; per-item load-floor path a file import uses — so loading it exercises the real
-;; import pipeline — into :demo-plugins, an overlay the content-lookup subs fold in
-;; but export / the library manager never read. It is never persisted to
-;; localStorage: the file is the source of truth and reloads every boot.
+;; Fetched at boot and loaded through the same validate + per-item load-floor path a file
+;; import uses, into :demo-plugins: an overlay the content-lookup subs fold in but export and
+;; the library manager never read. Never persisted to localStorage; it reloads every boot.
 
 (def demo-content-url "/demo/demo-content.orcbrew")
 
@@ -6815,35 +6799,28 @@
                    [:route route]]})))
 
 (defn register-homebrew-content!
-  "Register the full set of re-frame handlers for one homebrew content type from a
-   single descriptor, composing the existing reg-*-homebrew factories. The win is
-   colocation: a content type's wiring is otherwise scattered across this file
-   (save / delete / edit / new + set / set-prop / reset), and this gathers it into one
-   call so adding or reading a type is a single place.
-
-   Scope: the 'basic' homebrew types whose only persistence is the in-browser :plugins
-   map. Richer types (race, class, …) additionally call reg-option-traits/modifiers/
-   selections themselves; server-persisted content (magic items) does not use this.
-
-   Every event keyword is passed explicitly (not derived) so it stays greppable."
+  "Registers every re-frame handler for one homebrew content type from one descriptor: save,
+   delete, edit and new via the reg-*-homebrew factories, plus set, set-prop, reset and the
+   optional remove-prop / toggle-prop. For types persisted only in the in-browser :plugins map;
+   richer types (race, class, ...) also register their own trait/modifier/selection handlers,
+   and server-persisted magic items do not use this. Takes each event keyword explicitly."
   [{:keys [type-name save-error
            save-event delete-event edit-event new-event
            set-event set-prop-event remove-prop-event toggle-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
-  ;; persistence + builder lifecycle — the existing, trusted factories.
-  ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
-  ;; plugin-key, not passed per-call — so `spec` from the descriptor is unused here now.)
+  ;; persistence + builder lifecycle. The save spec comes from the content-specs registry by
+  ;; plugin-key, so the descriptor's `spec` is not passed on.
   (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
   (reg-delete-homebrew delete-event plugin-key)
   (reg-edit-homebrew edit-event set-event route plugin-key)
   (reg-new-homebrew new-event set-event default route plugin-key)
-  ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
+  ;; in-place builder edits
   (reg-event-db set-event interceptors (fn [_ [_ item]] item))
   (reg-event-db set-prop-event interceptors
                 (fn [item [_ prop-key prop-value]]
                   ;; prop-key may be a single key (assoc) or a path vector (assoc-in) so a
                   ;; declarative builder field can target nested data (e.g. [:breath-weapon
-                  ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
+                  ;; :damage-type]).
                   (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
   (when remove-prop-event
     (reg-event-db remove-prop-event interceptors
@@ -6855,13 +6832,10 @@
                     (common/toggle-in item (if (sequential? prop-key) prop-key [prop-key])))))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
-;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
-;; convention EVERY homebrew builder follows: in the builder-item's namespace, the verbs
-;; save-/delete-/edit-/new-/set-/reset-<base> and set-<base>-prop, where <base> is the
-;; builder-item name minus the "-builder-item" suffix (e.g. ::class5e/boon-builder-item ->
-;; ::class5e/save-boon). These same keywords are referenced LITERALLY at their dispatch
-;; sites in views (builder-page, simple-content-builder, the new/edit/delete buttons), so
-;; grepping a specific event still finds where it's used.
+;; A homebrew type's event keywords, in its builder-item's namespace: save-/delete-/edit-/new-/
+;; set-/reset-<base> and set-/remove-/toggle-<base>-prop, where <base> is the builder-item name
+;; minus "-builder-item". Views dispatch these keywords literally, so grepping an event finds
+;; its uses.
 (defn- homebrew-event-keys [builder-item]
   (let [ns   (namespace builder-item)
         base (let [n (name builder-item)]

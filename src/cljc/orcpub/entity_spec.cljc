@@ -1,23 +1,10 @@
 (ns orcpub.entity-spec
-  "Character attributes as a spreadsheet. Each attribute is a cell; a `?other-attr` reference in
-   its body is an input; the references decide what has to be computed first.
-
-   READ a value with `entity-val` (or the `q` macro) — never plain `get`. Cells hold functions
-   until forced.
-   WRITE one with `modifier`, or `vec-mod` / `set-mod` / `map-mod` / `cum-sum-mod` for the
-   accumulating kinds. `dependencies` and `conditions` are what those macros use internally to
-   declare a cell's inputs and its guards.
-
-   THE REWRITE IS LOAD-BEARING. `?foo` becomes `(entity-val entity :foo)` at MACROEXPANSION, not
-   at runtime. So a `?`-ref exists only where a macro literally wrote one: no ordinary function,
-   and no form assembled from data at runtime, can reference an attribute. `requirements.cljc` is
-   the worked way around it — predicates over a plain-data context, never condition forms.
-
-   GOTCHA: `deps` declares a cell's inputs by scanning for literal `?` symbols. Reach an
-   attribute any other way and it declares no input, so evaluation can be ordered wrong — which
-   surfaces as a wrong number, never an error.
-
-   docs/kb/built-character-representation.md"
+  "Character attributes as a spreadsheet: each attribute is a cell, and each `?other-attr` in its
+   body is an input. READ with `entity-val` (or `q`), never `get`: cells hold fns until forced.
+   WRITE with `modifier`, or `vec-mod`/`set-mod`/`map-mod`/`cum-sum-mod` for accumulating kinds.
+   GOTCHA: `?foo` is rewritten at MACROEXPANSION, and `deps` finds inputs by scanning for literal
+   `?` symbols; an attribute reached any other way (a fn, runtime data) declares no input and is
+   silently ordered wrong. See docs/kb/built-character-representation.md."
   (:require [clojure.string :as s]
             [clojure.set :as sets]))
 

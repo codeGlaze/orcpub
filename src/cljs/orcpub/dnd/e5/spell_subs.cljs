@@ -106,11 +106,10 @@
  (fn [db _]
    (get db :shared-plugins)))
 
-;; App-shipped example content, fetched at boot into :demo-plugins. The
-;; content-lookup subs fold it in (FIRST, so a user's own content wins a key
-;; collision) so it's usable in the builder, while export / the library manager
-;; read :plugins and never see it. Returns nothing while the pack is hidden by the
-;; user's top-of-My-Content toggle, so nothing else has to check the flag.
+;; App-shipped example content (:demo-plugins). The content-lookup subs fold it in FIRST, so a
+;; user's own content wins a key collision; export and the library manager read :plugins and
+;; never see it. ::e5/demo-plugins returns nil while the user hides the pack (My Content toggle),
+;; so nothing else has to check the flag.
 (reg-sub
  ::e5/demo-hidden?
  (fn [db _]
@@ -255,11 +254,9 @@
  :<- [::e5/disable-overlay]
  :<- [::e5/demo-plugins]
  (fn [[plugins shared overlay demo] _]
-   ;; The disable overlay is a preference over the user's OWN library, so it
-   ;; applies to `plugins` only — demo (app-shipped) and shared (view-once) content
-   ;; are never hidden by the recipient's global/section toggles. Demo is appended
-   ;; FIRST so the user's own library wins a key collision against it; shared is
-   ;; appended LAST so it wins for the shared view only.
+   ;; The disable overlay applies to the user's OWN library only; demo and shared content are
+   ;; never hidden by it. Demo goes FIRST so the user's library wins a key collision against it;
+   ;; shared goes LAST so it wins, for the shared view only.
    (concat (process-plugin-vals demo)
            (process-plugin-vals plugins overlay)
            (process-plugin-vals shared))))
@@ -390,16 +387,10 @@
                :edit-event [::races5e/edit-subrace subrace])))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
-;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
-;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc) on profs/resist/immunity/
-;; save-adv/speed but diverges: B uniquely has :spell, :num-attacks, :tool-prof; A uniquely has
-;; :language/:initiative/etc. NOTE on :spell — it calls mod5e/spells-known, granting an *innate
-;; known spell* (castable via the chosen ability, like a racial spell), NOT a spell-slot
-;; progression. Real slot-based spellcasting comes only from the subclass-builder spellcasting UI,
-;; which is gated to #{:fighter :rogue :warlock :cleric :paladin} (views.cljs ~5975) — a custom
-;; non-caster base class cannot be given spellcasting via a subclass through the builders.
-;; The same capability living in two vocabularies (×UI ×compile = four sites) is the prime
-;; sustainability target. See docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
+;; Grant vocabulary B: `:level-modifiers {:type … :value …}` for classes and subclasses (no class
+;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc); only B has :spell,
+;; :num-attacks, :tool-prof. GOTCHA: :spell grants an innate KNOWN spell (mod5e/spells-known), not
+;; spell slots. docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
   (case type
     :weapon-prof (mod5e/weapon-proficiency value)
@@ -966,18 +957,10 @@
 
 (defn draconic-ancestry-option [{:keys [name key props breath-weapon]}]
   (t/option-cfg
-   ;; Same mechanical heft for built-in and homebrew ancestries: resistance to the breath
-   ;; damage type + the breath-weapon value the race's Breath Weapon attack reads. Built-in
-   ;; entries carry no :key (so the key derives from name as before — behavior-preserving);
-   ;; homebrew entries pass their stored :key through (identity from a stable id, not a
-   ;; display name — direction doc D10).
-   ;;
-   ;; Richer ancestries (e.g. Fizban's gem/metallic dragonborn, or homebrew) can carry EXTRA
-   ;; mechanics beyond resistance+breath as a declarative :props map — flying/swimming speed,
-   ;; saving-throw advantage, skill profs, languages, etc. — compiled by the SAME
-   ;; opt5e/plugin-modifiers vocabulary homebrew races/feats already use. Built-in colours
-   ;; have no :props, so they are unchanged. (Level-gated ancestry features — Gem Flight at 5,
-   ;; Chromatic Warding — are NOT yet expressible this way; see the direction doc pins.)
+   ;; Built-in and homebrew alike: resistance to the breath damage type + the breath-weapon value
+   ;; the Breath Weapon attack reads. Homebrew passes its stored :key (D10); built-in has none, so
+   ;; the key derives from the name. Optional :props adds mechanics via opt5e/plugin-modifiers;
+   ;; level-gated ancestry features (Gem Flight, Chromatic Warding) are not expressible.
    (cond-> {:name name
             :modifiers (concat
                         [(mod5e/damage-resistance (:damage-type breath-weapon))
@@ -1031,23 +1014,18 @@
  (fn [plugin-vals _]
    (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
 
-;; The open fighting-style pool a feat's :grants {:pool :fighting-styles} draws from:
-;; the built-in styles ++ any homebrew styles an orcbrew pack adds under
-;; ::e5/fighting-styles. Unlike the draconic pool, the built-ins are ALREADY option
-;; cfgs (opt5e/fighting-style-options) while homebrew arrive as raw data, so the
-;; constructor is mapped over the homebrew entries only, then concatenated built-in
-;; first. Reads through ::e5/plugin-vals like every plugin pool.
+;; Homebrew fighting styles (::e5/fighting-styles), raw. Feats grant from
+;; ::classes5e/fighting-style-pool: built-in option cfgs first, then these mapped through
+;; opt5e/fighting-style-option. A class's own choice takes these RAW entries, because the
+;; `:classes` divvying rule reads authored data.
 (reg-sub
  ::classes5e/homebrew-fighting-styles
  :<- [::e5/plugin-vals]
  (fn [plugin-vals _]
    (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))
 
-;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
-;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
-;; THE grantable-pool registry, resolved. One sub for every pool: registering a pool is an entry in
-;; grant_pools.cljc and nothing here, which is the acceptance gate the direction doc sets. Derives
-;; from ::e5/plugin-vals — the single resolved-content seam every pool must read through.
+;; THE grantable-pool registry, resolved: one sub for every pool. Registering a pool is one entry
+;; in grant_pools.cljc and nothing here. Reads ::e5/plugin-vals, the seam every pool reads through.
 (reg-sub
  ::e5/grantable-pools
  :<- [::e5/plugin-vals]
@@ -1562,12 +1540,9 @@
                      (spell-option spells-map [nil spell-key ability-key class-name]))))
              levels))))
 
-;; Builder-item passthrough subscriptions, generated from the content-types registry
-;; (Phase 4b). Each homebrew content type exposes its in-progress builder item via
-;; ::<type>/builder-item. This loop registers the same 13 subs the hand-written block
-;; used to; the registry is the single source of truth (see content_types.cljc).
-;; content_types_test/builder-items-match-the-subs locks this set against drift.
-;; (Magic-item and combat are not registry types — the combat tracker-item sub stays below.)
+;; One builder-item passthrough sub per content-types registry entry: ::<type>/builder-item
+;; returns the in-progress builder item. content_types_test/builder-items-match-the-subs locks
+;; the set. Magic-item and combat are not registry types; the combat tracker-item sub is below.
 (doseq [{:keys [builder-item]} ct/content-types]
   (reg-sub builder-item (fn [db _] (get db builder-item))))
 

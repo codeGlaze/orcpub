@@ -1,30 +1,9 @@
 (ns orcpub.dnd.e5.grants
-  "The spec for `:grants` — the one authored key that had none.
-
-   `:grants` arrives in `.orcbrew` files users trade with each other, so it is untrusted input at
-   a trust boundary. Every other authored shape is specced (`content_specs.cljc` maps each content
-   type to one); this was the exception, so a malformed grant was discovered as a nil somewhere
-   downstream instead of at import.
-
-   Pure leaf — spec only, no code, no requires beyond spec itself. Mirrors `requirements.cljc`.
-
-   THE SHAPE, as the two compilers actually read it (`options.cljc`, `grant-selection` and
-   `compile-grants`):
-
-     {:pool :skills :key :athletics}              FIXED  — the entry's modifiers, no pick
-     {:pool :skills :count 2}                     CHOICE — pick 2 from the whole pool
-     {:pool :skills :count 2 :filter #{:athletics :stealth}}   CHOICE, narrowed
-     {:pool :skills}                              CHOICE of 1 — :count defaults to 1
-
-   `:key` wins: `grant-selection` returns nil when `:key` is present, and `compile-grants` takes
-   the fixed branch. So `:key` together with `:count` is contradictory and this spec rejects it,
-   even though today's compiler would quietly prefer `:key`.
-
-   GOTCHA: an unregistered `:pool` is NOT a spec error. Unknown pools drop out at compile time on
-   purpose — that is the forward-compatibility seam that lets a pack from a newer build load with
-   its unknown grants ignored rather than rejected. This spec validates SHAPE, never membership.
-
-   Reference: docs/kb/pool-grant-map.md, docs/kb/plan-hidden-pick-fix-and-grant-fields.md."
+  "Spec for `:grants`, untrusted input from traded `.orcbrew` files. Shapes (options.cljc):
+   {:pool p :key k} FIXED; {:pool p :count n :filter #{k …}} CHOICE, :count defaulting to 1 and
+   :filter optional. `:key` with `:count` is rejected (the compilers silently prefer `:key`).
+   GOTCHA: an unregistered `:pool` is valid here: unknown pools drop out at compile time so a pack
+   from a newer build still loads. Validates SHAPE, never membership. See pool-grant-map.md."
   (:require #?(:clj [clojure.spec.alpha :as spec]
                :cljs [cljs.spec.alpha :as spec])))
 

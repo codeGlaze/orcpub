@@ -263,14 +263,11 @@
    [:.flex-wrap
     {:flex-wrap :wrap}]
    ;; ==== BUILDER-FORM CSS: START ====================================================
-   ;; Everything between these sentinels is rendered by the declarative builder framework, and is
-   ;; gated by builder_class_names_test: each class must be prefixed (bf-/opt-/select-menu) or on
-   ;; that test's allow-list. Move the sentinels if the block moves — the test says so when it
-   ;; cannot find them. See docs/kb/before-you-start.md.
-   ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
-   ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
-   ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
-   ;; Keep the two in step: the mockup is the design record and this is its implementation.
+   ;; Rendered by the declarative builder framework. builder_class_names_test requires every class
+   ;; here to be prefixed bf-/opt-/select-menu or allow-listed, and fails if it cannot find these
+   ;; sentinels. See docs/kb/before-you-start.md.
+
+   ;; Effect rows: implements docs/kb/assets/builder-form-mockup.html. Keep the two in step.
    [:.effect-row
     {:border "1px solid rgba(255,255,255,0.14)"
      :border-radius "6px"
@@ -283,12 +280,9 @@
      {:color "var(--accent, #f0a100)"
       :font-size "13px"
       :letter-spacing "0.04em"}]]
-   ;; A dashed outline chip reads as "there is more you could add", where a solid button reads as
-   ;; "do this now" — an add-bar of solid buttons competes with Save.
-   ;; --accent, not the literal. port/redesign-on-refactor makes the accent a per-theme token
-   ;; (themes.cljs: Classic and Dwarven #f0a100, Arcane #7c8cff) and wires it as a CSS var; the
-   ;; fallback keeps this identical until that lands. Hardcoding the orange would have made every
-   ;; builder chip the wrong colour under any theme but the default.
+   ;; A dashed outline chip reads as "more you could add"; a solid button reads as "do this now"
+   ;; and would compete with Save. Colour is the per-theme --accent var; #f0a100 is the fallback
+   ;; used when no theme defines it. Never hardcode the orange.
    [:.chip
     {:background :transparent
      :border "1px dashed var(--accent, #f0a100)"
@@ -321,20 +315,10 @@
      :text-transform :uppercase
      :letter-spacing "0.07em"
      :margin "2px 0 7px"}]
-   ;; Declarative fields FLOW; they do not each take a page width. A hand-written form put Level
-   ;; and School on one row and ran the checkboxes inline, and a generated form has to do the same
-   ;; or it trades the page's cohesion for brevity in the source. Sizes are intrinsic to the field
-   ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
-   ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
-   ;; tighter sizing.
-   ;; A GRID, not a flex row. Flexbox distributes leftover space per ROW, so every row laid itself
-   ;; out independently: measured on the spell form, the second control started at x=611, 332 and
-   ;; 607 on three consecutive rows, and Casting Time came out 318px wide against Duration's 573px
-   ;; — the same kind of field at different widths, because they landed in rows with different item
-   ;; counts. Fixed tracks make a field's width depend on the field, not on its neighbours.
-   ;;
-   ;; It also restores the hand-written pairing for free: with :text spanning two columns, Casting
-   ;; Time and Range fall onto one row and Duration onto the next, which is what the original did.
+   ;; Declarative fields flow on a fixed four-track GRID (not flex), so a field's width depends on
+   ;; its type, not its row's neighbours: :text and `:span :wide` take two tracks, number and toggle
+   ;; one, `:span :full` and :multi-enum the whole row. Direct-child selectors only, so fields
+   ;; inside an effect row keep their own sizing. See builder-conversion-gallery.md.
    [:.bf-flow
     {:display :grid
      :grid-template-columns "repeat(4, 1fr)"
@@ -382,10 +366,8 @@
      :align-self :flex-end
      :padding-bottom "4px"}
     [:.bf-field {:margin-bottom "0 !important"}]]
-   ;; No margin rule for .bf-section: every titled section is now an .opt-section card, and the
-   ;; card carries its own margin-bottom. (A `:not()` selector here is not valid Clojure — the
-   ;; reader takes `.opt-section` inside parens for a member expression — and garden failed to
-   ;; compile, which is silent unless you read its exit code.)
+   ;; No margin rule for .bf-section: every titled section is an .opt-section card with its own
+   ;; margin. GOTCHA: `(:not .opt-section)` reads as a member expression; garden fails silently.
    ;; a section heading, or a :rows node, owns its own line
    [:.bf-break
     {:flex "1 1 100%"
@@ -437,18 +419,12 @@
    [:.chip-row
     {:gap "8px"
      :margin-bottom "6px"}]
-   ;; ── section cards: ported from port/redesign-on-refactor (option_menu_views/card) ────────
-   ;; The suggested spell-builder page is built out of these — a flat card per section with an
-   ;; amber accent tab beside the title. Verbatim apart from the accent becoming a var. Note its
-   ;; own comment about dropping legacy `.field` margins inside a card: that is the same global
-   ;; `.field {margin-top:30px}` that made a mess of the builder rows here.
+   ;; ── section cards (option_menu_views/card) ────────────────────────────────────────────────────
+   ;; A flat card per section with an accent tab beside the title. The global
+   ;; `.field {margin-top:30px}` is zeroed inside a card.
    [:.opt-section
-    ;; DEVIATION from the verbatim port, and the reason for it: the literal #1b232f was chosen
-    ;; against the mock's #161d27 page — a +6 lift, barely there. This builder page sits on
-    ;; rgb(8,10,13), so the same literal lifts +19 and the cards read as chunky pale blocks rather
-    ;; than a grouping. A translucent white overlay lifts RELATIVE to whatever is behind it, so it
-    ;; lands the same on both pages and survives the redesign's light/dark work instead of needing
-    ;; a second literal.
+    ;; A translucent white overlay, not a fixed colour: it lifts the card RELATIVE to whatever page
+    ;; it sits on, so the lift is the same on every background.
     {:background "rgba(255,255,255,0.035)"
      :border "1px solid rgba(255,255,255,0.08)"
      :border-radius "14px"
@@ -2697,8 +2673,7 @@
       :width "100%"
       :max-width "620px"
       ;; 100% is the backdrop's content box, which SHRINKS while the cookie notice is up (the
-      ;; backdrop stops above it) and grows back when it goes. 84vh alone would overflow into
-      ;; the notice on a short viewport.
+      ;; backdrop stops above it). 84vh alone would overflow into the notice on a short viewport.
       :max-height "min(84vh, 100%)"
       :display :flex
       :flex-direction :column

@@ -116,16 +116,11 @@
 ;; ============================================================================
 
 (def crash-prevention-fields
-  "Hand-maintained EXTRA required fields (beyond any type's field schema) that keep the app
-   from breaking on import — auto-filled with dummies. The schema's required fields are merged
-   in by `required-fields` below, so this only holds what the schemas DON'T cover (e.g. the
-   universal :name, parent refs, and value checks for types with no field schema yet).
-
-   Structure: {content-type {:field-name {:dummy <value> :check-fn <optional-predicate>}}}
-
-   :dummy - The placeholder value to use when field is missing
-   :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
-               Default check is just (some? value)"
+  "Required fields the field schemas DON'T cover (the universal :name, parent refs, value checks
+   for types with no schema), filled with dummies on import so the app does not break.
+   `required-fields` merges in the schemas' own required fields.
+   Shape: {content-type {field {:dummy <placeholder when missing> :check-fn <optional pred>}}}.
+   A field fails when (check-fn value) is false; without :check-fn, when (some? value) is false."
   {:orcpub.dnd.e5/classes
    {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here

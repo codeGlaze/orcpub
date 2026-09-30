@@ -597,14 +597,6 @@
    :long-docstring
    "defn get-auth-token"
    "568e3ce03512"]
-  ["src/cljc/orcpub/dnd/e5/modifiers.cljc"
-   :history-phrase
-   "defn unarmored-ac-bonus | it used to"
-   "fbd6bee58f41"]
-  ["src/cljc/orcpub/dnd/e5/modifiers.cljc"
-   :long-docstring
-   "defn unarmored-ac-bonus"
-   "fbd6bee58f41"]
   ["src/cljc/orcpub/dnd/e5/options.cljc"
    :long-comment
    "DEFERRED on purpose. spell-help renders the spell's whole description "
@@ -693,10 +685,6 @@
    :long-comment
    "(if melee?"
    "d909141b0b1a"]
-  ["src/cljc/orcpub/dnd/e5/template_base.cljc"
-   :long-comment
-   "Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are "
-   "9cc5aa1c93f5"]
   ["src/cljc/orcpub/entity.cljc"
    :long-comment
    "Exact path first. On a miss, retry with the STORED key canonicalised"
@@ -959,10 +947,6 @@
    "517d9ed0bd67"]
   ["src/cljs/orcpub/dnd/e5/events.cljs"
    :long-comment
-   "The release panel is held while the cookie notice is up so a first vis"
-   "9164fb5339b0"]
-  ["src/cljs/orcpub/dnd/e5/events.cljs"
-   :long-comment
    "The type dropdown shows its first option (\"Wondrous Item\") even when"
    "2e02661680ff"]
   ["src/cljs/orcpub/dnd/e5/events.cljs"
@@ -993,10 +977,6 @@
    :long-docstring
    "defn opinionated-default-decision"
    "526fd47d58f3"]
-  ["src/cljs/orcpub/dnd/e5/events.cljs"
-   :long-docstring
-   "defn save-collision"
-   "2873a6e85b2d"]
   ["src/cljs/orcpub/dnd/e5/events.cljs"
    :long-docstring
    "defn save-into-plugins"
@@ -1041,10 +1021,6 @@
    :long-comment
    "`:in` paths of the more specific (non-boolean) failures. When a"
    "a2ebe49a5b2c"]
-  ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
-   :long-docstring
-   "def required-fields"
-   "b6c03c403975"]
   ["src/cljs/orcpub/dnd/e5/orcbrew_validation.cljs"
    :long-docstring
    "defn apply-user-edits-to-plugin"

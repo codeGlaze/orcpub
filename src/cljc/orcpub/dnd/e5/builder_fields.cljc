@@ -1,18 +1,9 @@
 (ns orcpub.dnd.e5.builder-fields
-  "Utilities over a builder FIELD SCHEMA — the declarative description of a homebrew type's
-   fields. The form side renders these (views/render-builder-field); this ns derives the
-   save-validation spec from the same data, so a type's fields are described ONCE.
-
-   A field spec:
-     :key        a single key or a PATH vector into the item (e.g. [:breath-weapon :damage-type])
-     :type       :enum | :number | :text
-     :label      form label
-     :options    (:enum) [{:value <stored value, any type> :title <label>} …]
-     :required?  default FALSE (optional). Optional-by-default is deliberate: it is the
-                 friendlier UX AND keeps existing orcbrew content valid (D9 backward-compat).
-     :when       (item -> bool, optional) — form-only conditional display.
-
-   Pure/leaf: requires spec only."
+  "Utilities over a builder FIELD SCHEMA, the declarative description of a homebrew type's fields.
+   The form renders it (views/render-builder-field) and this ns derives the save spec from it.
+   A field: :key (a key, or a PATH vector into the item), :type (see field-value-pred), :label,
+   :options (enum types: [{:value <any> :title <label>} …]), :when (item -> bool, form-only
+   display), :required? (default FALSE, so existing orcbrew content stays valid, D9)."
   (:require #?(:clj  [clojure.spec.alpha :as spec])
             #?(:cljs [cljs.spec.alpha :as spec])
             [clojure.string :as str]
@@ -41,16 +32,9 @@
     :boolean boolean?
     (constantly true)))
 
-;; BOOLEAN/TOGGLE field type — BUILT 2026-09-06, from the convergence note this replaces.
-;; The note said a hardened toggle needs BOTH halves and each branch had built only one. It now
-;; routes through the ONE combined primitive: common/toggle-in (path-safe traversal, heals a
-;; collapsed intermediate) whose leaf is common/toggle-flag (leaves a collection alone AND reads
-;; only `true` as ON, so nil/absent/garbage are OFF). Validation is `:boolean -> boolean?` above.
-;; There is no second toggle fn and no second validator; a builder gets a toggle by declaring
-;; `:type :boolean`, which dispatches the generated toggle-<base>-prop event.
-;; Plus `strip-export-blanks` (theirs) keeps exports terse, and the save ⊆ load guard (theirs: anything
-;; that SAVES must LOAD). When the branches meet: add a `:boolean` type here + in render-builder-field
-;; routing through the ONE combined primitive above — never a fresh toggle fn, never a second validator.
+;; A `:type :boolean` field dispatches the generated toggle-<base>-prop event, which goes through
+;; common/toggle-in (path-safe; heals a collapsed intermediate) and its leaf common/toggle-flag
+;; (leaves a collection alone; only `true` is ON). Never add a second toggle fn or validator.
 
 ;; Universal homebrew fields as NAMED specs so fields->spec composes via spec/keys — its explain-data
 ;; then names :name/:key/:option-pack in the :in path (diagnosable banners), matching develop's
@@ -60,10 +44,9 @@
 (spec/def ::option-pack string?)
 
 ;; ── Shared :props field fragments ─────────────────────────────────────────────────────────────
-;; The :props vocabulary compiles into SEVEN silos through one function (races, subraces, classes,
-;; subclasses, draconic ancestries, feats, fighting styles), so a fragment defined once can be
-;; dropped into any of their builders' extra-fields and that silo can author the prop. The compiler
-;; is already shared; only the form fields were missing.
+;; The :props vocabulary compiles into seven silos (races, subraces, classes, subclasses, draconic
+;; ancestries, feats, fighting styles) through one function, so a fragment here can go in any of
+;; their builders' extra-fields and that silo can then author the prop.
 
 (def fighting-style-class-options
   ;; Only the classes that HAVE a fighting-style feature. Offering Wizard here would let an author
@@ -102,11 +85,8 @@
       :options [{:value nil   :title "Both"}
                 {:value true  :title "Only while wielding a shield" :short-title "Only while wielding"}
                 {:value false :title "Only while NOT wielding a shield" :short-title "Not wielding"}]}
-     ;; The first weapon-aware requirement an author can reach. It was unauthorable until
-     ;; mod5e/ac-bonus assembled the wielded weapons into the contributor's context, which is why
-     ;; the Dual Wielder feat had to be hand-written. Registering a requirement and exposing it are
-     ;; still separate steps (weapons.cljc documents the rule) — this one is exposed because
-     ;; published content wants it.
+     ;; Weapon-aware: mod5e/ac-bonus puts the wielded weapons in the contributor's context.
+     ;; Registering a requirement and exposing it here are separate steps (see weapons.cljc).
      {:key [:props :ac-bonus :dual-wielding?] :type :enum :label "Weapon requirement" :when has-bonus?
       :short-label "Weapons"
       :options [{:value nil   :title "Both"}
@@ -189,19 +169,16 @@
     :add-label "Add a grant"}])
 
 (defn flatten-fields
-  "A schema is a vector of NODES. Today every node is a field, so this is identity; once group nodes
-  land (docs/kb/builder-form-schemas.md) a group contributes its lead field plus its tags.
-
-  Everything that walks a schema for its FIELDS — save-spec construction, import verification,
-  drift tests — goes through here, so adding a node kind does not mean hunting down every walker."
+  "The fields of `schema`, a vector of nodes: a field is itself, a `:group` its lead field plus its
+  tags, a `:rows` node every field of its kinds, and a vector `:rows` node none (its fields come
+  from the pool registry at render time). Every walker of a schema's fields goes through here."
   [schema]
   (mapcat (fn [node]
             (cond
-              ;; a :rows node contributes every field of every kind it can hold. The kinds' fields
-              ;; carry absolute paths, so validation is unchanged by the grouping — which is the
-              ;; point: :rows is an arrangement, not a second storage model.
-              ;; a VECTOR rows node (grant-rows) derives its kinds from the pool registry at render
-              ;; time and its rows own their fields; it contributes nothing static to validate.
+              ;; a :rows node contributes every field of every kind; the fields carry absolute
+              ;; paths, so :rows is an arrangement, not a second storage model. A VECTOR rows node
+              ;; (grant-rows) derives its kinds from the pool registry at render time and
+              ;; contributes nothing static to validate.
               (and (:rows node) (= :vector (:as node))) []
               (:rows node)  (mapcat :fields (:kinds node))
               (:group node) (cons (:lead node) (:tags node))
@@ -272,8 +249,8 @@
 ;; restating which props carry tags — the fact lives in one place, the schemas.
 
 (def ^:private legacy-value-keys
-  "Value keys a prop has shipped with that are NOT declared fields. :ac-bonus's value key was once
-   :ac-bonus before it became :bonus; ac-bonus-modifiers still reads it (D9)."
+  "Value keys a prop has shipped with that are NOT declared fields. :ac-bonus accepts the released
+   value key :ac-bonus as well as :bonus; ac-bonus-modifiers still reads it (D9)."
   {:ac-bonus #{:ac-bonus}})
 
 (defn- declared-prop-keys

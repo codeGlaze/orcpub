@@ -1,24 +1,10 @@
 (ns orcpub.dnd.e5.orcbrew-format
-  "Shared constants, serialization, and format-versioning for orcbrew content
-   files, usable on both the JVM (the build-time demo-content emitter) and in the
-   browser (every export/import path).
-
-   Format versioning classifies a file by whether its CONTENT is backward
-   compatible, not by when it was made:
-
-   - v1 = fully backward compatible. Ships as a PLAIN file (no tag, no wrapper), so
-     old builds read it unchanged.
-   - v2 = contains at least one non-backward-compatible feature. Wrapped in an
-     envelope `{:orcbrew/format-version 2 :orcbrew/requires [...] :orcbrew/content
-     <plugin map>}`. The wrapper's keyword keys break an old build's \"every
-     top-level key is a source name\" parse, so old builds bounce off it — which is
-     exactly what we want for incompatible content. New builds read the version
-     first and unwrap, or refuse a version they don't support with a clear message.
-
-   The version lives inside the file. A separate file EXTENSION (name still being
-   polled) will later keep v2 files out of an old build's file PICKER too; until
-   then the envelope alone protects (old builds fail to load rather than corrupt).
-   See docs/kb/orcbrew-format-versioning.md."
+  "Constants, serialization and format versioning for orcbrew files, on the JVM (demo emitter)
+   and in the browser (every export/import path). Content that is fully backward compatible is v1
+   and ships PLAIN, so old builds read it. Any incompatible feature makes it v2, wrapped as
+   `{:orcbrew/format-version 2 :orcbrew/requires [...] :orcbrew/content <plugin map>}`, which old
+   builds fail to load rather than corrupt; new builds unwrap it, or refuse a version they cannot
+   read with a clear message. See docs/kb/orcbrew-format-versioning.md."
   (:require [clojure.string :as str]
             #?(:clj  [clojure.pprint :as pprint]
                :cljs [cljs.pprint :as pprint])))
@@ -41,10 +27,8 @@
   2)
 
 ;; ── Classification ──────────────────────────────────────────────────────────
-;; What makes content v2 (incompatible with old builds). Bias is CONSERVATIVE:
-;; over-tagging only gates a file needlessly (mildly annoying); under-tagging lets
-;; an old build silently mangle incompatible content (the real headache). When a
-;; new incompatible feature lands, add its marker here.
+;; What makes content v2. Bias CONSERVATIVE: over-tagging only gates a file needlessly;
+;; under-tagging lets an old build silently mangle it. Add each new incompatible marker here.
 
 (def incompatible-content-types
   "Whole content types old builds don't know — any content under these is v2."
@@ -100,15 +84,10 @@
   (and (map? data) (contains? data :orcbrew/format-version)))
 
 (defn stamp
-  "Wrap `content` in the version envelope IFF it contains an incompatible feature;
-   otherwise return it unchanged (plain v1). Idempotent — an already-stamped
-   envelope passes through. Every export path can call this safely: plain content
-   stays plain, so backward-compatible files are never needlessly gated.
-
-   `envelope-meta` (2-arity) merges extra fields into the envelope, e.g.
-   `{:orcbrew/content-version 1}` — the CONTENT's own revision number (see
-   `content-version`), distinct from the format version. Only carried when the
-   content is v2 (there's an envelope to hang it on)."
+  "Wrap `content` in the version envelope IFF it contains an incompatible feature, else return it
+   unchanged (plain v1). Idempotent: an envelope passes through, so every export path can call it.
+   `envelope-meta` (2-arity) merges into the envelope, e.g. `{:orcbrew/content-version 1}` (the
+   content's own revision, not the format version); it is dropped when the content is v1."
   ([content] (stamp content nil))
   ([content envelope-meta]
    (if (envelope? content)
