@@ -48,16 +48,11 @@
          content-length)))
 
 (defn make-nonce-interceptor
-  "Creates an interceptor that generates per-request CSP nonces.
-
-   In prod (dev-mode?=false) with CSP_POLICY=strict:
-   - :enter phase generates a nonce and stores it in [:request :csp-nonce]
-   - :leave phase adds enforcing Content-Security-Policy header with the nonce
-
-   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
-   active, but the nonce interceptor becomes a no-op. This avoids flooding the
-   browser console with Report-Only violations (inline Figwheel scripts, etc.)
-   that obscure real issues during development."
+  "Creates an interceptor that sets per-request CSP nonces when CSP_POLICY=strict and
+   `dev-mode?` is false: :enter stores a nonce at [:request :csp-nonce], and :leave adds an
+   enforcing Content-Security-Policy header built with it.
+   In dev mode it is a no-op and Pedestal 0.7's default CSP stays active, so Figwheel's inline
+   scripts do not flood the console with Report-Only violations."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor

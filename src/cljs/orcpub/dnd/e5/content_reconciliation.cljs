@@ -1,13 +1,7 @@
 (ns orcpub.dnd.e5.content-reconciliation
-  "Detects missing content references in characters and suggests fixes.
-
-   When a character references homebrew content (classes, races, etc.) that
-   isn't currently loaded, this module helps identify what's missing and
-   suggests similar content that might be a match.
-
-   Extracts content keys directly from the entity options structure using
-   the same get-in patterns the rest of the app uses, rather than walking
-   the entire options tree generically."
+  "Detects homebrew content (classes, races, etc.) a character references that is not loaded, and
+   suggests similar loaded content. Keys are extracted from the entity options with the same
+   get-in paths the rest of the app uses, not a generic tree walk."
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [orcpub.entity :as entity]
@@ -222,13 +216,10 @@
 ;; Missing Content Detection
 ;; ============================================================================
 
-;; Sentinel keys that are NOT references to loadable content, so they can never
-;; be "missing" — every "Custom" option (background/race/subrace/subclass) is
-;; named "Custom", which name-to-kw turns into :custom, and the real data lives
-;; INLINE on the entity (::entity/value + ::entity/options), not in a plugin;
-;; :none is an explicit "no selection". Mirrors the #{:none :custom} sentinel
-;; guard in events.cljs. Checked here (not per extractor) so one guard covers
-;; all inline-custom content types at once.
+;; Keys that never mean missing content: every "Custom" option (background/race/subrace/subclass)
+;; becomes :custom and keeps its data INLINE on the entity (::entity/value + ::entity/options), and
+;; :none is an explicit "no selection". Mirrors the #{:none :custom} guard in events.cljs; checked
+;; here so one guard covers every inline-custom type.
 (def ^:private inline-content-sentinels #{:custom :none})
 
 (defn check-content-availability
@@ -255,15 +246,10 @@
      character-keys)))
 
 (defn generate-missing-content-report
-  "Generate a user-friendly report of missing content.
-
-   Returns:
-   {:has-missing? bool
-    :missing-count int
-    :items [{:key :foo
-             :label \"Class\"
-             :inferred-source \"Kibbles' Tasty\"
-             :suggestions [{:key :bar :name \"Similar\" :similarity 0.8}]}]}"
+  "Report of the content `character` references that the builder does not offer:
+   {:has-missing? bool :missing-count n :items [{:key :content-type :content-label
+   :inferred-source :suggestions [{:key :name :similarity}]} ...]}. Also lists spell and language
+   picks no longer offered when `choice-tags` is given. `offered` nil reports nothing."
   [character available-content offered & [choice-tags offered-by-type]]
   (let [char-keys (extract-content-keys character)
         known (set (map :key char-keys))
@@ -587,13 +573,9 @@
        entries))))
 
 (defn subclass->class-index
-  "{subclass-key -> class-key} from loaded plugins. Homebrew subclasses record
-   their class in :class, which is the same field rename-key-in-plugin rewrites
-   when a class is renamed, so this stays correct across a conflict resolution.
-
-   A subclass claimed by two different classes across sources is dropped rather
-   than guessed at, for the same reason former-key-index drops a contested
-   claim: binding to whichever source was walked first is not an answer."
+  "{subclass-key -> class-key} from the :class of each loaded subclass. rename-key-in-plugin
+   rewrites that field, so the index survives a conflict resolution. A subclass claimed by two
+   classes across sources is dropped, not guessed, as former-key-index drops a contested claim."
   [plugins]
   (let [claims (for [[_ plugin] plugins
                      :when (map? plugin)

@@ -653,12 +653,10 @@
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
-      ;; DEFERRED on purpose. spell-help renders the spell's whole description into a <p>
-      ;; per paragraph; it is 78% of building an option, and memoized-spell-option keys on
-      ;; class name, so eagerly it is built once per (spell x class) and retained for the
-      ;; page. Nothing reads it except the renderer, and only when the peek is opened.
-      ;; Renderers force it with views-aux/realize-help; :help elsewhere is still a plain
-      ;; string or literal hiccup and is untouched. See reagent-architecture-tenets.md #1.
+      ;; A thunk: spell-help renders the whole description, most of an option's build
+      ;; cost, and memoized-spell-option keeps one per (spell x class). Renderers force it
+      ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
+      ;; string or hiccup. See reagent-architecture-tenets.md #1.
       :help #(spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
@@ -901,12 +899,10 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
-           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
-           ;; :leomunds-secret-chest) to their current de-named SRD keys
-           ;; (:secret-chest) so imported paks that reference the old names resolve
-           ;; to the real spell. resolve-spell-key is non-destructive: it only
-           ;; remaps a known rename whose target is loaded, so loaded homebrew and
-           ;; genuinely-missing spells are left alone (and still flagged below).
+           ;; Resolve pre-2024 wizard-possessive spell keys (:leomunds-secret-chest) to
+           ;; their de-named SRD keys (:secret-chest). Only a known rename whose target
+           ;; is loaded is remapped; homebrew and missing spells pass through unchanged
+           ;; (and missing ones are flagged below).
            all-spells (reduce-kv
                        (fn [m lvl ks]
                          (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
@@ -2754,21 +2750,11 @@
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
 
-;; Rich starting-equipment choice groups — the full SRD form as serializable data.
-;; Unlike the shorthand :*-choices (one item per option), an option here can grant a
-;; BUNDLE of items (:grants) and/or offer a nested sub-choice (:choose), e.g. Fighter's
-;; "(a) chain mail, or (b) leather + longbow + 20 arrows" and "a martial weapon + shield".
-;; Shape on the class map:
-;;   :equipment-selections
-;;   [{:name "Armor"
-;;     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail}]}
-;;               {:name "Leather, Longbow, 20 Arrows"
-;;                :grants [{:kind :armor :key :leather} {:kind :weapon :key :longbow}
-;;                         {:kind :equipment :key :arrow :qty 20}]}]}
-;;    {:name "Weapon"
-;;     :options [{:name "A martial weapon and a shield"
-;;                :grants [{:kind :armor :key :shield}]
-;;                :choose [{:name "Martial Weapon" :from :martial}]}]}]
+;; Rich starting-equipment choice groups (:equipment-selections on the class map): unlike
+;; the shorthand :*-choices, an option can grant a bundle ({:grants [{:kind :key :qty}]})
+;; and/or offer nested sub-choices ({:choose [{:name :from}]}). Shape and worked Fighter
+;; example: starting-equipment.md.
+
 ;; One fixed grant ({:kind :key :qty}) -> the matching modifier that drops the item
 ;; onto the character's ?weapons/?armor/?equipment.
 (defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
@@ -2806,11 +2792,10 @@
       :options (mapv #(equipment-selection-option class-kw weapon-map %) options)
       :prereq-fn (first-class? class-kw)})
 
-    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirror the live
-    ;; equipment-option EXACTLY: a plain starting-equipment selection named for the group,
-    ;; WITHOUT the "Starting Equipment: " prefix and WITHOUT a "<none>" opt-out — so a class
-    ;; filled from an SRD class reproduces the SRD's own nested selection verbatim (its name
-    ;; also feeds the selection's minted key, which must stay stable).
+    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirrors the live
+    ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
+    ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
+    ;; name also feeds the selection's minted key, which must stay stable.
     (equipment-group-choosers from)
     (let [chooser (equipment-group-choosers from)]
       (t/selection-cfg

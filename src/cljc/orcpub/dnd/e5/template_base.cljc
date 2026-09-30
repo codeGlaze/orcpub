@@ -226,13 +226,8 @@
                                 (apply +
                                        (+ (or (::mi5e/magical-damage-bonus weapon) 0)
                                           (?weapon-ability-damage-modifier weapon definitely-finesse? off-hand?))
-                                       ;(if melee?
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?melee-damage-bonus-fns)
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?ranged-damage-bonus-fns)) ;any non-melee is assumed to be ranged/finesse/dex
+                                       ;; Only ?damage-bonus-fns apply; ?melee-damage-bonus-fns
+                                       ;; is never read (see modifiers.cljc :user/comment).
                                        (map
                                         #(% weapon)
                                         ?damage-bonus-fns))))

@@ -96,18 +96,10 @@
   branding/email-from-address)
 
 (defn send-verification-email
-  "Sends account verification email to a new user.
-
-  Args:
-    base-url - Base URL for the application (for verification link)
-    user-map - Map containing :email, :username, and :first-and-last-name
-    verification-key - Unique key for email verification
-
-  Returns:
-    Postal send-message result
-
-  Throws:
-    ExceptionInfo with :verification-email-failed error code if email cannot be sent"
+  "Sends the account verification email to a new user.
+  Args: base-url (for the link), a user map with :email :username :first-and-last-name, and
+  verification-key. Returns the postal send-message result.
+  Throws ExceptionInfo {:error :verification-email-failed} if the email cannot be sent."
   [base-url {:keys [email username first-and-last-name]} verification-key]
   (try
     (let [result (postal/send-message (email-cfg)
@@ -133,18 +125,10 @@
                       e)))))
 
 (defn send-email-change-verification
-  "Send a verification email for an email-change request (not registration).
-
-  Args:
-    base-url - Base URL for the application (for verification link)
-    user-map - Map containing :email and :username
-    verification-key - Unique key for email change verification
-
-  Returns:
-    Postal send-message result
-
-  Throws:
-    ExceptionInfo with :email-change-verification-failed error code if email cannot be sent"
+  "Sends the verification email for an email-change request (not registration).
+  Args: base-url (for the link), a user map with :email :username, and verification-key.
+  Returns the postal send-message result.
+  Throws ExceptionInfo {:error :email-change-verification-failed} if it cannot be sent."
   [base-url {:keys [email username]} verification-key]
   (try
     (let [result (postal/send-message (email-cfg)
@@ -194,18 +178,10 @@
     :content (str (hiccup/html (reset-password-email-html first-and-last-name reset-url)))}])
 
 (defn send-reset-email
-  "Sends password reset email to a user.
-
-  Args:
-    base-url - Base URL for the application (for reset link)
-    user-map - Map containing :email, :username, and :first-and-last-name
-    reset-key - Unique key for password reset
-
-  Returns:
-    Postal send-message result
-
-  Throws:
-    ExceptionInfo with :reset-email-failed error code if email cannot be sent"
+  "Sends the password reset email to a user.
+  Args: base-url (for the link), a user map with :email :username :first-and-last-name, and
+  reset-key. Returns the postal send-message result.
+  Throws ExceptionInfo {:error :reset-email-failed} if the email cannot be sent."
   [base-url {:keys [email username first-and-last-name]} reset-key]
   (try
     (let [result (postal/send-message (email-cfg)
@@ -354,14 +330,11 @@
 ;; ---------------------------------------------------------------------------
 
 (defn send-error-email
-  "Sends a scrubbed, readable error notification email to the configured admin
-  address (EMAIL_ERRORS_TO env var).
-
-  - Strips credentials, cookies, body params, and Datomic objects from request
-  - Filters stack trace to orcpub.* frames; falls back to deepest non-infra frame
-  - Walks the full cause chain
-  - Throttles: one email per unique error fingerprint per 5 minutes
-  - Extracts Pedestal interceptor metadata as a separate section"
+  "Sends a scrubbed error notification to EMAIL_ERRORS_TO; does nothing when that is unset.
+  Strips credentials, cookies, body params and Datomic objects from the request; keeps orcpub.*
+  stack frames (else the deepest non-infra frame); walks the whole cause chain; puts Pedestal
+  interceptor metadata in its own section. At most one email per error fingerprint per 5
+  minutes. Returns the postal result, or nil."
   [context exception]
   (when (not-empty (environ/env :email-errors-to))
     (let [data-map      (ex-data exception)
