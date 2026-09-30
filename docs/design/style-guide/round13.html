@@ -65,15 +65,23 @@ figcaption b { color: var(--fg); }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 </style>
 <style>
-.phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-.phones img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.phones { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.phones figure { flex: 0 0 auto; max-width: 100%; }
+.phones img.w320 { width: 320px; max-width: 100%; }
+.phones img.w390 { width: 390px; max-width: 100%; }
+.phones img { border-radius: 8px; border: 1px solid var(--line); }
 </style>
 <div class="wrap">
   <header><div>
-    <div class="cap">OrcPub · feature/style-guide · options, not built</div>
+    <div class="cap">OrcPub · feature/style-guide · 6ce56c00</div>
     <h1>Ability buttons on a phone</h1>
-    <p class="sub">The builder on a 390px-wide phone, dark theme, shown at actual size. The buttons are 68×31 on phones and desktops alike; the larger labels keep that size by trimming the top and bottom padding.</p>
+    <p class="sub">The builder’s Details tab on an iPhone-sized screen, dark theme, from the running branch at actual size. The labels are shown at 14px (as built), 15px and 16px; the larger sizes trim the top and bottom padding so the buttons stay 31px tall.</p>
   </div></header>
-  <section><h2>Dark text, yellow rim (built)</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img src="round13/14-rim.png" alt="Dark text, yellow rim (built), 14px"></figure><figure><figcaption><b>15px</b> · padding trimmed, still 68×31</figcaption><img src="round13/15-rim.png" alt="Dark text, yellow rim (built), 15px"></figure><figure><figcaption><b>16px</b> · padding trimmed, still 68×31</figcaption><img src="round13/16-rim.png" alt="Dark text, yellow rim (built), 16px"></figure></div></section>
-  <section><h2>Default white</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img src="round13/14-white.png" alt="Default white, 14px"></figure><figure><figcaption><b>15px</b> · padding trimmed, still 68×31</figcaption><img src="round13/15-white.png" alt="Default white, 15px"></figure><figure><figcaption><b>16px</b> · padding trimmed, still 68×31</figcaption><img src="round13/16-white.png" alt="Default white, 16px"></figure></div></section>
+  <section><h2>Dark text, yellow rim, 390px phone</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img class="w390" src="round13/14-rim-390.png" alt="Dark text, yellow rim, 14px, 390px phone"></figure><figure><figcaption><b>15px</b></figcaption><img class="w390" src="round13/15-rim-390.png" alt="Dark text, yellow rim, 15px, 390px phone"></figure><figure><figcaption><b>16px</b></figcaption><img class="w390" src="round13/16-rim-390.png" alt="Dark text, yellow rim, 16px, 390px phone"></figure></div></section>
+  <section><h2>Default white, 390px phone</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img class="w390" src="round13/14-white-390.png" alt="Default white, 14px, 390px phone"></figure><figure><figcaption><b>15px</b></figcaption><img class="w390" src="round13/15-white-390.png" alt="Default white, 15px, 390px phone"></figure><figure><figcaption><b>16px</b></figcaption><img class="w390" src="round13/16-white-390.png" alt="Default white, 16px, 390px phone"></figure></div></section>
+  <section><h2>Dark text, yellow rim, 320px phone</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img class="w320" src="round13/14-rim-320.png" alt="Dark text, yellow rim, 14px, 320px phone"></figure><figure><figcaption><b>15px</b></figcaption><img class="w320" src="round13/15-rim-320.png" alt="Dark text, yellow rim, 15px, 320px phone"></figure><figure><figcaption><b>16px</b></figcaption><img class="w320" src="round13/16-rim-320.png" alt="Dark text, yellow rim, 16px, 320px phone"></figure></div></section>
+  <section><h2>Default white, 320px phone</h2><div class="phones"><figure><figcaption><b>14px</b> · as built</figcaption><img class="w320" src="round13/14-white-320.png" alt="Default white, 14px, 320px phone"></figure><figure><figcaption><b>15px</b></figcaption><img class="w320" src="round13/15-white-320.png" alt="Default white, 15px, 320px phone"></figure><figure><figcaption><b>16px</b></figcaption><img class="w320" src="round13/16-white-320.png" alt="Default white, 16px, 320px phone"></figure></div></section>
+  <section><h2>Toggles</h2><div class="phones"><figure><figcaption><b>390px</b></figcaption><img class="w390" src="round13/toggles-390.png" alt="Toggles at 390px"></figure><figure><figcaption><b>320px</b></figcaption><img class="w320" src="round13/toggles-320.png" alt="Toggles at 320px"></figure></div></section>
+  <div class="note"><h3>Fixed on the branch to get here</h3>
+  <p>The six ability buttons needed 432px, so on phones the sixth (CHA) was cut off at the right edge. They now share the row: 58px wide on a 390px phone, 48px on a 320px one. The Light Theme and Dark Button Text toggles now sit 10px in from the edge instead of touching it.</p></div>
 </div>
