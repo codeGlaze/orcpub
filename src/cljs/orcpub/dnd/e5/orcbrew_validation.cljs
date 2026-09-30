@@ -2011,25 +2011,12 @@
 (declare rename-key-in-plugin)
 
 (defn relocate-content
-  "Move or copy selected homebrew items to a target source. `selections` is a seq
-   of [source content-type key]; `op` is :move or :copy. Returns
-   {:plugins <new> :placed n :renamed [{:from :to :ct :source}] :missing n}.
-
-   Single vs bulk is just the length of `selections` — one mechanism for both.
-
-   Policy — predictable and clobber-free:
-   • MOVE relocates the item with its key AND name preserved, UNLESS the target
-     already holds that key — then it is disambiguated by the target's
-     abbreviation (\"Artificer\" -> \"Artificer (KsTy)\") and the key derived from
-     that name, so nothing is overwritten and the key survives a later save.
-     Moving an item to the source it already lives in is a no-op.
-   • COPY always disambiguates — a copy is a new, independent variant, which also
-     avoids creating a nondeterministic same-key twin of the original.
-   The placed item's :key and :option-pack are retagged to its new home, and its
-   :name carries the disambiguation whenever the key was not kept as-is. Selections
-   are applied parents first (classes, races), then in order, against the
-   accumulating result, so keys minted earlier in the batch are accounted for when
-   uniquifying later ones."
+  "Moves (`op` :move) or copies (:copy) `selections` ([source content-type key] ...) in `plugins`
+   to source `target`, as {:plugins :placed :renamed [{:from :to :ct :source}] :missing}. A move
+   keeps key and name unless `target` holds the key; then, and always for a copy, the name gains
+   the target's abbreviation (\"Artificer (KsTy)\") and the key derives from it. Moving to the
+   item's own source does nothing. Parents (classes, races) go first so later keys avoid earlier
+   ones."
   [plugins selections target op]
   (let [copy? (= op :copy)]
     (reduce
@@ -2040,14 +2027,9 @@
            (and (not copy?) (= src target))  (update acc :placed inc) ; already home
            :else
            (let [target-map (get-in plugins [target ct])
-                 ;; A relocation that has to rename disambiguates by NAME and
-                 ;; derives the key from it, exactly as an import conflict does.
-                 ;; Minting a key alone (what this used to do) leaves the item
-                 ;; called "Artificer" while keyed :artificer-kt, so the next save
-                 ;; in the builder re-derives :artificer and the item collides in
-                 ;; its new home all over again.
-                 ;; A renaming move also rekeys the item inside its source, so
-                 ;; the new key must be free there too.
+                 ;; A renaming relocation disambiguates by NAME and derives the key from it, as an
+                 ;; import conflict does; the new key must also be free inside the source, where a
+                 ;; renaming move rekeys it.
                  source-map (get-in plugins [src ct])
                  ident      (when (or copy? (contains? target-map k))
                               (generate-new-identity (or (:name item) (common/kw-to-name k))
@@ -2056,12 +2038,9 @@
                                                           (and (not copy?) (not= % k)
                                                                (contains? source-map %)))))
                  new-key    (if ident (:key ident) k)
-                 ;; A MOVE that renames goes through rename-key-in-plugin inside the
-                 ;; source first, the same path an import conflict takes: that repoints
-                 ;; the source's subclasses/subraces at the new key (left alone they
-                 ;; would attach to the target's same-keyed item) and records the old
-                 ;; key, so a saved character that chose it rebinds on load. A copy
-                 ;; skips this: the original keeps its key and everything aimed at it.
+                 ;; A renaming MOVE goes through rename-key-in-plugin in the source first, as an
+                 ;; import conflict does: it repoints the source's subclasses/subraces and records
+                 ;; the old key so characters rebind. A copy skips this.
                  renamed-in-src (if (and ident (not copy?))
                                   (update plugins src rename-key-in-plugin ct k new-key (:name ident))
                                   plugins)
@@ -2104,20 +2083,9 @@
              items)))
 
 (defn rename-key-in-plugin
-  "Rename a key within a single plugin, updating all internal references.
-
-   Parameters:
-   - plugin: the plugin data map
-   - content-type: which content type contains the key (e.g., :orcpub.dnd.e5/classes)
-   - old-key: the current key to rename
-   - new-key: the new key to use
-   - new-name: (optional) the item's new display name, when the rename is a
-     disambiguation that renamed the item too. Omitted, only the key moves.
-
-   Returns the updated plugin with:
-   1. The item moved to the new key
-   2. Its :name replaced when new-name is given
-   3. Every link in this plugin that named the old key repointed (library-links/links)"
+  "`plugin` with `content-type`'s `old-key` renamed to `new-key`: the item moves, takes `new-name`
+   as its `:name` when given (a disambiguating rename), records `old-key` in `:former-keys`, and
+   every link in this plugin that named `old-key` is repointed (library-links/links)."
   ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
   ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
@@ -2179,16 +2147,9 @@
      plugins)))
 
 (defn apply-key-renames
-  "Apply a batch of key renames to import data.
-
-   Parameters:
-   - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
-     is optional and renames the item's display name alongside its key.
-   Links follow only inside the renamed item's own source; `library/repoint-offer` finds the
-   ones elsewhere, to ask about.
-
-   Returns updated data with all renames applied."
+  "Import `data` (one plugin or several) with `renames` ({:source :content-type :from :to :to-name?}
+   ...) applied; `:to-name` also renames the item. Links follow only inside each item's own source;
+   `library/repoint-offer` finds the rest, to ask about."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce

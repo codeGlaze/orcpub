@@ -496,11 +496,9 @@
  local-storage-whats-new-key
  ::whats-new-seen)
 
-;; The address the open builder fetched its item from. Persisted beside the draft
-;; because it is not derivable from it: the item's own `:option-pack` is whatever
-;; the author has typed into the field, so after a refresh nothing else says where
-;; the item came from -- and without that, a save that retypes the source is a
-;; guess, which `save-destination` refuses rather than acting on.
+;; The address the open builder fetched its item from, kept beside the draft: the item's own
+;; `:option-pack` is whatever the author typed, so after a refresh nothing else records where it
+;; came from, and `save-destination` refuses to guess.
 (spec/def ::builder-origin map?)
 (reg-local-store-cofx
  ::e5/builder-origin

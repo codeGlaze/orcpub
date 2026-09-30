@@ -888,27 +888,12 @@
   (hash (dissoc item :key :option-pack)))
 
 (defn save-destination
-  "Where a save lands, and whether it may land there.
-
-     {:action :create}                      a key nothing answers to yet
-     {:action :in-place}                    the item's own address
-     {:action :move :from <source>}         Option Source Name was retyped; the old entry goes
-     {:action :refuse :reason .. :occupant/:holders ..}   :changed when the stored item differs
-                                            from the version the builder fetched
-
-   `recorded` is the `[source key]` the builder opened the item from, or nil.
-
-   GOTCHA: the record is trusted only when that address STILL answers to this key for this content
-   type. It survives a move, a delete and a walk to another builder, and two content types in one
-   source share a key for one name (a race and a subrace both called Aarakocra), so an unverified
-   record can name an item nobody opened.
-
-   With no usable record the one source holding the key is where the item lives -- enough to save
-   back into it, never enough to MOVE, since that deletes an entry on a guess. With several there
-   is no honest answer at all, so it refuses and says to reopen the item from My Content.
-
-   `mint-name` is the name a fresh key would derive from (only consulted while minting); see the
-   GOTCHA on the minting branch below."
+  "Where a save lands: {:action :create} for a key nothing answers to, :in-place at the item's own
+   address, :move :from <source> when Option Source Name was retyped, or :refuse :reason ..
+   (:changed when the stored item differs from the version fetched). `recorded` is the [source key]
+   the builder opened, or nil; `mint-name` the name a fresh key derives from.
+   GOTCHA: `recorded` counts only while it still answers to this key and content type. Without it,
+   the one source holding the key allows an in-place save, never a move; several mean a refusal."
   [plugins recorded plugin-key option-pack key item & [mint-name]]
   (let [;; every caller gates on this, but the function is not safe on its own terms without
         ;; it: `(= lives-in option-pack)` is (= nil nil) for a nil target with no known home,
@@ -932,12 +917,9 @@
       ;; here or in another library, since a key is a global address.
       (nil? (:key item))
       (let [elsewhere (disj holders option-pack)
-            ;; A library written before keys existed stores this same item under its UNTAGGED
-            ;; name key (D10b predates the tag). `occupant` above only probes the freshly minted
-            ;; TAGGED key, which such an entry never answers to, so minting silently created a
-            ;; second item next to it. Probed here too, scoped to `option-pack` for the same
-            ;; reason `elsewhere` is scoped: a same-named item in another library is a coincidence,
-            ;; not this one's old address.
+            ;; A library from before keys were stored holds this item under its UNTAGGED name key,
+            ;; which `occupant` (probing the tagged key) misses: probe it too, within `option-pack`
+            ;; only.
             untagged-key (some->> mint-name common/name-to-kw)
             legacy-occupant (when (and untagged-key (not= untagged-key key))
                               (get-in plugins [option-pack plugin-key untagged-key]))]
@@ -1037,33 +1019,21 @@
     (:source recorded)))
 
 (defn address-for
-  "The key `item` saves under: its own, or a freshly minted one carrying the source's tag (D10b).
-
-   `mint-name` is the name a fresh key derives from -- `(:name item)` for an ordinary save, the
-   sanitized name where a save placeholder-fills it.
-
-   GOTCHA: a keyless item here is a genuinely NEW one, and minting is always right, BECAUSE
-   `reg-edit-homebrew` stamps the address onto anything the builder fetches -- including a library
-   authored before keys were stored, which carries none of its own. Identity is established once,
-   where the item is taken from a known row, rather than guessed at from its name every save: a
-   name matches any entry that happens to share it, and guessing handed new items somebody else's
-   address to overwrite."
+  "The key `item` saves under: its own, or one minted from `mint-name` carrying the source's tag
+   (D10b). `mint-name` is `(:name item)`, or the sanitized name where a save placeholder-fills it.
+   GOTCHA: a keyless item here is new, so minting is right: `reg-edit-homebrew` stamps the address
+   onto anything the builder fetches, including libraries from before keys were stored."
   [plugins plugin-key option-pack item mint-name]
   (or (:key item)
       (common/source-tagged-key mint-name option-pack
                                 (get-in plugins [option-pack :abbreviation]))))
 
 (defn replacing
-  "The same destination with the author's consent to discard the occupant applied.
-
-   Only an `:occupied` refusal is negotiable: it names one item, in this source, that the author
-   can see on screen. `:elsewhere` and `:ambiguous` pass through unchanged -- nothing is in the
-   way there to replace, so consenting would create the duplicate rather than resolve it.
-
-   GOTCHA: an `:occupied` refusal while minting can carry `:address` -- the occupant's OWN key,
-   when that differs from the one the caller was about to mint (a legacy, untagged entry). Consent
-   there writes at `:address`, not at the caller's `key`, or it would recreate the very duplicate
-   being refused. Callers read this back as `(or (:key destination) key)`."
+  "`destination` with the author's consent to discard the occupant. Only an `:occupied` refusal
+   changes (one item, in this source, on screen); `:elsewhere` and `:ambiguous` pass through, since
+   consenting there would create the duplicate.
+   GOTCHA: an `:occupied` refusal while minting can carry `:address`, the occupant's own (untagged)
+   key; consent writes there, so callers read `(or (:key destination) key)`."
   [{:keys [action reason origin address] :as destination}]
   (cond
     (not= :refuse action)  destination
@@ -1104,13 +1074,9 @@
                     [:show-error-message fallback-message builder-error-ttl]]})))
 
 (defn collision-error-fx
-  "Effects for a save the destination refused: one message per reason, and an offer only where
-   there is something to offer.
-
-   `:occupied` names ONE item, in this source, that the author can see -- so it offers
-   `replace-event` and the decision is theirs. `:elsewhere` and `:ambiguous` get no such button:
-   nothing sits in the way to replace, and saving would MAKE the duplicate rather than resolve it.
-
+  "Effects for a save `destination` refused: one message per reason. Only `:occupied` (one item, in
+   this source, on screen) offers `replace-event`; `:elsewhere` and `:ambiguous` have nothing to
+   replace.
    GOTCHA: the banner closes on any click that reaches it, so the offer needs no cancel."
   [type-name option-pack key {:keys [reason occupant holders] :as destination} replace-event]
   (let [lower (s/lower-case type-name)
@@ -1187,11 +1153,9 @@
              ;; into a twin that renders identically in My Content. nil when nothing is left.
              option-pack (some-> (:option-pack raw-item) s/trim not-empty)
              item (cond-> raw-item option-pack (assoc :option-pack option-pack))
-             ;; MINTED ONCE (D10a), TAGGED WITH ITS SOURCE (D10b). The key is an address, not a
-             ;; label: derived from the name at creation, carrying the source's abbreviation, then
-             ;; fixed. Renaming is a name edit, and every character holding the key still resolves.
-             ;; Changing a key -- including deleting the tag to answer to an SRD key on purpose --
-             ;; is a separate, deliberate act that records :former-keys.
+             ;; Minted once (D10a), tagged with its source (D10b): the key is an address derived
+             ;; from the name at creation, then fixed; a rename is a name edit. Changing a key is a
+             ;; separate act that records :former-keys.
              key (address-for (:plugins db) plugin-key option-pack item name)
              ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
              ;; filled copy: a blank or invalid required field must block and prompt,
@@ -1201,11 +1165,8 @@
              item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)
-             ;; A key is an ADDRESS and it is global: two items answering to one is the same
-             ;; problem wherever the second one lives, since the combines that dedupe pick their
-             ;; winner by the hash order of source names and the ones that do not show both
-             ;; copies. (Wanting both IS legitimate and arrives through IMPORT, where the conflict
-             ;; modal asks.)
+             ;; A key is a global address: two items answering to one collide wherever the second
+             ;; lives. Wanting both arrives through import, where the conflict modal asks.
              {:keys [action from] :as destination}
              (when (and option-pack (nil? explanation))
                (cond-> (save-destination plugins (get-in db [:builder-origin plugin-key]) plugin-key option-pack key
@@ -1548,11 +1509,8 @@
 (defn reg-delete-homebrew [event-key plugin-key]
   (reg-event-fx
    event-key
-   ;; The ROW's address, for the same reason the edit button passes it: `:option-pack` on the item
-   ;; is a declaration an import can leave stale, and `:key` is absent on libraries authored
-   ;; before keys were stored. Reading them here deleted nothing at all for a pre-keys library,
-   ;; conjured an empty source from a stale declaration, or -- where another source answered to
-   ;; the same key -- deleted THAT entry and left the clicked one in place.
+   ;; The ROW's address, as the edit button passes it: the item's `:option-pack` can be stale after
+   ;; an import, and its `:key` is absent in libraries from before keys were stored.
    (fn [{:keys [db]} [_ item source key confirmed?]]
      (let [source (or source (:option-pack item))
            key    (or key (:key item))
@@ -3127,17 +3085,10 @@
   (reg-event-fx
    event
    (fn [{:keys [db]} [_ item source key content-type]]
-     ;; The caller passes the address of the ROW it took the item from. Neither field on the item
-     ;; is that address: `:option-pack` is what the item DECLARES, which an import that renamed
-     ;; the source leaves stale, and `:key` is absent on libraries authored before keys were
-     ;; stored.
-     ;;
-     ;; The address goes ONTO the item, not just into `:builder-origin`. That is what makes
-     ;; every later question easy: the form shows the source that really holds it, the save
-     ;; writes back where it came from, and a rename cannot re-address it.
-     ;; Ten of the eleven edit buttons pass only the item -- the list pages and the
-     ;; character-builder pencil. They can, because `process-plugin-vals` stamps the address on
-     ;; the way out of `:plugins`; My Content passes it explicitly because it has it to hand.
+     ;; `address` is the ROW the caller took the item from; the item's `:option-pack` can be stale
+     ;; and its `:key` absent. It goes onto the item as well as `:builder-origin`, so the form, the
+     ;; save and a rename all read the real address. Callers passing only the item rely on
+     ;; `process-plugin-vals` having stamped it.
      (let [located (cond-> item
                      source (assoc :option-pack source)
                      key    (assoc :key key))
@@ -5242,11 +5193,9 @@
                                                        plugin-key old-key new-key)
              new-plugins (assoc plugins option-pack renamed)
              moved (get-in renamed [plugin-key new-key])]
-         ;; The builder keeps the AUTHOR's item, re-keyed -- not the library copy. Replacing it
-         ;; wholesale discarded whatever they had typed since the last save, from app-db and from
-         ;; the persisted draft alike. `:former-keys` comes across so the next save does not
-         ;; write the breadcrumb back out.
-         ;; Links in this source follow now; links in other sources are offered, never moved.
+         ;; Keep the author's item, re-keyed, not the library copy, so unsaved edits survive;
+         ;; `:former-keys` comes across so the next save does not write it back out. Links in this
+         ;; source follow now; links in other sources are offered.
          (let [offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
            {:dispatch-n
             [[:set-builder-field-errors {}]

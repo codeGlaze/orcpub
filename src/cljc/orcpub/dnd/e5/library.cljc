@@ -149,13 +149,12 @@
           (sort-by (comp count key) es)))
 
 (defn three-way
-  "`mine` applied onto `theirs`, both descended from `base`: every entry (a source, a source's own
+  "`mine` applied onto `theirs`, both descended from `base`: each entry (a source, a source's own
    field, an item) that `mine` added, changed or removed since `base` is applied to `theirs`, and
    the rest of `theirs` stands. Returns {:plugins :conflicts}, a conflict being the path of an
-   entry both changed, differently.
-   GOTCHA: a source `mine` deleted whole is a conflict, not a silent delete, when `theirs` added
-   or changed something under it — that entry has no path in `base`, so it is invisible to the
-   ordinary per-entry diff and would otherwise be applied onto a source that no longer exists."
+   entry both changed differently.
+   GOTCHA: a source `mine` deleted whole is a conflict when `theirs` added or changed an entry in
+   it."
   [base mine theirs]
   (let [b (entries (normalize base)) m (entries (normalize mine)) t (entries (normalize theirs))
         at (fn [es p] (get es p ::none))

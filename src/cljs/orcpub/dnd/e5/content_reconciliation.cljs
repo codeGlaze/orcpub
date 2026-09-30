@@ -383,7 +383,7 @@
 ;; ancestry and a background picked as :blue share :blue. A pick at a library/pick-homes path uses
 ;; its own type's index; every other pick uses the flat index. A type with no offered list is
 ;; unknown, never empty. typed-keys.md.
-;;
+
 ;; GOTCHA: heal the character, not the matching. t/option-cfg drops fields it does not know, so
 ;; :former-keys never reaches the template.
 

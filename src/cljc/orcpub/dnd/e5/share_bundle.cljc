@@ -1,26 +1,8 @@
 (ns orcpub.dnd.e5.share-bundle
-  "Compute the complete homebrew (\"plugin\") content a single character depends
-   on, so it can be bundled into a shareable file (the \"embed the content in
-   the shared link\" feature).
-
-   Pure data functions — no re-frame, no DOM — so the core unit-tests under
-   `lein test`.
-
-   Strategy:
-     1. DIRECT   — sweep every ::entity/key the character selected
-        (entity/flatten-options) and keep those that exist in the plugins map.
-     2. CLOSURE  — follow every :follow link in library-links/links to a fixpoint.
-     3. REVERSE  — pull every item that points at an included item through a
-        :reverse link (a spell naming an included class's list); repeat 2 and 3
-        until nothing is added.
-
-   Emits a :plugins-shaped map grouped by original source, ready to serialize
-   like an .orcbrew export.
-
-   Scope limit: custom magic items / weapons / armor are NOT plugins (they live
-   in the server-side ::mi5e/custom-items store, referenced by DB id), so they
-   are not — and cannot be — part of this closure. A character using one shows
-   it as missing on the recipient side. See the KB."
+  "The homebrew one character depends on, as a :plugins-shaped map grouped by source, for a share
+   link. Pure. The closure is the character's selected keys, then every :follow link to a fixpoint,
+   then every item pointing in through a :reverse link, repeated until nothing is added
+   (library-links/links). Custom magic items are server-side, not plugins, so never included."
   (:require [clojure.string :as str]
             [orcpub.entity :as entity]
             [orcpub.template :as t]

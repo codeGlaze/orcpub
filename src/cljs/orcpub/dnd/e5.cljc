@@ -120,15 +120,11 @@
         (if (contains? taken candidate) (recur (inc n)) candidate)))))
 
 (defn rekey-content-group*
-  "Re-key only items whose CURRENT key is invalid (the keyword trap — a key not
-   starting with a letter, e.g. `:9-lives`): move to the key derived from the
-   corrected `:name` and sync `:key`. Already-valid keys are left untouched (don't
-   disturb existing references); collisions get a numeric suffix; an item with no
-   usable `:name` keeps its original key (validation still flags it).
-
-   `taken` (optional) holds keys already in use elsewhere, which a moved item also avoids.
-
-   Returns {:items <re-keyed group> :renames [[old-key new-key] ...]}."
+  "`items` with each key that does not start with a letter (the keyword trap, `:9-lives`) moved to
+   the key derived from the item's corrected `:name`, and `:key` synced; valid keys stay.
+   Collisions get a numeric suffix; an item with no usable `:name` keeps its key. `taken`
+   (optional): keys in use elsewhere, also avoided. Returns {:items <re-keyed group> :renames
+   [[old-key new-key] ...]}."
   ([items] (rekey-content-group* items #{}))
   ([items taken]
   ;; Reserve the already-valid keys. distinct-key is seeded with these plus the
