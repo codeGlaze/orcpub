@@ -1,0 +1,113 @@
+<title>Dark Button Text</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; width: 1280px; max-width: none; height: auto; border-radius: 6px; }
+.close img { width: auto; }
+.tw { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 13px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+th { font: 600 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+tr:last-child td { border-bottom: 0; }
+td.ok { color: var(--good); font-weight: 600; } td.no { color: #e07a6a; font-weight: 600; }
+td.num { font-variant-numeric: tabular-nums; }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · feature/style-guide</div>
+      <h1>Dark text on the yellow buttons</h1>
+      <p class="sub">Every amber button on four pages of the running branch, dark theme, with white text (as built) and dark text (<code>#15202e</code>, applied at capture time, not built). White on this amber is 2.1:1; dark is 7.8:1. The light theme’s buttons are slate blue with white text and already pass, so they’d stay as they are.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Page">
+        <button type="button" data-p="builder">Builder</button>
+        <button type="button" data-p="mycontent">My Content</button>
+        <button type="button" data-p="spells">Spells</button>
+        <button type="button" data-p="monsters">Monsters</button>
+      </div>
+      <div class="seg" role="group" aria-label="Text">
+        <button type="button" data-s="white">White text</button>
+        <button type="button" data-s="dark">Dark text</button>
+      </div>
+    </div>
+  </header>
+  <section>
+    <div class="shot"><img id="shot" alt="Page capture"></div>
+  </section>
+  <section>
+    <h2>Up close, at twice actual size</h2>
+    <div class="shot close"><img src="round3/dark-btn-os700.png" alt="White text"></div>
+    <div class="shot close"><img src="round3/dark-btn-dark.png" alt="Dark text"></div>
+  </section>
+  <section>
+    <h2>Room for “MY CONTENT”</h2>
+    <p>The header tabs are a fixed 110px at every desktop width, so screen width doesn’t change this. The label gets 90px inside the tab.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Option</th><th>Label needs</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>Before: 400 (integration today)</td><td class="num">88.0px</td><td class="ok">fits, 2.0px spare</td></tr>
+        <tr><td>700, as built</td><td class="num">92.5px</td><td class="no">wraps, 2.5px short</td></tr>
+        <tr><td>700, letter spacing −2%</td><td class="num">89.7px</td><td class="ok">fits, 0.3px spare (fragile)</td></tr>
+        <tr><td>700, letter spacing −4%</td><td class="num">86.9px</td><td class="ok">fits, 3.1px spare</td></tr>
+        <tr><td>600</td><td class="num">90.3px</td><td class="no">wraps, 0.3px short</td></tr>
+        <tr><td>700, tab padding 8px instead of 10px (94px room)</td><td class="num">92.5px</td><td class="ok">fits, 1.5px spare (calculated, not captured)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</div>
+<script>
+let pg = 'builder', s = 'dark';
+function render() {
+  document.getElementById('shot').src = `round4/dark-${s}-${pg}.png`;
+  document.querySelectorAll('[data-p]').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === pg));
+  document.querySelectorAll('[data-s]').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
+}
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { pg = b.dataset.p; render(); }));
+document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { s = b.dataset.s; render(); }));
+render();
+</script>
