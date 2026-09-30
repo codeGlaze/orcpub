@@ -76,7 +76,27 @@
                  :mx (px* (:mx lid)) :my (py* (:my lid))
                  :x1 (px* (:x1 lid)) :y1 (py* (:y1 lid))
                  ;; the region above the curve runs off the top of the frame
-                 :top (- y h)})}))))
+                 :top (- y h)})
+         ;; the lower lid, placed only for a style drawn without whites
+         :lower (when-let [l (:lower e)]
+                  {:x0 (px* (:x0 l)) :y0 (py* (:y0 l))
+                   :mx (px* (:mx l)) :my (py* (:my l))
+                   :x1 (px* (:x1 l)) :y1 (py* (:y1 l))})}))))
+
+(defn whites-outlines
+  "For an asset drawn without painted whites, one closed outline per eye in
+   pixels: along the upper lid, then back along the lower lid. The whites are
+   filled inside it, UNDER the eye art, so the lashes and iris sit on top.
+   Each outline is [[x0 y0] [mx my x1 y1] [lx1 ly1] [lmx lmy lx0 ly0]]."
+  [asset rect]
+  (when (:asset/whites asset)
+    (keep (fn [{:keys [lid lower]}]
+            (when (and lid lower)
+              [[(:x0 lid) (:y0 lid)]
+               [(:mx lid) (:my lid) (:x1 lid) (:y1 lid)]
+               [(:x1 lower) (:y1 lower)]
+               [(:mx lower) (:my lower) (:x0 lower) (:y0 lower)]]))
+          (iris-shapes asset rect))))
 
 ;; ---------------------------------------------------------------------------
 ;; Feathering the region's edge

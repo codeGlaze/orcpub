@@ -90,3 +90,33 @@
     (is (= (second (pa/assets-for-layer :eyes)) (pa/with-iris-alternative (second (pa/assets-for-layer :eyes))))
         "other eye styles are untouched")
     (is (= 0.72166 (get-in eyes [:asset/iris 1 :cx])) "the registry keeps the artist's placement")))
+
+;; ---------- filled-in whites, for a style drawn without them ----------
+
+(def whites-eye
+  {:asset/id :test-eyes :asset/whites true :asset/pupil 0.45
+   :asset/iris [{:cx 0.5 :cy 0.5 :rx 0.1 :ry 0.1 :rot 0.0
+                 :lid {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.3 :x1 0.7 :y1 0.5}
+                 :lower {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.7 :x1 0.7 :y1 0.5}}]})
+
+(deftest whites-follow-the-two-lids
+  (let [[[start upper lower-start lower]] (c/whites-outlines whites-eye [0 0 100 200])]
+    (is (= [30.0 100.0] start) "starts where the upper lid does")
+    (is (= [50.0 60.0 70.0 100.0] upper) "along the upper lid")
+    (is (= [70.0 100.0] lower-start))
+    (is (= [50.0 140.0 30.0 100.0] lower) "and back along the lower lid"))
+  (is (empty? (c/whites-outlines (dissoc whites-eye :asset/whites) [0 0 100 200]))
+      "a style with painted whites gets none")
+  (is (empty? (c/whites-outlines (update-in whites-eye [:asset/iris 0] dissoc :lower) [0 0 100 200]))
+      "nor an eye whose lower lid was never placed"))
+
+(deftest the-whites-swatch-comes-with-the-style
+  (let [p {:layers {:eyes {:asset/id :test-eyes}}}]
+    (with-redefs [pa/asset-by-id (fn [k id] (when (= [k id] [:eyes :test-eyes]) whites-eye))]
+      (is (some #{:whites} (pa/active-color-slots p)) "shown for a style drawn without whites")
+      (is (= "#ffffff" (pa/whites-colour p)) "white until someone picks")
+      (is (= "#2a2a2e" (pa/whites-colour (assoc-in p [:colors :whites] "#2a2a2e")))))
+    (with-redefs [pa/asset-by-id (fn [_ _] (dissoc whites-eye :asset/whites))]
+      (is (not (some #{:whites} (pa/active-color-slots p))) "and not for one with painted whites"))
+    (is (not (some #{:whites} (pa/active-color-slots {:layers {:eyes {:asset/id (:asset/id (first (pa/assets-for-layer :eyes)))}}})))
+        "none of today's styles have filled-in whites, so nothing changes until one is placed")))

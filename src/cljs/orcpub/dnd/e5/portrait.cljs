@@ -241,6 +241,43 @@
           :style {:position "absolute" :inset 0 :width "100%" :height "100%"
                   :object-fit "contain" :z-index z :pointer-events "none"}}])})))
 
+(defn- fill-whites!
+  "Fill the whites of an eye style drawn without them, into `ctx`, for the
+   asset drawn into `rect`."
+  [ctx asset rect colour]
+  (set! (.-fillStyle ctx) colour)
+  (doseq [[[x0 y0] [mx my x1 y1] [lx1 ly1] [lmx lmy lx0 ly0]] (colorize/whites-outlines asset rect)]
+    (.beginPath ctx)
+    (.moveTo ctx x0 y0)
+    (.quadraticCurveTo ctx mx my x1 y1)
+    (.lineTo ctx lx1 ly1)
+    (.quadraticCurveTo ctx lmx lmy lx0 ly0)
+    (.closePath ctx)
+    (.fill ctx)))
+
+(defn- whites-layer
+  "The whites under an eye style drawn without them: a canvas at the art's own
+   size, sized by object-fit like every other layer so it lines up with it."
+  [asset colour z]
+  (let [node (atom nil)
+        paint! (fn [asset colour]
+                 (with-image (:asset/url asset)
+                   (fn [img]
+                     (when-let [^js el @node]
+                       (let [w (.-naturalWidth img) h (.-naturalHeight img)]
+                         (set! (.-width el) w)
+                         (set! (.-height el) h)
+                         (fill-whites! (.getContext el "2d") asset [0 0 w h] colour))))))]
+    (r/create-class
+     {:component-did-mount (fn [_] (paint! asset colour))
+      :component-did-update (fn [this _] (let [[_ asset colour] (r/argv this)] (paint! asset colour)))
+      :reagent-render
+      (fn [_ _ z]
+        [:canvas.portrait-layer.portrait-layer-whites
+         {:ref #(reset! node %)
+          :style {:position "absolute" :inset 0 :width "100%" :height "100%"
+                  :object-fit "contain" :z-index z :pointer-events "none"}}])})))
+
 (defn composite
   "Stacked, tinted portrait for a `portrait` map (see ns doc). `attrs`
    (optional) merges into the outer div so callers can size/position it."
@@ -251,7 +288,8 @@
          ;; is deref'd while the render runs, and the seq is realised after,
          ;; so a switch read in there would not redraw the face
          dev? @(subscribe [:orcpub.dnd.e5/dev-mode?])
-         _ @iris-alternative?]
+         _ @iris-alternative?
+         whites (pa/whites-colour portrait)]
      [:div.portrait-composite
       (merge {:style {:position "relative" :width "100%" :height "100%"}} attrs)
       (map-indexed
@@ -261,9 +299,13 @@
                                     (pa/asset-by-id layer-key))]
             (if (colorizes? layer-key asset)
               ^{:key layer-key}
-              [colorized-layer (as-placed asset dev?)
-               (pa/tint-for portrait layer-key)
-               (pa/effective-gamma portrait layer-key asset) z]
+              [:<>
+               ;; filled-in whites go under the eye they belong to
+               (when (:asset/whites asset)
+                 [whites-layer (as-placed asset dev?) whites z])
+               [colorized-layer (as-placed asset dev?)
+                (pa/tint-for portrait layer-key)
+                (pa/effective-gamma portrait layer-key asset) z]]
               ^{:key layer-key}
               [:div.portrait-layer
                {:style (if (= :as-drawn (pa/render-mode layer-key asset))
@@ -365,6 +407,12 @@
                       tctx (.getContext tmp "2d")]
                   (doseq [[[layer-key asset] img] (map vector selected (array-seq imgs))
                           :when img]
+                    ;; filled-in whites go down first, under the eye art
+                    (when (:asset/whites asset)
+                      (fill-whites! ctx (as-placed asset (:dev-mode? @re-frame.db/app-db))
+                                    (layout/contain-rect (.-naturalWidth img) (.-naturalHeight img)
+                                                         raster-width raster-height)
+                                    (pa/whites-colour portrait)))
                     (.clearRect tctx 0 0 raster-width raster-height)
                     (set! (.-globalCompositeOperation tctx) "source-over")
                     ;; Fit, do not stretch: the drawer composites with CSS
