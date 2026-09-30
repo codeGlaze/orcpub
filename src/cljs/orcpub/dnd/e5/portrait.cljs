@@ -89,10 +89,25 @@
   (r/atom (try (= "alternative" (.getItem js/localStorage iris-alt-key))
                (catch :default _ false))))
 
-(defn toggle-iris-alternative! []
-  (let [on (swap! iris-alternative? not)]
-    (try (.setItem js/localStorage iris-alt-key (if on "alternative" "artist"))
-         (catch :default _ nil))))
+(defn set-iris-alternative! [on]
+  (reset! iris-alternative? (boolean on))
+  (try (.setItem js/localStorage iris-alt-key (if on "alternative" "artist"))
+       (catch :default _ nil)))
+
+(defn- iris-alternative-switch
+  "Right under the face it changes, and only while Developer mode is on and
+   Eyes 01 -- the style it applies to -- is the one on canvas."
+  [portrait]
+  (when (and @(subscribe [:orcpub.dnd.e5/dev-mode?])
+             (= (:asset-id pa/eyes-01-far-iris-alternative)
+                (get-in portrait [:layers :eyes :asset/id])))
+    (let [alt? @iris-alternative?]
+      [:div.pl-dev-switch {:role "group" :aria-label "Far iris placement (developer)"}
+       [:span.pl-dev-switch-label "Far iris"]
+       [:button {:type "button" :aria-pressed (str (not alt?))
+                 :on-click #(set-iris-alternative! false)} "Artist's"]
+       [:button {:type "button" :aria-pressed (str alt?)
+                 :on-click #(set-iris-alternative! true)} "Alternative"]])))
 
 (defn- as-placed
   "The asset as it should be drawn: the registry's, unless Developer mode is
@@ -231,7 +246,12 @@
    (optional) merges into the outer div so callers can size/position it."
   ([portrait] (composite portrait nil))
   ([portrait attrs]
-   (let [layers (:layers portrait)]
+   (let [layers (:layers portrait)
+         ;; read here, not inside the lazy seq below: Reagent only tracks what
+         ;; is deref'd while the render runs, and the seq is realised after,
+         ;; so a switch read in there would not redraw the face
+         dev? @(subscribe [:orcpub.dnd.e5/dev-mode?])
+         _ @iris-alternative?]
      [:div.portrait-composite
       (merge {:style {:position "relative" :width "100%" :height "100%"}} attrs)
       (map-indexed
@@ -241,7 +261,7 @@
                                     (pa/asset-by-id layer-key))]
             (if (colorizes? layer-key asset)
               ^{:key layer-key}
-              [colorized-layer (as-placed asset @(subscribe [:orcpub.dnd.e5/dev-mode?]))
+              [colorized-layer (as-placed asset dev?)
                (pa/tint-for portrait layer-key)
                (pa/effective-gamma portrait layer-key asset) z]
               ^{:key layer-key}
@@ -590,6 +610,21 @@
 .pl-btn-ghost { border-color: rgba(255,255,255,0.10); color: #8b95a5; }
 .pl-btn-ghost:hover:not(:disabled) { border-color: #f0a100; color: #ffcc5e; }
 .pl-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+.pl-dev-switch {
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  margin: 8px auto 0; padding: 5px 8px; width: fit-content;
+  border: 1px dashed rgba(240,161,0,0.45); border-radius: 6px;
+  font: 500 11px/1 inherit; color: #8b95a5;
+}
+.pl-dev-switch-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; margin-right: 2px; }
+.pl-dev-switch button {
+  font: 600 11px/1 inherit; color: #c9d0da; background: transparent; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 4px 8px;
+}
+.pl-dev-switch button[aria-pressed=true] { background: rgba(240,161,0,0.18); border-color: #f0a100; color: #ffcc5e; }
+.pl-dev-switch button:focus-visible { outline: 2px solid #ffcc5e; outline-offset: 1px; }
+.pl-root.light-theme .pl-dev-switch button { color: #363636; border-color: rgba(0,0,0,0.16); }
+.pl-root.light-theme .pl-dev-switch button[aria-pressed=true] { background: rgba(51,101,138,0.14); border-color: #33658A; color: #2b5677; }
 .pl-seed-row {
   display: flex; align-items: center; justify-content: space-between;
   color: #616a7a; font: 500 11px/1 inherit; letter-spacing: 0.06em; text-transform: uppercase;
@@ -1472,6 +1507,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
          [composite portrait]
          [:div.pl-empty-hint
           "Pick a layer below, or hit " [:em "Randomize"] "."])]
+      [iris-alternative-switch portrait]
       ;; Directly under the art it describes. It used to sit in the footer
       ;; beside Save Portrait, which put a credit in a row of actions and made
       ;; the drawer disagree with the character summary, where it has always
