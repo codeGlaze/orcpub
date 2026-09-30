@@ -141,15 +141,17 @@ saved in the browser with the theme, and on the account when logged in
 tone: `text-lift-dark` (a soft dark shadow) under the default white text, `text-lift-light` (a
 soft light glow) under the opt-in dark text. It sharpens the letters without changing the colours
 people know. Applied to `.form-button` (dark theme only, since it's slate in the light theme),
-`.mc-btn` and `.roll-button` (amber in both themes). A survey of every text-on-amber element on
-11 pages found one other place: the active header tab (inline `active-style`), proposed.
+`.mc-btn` and `.roll-button` (amber in both themes), and to every header tab (the active one is
+amber; the grey ones on the banner firm up too). The ability buttons (`.roll-button`, "+2",
+"-1") are 700 like the other amber buttons, and with dark text get a stronger glow (70% white),
+because a one- or two-character label has too little stroke to hold up with the standard lift.
 
 **Light-theme inconsistency.** `.form-button` turns slate blue in the light theme, but its copies
 `.mc-btn` and `.roll-button` stay amber, because the light-theme rule was only written for one
 copy. The shared button base (section 5) fixes this properly.
 
-**My Content tab wrap (open).** At 700, "MY CONTENT" wraps to two lines at 1280px. Letter
-spacing −2% on the tab titles fits it on one line; captured with −4%, 13px and 600 for comparison.
+**My Content tab wrap (decided).** At 700, "MY CONTENT" needed 92.5px of the tab's fixed 90px
+and wrapped. The tab titles have −4% letter spacing (86.9px, 3px to spare; −2% left only 0.3px).
 
 **Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
 because browsers give buttons their own default font and nothing here sets `button

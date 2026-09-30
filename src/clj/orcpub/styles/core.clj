@@ -1228,7 +1228,10 @@
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
       {:color "#15202e"
-       :text-shadow text-lift-light}]]
+       :text-shadow text-lift-light}]
+     ;; the ability buttons are short numbers: a stronger glow to hold them up
+     [:.roll-button
+      {:text-shadow "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)"}]]
 
     ;; Browsers give buttons their own default font (Arial), not the page's, so every
     ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
@@ -1238,6 +1241,13 @@
     ;; Amber everywhere except .form-button in the light theme, which is slate.
     [".app:not(.light-theme) .form-button" :.mc-btn :.roll-button
      {:text-shadow text-lift-dark}]
+
+    ;; The header tabs sit on the banner art, and the active one on amber.
+    ;; -4% tracking fits MY CONTENT on one line at 700 in the fixed 110px tab
+    ;; (it needs 86.9px of 90px; untracked it needs 92.5px).
+    [:.header-tab
+     {:text-shadow text-lift-dark}
+     [:.title {:letter-spacing "-0.04em"}]]
 
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white
@@ -1509,7 +1519,7 @@
     [:.roll-button
      {:color :white
       :min-width "68px"
-      :font-weight 600
+      :font-weight 700
       :font-size "14px"
       :border :none
       :border-radius "2px"
