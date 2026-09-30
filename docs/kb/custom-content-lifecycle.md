@@ -74,6 +74,12 @@ Magic items do **not** use `reg-save-homebrew` and do **not** land in `:plugins`
 character references them as **equipment** (`::entity/values`), not as
 `::entity/options` content, and they are **not** part of an `.orcbrew` export.
 
+- **Save needs a login.** The Save control in `views` handles the logged-out case because a
+  logged-out click landed on the login page with no explanation.
+- **An unset type saves as the shown default** (`::mi/save-item` persists `:wondrous-item`). A
+  controlled `<select>` whose value matches no option shows its first option, so the form looked
+  filled; `::mi/type` is optional in the spec, so the item saved blank and rendered as ", very rare".
+
 ## Missing-content reconciliation and why inline `:custom` was false-flagged
 
 `::char5e/available-content` (`subs.cljs:1451`) builds "what's available"

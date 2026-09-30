@@ -121,7 +121,8 @@ import-clash rename, because the key moved only because another item holds it. A
 In each case the user sees the wrong content, with no error.
 
 **Characters.** Choices resolve through `entity/index-matching-key`: exact match first, then the
-`canonical-key` fallback when it is unambiguous. The missing-content banner covers six types (class,
+`canonical-key` fallback when it is unambiguous. It is two passes rather than one looser `=`, because
+a per-element compare cannot tell an unambiguous rebind from a coin flip between two candidates. The missing-content banner covers six types (class,
 subclass, race, subrace, background, feat). It finds subclasses through a hard-coded set of fourteen
 selection names, so a fifteenth would slip past it.
 
@@ -172,7 +173,9 @@ fold demo, then the library, then shared content, so shared content wins for vie
 
 Writes are whole-map on all three branches; chunked storage was never built. INT and GR salvage on
 load but never write the result back, so the same salvage reruns every boot. P34 mends fields and
-writes them back, with the set-aside copy written first.
+writes them back, with the set-aside copy written first. The loader in `db.cljs` used to be
+all-or-nothing: if any source failed the `::e5/plugins` spec it returned nil, dropping the whole
+library.
 
 **Two tabs.** None of the three has a `storage` listener. Both tabs keep `:plugins` in memory and write
 the whole map, so the last write wins and the other tab's edits vanish with no warning. The character

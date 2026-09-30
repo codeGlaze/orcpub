@@ -75,7 +75,8 @@ The abbreviation rule, in order: the override table where the world already has 
 source that CONTAINS one keeps it whole and takes initials of the rest, because that is how a
 release in a series is named (`"UA - Heroes of Krynn"` → `UAHoK`, `"UA - Giant Options"` → `UAGO`);
 then first-letter-plus-last-letter per word for three words or fewer (`"Kibbles Tasty"` → `KsTy`,
-`"Tidewater Curios"` → `TrCs`) and initials beyond that.
+`"Tidewater Curios"` → `TrCs`) and initials beyond that. First and last letter, because plain
+initials of a short name are noise: `"Kibbles Tasty"` → `KT` says nothing.
 
 A year is not an initialism — `"Unearthed Arcana 2022: Heroes of Krynn"` is `UA2HoK`, not
 `UA2022HoK`. Pinned by

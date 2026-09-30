@@ -165,12 +165,14 @@ or closes, or a branch changes role, update this section in the same commit.
 | `port/save-gate` | the homebrew-keys fix; merged into `integration` as `614c17ff` (#37, 2026-09-30) |
 | `fix/comment-check` | folded into #37 (2026-09-30); PR #38 closed. Owner to delete the branch |
 | `integration` | the active trunk; carries the homebrew-keys fix |
+| `fix/comment-debt` | fixes the comment check's 309 recorded hits on `integration`, plus the party-route response; PR #39 |
 
 | PR | from → to | note |
 |---|---|---|
 | #32 | `integration` → `develop` | the route by which the homebrew-keys fix reaches `develop` |
 | #34 | `f1852203-accounts` → `develop` | paused; its homebrew commits were inputs to #37 |
 | #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix |
+| #39 | `fix/comment-debt` → `integration` | comment debt to zero; after merge, pull `integration` down to the trunk and here |
 
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 

@@ -103,7 +103,9 @@ prop serves all of them.
    :reach? :loading? :ammunition? :special?`. Both props ride the GENERAL channels (`?attack-modifier-fns`,
    `?damage-bonus-fns`), which retires the question the old comment on `damage-bonus-fn` left open:
    with a predicate, `?melee-damage-bonus-fns` and `?ranged-damage-bonus-fns` have nothing left to
-   do, and both were already commented out of the engine.
+   do, and both were already commented out of the engine. The dead ranged/melee damage code in
+   `template_base.cljc` assumed any non-melee attack is ranged, finesse or DEX-based, and
+   `?melee-damage-bonus-fns` is never read.
 
    **Covers TWO styles, not three.** Archery `{:bonus 2 :ranged? true}` and Thrown Weapon
    `{:bonus 2 :thrown? true}` — both verified end to end through the engine. **Dueling is NOT

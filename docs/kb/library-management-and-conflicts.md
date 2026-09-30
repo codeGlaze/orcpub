@@ -20,6 +20,10 @@ entry. My Content lists sources; each source expands into per-content-type
 categories (`my-content-types` drives that list, so empty categories hide and a
 single add-content menu creates the first item of a missing type).
 
+A **nameless source** (malformed, hand-edited, or a bad export) is parked by
+`rename-empty-plugin-key-with-log` in a source named "Unnamed Content", not
+absorbed into Default Option Source, so the user can find it and fix it.
+
 ## Why a duplicate key is a problem
 
 Content is read by merging every enabled source. For most content types a
@@ -76,6 +80,23 @@ content). Both feed the conflict modal, which offers per-conflict decisions:
 The **internal keeper-picker** handles the all-one-import case: nothing is
 already loaded, so nothing is "base" — the user picks which source keeps the key
 (default = first source alphabetically, overridable).
+
+Why some of the resolution code is shaped the way it is:
+
+- **Rename All** renames every duplicate in one action and passes `:keeper`. Renaming only one
+  duplicate left the others colliding, so the conflict came back on every
+  re-import; and omitting `:keeper` made Rename All look like a no-op.
+- **`drop-skipped-imports`** exists because skipped items were still merged in,
+  enabled — creating the very duplicate the modal promised to avoid.
+- **Conflict suggestions carry a name with the key.** A suggested key without a
+  matching name reverted on the next editor save (the key is re-derived from the
+  name), which is how resolved conflicts kept returning.
+- **`incoming-sources`** detects a multi-source import by structure. Treating a
+  multi-plugin file as a single plugin double-nests it, and the double-nested
+  pack is quarantined.
+- **`strip-dedup-suffix`** is a fallback for naming a single-source import:
+  real exports carry `:option-pack`. Its bare-number branch needs a space before
+  the number, so "Homebrew v2" is left alone.
 
 ### Opinionated default (import) vs. the advanced panel
 
@@ -245,7 +266,9 @@ single search keystroke).
   helpers `collision-twin-index`, `twin-note`, `enabled-twin-paths`,
   `mutual-exclusion-off-count`; and the health detectors `unresolved-collisions`,
   `unresolved-conflict-sources`, `library-export-issue-counts`,
-  `classify-plugins-for-export`.
+  `classify-plugins-for-export`. Marked INVESTIGATE (2026-08-23): the bare
+  `clean-*` wrappers and the fuzzy key-matching cluster (`suggest-key-matches`,
+  Levenshtein) predate this work (`af228f12`), and a code sweep found no callers.
 - `orcpub.dnd.e5.events` — `::e5/toggle-plugin`, `::e5/toggle-plugin-item`
   (swap-aware), `::e5/toggle-global-disable`, `::e5/toggle-section-disable`, the
   move/copy selection events (`::e5/toggle-select-mode`,

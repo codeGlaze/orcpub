@@ -63,3 +63,8 @@ labelled actions, so auto-heal is an explicit choice:
   `repair-quarantined-source-rejects-still-invalid` checks). Coercion moves to the
   explicit Auto action.
 - Applies to **every content type**, not just classes.
+- **A repair is persisted.** `::e5/repair-quarantined-source` writes the repaired
+  source back to the library, unlike the export auto-fix, which rewrites only the
+  exported file.
+- **Discarding a quarantined source** is offered because an entry can be stale: one
+  left by an earlier bad import never clears itself.

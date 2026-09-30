@@ -410,6 +410,12 @@ in, so it reads as a footnote to the form rather than part of it. It refuses a k
 already answers to, and it changes the key alone — the NAME is left as it is, because a key change
 is not a rename.
 
+`change-builder-item-key` checks the typed text for blank and junk **before** converting it:
+`name-to-kw` turns `""` into `:unnamed-<hash>` and `"@@@"` into `:-`, so after conversion the two
+cannot be told apart. When a key does move, `save-into-plugins` removes the entry at the old key;
+an `assoc-in` alone left a stale copy there, still answering to the old key that characters had
+stored.
+
 It was a collapsed "Advanced" disclosure first, and that was worse: a thing visibly trying not to
 be seen is a thing you look at. `.bf-meta` uses the hairline and muted label colour the builder CSS
 already defines (`rgba(255,255,255,0.14)` / `rgba(255,255,255,0.55)`) and `var(--accent, …)` for the
