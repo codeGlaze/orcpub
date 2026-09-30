@@ -1,0 +1,125 @@
+<title>Site Mark Colour Pairs</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.tw { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; }
+.grid table { min-width: 900px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+thead th { font: 600 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+tbody th { font: 600 13px/1.3 var(--sans); white-space: nowrap; }
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+code { font: 12px/1 ui-monospace, Menlo, monospace; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 7px; vertical-align: -3px; border: 1px solid var(--line); }
+.crop { width: 150px; overflow: hidden; }
+.crop img { display: block; width: 250px; max-width: none; margin-left: -50px; height: auto; }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.panels img { border: 0; width: 100%; max-width: 570px; height: auto; }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · portrait artists</div>
+      <h1>Site mark colour pairs</h1>
+      <p class="sub">Each colour the artist can pick is a pair: one version for the dark theme, one for the light, shown as a split swatch. Visitors see whichever matches their theme. Everything below is captured from the running site. Switch themes at the top right to see the other half of each pair.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Screenshot theme">
+      <button type="button" data-t="dark">Dark</button>
+      <button type="button" data-t="light">Light</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>The picker</h2>
+    <p>Drawn inside the site in place of the profile card, since the account page it belongs on doesn’t exist yet. The preview at the bottom is the real credit markup.</p>
+    <div class="panels">
+      <figure><img data-src="swatches/panel-THEME-ph-browser-fill-teal.png" alt="Picker with browser window in teal"><figcaption>Browser window, teal</figcaption></figure>
+      <figure><img data-src="swatches/panel-THEME-ph-sparkle-fill-yellow.png" alt="Picker with sparkle in yellow"><figcaption>Sparkle, yellow</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="grid">
+    <h2>In the credit</h2>
+    <div class="tw"><table><thead><tr><th>Icon</th><th><span class="sw" style="background:linear-gradient(135deg,#ff6b57 0 50%,#d9432f 50% 100%)"></span>coral</th><th><span class="sw" style="background:linear-gradient(135deg,#1fb5a3 0 50%,#0f8577 50% 100%)"></span>teal</th><th><span class="sw" style="background:linear-gradient(135deg,#ffd21a 0 50%,#9a7400 50% 100%)"></span>yellow</th><th><span class="sw" style="background:linear-gradient(135deg,#f06aa6 0 50%,#c2386f 50% 100%)"></span>rose</th><th><span class="sw" style="background:linear-gradient(135deg,#43b85c 0 50%,#2f8a44 50% 100%)"></span>green</th></tr></thead><tbody>
+<tr><th scope="row">Browser window</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-coral.png" alt="Browser window in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-teal.png" alt="Browser window in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-yellow.png" alt="Browser window in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-rose.png" alt="Browser window in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-browser-fill-green.png" alt="Browser window in green"></div></td></tr>
+<tr><th scope="row">House</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-coral.png" alt="House in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-teal.png" alt="House in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-yellow.png" alt="House in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-rose.png" alt="House in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-house-fill-green.png" alt="House in green"></div></td></tr>
+<tr><th scope="row">Compass</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-coral.png" alt="Compass in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-teal.png" alt="Compass in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-yellow.png" alt="Compass in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-rose.png" alt="Compass in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-compass-fill-green.png" alt="Compass in green"></div></td></tr>
+<tr><th scope="row">Sparkle</th><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-coral.png" alt="Sparkle in coral"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-teal.png" alt="Sparkle in teal"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-yellow.png" alt="Sparkle in yellow"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-rose.png" alt="Sparkle in rose"></div></td><td><div class="crop"><img data-src="swatches/credit-THEME-ph-sparkle-fill-green.png" alt="Sparkle in green"></div></td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>The pairs</h2>
+    <p>Every colour is at least 4.3:1 on its own background (icons need 3:1). The dark versions alone fail on white; yellow is 1.4:1. That’s why each colour is a pair.</p>
+    <div class="tw"><table style="min-width:0"><thead><tr><th>Colour</th><th>Dark theme</th><th>Light theme</th></tr></thead><tbody>
+<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#ff6b57 0 50%,#d9432f 50% 100%)"></span>coral</th><td><code>#ff6b57</code></td><td><code>#d9432f</code></td></tr>
+<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#1fb5a3 0 50%,#0f8577 50% 100%)"></span>teal</th><td><code>#1fb5a3</code></td><td><code>#0f8577</code></td></tr>
+<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#ffd21a 0 50%,#9a7400 50% 100%)"></span>yellow</th><td><code>#ffd21a</code></td><td><code>#9a7400</code></td></tr>
+<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#f06aa6 0 50%,#c2386f 50% 100%)"></span>rose</th><td><code>#f06aa6</code></td><td><code>#c2386f</code></td></tr>
+<tr><th scope="row"><span class="sw" style="background:linear-gradient(135deg,#43b85c 0 50%,#2f8a44 50% 100%)"></span>green</th><td><code>#43b85c</code></td><td><code>#2f8a44</code></td></tr>
+    </tbody></table></div>
+  </section>
+
+  <div class="note">
+    <h3>One thing about the yellow</h3>
+    <ul>
+      <li>It’s the site’s <code>warning-yellow</code> (<code>#ffd21a</code>), which also marks unresolved conflicts and missing fields in the library health bar. As a small icon in a credit it doesn’t read as a warning, but if the health bar ever sits near a credit, the two could be confused.</li>
+    </ul>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.documentElement;
+  const current = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  function apply() {
+    const t = current();
+    document.querySelectorAll('img[data-src]').forEach(img => { img.src = img.dataset.src.replace('THEME', t); });
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+  }
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; apply(); }));
+  try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', apply); } catch (_) {}
+  apply();
+})();
+</script>
