@@ -1,0 +1,69 @@
+<title>Dark Text Outlines</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · feature/style-guide · options, not built</div>
+      <h1>Dark text outlines</h1>
+      <p class="sub">The ability buttons with Dark Button Text on, dark theme, from the running branch at twice actual size. The strokes draw behind the letters (<code>paint-order: stroke fill</code>) so the dark letters keep their full thickness.</p>
+    </div>
+  </header>
+  <section><div class="list">
+<figure><figcaption><b>(d) As built</b> · 700, 70% light glow</figcaption><div class="shot"><img src="round9/roll-d-built.png" alt="(d) As built"></div></figure>
+<figure><figcaption><b>(e) Shadow ring</b> · four 1px light shadows (up, down, left, right), 55% white, no blur</figcaption><div class="shot"><img src="round9/roll-e-shadow-ring.png" alt="(e) Shadow ring"></div></figure>
+<figure><figcaption><b>(f) Hairline stroke</b> · a true outline, about 0.5px showing outside each letter, 75% white, no glow</figcaption><div class="shot"><img src="round9/roll-f-stroke-hair.png" alt="(f) Hairline stroke"></div></figure>
+<figure><figcaption><b>(g) Hairline stroke + glow</b> · (f) with the built glow behind it</figcaption><div class="shot"><img src="round9/roll-g-stroke-hair-glow.png" alt="(g) Hairline stroke + glow"></div></figure>
+<figure><figcaption><b>(h) 1px stroke</b> · about 1px showing outside each letter, 85% white, no glow: a sticker look</figcaption><div class="shot"><img src="round9/roll-h-stroke-full.png" alt="(h) 1px stroke"></div></figure>
+<figure><figcaption><b>(i) 1px stroke + glow</b> · (h) with the glow</figcaption><div class="shot"><img src="round9/roll-i-stroke-full-glow.png" alt="(i) 1px stroke + glow"></div></figure>
+<figure><figcaption><b>Default white</b> · for comparison</figcaption><div class="shot"><img src="round9/roll-w-white.png" alt="Default white"></div></figure>
+  </div></section>
+</div>
