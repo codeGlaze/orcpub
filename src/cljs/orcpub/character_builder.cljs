@@ -165,24 +165,10 @@
       (::t/prereqs option)))))
 
 ;; ---------------------------------------------------------------------------
-;; DO NOT wrap the handler factories below in cljs.core/memoize.
-;;
-;; memoize stores its cache in a PersistentArrayMap and looks it up with `get`,
-;; which LINEAR-SCANS comparing argument lists with `=`. Any argument holding a
-;; large structure therefore gets deep-compared on every single call -- and that
-;; comparison walks lazy seqs, realising them.
-;;
-;; set-class, delete-class and add-class all took options-map (every class in the
-;; library). Each lookup deep-compared ~141 class options and forced their lazy
-;; 20-level :options seqs: 2820 level-option calls, ~1 s blocked, 46 MB, in ONE
-;; synchronous render. Fixing one of the three changed nothing; all three had to go.
-;;
-;; Measured: Class-tab switch 1125 ms -> 100 ms (dev), 654 ms -> 92 ms (prod).
-;; The cached values are three-line closures.
-;;
-;; If a handler factory is ever hot enough to need caching, key it on something
-;; small (an index, a keyword) -- never on options, a character, a template or a
-;; content map.
+;; DO NOT wrap the handler factories below in cljs.core/memoize: its cache is a linear
+;; scan comparing arguments with `=`, so a large argument (options-map) is deep-compared,
+;; realising its lazy seqs, on every call. If a factory ever needs caching, key it on
+;; something small (an index, a keyword) -- never options, a character or a template.
 ;; ---------------------------------------------------------------------------
 
 (defn set-class-fn [i options-map]
@@ -396,21 +382,12 @@
 
 ;;; selection creator for character builder
 #_ ;; DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets the top layer,
-   ;; light dismiss, Escape and focus management from popover="auto" instead of the z-index
-   ;; 40/41, backdrop div and keydown listener below. It has no behaviour the combobox lacks,
-   ;; and its full-width mobile overlay was the thing that made it wrong. Unreferenced.
-   ;; Remove once the combobox has shipped without complaint.
+   ;; light dismiss, Escape and focus from popover="auto" instead of the backdrop and
+   ;; keydown listener below. Unreferenced; remove once the combobox ships cleanly.
 (defn inventory-picker
-  "Compact 'Add item' control: a button that opens a small search overlay, shows a short
-   list of matches, and closes on pick.
-
-   Replaces both the native <select> (unsearchable; 1037 <option> elements across the tab)
-   and the inline option-menu grid (searchable but rendered ~700 checkboxes inline, which
-   blows the page out and is miserable on a phone). Nothing renders until it is opened, and
-   only one popover is open at a time, so the tab costs seven buttons at rest.
-
-   Open state is a local r/atom, not app-db: it is transient UI state that nothing else
-   reads, and keeping it local avoids a re-frame round trip per keystroke."
+  "Compact 'Add item' control: a button that opens a small search overlay, lists up to 12
+   matches, and closes on pick. Nothing renders until it is opened.
+   Open state is a local r/atom, not app-db: transient UI state that nothing else reads."
   []
   (let [open? (r/atom false)
         query (r/atom "")]
@@ -460,13 +437,8 @@
 
 (defn inventory-datalist
   "Native filtering dropdown: a text input whose suggestions come from a <datalist>.
-
-   The browser renders and filters the list itself, so <option> elements here are a DATA
-   SOURCE -- never laid out or painted -- which is why 306 of them cost roughly what the
-   native <select> cost. No overlay, no backdrop, no z-index, no custom list rendering.
-
-   The input is themed; the DROPDOWN is drawn by the browser and is not styleable. That is
-   the whole trade against inventory-picker below."
+   The browser filters and paints the list, so the <option>s are a data source, never laid
+   out. GOTCHA: the input is themed; the dropdown is drawn by the browser and not styleable."
   []
   (let [value (r/atom "")]
     (fn [key options selected-keys]
@@ -535,23 +507,11 @@
              (.scrollIntoView #js {:block "nearest"})))))
 
 (defn inventory-combobox
-  "Filter-and-pick dropdown built on the native Popover API.
-
-   The list lives in a `popover=\"auto\"` element, so the browser gives us the top layer
-   (no z-index), light dismiss (no backdrop element) and Escape handling for free -- all of
-   which the earlier hand-rolled popover implemented by hand, worse. CSS anchor positioning
-   pins it under its input; where that is unsupported the popover still opens, just centred.
-
-   Every match renders, so the list can be BROWSED by scrolling or with the arrow keys, not
-   only searched. An earlier version capped it at 12 rows with a `keep typing` footer, which
-   left 294 of 306 magic weapons unreachable unless you already knew the name. Opening the
-   306-item section measured 0 ms at 4x CPU throttle, so the cap bought nothing.
-
-   Rows mount only while the popover is open. A closed popover still keeps its children in
-   the DOM, so rendering them all the time cost 2578 nodes -- the whole advantage over a
-   native select. Open state is set directly by the handlers that open and close it, and a
-   `beforetoggle` listener catches the two closes the browser performs on its own, light
-   dismiss and Escape."
+  "Filter-and-pick dropdown on the native Popover API: the list is a `popover=\"auto\"`
+   element, so the top layer, light dismiss and Escape come from the browser. CSS anchor
+   positioning pins it under its input (centred where unsupported). Every match renders, so
+   the list can be browsed by scrolling or arrow keys. Rows mount only while open; the open
+   handlers set open state, and a `beforetoggle` listener catches the browser's own closes."
   []
   (let [query     (r/atom "")
         active    (r/atom -1)
@@ -830,12 +790,9 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
-                                   ;; Stays a THUNK all the way to the expanded? gate. This
-                                   ;; wrapper is rebuilt on every render of every visible
-                                   ;; option card, so forcing here would pay for a peek
-                                   ;; nobody opened once per card per render - worse than
-                                   ;; building it once at template time, which is what the
-                                   ;; deferral was meant to avoid. option-selector-base
+                                   ;; A THUNK until the expanded? gate: this wrapper is rebuilt
+                                   ;; on every render of every visible option card, so forcing
+                                   ;; it here builds a peek nobody opened. option-selector-base
                                    ;; forces it only inside (when @expanded? ...).
                                    (when (or help has-named-mods?)
                                      (fn []
@@ -2064,18 +2021,11 @@
 (def image-error (memoize image-error-fn))
 
 (defn image-load-fn
-  "Clears the failed flag and asks for the picture's bytes.
-
-   The flag is NOT read here. Capturing it would build a handler that can never
-   take the mark back, since at build time it is still clear. The event itself is
-   a no-op when there is nothing to clear.
-
-   The read starts from the load, not from the export click: the export submits a
-   form into a new tab synchronously, and an await in between spends the user
-   activation that keeps the tab from being blocked. It also must not start any
-   earlier -- a read asks for the same URL with crossOrigin set, and on a host
-   that allows no read that request failing ahead of this one takes the thumbnail
-   down with it."
+  "Returns an on-load handler: clears the failed flag (a no-op when clear) and asks for the
+   picture's bytes. It does not read the flag, which is still clear when the handler is built.
+   GOTCHA: the read starts at load -- not at the export click (an await there spends the user
+   activation the new tab needs), nor earlier (its crossOrigin request failing first would
+   take the thumbnail down)."
   [event-key url]
   (fn []
     (dispatch [event-key])
@@ -2084,15 +2034,10 @@
 (def image-load (memoize image-load-fn))
 
 (defn image-paste-fn
-  "Takes a picture pasted into the field and reads it locally.
-
-   This is the route out for a host that allows nobody to read its pictures: the
-   clipboard carries the DECODED image, put there by the browser's own \"Copy
-   image\", so nothing about the host's rules applies to it. Two clicks, and no
-   download-and-upload round trip.
-
-   Keyed by the URL on the character, so the paste stands in for exactly the
-   picture that could not be read."
+  "Returns an on-paste handler that reads a pasted picture locally. The route out for a host
+   that allows nobody to read its pictures: the clipboard carries the decoded image, so the
+   host's rules do not apply. Keyed by the URL on the character, so the paste stands in for
+   exactly the picture that could not be read."
   [url]
   (fn [e]
     (let [files (some-> e .-clipboardData .-files)]
@@ -2122,20 +2067,11 @@
    :unknown         "That picture couldn't be fetched."})
 
 (defn image-field-notice
-  "The one thing worth saying about this picture, and at most one thing to do
-   about it.
-
-   ONLY ONE of these ever shows, ordered by how far it gets someone:
-
-     1. a correction we can make mechanically, offered beside the fault
-     2. what the address itself gives away, which needs no request
-     3. what the server found when it tried
-     4. that it simply did not load
-
-   The other ways in wait behind the disclosure. Advice is held back until typing
-   stops -- the field commits on every keystroke, so it would otherwise object to
-   `htt` on the way to `https://` -- while a load failure is not, being already an
-   answer about the address as typed."
+  "Renders the one thing worth saying about this picture, and at most one thing to do about
+   it. Only one shows, in order: a mechanical correction beside the fault, what the address
+   gives away, what the server found, or that it did not load. Other routes wait behind the
+   disclosure. GOTCHA: advice waits until typing stops (the field commits every keystroke,
+   so it would object to `htt`); a load failure does not wait."
   [_url _failed? _state _reach _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
@@ -2180,12 +2116,9 @@
                            unreachable]
               failed?     [:failed :error "That picture didn't load."]
               :else       [nil nil nil])]
-        ;; An http picture cannot be displayed by this page at all -- the CSP allows
-        ;; images over https only -- so it is broken rather than suspect. The https
-        ;; address is checked with a plain <img> load (no server, and the request
-        ;; the thumbnail was about to make) and swapped in only once it loads: an
-        ;; unverified rewrite that fails leaves someone debugging an address they
-        ;; never typed.
+        ;; An http picture cannot display here at all: the CSP allows images over https
+        ;; only. The https address is checked with a plain <img> load and swapped in only
+        ;; once it loads, so a failed rewrite never leaves an address nobody typed.
         (when (and fix
                    (string? @settled)
                    (s/starts-with? @settled "http://")
@@ -2463,15 +2396,9 @@
                      [:div.f-s-12.m-t-5.main-text-color
                       [:span "Likely from source: "]
                       [:span.i inferred-source]])
-                   ;; The suggestions were already computed and shown as prose,
-                   ;; which told someone what would fix this and gave them no way
-                   ;; to do it. They are the choice now: picking one rebinds the
-                   ;; character's stored key to that content.
-                   ;;
-                   ;; This is the end of the resolution ladder. The automatic
-                   ;; rungs rebind only when the answer is unambiguous and decline
-                   ;; otherwise; declining is only honest if there is somewhere to
-                   ;; ask, and this is it.
+                   ;; The suggestions are the choice: picking one rebinds the character's
+                   ;; stored key to that content. This is the end of the resolution ladder:
+                   ;; the automatic rungs rebind only when the answer is unambiguous.
                    (when (seq suggestions)
                      [:div.m-t-5
                       [:div.f-s-12.main-text-color.m-b-5 "Use instead:"]

@@ -269,12 +269,8 @@
 
 (defn- fit-flyout!
   "Cap an opening flyout at the room left below it, and let it scroll.
-
-   The menu is absolutely positioned under its tab, so its height has nothing to
-   do with the window's: My Content is eleven rows and ran off the bottom of a
-   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
-   pointer away to use the page scrollbar closes it. Measured in a frame, after
-   :hover has applied and the menu has a box to measure."
+   GOTCHA: the menu is absolutely positioned, so its height ignores the window's, and a hover
+   menu cannot be scrolled into reach. Measured in a frame, once :hover has applied."
   [e]
   (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
     (js/requestAnimationFrame
@@ -1603,14 +1599,9 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame?]]
              [:div
-              ;; One header, sticky, rather than a fixed copy of it above an
-              ;; inline one. Two copies meant every control in the header --
-              ;; every button, and the whole PDF options panel that opens inside
-              ;; it -- existed twice in the DOM, twice in the tab order, and with
-              ;; its own component-local state in each.
-              ;;
-              ;; Not sticky inside a frame, which has no app header to scroll
-              ;; past, or behind the Orcacle panel, which covers the page.
+              ;; One header, sticky -- never a fixed copy of it, which would put every
+              ;; header control and its local state in the DOM twice. Not sticky inside a
+              ;; frame (no app header to scroll past) or behind the Orcacle panel.
               [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
                {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
@@ -1631,11 +1622,9 @@
 
               [:div#app-main.container
                [:div.content.w-100-p
-                ;; Library-health status — shown on every content page (it self-
-                ;; hides when clean), so a conflict/missing-field is never a
-                ;; surprise on one page and invisible on another. Excludes the
-                ;; character list (no homebrew content there). On My Content it
-                ;; ALWAYS shows (the hub); elsewhere it's dismissable.
+                ;; Library-health status on every content page except the character list
+                ;; (it self-hides when clean). Always shown on My Content, dismissable
+                ;; elsewhere.
                 (let [handler (:handler @(subscribe [:route]))]
                   (when-not (= handler routes/dnd-e5-char-list-page-route)
                     [library-health-status
@@ -1894,19 +1883,11 @@
   (into (subvec items 0 i) (subvec items (inc i))))
 
 (defn isolate-culprit
-  "Fault isolation by re-execution — the active counterpart to render-guard.
-   `render-coll` renders/processes a whole collection and may throw; `items` is
-   that collection. Return the item(s) NECESSARY for the failure: an item is a
-   culprit if removing it makes render-coll stop throwing. Catches AGGREGATE
-   failures (e.g. a sort over a nil key) that a per-item guard never sees — and
-   pinpoints the culprit even when the failure only manifests in combination
-   (a nil sort key never throws alone, but removing the item fixes the whole list,
-   so leave-one-out finds it where 'does this item alone fail?' cannot).
-
-   Returns nil if render-coll doesn't throw. Honest limit: with two INDEPENDENT
-   faulty items (each breaks things by itself), removing one still throws, so
-   neither looks necessary — we then fall back to the smallest failing subset
-   found by bisection rather than claim a single culprit."
+  "Fault isolation by re-execution, the active counterpart to render-guard. `render-coll`
+   processes the collection `items` and may throw. Returns the item(s) whose removal stops
+   it throwing -- catching aggregate failures (a sort over a nil key) a per-item guard never
+   sees -- or nil if it doesn't throw. GOTCHA: with two independent faulty items neither is
+   necessary, so it falls back to the smallest failing subset found by bisection."
   [render-coll items]
   (letfn [(throws? [coll]
             (try (doall (render-coll coll)) false (catch :default _ true)))
@@ -2627,14 +2608,9 @@
         (fn on-change [e]
           (let [v (-> e .-target .-value)]
             (when initial-value
-              ; we have to dispatch-sync because in the case where id is nil,
-              ; this event handler dispatches, so the call below gets
-              ; a stale DB value and overwrites this one. It ought be
-              ; possible to make it affect the :db directly, but I don't
-              ; know what sort of side effects that could have....
-              ; See: update-character-fx, and its use of :dispatch; might
-              ; be able to replace that with:
-              ;  {:db (set-character db (update-fn (:character db)))}
+              ; dispatch-sync: when id is nil this handler dispatches too, so the call
+              ; below would read a stale db and overwrite this value. See
+              ; update-character-fx's use of :dispatch.
               (dispatch-sync [::char/toggle-feature-used id units initial-value]))
             ((toggle-feature-used-handler id units v))))
 
@@ -2944,13 +2920,9 @@
 
 (defn summary-details [num-columns id]
   (let [;; The builder renders character-display with an explicit nil id, so this
-        ;; was [:built-character nil] -- a different query vector from the
-        ;; builder's own [:built-character], hence a second debounced-build-sub
-        ;; over the same character (2 builds per click). Collapse only that case.
-        ;; The non-nil path is left exactly as it was: [:built-character id]
-        ;; ignores id and returns the builder's character, which looks wrong on a
-        ;; character page, but ::char/built-character id fetches over HTTP, so
-        ;; changing it needs its own verification.
+        ;; collapses [:built-character nil] into the builder's own [:built-character]
+        ;; rather than running a second debounced build. GOTCHA: [:built-character id]
+        ;; ignores id and returns the builder's character; changing it needs its own test.
         built-char @(subscribe (if id
                                  [:built-character id]
                                  [:built-character]))
@@ -3882,14 +3854,10 @@
        vec))
 
 (defn feature-render-error
-  "Recovery panel shown in place of a character section that failed to render.
-   General fail-soft: we do NOT try to guess the cause — by design this catches
-   failures we did not anticipate and cannot name. What we CAN always tell the
-   user is which section broke, that their data is safe, and how to recover
-   (try again / reload / open it in the builder to locate it). The exact error
-   is one click away for a bug report. The specific malformed item, when a single
-   item is at fault, is surfaced in place by the per-item render-guard / the
-   bisection isolator (see isolate-culprit)."
+  "Recovery panel shown in place of a character section that failed to render. It does not
+   guess the cause: it says which section broke, that the data is safe, and how to recover
+   (edit in the builder / reload), with the exact error one click away. A single faulty
+   selection is traced by isolate-culprit-selection (Features section only)."
   [_section _id _error _stack _retry]
   (let [show-details? (r/atom false)
         copied? (r/atom false)
@@ -3956,19 +3924,11 @@
              [:pre.f-s-12.m-t-5.wsp-prw {:style {:user-select "text"}} report]])]]))))
 
 (defn error-boundary
-  "React error boundary. If a child throws while rendering, render
-   (fallback error retry) instead of letting the exception unmount the whole app
-   (the black screen). Give the boundary a :key that changes with its content
-   (e.g. the selected tab) so navigating away clears the error automatically.
-
-   Recovery is driven by React's static getDerivedStateFromError, which is the
-   only React-18 hook that re-renders the boundary to show a fallback (a
-   setState/atom reset in componentDidCatch alone does NOT). component-did-catch
-   runs in the commit phase and is where React hands us the component stack — the
-   one generically-available 'where' for an error we can't otherwise diagnose — so
-   we both log it and stash it in state for the fallback to surface.
-
-   The fallback is called as (fallback error component-stack retry)."
+  "React error boundary: if a child throws while rendering, renders
+   (fallback error component-stack retry) instead of unmounting the whole app. Key it on its
+   content (e.g. the selected tab) so navigating away clears the error.
+   GOTCHA: only getDerivedStateFromError re-renders into the fallback; component-did-catch
+   logs the component stack and stores it for the fallback."
   [_fallback _child]
   (r/create-class
    {:display-name "error-boundary"
@@ -4270,16 +4230,10 @@
 
 
 (defn capture-images
-  "Reads the character's pictures in the browser when this mounts, so their bytes
-   are in hand before the export button is clicked. Renders nothing.
-
-   Kept off the click handler on purpose: the export is a synchronous form submit
-   into a new tab, and any await between the click and .submit() spends the
-   transient user activation that keeps that tab from being blocked. Each request
-   is idempotent, so re-rendering costs one read per URL and no more.
-
-   `urls` comes through the argv rather than a subscription so that a URL edited
-   while this is mounted is picked up by the update."
+  "Reads the character's pictures (`urls`) in the browser on mount, so their bytes are in
+   hand before export is clicked. Renders nothing; reads on mount only (no update hook).
+   GOTCHA: kept off the click handler: the export is a synchronous submit into a new tab, and
+   an await before .submit() spends the user activation that keeps it from being blocked."
   [_urls]
   (let [ask (fn [this]
               (doseq [url (second (r/argv this))
@@ -4343,8 +4297,7 @@
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
-      ;; how either is inked. The card options used to be split by the known /
-      ;; prepared choice, which is a sheet setting.
+      ;; how either is inked. The known / prepared choice is a sheet setting.
       [option-group "Character Sheet"
        [:div.m-b-10
         [labeled-dropdown
@@ -6437,13 +6390,9 @@
      delete-selection-event]]])
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
-;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring:
-;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
-;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
-;;                    [{:name .. :options {item-key qty}}]
-;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
-;; not offered here — it carries fn-valued modifiers that don't serialize.
+;; SRD shorthand keys, read by opt5e/class-option: fixed :weapons/:armor/:equipment
+;; {item-key qty}; choice :weapon-choices/:armor-choices/:equipment-choices
+;; [{:name .. :options {item-key qty}}]. No :selections form: fn modifiers don't serialize.
 
 (def starting-equipment-categories
   [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
@@ -6506,9 +6455,8 @@
 
 ;; ---- Rich equipment choices (:equipment-selections) ------------------------
 ;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
-;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
-;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
-;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+;; weapon sub-choice: the full SRD form, which subsumes one item per option.
+;; Consumed by opt5e/class-equipment-selections.
 
 (def ^:private grant-kinds
   [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
@@ -8680,11 +8628,9 @@
                         "delete"]]])))
                  visible))]])]))))))
 
-;; One data-driven table for the My Content library, replacing 13 near-identical
-;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
-;; rendered category rows (see my-content-item) and the add-content menu, so
-;; "hide empty categories" and "still be able to create the first item of a type
-;; that has none yet" read from the same list. Order here is the display order.
+;; The My Content library's content types, one entry each. Drives both the rendered
+;; category rows (my-content-item) and the add-content menu, so hiding empty categories
+;; and creating a type's first item read the same list. Order here is display order.
 (def my-content-types
   [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
    {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
@@ -8992,11 +8938,9 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
-   ;; (Library-health status is rendered by content-page at the top of every
-   ;; content page — always-on here on the My Content hub, dismissable elsewhere.)
-   ;; Library-level mutual-exclusion summary: when duplicate keys have forced
-   ;; one side off, say so once at the top with a link into the conflict modal,
-   ;; so the silenced items are explained in aggregate — not just per-row.
+   ;; Library-health status is rendered by content-page, not here.
+   ;; When duplicate keys have forced items off, say so once at the top with a link into
+   ;; the conflict modal, explaining the silenced items in aggregate, not just per row.
    (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
      (when (pos? off-n)
        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
@@ -9381,16 +9325,9 @@
 ;; events are set and passed by the individual pages defined below this
 (defn meta-edit-row
   "A quiet `label value change` line that swaps in an input when `change` is clicked.
-
-   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
-   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
-   same `.bf-meta` register.
-
-     :value        what to show at rest; nil renders nothing at all
-     :derived?     the value is the app's guess rather than a stored choice, shown muted
-     :placeholder  seeds the input
-     :on-save      called with the raw string typed; blank is the caller's to interpret
-     :help         a line a `?` opens beneath the row"
+   Opts: :label; :value shown at rest (nil renders nothing); :derived? the value is the app's
+   guess, shown muted; :placeholder seeds the input; :on-save gets the raw string typed
+   (blank is the caller's to interpret); :help, a line a `?` opens beneath the row."
   [_]
   (let [editing? (r/atom false)
         draft    (r/atom "")]
@@ -9445,10 +9382,9 @@
                ", which isn't in your library.")])])))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  ;; Draft event is derived from save-event (events/draft-event-for) and registered
-  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  ;; The key row rides the same derivation: builder-drafts already maps the save event to the
-  ;; builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  ;; The draft event and the builder-item sub are both derived from save-event
+  ;; (events/draft-event-for, events/builder-drafts), so the Export-draft hatch and the
+  ;; key row reach every builder unwired.
   (let [export-draft-event (events/draft-event-for save-event)
         [item-sub] (get events/builder-drafts save-event)
         item       (when item-sub @(subscribe [item-sub]))]
@@ -9537,13 +9473,9 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      ;; NOT "Save to Browser Storage", which is what every other
-                      ;; builder's button says and does. A magic item is saved to
-                      ;; the database like a character is: ::mi/save-item posts to
-                      ;; /dnd/5e/items with an auth header, so the label was
-                      ;; promising local storage while requiring an account, and a
-                      ;; logged-out click landed on the login page having said
-                      ;; nothing about needing one.
+                      ;; Not "Save to Browser Storage": a magic item is saved to the
+                      ;; server like a character (::mi/save-item posts to /dnd/5e/items
+                      ;; with an auth header), so saving needs an account.
                       {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
