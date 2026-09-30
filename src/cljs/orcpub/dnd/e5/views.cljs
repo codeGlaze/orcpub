@@ -55,6 +55,7 @@
             [orcpub.fork.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
+            [orcpub.artist-links :as artist-links]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
             [bidi.bidi :as bidi]
@@ -9212,22 +9213,13 @@
            "Save"]
           [save-note save-status]])])))
 
-(defn- icon-for-url
-  "Which mark a link will get, worked out the way the server does it: the
-   service whose host it points at, else the plain site globe."
-  [services url]
-  (let [host (or (some->> (s/trim (or url "")) (re-find #"^[a-zA-Z]+://([^/?#:]+)") second s/lower-case) "")]
-    (or (some (fn [{:keys [icon hosts]}]
-                (when (some #(or (= host %) (s/ends-with? host (str "." %))) hosts) icon))
-              services)
-        "site")))
+(defn- field-note
+  "The line under a field: a problem in red, else nothing."
+  [problem]
+  (when problem [:div.m-t-5.red.f-s-14 problem]))
 
-(defn- https-hint
-  "Said while typing, so the rule isn't a surprise on save."
-  [url]
-  (let [u (s/trim (or url ""))]
-    (when (and (seq u) (not (s/starts-with? (s/lower-case u) "https://")))
-      [:div.m-t-5.f-s-12 {:style {:color "#d9a520"}} "Links must start with https://"])))
+(defn- problem-border [problem]
+  (when problem {:border-color "#e0602c"}))
 
 (defn- credit-edit
   "The form's state as the edit the server takes. Blank rows are dropped here
@@ -9235,108 +9227,124 @@
   [nm link links]
   {:name (s/trim nm)
    :link (s/trim link)
-   :links (vec (remove #(s/blank? (:url %)) links))})
+   :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))})
 
 (defn- credit-preview-info
   "What the credit will look like once saved: the code's default, under the
-   artist's form, under whatever the site's config has fixed."
-  [{:keys [default current locked services]} {:keys [name link links]}]
-  (let [by-icon (into {} (map (juxt :icon identity) services))
+   artist's form, under whatever the site's config has fixed. Links that
+   wouldn't pass are left out, so the preview never shows a mark that the
+   save would refuse."
+  [{:keys [default current locked]} {:keys [name link links]}]
+  (let [good-links (remove #(artist-links/url-problem (:url %)) links)
         form (cond-> {}
                (seq name) (assoc :artist/name name)
-               (seq link) (assoc :artist/link link)
-               (seq links) (assoc :artist/links
-                                  (vec (for [{:keys [url]} links
-                                             :let [icon (icon-for-url services url)
-                                                   {:keys [label color]} (by-icon icon)]]
-                                         {:link/icon icon :link/label label
-                                          :link/color color :link/url url}))))]
+               (and (seq link) (nil? (artist-links/url-problem link))) (assoc :artist/link link)
+               (seq good-links) (assoc :artist/links (mapv (comp artist-links/link-entry :url) good-links)))]
     (merge (assoc default :artist/id (keyword (or (:artist/id current) "preview")))
            form
            (select-keys current locked))))
 
+(defn- link-mark
+  "The mark a link will wear, in its own colour."
+  [url]
+  (let [{:keys [icon label color]} (artist-links/service-for-url url)]
+    [:span {:title label :aria-label label
+            :style {:width "20px" :height "20px" :flex-shrink 0 :margin-right "8px"
+                    :background-color color
+                    :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                    :maskImage (str "url(/image/social/" icon ".svg)")
+                    :WebkitMaskSize "contain" :maskSize "contain"
+                    :WebkitMaskRepeat "no-repeat" :maskRepeat "no-repeat"
+                    :WebkitMaskPosition "center" :maskPosition "center"}}]))
+
 (defn artist-credit-form
-  [{:keys [own locked services max-links default] :as credit}]
+  "The same rules the server enforces (orcpub.artist-links), run as you type:
+   a wrong scheme is flagged at once, a half-typed address only once you
+   leave the box, and Save stays off while anything would be refused."
+  [{:keys [own locked default] :as credit}]
   (r/with-let [nm (r/atom (or (:artist/name own) ""))
                link (r/atom (or (:artist/link own) ""))
-               links (r/atom (vec (for [l (:artist/links own)] {:url (:link/url l)})))]
+               next-id (atom 0)
+               new-row (fn [url] {:id (swap! next-id inc) :url url})
+               links (r/atom (vec (for [l (:artist/links own)] (new-row (:link/url l)))))
+               ;; fields the person has left, keyed :name / :link / row id
+               left (r/atom #{})]
     (let [save-status @(subscribe [:account-save-status :artist-credit-save])
-          errors (:errors save-status)
-          link-errors (:link-errors errors)
+          server-errors (:errors save-status)
           clear! #(dispatch [:clear-account-save-status :artist-credit-save])
           edit (credit-edit @nm @link @links)
+          blocking (artist-links/edit-errors edit)
           locked? (fn [k] (contains? (set locked) k))
+          left? #(contains? @left %)
+          leave! #(swap! left conj %)
+          name-problem (or (:name server-errors) (artist-links/name-problem @nm))
+          link-problem (or (:link server-errors) (artist-links/typing-problem @link (left? :link)))
           fixed-note [:div.f-s-12.m-t-5.opacity-7 "Set by the site's admins. Reply to any of our emails if it needs changing."]]
       [:div
        [:div.m-t-10.m-b-10
         [portrait/credit-preview (credit-preview-info credit edit)]]
        [:div.p-5
         [:div.f-s-14.f-w-b "Credited as"]
-        [:input.input {:type "text" :value @nm :max-length 60
+        [:input.input {:type "text" :value @nm
                        :disabled (locked? :artist/name)
                        :placeholder (:artist/name default)
-                       :style {:max-width "320px"}
+                       :style (merge {:max-width "320px"} (problem-border name-problem))
                        :on-change #(do (reset! nm (event-value %)) (clear!))}]
         (when (locked? :artist/name) fixed-note)
-        (when-let [e (:name errors)] [:div.m-t-5.red.f-s-14 e])]
+        [field-note name-problem]]
        [:div.p-5
         [:div.f-s-14.f-w-b "Your name links to"]
         [:input.input {:type "url" :value @link
                        :disabled (locked? :artist/link)
                        :placeholder (:artist/link default)
-                       :style {:max-width "420px"}
+                       :style (merge {:max-width "420px"} (problem-border link-problem))
+                       :on-blur #(leave! :link)
                        :on-change #(do (reset! link (event-value %)) (clear!))}]
         (when (locked? :artist/link) fixed-note)
-        (if-let [e (:link errors)] [:div.m-t-5.red.f-s-14 e] (https-hint @link))]
+        [field-note link-problem]]
        [:div.p-5
         [:div.f-s-14.f-w-b "Link icons"]
         [:div.f-s-12.m-b-5.opacity-7
          "Shown beside your name, in this order. Paste a link and its icon is picked for you: "
-         (s/join ", " (keep #(when (seq (:hosts %)) (:label %)) services))
+         (s/join ", " (keep (fn [[_ {:keys [label hosts]}]] (when (seq hosts) label)) artist-links/services))
          " get their own; anything else gets a globe. Leave empty to use the site's default."]
         (if (locked? :artist/links)
           fixed-note
           [:div
            (doall
-            (for [[i {:keys [url]}] (map-indexed vector @links)]
-              (let [icon (icon-for-url services url)
-                    {:keys [label color]} (some #(when (= icon (:icon %)) %) services)]
-                ^{:key i}
-                [:div.m-b-5
-                 [:div.flex.align-items-c
-                  ;; the mark this link will wear, in its own colour
-                  [:span {:title label :aria-label label
-                          :style {:width "20px" :height "20px" :flex-shrink 0 :margin-right "8px"
-                                  :background-color color
-                                  :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
-                                  :maskImage (str "url(/image/social/" icon ".svg)")
-                                  :WebkitMaskSize "contain" :maskSize "contain"
-                                  :WebkitMaskRepeat "no-repeat" :maskRepeat "no-repeat"
-                                  :WebkitMaskPosition "center" :maskPosition "center"}}]
-                  [:input.input {:type "url" :value (or url "")
-                                 :placeholder "https://"
-                                 :style {:max-width "380px"}
-                                 :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
-                  [:button.link-button.m-l-10.f-s-14
-                   {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
-                   "Remove"]]
-                 ;; server errors index the non-blank rows
-                 (if-let [e (when-not (s/blank? url)
-                              (get link-errors (count (remove #(s/blank? (:url %)) (take i @links)))))]
-                   [:div.m-t-5.red.f-s-14 e]
-                   (https-hint url))])))
-           (when (< (count @links) (or max-links 4))
+            (for [[i {:keys [id url]}] (map-indexed vector @links)
+                  :let [;; server errors index the non-blank rows
+                        server-e (when-not (s/blank? url)
+                                   (get (:link-errors server-errors)
+                                        (count (remove #(s/blank? (:url %)) (take i @links)))))
+                        problem (or server-e (artist-links/typing-problem url (left? id)))]]
+              ^{:key id}
+              [:div.m-b-5
+               [:div.flex.align-items-c
+                [link-mark url]
+                [:input.input {:type "url" :value (or url "")
+                               :placeholder "https://"
+                               :style (merge {:max-width "380px"} (problem-border problem))
+                               :on-blur #(leave! id)
+                               :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
+                [:button.link-button.m-l-10.f-s-14
+                 {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
+                 "Remove"]]
+               [field-note problem]]))
+           (when (< (count (:links edit)) artist-links/max-links)
              [:button.link-button.f-s-14
-              {:on-click #(swap! links conj {:url ""})}
+              {:on-click #(swap! links conj (new-row ""))}
               "+ Add a link"])
-           (when-let [e (:links errors)] [:div.m-t-5.red.f-s-14 e])])]
+           [field-note (or (:links server-errors) (:links blocking))]])]
        [:div.p-5.m-t-5
         [:button.form-button
-         {:on-click #(do (reset! links (:links edit))
-                         (dispatch [:save-artist-credit edit]))}
+         {:disabled (boolean (seq blocking))
+          :title (when (seq blocking) "Fix the highlighted fields first")
+          :on-click #(when (empty? blocking)
+                       (reset! links (vec (remove (comp s/blank? :url) @links)))
+                       (dispatch [:save-artist-credit edit]))}
          "Save credit"]
-        [save-note save-status]
-        (when (seq errors) [:div.m-t-5.red.f-s-14 "Nothing was saved. Fix the fields above and try again."])]
+        [save-note save-status]]
        [:div.f-s-12.p-5.opacity-7
         "Every change is emailed to you and to the site's admins, so a change you didn't make gets noticed."]])))
 
