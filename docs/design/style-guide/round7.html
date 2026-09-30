@@ -1,0 +1,69 @@
+<title>Text Lift Built</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · feature/style-guide</div>
+      <h1>Text lift, built</h1>
+      <p class="sub">The running branch at twice actual size. White text on amber has a faint dark edge; the opt-in dark text has a faint light glow.</p>
+    </div>
+  </header>
+  <section><h2>Action buttons</h2><div class="list">
+<figure><figcaption><b>Dark theme</b> · white with the dark edge</figcaption><div class="shot"><img src="round7/dark-buttons.png" alt="Dark theme" class="half"></div></figure><figure><figcaption><b>Dark theme, Dark Button Text on</b> · dark with the light glow</figcaption><div class="shot"><img src="round7/dark-darktext-buttons.png" alt="Dark theme, Dark Button Text on" class="half"></div></figure><figure><figcaption><b>Light theme</b> · slate blue, unchanged</figcaption><div class="shot"><img src="round7/light-buttons.png" alt="Light theme" class="half"></div></figure>
+  </div></section>
+  <section><h2>Ability buttons</h2><div class="list">
+<figure><figcaption><b>Dark theme</b> · white with the dark edge</figcaption><div class="shot"><img src="round7/dark-roll.png" alt="Dark theme" class="half"></div></figure><figure><figcaption><b>Dark Button Text on</b> · dark with the light glow</figcaption><div class="shot"><img src="round7/dark-darktext-roll.png" alt="Dark Button Text on" class="half"></div></figure><figure><figcaption><b>Light theme</b> · still amber: the copied button never got the light-theme slate, so it keeps the edge</figcaption><div class="shot"><img src="round7/light-roll.png" alt="Light theme" class="half"></div></figure>
+  </div></section>
+  <section><h2>Header tabs (proposed, not built)</h2><div class="list">
+<figure><figcaption><b>As built</b> · no edge</figcaption><div class="shot"><img src="round7/dark-tab-now.png" alt="As built" class="half"></div></figure><figure><figcaption><b>With the dark edge on all tabs</b> · the active amber tab, and the grey labels on the banner, both firm up</figcaption><div class="shot"><img src="round7/dark-tab-lift.png" alt="With the dark edge on all tabs" class="half"></div></figure>
+  </div></section>
+</div>
