@@ -66,6 +66,7 @@ li::marker { color: var(--accent); }
       <div class="seg" role="group" aria-label="State">
         <button type="button" data-s="before">Before</button>
         <button type="button" data-s="after">After</button>
+        <button type="button" data-s="rule">After + rule</button>
       </div>
       <div class="seg" role="group" aria-label="Screenshot theme">
         <button type="button" data-t="dark">Dark</button>
@@ -77,6 +78,15 @@ li::marker { color: var(--accent); }
     <div class="state" id="lbl"></div>
     <div class="shot"><img id="shot" alt="Page capture"></div>
   </section>
+  <div class="note">
+    <h3>The proposed rule (third state)</h3>
+    <ul>
+      <li><b>700</b> for small capitals labels, 14px and under: header tabs, sheet tabs.</li>
+      <li><b>600</b> for headings and names 18px and up: page and panel headings (“Race”, “Import Option Source”), spell and monster names. Monster names are already 600; spell names were 700.</li>
+      <li><b>400</b> for sentences, such as the builder’s intro text.</li>
+      <li>Applied here by a quick script at capture time, which also turned the two “CLICK HERE” links in the intro box regular. The real change would keep those as they are if wanted.</li>
+    </ul>
+  </div>
   <div class="note">
     <h3>Two things to decide before this merges</h3>
     <ul>
@@ -92,7 +102,7 @@ const theme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: li
 function render() {
   const t = theme();
   document.getElementById('shot').src = `sitewide/${t}-${s}-${pg}.png`;
-  document.getElementById('lbl').textContent = s === 'before' ? 'Before: integration today' : 'After: feature/style-guide';
+  document.getElementById('lbl').textContent = {before: 'Before: integration today', after: 'After: feature/style-guide', rule: 'After + proposed rule: 700 small capitals, 600 headings and names, 400 sentences (applied at capture time)'}[s];
   document.querySelectorAll('[data-p]').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === pg));
   document.querySelectorAll('[data-s]').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
   document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
