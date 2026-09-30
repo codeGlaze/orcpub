@@ -256,7 +256,10 @@ html {
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
+    ;; 400, 600 and 700: the stylesheet asks for bold on tabs, titles and labels, and with only
+    ;; 400 loaded Chrome rendered all of it at regular weight. One variable file serves all
+    ;; three, so the extra weights cost nothing over 400 alone. See docs/design/style-guide.md.
+    (include-css "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
       (script-tag {:nonce nonce}

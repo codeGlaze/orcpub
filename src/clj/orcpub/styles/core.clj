@@ -1213,6 +1213,11 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; Browsers give buttons their own default font (Arial), not the page's, so every
+    ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
+    [:button
+     {:font-family font-family}]
+
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white
     ;; text, so an unclassed dropdown opens as a blank white box with invisible

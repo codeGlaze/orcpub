@@ -1057,7 +1057,8 @@
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
-       [:h1.f-s-36.f-w-b.m-t-5.m-l-10
+       ;; 600, not bold: at this size 700 thickens the round lowercase letters.
+       [:h1.f-s-36.f-w-600.m-t-5.m-l-10
         {:class (when (not= :mobile device-type) "m-t-21 m-b-20")}
         title]
        (when frame?
