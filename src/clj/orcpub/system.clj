@@ -5,6 +5,7 @@
             [orcpub.pedestal :as pedestal]                         
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
+            [orcpub.artist-accounts :as artist-accounts]
             [orcpub.config :as config]
             [orcpub.pdf :as pdf]
             [environ.core :as environ])
@@ -102,6 +103,13 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn])))
+      [:service-map :conn])
+
+    ;; links or creates artist accounts named in PORTRAIT_ARTISTS; runs in the
+    ;; background after the database is up and never blocks the site starting
+    :artist-accounts
+    (component/using
+      (artist-accounts/new-artist-accounts)
+      [:conn])))
 
 (rrepl/set-init! #(system :prod))

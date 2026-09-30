@@ -32,6 +32,7 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.display :as disp5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
@@ -2318,8 +2319,12 @@
        {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
+       ;; integration's notice replaces the flat "failed to load" line; the
+       ;; launcher still belongs beside it, since composing a portrait is the
+       ;; other way to fill this slot.
        [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]
+       [portrait5e/launcher-button]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2358,10 +2363,12 @@
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         :portrait [portrait5e/tab-panel]
          ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
@@ -2373,9 +2380,11 @@
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
-       (if (= current-tab :options)
-         [new-options-column (if (= device-type :desktop) 2 1)]
+        [builder-tab "Description" :details current-tab]
+        [builder-tab "Portrait" :portrait current-tab]]
+       (case current-tab
+         :options [new-options-column (if (= device-type :desktop) 2 1)]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
@@ -2603,7 +2612,9 @@
                              (not= db/default-character character))]
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
-    [views5e/content-page
+    [:<>
+     [portrait5e/drawer]
+     [views5e/content-page
      "Character Builder"
      (into
       (if character-id
@@ -2664,4 +2675,4 @@
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
         [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+         [builder-columns]]]]]]]))

@@ -1,5 +1,6 @@
 (ns orcpub.routes
   (:require [io.pedestal.http :as http]
+            [orcpub.artist-accounts :as artist-accounts]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -19,10 +20,12 @@
             [clojure.java.io :as io]
             [orcpub.time :as time :refer [hours ago from-now instant before?]]
             [clojure.string :as s]
+            [pandect.algo.sha1 :refer [sha1]]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -36,6 +39,10 @@
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.portrait-render :as portrait-render]
+            [orcpub.artist-credit :as artist-credit]
+            [orcpub.artist-email :as artist-email]
+            [orcpub.crypto :as crypto]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
@@ -251,6 +258,22 @@
   (map :orcpub.user/username
        (d/pull-many db '[:orcpub.user/username] ids)))
 
+(defn artist-credit-body
+  "What the account page needs to show an artist their credit."
+  [db user-id]
+  (when-let [{:keys [artist-id default current own locked]} (artist-credit/credit-for-account db user-id)]
+    {:artist-id (name artist-id)
+     :default default
+     :current (select-keys current [:artist/id :artist/name :artist/link :artist/links])
+     :own own
+     :locked locked
+     ;; so the page can show which icon a link will get as it's typed
+     :services (for [[icon {:keys [label color hosts]}] artist-credit/services]
+                 {:icon icon :label label :color color :hosts (vec hosts)})
+     :max-links artist-credit/max-links}))
+
+(def max-preferred-name-length 40)
+
 (defn user-body
   "Build the user API response. Core fields are inline; fork-specific
    fields (e.g. tier data) are added by user-data/enrich-response."
@@ -262,7 +285,18 @@
             :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
            user)
     (:orcpub.user/pending-email user)
-    (assoc :pending-email (:orcpub.user/pending-email user))))
+    (assoc :pending-email (:orcpub.user/pending-email user))
+
+    ;; whether this deployment can store one at all (it needs a key)
+    true
+    (assoc :preferred-name-enabled? (crypto/enabled?))
+
+    (:orcpub.user/preferred-name user)
+    (assoc :preferred-name (crypto/decrypt crypto/preferred-name-purpose
+                                           (:orcpub.user/preferred-name user)))
+
+    (:orcpub.user/artist user)
+    (assoc :artist-credit (artist-credit-body db (:db/id user)))))
 
 (defn bad-credentials-response [db username ip]
   (security/add-failed-login-attempt! username ip)
@@ -325,6 +359,13 @@
 
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
+
+(defn preferred-name-of
+  "The account's preferred name for an email greeting, decrypted, else the
+   fork's fallback (nil: 'Hi there')."
+  [user]
+  (or (crypto/decrypt crypto/preferred-name-purpose (:orcpub.user/preferred-name user))
+      auth/verification-display-name))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -407,6 +448,14 @@
    db
    username))
 
+(defn- link-artist-on-confirm!
+  "An address was just confirmed. If it is an artist's configured account,
+   link it. Never lets a failure here fail the confirmation itself."
+  [conn id]
+  (try (artist-accounts/on-email-confirmed! conn id (artist-accounts/configured) artist-accounts/notify)
+       (catch Exception e
+         (println "artist-accounts: link on confirmation failed -" (.getMessage e)))))
+
 (defn verify [{:keys [query-params db conn] :as request}]
   (if-let [key (:key query-params)]
     (let [{:keys [:orcpub.user/verification-sent
@@ -443,11 +492,13 @@
                                    [:db/retract id :orcpub.user/pending-email pending-email]
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (link-artist-on-confirm! conn id)
                 (redirect route-map/verify-success-route)))
 
           :else
           (do @(d/transact conn [{:db/id id
                                   :orcpub.user/verified? true}])
+              (link-artist-on-confirm! conn id)
               (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
@@ -461,7 +512,7 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name auth/verification-display-name})
+                              {:first-and-last-name (preferred-name-of user)})
                        conn
                        {:db/id id}))))
 
@@ -502,26 +553,68 @@
   (let [username (:user identity)
         {:keys [:db/id]} (find-user-by-username db username)]
     (if id
-      (do (when (contains? transit-params :send-updates?)
-            @(d/transact conn [{:db/id id
-                                :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
-          ;; Re-read from DB after transact for authoritative response
-          (let [updated-user (d/entity (d/db conn) id)]
-            {:status 200
-             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
+      (let [pn (when (contains? transit-params :preferred-name)
+                 (some-> (:preferred-name transit-params) str s/trim (s/replace #"\s+" " ")))]
+        (cond
+          (and pn (> (count pn) max-preferred-name-length))
+          {:status 400 :body {:error (str "Names can be up to " max-preferred-name-length " characters")}}
+
+          ;; refuse rather than store it readable: the point was that it isn't
+          (and (seq pn) (not (crypto/enabled?)))
+          {:status 400 :body {:error "Preferred names aren't available on this site yet"}}
+
+          :else
+          (do (when (contains? transit-params :send-updates?)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+              (when (contains? transit-params :preferred-name)
+                (let [old (:orcpub.user/preferred-name (d/entity (d/db conn) id))]
+                  (cond
+                    (seq pn) @(d/transact conn [{:db/id id :orcpub.user/preferred-name
+                                                 (crypto/encrypt crypto/preferred-name-purpose pn)}])
+                    old @(d/transact conn [[:db/retract id :orcpub.user/preferred-name old]]))))
+              ;; Re-read from DB after transact for authoritative response
+              (let [updated-user (d/entity (d/db conn) id)]
+                {:status 200
+                 :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))
+                        :preferred-name (crypto/decrypt crypto/preferred-name-purpose
+                                                        (:orcpub.user/preferred-name updated-user))}}))))
       {:status 400 :body {:error "User not found"}})))
+
+(defn update-artist-credit
+  "PUT /user/artist-credit -- an artist edits how they're credited. The
+   artist and the admin both hear about every change."
+  [{:keys [transit-params db conn identity]}]
+  (let [user (find-user-by-username db (:user identity))
+        id (:db/id user)]
+    (if-not id
+      {:status 400 :body {:error "User not found"}}
+      (let [{:keys [errors unchanged saved before artist-id]}
+            (artist-credit/save! conn id (select-keys transit-params [:name :link :links]))]
+        (cond
+          errors {:status 400 :body {:errors errors}}
+          unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
+          :else
+          (do (future (artist-email/credit-changed! {:artist-id artist-id :user user
+                                                     :before before :after saved}))
+              {:status 200 :body (artist-credit-body (d/db conn) id)}))))))
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
       @(d/transact
         conn
-        [{:db/id user-id
-          :orcpub.user/password-reset-key key
-          :orcpub.user/password-reset-sent (java.util.Date.)}])
+        (cond-> [{:db/id user-id
+                  :orcpub.user/password-reset-key key
+                  :orcpub.user/password-reset-sent (java.util.Date.)}]
+          ;; a fresh ordinary reset replaces a week-long welcome link, so it
+          ;; must not inherit that link's expiry
+          (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))
+          (conj [:db/retract user-id :orcpub.user/password-reset-expires
+                 (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))])))
       (email/send-reset-email
        (base-url request)
-       {:first-and-last-name auth/verification-display-name
+       {:first-and-last-name (preferred-name-of (d/entity (d/db conn) user-id))
         :email email}
        key)
       {:status 200}
@@ -534,6 +627,14 @@
 
 (defn password-reset-expired? [password-reset-sent]
   (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+
+(defn reset-link-expired?
+  "Whether a reset link is past its expiry: its own expiry when it has one
+   (the artist welcome link lasts a week), otherwise the usual 24 hours."
+  [{:keys [:orcpub.user/password-reset-sent :orcpub.user/password-reset-expires]}]
+  (if password-reset-expires
+    (.after (java.util.Date.) password-reset-expires)
+    (password-reset-expired? password-reset-sent)))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
@@ -658,6 +759,42 @@
       (println (format "pdf: %d %s cards requested, printing the first %d"
                        n kind limit)))
     (take limit cards)))
+
+(defn pdf-safe-text
+  "PDFBox's standard-14 fonts are WinAnsi: a name with a character outside it
+   throws on showText and would take the whole sheet down. Drop what cannot be
+   encoded rather than lose the export, and keep the line short enough to fit
+   under the portrait box."
+  [s]
+  (some-> s
+          (s/replace #"[^\u0020-\u007e\u00a0-\u00ff]" "")
+          ;; dropping a character must not leave a gap where it was
+          (s/replace #"\s+" " ")
+          s/trim
+          (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
+
+(defn stamp-document-info!
+  "Set the exported sheet's own metadata.
+
+   The templates are third-party InDesign files, so a fresh export inherits
+   their info dictionary and claims to have been made by 'Adobe InDesign CS6
+   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
+   digital-asset tool or a search index reads. Overwriting it costs nothing
+   and puts the art credit somewhere besides the picture.
+
+   This is provenance, not protection: metadata strips in seconds."
+  [doc {:keys [character-name credit]}]
+  (try
+    (let [info (.getDocumentInformation doc)]
+      (.setTitle info (or (some-> character-name s/trim not-empty)
+                          branding/default-page-title))
+      (.setCreator info branding/app-name)
+      (.setProducer info branding/app-name)
+      (when-let [c (pdf-safe-text credit)]
+        (.setSubject info c)
+        (.setKeywords info c)))
+    (catch Exception e
+      (println "pdf: could not stamp document info -" (.getMessage e)))))
 
 (defn add-spell-cards!
   "Appends spell card pages, nine to a sheet, each with its back.
@@ -1003,7 +1140,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1144,20 +1281,44 @@
                       ;; cached.
                       (some-> (wanted url failed?)
                               (as-> u (future (:image (probed-outcome u)))))))
-            portrait (image image-data image-url image-url-failed)
+            ;; A composed (paper-doll) portrait has no URL that could produce
+            ;; it -- the client bakes its CSS-mask layers -- and it arrives
+            ;; larger than an uploaded picture may be, so it goes through
+            ;; decode-artwork-bytes, which fits it instead of refusing it.
+            ;;
+            ;; Decoded eagerly rather than in a delay: it is local CPU with no
+            ;; network in it, and a delay that derefs to nil would be truthy
+            ;; here, so a portrait that failed to decode would suppress the
+            ;; pasted image-url that should have taken over.
+            composed (pdf/decode-artwork-bytes portrait-png)
+            portrait (if composed
+                       (delay composed)
+                       (image image-data image-url image-url-failed))
             faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15)))
+            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
+          ;; The credit is baked into the composed PNG itself now (see
+          ;; portrait/draw-credit!), so there is nothing to print here: a
+          ;; second drawn line landed 0.12in under the first and said the
+          ;; same thing.
+          )
         (when-let [{:keys [data jpg?]} (some-> faction deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
-            4 nil)))
+            4 nil))
+        ;; Inside this let, so it can see whether the composed portrait was
+        ;; actually used. Keyed on the decode, not on the field being present:
+        ;; a portrait-png that fails to decode falls back to the pasted
+        ;; image-url above, and crediting the illustrator for somebody else's
+        ;; photograph is the one thing this feature must not do.
+        (stamp-document-info! doc {:character-name character-name
+                                   :credit (when composed portrait-credit)}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -1194,6 +1355,8 @@
                            {:keys [title description image-url]}
                            & [response]]
   (let [host (headers "host")]
+    ;; before index-page reads the credits into __BRANDING__
+    (when-let [db (:db request)] (artist-credit/refresh! db))
     (merge
      response
      {:status 200
@@ -1221,7 +1384,7 @@
                   :orcpub.user/password-reset-sent
                   :orcpub.user/password-reset] :as user}
           (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
+          expired? (reset-link-expired? user)
           already-reset? (password-already-reset? password-reset password-reset-sent)]
       (cond
         expired? (redirect route-map/password-reset-expired-route)
@@ -1612,10 +1775,18 @@
       {:status 400 :body problems}
       {:status 200 :body character})))
 
-(defn character-summary-for-id [db id]
-  ;; Fixed: bare destructuring outside let silently returned nil
-  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
-    summary))
+(defn character-summary-for-id
+  "The share-card data for a character: {::se/summary … ::se/values …}.
+
+   Returns the WHOLE pull, not just ::se/summary. It used to return the summary
+   submap while its caller went on to destructure ::se/summary and ::se/values
+   back out of it -- so every og:title and og:image came out nil and shared
+   links fell back to the site defaults."
+  [db id]
+  (d/pull db
+          '[::se/summary
+            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
+          id))
 
 (defn get-character
   "Retrieves a character by ID.
@@ -1750,7 +1921,8 @@
                         (< elapsed (* 5 60 1000)))))
             (try
               (send-email-change-verification request
-                                              {:email new-email :username username}
+                                              {:email new-email :username username
+                                                 :preferred-name (preferred-name-of user)}
                                               (:orcpub.user/verification-key user))
               {:status 200 :body {:pending-email new-email}}
               (catch Throwable e
@@ -1767,7 +1939,8 @@
               ;; Roll back pending-email if verification email fails to send
               (try
                 (send-email-change-verification request
-                                                {:email new-email :username username}
+                                                {:email new-email :username username
+                                                 :preferred-name (preferred-name-of user)}
                                                 verification-key)
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e
@@ -1834,19 +2007,137 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
+(def ^:private artwork-epoch
+  "Identifies THIS PROCESS's copy of the portrait art.
+
+   The validator below hashes what the character chose, which says \"the same
+   selections\" but not \"the same pixels\": the layer PNGs and the registry that
+   names them are classpath resources, so they change with a DEPLOYMENT and not
+   with anything in the database. Mixing the epoch in means a restart
+   invalidates every portrait validator, which is exactly when the pixels can
+   have changed underneath one."
+  (str (System/currentTimeMillis)))
+
+(defn portrait-etag
+  "A validator for a composed portrait: everything its pixels depend on.
+
+   Route-local on purpose. The app's global etag-interceptor cannot do this one,
+   because it derives a validator from the response BODY and has no method for a
+   stream -- and teaching it one would hash every exported PDF, which shares that
+   body type, on every export. Here the key is the stored EDN, which is already
+   in hand before anything is rendered."
+  [stored credit mark]
+  (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
+
+(defn- any-representation-requested?
+  "Whether If-None-Match is the wildcard.
+
+   RFC 7232 s3.2 gives the grammar as `\"*\" / 1#entity-tag`, so the wildcard is
+   the ENTIRE header value and can never be a list member. Reading it as one
+   meant a tag containing commas -- which the grammar permits inside the quotes
+   -- could be split into a bare `*` and fabricate a match, answering 304 to a
+   client holding a stale picture. A miss costs a render; this costs
+   correctness, so the two are not symmetrical."
+  [header]
+  (= "*" (some-> header s/trim)))
+
+(defn- covered-by-if-none-match?
+  "Whether an If-None-Match header lists `tag`.
+
+   Entity tags are quoted strings and the grammar does not forbid a comma inside
+   one, so the tags are MATCHED OUT rather than split on -- splitting is what
+   invented a wildcard above. Comparison is the weak one RFC 7232 s3.2 specifies
+   for If-None-Match, so W/\"x\" covers \"x\"; the --gzip suffix some re-encoding
+   proxies append is dropped the way the app's own etag-interceptor drops it.
+
+   The wildcard is deliberately NOT handled here: it asks whether a
+   representation exists at all, which cannot be answered before rendering one."
+  [header tag]
+  (boolean
+   (when (and (not (s/blank? header)) tag)
+     (let [bare #(-> % s/trim (s/replace #"(?i)^W/" "") (s/replace #"--gzip$" ""))
+           offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
+       (contains? offered (bare tag))))))
+
+(defn character-portrait-png
+  "PNG of a character's composed portrait, for og:image.
+
+   A crawler has no browser, so unlike the PDF path (where the client bakes
+   the layers with canvas) this is rendered here. Access matches the character
+   page itself -- unauthenticated by id -- because that page already exposes
+   the same character's name, race and description in its meta tags.
+
+   404 when the character has no composed portrait, so a crawler falls back to
+   whatever og:image the page did declare."
+  [{:keys [db headers] {:keys [id]} :path-params}]
+  (artist-credit/refresh! db)
+  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+                       ::se/values
+                       ::char5e/portrait)
+        portrait (some-> stored char5e/parse-portrait)
+        tag (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
+                                          (portrait-render/site-mark)))
+        png-headers {"Content-Type" "image/png"
+                     ;; Portraits change rarely and a crawler may refetch often.
+                     "Cache-Control" "public, max-age=300"
+                     ;; This is contributed artwork. The header is the per-response
+                     ;; twin of the page's `noai` meta -- a crawler that fetches the
+                     ;; PNG directly never parses the HTML that carries the meta.
+                     "X-Robots-Tag" "noai, noimageai"
+                     "ETag" tag}]
+    (cond
+      (nil? portrait) {:status 404 :body "no composed portrait"}
+
+      ;; BEFORE rendering, which is the point. A 304 here costs a pull and a
+      ;; hash; the alternative is decoding up to ten PNGs, scaling, tinting,
+      ;; compositing and encoding, to produce bytes the caller already has.
+      (covered-by-if-none-match? (get headers "if-none-match") tag)
+      {:status 304 :headers (dissoc png-headers "Content-Type")}
+
+      :else
+      ;; The wildcard cannot take the path above. `*` asks whether a
+      ;; representation EXISTS, and a stored portrait selecting nothing drawable
+      ;; has none -- it 404s. Answering 304 there would tell a client its cached
+      ;; copy is current when the resource has no current copy at all. So it
+      ;; renders first and lets the outcome decide, which costs the saving on a
+      ;; wildcard request and keeps it on every request that names a tag.
+      (if-let [png (portrait-render/render-png portrait)]
+        (if (any-representation-requested? (get headers "if-none-match"))
+          {:status 304 :headers (dissoc png-headers "Content-Type")}
+          {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})
+        {:status 404 :body "no composed portrait"}))))
+
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")
-        {:keys [::se/summary
-                ::se/values] :as summary-obj} (character-summary-for-id db id)
+        {:keys [::se/summary ::se/values]} (character-summary-for-id db id)
         {:keys [::char5e/character-name]} summary
         {:keys [::char5e/description
-                ::char5e/image-url]} values]
+                ::char5e/image-url
+                ::char5e/portrait]} values
+        ;; A composed portrait wins over a pasted URL, the same precedence the
+        ;; sheet, the summary and the PDF use. It is served as a real PNG
+        ;; because crawlers will not render CSS masks -- or, mostly, SVG.
+        parsed-portrait (char5e/parse-portrait portrait)
+        ;; drawable?, not (seq :layers). A selection naming only assets this
+        ;; deployment does not have is non-empty and draws nothing, so the card
+        ;; pointed at /portrait.png, the renderer returned 404, and the link
+        ;; previewed broken -- even when the character had a usable image-url
+        ;; to fall back on.
+        composed? (portrait-assets5e/drawable? parsed-portrait)
+        share-image (if composed?
+                      (str "https://" host
+                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
+                      image-url)
+        ;; A shared link is where the art actually travels, so the card names
+        ;; the artists too -- the same line the sheet prints.
+        credit (when composed? (portrait-assets5e/credit-line parsed-portrait))]
     (index-page-response request
                          {:title character-name
                           :description (str (character-summary-description summary)
                                             ". "
-                                            description)
-                          :image-url image-url}
+                                            description
+                                            (when credit (str " · " credit)))
+                          :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
 
 (def header-style
@@ -1930,6 +2221,8 @@
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
+       [(route-map/path-for route-map/user-artist-credit-route) ^:interceptors [check-auth]
+        {:put `update-artist-credit}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]
@@ -1958,6 +2251,8 @@
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
+        {:get `character-portrait-png}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

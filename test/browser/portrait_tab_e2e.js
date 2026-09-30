@@ -1,0 +1,326 @@
+// The compositor as a builder tab, in place rather than in the drawer.
+//
+// The drawer and the tab share one draft and one body component, so the
+// things worth checking are the seams: that the tab seeds a draft with no
+// open/close of its own, that popping the drawer from the tab carries the
+// in-progress edits across instead of resetting them, and that Save here
+// keeps the panel populated instead of emptying it.
+//
+//   lein fig:build && lein e2e-server
+//   node test/browser/portrait_tab_e2e.js
+
+const { chromium } = require('playwright');
+const fs = require('fs');
+const path = require('path');
+const { suppressOverlays } = require('./lib/orcbrew-import');
+const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+
+// Same resolver the other probes use: the image ships a pinned Chromium whose
+// build number will not match whatever playwright's npm package wants, so the
+// bundled path does not exist. ORCPUB_CHROME overrides it for a one-off run.
+// An untimed .click().catch() waits playwright's full 30s default and then throws
+// the failure away -- silent, and the runner greps for it. See test/browser/README.md.
+async function clickIfVisible(locator, { timeout = 2500 } = {}) {
+  try { await locator.click({ timeout }); return true; }
+  catch (_) { return false; }
+}
+
+function findChrome() {
+  if (process.env.ORCPUB_CHROME) return process.env.ORCPUB_CHROME;
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const dir = require('fs').readdirSync(base)
+      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
+    if (dir) {
+      const p = require('path').join(base, dir, 'chrome-linux', 'chrome');
+      if (require('fs').existsSync(p)) return p;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
+const SHOT = process.env.ORCPUB_SHOT;
+
+let failures = 0;
+function check(label, ok, detail) {
+  // PASS/FAIL prefixes, not 'ok': run-browser-probes.js counts these lines to
+  // catch a probe that has quietly stopped asserting.
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail && !ok ? '  — ' + detail : ''}`);
+}
+
+// device-type comes from the USER AGENT, not the viewport, so a narrow window
+// still renders the desktop two-column layout. Testing the phone layout means
+// actually claiming to be a phone.
+const PHONE_UA = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 '
+  + '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+
+async function openBuilder(ctx, width) {
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#app', { timeout: 30000 });
+  const cookie = page.locator('#cookie-btn');
+  if (await cookie.count()) { await clickIfVisible(cookie); await page.waitForTimeout(200); }
+  return page;
+}
+
+(async () => {
+  const browser = await chromium.launch({ executablePath: findChrome() });
+  const ctx = await browser.newContext();
+  await suppressOverlays(ctx);  // by-hand runs get no preload
+  const jsErrors = [];
+
+  console.log(`\nportrait tab e2e -- ${BASE}\n`);
+
+  // ---------- desktop ----------
+  const page = await openBuilder(ctx, 1280);
+  page.on('pageerror', e => jsErrors.push(String(e)));
+
+  const tab = page.locator('.builder-tab', { hasText: /^Portrait$/ }).first();
+  check('Portrait tab is in the builder tab bar', await tab.count() > 0);
+  await tab.click();
+  await page.waitForTimeout(400);
+
+  const panel = page.locator('.pl-inline');
+  check('tab renders the compositor in place', await panel.isVisible());
+  check('no drawer overlaying it', await page.locator('.pl-drawer').count() === 0);
+  check('all 10 pickers render inline',
+        await panel.locator('.pl-picker').count() === 10);
+
+  // a tab has no open/close, so it has to seed its own draft
+  check('save starts disabled -- nothing edited yet',
+        await panel.locator('.pl-btn-primary').last().isDisabled());
+
+  await panel.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  await page.waitForTimeout(400);
+  const layers = await panel.locator('.pl-portrait-frame .portrait-layer').count();
+  check('randomize composes layers inline', layers > 0, `${layers} layers`);
+  check('save enables once there is an edit',
+        !(await panel.locator('.pl-btn-primary').last().isDisabled()));
+
+  if (SHOT) { await page.screenshot({ path: SHOT }); console.log(`\n  screenshot -> ${SHOT}`); }
+
+  // ---------- the tab hands its work to the drawer ----------
+  await panel.locator('.pl-btn-ghost', { hasText: 'Full screen' }).click();
+  const drawer = page.locator('.pl-drawer');
+  await drawer.waitFor({ state: 'visible', timeout: 10000 });
+  const inDrawer = await drawer.locator('.pl-portrait-frame .portrait-layer').count();
+  check('full screen carries the in-progress edits over, not a blank draft',
+        inDrawer === layers, `tab=${layers} drawer=${inDrawer}`);
+
+  // cancel discards, and must not leave the tab underneath empty
+  await drawer.locator('.pl-drawer-close').click();
+  await page.waitForTimeout(400);
+  check('cancel closes the drawer', await page.locator('.pl-drawer').count() === 0);
+  check('the tab is still rendering afterwards', await panel.isVisible());
+  check('cancel discarded the edit',
+        await panel.locator('.pl-portrait-frame .portrait-layer').count() === 0);
+
+  // ---------- save keeps the panel populated ----------
+  await panel.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  await page.waitForTimeout(400);
+  await panel.locator('.pl-btn-primary').last().click();
+  await page.waitForTimeout(600);
+  const afterSave = await panel.locator('.pl-portrait-frame .portrait-layer').count();
+  check('saving does not empty the panel', afterSave > 0, `${afterSave} layers`);
+  check('save goes quiet once saved',
+        await panel.locator('.pl-btn-primary').last().isDisabled());
+
+  // and it really persisted
+  await page.locator('.builder-tab', { hasText: /^Options$/ }).first().click();
+  await page.waitForTimeout(300);
+  await tab.click();
+  await page.waitForTimeout(400);
+  check('the saved portrait is there when you come back',
+        await panel.locator('.pl-portrait-frame .portrait-layer').count() > 0);
+
+  // ---------- the phone layout has the tab too ----------
+  const phoneCtx = await browser.newContext({ userAgent: PHONE_UA, isMobile: true,
+                                              hasTouch: true, viewport: { width: 412, height: 915 } });
+  await suppressOverlays(phoneCtx);
+  const phone = await openBuilder(phoneCtx, 412);
+  phone.on('pageerror', e => jsErrors.push(String(e)));
+  const mtab = phone.locator('.builder-tab', { hasText: /^Portrait$/ }).first();
+  check('Portrait tab exists on mobile', await mtab.count() > 0);
+  await mtab.click();
+  await phone.waitForTimeout(400);
+  check('and renders the panel there', await phone.locator('.pl-inline').isVisible());
+  const bodyMax = await phone.locator('.pl-inline .pl-drawer-body')
+    .evaluate(el => getComputedStyle(el).maxHeight);
+  check('the phone scrolls the page, not a nested panel', bodyMax === 'none', bodyMax);
+
+  // A fourth tab overflowed the bar: at phone width the labels ran together
+  // into OPTIONSDESCRIPTIONPORTRAIT with no gap between them.
+  const tabBoxes = await phone.locator('.builder-tabs .builder-tab').evaluateAll(
+    els => els.map(e => { const r = e.getBoundingClientRect();
+                          return { l: r.left, r: r.right, t: r.top }; }));
+  check('all four tabs are laid out', tabBoxes.length === 4, `${tabBoxes.length} tabs`);
+  const sameRow = (a, b) => Math.abs(a.t - b.t) < 4;
+  const collided = tabBoxes.some((a, i) =>
+    tabBoxes.slice(i + 1).some(b => sameRow(a, b) && a.r > b.l + 0.5 && b.r > a.l + 0.5));
+  check('no two tabs overlap', !collided, JSON.stringify(tabBoxes));
+  const gapsOk = tabBoxes.every((a, i) => {
+    const next = tabBoxes[i + 1];
+    return !next || !sameRow(a, next) || next.l - a.r >= 4;
+  });
+  check('tabs sharing a row keep a gap between them', gapsOk, JSON.stringify(tabBoxes));
+
+  // and the page itself must not scroll sideways because of them
+  const overflow = await phone.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  check('no horizontal overflow on the phone', overflow <= 1, `${overflow}px`);
+
+  // ---------- pieces marked not-yet-drawn ----------
+  // gap-inventory is empty in the committed registry, so this is an invariant
+  // guard rather than a demonstration: it fires the moment real `no *.txt`
+  // markers are recorded. The count is printed so a reader can see that.
+  const gaps = await page.locator('.pl-sw-gap').count();
+  console.log(`  note gap swatches currently rendered: ${gaps}`);
+  const gapShapes = await page.locator('.pl-sw-gap').evaluateAll(
+    els => els.map(e => ({ tag: e.tagName, title: e.getAttribute('title'),
+                           selected: e.classList.contains('selected') })));
+  // .every() on an empty array is true, so with gap-inventory empty -- which it
+  // is in the committed registry -- both of these reported PASS while looking at
+  // nothing. A probe that cannot run says so rather than passing quietly.
+  if (!gaps) {
+    console.log('  SKIP  not-yet-drawn swatches: gap-inventory is empty, nothing to assert');
+  } else {
+    check('a not-yet-drawn piece is never a pressable swatch',
+          gapShapes.every(g => g.tag !== 'BUTTON' && !g.selected),
+          JSON.stringify(gapShapes));
+    check('and always says what it is',
+          gapShapes.every(g => g.title && /not drawn yet/.test(g.title)),
+          JSON.stringify(gapShapes));
+  }
+
+  // ---------- the draft belongs to ONE character ----------
+  //
+  // The in-progress portrait lives at the top of app-db, not inside the
+  // character, so nothing stops it outliving the character it was drawn for.
+  // Three review rounds went into guards that tried to work that out after the
+  // fact; the events say it now -- :set-character means a DIFFERENT character
+  // and always drops the draft, :character-updated means this one changed and
+  // keeps it. These drive the two switch paths in a real browser.
+  //
+  // The save path (portrait edits surviving Save, because the response is where
+  // a new character first gets its id) cannot be driven here: saving needs a
+  // session and these probes run unauthenticated. It is covered by
+  // events-test/a-save-of-the-character-on-screen-updates-it-rather-than-switching,
+  // which asserts which event the save dispatches.
+  const shotDir = process.env.ORCPUB_SHOT_DIR;
+  const shoot = async (name) => {
+    if (!shotDir) return;
+    fs.mkdirSync(shotDir, { recursive: true });
+    const out = path.join(shotDir, name);
+    await page.screenshot({ path: out });
+    console.log(`  screenshot -> ${out}`);
+  };
+
+  const portraitTab = page.locator('.builder-tab', { hasText: /^Portrait$/ }).first();
+  const inline = page.locator('.pl-inline');
+  const layerCount = () => inline.locator('.pl-portrait-frame .portrait-layer').count();
+
+  await portraitTab.click();
+  await page.waitForTimeout(300);
+  if (!(await layerCount())) {
+    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await page.waitForTimeout(400);
+  }
+  const before = await layerCount();
+  check('a portrait is composed before the switch', before > 0, `${before} layers`);
+  await shoot('1-portrait-composed.png');
+
+  // "New" replaces the character in place and never routes through
+  // :set-character, which is why it needs the discard in its own interceptor.
+  await page.locator('.header-button-text', { hasText: /^New$/ }).first().click();
+  await page.waitForTimeout(200);
+  const confirm = page.locator('button', { hasText: 'CREATE NEW CHARACTER' });
+  if (await confirm.count()) { await confirm.first().click(); }
+  await page.waitForTimeout(500);
+
+  await portraitTab.click();
+  await page.waitForTimeout(400);
+  const after = await layerCount();
+  check('New does not inherit the previous character\'s portrait',
+        after === 0, `${before} layers before, ${after} after`);
+  await shoot('2-new-character-is-blank.png');
+
+  // Randomize again so the shot after the second switch is not confused with
+  // the shot after the first.
+  await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  await page.waitForTimeout(400);
+  const rebuilt = await layerCount();
+  check('the new character can be given its own portrait', rebuilt > 0, `${rebuilt} layers`);
+  await shoot('3-new-character-own-portrait.png');
+
+  // Random builds a different character through :set-character.
+  await page.locator('.header-button-text', { hasText: /^Random$/ }).first().click();
+  await page.waitForTimeout(200);
+  const confirmRandom = page.locator('button', { hasText: 'GENERATE RANDOM CHARACTER' });
+  if (await confirmRandom.count()) { await confirmRandom.first().click(); }
+  await page.waitForTimeout(1200);
+  await portraitTab.click();
+  await page.waitForTimeout(400);
+  const afterRandom = await layerCount();
+  check('Random does not inherit it either', afterRandom === 0,
+        `${rebuilt} layers before, ${afterRandom} after`);
+  await shoot('4-random-character-is-blank.png');
+
+  // ---------- a save that outlived the screen it started on ----------
+  //
+  // The autosave queue is throttled by 7.5s and every sheet control feeds it, so
+  // a save routinely ANSWERS about a character that is no longer open. It used
+  // to make whatever came back the builder's character, taking db :character --
+  // where unsaved edits live -- with it.
+  //
+  // Driven through re-frame rather than over HTTP because a real save needs a
+  // session and these probes run unauthenticated. Everything downstream of the
+  // response is the real thing: the real handler, the real reducers, the real
+  // DOM. Only the round-trip is stood in for.
+  await portraitTab.click();
+  await page.waitForTimeout(300);
+  if (!(await layerCount())) {
+    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await page.waitForTimeout(400);
+  }
+  const heldLayers = await layerCount();
+  check('a portrait is on screen before the stale answer', heldLayers > 0, `${heldLayers} layers`);
+
+  // dispatch_sync through the app's own re-frame, the way the other probes do
+  await page.waitForFunction(
+    () => window.re_frame && window.re_frame.db && window.cljs && window.cljs.reader,
+    null, { timeout: 30000 });
+  await page.addScriptTag({ content:
+    'window.__d = (edn) => window.re_frame.core.dispatch_sync.call(null, window.cljs.reader.read_string.call(null, edn));' });
+  const dbAt = (edn) => page.evaluate((e) => window.cljs.core.pr_str.call(null,
+    window.cljs.core.get_in.call(null, window.cljs.core.deref.call(null, window.re_frame.db.app_db),
+      window.cljs.reader.read_string.call(null, e))), edn);
+
+  // WHICH character is on screen is the assertion, not what is drawn. A first
+  // version of this checked the portrait and a heading instead and passed
+  // against the broken code: with the fix reverted the handler dispatches
+  // :character-updated, which keeps the draft on purpose, and the heading it
+  // read was the page title rather than the character.
+  const idBefore = await dbAt('[:character :db/id]');
+
+  // A save answering about a character that was never the one on screen.
+  await page.evaluate(() => window.__d(
+    '[:character-save-success {:body {:db/id 987654 :orcpub.entity.strict/values {}}} {:for-id 987654}]'));
+  await page.waitForTimeout(600);
+
+  const idAfter = await dbAt('[:character :db/id]');
+  check('a stale save does not swap the character out from under you',
+        idAfter === idBefore && idAfter !== '987654',
+        `db :character/:db/id was ${idBefore}, now ${idAfter}`);
+  const survivedLayers = await layerCount();
+  check('and the portrait on screen is still the one being drawn',
+        survivedLayers === heldLayers, `${heldLayers} before, ${survivedLayers} after`);
+  await shoot('5-stale-save-leaves-the-screen-alone.png');
+
+  check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
+
+  await browser.close();
+  console.log(`\ndone — ${failures} failing\n`);
+  process.exit(failures === 0 ? 0 : 1);
+})().catch(e => { console.error('\nharness error:', e); process.exit(1); });
