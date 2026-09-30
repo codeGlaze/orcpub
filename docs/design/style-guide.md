@@ -107,11 +107,12 @@ browser doesn't even fake the bold. Firefox and Safari may fake it by smearing t
 Loading `Open+Sans:wght@400;600;700` fixes both. For a modern browser that's one more file, about
 48 KB for Latin text. Before/after, captured from the site: `style-guide/bold.html`.
 
-**Header weights (owner, 2026-09-30).** The page title looks right at **600**: at 700 its large
-mixed-case letters turn plump. The header tabs look fine at **700**; they are small, all caps and
-sit on a busy banner, which carries a heavier weight. Tab weight not yet confirmed. Both share the
-generic `.f-w-b` bold class today, so each needs its own weight in Garden: `.header-tab` and the
-page title (`h1.f-s-36` in `views/header`). Captures: `style-guide/weights.html`.
+**Decided (owner, 2026-09-30): header tabs 700, page title 600.** At 700 the tabs are far more
+readable: they are small, all caps and sit on a busy banner, and capitals carry the extra weight
+without thickening. The title is large and mixed case, and at 700 its round lowercase letters turn
+plump, so it takes 600. Both share the generic `.f-w-b` bold class today, so each needs its own
+weight in Garden: `.header-tab` 700, the page title (`h1.f-s-36` in `views/header`) 600. Chosen
+from the pair captured together: `style-guide/weights.html`.
 
 **Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
 because browsers give buttons their own default font and nothing here sets `button
