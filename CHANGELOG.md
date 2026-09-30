@@ -997,15 +997,16 @@ load, so work done during the session is in the file.
 
 **Highlights**
 
-Homebrew edits can no longer quietly lose data. Every change to the library goes through one check
-that keeps links intact, merges edits made in two tabs, and asks before touching another pack, and
-characters keep their homebrew through renames on every page.
+Homebrew edits can no longer quietly lose data. Changes made in the app go through one check that
+keeps links intact or says what a deliberate delete breaks, merges edits made in two tabs, and asks
+before touching another pack, and characters keep their homebrew through renames on every page.
 
 **Added**
 
-- **One gate for every library write** — saves, imports, moves, restores and key changes pass one
-  check that refuses a write which would strand a link or lose an entry, and says what it refused
-  (`31329bcd`, `5209eb97`).
+- **One gate for the app's library writes** — saves, imports, moves, restores and key changes pass
+  one check. A save, move or key change that would strand a link is refused; a deliberate delete or
+  a re-import goes ahead and says which links it left pointing at nothing. The server's first-load
+  fetch writes only into an empty library (`31329bcd`, `5209eb97`, `4f7ebf3b`).
 - **Two tabs no longer overwrite each other** — a write from a tab holding an old copy is merged onto
   the newer library, and a real conflict is reported instead of lost (`bf1ca6a5`, `f3578592`,
   `4f7ebf3b`).
