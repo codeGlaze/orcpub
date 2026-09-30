@@ -143,8 +143,18 @@ soft light glow) under the opt-in dark text. It sharpens the letters without cha
 people know. Applied to `.form-button` (dark theme only, since it's slate in the light theme),
 `.mc-btn` and `.roll-button` (amber in both themes), and to every header tab (the active one is
 amber; the grey ones on the banner firm up too). The ability buttons (`.roll-button`, "+2",
-"-1") are 700 like the other amber buttons, and with dark text get a stronger glow (70% white),
-because a one- or two-character label has too little stroke to hold up with the standard lift.
+"-1") are 700 like the other amber buttons. A one- or two-character label has too little stroke
+to hold up with the standard lift, so with dark text they get a stronger glow (70% white) and a
+yellow rim: `-webkit-text-stroke: 2px` in `warning-yellow` (`#ffd21a`) with `paint-order: stroke
+fill`, which draws the rim behind the letters so about 1px shows outside them and the letters keep
+their full weight. Chosen over white, pale yellow, amber and orange rims (captures `round9.html`,
+`round10.html` on `claude/artist-profile-pages`). Orange and amber blend in because they're about as
+light as the button; an outline only separates a letter when it's lighter or darker than the button.
+
+*Fallback if the rim doesn't hold up in use*, in order:
+1. Pale yellow `#ffe680` rim (option l): crisper, still warm; adds one colour to the palette.
+2. Remove the two stroke properties and keep the stronger glow (option d, the state at `844c15ca`).
+3. Drop the `.roll-button` override entirely: the standard `text-lift-light`, as on the other buttons.
 
 **Light-theme inconsistency.** `.form-button` turns slate blue in the light theme, but its copies
 `.mc-btn` and `.roll-button` stay amber, because the light-theme rule was only written for one

@@ -22,7 +22,7 @@ site. Bold across the site was then tuned by a size rule (700 small capitals, 60
 
 ## Fixed
 
-- White text on the yellow buttons has a faint dark edge, and the optional dark text a faint light one, so the letters stand out from the amber. The header tabs get the same dark edge, and the small ability buttons a stronger glow.
+- White text on the yellow buttons has a faint dark edge, and the optional dark text a faint light one, so the letters stand out from the amber. The header tabs get the same dark edge, and the small ability buttons a stronger glow plus a thin yellow outline.
 - "MY CONTENT" fits on one line in the header: the tab titles are 4% tighter.
 - Text marked bold now renders bold: Open Sans is loaded at 400, 600 and 700, not 400 alone. (`4159164c`)
 - Buttons use the site font instead of the browser's default Arial. (`4159164c`)

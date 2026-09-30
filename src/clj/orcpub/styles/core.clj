@@ -1229,9 +1229,12 @@
      [:.form-button :.mc-btn :.roll-button
       {:color "#15202e"
        :text-shadow text-lift-light}]
-     ;; the ability buttons are short numbers: a stronger glow to hold them up
+     ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
+     ;; hold them up. paint-order draws the rim behind the letters, not over them.
      [:.roll-button
-      {:text-shadow "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)"}]]
+      {:text-shadow "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)"
+       :-webkit-text-stroke (str "2px " warning-yellow)
+       :paint-order "stroke fill"}]]
 
     ;; Browsers give buttons their own default font (Arial), not the page's, so every
     ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
