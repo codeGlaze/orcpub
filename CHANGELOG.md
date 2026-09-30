@@ -1051,6 +1051,18 @@ before touching another pack, and characters keep their homebrew through renames
 - **Notices and import modals share one design** — each decision in one framed callout, names
   instead of keys, no decorative icons (`b1feb5b3`, `7ae78fc6`).
 
+### fix/comment-debt
+
+**Fixed**
+
+- **Party add/remove answer with the updated party** — both returned the party as it was before the change, because they pulled from the request's snapshot. The app ignored the body, so nothing visible broke; a new test covers both (`d09964ce`).
+- **Stale comments and docstrings corrected against the code** — among them the CSP notes that described a Report-Only dev policy that no longer exists, and PDF, spell-packing and share-link docstrings that named the wrong return shape (`ac0dc950`).
+
+**Changed**
+
+- **Comments and docstrings trimmed to spec** across 47 source files, clearing the comment check's recorded debt; history and measurements moved to the knowledge base (`ac0dc950`).
+- **The linter's config is tracked** — `.gitignore` now ignores the linter's cache, not `.clj-kondo/config.edn` (`ac0dc950`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
