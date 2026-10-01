@@ -117,6 +117,33 @@ Per-slot boosts over the first presets were eyes x1.45 saturation / x1.22 value,
 shirt x1.22 / x1.08, hair x1.18 / x1.06, skin x1.06 / x1.02 -- skin barely
 moves, because skin is the slot where a boost reads as sunburn.
 
+## Hair streaks follow the drawn strands
+
+The ombré's Streaks setting moves where the tip colour starts, strand by
+strand. It was first a wave of horizontal position only, so every streak was
+a vertical stripe. On long straight hair that passed, but on the short cut,
+which is swept and curled all over, it read as paint on glass.
+
+**Reversal:** streaks are no longer a function of x alone. `strand-field` in
+`portrait_effects.cljc` reads the strand direction from the linework (the
+smoothed structure tensor of the ink; the lines run along the strands). It
+points that direction away from the crown and falls back to "outward from the
+crown" where nothing is drawn. It then averages noise along that direction
+(line integral convolution).
+
+- **Cost:** about 200ms per piece on the JVM at 1200x1500, on a 4px grid.
+  Nearly all of the first 400ms was a box blur whose local helper fns boxed
+  every value; plain index arithmetic halved it.
+- **Caching:** the field depends only on the art, so the share card and the
+  builder each cache one per piece. A colour change recomputes nothing.
+- **Identical renderers:** the noise hash is 32-bit integer maths
+  (`Math.imul` in JS, `unchecked-multiply-int` on the JVM). A test pins its
+  values, so every renderer streaks the same way.
+- **Bug to avoid:** a direction field has no sign, so each step of the walk
+  keeps the heading of the last *field* direction, not the last *motion*.
+  Comparing against motion flipped the backward walk at every step, and the
+  smear went back and forth on the spot. That produced blotches, not streaks.
+
 ## The tests
 
 - `test/clj/orcpub/portrait_tint_behaviour_test.clj` -- proves masking flattens
