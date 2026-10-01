@@ -6,9 +6,9 @@
    a gradient from its root colour to a tip colour instead of one flat colour
    (still multiplied, so the linework stays ink), with a soft-light depth pass
    on top that darkens the roots and lifts the ends. The gradient runs
-   outward from the CROWN, along each piece: a strand's tip is its far end
-   whichever way it points, so side flicks and long ends all reach the tip
-   colour. An angle can be set instead, for a straight gradient in one
+   down from each piece's CROWN LINE -- a smooth arc along its top -- so every
+   strand runs root to tip wherever it starts: a fringe from the hairline to
+   the brow, long hair from the scalp to the ends. An angle can be set instead, for a straight gradient in one
    direction. With the tip the same as the root this is just a little depth.
 
    SHADOWS are cast by the hair pieces that hang over the face -- a fringe,
@@ -32,7 +32,7 @@
   {:start 0.2     ; how far along the hair the tip colour begins, 0..1
    :falloff 0.6   ; how long the blend is, 0 (a hard dip-dye line) .. 1
    :depth 0.3     ; soft-light: darker roots, lighter ends, 0..1
-   :angle nil})   ; nil: outward from the crown; degrees: a straight line, 0 = down
+   :angle nil})   ; nil: down from the crown line; degrees: a straight line, 0 = down
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
@@ -76,10 +76,13 @@
   (let [v (vec (sort xs))]
     (when (seq v) (nth v (int (* q (dec (count v))))))))
 
+(declare arc-frame)
+
 (defn gradient-frame
-  "How to place a piece's pixels between root (0) and tip (1): from the
-   crown outward, or along an angle. Measured over the piece's own pixels,
-   ignoring the outermost 3% so a stray wisp does not set the length."
+  "How to place a piece's pixels between root (0) and tip (1): down from the
+   piece's crown line (`arc-frame`), or along an angle from the crown.
+   Measured over the piece's own pixels, ignoring the outermost 3% so a stray
+   wisp does not set the length."
   [alpha-at w h crown angle]
   (let [samples (for [i (range 0 (* w h) 5) :when (> (alpha-at i) 60)] i)
         [cx cy] (or crown
@@ -93,14 +96,54 @@
             ps (map proj samples)
             lo (or (percentile ps 0.03) 0.0) hi (or (percentile ps 0.97) 1.0)]
         {:kind :angle :cx cx :cy cy :ux ux :uy uy :lo lo :span (max 1.0 (- hi lo))})
-      (let [ds (map #(Math/hypot (- (mod % w) cx) (- (quot % w) cy)) samples)]
-        {:kind :crown :cx cx :cy cy :reach (max 1.0 (or (percentile ds 0.97) 1.0))}))))
+      (arc-frame alpha-at w h))))
+
+(defn arc-frame
+  "Root to tip measured down from a smooth arc along the top of the piece --
+   its crown line -- and scaled the same across the whole piece.
+
+   A single crown point failed on a turned head: strands growing right beside
+   it never counted as far from the roots, so half a fringe stayed root
+   colour. Measuring down each column from that column's own top fixed the
+   fringe but streaked, because a piece's top edge jumps between columns. The
+   arc is the upper envelope of the piece (the highest point within a wide
+   window either side), smoothed, so it follows the curve of the head without
+   the jumps; every strand then runs from it to its tip."
+  [alpha-at w h]
+  (let [tops (int-array w h)]
+    (dotimes [i (* w h)]
+      (when (> (alpha-at i) 60)
+        (let [x (mod i w) y (quot i w)]
+          (when (< y (aget tops x)) (aset tops x y)))))
+    (let [covered (filterv #(< (aget tops %) h) (range w))]
+      (if (empty? covered)
+        {:kind :arc :env (double-array w 0.0) :reach 1.0}
+        (let [win (max 2 (quot w 8))
+              lo (first covered) hi (peek covered)
+              ;; upper envelope over a wide window, then a moving average
+              env0 (double-array w)
+              _ (dotimes [x w]
+                  (let [xs (filter #(< (aget tops %) h) (range (max lo (- x win)) (inc (min hi (+ x win)))))]
+                    (aset env0 x (double (if (seq xs) (apply min (map #(aget tops %) xs))
+                                             (aget tops (if (< x lo) lo hi)))))))
+              sm (max 1 (quot w 40))
+              env (double-array w)
+              _ (dotimes [x w]
+                  (let [xs (range (max 0 (- x sm)) (inc (min (dec w) (+ x sm))))]
+                    (aset env x (/ (reduce + (map #(aget env0 %) xs)) (count xs)))))
+              drops (for [i (range 0 (* w h) 5) :when (> (alpha-at i) 60)]
+                      (- (quot i w) (aget env (mod i w))))]
+          {:kind :arc :env env :reach (max 1.0 (or (percentile drops 0.97) 1.0))})))))
 
 (defn position-fn
   "A function of pixel `x` `y` giving 0 at the root and 1 at the tip. Made
    once per piece and called per pixel, so the frame is unpacked here and not
    on every call."
-  [{:keys [kind cx cy ux uy lo span reach]}]
+  [{:keys [kind cx cy ux uy lo span reach env]}]
+  (if (= kind :arc)
+    (let [^doubles env env reach (double reach)]
+      (fn ^double [^long x ^long y]
+        (clamp01 (/ (- (double y) (aget env x)) reach))))
   (let [cx (double cx) cy (double cy)]
     (if (= kind :angle)
       (let [ux (double ux) uy (double uy) lo (double lo) span (double span)]
@@ -109,7 +152,7 @@
       (let [reach (double reach)]
         (fn ^double [^long x ^long y]
           (let [dx (- (double x) cx) dy (- (double y) cy)]
-            (clamp01 (/ (Math/sqrt (+ (* dx dx) (* dy dy))) reach))))))))
+            (clamp01 (/ (Math/sqrt (+ (* dx dx) (* dy dy))) reach)))))))))
 
 (defn position
   "0 at the root, 1 at the tip, for the pixel at `x` `y`."
