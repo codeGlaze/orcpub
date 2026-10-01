@@ -227,13 +227,17 @@
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
-      [:div.user-icon [svg-icon "orc-head" 35 ""]]
+     ;; on a phone: no icon, and the same 36px height as the search button
+     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
+      {:style login-style-menu
+       :class (if mobile? "h-36" "p-t-5 p-b-5")}
+      ;; the gap rides on the icon, so a phone (which hides it) centres LOGIN
+      [:div.user-icon.m-r-5 [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
          (when (not @(subscribe [:mobile?])) [:span.m-r-5 username])]
         [:span.pointer.flex.flex-column.align-items-end
-         [:span.white.f-w-b.m-l-5
+         [:span.white.f-w-b
           {:on-click dispatch-route-to-login}
           [:span "LOGIN"]]])
       (when username
@@ -467,8 +471,10 @@
                  search-text? @(subscribe [:search-text?])]
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
+              ;; on a phone the search is a 36px square with its icon centred
               [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style}
+               {:style search-input-parent-style
+                :class (when mobile? "h-36 w-36 justify-cont-c")}
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
                   [:input.w-100-p.main-text-color
@@ -477,9 +483,10 @@
                     :on-key-press search-input-keypress
                     :on-change set-search-text
                     :placeholder "search"}]])
-               [:div.p-r-10.pointer
-                {:on-click open-orcacle}
-                [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
+               [:div.pointer.flex
+                {:class (when (not mobile?) "p-r-10")
+                 :on-click open-orcacle}
+                [svg-icon "magnifying-glass" (if mobile? 24 48) ""]]]])
            [user-header-view]]]]]
        [:div.container
         [:div.content
