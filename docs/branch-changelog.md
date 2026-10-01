@@ -22,6 +22,7 @@ site. Bold across the site was then tuned by a size rule (700 small capitals, 60
 
 ## Fixed
 
+- On phones the header tabs share the row evenly with small gaps, instead of spreading out with wide gaps from an empty slot on the left; the top bar fits the screen (the login button ran off the right edge), and the page title is 28px so it fits a 320px screen.
 - A desktop browser narrowed to phone width now gets the phone layout, and the desktop one back when widened; before, the layout was fixed by the device at load and a narrow desktop window drew the desktop page squeezed into phone width. A phone keeps the phone layout at any width.
 - The builder stays on Description when the window crosses phone width; it used to jump to the character sheet.
 - On phones, all six ability buttons fit on the row; the sixth (CHA) used to be cut off at the right edge.

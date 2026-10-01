@@ -298,9 +298,10 @@
                           (when-not (seq buttons)
                             (on-click e)))
               :style (when active active-style)
+              ;; on a phone the tabs share the row evenly instead of spreading out
               :class (str (if disabled "disabled" "pointer")
                           " "
-                          (when (not mobile?) " w-110"))}
+                          (if mobile? "flex-grow-1" "w-110"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -343,7 +344,7 @@
               :style (when active active-style)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (when-not mobile? "w-110"))}
+                               (if mobile? "flex-grow-1" "w-110"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -484,8 +485,9 @@
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
+          ;; room for the supporter link beside the social icons; a phone shows neither
           [:div
-           {:style {:min-width "53px"}}
+           {:style (when (not mobile?) {:min-width "53px"})}
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -500,6 +502,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
+           {:class (when mobile? "p-l-10 p-r-10")}
            [header-tab
             "characters"
             "battle-gear"
@@ -1057,8 +1060,9 @@
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
-       [:h1.f-s-36.f-w-b.m-t-5.m-l-10
-        {:class (when (not= :mobile device-type) "m-t-21 m-b-20")}
+       ;; 36px fills a 320px phone with "Character Builder" alone
+       [:h1.f-w-b.m-t-5.m-l-10
+        {:class (if (= :mobile device-type) "f-s-28" "f-s-36 m-t-21 m-b-20")}
         title]
        (when frame?
          logo)]

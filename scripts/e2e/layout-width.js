@@ -107,6 +107,23 @@ async function resize(page, width, height) {
     await shot(page, 'phone-390');
     await ctx.close();
   }
+  for (const dev of ['iPhone SE', 'iPhone 13']) {
+    const { ctx, page } = await open(browser, { ...devices[dev] });
+    const h = await page.evaluate(() => {
+      const bar = document.querySelector('.app-header-bar .w-100-p');
+      const tabs = [...document.querySelectorAll('.header-tab')].map(t => t.getBoundingClientRect());
+      const gaps = tabs.slice(1).map((r, i) => Math.round(r.left - tabs[i].right));
+      return { login: innerWidth - bar.lastElementChild.getBoundingClientRect().right,
+               title: innerWidth - document.querySelector('h1').getBoundingClientRect().right,
+               left: tabs[0].left, right: innerWidth - tabs[tabs.length - 1].right, gaps };
+    });
+    const w = page.viewportSize().width;
+    check(`${w}px phone: the login button keeps off the edge`, h.login >= 10, h.login);
+    check(`${w}px phone: the page title keeps off the edge`, h.title >= 10, h.title);
+    check(`${w}px phone: the header tabs sit evenly, close together`,
+          h.gaps.every(g => g === h.gaps[0] && g <= 8) && Math.abs(h.left - h.right) <= 1, JSON.stringify(h));
+    await ctx.close();
+  }
   {
     // Sideways, an iPhone 13 is 750 wide: still under the breakpoint.
     const { ctx, page } = await open(browser, { ...devices['iPhone 13 landscape'] });

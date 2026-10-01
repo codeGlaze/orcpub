@@ -1108,7 +1108,9 @@
      ;; A full-width child plus its padding measures wider than the bar without this.
      [:.w-100-p {:box-sizing :border-box}]
      ;; The logo is sized for the desktop header and crowds the search row here.
-     [:img {:max-height "40px"}]]
+     ;; On the narrowest phones it also gives up width before the login does.
+     [:a {:min-width 0}]
+     [:img {:max-height "40px" :max-width "100%" :object-fit "contain"}]]
     [:.import-log-panel
      {:max-width "100vw"}]
     [:.app-header-menu
