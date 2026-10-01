@@ -20,22 +20,20 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   section icons are folded into #37 too (`7ae78fc6`).
 - ☐ **Owner: delete the branch `fix/modal-and-switch-pass`** on GitHub (it holds nothing #37 doesn't;
   a web agent cannot delete branches).
-- ☐ **KB move:** whole KB or only the save-gate pages to `agents/develop`; push the prepared
-  commits (`6f9dd297`, `6abb4a30`, local worktree); keep `docs/kb` on `grant-rows` until it merges
-  outward (recommended).
-- ☐ **#37 checklist:** is `docs/branch-changelog.md` wanted? Are `#_` deprecated forms acceptable?
+- ☑ **KB move: decided** (2026-09-29). The KB stays on `grant-rows`; `agents/develop` takes its final
+  form when this branch merges (item under "Agent follow-ups").
+- ☑ **#37 checklist:** answered by standard procedure; #37's changelog folded into Summer Patch.
 - ☐ **Older decorative icons** (~50 on `integration` since August): strip on their own branch? The
   import-modal title icons are already gone on `fix/modal-and-switch-pass`.
 - ☑ `relink-question.js` run on `b1feb5b3` (seeded server): passes.
-- ☐ **Watch #37 again?** Paused 2026-09-28.
+- ☑ **Watch #37:** moot, merged 2026-09-30.
 - ☑ **#37 merged into `integration`** (`614c17ff`, 2026-09-30), on the owner's instruction.
 - ☑ **`integration` merged into `refactor/content-extensibility`** (`90886b01`, 2026-09-30), and the
   trunk's 80 comment-check hits fixed, none approved (`1055149a`). JVM 765, cljs 656, dev build
   clean. The two "Unresolved symbol ?ability-bonuses" lint errors were `ac-formula` missing from
   `.clj-kondo/config.edn` (fixed, `e8614ff1`). The duplicate require in
   `legacy_shim_equivalence_test.clj` is fixed, and `.gitignore` now ignores only the linter's cache.
-  ☐ `integration`'s `.gitignore` still ignores all of `.clj-kondo`: stage `config.edn` there with
-  `git add -u` until the fix reaches it.
+  ☑ `integration`'s `.gitignore` fixed by #39 (`ac0dc950`).
 - ☑ **The trunk merged into `feature/grant-rows`** (2026-09-30): grant-rows now carries the
   reviewed save gate. JVM 765, cljs 656, dev build clean, comment check clean. Task 7 (integration
   down through trunk and branch) is done.
@@ -84,7 +82,8 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
   export → import elsewhere → share link → keep), and misuse (double import, broken file, delete
   in use, two tabs on one item, back button mid-builder, double-click save, full storage, cleared
   data, server down on save).
-- ☐ Remove local worktrees when done: `old-wt`, `design-wt`, `agents-wt`, `trunk-wt`.
+- ◐ Local worktrees: `check-wt`, `debt-wt`, `port-wt` removed (2026-10-01, branches merged); `trunk-wt`
+  kept for trunk merges.
 
 **Parked**
 - ☐ Homebrew subraces and subclasses (and backgrounds, if reverted) are offered under
