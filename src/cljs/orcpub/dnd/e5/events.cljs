@@ -2179,6 +2179,19 @@
                     (dissoc tweaks layer-key)
                     (assoc tweaks layer-key merged)))))))
 
+;; Hair ombre settings (portrait-effects/ombre-settings): {:tip :start
+;; :falloff :depth :angle}. A nil value drops the key, so the default applies
+;; again; an empty map is removed.
+(reg-event-db
+ :portrait/set-ombre
+ (fn [db [_ k v]]
+   (update-in db [:portrait/draft]
+              (fn [draft]
+                (let [o (cond-> (or (:ombre draft) {})
+                          (nil? v) (dissoc k)
+                          (some? v) (assoc k v))]
+                  (if (empty? o) (dissoc draft :ombre) (assoc draft :ombre o)))))))
+
 (reg-event-db
  :portrait/clear-layer-tweak
  (fn [db [_ layer-key]]

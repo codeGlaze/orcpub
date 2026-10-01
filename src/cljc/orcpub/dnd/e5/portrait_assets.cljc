@@ -196,12 +196,15 @@
    [{:asset/id :l9-bangs-01
      :asset/label "Bangs 01"
      :asset/file  "l9_bangs_01.png"}
+    ;; 02 and 03 hang over the face; 01 is swept back and lies on the head
     {:asset/id :l9-bangs-02
      :asset/label "Bangs 02"
-     :asset/file  "l9_bangs_02.png"}
+     :asset/file  "l9_bangs_02.png"
+     :asset/casts-shadow true}
     {:asset/id :l9-bangs-03
      :asset/label "Bangs 03"
-     :asset/file  "l9_bangs_03.png"}]})
+     :asset/file  "l9_bangs_03.png"
+     :asset/casts-shadow true}]})
 
 (def gap-inventory
   "Pieces the illustrator has planned but not drawn yet, per layer.
@@ -233,7 +236,7 @@
 
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil whites]}]
+  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil whites casts-shadow]}]
           (cond-> {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)
@@ -244,7 +247,10 @@
             pupil (assoc :asset/pupil pupil)
             ;; the style is drawn without painted whites, and each iris
             ;; carries a :lower lid; the whites are between the two lids
-            whites (assoc :asset/whites true)))
+            whites (assoc :asset/whites true)
+            ;; hangs over the face, so throws a soft shadow onto the skin
+            ;; (portrait-effects); a cut that lies on the head does not
+            casts-shadow (assoc :asset/casts-shadow true)))
         entries))
 
 (def house-pack
