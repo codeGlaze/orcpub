@@ -134,8 +134,13 @@ crown" where nothing is drawn. It then averages noise along that direction
 - **Cost:** about 200ms per piece on the JVM at 1200x1500, on a 4px grid.
   Nearly all of the first 400ms was a box blur whose local helper fns boxed
   every value; plain index arithmetic halved it.
-- **Caching:** the field depends only on the art, so the share card and the
-  builder each cache one per piece. A colour change recomputes nothing.
+- **Worked out once, ahead of time:** the field depends only on the art, not
+  on the head or the colours. It is computed in the art's own pixels, with
+  the crown taken from the piece itself, and written beside the art by
+  `orcpub.portrait-pack.strands` (see PORTRAIT-PACK.md). The share card maps
+  its frame pixels back through the art's placement, so all three renderers
+  read the same field. Without the file, a renderer computes the field once
+  and keeps it.
 - **Identical renderers:** the noise hash is 32-bit integer maths
   (`Math.imul` in JS, `unchecked-multiply-int` on the JVM). A test pins its
   values, so every renderer streaks the same way.
