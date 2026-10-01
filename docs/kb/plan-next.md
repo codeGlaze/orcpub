@@ -7,6 +7,36 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 
 ---
 
+## Now: back to grants (planned 2026-10-01)
+
+The homebrew-keys fix (#37) and the comment debt (#39) are merged and pulled down. `integration`
+is in every live refactor branch: the trunk, this branch, and `feature/extras-companions`
+(`46770455`). The save path is the same on all four (0b's convergence check). Finished or
+superseded, needing nothing: `feature/demo-content-tier` and `feature/fighting-style-authoring`
+(inside the trunk), `perf/entity-build` (its `kahn-sort` fix reached `integration` as `8785b16a`).
+
+Spec per step: `handoff-grant-rows.md` (steps 1–8) and `plan-hidden-pick-fix-and-grant-fields.md`
+(Parts A and B). Granular status: `docs/TODO.md`. One commit per step, its acceptance test green
+before the next.
+
+| # | step | where | depends on |
+|---|---|---|---|
+| 0 | **Hidden-pick fix, Part A.** Skills done on `feature/extras-companions` (`5230db89`); equipment (5 sites) and tools remain, one commit each | `integration`-level: a branch from `integration`, owner to approve its name | — |
+| 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
+| 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
+| 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
+| 4 | Handoff step 4: subrace, background, class, subclass compile `:grants`, one commit each with the D30 tag test | here | 3 (class arms need `:prereq-fn`) |
+| 5 | Handoff step 2: legacy-key shims, per silo once that silo compiles `:grants`; strike the feat widgets (D34) | here | 4 for that silo |
+| 6 | Handoff step 3: lift `:blocked-on-ref`, normalize the choice class | here | 5 |
+| 7 | Part B.4: `:if-held` with the resolution vocabulary | here | 4 |
+| 8 | Part B.5: convert the bespoke skill and tool builders, one at a time | here | 7 |
+| 9 | Handoff steps 5–8: effect kinds, E3 creatures and traits, `content-builder :feat`, spells as a pool | here | see handoff |
+
+Decorative glyphs that leaked into content come out as their lines are touched
+(`before-you-start.md`, "Before adding an icon"); no branch of their own.
+
+---
+
 ## Open checklist for PR #37 and around it (2026-09-29)
 
 **Needs the owner's answer**
@@ -23,8 +53,8 @@ Status legend: ☐ not started · ◐ partly done · ☑ done
 - ☑ **KB move: decided** (2026-09-29). The KB stays on `grant-rows`; `agents/develop` takes its final
   form when this branch merges (item under "Agent follow-ups").
 - ☑ **#37 checklist:** answered by standard procedure; #37's changelog folded into Summer Patch.
-- ☐ **Older decorative icons** (~50 on `integration` since August): strip on their own branch? The
-  import-modal title icons are already gone on `fix/modal-and-switch-pass`.
+- ☑ **Older decorative icons:** removed as their lines are touched, no branch of their own (owner,
+  2026-10-01).
 - ☑ `relink-question.js` run on `b1feb5b3` (seeded server): passes.
 - ☑ **Watch #37:** moot, merged 2026-09-30.
 - ☑ **#37 merged into `integration`** (`614c17ff`, 2026-09-30), on the owner's instruction.
@@ -223,7 +253,13 @@ until then.
 
 ---
 
-## 0b. Converge the save path across the four branches (2026-09-18) — PAUSED 2026-09-25 for 0a
+## 0b. Converge the save path across the four branches (2026-09-18) — DONE 2026-10-01
+
+☑ Converged by the port route below: `integration` (#37, #39) → trunk → `feature/grant-rows` and
+`feature/extras-companions`. `homebrew_save_lifecycle_test.cljs` is the same file on all four and
+`events.cljs` on extras-companions is identical to the trunk's. `save-collision` survives only as
+the occupancy check in `::e5/change-builder-item-key`, not in a save handler. History below.
+
 
 ☐ The homebrew save exists in **three variants**, and the newest is the one to converge on:
 

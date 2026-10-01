@@ -41,7 +41,8 @@ remove it. Reproduced for class skills and starting equipment.
 - ☑ Reproduced — `multiclass_hidden_pick_test.clj` (`ec04da1b`)
 - ☑ Scoped — nine gated sites, five of them starting equipment (`f4837afd`)
 - ☑ Planned — `plan-hidden-pick-fix-and-grant-fields.md` (`292c200c`), two parts
-- ☐ **Part A, the fix** — thread `cls-kw` through `class-skill-selection` → `skill-selection` →
+- ◐ **Part A, the fix** — skills done on `feature/extras-companions` (`5230db89`, 2026-09-20);
+  equipment and tools remain. Thread `cls-kw` through `class-skill-selection` → `skill-selection` →
   `skill-selection-2`, attach per-arm conditions. Cuts from `integration`; verified byte-identical
   there (`0b493f6e`)
 - ☐ **Part B** — the four dropped `grant-selection` fields (`:key`, `:order`, `:prereq-fn`,
