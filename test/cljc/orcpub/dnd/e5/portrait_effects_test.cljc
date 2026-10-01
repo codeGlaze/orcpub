@@ -29,19 +29,32 @@
         (is (= brown (fx/ombre-rgb 255 255 255 brown teal 0.49 hard)))
         (is (= teal (fx/ombre-rgb 255 255 255 brown teal 0.52 hard)))))))
 
-(deftest position-from-the-crown-or-along-an-angle
+(deftest position-down-from-the-crown-line-or-along-an-angle
   (let [w 100 h 100
         ;; a strand running from (50,10) down to (50,90): a column of pixels
         alpha (fn [i] (if (and (= 50 (mod i w)) (<= 10 (quot i w) 90)) 255 0))
         crown [50.0 10.0]
-        radial (fx/gradient-frame alpha w h crown nil)
+        roots (fx/gradient-frame alpha w h crown nil)
         down (fx/gradient-frame alpha w h crown 0)]
-    (is (< (fx/position radial 50 12) 0.1) "near the crown is root")
-    (is (> (fx/position radial 50 88) 0.9) "the far end is tip")
+    (is (= :arc (:kind roots)))
+    (is (< (fx/position roots 50 12) 0.1) "near the top is root")
+    (is (> (fx/position roots 50 88) 0.9) "the far end is tip")
     (is (< (fx/position down 50 12) 0.1))
     (is (> (fx/position down 50 88) 0.9))
     (let [up (fx/gradient-frame alpha w h crown 180)]
       (is (> (fx/position up 50 12) 0.9) "an angle of 180 turns it upside down"))))
+
+(deftest a-fringe-beside-the-crown-still-reaches-its-tips
+  (testing "the bug a single crown point had: on a turned head, strands growing
+            right beside it never counted as far from the roots"
+    (let [w 120 h 120
+          ;; a cap across the top (y 10-30), with two strands hanging from it:
+          ;; one at x=20, one at x=100, both down to y=80
+          alpha (fn [i] (let [x (mod i w) y (quot i w)]
+                          (if (or (<= 10 y 30) (and (#{20 100} x) (<= 10 y 80))) 255 0)))
+          f (fx/gradient-frame alpha w h [100.0 12.0] nil)]
+      (is (> (fx/position f 20 79) 0.9) "the strand far from where the crown point was")
+      (is (> (fx/position f 100 79) 0.9) "and the one right beside it, equally"))))
 
 (deftest the-crown-sits-atop-the-head
   (let [w 100 h 150
