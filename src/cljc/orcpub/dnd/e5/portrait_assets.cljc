@@ -14,8 +14,15 @@
    Attribution reads directly off this registry: for a composed set of
    layers, look up each layer's asset by id, find the artist whose
    library contains that asset, list them once with :artist/name and
-   :artist/link. See `artist-for-asset` and `all-artists-for-layers`."
-  (:require [clojure.string :as s]))
+   :artist/link. See `artist-for-asset` and `all-artists-for-layers`.
+
+   What each piece CARRIES beyond its name -- iris regions, lids, whites,
+   whether it casts a shadow, which mouth is lips -- is not written here. It
+   lives in resources/portrait-pack (loom.edn from the Loom, pieces.edn by
+   hand) and is merged in at build time; see orcpub.dnd.e5.portrait-calibration."
+  (:require [clojure.string :as s]
+            #?(:clj [orcpub.dnd.e5.portrait-calibration :refer [calibration]]))
+  #?(:cljs (:require-macros [orcpub.dnd.e5.portrait-calibration :refer [calibration]])))
 
 (def layer-order
   "Layer keys in z-order, bottom (0) → top (9). Mirrors the illustrator's
@@ -140,28 +147,13 @@
    :eyes
    [{:asset/id :l6-eyes-01
      :asset/label "Eyes 01"
-     :asset/file  "l6_eyes_01.png"
-     :asset/pupil 0.45
-     :asset/iris  [{:cx 0.60033 :cy 0.35908 :rx 0.03361 :ry 0.01451 :rot 1.68176
-                    :lid {:x0 0.55403 :y0 0.35566 :mx 0.60564 :my 0.32057 :x1 0.63098 :y1 0.35064}}
-                   {:cx 0.72166 :cy 0.36137 :rx 0.02701 :ry 0.00847 :rot 1.72173
-                    :lid {:x0 0.70293 :y0 0.35691 :mx 0.73066 :my 0.33104 :x1 0.74119 :y1 0.35776}}]}
+     :asset/file  "l6_eyes_01.png"}
     {:asset/id :l6-eyes-02
      :asset/label "Eyes 02"
-     :asset/file  "l6_eyes_02.png"
-     :asset/pupil 0.42
-     :asset/iris  [{:cx 0.71955 :cy 0.362 :rx 0.02347 :ry 0.00897 :rot 1.79
-                    :lid {:x0 0.69844 :y0 0.37473 :mx 0.73247 :my 0.3285 :x1 0.74017 :y1 0.36866}}
-                   {:cx 0.59777 :cy 0.36454 :rx 0.02322 :ry 0.01912 :rot 0.12573
-                    :lid {:x0 0.55091 :y0 0.3719 :mx 0.59765 :my 0.33114 :x1 0.6257 :y1 0.36975}}]}
+     :asset/file  "l6_eyes_02.png"}
     {:asset/id :l6-eyes-03
      :asset/label "Eyes 03"
-     :asset/file  "l6_eyes_03.png"
-     :asset/pupil 0.45
-     :asset/iris  [{:cx 0.72311 :cy 0.36017 :rx 0.01609 :ry 0.01372 :rot 3.13
-                    :lid {:x0 0.70014 :y0 0.36467 :mx 0.72176 :my 0.35583 :x1 0.74676 :y1 0.36369}}
-                   {:cx 0.59266 :cy 0.36083 :rx 0.02106 :ry 0.01568 :rot 3.15
-                    :lid {:x0 0.55564 :y0 0.37273 :mx 0.58665 :my 0.35386 :x1 0.63124 :y1 0.36271}}]}]
+     :asset/file  "l6_eyes_03.png"}]
    :nose
    [{:asset/id :l7-nose-01
      :asset/label "Nose 01"
@@ -178,33 +170,27 @@
      :asset/file  "l2b_scalp_01.png"}]
 
    :mouth
-   ;; The three mouths want three different treatments, which is why
-   ;; :asset/slot is on the ASSET and not on the layer. All three are drawn in
-   ;; greys -- max saturation 1 out of 255 -- so "carries its own colour"
-   ;; cannot tell them apart; what differs is what the shape IS.
+   ;; three mouths wanting three treatments (a line, lips, teeth); which is
+   ;; which is set in pieces.edn
    [{:asset/id :l8-mouth-01
      :asset/label "Mouth 01"
-     :asset/file  "l8_mouth_01.png"}          ; a closed line, nothing to colour
+     :asset/file  "l8_mouth_01.png"}
     {:asset/id :l8-mouth-02
      :asset/label "Lips"
-     :asset/file  "l8_mouth_02.png"
-     :asset/slot  :lips}                      ; drawn shaded and hueless
+     :asset/file  "l8_mouth_02.png"}
     {:asset/id :l8-mouth-03
      :asset/label "Smile"
-     :asset/file  "l8_mouth_03.png"}]         ; teeth: they stay white
+     :asset/file  "l8_mouth_03.png"}]
    :bangs
    [{:asset/id :l9-bangs-01
      :asset/label "Bangs 01"
      :asset/file  "l9_bangs_01.png"}
-    ;; 02 and 03 hang over the face; 01 is swept back and lies on the head
     {:asset/id :l9-bangs-02
      :asset/label "Bangs 02"
-     :asset/file  "l9_bangs_02.png"
-     :asset/casts-shadow true}
+     :asset/file  "l9_bangs_02.png"}
     {:asset/id :l9-bangs-03
      :asset/label "Bangs 03"
-     :asset/file  "l9_bangs_03.png"
-     :asset/casts-shadow true}]})
+     :asset/file  "l9_bangs_03.png"}]})
 
 (def gap-inventory
   "Pieces the illustrator has planned but not drawn yet, per layer.
@@ -234,23 +220,33 @@
   []
   (boolean (some (comp seq val) gap-inventory)))
 
+(def piece-calibration
+  "{layer {\"file.png\" {field value}}} from resources/portrait-pack, read at
+   build time (loom.edn under pieces.edn)."
+  (calibration))
+
+(def calibration-fields
+  "What a piece can carry from its calibration, and the asset key it becomes.
+
+   :slot          the colour slot, when it differs from its layer's (lips)
+   :gamma         iris or lip shading
+   :iris :pupil   the placed iris regions and pupil size (from the Loom)
+   :whites        drawn without whites; each iris carries a :lower lid and
+                  the whites are filled between the lids
+   :casts-shadow  hangs over the face, so throws a soft shadow onto the skin"
+  {:slot :asset/slot :gamma :asset/gamma :iris :asset/iris :pupil :asset/pupil
+   :whites :asset/whites :casts-shadow :asset/casts-shadow})
+
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file slot gamma iris pupil whites casts-shadow]}]
-          (cond-> {:asset/id    id
+  (mapv (fn [{:asset/keys [id label file]}]
+          (let [cal (get-in piece-calibration [layer-key (s/lower-case file)])]
+            (into {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)
                    :asset/tags  #{layer-key}}
-            slot  (assoc :asset/slot slot)
-            gamma (assoc :asset/gamma gamma)
-            iris  (assoc :asset/iris iris)
-            pupil (assoc :asset/pupil pupil)
-            ;; the style is drawn without painted whites, and each iris
-            ;; carries a :lower lid; the whites are between the two lids
-            whites (assoc :asset/whites true)
-            ;; hangs over the face, so throws a soft shadow onto the skin
-            ;; (portrait-effects); a cut that lies on the head does not
-            casts-shadow (assoc :asset/casts-shadow true)))
+                  (keep (fn [[k v]] (when-let [ak (calibration-fields k)] (when (some? v) [ak v]))))
+                  cal)))
         entries))
 
 (def house-pack
