@@ -1120,16 +1120,12 @@
   (str "Select additional " (if (> num 1) plural singular) " for which you are proficient."))
 
 (defn skill-selection-2
-  "A skill-proficiency pick. `options` is a seq of skill keywords, `num` sets min and max unless
-   they are given separately, and `prereq-fn` decides whether the builder OFFERS it.
-
-   `cls-kw` + `first-class?`, when given, make each option's modifier carry its arm's condition,
-   so a stored pick stops applying when the arm stops being true. Without them the options are
-   unconditioned, which is right for every non-class caller (background, feat, race).
-
-   GOTCHA: `prereq-fn` gates DISPLAY only. `entity/build` never consults it — that is why the
-   class arms condition the MODIFIER rather than relying on this. See
-   docs/kb/hidden-selection-picks.md."
+  "A skill-proficiency pick from `options` (skill keywords); `num` sets min and max unless given
+   separately. With `cls-kw` + `first-class?` each option's modifier carries its class arm's
+   condition; without them (background, feat, race) the options are unconditioned.
+   GOTCHA: `prereq-fn` only decides whether the builder OFFERS the pick; `entity/build` never
+   reads it, so a stored pick keeps applying unless its modifier is conditioned.
+   hidden-selection-picks.md"
   [{:keys [options num min max order key prereq-fn cls-kw first-class?]}]
   (t/selection-cfg
    {:name "Skill Proficiency"
@@ -3287,13 +3283,9 @@
 
 
 (defn class-skill-selection
-  "A class's skill pick, from its `:skill-options` or `:multiclass-skill-options`. `key`
-   distinguishes the two arms and `prereq-fn` is the `first-class?` gate (or its complement) that
-   decides which one the builder shows.
-
-   `cls-kw` and `first-class?` name the arm, and the options' modifiers carry its condition — so
-   a pick made on one arm stops applying if that arm stops being true, rather than surviving as a
-   skill with no control to remove it."
+  "A class's skill pick from its `:skill-options` or `:multiclass-skill-options`. `key` tells the
+   two arms apart and `prereq-fn` is the `first-class?` gate (or its complement) the builder shows
+   by. `cls-kw` and `first-class?` name the arm; the options' modifiers carry its condition."
   [{skill-num :choose options :options skill-select-order :order} key prereq-fn cls-kw first-class?]
   (let [skill-kws (if (:any options) (map :key skills/skills) (keys options))]
     (skill-selection skill-kws skill-num skill-select-order key prereq-fn cls-kw first-class?)))

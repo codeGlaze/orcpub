@@ -13,11 +13,8 @@
 (spec/def ::hit-points (spec/keys :req-un [::die ::die-count]
                                   :opt-un [::modifier]))
 
-;; Challenge rating is ONE NUMBER — see docs/kb/decision-cr-representation.md. This exists to keep
-;; a string out: the character side stored CR as "1/4" for nine years, and a string here silently
-;; misses the XP table and cannot be compared. Deliberately a range rather than the 34 known CRs:
-;; real homebrew stays inside the set, but rejecting an odd-yet-numeric CR on SAVE is a different
-;; policy than this change is making.
+;; Challenge rating is ONE NUMBER (decision-cr-representation.md): a string such as "1/4" misses
+;; the XP table and cannot be compared. A range, not the 34 known CRs, so an odd numeric CR saves.
 (spec/def ::challenge (spec/and number? #(<= 0 % 30)))
 
 (spec/def ::homebrew-monster (spec/keys :req-un [::name ::key ::option-pack ::hit-points]
