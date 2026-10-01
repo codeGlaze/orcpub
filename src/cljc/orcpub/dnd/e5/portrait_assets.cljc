@@ -233,9 +233,11 @@
    :iris :pupil   the placed iris regions and pupil size (from the Loom)
    :whites        drawn without whites; each iris carries a :lower lid and
                   the whites are filled between the lids
-   :casts-shadow  hangs over the face, so throws a soft shadow onto the skin"
+   :casts-shadow  hangs over the face, so throws a soft shadow onto the skin
+   :tips-from     hair only: stays in the root colour until this far along
+                  the piece (0..1; 1 = never takes the tip colour)"
   {:slot :asset/slot :gamma :asset/gamma :iris :asset/iris :pupil :asset/pupil
-   :whites :asset/whites :casts-shadow :asset/casts-shadow})
+   :whites :asset/whites :casts-shadow :asset/casts-shadow :tips-from :asset/tips-from})
 
 (defn- assets-for
   [layer-key entries]

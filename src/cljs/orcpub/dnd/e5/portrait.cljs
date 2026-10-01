@@ -475,7 +475,8 @@
                 (pa/effective-gamma portrait layer-key asset) z]]
               (if (fx/hair-layer? layer-key)
                 ^{:key layer-key}
-                [ombre-layer layer-key asset (pa/tint-for portrait layer-key) ombre-settings head-url z]
+                [ombre-layer layer-key asset (pa/tint-for portrait layer-key)
+                 (fx/piece-settings ombre-settings asset) head-url z]
                 ^{:key layer-key}
                 [:div.portrait-layer
                  {:style (if (= :as-drawn (pa/render-mode layer-key asset))
@@ -629,7 +630,8 @@
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
                         (.clearRect tctx 0 0 raster-width raster-height)
-                        (.drawImage tctx (ombre img (img-of :head) layer-key (pa/tint-for portrait layer-key) settings)
+                        (.drawImage tctx (ombre img (img-of :head) layer-key (pa/tint-for portrait layer-key)
+                                                (fx/piece-settings settings asset))
                                     x y dw dh))
 
                       :else

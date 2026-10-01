@@ -118,3 +118,16 @@
         (is (< (first blonde-back) 230))
         (is (> (/ (first dark-back) 40.0) (/ (first blonde-back) 230.0)) "dark hair barely changes")
         (is (= [230 200 120] front) "only the hair behind the head")))))
+
+(deftest a-piece-can-hold-the-root-colour
+  (let [w 100 h 100
+        alpha (fn [i] (let [x (mod i w) y (quot i w)] (if (and (<= 10 x 90) (<= 10 y 90)) 255 0)))
+        frame (fx/gradient-frame alpha w h [50.0 10.0] nil)
+        brown [92 58 30] teal [47 127 154]
+        base (assoc (fx/ombre-settings {}) :depth 0.0)
+        at (fn [asset y] ((fx/pixel-fn brown teal (fx/piece-settings base asset) frame :bangs) 50 y 0xffffff))
+        packed (fn [[r g b]] (bit-or (bit-shift-left r 16) (bit-shift-left g 8) b))]
+    (is (= (packed teal) (at {} 88)) "an ordinary piece reaches the tip colour")
+    (is (= (packed brown) (at {:asset/tips-from 1.0} 88)) "1.0: the fringe stays in the root colour")
+    (is (= (packed brown) (at {:asset/tips-from 0.7} 60)) "0.7: root colour until 70% along")
+    (is (not= (packed brown) (at {:asset/tips-from 0.7} 89)) "and only the ends take the tips")))
