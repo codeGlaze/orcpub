@@ -560,14 +560,10 @@
 (defn persist-set-aside!
   "Save what loading just set aside, then take it out of the library copy.
 
-   Both halves matter. Without the second, every load finds and sets aside the same
-   entries again until some unrelated homebrew save happens to rewrite the library.
-   The order is the safety: the library copy is rewritten only after the set-aside
-   copy is written, so a full storage leaves the entries where they were -- a
-   repeat on the next load rather than a loss.
-
-   `write!` is (fn [key value] -> true on success), `remove!` is (fn [key]); passed
-   in so the order can be tested without faking browser storage."
+   Order is the safety: the library copy is rewritten only after the set-aside
+   copy succeeds, so a full storage leaves entries to repeat next load rather
+   than be lost. Without removing them, every load re-finds the same entries
+   until an unrelated save rewrites the library. `write!`/`remove!` are injected so the order can be tested without faking browser storage."
   [write! remove! kept reconciled rejected & [repaired?]]
   (let [set-aside-saved? (if (seq reconciled)
                            (write! local-storage-plugins-rejected-key (str reconciled))
@@ -595,7 +591,8 @@
   "Undo set-aside-unloadable-library! when starting without the library failed too, so
    homebrew was not what stopped startup."
   [raw]
-  (when (set-item local-storage-plugins-key raw)
+  ;; At startup, before there is an app or a gate: this puts the user's own library back.
+  (when (set-item local-storage-plugins-key raw) ;; library load
     (.removeItem js/window.localStorage (corrupt-slot-key local-storage-plugins-key))))
 
 (def local-storage-relinks-key "plugins:relinks")
@@ -676,16 +673,14 @@
                 ;; It's a map: salvage per source — keep the valid sources and
                 ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
                 (let [;; An entry with no source takes the name of the source it is
-                      ;; stored under (e5/source-for); it used to be set aside. Written
-                      ;; back with the repairs below.
+                      ;; stored under (e5/source-for) rather than being set aside --
+                      ;; written back with the repairs below.
                       {sourced :library fills :filled} (e5/fill-library-sources mended)
                       {:keys [kept rejected]}
-                      ;; PER-ENTRY salvage: keep each source's valid items, set aside
-                      ;; only its broken ones — so one bad entry can't drop a whole
-                      ;; source. The item floor comes from the shared content-specs
-                      ;; registry (save & load agree), not inline, so it can't drift.
-                      ;; `stored` normally holds only valid items, so `rejected` is
-                      ;; usually empty here — it's the defensive net if the floor tightens.
+                      ;; PER-ENTRY salvage: keep each source's valid items, set aside only its broken
+                      ;; ones, so one bad entry can't drop a whole source. The item floor comes from
+                      ;; the shared content-specs registry (save & load agree, not inline, so it can't
+                      ;; drift); `rejected` is usually empty here, a defensive net for when the floor tightens.
                       (e5/salvage-library-items content-specs/valid-item-for-load? sourced)
                       reconciled (e5/reconcile-rejected-items
                                   (get-local-storage-item local-storage-plugins-rejected-key)

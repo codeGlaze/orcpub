@@ -109,10 +109,11 @@
 (defonce ^:private template-cache (atom nil))
 
 (defn ensure-template-cache!
-  "Start the template cache the first time a character save needs it. It used to start
-   with the app, building the whole character template on every page before anything
-   was drawn and outside every error boundary, so bad homebrew there stopped the app
-   from starting. Only saving a character reads the cache."
+  "Starts the template cache the first time a character save needs it, lazily --
+   not at app start, where it would build before anything is drawn and outside
+   every error boundary.
+   GOTCHA: bad homebrew would stop the app from starting if built eagerly; only
+   saving a character reads the cache. See homebrew-safety-net.md."
   []
   (when-not @template-cache
     (reset! template-cache (init-template-cache!))))

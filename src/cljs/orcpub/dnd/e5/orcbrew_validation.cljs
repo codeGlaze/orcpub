@@ -2174,14 +2174,11 @@
 
 (defn format-import-result
   "What an import result should say, as {:title :details} — a headline and its
-   supporting lines. The caller decides tone and whether to offer an action; this
-   only decides the words.
-
-   A partial import marks its lines {:mark :text}: what came in and what was
-   skipped read at a glance, with the colour on an icon rather than the text.
-
-   Structured rather than one string with blank lines in it: the banner renders
-   HTML, where newlines collapse to spaces and run the sentences together."
+   supporting lines. The caller decides tone and whether to offer an action.
+   A partial import marks lines {:mark :text}, colour on the icon not the text.
+   GOTCHA: :details must stay a seq of strings, not one string with embedded
+   newlines — the banner renders HTML, where newlines collapse to spaces.
+   See homebrew-safety-net.md."
   [result]
   (let [conflicts (format-key-conflict-details result)]
     (cond

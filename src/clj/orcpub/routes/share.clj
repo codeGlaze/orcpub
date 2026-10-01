@@ -1,29 +1,11 @@
 ;; Shared homebrew: what a character's short share link loads.
 (ns orcpub.routes.share
-  "A character's owner shares the homebrew it uses by link, /characters/<id>#s=<token>. The server keeps
-   one copy per character and replaces it whenever the owner's share button sends the homebrew again,
-   so the link stays the same and shows the current homebrew.
-
-   Nothing is stored for a character until its owner presses Share link (create-token). After that the
-   token is random, and only the owner can see or replace it. New link replaces it and deletes the stored
-   homebrew, so every link made before loads nothing. The token stays after the # in the link,
-   which is not part of the page request the server logs.
-
-   An upload that differs from the last one is checked once: unpacked under a size cap, read as plain
-   data, and required to be exactly homebrew, meaning share-bundle/whitelist-shared keeps all of it and
-   changes nothing. The browser applies the same filter before sending, so an honest upload passes and
-   is stored as sent; anything else is refused, so the store holds nothing but homebrew. An upload
-   identical to the last one is recognised by its digest and costs nothing. Limits come from config
-   (ORCPUB_SHARE_MAX_*_KB): compressed size, unpacked size, and an account's total, with one copy per
-   character. The browser learns them from the X-Share-Max-* headers. Deleting a character deletes its
-   copy.
-
-   A share nobody uses for ORCPUB_SHARE_PRUNE_DAYS while the server runs expires: its token and share data
-   are deleted, never the character, and a note of the date stays so the owner's page can say so until
-   the owner shares again or dismisses it. Use is the link opened with the current token, the owner's
-   page, or a party page loading it, recorded at most once a day; a request without the token records
-   nothing, so it cannot keep a share alive. Only prune! deletes on its own, run hourly after
-   orcpub.heartbeat's beat, and time the server was off does not count. Stop sharing deletes at once."
+  "A character's owner shares its homebrew by link, /characters/<id>#s=<token>;
+   one copy per character, replaced on re-share, visible/replaceable only by the owner.
+   GOTCHA: an upload must unpack under a size cap and be exactly homebrew
+   (share-bundle/whitelist-shared); limits come from config (ORCPUB_SHARE_MAX_*_KB).
+   Idle past ORCPUB_SHARE_PRUNE_DAYS is pruned hourly (token+data, never the character).
+   See share-links.md."
   (:require [clojure.edn :as edn]
             [datomic.api :as d]
             [orcpub.config :as config]

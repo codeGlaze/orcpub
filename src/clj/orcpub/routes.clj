@@ -219,12 +219,10 @@
 
 (defn refresh-token-withdrawals!
   "Rebuilds the in-memory register of passwords that moved recently, from the
-   database, where the durable record already lives.
-
-   The register is memory-only, so a restart would otherwise reinstate every
-   token it was holding -- silently, and looking exactly like working. Only
-   changes inside the token lifetime matter: a token older than that has expired
-   on its own, so the register never grows past the accounts it can still refuse."
+   database, where the durable record lives.
+   GOTCHA: memory-only, so a restart silently reinstates every token it was
+   holding, looking exactly like working; only changes inside the token
+   lifetime matter, since older ones already expired. See account-flows.md."
   [db]
   (let [since (java.util.Date. (- (System/currentTimeMillis)
                                   (* auth/token-lifetime-hours 60 60 1000)))
@@ -340,12 +338,10 @@
     (do (security/note-refusal! :login-username)
         (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
-      ;; Several addresses failing against ONE account inside a minute is what
-      ;; this predicate was written for, and it is also what a person with a
-      ;; phone, a laptop and a tablet looks like -- so it tells the owner rather
-      ;; than locking them out. On another thread, and its outcome can never
-      ;; reach the response: whoever is failing these logins must not be able to
-      ;; learn from a status or a delay whether mail went anywhere.
+      ;; Several addresses failing against ONE account inside a minute is also what
+      ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
+      ;; the owner rather than locking them out. Runs on another thread, and its
+      ;; outcome never reaches the response: failing logins must not learn a thing.
       (when (and (:db/id user-for-username)
                  (security/multiple-ip-attempts-to-same-account? username)
                  (security/claim-sign-in-notice! username))
@@ -379,11 +375,10 @@
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
 
-      ;; Checked before the credentials, not on the failure path: stuffing ends
-      ;; on the one account it guesses right, and a check that only runs after a
-      ;; failed lookup never sees that attempt. Tripping it takes five DISTINCT
-      ;; usernames failing from this address inside a minute, so one person
-      ;; across several devices cannot -- only a spray across accounts can.
+      ;; Checked before the credentials, not on the failure path: stuffing ends on
+      ;; the one account it guesses right, so a check that only runs after a failed
+      ;; lookup would never see that attempt. Trips on five DISTINCT usernames
+      ;; failing from this address inside a minute -- one person on several devices can't, a spray across accounts can.
       (security/multiple-account-access? remote-addr)
       (do (security/note-refusal! :login-spray)
           (login-error errors/too-many-attempts))
@@ -450,36 +445,19 @@
 
 
 (defn- breach-message
-  "Why this reads as a strength verdict rather than a security warning.
-
-   The corpus is a commonness measure: a password in it fifty million times is
-   common, and that is the whole of what we learn. Saying \"breach\" implies this
-   person was breached; saying \"attackers try this first\" conjures someone
-   coming for them. Neither is what happened, and both frighten someone who is
-   trying to sign up for a character builder.
-
-   So it speaks the way the strength meter speaks, because it is the same kind
-   of judgement -- too common, here is the better move -- and the count stays
-   out. It IS the meter's now: the verdict is the badge reading \"Too common\"
-   and this is the line under the bar, so the words no longer open by repeating
-   what the badge just said."
+  "Why this reads as a strength verdict, not a security warning: the corpus
+   measures commonness, not a breach or an attacker targeting this person.
+   GOTCHA: speaks like the strength meter under the \"Too common\" badge, so it
+   must not repeat what the badge already said. See account-flows.md."
   [_n]
   "A few words strung together are harder to guess and easier to remember.")
 
 (def ^:private breach-refusal-threshold
-  "How many appearances in the corpus make a password common enough to refuse.
-
-   The corpus measures commonness, not danger to the person in front of us. A
-   password appearing once leaked in somebody else's dump years ago; one
-   appearing four figures of times ships inside every cracking wordlist there
-   is. Refusing on ANY appearance -- which this did until now -- reads a
-   commonness measure as a veto and turns away passwords nobody is realistically
-   guessing, on a site whose worst loss is a character sheet.
-
-   Below this line the corpus has an opinion rather than a verdict, and voicing
-   it is the strength meter's job: it says the same thing while someone is still
-   typing, where it can still be acted on. Refusing at submit is the last resort
-   and is kept for the egregious."
+  "How many corpus appearances make a password common enough to refuse.
+   GOTCHA: below this line it's advisory only, surfaced by the strength meter
+   while typing; at or above, refusal at submit is reserved for the egregious
+   case -- one appearance is an old leak, four figures ships in every cracking
+   wordlist. See account-flows.md."
   1000)
 
 (defn- breach-errors
@@ -491,11 +469,10 @@
   [password]
   (let [result (pwned/check password)]
     (when (and (number? result) (>= result breach-refusal-threshold))
-      ;; Its OWN key, not :password. This is a strength verdict, not a rule
-      ;; fault: it belongs to the meter, which is the only thing on the page
-      ;; already saying how good the password is. Keyed with the rule faults it
-      ;; rendered as a red field error sitting directly above a meter reporting
-      ;; UNCOMMON in green -- two verdicts on one password, disagreeing.
+      ;; Its OWN key, not :password: a strength verdict, not a rule fault, so it
+      ;; belongs to the meter -- the only thing on the page judging password quality.
+      ;; Keyed with the rule faults instead, it would render as a red field error
+      ;; sitting right above a meter reporting UNCOMMON in green: two disagreeing verdicts.
       {:password-common [(breach-message result)]})))
 
 (def ^:private registration-throttled-message
@@ -713,15 +690,10 @@
 (defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
         {:keys [:db/id]} (user-for-email db email)]
-    ;; The answer is the same whether or not that address has an account. It
-    ;; used to be {:error :no-account} with a 400, which made this endpoint a
-    ;; free membership test: ask it about any address and it told you. A list
-    ;; of addresses confirmed to have accounts here is precisely the input to
-    ;; the stuffing runs the per-address throttle now turns away.
-    ;; The limit is checked AFTER the lookup and changes nothing about the
-    ;; answer, because an endpoint that responds differently once throttled is
-    ;; an oracle for whether the limit was reached -- which on this endpoint is
-    ;; the membership test the uniform 200 exists to close.
+    ;; The answer is identical whether or not that address has an account:
+    ;; confirmed-valid addresses are precisely what a stuffing run needs.
+    ;; The per-address limit is checked AFTER the lookup but never changes the
+    ;; response -- a limit that visibly altered it would itself be a membership oracle, which the uniform 200 closes.
     (when (and id (security/reset-email-allowed? email remote-addr))
       (try
         (do-send-password-reset id email conn request)
@@ -1029,16 +1001,11 @@
   (delay (java.util.concurrent.Semaphore. probe-max-concurrency true)))
 
 (defn image-probe
-  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before
-   it exports a picture the browser could not read. Answers 200 with a reason name: ok,
-   blocked-address, the fetch's failure reason, unknown, or rate-limited. The fetched bytes are
-   kept for the export that follows.
-   A cache hit is always answered; a miss is behind a per-host hourly limit and the concurrency
-   bound, since a miss is what lets an unauthenticated caller occupy Jetty workers on hosts of
-   their choosing. Both refusals answer rate-limited, which the builder already shows as \"try
-   again shortly\".
-   GOTCHA: it needs no login, so it must never return the picture; that would make it an
-   open proxy."
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before it exports one the browser couldn't read.
+   Answers 200 with a reason: ok, blocked-address, the fetch's failure reason, unknown, or rate-limited; fetched bytes are kept for the export that follows.
+   A cache hit always answers; a miss is gated by a per-host hourly limit and the concurrency bound, since misses are what let an unauthenticated caller park Jetty workers on hosts of their choosing -- both refusals surface as rate-limited.
+
+   GOTCHA: no login is required, so this must never return the picture itself; that would make it an open proxy."
   [{:keys [transit-params remote-addr]}]
   (let [url (:url transit-params)
         cached (get @probed-images url)
@@ -1425,15 +1392,10 @@
         expired? (password-reset-expired? password-reset-sent)
         already-reset? (password-already-reset? password-reset password-reset-sent)]
     (cond
-      ;; Covers both no key at all and a key matching nobody. These used to
-      ;; behave very differently and both were wrong: a missing key answered
-      ;; with the bare string "Key is required" and no page around it, and an
-      ;; unrecognised key fell through to :else, where username was nil and a
-      ;; session token got signed for nil.
-      ;;
-      ;; From the reader's side a mangled link and an expired one are the same
-      ;; event -- it does not work and they need another -- so both land on the
-      ;; page that says so and offers to send one.
+      ;; Covers both no key at all and a key matching nobody, so neither bare-strings
+      ;; a "Key is required" error nor falls through to :else and signs a token for
+      ;; a nil username. A mangled link and an expired one are the same event to the
+      ;; reader -- it doesn't work -- so both land on the page offering to send a new one.
       (nil? id) (redirect route-map/password-reset-expired-route)
       expired? (redirect route-map/password-reset-expired-route)
       already-reset? (redirect route-map/password-reset-used-route)
@@ -1910,11 +1872,10 @@
             (nil? id)
             {:status 400 :body {:error :user-not-found}}
 
-            ;; Re-authentication. Moving an account to another address is the
-            ;; one action that takes it away from whoever holds this one, and it
-            ;; asked for nothing but a session -- so a borrowed or forgotten
-            ;; session was enough to walk off with the account. The password is
-            ;; compared, never read: lookup-user does the hash check.
+            ;; Re-authentication: moving an account to another address takes it away
+            ;; from whoever holds this one, requiring more than just a session -- a
+            ;; borrowed or forgotten session alone must not be enough to walk off with
+            ;; the account. The password is compared, never read: lookup-user does the hash check.
             (nil? (:db/id (lookup-user db username (str current-password))))
             {:status 400 :body {:error :bad-credentials}}
 
@@ -1960,12 +1921,10 @@
                 (send-email-change-verification request
                                                 {:email new-email :username username}
                                                 verification-key)
-                ;; And tell the address that currently owns the account. The
-                ;; verification goes to the NEW address, which is the one place
-                ;; the owner cannot read if this was not them -- without this,
-                ;; the only party never told is the one losing the account.
-                ;; On another thread: the change has been accepted, and this
-                ;; failing must not report an error for something that happened.
+                ;; Tells the address that currently owns the account. Verification goes to
+                ;; the NEW address, unreachable by the owner if this wasn't them, so without
+                ;; this notice the losing party is never told. Runs on another thread: the
+                ;; change is already accepted, so a failure here must not report an error.
                 (future
                   (email/send-email-change-notice
                    (base-url request)

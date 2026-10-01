@@ -259,12 +259,10 @@
           maps)))
 
 ;; ============================================================================
-;; ORPHANED, commented out: the client side of `GET /api/dnd/e5/items/:id` (another user's item by
-;; db-id). Nothing subscribes; views/item-page reads ::mi/custom-item. To restore, also uncomment
-;; ::mi/add-remote-item in events.cljs ("ORPHANED: see equipment_subs"). Chain, guard trap and
-;; open questions: plan-669-merge-verification.md (agents/develop).
-;; GET /dnd/5e/items/:id answers the item's owner only (404 otherwise), so decide who may see,
-;; edit or copy another owner's items before wiring this back up.
+;; ORPHANED: client side of `GET /api/dnd/e5/items/:id` (another user's item by db-id).
+;; Nothing subscribes; views/item-page reads ::mi/custom-item instead. To restore, also
+;; uncomment ::mi/add-remote-item in events.cljs; see plan-669-merge-verification.md
+;; (agents/develop). GET /dnd/5e/items/:id currently answers the owner only (404 otherwise) -- decide cross-user access before wiring this back up.
 ;; ============================================================================
 
 #_(reg-sub

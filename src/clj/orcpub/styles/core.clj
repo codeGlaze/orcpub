@@ -17,13 +17,9 @@
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
-;; Field errors on the WHITE auth card. The site's own red is a wine that goes
-;; muddy over a tint, so this is GOV.UK's, measured in every position it takes:
-;; 4.86:1 as text on the card, 4.52:1 as a border against its own tint. It is
-;; never used for running text ON the tint -- that would be 4.52:1 as text,
-;; which scrapes AA rather than clearing it.
-;; Ink and muted ON the white auth card, the counterparts to muted-on-dark.
-;; 8.9:1 and 4.6:1 on white respectively.
+;; Field-error red (GOV.UK's, not the site's own wine-toned red): 4.86:1 as text on the white
+;; card, 4.52:1 as a border on its own tint -- never run as text ON that tint, which only clears 4.52:1 (AA-scrape).
+;; Ink/muted on the white auth card: 8.9:1 and 4.6:1 respectively (counterparts to muted-on-dark).
 (def text-color-light "#4b545e")
 (def muted-on-light "#6b7681")
 (def error-red "#d4351c")
@@ -695,13 +691,10 @@
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
 
-   ;; The gryphon panel beside the auth form. It had no background-repeat and no
-   ;; background-size, so the moment the form column grew taller than the image's
-   ;; own height the browser did what it is told to do by default and TILED it --
-   ;; a second gryphon appearing below the first, half cropped. The register form
-   ;; is the tallest of the nine pages and grew taller again with the confirm
-   ;; fields, so this is where it showed. cover keeps one copy filling the panel
-   ;; whatever the form's height turns out to be.
+   ;; The gryphon panel needs background-repeat:no-repeat and background-size:cover --
+   ;; without them, the moment the panel grows taller than the image (as on the
+   ;; register form, the tallest page, with its confirm fields) the browser tiles
+   ;; it by default: a second gryphon appears below the first, half cropped.
    [:.registration-image
     {:background-image "url(/image/login-side.jpg)"
      :background-repeat :no-repeat
@@ -710,28 +703,23 @@
      :background-clip :content-box
      :width "350px"
      :min-height "600px"}]
-   ;; The auth card is white whatever theme the app is in, so anything inside it
-   ;; needs the light-ground colours. .red otherwise resolves to red-on-dark,
-   ;; which is a red chosen to carry on near-black and washes out to pink here
-   ;; -- every field error on the register form was reading at about 2.6:1.
-   ;; .app.light-theme already does this; that selector just never matches here.
+   ;; The auth card is white whatever theme the app is in, so anything inside it needs
+   ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
+   ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
+   ;; does this but that selector never matches here, hence the explicit override.
    [:.registration-content
-    ;; The reset sets body{line-height:1}, and because that is a UNITLESS number
-    ;; every descendant inherits the number and multiplies it by its own font
-    ;; size -- so anything here that did not set a line-height rendered SOLID and
-    ;; its descenders ran into the next line's ascenders. Eleven elements on
-    ;; these pages were at exactly 1.00, including every sentence long enough to
-    ;; wrap. Set once on the card so everything inside inherits something
-    ;; readable; the few boxes whose geometry is tuned pin their own below.
+    ;; GOTCHA: body{line-height:1} is UNITLESS, so each descendant multiplies 1 by
+    ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
+    ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
+    ;; a readable default; boxes with tuned geometry pin their own below.
     {:line-height "1.5"}
     [:.red {:color red}
      [:a :a:visited {:color red}]]
 
-    ;; LIGHT-GROUND VARIANTS. .field-notice, .message and .callout are all toned
-    ;; for the dark app -- rgba(255,255,255,0.06) grounds, red-on-dark text,
-    ;; color:white. Dropped onto this card as they are, the sign-in banner puts
-    ;; white text on white. These re-tone them rather than fork them, so the auth
-    ;; pages use the same components as everywhere else.
+    ;; LIGHT-GROUND VARIANTS: .field-notice, .message and .callout default to dark-app
+    ;; tones (rgba(255,255,255,0.06) ground, red-on-dark text, color:white), which
+    ;; would put white text on white if dropped onto this card unchanged. Re-toned
+    ;; here rather than forked, so the auth pages reuse the same components as everywhere else.
     [:.field-notice
      {:background-color :transparent
       :border-left :none
@@ -754,13 +742,10 @@
        :color error-red}]
      [:&.is-note {:color muted-on-light
                   :margin "7px 2px 0"}]]
-    ;; Basis ZERO, not auto and not the 260px the dark-app notice uses. Both of
-    ;; those size the text by its own content, so a message wider than the line
-    ;; -- "Too common. A few words strung together are harder to guess and easier
-    ;; to remember." is one -- wraps as a whole block and leaves the "!" stranded
-    ;; on the line above. At zero it takes whatever room is left beside the mark
-    ;; and wraps INSIDE it. min-width goes with it, or a long unbroken word puts
-    ;; the floor back under the basis.
+    ;; GOTCHA: flex-basis ZERO, not auto or the dark-app notice's 260px -- those
+    ;; size by content, so a long message (e.g. "Too common. A few words...")
+    ;; wraps as a whole block, stranding the "!" above. Zero lets it wrap INSIDE
+    ;; the remaining space beside the mark; min-width must go with it or a long unbroken word restores the floor.
     [:.field-notice-what {:flex "1 1 0"
                           :min-width "0"}]
     [:.field-notice-action {:color "#c98700"
@@ -781,21 +766,10 @@
     [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
     [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]
 
-    ;; ---------------------------------------------------------------------
-    ;; The auth field. A notched outline label: a real <label for> riding on
-    ;; the input's own border, so the field never stops saying what it is. A
-    ;; placeholder stops saying it the moment somebody types.
-    ;;
-    ;; The notch is driven by :placeholder-shown rather than a class the view
-    ;; keeps in step. A class desynced the moment somebody typed and tabbed
-    ;; away -- the label dropped back over their own text, which reads as the
-    ;; field clearing itself. Every input carries placeholder=" " for the
-    ;; selector to test against.
-    ;; ---------------------------------------------------------------------
-    ;; The field owns its alignment. register-page wraps its whole contents in
-    ;; text-align:center, which centred the labels, centred the notice text and
-    ;; pushed the "!" onto a line of its own. A field is left-aligned wherever it
-    ;; is put; that is not the page's call to make.
+    ;; GOTCHA: the notch is driven by :placeholder-shown, not a class -- a class
+    ;; desyncs the moment someone types and tabs away, dropping the label back over
+    ;; their text (reads as the field clearing itself); every input needs
+    ;; placeholder=" " for the selector to match. Field owns its own alignment, not the page's text-align:center wrapper.
     [:.field {:position :static
               :margin-bottom "22px"
               :text-align :left}]
@@ -816,14 +790,10 @@
                   :background-color orange
                   :border-radius "2px"
                   :margin "10px auto 8px"}]
-    ;; Everything below the fields -- the submit, the "already have an account"
-    ;; line, the consent text -- used to be centred by a text-align:center
-    ;; wrapper on the register page. auth-page replaced that wrapper, and the
-    ;; button ended up hard against the left edge. Centring belongs to the parts
-    ;; that want it, not to one div wrapping the whole page.
-    ;; The summary. .bg-note's neutral ground with a rail in the error colour,
-    ;; rather than a tinted box: the fields below are already tinted, and two
-    ;; pink areas stacked is the crowding the design pass was fixing.
+    ;; Everything below the fields -- submit, "already have an account", consent --
+    ;; centres itself; a page-level text-align:center wrapper is NOT used, since
+    ;; that leaves a non-centred element hard against the left edge. .auth-summary uses
+    ;; .bg-note's neutral ground with an error-colour rail rather than a tinted box, since the fields below are already tinted and two pink areas stacked would crowd.
     [:.auth-summary {:border-left (str "3px solid " error-red)
                      :background-color "rgba(0, 0, 0, 0.035)"
                      :border-radius "3px"
@@ -858,20 +828,10 @@
                     :font-weight "700"
                     :letter-spacing "0.12em"
                     :margin-top "4px"}]
-    ;; text-wrap balance on both: centred text in a 435px column breaks with a
-    ;; single orphaned word on the second line ("off." under the lede, "read our
-    ;; Privacy Policy." under the consent line), which reads as a mistake rather
-    ;; than a line break. Browsers without it fall back to the ragged wrap, which
-    ;; is what this looked like before.
-    ;; A page that states an outcome and offers at most one way on. Centred like
-    ;; the heading above it, given the same gutter the form fields have, and set
-    ;; down from the rule rather than tight under it -- the card is 600px and
-    ;; these pages hold three lines, so the space is going to be there either
-    ;; way and the block may as well be composed inside it.
-    ;; The card is 600px whatever is in it, and these pages hold three lines, so
-    ;; the space below is there either way. Centring the block in what remains
-    ;; below the heading settles it against the full-height image beside it,
-    ;; instead of stacking it at the top with a third of the card empty under.
+    ;; text-wrap:balance avoids a single orphaned word on the second line of centred
+    ;; text in this 435px column (e.g. "off." or "Privacy Policy." alone) -- without
+    ;; it, browsers fall back to a ragged wrap. The card is a fixed 600px and these
+    ;; pages hold exactly three lines, so centring the block in the space below the heading settles it against the full-height image beside it.
     [:.auth-outcome {:display :flex
                      :flex-direction :column
                      :align-items :center
@@ -970,12 +930,10 @@
                              :box-shadow "0 0 0 3px rgba(240, 161, 0, 0.20)"}]]
     [:.field ["input:focus + .notch" {:color "#c98700"}]]
 
-    ;; Wrong: the group grows a rail, the field tints, and the label LEAVES the
-    ;; notch to become a plain line so the message can sit under it -- GOV.UK's
-    ;; order, which puts the explanation before the box about to be retyped.
-    ;; The field visibly changes shape, which is a signal before a word is read.
-    ;; One container, not four: the first attempt tinted the input AND doubled
-    ;; its border AND boxed the message AND railed the box, and looked pinched.
+    ;; GOTCHA: one container, not four -- tinting the input AND doubling its border
+    ;; AND boxing the message AND railing the box all at once looks pinched. The
+    ;; field visibly changes shape as a signal before the word is read; label
+    ;; leaves the notch for a plain line, GOV.UK order: explanation before the box to retype.
     [:.field [:.lift {:display :none
                       :line-height "1"
                       :margin "0 0 5px"
@@ -1013,20 +971,10 @@
     ;; A keyword cannot carry the parens of :has(), so this selector is a string.
     [".field-box:has(.peek) input" {:padding-right "78px"}]]
 
-   ;; Password meter. Four slots with one fill sweeping through them, so the
-   ;; movement is continuous while the milestones stay countable. The minimum
-   ;; length lands on the first slot's edge, so the gap between slots marks it
-   ;; and no separate notch is needed. Only the fill WIDTH is set inline, at the
-   ;; call site, because that width is the measurement itself.
-   ;;
-   ;; These are LIGHT-ground colours. registration-page puts its form on a white
-   ;; card with only the header bar dark, so the *-on-dark palette is wrong
-   ;; here: red-on-dark washes out to pink and muted-on-dark all but vanishes.
-   ;; The first cut used them and a screenshot is what caught it.
-   ;;
-   ;; Fill and label colours are separate families rather than one class reused
-   ;; through currentColor, because Legendary is a gradient -- correct behind a
-   ;; bar, wrong behind text.
+   ;; Password meter: 4 slots, one fill sweeping through (continuous movement,
+   ;; countable milestones); min length lands on the first slot's edge so the gap
+   ;; marks it, no separate notch needed. Fill WIDTH alone is set inline (it IS the
+   ;; measurement). LIGHT-ground colours only -- *-on-dark washes out on this white card -- and fill/label colours stay separate families since Legendary's fill is a gradient (wrong behind text via currentColor).
    [:.pw-slots {:display :flex
                 :gap "4px"
                 :height "10px"}]
@@ -1916,10 +1864,9 @@
                [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
 
     ;; ── Share line ───────────────────────────────────────────────────────────
-    ;; A character's sharing, under its page title and under its row in the character list: a status
-    ;; pill, which is a label and never looks tappable, then the actions as text buttons. Before a link
-    ;; exists the line is the pill and Share link; after, Copy link, New link and Stop sharing. Actions
-    ;; are 40px tall so a thumb can land on them. Light-theme colours are under .app.light-theme below.
+    ;; A character's sharing line: a status pill (label, never tappable) then actions as text
+    ;; buttons, 40px tall for a thumb target. Before a link exists it's the pill + Share link;
+    ;; after, Copy link / New link / Stop sharing. Light-theme colours are under .app.light-theme below.
     [:.share-line
      {:display :flex
       :flex-wrap :wrap
@@ -2394,13 +2341,10 @@
      {:background-image "linear-gradient(to right, #d35730, #eda41e)"
       :padding ".5em 2em"}]
 
-    ;; Nested, not comma-separated. Written as
-    ;;   [:.modal-container :.m-b-10, :.modal-container :.link-button {...}]
-    ;; this reads as a descendant selector and is not one: garden treats every
-    ;; keyword before the map as a SEPARATE selector, so it compiled to
-    ;;   .modal-container, .m-b-10, .modal-container, .link-button
-    ;; and put font-weight:bold on a MARGIN UTILITY used 194 times across the
-    ;; app. Anything carrying .m-b-10 anywhere has been bold by accident.
+    ;; GOTCHA: [:.modal-container :.m-b-10, :.modal-container :.link-button {...}] looks nested but
+    ;; garden treats every keyword before the map as a SEPARATE selector, compiling to
+    ;; .modal-container, .m-b-10, .modal-container, .link-button -- putting font-weight:bold on
+    ;; .m-b-10, a margin utility used 194 times across the app. Nest the vectors instead, as below.
     [:.modal-container
      [:.m-b-10 {:font-weight "bold"}]
      [:.link-button {:font-weight "bold"}]]
@@ -3232,10 +3176,9 @@
 
 
     ;; ── Harvested from refactor/garden-inline-styles ─────────────────────────
-    ;; Class definitions lifted from that branch rather than merging it: integration is
-    ;; 648 commits past its merge-base and the merge conflicts over sections both sides
-    ;; rewrote. The call sites that used these as inline :style maps are converted
-    ;; separately, against integration's current views.cljs.
+    ;; Classes lifted here rather than merging that branch. Call sites that used
+    ;; these as inline :style maps are converted separately, against integration's
+    ;; current views.cljs. See garden-inline-styles-harvest.md.
 
     [:.character-display
      {:padding "20px 5px"

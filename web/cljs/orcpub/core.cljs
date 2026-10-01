@@ -41,14 +41,10 @@
 
 (boot-step "initialize-db"
            #(dispatch-sync [:initialize-db])
-           ;; Loading threw. Set the stored library aside intact, start without it, and
-           ;; say so; if startup fails without it too, homebrew was not the cause.
-           ;;
-           ;; The whole recovery -- set-aside-unloadable-library! included -- has to sit
-           ;; inside this try: that call itself touches localStorage, and boot-step
-           ;; invokes `recover` from its OWN catch block, outside its own try, so a
-           ;; storage exception here (quota, permissions, a locked-down browser) would
-           ;; otherwise escape uncaught and abort startup for good.
+           ;; Loading threw: set the stored library aside intact, start without it, say so.
+           ;; GOTCHA: the whole recovery must stay inside this try -- boot-step calls
+           ;; `recover` from its own catch, outside its own try, so a storage exception
+           ;; here would otherwise escape uncaught and abort startup. See homebrew-safety-net.md.
            #(try
               (when-let [raw (db/set-aside-unloadable-library!)]
                 (try

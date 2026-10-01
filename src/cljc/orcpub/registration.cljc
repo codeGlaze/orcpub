@@ -42,11 +42,10 @@
    pattern from them: \"5 5 5 5 5 5\" has no three in a row and \"a-b-c-d\" does
    not step by one, while both are exactly what they look like."
   [password]
-  ;; Whitespace and ASCII punctuation, spelled out as ranges. \p{L} and \p{N}
-  ;; are Java-only -- JavaScript needs the u flag for them and a ClojureScript
-  ;; regex literal does not carry one, so the JVM stripped separators and the
-  ;; browser silently did not. Naming the separators keeps letters of every
-  ;; script, which "not a letter" would have thrown away in the browser.
+  ;; GOTCHA: \p{L}/\p{N} are JVM-only -- a ClojureScript regex literal carries no u
+  ;; flag, so the same pattern would silently fail to strip separators in the browser.
+  ;; Ranges are spelled out explicitly instead, which also keeps letters of every
+  ;; script that "not a letter" would wrongly throw away in the browser.
   (s/replace (or password "") #"[\s!-/:-@\[-`{-~]" ""))
 
 (defn repeated-run?
@@ -96,13 +95,10 @@
 (defn validate-password
   "Messages for everything wrong with a password, keyed :password.
 
-   No composition rules: NIST SP 800-63B-4 says character-class requirements
-   shall not be imposed, because they push people toward predictable shapes
-   (Capital, then digit, then bang). Length plus refusing the obvious patterns
-   is what the guidance asks for instead. Breach screening is separate and
-   lives server-side, since it needs the network.
-
-   The single-argument form is kept for callers that have no user context."
+   No composition rules, per NIST SP 800-63B-4: character-class requirements
+   push people toward predictable shapes (Capital, digit, bang) instead of length
+   and refusing obvious patterns. Breach screening is separate and server-side
+   (needs the network). Single-argument form is for callers with no user context."
   ([password] (validate-password password nil))
   ([password context]
    ;; Judged as stored: register, reset and login all trim, so " pomegranate "
@@ -128,10 +124,7 @@
 (defn password-pair-faults
   "Everything wrong with a password AND its confirmation, keyed by field.
 
-   Both places a password is made were deriving this for themselves, in two
-   different state idioms, which is how one of them ended up judging the pair
-   against the username and the other not.
-
+   Centralizes what both password-entry UIs need so neither drifts out of sync.
    `revealed?` true means the confirmation is not being asked for -- the box is
    gone, so it cannot be wrong. A blank password has nothing to mismatch yet."
   [password confirm revealed? context]
@@ -162,16 +155,10 @@
 
 (defn password-strength
   "What the meter should show: {:rung r :fills [a b c d]}.
-
-   :rung is nil for an empty field, -1 when a rule is broken, and 0 to 3 for the
-   highest slot filled. :fills reports the real length even at -1: the fill is
-   the truth about the string and the colour is the verdict on it, so a failing
-   password must never look like it has earned a whole slot.
-
-   The verdict comes from validate-password rather than a second set of rules.
-   The two used to be written separately and drifted -- this scored Dragon7!
-   five out of five while the server refused it, and called a twenty-five
-   character passphrase a two. Deriving it makes disagreeing impossible."
+   :rung is nil for an empty field, -1 when a rule is broken, 0-3 for the
+   highest slot filled; :fills reports the real length even at -1, so a failing
+   password never looks like it earned a slot. Derived from validate-password,
+   not a separate rule set, so the two cannot disagree. See account-flows.md."
   ([password] (password-strength password nil))
   ([password context]
    (let [length (count (or password ""))
