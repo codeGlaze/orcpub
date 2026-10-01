@@ -113,12 +113,20 @@ async function resize(page, width, height) {
       const bar = document.querySelector('.app-header-bar .w-100-p');
       const tabs = [...document.querySelectorAll('.header-tab')].map(t => t.getBoundingClientRect());
       const gaps = tabs.slice(1).map((r, i) => Math.round(r.left - tabs[i].right));
-      return { login: innerWidth - bar.lastElementChild.getBoundingClientRect().right,
+      const ink = e => { const x = document.createRange(); x.selectNodeContents(e); return x.getBoundingClientRect().left; };
+      const h1 = document.querySelector('h1');
+      const lefts = [bar.querySelector('img').getBoundingClientRect().left, tabs[0].left, ink(h1),
+                     h1.closest('.flex-wrap').children[1].firstElementChild.getBoundingClientRect().left,
+                     document.querySelector('.builder-tabs').parentElement.getBoundingClientRect().left].map(Math.round);
+      return { lefts, loginR: Math.round(innerWidth - bar.lastElementChild.getBoundingClientRect().right),
+               login: innerWidth - bar.lastElementChild.getBoundingClientRect().right,
                title: innerWidth - document.querySelector('h1').getBoundingClientRect().right,
                left: tabs[0].left, right: innerWidth - tabs[tabs.length - 1].right, gaps };
     });
     const w = page.viewportSize().width;
     check(`${w}px phone: the login button keeps off the edge`, h.login >= 10, h.login);
+    check(`${w}px phone: logo, tabs, title, buttons and builder share the 10px gutter`,
+          h.lefts.every(x => x === 10) && h.loginR === 10 && Math.round(h.right) === 10, JSON.stringify(h));
     check(`${w}px phone: the page title keeps off the edge`, h.title >= 10, h.title);
     check(`${w}px phone: the header tabs sit evenly, close together`,
           h.gaps.every(g => g === h.gaps[0] && g <= 8) && Math.abs(h.left - h.right) <= 1, JSON.stringify(h));

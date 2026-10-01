@@ -1269,6 +1269,11 @@
     [:.header-tab
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
+    ;; On a phone the row's padding is the gutter, so the outer tabs drop the
+    ;; 2px that only spaces them from their neighbours.
+    [:.phone-tabs
+     [:.header-tab:first-child {:margin-left "0 !important"}]
+     [:.header-tab:last-child {:margin-right "0 !important"}]]
 
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white

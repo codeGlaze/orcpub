@@ -208,6 +208,12 @@ device *can do* (a keyboard for the roll buttons' ctrl/shift tip) reads `:ua-dev
 To capture the phone layout, a narrow window is enough now; a real phone's user agent still
 matters for touch-only behaviour.
 
+**Phone gutter: 10px, both sides (decided 2026-10-01).** On a phone every row's visible edge sits
+10px from the screen edge: logo and login, header tabs, page title, yellow buttons, toggles and
+the builder panel. Containers sit on the gutter and their contents indent inside them; a row's
+own spacing (a button's 5px, a tab's 2px) counts toward the 10px rather than adding to it. Chosen
+over 16px to keep the width for content.
+
 ---
 
 ## 5. Buttons

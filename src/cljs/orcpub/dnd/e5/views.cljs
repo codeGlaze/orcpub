@@ -465,7 +465,9 @@
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
-          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20.h-100-p
+          ;; phones share one 10px gutter with the tabs, title and builder below
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.h-100-p
+           {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20")}
            logo
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
@@ -509,7 +511,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
-           {:class (when mobile? "p-l-10 p-r-10")}
+           {:class (when mobile? "p-l-10 p-r-10 phone-tabs")}
            [header-tab
             "characters"
             "battle-gear"
@@ -1073,7 +1075,9 @@
         title]
        (when frame?
          logo)]
-      [:div.flex.align-items-c.justify-cont-end.flex-wrap.m-r-10.m-l-10
+      ;; each button carries 5px of its own, so on a phone the row adds only 5
+      [:div.flex.align-items-c.justify-cont-end.flex-wrap
+       {:class (if (= :mobile device-type) "m-l-5 m-r-5" "m-l-10 m-r-10")}
        (map-indexed
         (fn [i {:keys [title icon on-click style class-name] :as cfg}]
           (if (vector? cfg)
