@@ -21,7 +21,7 @@ before the next.
 
 | # | step | where | depends on |
 |---|---|---|---|
-| 0 | **Hidden-pick fix, Part A.** Skills done on `feature/extras-companions` (`5230db89`); equipment (5 sites) and tools remain, one commit each | `integration`-level: a branch from `integration`, owner to approve its name | — |
+| 0 | **Hidden-pick fix, Part A.** Skills done (`75fa9431`; same fix as `5230db89` on extras-companions); equipment (5 sites) and tools remain, one commit each. Merge `integration` in first and trim its docstrings to spec, then PR into `integration` | `fix/hidden-multiclass-skill-pick` (cut from `integration` 2026-09-20, no PR yet) | — |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
