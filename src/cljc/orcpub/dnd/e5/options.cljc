@@ -470,12 +470,10 @@
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
-      ;; DEFERRED on purpose. spell-help renders the spell's whole description into a <p>
-      ;; per paragraph; it is 78% of building an option, and memoized-spell-option keys on
-      ;; class name, so eagerly it is built once per (spell x class) and retained for the
-      ;; page. Nothing reads it except the renderer, and only when the peek is opened.
-      ;; Renderers force it with views-aux/realize-help; :help elsewhere is still a plain
-      ;; string or literal hiccup and is untouched. See reagent-architecture-tenets.md #1.
+      ;; A thunk: spell-help renders the whole description, most of an option's build
+      ;; cost, and memoized-spell-option keeps one per (spell x class). Renderers force it
+      ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
+      ;; string or hiccup. See reagent-architecture-tenets.md #1.
       :help #(spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
@@ -718,12 +716,10 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
-           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
-           ;; :leomunds-secret-chest) to their current de-named SRD keys
-           ;; (:secret-chest) so imported paks that reference the old names resolve
-           ;; to the real spell. resolve-spell-key is non-destructive: it only
-           ;; remaps a known rename whose target is loaded, so loaded homebrew and
-           ;; genuinely-missing spells are left alone (and still flagged below).
+           ;; Resolve pre-2024 wizard-possessive spell keys (:leomunds-secret-chest) to
+           ;; their de-named SRD keys (:secret-chest). Only a known rename whose target
+           ;; is loaded is remapped; homebrew and missing spells pass through unchanged
+           ;; (and missing ones are flagged below).
            all-spells (reduce-kv
                        (fn [m lvl ks]
                          (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
@@ -922,16 +918,12 @@
   (str "Select additional " (if (> num 1) plural singular) " for which you are proficient."))
 
 (defn skill-selection-2
-  "A skill-proficiency pick. `options` is a seq of skill keywords, `num` sets min and max unless
-   they are given separately, and `prereq-fn` decides whether the builder OFFERS it.
-
-   `cls-kw` + `first-class?`, when given, make each option's modifier carry its arm's condition,
-   so a stored pick stops applying when the arm stops being true. Without them the options are
-   unconditioned, which is right for every non-class caller (background, feat, race).
-
-   GOTCHA: `prereq-fn` gates DISPLAY only. `entity/build` never consults it — that is why the
-   class arms condition the MODIFIER rather than relying on this. See
-   docs/kb/hidden-selection-picks.md."
+  "A skill-proficiency pick from `options` (skill keywords); `num` sets min and max unless given
+   separately. With `cls-kw` + `first-class?` each option's modifier carries its class arm's
+   condition; without them (background, feat, race) the options are unconditioned.
+   GOTCHA: `prereq-fn` only decides whether the builder OFFERS the pick; `entity/build` never
+   reads it, so a stored pick keeps applying unless its modifier is conditioned.
+   hidden-selection-picks.md"
   [{:keys [options num min max order key prereq-fn cls-kw first-class?]}]
   (t/selection-cfg
    {:name "Skill Proficiency"
@@ -2294,6 +2286,13 @@
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
 
+(defn language-key
+  "The key of the language `language-map` ({key language}) holds under the display name `nm`,
+   else the key derived from `nm`."
+  [language-map nm]
+  (or (some (fn [[k l]] (when (= nm (:name l)) k)) language-map)
+      (common/name-to-kw nm)))
+
 (defn race-option [spell-lists
                    spells-map
                    language-map
@@ -2353,7 +2352,7 @@
                     (darkvision-modifiers darkvision))
                   (map
                    (fn [language]
-                     (modifiers/language (common/name-to-kw language)))
+                     (modifiers/language (language-key language-map language)))
                    languages)
                   (map
                    (fn [[k v]]
@@ -2519,21 +2518,11 @@
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
 
-;; Rich starting-equipment choice groups — the full SRD form as serializable data.
-;; Unlike the shorthand :*-choices (one item per option), an option here can grant a
-;; BUNDLE of items (:grants) and/or offer a nested sub-choice (:choose), e.g. Fighter's
-;; "(a) chain mail, or (b) leather + longbow + 20 arrows" and "a martial weapon + shield".
-;; Shape on the class map:
-;;   :equipment-selections
-;;   [{:name "Armor"
-;;     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail}]}
-;;               {:name "Leather, Longbow, 20 Arrows"
-;;                :grants [{:kind :armor :key :leather} {:kind :weapon :key :longbow}
-;;                         {:kind :equipment :key :arrow :qty 20}]}]}
-;;    {:name "Weapon"
-;;     :options [{:name "A martial weapon and a shield"
-;;                :grants [{:kind :armor :key :shield}]
-;;                :choose [{:name "Martial Weapon" :from :martial}]}]}]
+;; Rich starting-equipment choice groups (:equipment-selections on the class map): unlike
+;; the shorthand :*-choices, an option can grant a bundle ({:grants [{:kind :key :qty}]})
+;; and/or offer nested sub-choices ({:choose [{:name :from}]}). Shape and worked Fighter
+;; example: starting-equipment.md.
+
 ;; One fixed grant ({:kind :key :qty}) -> the matching modifier that drops the item
 ;; onto the character's ?weapons/?armor/?equipment.
 (defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
@@ -2571,11 +2560,10 @@
       :options (mapv #(equipment-selection-option class-kw weapon-map %) options)
       :prereq-fn (first-class? class-kw)})
 
-    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirror the live
-    ;; equipment-option EXACTLY: a plain starting-equipment selection named for the group,
-    ;; WITHOUT the "Starting Equipment: " prefix and WITHOUT a "<none>" opt-out — so a class
-    ;; filled from an SRD class reproduces the SRD's own nested selection verbatim (its name
-    ;; also feeds the selection's minted key, which must stay stable).
+    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirrors the live
+    ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
+    ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
+    ;; name also feeds the selection's minted key, which must stay stable.
     (equipment-group-choosers from)
     (let [chooser (equipment-group-choosers from)]
       (t/selection-cfg
@@ -2641,6 +2629,7 @@
 (defn background-option [language-map
                          weapon-map
                          {:keys [name
+                                 key
                                  help
                                  page
                                  profs
@@ -2659,7 +2648,10 @@
                                  source
                                  edit-event]
                           :as background}]
-  (let [kw (common/name-to-kw name)
+  ;; FIELD NOTE (background-name-key): saved characters hold backgrounds by (common/name-to-kw name)
+  ;; even when the item stores another :key; earlier versions offered them that way. The heal
+  ;; counts the name's key as a former key (content-reconciliation/items-with-formers).
+  (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs
         {skill-num :choose options :options} skill-options
@@ -3029,13 +3021,9 @@
 
 
 (defn class-skill-selection
-  "A class's skill pick, from its `:skill-options` or `:multiclass-skill-options`. `key`
-   distinguishes the two arms and `prereq-fn` is the `first-class?` gate (or its complement) that
-   decides which one the builder shows.
-
-   `cls-kw` and `first-class?` name the arm, and the options' modifiers carry its condition — so
-   a pick made on one arm stops applying if that arm stops being true, rather than surviving as a
-   skill with no control to remove it."
+  "A class's skill pick from its `:skill-options` or `:multiclass-skill-options`. `key` tells the
+   two arms apart and `prereq-fn` is the `first-class?` gate (or its complement) the builder shows
+   by. `cls-kw` and `first-class?` name the arm; the options' modifiers carry its condition."
   [{skill-num :choose options :options skill-select-order :order} key prereq-fn cls-kw first-class?]
   (let [skill-kws (if (:any options) (map :key skills/skills) (keys options))]
     (skill-selection skill-kws skill-num skill-select-order key prereq-fn cls-kw first-class?)))
@@ -3413,8 +3401,15 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-names (map (comp :name race-map) race-keys)]
-         [(race-prereq race-names)])))))
+       ;; A race the library no longer holds can never match; if none of them is held, the feat
+       ;; stays locked and says which race it needs.
+       (let [race-names (keep (comp :name race-map) race-keys)]
+         (if (seq race-names)
+           [(race-prereq race-names)]
+           [(t/option-prereq
+             (str "Needs " (common/list-print (map #(str "\u201c" (common/kw-to-name % true) "\u201d") race-keys) "or")
+                  ", which isn't in your library")
+             (constantly false))]))))))
 
 (def filter-true (filter val))
 

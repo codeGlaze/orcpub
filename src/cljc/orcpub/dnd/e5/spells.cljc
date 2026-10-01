@@ -4229,13 +4229,10 @@ An affected creature is aware of the spell and can thus avoid answering question
    spells))
 
 (def spell-key-aliases
-  "Pre-2024 wizard-possessive spell keys -> the current de-named SRD keys they were
-   renamed to. Homebrew paks authored against the old names reference e.g.
-   :leomunds-secret-chest, but the base data now keys that spell :secret-chest, so
-   the reference dangles with 'no loaded definition'. CURATED (not a strip-the-name
-   heuristic) so ONLY these known official renames resolve — an arbitrary unresolved
-   homebrew key stays flagged rather than being mis-substituted. Every target exists
-   in spell-map (asserted in spells_test)."
+  "Pre-2024 wizard-possessive spell keys -> the de-named SRD keys the base data uses
+   (:leomunds-secret-chest -> :secret-chest), so homebrew paks naming the old key resolve.
+   CURATED, not a strip-the-name heuristic: only these known renames resolve, and any other
+   unresolved homebrew key stays flagged. Every target exists in spell-map (spells_test)."
   {:leomunds-secret-chest             :secret-chest
    :leomunds-tiny-hut                 :tiny-hut
    :mordenkainens-faithful-hound      :faithful-hound

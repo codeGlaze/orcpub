@@ -53,13 +53,8 @@
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
-  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
-  ;; OLD (2.x): (PDDocument/load input-stream)
-  ;; NEW (3.x): (Loader/loadPDF byte-array)  — does NOT accept InputStream
-  ;; 
-  ;; Import syntax notes for Clojure newcomers:
-  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
-  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
+  ;; PDFBox 3.x loads documents through Loader/loadPDF, which takes a byte array, not an
+  ;; InputStream.
   (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
@@ -612,22 +607,11 @@
     :else v))
 
 (defn bound-request
-  "Caps everything caller-supplied before any part of the export sees it.
-
-   This is the ceiling that does not have to be remembered. Both rules act on the
-   REQUEST rather than on a generator, so a feature added later that reads a
-   collection out of the body, or counts spellcasting-class-N field names, is
-   bounded without anyone wiring it up:
-
-   - A `spellcasting-class-N` name past the section ceiling is dropped outright.
-     The count was derived in two places -- the handler and add-missing-spell-pages!
-     -- and clamping only one left the endpoint just as open. Nothing downstream
-     can see a number too large if the field never arrives.
-   - Every collection is truncated to the card ceiling. Cards are nine to a page
-     and the caller says how many, so an uncapped list is an uncapped page count.
-
-   Generators keep their own clamps as well. This is the one that catches what
-   nobody thought to clamp."
+  "Returns `fields` with everything caller-supplied capped, before any part of the export
+   sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
+   without being wired up: a `spellcasting-class-N` field past the section ceiling is
+   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
+   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
   [fields]
   (let [max-sections (config/get-pdf-max-caster-sections)
         max-cards (config/get-pdf-max-cards)
@@ -722,13 +706,10 @@
       (println "pdf: failed adding spell cards -" (.getMessage e)))))
 
 (defn add-magic-item-cards!
-  "Appends card pages for `magic-items`, nine to a sheet, each with its back.
-
-   The same layout as the spell cards, and the same failure posture: a card page
-   that throws must not cost the character their sheet, so this logs and returns
-   rather than propagating.
-
-   `fonts` and `img` are the caller's, for the reason given on add-spell-cards!."
+  "Appends card pages for `magic-items`, nine to a sheet, each with its back; the same layout
+   as the spell cards. A card page that throws is logged, not propagated, so it cannot cost
+   the character their sheet. `fonts` and `img` are the caller's, for the reason given on
+   add-spell-cards!."
   [doc fonts img magic-items logo-img bw? bw-faded?]
   (try
     (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))]
@@ -811,16 +792,12 @@
         outcome))))
 
 (defn image-probe
-  "Whether this server can fetch the picture at the posted URL.
-
-   The builder asks before exporting, for a picture the BROWSER was not allowed to
-   read, so it can say something useful rather than print a sheet with a hole in
-   it. The bytes are kept for the export that follows, so asking costs the host
-   nothing extra.
-
-   Answers a boolean and never the picture: this endpoint needs no login, and
-   handing back fetched bytes would make it a general-purpose proxy for anything
-   inside the size limits."
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before
+   it exports a picture the browser could not read. Answers 200 with a reason name: ok,
+   blocked-address, the fetch's failure reason, or unknown. The fetched bytes are kept for the
+   export that follows.
+   GOTCHA: it needs no login, so it must never return the picture; that would make it an
+   open proxy."
   [{:keys [transit-params]}]
   (let [url (:url transit-params)
         reason (if-not (well-formed-image-url? url)
@@ -894,20 +871,12 @@
    })();")
 
 (defn- busy-page
-  "The page a turned-away export lands on.
-
-   The export is a form POST into a new tab, so this response IS what the person
-   is looking at -- the retry lives here rather than in the app, and carries the
-   original request body forward in a hidden field so the resubmission is the
-   same export. `attempt` counts retries already spent; past `max-retries` the
-   page stops retrying itself and waits to be clicked.
-
-   Rendered through hiccup2, which escapes content and attributes, because the
-   request body is caller-supplied and is reflected into a hidden field. It wears
-   the site header and stylesheets the way the privacy and terms pages do; its
-   own rules live in orcpub.styles.core with the rest of the stylesheet. The
-   builder's markup and scripts are absent in this tab, so the page uses plain
-   card classes rather than app layout classes."
+  "The page a turned-away export lands on. The export is a form POST into a new tab, so this
+   response IS what the person sees: it retries by resubmitting the original body from a
+   hidden field, and past `max-retries` (`attempt` counts retries spent) waits to be clicked.
+   GOTCHA: that body is caller-supplied and reflected into the field, so render only through
+   hiccup2, which escapes it. Builder markup and scripts are absent in this tab, so it uses
+   plain card classes; its own rules live in orcpub.styles.core."
   [{:keys [body attempt max-retries retry-seconds nonce action]}]
   (let [auto? (< attempt max-retries)]
     (str
@@ -951,13 +920,9 @@
     (if (and (nat-int? n) (<= n 1000)) n 0)))
 
 (defn- with-export-slot
-  "Runs `f` holding one export slot, or answers 503 if none frees up within the
-   configured wait.
-
-   Bounding the work rather than the request keeps memory predictable: an export
-   in flight holds roughly 11 MB, so the ceiling is a number an operator can set
-   against the heap. Saying so with a Retry-After beats holding the connection
-   until the browser times out with nothing to show for it."
+  "Runs `f` holding one export slot, or answers 503 with a Retry-After and the busy page if
+   none frees up within the configured wait. Bounding the work rather than the request keeps
+   memory predictable; sizing is in docs/PDF-EXPORT-CAPACITY.md."
   [req f]
   (let [waiting (.incrementAndGet exports-waiting)]
     (try
@@ -1026,12 +991,9 @@
                                                     print-character-sheet-style?)
                                        print-character-sheet-style?
                                        default-sheet-style)
-        ;; (2026-09) One master per style, grown to the character's shape, rather
-        ;; than one of seven pre-cut files. pdf/sheet-masters carries the reasoning
-        ;; and the measurements.
-        ;; Clamped: the count comes from the field NAMES the caller sent, so
-        ;; "spellcasting-class-9999" would otherwise ask for 9,998 cloned pages at
-        ;; roughly 14 MB each, from a body of a few dozen bytes.
+        ;; One master per style, grown to the character's shape; pdf/sheet-masters has the
+        ;; reasoning. Clamped: the count comes from the field NAMES the caller sent, so
+        ;; "spellcasting-class-9999" would otherwise ask for 9,998 cloned pages.
         requested-casters (->> (keys fields)
                                (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
                                (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
@@ -1054,30 +1016,21 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      ;; Fillable in every browser by default. The old non-Chrome flattening was a
-      ;; workaround for Firefox ignoring NeedAppearances; write-fields! now bakes
-      ;; real appearance streams, so values render everywhere AND the form stays
-      ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
-      ;; Both run before write-fields! so the fields they create or trim exist by
-      ;; the time values are written.
+      ;; Fillable in every browser by default: write-fields! bakes real appearance streams, so
+      ;; values render everywhere and the form stays editable. `:flatten? true` gives a static PDF.
       (let [fields (apply dissoc fields pdf-option-keys)]
-        ;; No prune here. The masters are pruned by dev/prepare_templates.clj and
-        ;; growing only adds pages, so there is nothing to find -- it was a full
-        ;; scan of the form on every export for no result, and doubled the churn
-        ;; of a non-caster sheet. add-missing-spell-pages! still prunes on the
-        ;; branch where it generates pages, in case it meets an unbaked template.
+        ;; No prune: the masters are pruned by dev/prepare_templates.clj and growing only adds
+        ;; pages. add-missing-spell-pages! still prunes where it generates pages.
+        ;; Both run before write-fields!, so the fields they create or trim exist by then.
         (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
         (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
         ;; Merge before spilling, so a style's shared box is measured as the one
         ;; value it prints rather than as its parts.
         (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
-          ;; Narrowing the rows must happen before the values are written: the
-          ;; rows auto-size, so this is what makes a long name shrink to clear the
-          ;; annotation columns rather than run under them.
-          ;; The packing decision is made in the builder, which knows what a
-          ;; spell level is; the server is handed a flat field map and this small
-          ;; instruction list, and applies it. Bounds-checked against the sections
-          ;; this document actually grew, since it arrives from the client.
+          ;; Narrow the rows before the values are written: the rows auto-size, so this is what
+          ;; makes a long name shrink to clear the annotation columns. The builder decides the
+          ;; packing and sends this instruction list; it arrives from the client, so it is
+          ;; bounds-checked against the sections this document actually grew.
           (when (seq spell-relabels)
             (let [[applied refused]
                   (pdf/apply-relabel-instructions! doc spell-relabels casters
@@ -1118,20 +1071,10 @@
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))
 
-      ;; Both images are resolved BEFORE either is drawn, and any that has to be
-      ;; fetched is fetched concurrently with the other.
-      ;;
-      ;; Fetching is where an export's seconds go -- 10s to connect, 10s on the
-      ;; socket and a 20s transfer deadline apiece -- and it happens holding an
-      ;; export slot. Drawn one after the other, two slow images held a slot for
-      ;; up to 80s while nothing else could use it; started together they cost
-      ;; one image's worst case rather than two.
-      ;;
-      ;; No pdf/safe-image-url? here. pdf/fetch-image validates through
-      ;; safe-image-bytes, whose resolved addresses are the ones the connection
-      ;; is pinned to; calling it first only resolved the host a second time.
-      ;; The regex stays -- it costs nothing and refuses file:// and ftp://
-      ;; without a lookup at all.
+      ;; Both images are resolved BEFORE either is drawn, fetched concurrently: a fetch holds an
+      ;; export slot, so in sequence two slow images would cost two worst cases.
+      ;; No pdf/safe-image-url? here: pdf/fetch-image validates through safe-image-bytes, pinned to
+      ;; the addresses it resolved. The regex stays; it refuses file:// and ftp:// without a lookup.
       (let [wanted (fn [url failed?]
                      (and url (not failed?) (well-formed-image-url? url) url))
             ;; Bytes the browser read beat the URL and skip the fetch entirely.
@@ -1385,18 +1328,8 @@
                       {:error :not-user-character})))))
 
 (defn create-new-character
-  "Creates a new D&D 5e character.
-
-  Args:
-    conn - Database connection
-    character - Character data map
-    username - Owner username
-
-  Returns:
-    Created character entity
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Creates a D&D 5e character owned by `username` and returns the pulled entity.
+  Throws ExceptionInfo :character-creation-failed on database failure."
   [conn character username]
   (errors/with-db-error-handling :character-creation-failed
     {:username username}
@@ -1463,16 +1396,9 @@
       {:status 404})))
 
 (defn delete-item
-  "Deletes a magic item owned by the user.
-
-  Args:
-    request - HTTP request with item ID
-
-  Returns:
-    HTTP 200 on success, 401 if not owned
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Deletes the magic item at path-param :id if the requesting user owns it.
+  Returns 200, or 401 if not owned. Throws ExceptionInfo :item-deletion-failed on database
+  failure."
   [{:keys [db conn username] {:keys [:id]} :path-params}]
   (let [{:keys [::mi5e/owner]} (d/pull db '[::mi5e/owner] id)]
     (if (= username owner)
@@ -1534,16 +1460,8 @@
     {:status 200 :body characters}))
 
 (defn follow-user
-  "Adds a user to the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to follow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Adds path-param :user to the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :follow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1556,16 +1474,8 @@
       {:status 200})))
 
 (defn unfollow-user
-  "Removes a user from the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to unfollow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Removes path-param :user from the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :unfollow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1577,16 +1487,9 @@
       {:status 200})))
 
 (defn delete-character
-  "Deletes a character owned by the authenticated user.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP 200 on success, 400 for problems, 401 if not owned
-
-  Throws:
-    ExceptionInfo on invalid ID or database failure"
+  "Deletes the character at path-param :id if the authenticated user owns it.
+  Returns 200, 400 with the problems found, or 401 if not owned. Throws ExceptionInfo on an
+  invalid ID or database failure."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1618,16 +1521,8 @@
     summary))
 
 (defn get-character
-  "Retrieves a character by ID.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP response with character data
-
-  Throws:
-    ExceptionInfo on invalid ID format"
+  "Retrieves the character at path-param :id via `get-character-for-id`: 200 with the
+  character, or 400 if it has no owner. Throws ExceptionInfo on an invalid ID format."
   [{:keys [db] {:keys [:id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1656,16 +1551,8 @@
     {:status 200 :body (user-body db user)}))
 
 (defn delete-user
-  "Deletes the authenticated user's account.
-
-  Args:
-    request - HTTP request with authenticated user identity
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Deletes the authenticated user's account. Returns 200.
+  Throws ExceptionInfo :user-deletion-failed on database failure."
   [{:keys [db conn identity]}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
@@ -1696,12 +1583,9 @@
         (int (Math/ceil (/ remaining-ms 1000.0)))))))
 
 (defn email-change-rate-limited? [verification-sent pending-email new-email]
-  ;; Only rate-limit if the last key was generated for a pending email change
-  ;; (not for initial registration verification).
-  ;; Three zones from verification-sent:
-  ;;   0–1 min  → too soon, email is in transit (always blocked)
-  ;;   1–5 min  → free resend allowed for same email, otherwise blocked
-  ;;   5+ min   → open for any request
+  ;; Only rate-limits a pending email change, not registration verification.
+  ;; From verification-sent: 0–1 min always blocked (email in transit); 1–5 min only a
+  ;; resend to the same email is allowed; 5+ min open.
   (and pending-email
        verification-sent
        (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))

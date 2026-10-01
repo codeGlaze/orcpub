@@ -387,17 +387,9 @@
                  ~conditions))
 
 (defn class-skill-proficiency
-  "A class's CHOSEN skill proficiency, carrying the condition of the ARM it came from.
-
-   `skill-selection` used to emit an unconditioned modifier for both arms and rely on the
-   selection's `prereq-fn` to decide which arm the builder showed. That gates DISPLAY only, so a
-   pick stored while the gate passed kept applying after it stopped — drop your first class and its
-   multiclass skill stayed on the sheet with no control to remove it.
-
-   Mirrors `tool-proficiency` / `weapon-proficiency`, which have carried their condition all along.
-   `first-class?` true = the class's own arm, false = its multiclass arm; the two take opposite
-   conditions, and swapping them costs every multiclassed character a skill.
-   See docs/kb/hidden-selection-picks.md."
+  "A class's chosen proficiency in `skill-kw`, applying only while its arm holds: `first-class?`
+   true = `cls-kw` is the first class, false = it is not. Mirrors `tool-proficiency`.
+   GOTCHA: swapping the arms costs every multiclassed character a skill. hidden-selection-picks.md"
   [skill-kw cls-kw first-class?]
   (if first-class?
     (mods/modifier ?skill-profs
@@ -586,12 +578,8 @@
 (defn unarmored-ac-bonus
   "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
   stacks onto whichever AC calculation wins.
-
-  It used to write ?unarmored-ac-bonus, expressing \"no shield\" by NOT also writing
-  ?unarmored-with-shield-ac-bonus. That put a flat bonus in a channel that also carries Barbarian's
-  and Monk's ability modifiers, which compete as calculations and get zeroed by the tie-break in
-  ?unarmored-armor-class when ?natural-ac-bonus wins. A natural-armor character therefore lost the
-  bonus entirely — AC 15 where the rules give 17."
+  GOTCHA: goes through ?ac-bonus-fns, not ?unarmored-ac-bonus, whose values compete and lose to
+  ?natural-ac-bonus in ?unarmored-armor-class. See armor-class-refactor.md."
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 

@@ -698,6 +698,34 @@
      :line-height "1.45"
      :color :white}]
 
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
+
    [:.message.tone-success
     {:background-color "rgba(112, 168, 0, 0.16)"
      :border-color "rgba(112, 168, 0, 0.5)"}]
@@ -754,19 +782,14 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
-   ;; Accent rails for a callout. The rail is the same device .health-rail uses,
-   ;; but coloured by identity rather than severity, so a notice can say whose it
-   ;; is without borrowing the warning palette. Named options only -- a caller
-   ;; picks one of these rather than passing a colour, which keeps the site's
-   ;; colours in this file instead of spread across component styles.
+   ;; Accent rails for a callout: the .health-rail device, coloured by identity
+   ;; rather than severity, so a notice says whose it is without the warning
+   ;; palette. Named options only -- a caller picks one rather than passing a colour.
    [:.callout-accent-brand
-    ;; A gradient ring around the whole box, not a rail down one side. The ring is
-    ;; a pseudo-element masked to just its own edge -- the standard way to get a
-    ;; gradient border that still follows rounded corners, since border-image
-    ;; squares them off and a plain border cannot hold a gradient at all. The card
-    ;; keeps its translucent fill because the mask punches the middle out rather
-    ;; than painting over it. The outer shadow is the glow, kept low: it should
-    ;; look like the ring is giving off a little light, not like a selected field.
+    ;; A gradient ring around the whole box, drawn by a pseudo-element masked to its
+    ;; own edge: border-image squares off rounded corners, and a plain border cannot
+    ;; hold a gradient. The mask punches the middle out, so the translucent fill stays.
+    ;; The outer shadow is a low glow, not a selected-field highlight.
     {:position :relative
      :border-color :transparent
      :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
@@ -1248,20 +1271,16 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
-    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
-    ;;
-    ;; The z-index does two jobs, and the SECOND one sets the number. It keeps an
-    ;; adjacent tab from intercepting the dropdown, and it has to beat the sticky
-    ;; button row below (`.sticky-header`, z-index 100) — the tab is positioned
-    ;; and z-indexed, so it forms a stacking context and the flyout's own z-index
-    ;; is resolved INSIDE it. At an equal 100 the button row wins on document
-    ;; order, and the dropdown renders under buttons that then swallow the click.
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
      {:scrollbar-width "thin"
       :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
 
+    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
+    ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
+    ;; tab is a stacking context, so the flyout's own z-index resolves inside it, and at
+    ;; an equal 100 the row wins on document order and swallows the dropdown's clicks.
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
@@ -1421,12 +1440,9 @@
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
     ;; ── Library-header "disabled" badges ─────────────────────────────────────
-    ;; A small pill on a collapsed library row showing how many items are OFF,
-    ;; colored by REASON (not a blanket warning): blue = you turned it off
-    ;; (benign), amber = the app turned it off for compatibility (kept one of a
-    ;; duplicate). The pill's tinted fill carries the contrast, so calm hues stay
-    ;; legible. Light-mode re-tone lives under .app.light-theme below; and
-    ;; prefers-contrast: more swaps to solid high-contrast fills automatically.
+    ;; A pill on a collapsed library row counting items that are OFF, coloured by reason:
+    ;; blue = the user turned it off, amber = the app did (kept one of a duplicate).
+    ;; Light mode re-tones under .app.light-theme; prefers-contrast: more uses solid fills.
     [:.lib-badge
      {:display "inline-flex"
       :align-items :center
@@ -1562,11 +1578,9 @@
     (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
 
     ;; ── Library health status ─────────────────────────────────────────────
-    ;; Passive card that appears only when something needs attention. Warm
-    ;; escalation: warning-yellow for resolvable (conflicts, missing fields),
-    ;; red reserved for broken. One --accent drives the rail, icon and action
-    ;; link so it reads as a single object; a one-time flash fires on appearance
-    ;; and whenever the count changes (the card is re-keyed on count).
+    ;; Shown only when something needs attention: warning-yellow for resolvable
+    ;; (conflicts, missing fields), red for broken; rail, icon and link share one colour.
+    ;; The flash fires on appearance and on every count change (the card is keyed on count).
     (at-keyframes "health-pulse"
                   [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
@@ -1596,14 +1610,9 @@
     (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
 
     ;; ── save button, carrying an unsaved repair ──────────────────────────────
-    ;; A reconciler fixed a stored key on load, but only in memory. The toast that
-    ;; says so is gone in eight seconds, and leaving the page takes the fix with
-    ;; it -- so the button keeps a slow glint going until the character is saved.
-    ;; Deliberately unlike .health-flash, which fires twice and stops: this is a
-    ;; standing condition, not an event, so it repeats.
-    ;;
-    ;; Slow and low-contrast on purpose. It sits in the header next to the other
-    ;; actions and has to read as "worth doing" without behaving like an error.
+    ;; A reconciler fixed a stored key on load, in memory only, so the button glints
+    ;; until the character is saved. Unlike .health-flash it repeats: a standing
+    ;; condition, not an event. Slow and low-contrast: "worth doing", not an error.
     (at-keyframes "save-healed-glint"
                   [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
                   [:35% {:box-shadow "0 0 10px 2px rgba(255,210,26,0.45)"}]
@@ -1919,28 +1928,32 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
-     ;; 600px was set for a short warning and inherited by the conflict panel,
-     ;; where every row carries two source names and a key: "Keep Eberron - Rising
-     ;; from the Last War's :quori -- rename the other source(s)" wrapped onto two
-     ;; lines, so a list of 27 of them read as a wall. There is no fixed width, so
-     ;; a modal still shrinks to its content -- the export warning is unchanged --
-     ;; and the clamp keeps it off the edges on a narrow screen.
+     ;; Wide enough that a conflict row (two source names and a key) stays on one line.
+     ;; No fixed width, so a short modal still shrinks to its content; the clamp keeps
+     ;; it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
       :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -1950,22 +1963,17 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
-     ;; The modal chrome is always dark (#1a1e28) in both themes, so give the body
-     ;; an explicit light default — otherwise plain text (e.g. the opinionated
-     ;; import summary) inherits the app's dark text color and reads dark-on-dark.
-     ;; The advanced conflict cards set their own colors, so this only lifts text
-     ;; that would otherwise be illegible.
+     ;; The modal chrome is dark (#1a1e28) in both themes, so the body gets a light
+     ;; default; otherwise plain text (the import summary) inherits the app's dark
+     ;; text colour. The conflict cards set their own colours.
      {:padding "16px 20px"
       :overflow-y :auto
       :color "rgba(255,255,255,0.85)"
       :flex 1}]
 
-    ;; On a phone the panel is the screen. The footer is the part that actually
-    ;; breaks: four buttons in a nowrap flex row overflow a 360px viewport and push
-    ;; the modal wider than the clamp, so let it wrap and let the primary action
-    ;; take the full width when it does. Padding comes down because at this size
-    ;; 20px each side is a fifth of the screen, and the panel takes more height
-    ;; because there is nothing behind it worth looking at.
+    ;; On a phone the panel is the screen: less padding, more height. The footer
+    ;; wraps, since four nowrap buttons overflow a 360px viewport and push the modal
+    ;; past the clamp, and the primary action takes the full width when it does.
     (at-media {:max-width "600px"}
               [:.conflict-modal
                {:max-width "calc(100vw - 16px)"
@@ -1983,8 +1991,9 @@
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
 
     ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
     ;; the same warning-yellow language as the My Content health card, so the modal
@@ -2169,14 +2178,8 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
-    ;; An expanded source's own row: search, show-disabled, then its actions. The
-    ;; search used to sit on a line of its own under the buttons, edge to edge. The
-    ;; side padding keeps it off the panel wall, and the flex-basis is what makes it
-    ;; take a line of its own on a phone rather than squeezing to nothing.
-    ;; Developer mode: a named switch in the footer, replacing two unlabelled
-    ;; orange icons. The switch stays visible at all times — the tools behind it
-    ;; are for getting content out when the app is misbehaving, so the way to
-    ;; reach them cannot itself be hidden.
+    ;; Developer mode: a named switch in the footer, visible at all times -- the tools
+    ;; behind it get content out when the app misbehaves, so the way in cannot hide.
     [:.dev-mode-row
      {:display :flex
       :align-items :center
@@ -2209,7 +2212,13 @@
       [:&:after {:transform "translateX(16px)"}]]
      [:&:focus-visible
       {:outline (str "2px solid " orange)
-       :outline-offset "3px"}]]
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
 
     [:.dev-mode-label
      {:font-size "12px"
@@ -2232,6 +2241,9 @@
       :cursor :pointer}
      [:&:hover {:text-decoration :underline}]]
 
+    ;; An expanded source's own row: search, show-disabled, then its actions. The side
+    ;; padding keeps the search off the panel wall; its flex-basis gives it a line of
+    ;; its own on a phone rather than squeezing to nothing.
     [:.mc-source-toolbar
      {:display :flex
       :align-items :center
@@ -2409,11 +2421,9 @@
       :margin-left "4px"}]
 
     ;; ── Export busy page ────────────────────────────────────────────────────
-    ;; The page a character sheet export lands on when every export slot is busy.
-    ;; It is served into the download tab, where the builder's markup and scripts
-    ;; are absent, so it restates the app's ground and panel rather than reusing
-    ;; app layout classes. Colours are the app's own: the #app gradient, the
-    ;; #1a1e28 panel, and .form-button for the button.
+    ;; Where a sheet export lands when every export slot is busy. Served into the
+    ;; download tab without the builder's markup or scripts, so it restates the #app
+    ;; gradient and #1a1e28 panel instead of reusing layout classes.
     [:.busy-body
      {:margin 0
       :min-height "100vh"
@@ -2450,11 +2460,9 @@
              {:font-weight 600
               :font-variant-numeric :tabular-nums})]]
 
-    ;; Ported from port/redesign-on-refactor (option_menu_views.cljs). Self-contained:
-    ;; no theme tokens, no CSS custom properties, only str + handle-browsers.
     ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
-    ;; Sized so it works on a phone: the popover is width-capped but never wider than the
-    ;; viewport, and the list scrolls rather than growing the page.
+    ;; Self-contained: no theme tokens or CSS custom properties. Width-capped but never
+    ;; wider than the viewport; the list scrolls rather than growing the page.
     [:.inv-picker {:position :relative
                    :margin "6px 0 10px"}]
 

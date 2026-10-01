@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.races :as race5e]
             [orcpub.dnd.e5.classes :as class5e]
@@ -65,6 +66,7 @@
 ;; heads-up, not account state, so a stamp that never arrives (private browsing,
 ;; storage off) costs one extra showing rather than an error.
 (def local-storage-whats-new-key "whats-new-seen")
+(def local-storage-builder-origin-key "builder-origin")
 ;; Developer mode: reveals the footer's diagnostic tools, including the raw
 ;; library dump that skips the export gate. Per-device and off by default — the
 ;; switch itself stays visible and labelled so the tools are one click away when
@@ -271,9 +273,57 @@
   [k]
   (str k ":corrupt"))
 
+(declare get-local-storage-item)
+
+(def local-storage-pre-fix-key "plugins:pre-fix")
+
+(def local-storage-pre-fix-at-key "plugins:pre-fix-at")
+
+(defn keep-pre-fix-copy!
+  "Stores `plugins` in the `plugins:pre-fix` slot, with the time in `plugins:pre-fix-at`, once.
+   Returns {:at time} when it stored one, {:failed? true} when the write failed, and nil when the
+   slot already holds a copy or `plugins` holds no items."
+  [plugins]
+  (when (and js/window.localStorage
+             (nil? (.getItem js/window.localStorage local-storage-pre-fix-key))
+             (not (library/empty-library? plugins)))
+    (let [now (.now js/Date)]
+      (if (and (set-item local-storage-pre-fix-key (str plugins))
+               (set-item local-storage-pre-fix-at-key (str now)))
+        {:at now}
+        (do (.removeItem js/window.localStorage local-storage-pre-fix-key)
+            {:failed? true})))))
+
+(defn pre-fix-copy
+  "{:plugins :at} for the kept pre-fix copy, or nil."
+  []
+  (let [p (get-local-storage-item local-storage-pre-fix-key)]
+    (when (map? p) {:plugins p :at (get-local-storage-item local-storage-pre-fix-at-key)})))
+
+(defn drop-pre-fix-copy! []
+  (when js/window.localStorage
+    (.removeItem js/window.localStorage local-storage-pre-fix-key)
+    (.removeItem js/window.localStorage local-storage-pre-fix-at-key)))
+
+(def local-storage-repairs-dismissed-key "plugins:repairs-dismissed")
+
+(defn repairs-dismissed
+  "The repairs the author chose to leave, as a set of [source type key link target]."
+  []
+  (let [v (get-local-storage-item local-storage-repairs-dismissed-key)] (if (set? v) v #{})))
+
+(defn set-repairs-dismissed! [s] (set-item local-storage-repairs-dismissed-key (str s)))
+
+(re-frame/reg-cofx
+ ::e5/library-extras
+ (fn [cofx _]
+   (assoc cofx
+          ::e5/pre-fix-at (:at (pre-fix-copy))
+          ::e5/repairs-dismissed (repairs-dismissed))))
+
 (defn plugins->local-store [plugins]
   (when js/window.localStorage
-    (let [ok? (set-item local-storage-plugins-key (str plugins))]
+    (let [ok? (set-item local-storage-plugins-key (str plugins))] ;; library gate
       (when-not ok?
         ;; A quota-exceeded write would silently drop the just-saved homebrew on
         ;; the next refresh. Warn and offer a raw backup so in-memory content can
@@ -446,6 +496,15 @@
  local-storage-whats-new-key
  ::whats-new-seen)
 
+;; The address the open builder fetched its item from, kept beside the draft: the item's own
+;; `:option-pack` is whatever the author typed, so after a refresh nothing else records where it
+;; came from, and `save-destination` refuses to guess.
+(spec/def ::builder-origin map?)
+(reg-local-store-cofx
+ ::e5/builder-origin
+ local-storage-builder-origin-key
+ ::builder-origin)
+
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this
 ;; table + one cofx drive the restore side from one place). Validated only as
@@ -498,11 +557,54 @@
       (set-item local-storage-plugins-rejected-key (str rejected))
       (.removeItem js/window.localStorage local-storage-plugins-rejected-key))))
 
-;; Resilient plugins loader. The old all-or-nothing version returned nil — dropping
-;; the ENTIRE library — if any single source failed the ::e5/plugins spec. Instead,
-;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
-;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
-;; because the salvage/quarantine behavior is plugins-specific.
+(def local-storage-relinks-key "plugins:relinks")
+
+(defn pending-relinks
+  "Import renames of existing items to ask characters about:
+   [{:content-type :from :to :to-name :import :asked #{character-id}}]."
+  []
+  (let [v (get-local-storage-item local-storage-relinks-key)] (if (vector? v) v [])))
+
+(defn set-pending-relinks! [relinks]
+  (set-item local-storage-relinks-key (str (vec relinks))))
+
+(re-frame/reg-cofx
+ ::e5/pending-relinks
+ (fn [cofx _]
+   (assoc cofx ::e5/pending-relinks (pending-relinks))))
+
+(def local-storage-plugins-rev-key "plugins:rev")
+
+(defn plugins-rev
+  "How many times the library has been written, as storage records it; 0 when it has no record."
+  []
+  (let [n (some-> js/window.localStorage (.getItem local-storage-plugins-rev-key) js/parseInt)]
+    (if (and (number? n) (not (js/isNaN n))) n 0)))
+
+(defn set-plugins-rev! [n]
+  (set-item local-storage-plugins-rev-key (str n)))
+
+(defn stored-plugins
+  "The library as storage holds it now, or {} when it holds none."
+  []
+  (let [v (get-local-storage-item local-storage-plugins-key)]
+    (if (map? v) v {})))
+
+(re-frame/reg-cofx
+ ::e5/plugins-rev
+ (fn [cofx _]
+   (assoc cofx ::e5/plugins-rev (plugins-rev))))
+
+(defn watch-library-elsewhere!
+  "Calls `on-change` whenever another tab writes the library. The browser does not fire this for
+   the tab's own writes."
+  [on-change]
+  (.addEventListener js/window "storage"
+                     (fn [e] (when (= local-storage-plugins-key (.-key e)) (on-change)))))
+
+;; Loads the library salvaging per item: each source keeps its valid items and its invalid ones
+;; are set aside in `plugins:rejected` for repair. Registered directly, not via
+;; reg-local-store-cofx, because the salvage is plugins-specific.
 (re-frame/reg-cofx
  ::e5/plugins
  (fn [cofx _]
@@ -520,15 +622,13 @@
                       "'. Loaded no homebrew."))
                 nil)
 
-              ;; It's a map: salvage per source — keep the valid sources and
-              ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
+              ;; It's a map: salvage per item and reconcile the quarantine map (see
+              ;; reconcile-rejected-items).
               (let [{:keys [kept rejected]}
-                    ;; PER-ENTRY salvage: keep each source's valid items, set aside
-                    ;; only its broken ones — so one bad entry can't drop a whole
-                    ;; source. The item floor comes from the shared content-specs
-                    ;; registry (save & load agree), not inline, so it can't drift.
-                    ;; `stored` normally holds only valid items, so `rejected` is
-                    ;; usually empty here — it's the defensive net if the floor tightens.
+                    ;; Per-item salvage: each source keeps its valid items; only broken ones are
+                    ;; set aside. The floor is content-specs/valid-item-for-load?, shared with
+                    ;; save. `rejected` is usually empty; it catches items a tightened floor now
+                    ;; rejects.
                     (e5/salvage-library-items content-specs/valid-item-for-load? stored)
                     reconciled (e5/reconcile-rejected-items
                                 (get-local-storage-item local-storage-plugins-rejected-key)

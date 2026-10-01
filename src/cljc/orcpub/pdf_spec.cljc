@@ -251,15 +251,9 @@
 
 
 (defn level-max-spells
-  "Rows the chosen sheet style prints at each spell level.
-
-   Reads spell-packing/sheet-geometry rather than carrying its own copy. It DID
-   carry one, style 1's, and used it whatever style was being exported -- so a
-   style 4 sheet was handed 8 cantrips for a box with 7 fields and lost one, and
-   was handed 12 first-level spells for a box that holds 13.
-
-   Falls back to style 1 for an unrecognised id, matching the server, which
-   clamps an unknown style to the default rather than failing the export."
+  "Rows the chosen sheet style prints at each spell level, as {level rows}, read from
+   spell-packing/sheet-geometry. Falls back to style 1 for an unrecognised id, matching the
+   server, which clamps an unknown style to the default rather than failing the export."
   [style]
   (let [rows (get packing/sheet-geometry style (get packing/sheet-geometry 1))]
     (into {} (map-indexed vector rows))))
@@ -414,19 +408,11 @@
      flat-spells)))
 
 (defn packing-classes
-  "The per-class lists spell-packing/packed-fields takes.
-
-   `spells-known` is keyed by LEVEL, each value spell-key -> config carrying the
-   :class that granted it, so this regroups it the other way up. That regrouping
-   is the point: the shipped layout groups by :ability instead, which puts a
-   Warlock and a Sorcerer in one section under one slot row.
-
-   Slots follow 5e rather than the grouping. Every non-pact caster draws on the
-   SHARED table -- a multiclass has one pool from combined caster levels, not one
-   each -- and a pact caster gets its own, which is what :pact? marks.
-
-   A pact caster's whole list is reported at the single level it casts at, its
-   highest pact slot, because that is how a Warlock casts: not a list per level."
+  "The per-class lists spell-packing/packed-fields takes, sorted by class: `spells-known`
+   (keyed by LEVEL, each value spell-key -> config carrying its :class) regrouped by class.
+   Slots follow 5e: every non-pact caster gets the SHARED `shared-slots` (one multiclass
+   pool), a pact caster its own `pact-slots` and `:pact? true`, with its whole list at its
+   highest pact level. `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
   [spells-known spells-map shared-slots pact-slots save-dc-fn attack-mod-fn]
   (let [by-class (reduce-kv
                   (fn [acc level cfgs]
@@ -555,14 +541,9 @@
                    (char5e/spell-attack-modifier-fn built-char)))
 
 (defn default-spell-layout
-  "Which layout suits this character, before any override.
-
-   Packed when there is more than one casting class AND the style's numerals can
-   be relabelled. A single caster already reads down its own page and gains
-   nothing from packing, so the tighter layout is not forced on the common case.
-
-   A style whose numerals have not been measured is not offered it at all: a
-   packed page there prints the old level number beside the new."
+  "Which layout suits this character, before any override: :packed when there is more than
+   one casting class, the style's numerals can be relabelled (`packing-supported?`) and the
+   packing holds every spell; else :per-class."
   [classes style]
   (if (and (> (count classes) 1)
            (packing/packing-supported? style)
@@ -581,15 +562,10 @@
            :spell-headings headings)))
 
 (defn spellcasting-fields
-  "The spell page fields, in whichever layout `spell-layout` asks for.
-
-   :per-class is what ships -- a section per casting ability, which is why a
-   Warlock and a Sorcerer share one today. :packed gives each class its own run of
-   boxes in one column, which is what lets a pact caster carry its own slots.
-
-   nil asks for the default, computed from the build rather than from a
-   preference: packed only when there is more than one casting class and the style
-   can be relabelled."
+  "The spell page fields, in whichever layout `spell-layout` asks for: :per-class (a section
+   per casting ability) or :packed (each class its own run of boxes, so a pact caster carries
+   its own slots). nil asks for `default-spell-layout`. :packed falls back to :per-class when
+   the style is unsupported, nothing casts, or the packing would lose spells."
   ([built-char print-prepared-spells? spells-map plugin-spells-map style]
    (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
                         style nil))
@@ -655,15 +631,10 @@
          (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
 
 (defn attacks-and-spellcasting-fields 
-  "For each weapon, we are creating a new map with the name, the attack bonus, and the damage.
-  The attack bonus is calculated using the function 'char5e/best-weapon-attack-modifier' which
-  calculates the attack bonus for a specific weapon.
-  The damage is calculated using the function 'damage-str' which takes the damage die, damage die count,
-  the damage modifier, and the damage type, and combines them into a string of the form 'dice-string damage-type'.
-  If the weapon is versatile, we also create a second map, where the name is suffixed with ' (two-handed)'
-  and the attack bonus and damage is calculated for the versatile form of the weapon.
-  We then remove any nil maps, and mapcat concatenates all of the maps into a single list.
-  The remove function filters out weapons of type 'ammunition'."
+  "The attack fields for `built-char`'s equipped weapons, ammunition excluded: the first three
+  as weapon-name-N, weapon-attack-bonus-N and weapon-damage-N; the rest as text in
+  :attacks-and-spellcasting, after the number of attacks and the character's :attacks.
+  A versatile weapon adds a \"<name> (two-handed)\" entry with its versatile damage."
   [built-char all-weapons-map]
   (let [all-weapons ; map of all weapons in inventory
         (mi5e/equipped-items-details ; function to filter for equipped weapons

@@ -9,19 +9,9 @@
             [orcpub.errors :as errors]))
 
 (defn create-party
-  "Creates a new party owned by the authenticated user.
-
-  Args:
-    request - HTTP request map with:
-              :conn - Database connection
-              :identity - Authenticated user identity
-              :transit-params - Party data
-
-  Returns:
-    HTTP response with created party data
-
-  Throws:
-    ExceptionInfo on database failure with :party-creation-failed error code"
+  "Creates a party from :transit-params, owned by the authenticated user.
+  Returns 200 with the created party. Throws ExceptionInfo :party-creation-failed on
+  database failure."
   [{:keys [db conn identity] party :transit-params}]
   (let [username (:user identity)]
     (errors/with-db-error-handling :party-creation-failed
@@ -57,16 +47,9 @@
      :body mapped}))
 
 (defn update-party-name
-  "Updates a party's name.
-
-  Args:
-    request - HTTP request with party name and party ID
-
-  Returns:
-    HTTP response with updated party data
-
-  Throws:
-    ExceptionInfo on database failure with :party-update-failed error code"
+  "Sets the name of the party at path-param :id to :transit-params.
+  Returns 200 with the party (`pull-party`). Throws ExceptionInfo :party-update-failed on
+  database failure."
   [{:keys [db conn identity]
     party-name :transit-params
     {:keys [id]} :path-params}]
@@ -82,9 +65,9 @@
                       character-id :transit-params
                       {:keys [id]} :path-params}]
   (try
-    @(d/transact conn [{:db/id id
-                        ::party/character-ids character-id}])
-    {:status 200 :body (d/pull db '[*] id)}
+    (let [{:keys [db-after]} @(d/transact conn [{:db/id id
+                                                  ::party/character-ids character-id}])]
+      {:status 200 :body (d/pull db-after '[*] id)})
     (catch Exception e
       (println "ERROR: Failed to add character" character-id "to party" id ":" (.getMessage e))
       (throw (ex-info "Unable to add character to party. Please try again or contact support."
@@ -94,16 +77,9 @@
                       e)))))
 
 (defn remove-character
-  "Removes a character from a party.
-
-  Args:
-    request - HTTP request with party ID and character ID
-
-  Returns:
-    HTTP response with updated party data
-
-  Throws:
-    ExceptionInfo on invalid character ID or database failure"
+  "Removes path-param :character-id from the party at :id.
+  Returns 200 with the updated party.
+  Throws ExceptionInfo on an invalid character ID or database failure."
   [{:keys [db conn identity]
     {:keys [id character-id]} :path-params}]
   (let [char-id (errors/with-validation :invalid-character-id
@@ -113,8 +89,8 @@
     (errors/with-db-error-handling :party-remove-character-failed
       {:party-id id :character-id char-id}
       "Unable to remove character from party. Please try again or contact support."
-      @(d/transact conn [[:db/retract id ::party/character-ids char-id]])
-      {:status 200 :body (d/pull db '[*] id)})))
+      (let [{:keys [db-after]} @(d/transact conn [[:db/retract id ::party/character-ids char-id]])]
+        {:status 200 :body (d/pull db-after '[*] id)}))))
 
 (defn delete-party [{:keys [db conn identity]
                      {:keys [id]} :path-params}]
