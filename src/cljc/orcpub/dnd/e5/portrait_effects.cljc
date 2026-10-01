@@ -32,7 +32,11 @@
   {:start 0.2     ; how far along the hair the tip colour begins, 0..1
    :falloff 0.6   ; how long the blend is, 0 (a hard dip-dye line) .. 1
    :depth 0.3     ; soft-light: darker roots, lighter ends, 0..1
-   :angle nil})   ; nil: down from the crown line; degrees: a straight line, 0 = down
+   :angle nil     ; nil: down from the crown line; degrees: a straight line, 0 = down
+   ;; the quick-colouring tricks, each 0 (off) .. 1
+   :clumps 0.0    ; the tip colour starts higher on some strands, lower on others
+   :light 0.0     ; depth lifted toward a light at the upper left, deepened away
+   :under 0.0})   ; the hair behind the head a little darker, by how light it is
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
@@ -47,6 +51,9 @@
      :start (num :start)
      :falloff (num :falloff)
      :depth (num :depth)
+     :clumps (num :clumps)
+     :light (num :light)
+     :under (num :under)
      :angle (let [a (:angle o)] (when (number? a) (mod (double a) 360.0)))}))
 
 (defn hair-layer?
@@ -95,7 +102,9 @@
             proj (fn [i] (+ (* (- (mod i w) cx) ux) (* (- (quot i w) cy) uy)))
             ps (map proj samples)
             lo (or (percentile ps 0.03) 0.0) hi (or (percentile ps 0.97) 1.0)]
-        {:kind :angle :cx cx :cy cy :ux ux :uy uy :lo lo :span (max 1.0 (- hi lo))})
+        {:kind :angle :cx cx :cy cy :ux ux :uy uy :lo lo :span (max 1.0 (- hi lo))
+         :x0 (double (or (percentile (map #(mod % w) samples) 0.0) 0))
+         :x1 (double (or (percentile (map #(mod % w) samples) 1.0) w))})
       (arc-frame alpha-at w h))))
 
 (defn arc-frame
@@ -117,7 +126,7 @@
           (when (< y (aget tops x)) (aset tops x y)))))
     (let [covered (filterv #(< (aget tops %) h) (range w))]
       (if (empty? covered)
-        {:kind :arc :env (double-array w 0.0) :reach 1.0}
+        {:kind :arc :env (double-array w 0.0) :reach 1.0 :x0 0.0 :x1 (double w)}
         (let [win (max 2 (quot w 8))
               lo (first covered) hi (peek covered)
               ;; upper envelope over a wide window, then a moving average
@@ -133,7 +142,8 @@
                     (aset env x (/ (reduce + (map #(aget env0 %) xs)) (count xs)))))
               drops (for [i (range 0 (* w h) 5) :when (> (alpha-at i) 60)]
                       (- (quot i w) (aget env (mod i w))))]
-          {:kind :arc :env env :reach (max 1.0 (or (percentile drops 0.97) 1.0))})))))
+          {:kind :arc :env env :reach (max 1.0 (or (percentile drops 0.97) 1.0))
+           :x0 (double lo) :x1 (double hi)})))))
 
 (defn position-fn
   "A function of pixel `x` `y` giving 0 at the root and 1 at the tip. Made
@@ -177,7 +187,8 @@
   (long (Math/round (* 255.0 (clamp01 (soft-light base s))))))
 
 (defn ombre-fn
-  "A function of a hair pixel's drawn `r g b` (0..255) and its position `t`
+  "A function of a hair pixel's drawn colour (packed 0xRRGGBB), its position `t` and
+   the position the depth pass reads `td` (the same, unless lit from a side)
    giving its colour packed as 0xRRGGBB: the drawing multiplied by the colour
    between root and tip, then the depth pass. `root` and `tip` are [r g b]
    0..255. Made once per piece and called per pixel, so it is kept free of
@@ -187,18 +198,69 @@
         end (+ start (* (max 0.02 (double falloff)) (- 1.0 start)))
         r0 (/ (double (nth root 0)) 255.0) g0 (/ (double (nth root 1)) 255.0) b0 (/ (double (nth root 2)) 255.0)
         r1 (/ (double (nth tip 0)) 255.0) g1 (/ (double (nth tip 1)) 255.0) b1 (/ (double (nth tip 2)) 255.0)]
-    (fn ^long [^long r ^long g ^long b ^double t]
-      (let [m (smoothstep start end t)
-            s (clamp01 (+ 0.5 (* depth (- t 0.45))))
+    (fn ^long [^long rgb ^double t ^double td]
+      (let [r (bit-and (bit-shift-right rgb 16) 0xff)
+            g (bit-and (bit-shift-right rgb 8) 0xff)
+            b (bit-and rgb 0xff)
+            m (smoothstep start end t)
+            s (clamp01 (+ 0.5 (* depth (- td 0.45))))
             cr (channel (* (/ (double r) 255.0) (+ r0 (* (- r1 r0) m))) s)
             cg (channel (* (/ (double g) 255.0) (+ g0 (* (- g1 g0) m))) s)
             cb (channel (* (/ (double b) 255.0) (+ b0 (* (- b1 b0) m))) s)]
         (bit-or (bit-shift-left cr 16) (bit-shift-left cg 8) cb)))))
 
+(defn- luminance [[r g b]] (/ (+ (* 0.299 r) (* 0.587 g) (* 0.114 b)) 255.0))
+
+(defn layer-colours
+  "[root tip] for a hair layer, both [r g b]: as given, except that the hair
+   BEHIND the head (:under) is darkened in proportion to how light it is --
+   dark hair is dark already, and darkening it further only muddies it."
+  [layer-key root tip {:keys [under]}]
+  (if (and (pos? under) (#{:hair-back :hair-bits} layer-key))
+    (let [f (fn [c] (let [k (- 1.0 (* under 0.28 (luminance c)))]
+                      (mapv #(int (Math/round (* k %))) c)))]
+      [(f root) (f tip)])
+    [root tip]))
+
+(defn- clump-wave
+  "A fixed wave across a piece, -1..1: three sines at unrelated frequencies,
+   the same in every renderer and on every render. `seed` keeps neighbouring
+   pieces from waving in step."
+  [seed]
+  (let [s (double seed)]
+    (fn ^double [^double u]
+      (/ (+ (Math/sin (+ (* u 43.98) (* s 1.7)))
+            (* 0.6 (Math/sin (+ (* u 81.68) (* s 2.9))))
+            (* 0.35 (Math/sin (+ (* u 144.5) (* s 4.3)))))
+         1.95))))
+
+(defn pixel-fn
+  "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the
+   coloured 0xRRGGBB. Wraps `position-fn` and `ombre-fn` with the quick-
+   colouring tricks: :clumps wavers where the tip colour starts along the
+   piece, :light lifts the depth toward the upper left."
+  [root tip settings frame layer-key]
+  (let [pos (position-fn frame)
+        colour (ombre-fn root tip settings)
+        {:keys [clumps light]} settings
+        x0 (double (or (:x0 frame) 0.0))
+        span (max 1.0 (- (double (or (:x1 frame) 1.0)) x0))
+        wave (clump-wave (inc (.indexOf pa/layer-order layer-key)))
+        amp (* 0.14 (double clumps))
+        light (double light)]
+    (fn ^long [^long x ^long y ^long rgb]
+      (let [u (/ (- (double x) x0) span)
+            t (pos x y)
+            t (if (pos? amp) (clamp01 (+ t (* amp (wave u)))) t)
+            ;; light at the upper left: shift the depth curve's position so the
+            ;; near side reads as further along (lighter), the far side less
+            td (if (pos? light) (clamp01 (+ t (* light 0.35 (- 0.5 u)))) t)]
+        (colour rgb t td)))))
+
 (defn ombre-rgb
   "A hair pixel's colour as [r g b] (see `ombre-fn`), for one pixel."
   [r g b root tip t settings]
-  (let [c ((ombre-fn root tip settings) r g b t)]
+  (let [c ((ombre-fn root tip settings) (bit-or (bit-shift-left r 16) (bit-shift-left g 8) b) t t)]
     [(bit-and (bit-shift-right c 16) 0xff) (bit-and (bit-shift-right c 8) 0xff) (bit-and c 0xff)]))
 
 ;; ---------------------------------------------------------------------------
@@ -236,14 +298,17 @@
    frame. `caster` is the combined alpha (0..255, doubles) of the pieces that
    cast; `skin` of the head and ears; `hair` of every hair piece in front of
    the face -- the shadow never lands on hair, only on skin that shows."
-  [caster skin hair w h]
+  ([caster skin hair w h] (shadow-map caster skin hair w h 0.0))
+  ([caster skin hair w h light]
   (let [n (* w h)
         dy (shadow-offset h)
+        ;; lit from the upper left, the shadow falls a little to the right too
+        dx (long (Math/round (* (shadow-offset h) 0.8 (double light))))
         shifted (new-doubles n)]
     (dotimes [i n]
-      (let [y (+ (quot i w) dy)]
-        (when (< y h)
-          (as! shifted (+ (mod i w) (* y w)) (ag caster i)))))
+      (let [y (+ (quot i w) dy) x (+ (mod i w) dx)]
+        (when (and (< y h) (< x w))
+          (as! shifted (+ x (* y w)) (ag caster i)))))
     (let [blurred (colorize/blur shifted w h (shadow-radius h))
           out (new-doubles n)]
       (dotimes [i n]
@@ -251,7 +316,7 @@
               cover (/ (ag hair i) 255.0)]
           (when (and (pos? sk) (< cover 1.0))
             (as! out i (* shadow-strength sk (- 1.0 cover) (/ (ag blurred i) 255.0))))))
-      out)))
+      out))))
 
 (defn shadow-factors
   "What a pixel's r g b are multiplied by under shade `k`: skin shadow runs

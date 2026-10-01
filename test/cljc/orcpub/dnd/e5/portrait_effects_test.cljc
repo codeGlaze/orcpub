@@ -5,9 +5,10 @@
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (deftest settings-default-and-clamp
-  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :angle nil} (fx/ombre-settings {})))
-  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :angle 90.0}
-         (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450}}))
+  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.0 :light 0.0 :under 0.0 :angle nil}
+         (fx/ombre-settings {})))
+  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.0 :light 1.0 :under 0.0 :angle 90.0}
+         (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450 :light 3}}))
       "out-of-range numbers are pulled back in, junk falls back to the default")
   (is (nil? (:tip (fx/ombre-settings {:ombre {:tip "teal"}}))) "only #rrggbb tips"))
 
@@ -91,3 +92,29 @@
     (is (fx/casts-shadow? (by-id :l9-bangs-03)))
     (is (not (fx/casts-shadow? (by-id :l9-bangs-01))) "swept back, lies on the head")
     (is (not-any? fx/casts-shadow? (pa/assets-for-layer :hair-front)))))
+
+(deftest the-quick-colouring-tricks
+  (let [w 100 h 100
+        ;; a block of hair, x 10..90, y 10..90
+        alpha (fn [i] (let [x (mod i w) y (quot i w)] (if (and (<= 10 x 90) (<= 10 y 90)) 255 0)))
+        frame (fx/gradient-frame alpha w h [50.0 10.0] nil)
+        white 0xffffff brown [92 58 30] teal [47 127 154]
+        base (assoc (fx/ombre-settings {}) :depth 0.0)
+        at (fn [settings x y] ((fx/pixel-fn brown teal settings frame :hair-front) x y white))]
+    (testing "off, the line where the tips start is level across the piece"
+      (is (= (at base 20 50) (at base 80 50))))
+    (testing "clumps waver it: some strands further along than others at the same height"
+      (let [s (assoc base :clumps 1.0)]
+        (is (> (count (distinct (for [x (range 12 89 4)] (at s x 50)))) 3))))
+    (testing "light lifts the near (left) side and deepens the far side"
+      (let [s (assoc base :light 1.0 :depth 0.6)
+            lum (fn [c] (+ (bit-and (bit-shift-right c 16) 0xff) (bit-and (bit-shift-right c 8) 0xff) (bit-and c 0xff)))]
+        (is (> (lum (at s 15 50)) (lum (at s 85 50))))))
+    (testing "under darkens the hair behind the head, light hair more than dark"
+      (let [s (assoc base :under 1.0)
+            [blonde-back] (fx/layer-colours :hair-back [230 200 120] [230 200 120] s)
+            [dark-back] (fx/layer-colours :hair-back [40 30 30] [40 30 30] s)
+            [front] (fx/layer-colours :hair-front [230 200 120] [230 200 120] s)]
+        (is (< (first blonde-back) 230))
+        (is (> (/ (first dark-back) 40.0) (/ (first blonde-back) 230.0)) "dark hair barely changes")
+        (is (= [230 200 120] front) "only the hair behind the head")))))
