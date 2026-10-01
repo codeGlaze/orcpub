@@ -3,6 +3,24 @@
 *Live defect class. Measured 2026-09-14, `feature/grant-rows` at `4b7dc0e6`; assertions in
 `test/cljc/orcpub/dnd/e5/conditional_selection_ref_test.clj`.*
 
+## Reachable through the UI (e2e, 2026-10-01)
+
+`test/e2e/hidden-pick-flows.js` on `fix/hidden-multiclass-skill-pick` (`babf234f`): five flows,
+clicks only, the built character and the saved copy read back.
+
+| flow | reachable | what remains |
+|---|---|---|
+| level drop below a subclass pick (Hunter, Steel Will at 7, lowered to 6) | yes | **Steel Will still applies; its section is gone; no notice.** The live hidden pick |
+| level drop under the shared fighting-style pool (Champion 10 → 9) | yes | both styles apply (Defense still +1 AC); the builder shows "select 1 · remove 1" |
+| delete the first class | yes | nothing stale: the class entry and its picks go; default gear swapped |
+| delete the first class when the second has picks | yes | **the new first class is reset** to `{:levels [level-1]}`: its own picks are destroyed |
+| change or reorder the first class | no reorder control; changing slot 0's class resets that slot | nothing stale; the old class's picks are gone |
+
+So the first-class family (skills, tools, starting gear after the order changes) is **not reachable
+in the UI today**: every route to a new first class resets the slot. The JVM verdicts below still
+hold for stored data that arrives another way. The reset itself is the opposite failure, data loss.
+**Not yet measured:** whether the reset also drops levels above 1 (flow 5 used level-1 classes).
+
 ## Verified 2026-10-01: claims tested, verdicts
 
 Pinned on `fix/hidden-multiclass-skill-pick` (`65bb097a`), each deftest named for its claim, each
