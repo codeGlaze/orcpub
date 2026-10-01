@@ -1,0 +1,25 @@
+;; Choices about each piece of portrait art that are OURS rather than the
+;; Loom's -- edit freely. The registry (portrait_assets.cljc) merges this over
+;; loom.edn at build time, for the share card and the browser alike.
+;;
+;; Keyed by layer, then by the art's file name, lower-cased. What a piece can
+;; carry:
+;;
+;;   :slot          the colour slot it takes, when it differs from its
+;;                  layer's (a lipped mouth takes :lips; teeth take none)
+;;   :gamma         iris or lip shading: below 1 lifts dark art, above 1
+;;                  deepens light art (default 0.5 for irises, 2.2 for lips)
+;;   :casts-shadow  hangs over the face, so throws a soft shadow onto the
+;;                  skin; a cut that lies flat on the head does not
+;;
+;; A piece listed here that the registry does not carry fails the build's
+;; tests, so a typo cannot quietly do nothing.
+{:mouth
+ ;; all three are drawn in greys, so the art cannot say which is which --
+ ;; 01 is a closed line, 03 is teeth (they stay white), 02 is lips
+ {"l8_mouth_02.png" {:slot :lips}}
+
+ :bangs
+ ;; 02 and 03 hang over the face; 01 is swept back and lies on the head
+ {"l9_bangs_02.png" {:casts-shadow true}
+  "l9_bangs_03.png" {:casts-shadow true}}}
