@@ -209,12 +209,14 @@
 (defonce ^:private loaded-images (atom {}))
 
 (defn- with-image
-  "Call `f` with the loaded image for `url`, now if it is already loaded."
+  "Call `f` with the loaded image for `url`, now if it is already loaded, or
+   with nil if it will not load (remembered, so it is asked for once)."
   [url f]
-  (if-let [img (get @loaded-images url)]
-    (f img)
+  (if (contains? @loaded-images url)
+    (f (get @loaded-images url))
     (let [img (js/Image.)]
       (set! (.-onload img) #(do (swap! loaded-images assoc url img) (f img)))
+      (set! (.-onerror img) #(do (swap! loaded-images assoc url nil) (f nil)))
       (set! (.-src img) url))))
 
 (defn- colorized-layer
@@ -307,22 +309,27 @@
 (defonce ^:private strand-cache (atom {}))
 
 (defn- strand-field-of
-  "The piece's strand field (portrait-effects/strand-field). It depends only
-   on the art, so it is worked out once per piece, not on every colour change."
-  [img px w h crown layer-key]
-  (let [k [(.-src img) w h crown]]
+  "The piece's strand field (portrait-effects/strand-field), in the art's own
+   pixels: read from the .strands.png beside the art when there is one
+   (`strands`, an image or nil), otherwise worked out from the art once."
+  [img px w h strands layer-key]
+  (let [k (.-src img)]
     (or (get @strand-cache k)
-        (let [f (fx/strand-field (fn [p] (let [i (* 4 p)]
-                                           (bit-or (bit-shift-left (aget px i) 16)
-                                                   (bit-shift-left (aget px (+ i 1)) 8)
-                                                   (aget px (+ i 2)))))
-                                 (alpha-fn px) w h (or crown [(/ w 2) 0]) (fx/piece-seed layer-key))]
-          (swap! strand-cache #(assoc (if (> (count %) 24) {} %) k f))
+        (let [f (if strands
+                  (let [gw (.-naturalWidth strands) gh (.-naturalHeight strands)
+                        sp (pixels-of strands gw gh)]
+                    (fx/bytes->field (fn [g] (aget sp (* 4 g))) gw gh w h))
+                  (fx/strand-field (fn [p] (let [i (* 4 p)]
+                                             (bit-or (bit-shift-left (aget px i) 16)
+                                                     (bit-shift-left (aget px (+ i 1)) 8)
+                                                     (aget px (+ i 2)))))
+                                   (alpha-fn px) w h (fx/piece-seed layer-key)))]
+          (swap! strand-cache #(assoc (if (> (count %) 48) {} %) k f))
           f))))
 
 (defn- ombre-image
   "A canvas the size of `img` holding the hair piece coloured root to tip."
-  [img head layer-key root-hex settings]
+  [img head strands layer-key root-hex settings]
   (let [w (.-naturalWidth img) h (.-naturalHeight img)
         c (new-canvas w h) ctx (.getContext c "2d")
         _ (.drawImage ctx img 0 0)
@@ -333,7 +340,7 @@
         crown (when head (crown-of head w h))
         ;; streaks only show where there is a second colour to streak
         field (when (and (:tip settings) (pos? (:clumps settings)))
-                (strand-field-of img px w h crown layer-key))
+                (strand-field-of img px w h strands layer-key))
         pix (fx/pixel-fn root tip settings
                          (fx/gradient-frame (alpha-fn px) w h crown (:angle settings))
                          layer-key field)]
@@ -352,10 +359,10 @@
 
 (defn- ombre
   "`ombre-image`, remembered; dragging an ombre slider redraws constantly."
-  [img head layer-key root-hex settings]
+  [img head strands layer-key root-hex settings]
   (let [k [(.-src img) (some-> head .-src) layer-key root-hex settings]]
     (or (get @ombre-cache k)
-        (let [c (ombre-image img head layer-key root-hex settings)]
+        (let [c (ombre-image img head strands layer-key root-hex settings)]
           (swap! ombre-cache #(assoc (if (> (count %) 48) {} %) k c))
           c))))
 
@@ -375,10 +382,10 @@
   [layer-key asset root-hex settings head-url z]
   (let [node (atom nil)
         paint! (fn [layer-key asset root-hex settings head-url]
-                 (with-images [(:asset/url asset) head-url]
-                   (fn [[img head]]
-                     (when-let [^js el @node]
-                       (let [src (ombre img head layer-key root-hex settings)]
+                 (with-images [(:asset/url asset) head-url (fx/strands-url (:asset/url asset))]
+                   (fn [[img head strands]]
+                     (when-let [^js el (and img @node)]
+                       (let [src (ombre img head strands layer-key root-hex settings)]
                          (set! (.-width el) (.-width src))
                          (set! (.-height el) (.-height src))
                          (.drawImage (.getContext el "2d") src 0 0))))))]
@@ -496,7 +503,7 @@
               (if (fx/hair-layer? layer-key)
                 ^{:key layer-key}
                 [ombre-layer layer-key asset (pa/tint-for portrait layer-key)
-                 (fx/piece-settings ombre-settings asset) head-url z]
+                 (fx/piece-settings ombre-settings asset layer-key) head-url z]
                 ^{:key layer-key}
                 [:div.portrait-layer
                  {:style (if (= :as-drawn (pa/render-mode layer-key asset))
@@ -581,13 +588,20 @@
     (if (empty? selected)
       (js/Promise.resolve nil)
       (-> (js/Promise.all
-            (clj->js (conj (mapv (fn [[_ a]] (load-image (:asset/url a))) selected)
-                           ;; a canvas substitutes silently for a face that is
-                           ;; not resident yet, so wait for it like an image
-                           (load-credit-font))))
+            (clj->js (-> (mapv (fn [[_ a]] (load-image (:asset/url a))) selected)
+                         ;; a canvas substitutes silently for a face that is
+                         ;; not resident yet, so wait for it like an image
+                         (conj (load-credit-font))
+                         ;; each hair piece's precomputed strands, if any
+                         (into (map (fn [[k a]] (if (fx/hair-layer? k)
+                                                  (load-image (fx/strands-url (:asset/url a)))
+                                                  (js/Promise.resolve nil)))
+                                    selected)))))
           (.then
             (fn [results]
-              (let [imgs (.slice results 0 (count selected))]
+              (let [imgs (.slice results 0 (count selected))
+                    strands-of (zipmap (map first selected)
+                                       (array-seq (.slice results (inc (count selected)))))]
               (try
                 (let [canvas (.createElement js/document "canvas")
                       _ (set! (.-width canvas) raster-width)
@@ -650,8 +664,8 @@
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
                         (.clearRect tctx 0 0 raster-width raster-height)
-                        (.drawImage tctx (ombre img (img-of :head) layer-key (pa/tint-for portrait layer-key)
-                                                (fx/piece-settings settings asset))
+                        (.drawImage tctx (ombre img (img-of :head) (strands-of layer-key) layer-key (pa/tint-for portrait layer-key)
+                                                (fx/piece-settings settings asset layer-key))
                                     x y dw dh))
 
                       :else
@@ -877,6 +891,14 @@
 .pl-ombre-row input[type=range] { width: 100%; accent-color: #f0a100; margin: 0; }
 .pl-ombre-row select { font: 500 11px/1 inherit; background: #131924; color: #c9d0da; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 3px 4px; grid-column: 2 / 4; }
 .pl-ombre-label { font: 500 11px/1 inherit; color: #8b95a5; }
+.pl-segmented { grid-column: 2 / 4; display: flex; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; overflow: hidden; }
+.pl-segmented button { flex: 1; white-space: nowrap; font: 500 11px/1 inherit; padding: 5px 4px; background: #131924; color: #c9d0da; border: 0; cursor: pointer; }
+.pl-segmented button + button { border-left: 1px solid rgba(255,255,255,0.14); }
+.pl-segmented button.on { background: #f0a100; color: #131924; }
+.pl-root.light-theme .pl-segmented { border-color: rgba(0,0,0,0.16); }
+.pl-root.light-theme .pl-segmented button { background: #fff; color: #363636; }
+.pl-root.light-theme .pl-segmented button + button { border-left-color: rgba(0,0,0,0.16); }
+.pl-root.light-theme .pl-segmented button.on { background: #33658A; color: #fff; }
 .pl-preset.on { box-shadow: 0 0 0 2px #f0a100; }
 .pl-preset-none { background: transparent; color: #8b95a5; font: 600 12px/1 inherit; border: 1px dashed rgba(255,255,255,0.3); }
 .pl-root.light-theme .pl-ombre-row select { background: #fff; color: #363636; border-color: rgba(0,0,0,0.16); }
@@ -1530,7 +1552,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   "The hair's second colour and how it runs. With no tips colour the hair is
    one colour with a little depth, which is where everyone starts."
   [portrait]
-  (let [{:keys [tip start falloff depth angle clumps]} (fx/ombre-settings portrait)]
+  (let [{:keys [tip start falloff depth angle clumps bangs]} (fx/ombre-settings portrait)]
     [:div.pl-ombre
      [:span.pl-panel-heading "Tips"]
      [:div.pl-presets
@@ -1553,7 +1575,23 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
         [ombre-slider "Starts" :start start]
         [ombre-slider "Blend" :falloff falloff]
         ;; how far the tip colour runs up some strands and holds back on others
-        [ombre-slider "Streaks" :clumps clumps]])
+        [ombre-slider "Streaks" :clumps clumps]
+        ;; a fringe can keep the root shade, take just the tips, or dye
+        ;; with the rest; until chosen, each piece does what suits it
+        (when-let [asset (pa/selected-asset portrait :bangs)]
+          (let [current (or bangs (fx/bangs-choice asset))]
+            [:div.pl-ombre-row
+             [:span.pl-ombre-label "Bangs"]
+             [:div.pl-segmented {:role "group" :aria-label "How the bangs take the tips colour"}
+              (for [[k label] [[:roots "Roots"] [:tipped "Tipped"] [:dyed "Dyed"]]]
+                ^{:key k}
+                [:button {:type "button"
+                          :class (when (= k current) "on")
+                          :aria-pressed (= k current)
+                          :on-click #(dispatch [:portrait/set-ombre :bangs
+                                                ;; the piece's own default is stored as no choice
+                                                (when-not (= k (fx/bangs-choice asset)) k)])}
+                 label])]]))])
      [ombre-slider "Depth" :depth depth]
      [:label.pl-ombre-row
       [:span.pl-ombre-label "Runs"]

@@ -50,6 +50,12 @@
 #?(:clj  (defn- as! [^doubles a ^long i ^double v] (aset a i v))
    :cljs (defn- as! [a i v] (aset a i v)))
 
+(def bangs-dye
+  "How far along the bangs hold the root colour, for each choice in the
+   Bangs control. Picked on the real art: tipped is about where the fringe
+   reaches the eyes."
+  {:roots 1.0 :tipped 0.45 :dyed 0.0})
+
 (defn ombre-settings
   "The portrait's ombre settings with defaults filled in and anything out of
    range pulled back in: a stored value is checked on the way out, as colours
@@ -64,7 +70,11 @@
      :clumps (num :clumps)
      :light (num :light)
      :under (num :under)
-     :angle (let [a (:angle o)] (when (number? a) (mod (double a) 360.0)))}))
+     :angle (let [a (:angle o)] (when (number? a) (mod (double a) 360.0)))
+     ;; nil: each bangs piece does what its calibration says
+     :bangs (let [b (:bangs o)
+                  b (when (or (keyword? b) (string? b)) (keyword (name b)))]
+              (when (contains? bangs-dye b) b))}))
 
 (defn hair-layer?
   "Whether a layer is hair, and so drawn through the ombre."
@@ -319,11 +329,16 @@
     a))
 
 (defn strand-field
-  "Streak values for one hair piece, -1..1, on a grid `cell` pixels square:
-   {:cell :gw :gh :v doubles}. `rgb-at` gives the drawn 0xRRGGBB and
-   `alpha-at` the alpha (0..255) at a pixel index of the `w` x `h` image;
-   `crown` is [x y]; `seed` keeps neighbouring pieces from streaking alike."
-  [rgb-at alpha-at w h crown seed]
+  "Streak values for one hair piece, -1..1, on a grid a few pixels square:
+   {:gw :gh :w :h :v doubles}, for art `w` x `h`. `rgb-at` gives the drawn
+   0xRRGGBB and `alpha-at` the alpha (0..255) at a pixel index of the art at
+   its own size; `seed` keeps neighbouring pieces from streaking alike.
+
+   Depends on nothing but the art -- not the head, not the colours -- so it
+   is worked out once per piece, ahead of time (orcpub.portrait-pack.strands
+   writes it beside the art), and only computed live when that file is
+   missing."
+  [rgb-at alpha-at w h seed]
   (let [w (long w) h (long h)
         cell (max 1 (long (Math/round (/ (double h) 375.0))))
         gw (long (Math/ceil (/ (double w) cell))) gh (long (Math/ceil (/ (double h) cell)))
@@ -355,8 +370,15 @@
               (recur (inc gx))))
           (recur (inc gy))))
       (doseq [a [jxx jxy jyy]] (box-blur! a gw gh 3))
-      (let [[cx cy] crown
-            cx (/ (double cx) cell) cy (/ (double cy) cell)
+      (let [;; where the strands start: the top of the piece, centred on it
+            [cx cy] (loop [g 0 x0 gw x1 -1 y0 gh]
+                      (if (= g n)
+                        (if (neg? x1) [(/ gw 2.0) 0.0] [(/ (+ x0 x1) 2.0) (+ y0 (/ gh 40.0))])
+                        (if (> (ag cov g) 0.05)
+                          (let [x (mod g gw)]
+                            (recur (inc g) (min x0 x) (max x1 x) (min y0 (quot g gw))))
+                          (recur (inc g) x0 x1 y0))))
+            cx (double cx) cy (double cy)
             dirx (new-doubles n) diry (new-doubles n)]
         (dotimes [g n]
           (let [a (ag jxx g) b (ag jxy g) c (ag jyy g)
@@ -413,15 +435,45 @@
               (as! v g (if (> (ag cov g) 0.05)
                          (max -1.0 (min 1.0 (/ (- (ag v g) mean) (* 2.0 sd))))
                          0.0))))
-          {:cell cell :gw gw :gh gh :v v})))))
+          {:gw gw :gh gh :w w :h h :v v})))))
+
+(defn strands-url
+  "Where a piece's precomputed field lives: beside its art, as
+   <name>.strands.png -- with the art, never committed with the code."
+  [art-url]
+  (when (and (string? art-url) (re-find #"(?i)\.png$" art-url))
+    (str (subs art-url 0 (- (count art-url) 4)) ".strands.png")))
+
+(defn field->bytes
+  "The field as one byte per cell, 0..255 with 128 for 0, for storing beside
+   the art as a greyscale image `gw` x `gh`."
+  [{:keys [gw gh v]}]
+  (let [n (* gw gh)
+        out #?(:clj (byte-array n) :cljs (js/Uint8Array. n))]
+    (dotimes [g n]
+      (let [b (long (Math/round (+ 128.0 (* 127.0 (ag v g)))))]
+        (aset out g #?(:clj (unchecked-byte b) :cljs b))))
+    out))
+
+(defn bytes->field
+  "A field back from `field->bytes`' bytes (`byte-at` gives cell g's 0..255),
+   for art `w` x `h`."
+  [byte-at gw gh w h]
+  (let [n (* gw gh) v (new-doubles n)]
+    (dotimes [g n] (as! v g (/ (- (double (byte-at g)) 128.0) 127.0)))
+    {:gw gw :gh gh :w w :h h :v v}))
 
 (defn- field-fn
   "A function of pixel `x` `y` giving the strand field's value there,
-   interpolated between cells. Unpacked once per piece, like `position-fn`."
-  [{:keys [cell gw gh v]}]
-  (let [cell (double cell) gw (long gw) gh (long gh)]
+   interpolated between cells; `x` `y` are pixels of the art at its own size,
+   or of a frame it is placed in at :rect [x y w h].
+   Unpacked once per piece, like `position-fn`."
+  [{:keys [gw gh w h v rect]}]
+  (let [[rx ry dw dh] (or rect [0 0 w h])
+        gw (long gw) gh (long gh) rx (double rx) ry (double ry)
+        sx (/ (double gw) dw) sy (/ (double gh) dh)]
     (fn ^double [^long x ^long y]
-      (let [fx (max 0.0 (- (/ (double x) cell) 0.5)) fy (max 0.0 (- (/ (double y) cell) 0.5))
+      (let [fx (max 0.0 (- (* (- (double x) rx) sx) 0.5)) fy (max 0.0 (- (* (- (double y) ry) sy) 0.5))
             x0 (min (dec gw) (long fx)) y0 (min (dec gh) (long fy))
             x1 (min (dec gw) (inc x0)) y1 (min (dec gh) (inc y0))
             u (- fx x0) t (- fy y0)
@@ -429,16 +481,32 @@
             c (ag v (+ x0 (* y1 gw))) d (ag v (+ x1 (* y1 gw)))]
         (+ (* (- 1.0 t) (+ a (* u (- b a)))) (* t (+ c (* u (- d c)))))))))
 
+(defn bangs-choice
+  "The bangs choice this piece makes when the portrait has not made one:
+   from its calibration (pieces.edn), dyed like the rest otherwise."
+  [asset]
+  (let [f (:asset/tips-from asset)]
+    (cond (nil? f) :dyed
+          (>= f 1.0) :roots
+          (pos? f) :tipped
+          :else :dyed)))
+
 (defn piece-settings
   "The ombre settings for one piece: the portrait's, with the piece's own
    calibration applied (pieces.edn). :asset/tips-from keeps a piece in the
-   root colour until that far along it -- how colourists treat bangs in an
-   ombre, which stay in the darkest shade while the lengths lighten -- so a
-   long fringe gets at most tipped ends instead of a band across it."
-  [settings asset]
-  (if-let [f (:asset/tips-from asset)]
-    (assoc settings :tips-from (clamp01 (double f)))
-    settings))
+   root colour until that far along it -- how colourists often treat bangs
+   in an ombre, which stay in the darkest shade while the lengths lighten --
+   so a long fringe gets at most tipped ends instead of a band across it.
+   That is only the default: on the bangs layer the portrait's own :bangs
+   choice (root colour, tipped or dyed) wins."
+  ([settings asset] (piece-settings settings asset nil))
+  ([settings asset layer-key]
+   (let [f (if-let [choice (and (= :bangs layer-key) (:bangs settings))]
+             (bangs-dye choice)
+             (:asset/tips-from asset))]
+     (if (and f (pos? f))
+       (assoc settings :tips-from (clamp01 (double f)))
+       (dissoc settings :tips-from)))))
 
 (defn pixel-fn
   "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the

@@ -292,16 +292,31 @@
 
 (defonce ^:private strand-cache (atom {}))
 
+(defn- read-strands
+  "The piece's precomputed field, from the .strands.png beside its art."
+  [url w h]
+  (when-let [{:keys [bytes]} (some-> (fx/strands-url url) asset-source)]
+    (when-let [^BufferedImage img (ImageIO/read (ByteArrayInputStream. bytes))]
+      (let [gw (.getWidth img) gh (.getHeight img)
+            r (.getRaster img)]
+        (fx/bytes->field (fn [g] (.getSample r (int (mod g gw)) (int (quot g gw)) 0)) gw gh w h)))))
+
 (defn- strand-field-of
-  "The piece's strand field (portrait-effects/strand-field). It depends only
-   on the art, so it is worked out once per piece and size, not per render."
-  [^BufferedImage img ^ints d url crown layer-key w h]
-  (let [k [url w h crown]]
-    (or (get @strand-cache k)
-        (let [f (fx/strand-field (fn [i] (bit-and (aget d (int i)) 0xffffff)) (alpha-fn img) w h
-                                 (or crown [(/ w 2.0) 0.0]) (fx/piece-seed layer-key))]
-          (swap! strand-cache #(assoc (if (> (count %) 24) {} %) k f))
-          f))))
+  "The piece's strand field (portrait-effects/strand-field) in art pixels:
+   read from beside the art, or -- when nobody has generated it yet --
+   worked out from the art once and kept."
+  [url ^BufferedImage src layer-key]
+  (or (get @strand-cache url)
+      (let [w (.getWidth src) h (.getHeight src)
+            f (or (try (read-strands url w h) (catch Exception _ nil))
+                  (let [argb (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
+                        g (.createGraphics argb)
+                        _ (do (.drawImage g src 0 0 nil) (.dispose g))
+                        ^ints d (.. argb getRaster getDataBuffer getData)]
+                    (fx/strand-field (fn [i] (bit-and (aget d (int i)) 0xffffff)) (alpha-fn argb) w h
+                                     (fx/piece-seed layer-key))))]
+        (swap! strand-cache #(assoc (if (> (count %) 48) {} %) url f))
+        f)))
 
 (defn- draw-ombre-layer!
   "A hair piece: coloured root to tip (portrait-effects/ombre-rgb) instead of
@@ -311,14 +326,14 @@
     (let [img (placed src w h)
           ^ints d (.. img getRaster getDataBuffer getData)
           {:keys [tip angle] :as settings} (fx/piece-settings (fx/ombre-settings portrait)
-                                                              (pa/selected-asset portrait layer-key))
+                                                              (pa/selected-asset portrait layer-key) layer-key)
           root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
           [root-rgb tip-rgb] (fx/layer-colours layer-key root-rgb (or (some-> tip colorize/hex->rgb) root-rgb) settings)
           frame (fx/gradient-frame (alpha-fn img) w h crown angle)
           ;; streaks only show where there is a second colour to streak
           field (when (and tip (pos? (:clumps settings)))
-                  (strand-field-of img d (:asset/url (pa/selected-asset portrait layer-key))
-                                   crown layer-key w h))
+                  (assoc (strand-field-of (:asset/url (pa/selected-asset portrait layer-key)) src layer-key)
+                         :rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)))
           pix (fx/pixel-fn root-rgb tip-rgb settings frame layer-key field)]
       (dotimes [i (* w h)]
         (let [argb (aget d i)
