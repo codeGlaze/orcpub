@@ -144,3 +144,52 @@
       (is (= 0.45 (:clumps s)))
       (is (every? true? (for [x (range 12 89 7) y (range 12 89 11)]
                           (= (with s x y) (with (assoc s :clumps 0.0) x y))))))))
+
+(defn- lined
+  "A fully opaque `n` x `n` white piece with ink lines where `line?` of x, y."
+  [n line?]
+  {:rgb (fn [i] (if (line? (mod i n) (quot i n)) 0x000000 0xffffff))
+   :alpha (fn [_] 255)})
+
+(defn- correlation
+  "How alike the field is `dx` `dy` cells apart, over the middle of it."
+  [{:keys [gw gh v]} dx dy]
+  (let [at (fn [x y] (aget v (+ x (* y gw))))
+        pts (for [y (range 30 (- gh 30) 3) x (range 30 (- gw 30) 3)] [x y])]
+    (/ (reduce + (map (fn [[x y]] (* (at x y) (at (+ x dx) (+ y dy)))) pts))
+       (reduce + (map (fn [[x y]] (* (at x y) (at x y))) pts)))))
+
+(deftest streaks-follow-the-drawn-strands
+  (let [n 375]
+    (testing "lines drawn straight down make streaks straight down"
+      (let [{:keys [rgb alpha]} (lined n (fn [x _] (zero? (mod x 9))))
+            f (fx/strand-field rgb alpha n n [187 0] 3)]
+        (is (= 1 (:cell f)))
+        (is (> (correlation f 0 5) 0.8) "alike along the lines")
+        (is (< (correlation f 5 0) 0.3) "and not across them")))
+    (testing "lines drawn on a slant make slanted streaks, whichever way they lean"
+      (doseq [[line? along across] [[(fn [x y] (zero? (mod (- x y) 9))) [4 4] [4 -4]]
+                                    [(fn [x y] (zero? (mod (+ x y) 9))) [-4 4] [4 4]]]]
+        (let [{:keys [rgb alpha]} (lined n line?)
+              f (fx/strand-field rgb alpha n n [187 0] 3)]
+          (is (> (apply correlation f along) 0.75))
+          (is (< (apply correlation f across) 0.3)))))
+    (testing "values stay in -1..1 and nothing lands outside the piece"
+      (let [f (fx/strand-field (fn [_] 0xffffff) (fn [i] (if (< (mod i n) 100) 255 0)) n n [50 0] 3)
+            v (:v f)]
+        (is (every? #(<= -1.0 % 1.0) (seq v)))
+        (is (every? zero? (for [y (range 0 n 10) x (range 120 n 10)] (aget v (+ x (* y (:gw f)))))))))))
+
+(deftest the-streak-noise-is-the-same-in-every-renderer
+  ;; whole 16-bit steps, so the JVM and JS cannot round them differently
+  (is (= [0.2340886549172198 0.43485160601205464 0.5107194628824292
+          9.613183794918746E-4 0.1523460746166171 0.4545815213244831]
+         (mapv #(#'fx/hash01 % (* 3 %) 7) [0 1 2 50 399 -3]))))
+
+(deftest streaks-follow-a-field-when-given-one
+  (let [s (assoc (fx/ombre-settings {:ombre {:tip "#ffffff"}}) :depth 0.0 :start 0.3 :falloff 0.4)
+        frame {:kind :arc :env (double-array 10 0.0) :reach 10.0 :x0 0.0 :x1 10.0}
+        field (fn [x] {:cell 1 :gw 10 :gh 10 :v (double-array 100 x)})
+        at (fn [f] ((fx/pixel-fn [0 0 0] [255 255 255] s frame :hair-back f) 5 5 0xffffff))]
+    (is (< (at (field -1.0)) (at (field 0.0)) (at (field 1.0)))
+        "where the field is high the tip colour comes in sooner")))

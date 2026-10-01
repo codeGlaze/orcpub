@@ -304,6 +304,22 @@
         (swap! crown-cache assoc k c)
         c))))
 
+(defonce ^:private strand-cache (atom {}))
+
+(defn- strand-field-of
+  "The piece's strand field (portrait-effects/strand-field). It depends only
+   on the art, so it is worked out once per piece, not on every colour change."
+  [img px w h crown layer-key]
+  (let [k [(.-src img) w h crown]]
+    (or (get @strand-cache k)
+        (let [f (fx/strand-field (fn [p] (let [i (* 4 p)]
+                                           (bit-or (bit-shift-left (aget px i) 16)
+                                                   (bit-shift-left (aget px (+ i 1)) 8)
+                                                   (aget px (+ i 2)))))
+                                 (alpha-fn px) w h (or crown [(/ w 2) 0]) (fx/piece-seed layer-key))]
+          (swap! strand-cache #(assoc (if (> (count %) 24) {} %) k f))
+          f))))
+
 (defn- ombre-image
   "A canvas the size of `img` holding the hair piece coloured root to tip."
   [img head layer-key root-hex settings]
@@ -314,9 +330,13 @@
         px (.-data image-data)
         root0 (colorize/hex->rgb root-hex)
         [root tip] (fx/layer-colours layer-key root0 (or (some-> (:tip settings) colorize/hex->rgb) root0) settings)
+        crown (when head (crown-of head w h))
+        ;; streaks only show where there is a second colour to streak
+        field (when (and (:tip settings) (pos? (:clumps settings)))
+                (strand-field-of img px w h crown layer-key))
         pix (fx/pixel-fn root tip settings
-                         (fx/gradient-frame (alpha-fn px) w h (when head (crown-of head w h)) (:angle settings))
-                         layer-key)]
+                         (fx/gradient-frame (alpha-fn px) w h crown (:angle settings))
+                         layer-key field)]
     (dotimes [p (* w h)]
       (let [i (* 4 p)]
         (when (pos? (aget px (+ i 3)))
