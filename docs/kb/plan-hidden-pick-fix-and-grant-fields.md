@@ -76,6 +76,52 @@ That asymmetry — universal path, narrow intended change — is why characteriz
 **Characterizing class tools is not a prerequisite.** It is the same shape as the skills case and
 would confirm rather than discover. Do it as part of step 5, not before step 1.
 
+### Step 5, mapped (2026-10-01)
+
+**Status.** Steps 1–4 (skills) are done on `fix/hidden-multiclass-skill-pick` (`75fa9431`), which
+has `integration` merged in (`5451b299`). Step 5 is the rest of the branch, then one PR into
+`integration`, then down through the trunk to `feature/grant-rows` and `feature/extras-companions`
+(which carries the skills fix as `5230db89`, docstrings already identical).
+
+**5a. Class tools: a mirror of skills.** Two arms: `:tool-selection` (gate `first-class?`) and
+`:multiclass-tool-selection` (bard's instrument). Today every chosen tool's modifier is the bare
+`(modifiers/tool-proficiency (:key tool))`, unconditioned.
+1. Characterize: extend `multiclass_hidden_pick_test` with a class whose tool pick is made first,
+   then the class moved second; the bard instrument arm both ways; a single-class row that must
+   not move.
+2. Add `class-tool-proficiency [tool-kw cls-kw first-class?]` beside `class-skill-proficiency`,
+   both arms with literal conditions. Do not reuse `tool-proficiency`: its false branch is
+   unconditioned on purpose (fixed multiclass profs apply under either arm).
+3. Thread `cls-kw` + arm through `tool-prof-selection` → `tool-prof-selection-aux` (the nested
+   "Tool Proficiency: X" pick for grouped tools). Non-class callers keep the bare modifier.
+   Enumerate the callers two ways (call syntax, and any `partial`/var reference).
+4. Pin what the multiclass arm's gate reads: it is `(:classes c)` (`options.cljc`, multiclass tool
+   selection) where every other gate uses `character/classes`. The test shows whether they agree.
+
+**5b. Starting equipment: first-class arm only, one prerequisite.** `modifiers/weapon`, `armor` and
+`equipment` are `mods/map-mod`, which takes no conditions, unlike `mods/modifier`. So:
+1. Characterize: the Fighter/Rogue Explorer's Pack row exists; add a weapon pick, an armor pick, a
+   nested group (pack, holy symbol), a class with rich `:equipment-selections`, a homebrew class,
+   and a single-class row that must not move.
+2. Give `map-mod` an optional conditions argument with `modifier`'s contract (literal at the call
+   site, because `es/condition` rewrites `?classes` at macroexpansion), or class-only wrappers over
+   it. Decide by which keeps non-class callers untouched.
+3. Condition every place a chosen starting item is emitted, enumerated by what emits the item, not
+   by the gate: `weapon-option-2`, the simple/martial picks through `weapon-options` (shared with
+   non-class callers: needs a class variant), `armor-option` (has no class key: thread it from
+   `class-armor-options`), `equipment-option` (recursive for groups), `equipment-grant->modifier`
+   and the `:any-weapon` sub-choice (rich `:equipment-selections`).
+4. Verify, don't assume, the fixed gear: `:associated-options`
+   (`class-starting-equipment-entity-options`) is not among the nine sites. Pin that it already
+   follows the first class; fix it only if the pin fails.
+
+**Hazard, both parts:** a `nil` class key makes the condition false and every chosen tool or item
+vanishes silently. The homebrew-class rows are there to catch it.
+
+**Not on this branch:** the background replacement skill (gated by "held by another source"; it is
+Part B's `:if-held`), and the entity-layer gate, repair log and load notice
+([decision-gate-hidden-picks.md](decision-gate-hidden-picks.md), its steps 3–5).
+
 ## Part B — completing the grant compiler
 
 ### Are the new fields ornaments?
