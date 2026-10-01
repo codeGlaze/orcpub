@@ -274,6 +274,7 @@ _agent-hooks · agent hooks_
 **topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, machine, points, prescribes, setup, stripper, trailer
 
 - The rule
+- The entry point follows the same rule
 - Why it is built this way
 - Limits
 
