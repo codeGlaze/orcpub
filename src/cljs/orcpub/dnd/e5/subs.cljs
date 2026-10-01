@@ -27,6 +27,7 @@
             [orcpub.dnd.e5.compute :as compute]
             [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
             [reagent.ratom :as ra]
@@ -402,13 +403,10 @@
                            t @tmpl-sub]
                        (reset! built-from [c t])
                        (reset! result (built-character c t))))
-        ;; Both inputs are derived from app-db, so ONE interaction dirties both
-        ;; and this watch fires twice — but reagent updates them one at a time.
-        ;; Building on the first notification therefore paired the NEW character
-        ;; with the OLD template, and the corrected result only arrived from the
-        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
-        ;; settle first: one build, from values that agree. Still same-frame, so
-        ;; "dropdown changes compute instantly" is preserved.
+        ;; Both inputs derive from app-db, so one interaction dirties both and this watch fires
+        ;; twice, one input at a time. Building on the first notice would pair the new character
+        ;; with the old template; coalescing to a microtask builds once, from values that agree,
+        ;; still within the same frame.
         pending    (atom false)
         disposed?  (atom false)
         settled    (fn []
@@ -510,7 +508,6 @@
   :context    "fetch parties"})
 
 
-
 (defn user-sub-on-401
   "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
    when the caller flagged the request as required."
@@ -602,6 +599,15 @@
    (get character-map id)))
 
 
+(reg-sub
+ ::content-recon/former-key-indexes
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered offered-by-type] _]
+   (content-recon/former-key-indexes plugins offered offered-by-type)))
+
+;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
@@ -615,11 +621,9 @@
               (handle-api-response response
                 #(let [body (:body response)]
                    (if (http/decode-failed? body)
-                     ;; Response was unreadable even after self-heal: don't feed
-                     ;; the marker to from-strict (that silently builds a blank
-                     ;; default character). Flag the load as failed so the
-                     ;; character page renders an in-place recovery panel
-                     ;; (delete / go to list) instead of a blank sheet.
+                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                     ;; would silently build a blank default character.
                      (dispatch [::char5e/set-character-load-error int-id body])
                      (do (dispatch [::char5e/set-character-load-error int-id nil])
                          ;; Before the character, so its first build already has them.
@@ -630,14 +634,14 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (get-in @app-db [::char5e/character-map int-id] {})
+           (:character (content-recon/reconcile-former-keys
+                       (get-in @app-db [::char5e/character-map int-id] {})
+                       @(subscribe [::content-recon/former-key-indexes])))
            (get @app-db :character)))))))
 
-;; Records that a character's server response could not be decoded even after
-;; self-heal; the character page reads it to show an in-place recovery panel
-;; (with a copyable diagnostic report) instead of a blank sheet. `marker` is the
-;; http-safe decode-error map (carries the raw body + reader error); nil clears
-;; it on a subsequent successful load.
+;; Records that a character's server response could not be decoded even after self-heal; the
+;; character page shows an in-place recovery panel with a copyable report instead of a blank
+;; sheet. `marker` is the http-safe decode-error map (raw body + reader error); nil clears it.
 (reg-event-db
  ::char5e/set-character-load-error
  (fn [db [_ id marker]]
@@ -1085,14 +1089,10 @@
    (common/aloof-sort-by :name spells)))
 
 (defn reg-filtered-sub
-  "Register a reactively-filtered sub composing a sorted input and a
-   text-filter input.
-
-   When `filter-text` is absent or shorter than `min-length`, returns
-   the sorted input unchanged. Otherwise calls `filter-fn filter-text
-   sorted` to produce the filtered slice.
-
-   A filtered list stored in db instead stops following changes to its source."
+  "Registers `sub-key` composing `sorted-sub-vec` and `text-filter-sub-vec`: the sorted input
+   unchanged when the filter text is absent or shorter than `min-length`, else
+   `(filter-fn filter-text sorted)`. Recomputes whenever either input changes; per keystroke only
+   the filter step re-runs, since the sorted sub is cached."
   [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
   (reg-sub sub-key
     (fn [_ _]
@@ -1661,13 +1661,62 @@
     :feats feats}))
 
 (reg-sub
+ :orcpub.dnd.e5/repairs-dismissed
+ (fn [db _] (or (:orcpub.dnd.e5/repairs-dismissed db) #{})))
+
+(reg-sub
+ :orcpub.dnd.e5/suggested-repairs
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ :<- [:orcpub.dnd.e5/repairs-dismissed]
+ (fn [[plugins offered dismissed] _]
+   (vec (remove #(contains? dismissed ((juxt :source :type :key :link :target) %))
+                (library/suggested-repairs plugins offered)))))
+
+(reg-sub
+ :orcpub.dnd.e5/pre-fix-at
+ (fn [db _] (:orcpub.dnd.e5/pre-fix-at db)))
+
+(reg-sub
+ :orcpub.dnd.e5/dangling-links
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered] _]
+   (library/dangling plugins offered)))
+
+(reg-sub
+ ::content-recon/offered-keys
+ (fn [db _]
+   (::content-recon/offered-keys db)))
+
+(reg-sub
+ ::content-recon/offered-by-type
+ (fn [db _]
+   (::content-recon/offered-by-type db)))
+
+(reg-sub
+ :orcpub.dnd.e5/relink-question
+ (fn [db _]
+   (let [q (:orcpub.dnd.e5/relink-question db)]
+     (when (and q (= (:character-id q) (get-in db [:character :db/id]))) q))))
+
+(reg-sub
+ ::content-recon/choice-tags
+ (fn [db _]
+   (::content-recon/choice-tags db)))
+
+(reg-sub
  ::char5e/missing-content-report
  (fn [_]
    [(subscribe [:character])
-    (subscribe [::char5e/available-content])])
- (fn [[character available-content]]
+    (subscribe [::char5e/available-content])
+    (subscribe [::content-recon/offered-keys])
+    (subscribe [::content-recon/choice-tags])
+    (subscribe [::content-recon/offered-by-type])])
+ (fn [[character available-content offered choice-tags offered-by-type]]
    (when character
-     (content-recon/generate-missing-content-report character available-content))))
+     (content-recon/generate-missing-content-report character available-content offered choice-tags
+                                                    offered-by-type))))
 
 (reg-sub
  ::char5e/has-missing-content?

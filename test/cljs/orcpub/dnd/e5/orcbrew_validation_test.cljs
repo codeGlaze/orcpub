@@ -1360,19 +1360,18 @@
         (is (content-specs/valid-for-load? stripped) "stripped plugin still load-valid")))))
 
 (deftest sanitize-item-names-coerces-invalid-names-and-rekeys
-  (testing "an invalid/blank name is replaced with a valid placeholder and re-keyed
-            so save-anyway can never persist a broken key"
+  (testing "an invalid/blank name is replaced with a valid placeholder; the key is never touched"
     ;; the reported bug: "1@-asdml;" doesn't start with a letter
-    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;"} "Race")]
+    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;" :key :stone-elf-trcs} "Race")]
       (is (common/starts-with-letter? (:name out)) "name now starts with a letter")
-      (is (common/keyword-starts-with-letter? (:key out)) "key is valid (starts with a letter)")
+      (is (= :stone-elf-trcs (:key out)) "the minted key survives: keys are not re-derived")
       (is (= "Unnamed Race" (:name out))))
     (let [out (orcbrew-val/sanitize-item-names {:name "   "} "Spell")]
       (is (= "Unnamed Spell" (:name out)) "blank/whitespace name -> placeholder"))
     ;; a valid name is left intact (trimmed) and re-keyed consistently
     (let [out (orcbrew-val/sanitize-item-names {:name "  Aarakocra  "} "Race")]
       (is (= "Aarakocra" (:name out)))
-      (is (= :aarakocra (:key out))))
+      (is (nil? (:key out)) "no key is minted here; save-anyway mints one"))
     ;; nested option/trait names are coerced too
     (let [out (orcbrew-val/sanitize-item-names
                {:name "Fighter" :options [{:name "9 Lives"} {:name "Valid Option"}]}
@@ -1531,7 +1530,6 @@
     (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
         "both enabled → :conflict, not nil")))
 
-;; ============================================================================
 ;; Import mends damaged sections instead of calling them imported
 ;; ============================================================================
 
@@ -1603,3 +1601,48 @@
   (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]
     (is (:success (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true})) text)))
 
+=======
+;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
+
+(deftest an-import-rename-moves-links-only-in-its-own-source
+  ;; Links in other sources are offered (library/repoint-offer), never moved.
+  (let [data {"Classes" {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:own {:key :own :class :caster}}}
+              "Spells"  {:orcpub.dnd.e5/spells {:bolt {:key :bolt :spell-lists {:caster true}}}}
+              "Twin"    {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:twin-sub {:key :twin-sub :class :caster}}}}
+        out (orcbrew-val/apply-key-renames data [{:source "Classes" :content-type :orcpub.dnd.e5/classes
+                                                  :from :caster :to :caster-imp}])]
+    (is (= :caster-imp (get-in out ["Classes" :orcpub.dnd.e5/subclasses :own :class])))
+    (is (= {:caster true} (get-in out ["Spells" :orcpub.dnd.e5/spells :bolt :spell-lists])))
+    (is (= :caster (get-in out ["Twin" :orcpub.dnd.e5/subclasses :twin-sub :class]))
+        "a source holding its own copy keeps meaning it")))
+
+(deftest auto-name-and-restore-leaves-every-key-alone
+  (let [plugin {:orcpub.dnd.e5/races {:stone-elf-trcs {:name "Stone Elf" :key :stone-elf-trcs}
+                                      :9-lives        {:name "9 Lives" :key :9-lives}}}
+        out (orcbrew-val/coerce-invalid-names plugin)]
+    (is (= :stone-elf-trcs (get-in out [:orcpub.dnd.e5/races :stone-elf-trcs :key]))
+        "a valid item keeps the key it is stored under")
+    (is (= :9-lives (get-in out [:orcpub.dnd.e5/races :9-lives :key]))
+        "an invalid key is e5/rekey-plugin's to move, not this")))
+
+(deftest fill-option-pack-uses-the-source-an-item-is-stored-under
+  (let [out (orcbrew-val/fill-option-pack
+             {:orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B" :option-pack ""}
+                                    :c {:name "C" :option-pack "Elsewhere"}}
+              :disabled? false}
+             "Tide Pak")]
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :a :option-pack])) "missing: filled")
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :b :option-pack])) "blank: filled")
+    (is (= "Elsewhere" (get-in out [:orcpub.dnd.e5/feats :c :option-pack])) "named: kept")
+    (is (false? (:disabled? out)) "non-content entries pass through")))
+
+(deftest a-copy-does-not-claim-the-originals-former-keys
+  (let [plugins {"A" {::e5/races {:folk {:name "Folk" :key :folk :former-keys [:old-folk]}}}
+                 "B" {}}
+        {out :plugins} (orcbrew-val/relocate-content plugins [["A" ::e5/races :folk]] "B" :copy)
+        copy (first (vals (get-in out ["B" ::e5/races])))]
+    (is (some? copy))
+    (is (nil? (:former-keys copy)) "characters on :old-folk still heal to one item")
+    (is (= [:old-folk] (get-in out ["A" ::e5/races :folk :former-keys])) "the original keeps them")))

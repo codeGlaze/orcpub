@@ -23,19 +23,9 @@
     {:orcpub.party-share/character character-id :orcpub.party-share/token token}))
 
 (defn create-party
-  "Creates a new party owned by the authenticated user.
-
-  Args:
-    request - HTTP request map with:
-              :conn - Database connection
-              :identity - Authenticated user identity
-              :transit-params - Party data
-
-  Returns:
-    HTTP response with created party data
-
-  Throws:
-    ExceptionInfo on database failure with :party-creation-failed error code"
+  "Creates a party from :transit-params, owned by the authenticated user.
+  Returns 200 with the created party. Throws ExceptionInfo :party-creation-failed on
+  database failure."
   [{:keys [db conn identity] party :transit-params}]
   (let [username (:user identity)
         ids      (::party/character-ids party)
@@ -87,16 +77,9 @@
      :body mapped}))
 
 (defn update-party-name
-  "Updates a party's name.
-
-  Args:
-    request - HTTP request with party name and party ID
-
-  Returns:
-    HTTP response with updated party data
-
-  Throws:
-    ExceptionInfo on database failure with :party-update-failed error code"
+  "Sets the name of the party at path-param :id to :transit-params.
+  Returns 200 with the party (`pull-party`). Throws ExceptionInfo :party-update-failed on
+  database failure."
   [{:keys [db conn identity]
     party-name :transit-params
     {:keys [id]} :path-params}]
@@ -136,16 +119,9 @@
                       e)))))))
 
 (defn remove-character
-  "Removes a character from a party.
-
-  Args:
-    request - HTTP request with party ID and character ID
-
-  Returns:
-    HTTP response with updated party data
-
-  Throws:
-    ExceptionInfo on invalid character ID or database failure"
+  "Removes path-param :character-id from the party at :id.
+  Returns 200 with the updated party.
+  Throws ExceptionInfo on an invalid character ID or database failure."
   [{:keys [db conn identity]
     {:keys [id character-id]} :path-params}]
   (let [char-id (errors/with-validation :invalid-character-id
@@ -160,7 +136,7 @@
                                    (d/q '[:find [?t ...] :in $ ?party ?c
                                           :where [?party ::party/shared-tokens ?t] [?t :orcpub.party-share/character ?c]]
                                         db id char-id))))
-      {:status 200 :body (d/pull db '[*] id)})))
+      {:status 200 :body (d/pull (d/db conn) '[*] id)})))
 
 (defn delete-party [{:keys [db conn identity]
                      {:keys [id]} :path-params}]

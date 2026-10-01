@@ -1,11 +1,9 @@
 (ns orcpub.dnd.e5.api-subs
-  "reg-api-sub registers a subscription that loads from the server the first time it is
-   subscribed while a user is logged in: ::mi5e/custom-items, ::char5e/characters,
-   ::party5e/parties, ::folder5e/folders and :user.
-
-   A namespace of its own because it needs cljs-only requires, which rules out
-   event_utils.cljc, and because equipment_subs uses it as well as subs, which would
-   otherwise have to require subs."
+  "`reg-api-sub`: one HOF for API-backed `reg-sub-raw` subscriptions that lazy-load from the
+   backend on first subscribe (guard, loading counter, auth headers, response handling, reaction).
+   Its guard is `event-utils/get-auth-token`, the canonical token path, so no sub can re-introduce
+   the `:user` / `:user-data` typo that broke `::mi5e/remote-item`.
+   GOTCHA: not in `subs.cljs`, which `equipment_subs.cljs` would then have to require."
   (:require [re-frame.core :refer [reg-sub-raw dispatch]]
             [reagent.ratom :as ra]
             [orcpub.dnd.e5.event-utils :as event-utils]
@@ -28,29 +26,12 @@
       (dispatch [:route-to-login]))))
 
 (defn reg-api-sub
-  "Register a `reg-sub-raw` that lazy-loads from a backend endpoint
-   when the user is logged in.
-
-   Required opts:
-     :sub-key   — subscription registration keyword
-     :route     — bidi route (passed to `url-for-route`)
-     :db-key    — where cached results live; keyword or vec path for
-                  `get-in`
-
-   Optional opts:
-     :set-event  — shorthand: success dispatches
-                   `[set-event (:body response)]`
-     :on-success — 1-arg fn called with the full response; if both
-                   :set-event and :on-success are given, :on-success
-                   wins; if neither, success is a no-op (fire-and-forget,
-                   as with the `:user` sub)
-     :on-401     — 1-arg fn receiving the query-v, called after the
-                   401 has logged the user out; omit to route to login
-     :on-500     — 1-arg fn receiving the query-v; omit for the
-                   `handle-api-response` default (dispatches
-                   `show-generic-error`)
-     :context    — error log string; default `(str sub-key)`
-          :default    — default value for unset `db-key`; default `[]`"
+  "Registers `:sub-key` as a `reg-sub-raw` that, when logged in, GETs `:route` (`url-for-route`)
+   with auth headers, and returns a reaction on `:db-key` (keyword or `get-in` path; unset reads
+   `:default`, default []). Success calls `:on-success` with the response, else dispatches
+   `[:set-event body]`, else does nothing. A 401 first logs out (`:clear-login`). `:on-401` /
+   `:on-500` get the query-v; omitted, the `handle-api-response` defaults route to login / show a
+   generic error. `:context` names the call in error logs, default `(str sub-key)`."
   [{:keys [sub-key route db-key set-event on-success on-401 on-500 context default]
     :or {default []}}]
   (reg-sub-raw sub-key

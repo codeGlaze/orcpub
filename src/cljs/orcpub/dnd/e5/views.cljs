@@ -494,12 +494,8 @@
 
 (defn- fit-flyout!
   "Cap an opening flyout at the room left below it, and let it scroll.
-
-   The menu is absolutely positioned under its tab, so its height has nothing to
-   do with the window's: My Content is eleven rows and ran off the bottom of a
-   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
-   pointer away to use the page scrollbar closes it. Measured in a frame, after
-   :hover has applied and the menu has a box to measure."
+   GOTCHA: the menu is absolutely positioned, so its height ignores the window's, and a hover
+   menu cannot be scrolled into reach. Measured in a frame, once :hover has applied."
   [e]
   (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
     (js/requestAnimationFrame
@@ -967,6 +963,17 @@
      (fn [e]
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
+
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  (when (#{" " "Enter"} (.-key e))
+                                    (.preventDefault e)
+                                    (handler e))))
+    (nil? handler) (assoc :aria-disabled "true")))
 
 (defn verify-failed []
   (let [params (r/atom {})]
@@ -1507,12 +1514,10 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           {:class (when dev? "on")
-            :role "switch"
-            :aria-checked (str (boolean dev?))
-            :tabIndex 0
-            :title "Show diagnostic tools for getting your content out"
-            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+                  {:class (when dev? "on")
+                   :title "Show diagnostic tools for getting your content out"
+                   :on-click (make-event-handler ::e5/toggle-dev-mode)})]
           [:span.dev-mode-label
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
@@ -1992,14 +1997,9 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
-              ;; One header, sticky, rather than a fixed copy of it above an
-              ;; inline one. Two copies meant every control in the header --
-              ;; every button, and the whole PDF options panel that opens inside
-              ;; it -- existed twice in the DOM, twice in the tab order, and with
-              ;; its own component-local state in each.
-              ;;
-              ;; Not sticky inside a frame, which has no app header to scroll
-              ;; past, or behind the Orcacle panel, which covers the page.
+              ;; One header, sticky -- never a fixed copy of it, which would put every
+              ;; header control and its local state in the DOM twice. Not sticky inside a
+              ;; frame (no app header to scroll past) or behind the Orcacle panel.
               [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
                {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
@@ -2020,11 +2020,9 @@
 
               [:div#app-main.container
                [:div.content.w-100-p
-                ;; Library-health status — shown on every content page (it self-
-                ;; hides when clean), so a conflict/missing-field is never a
-                ;; surprise on one page and invisible on another. Excludes the
-                ;; character list (no homebrew content there). On My Content it
-                ;; ALWAYS shows (the hub); elsewhere it's dismissable.
+                ;; Library-health status on every content page except the character list
+                ;; (it self-hides when clean). Always shown on My Content, dismissable
+                ;; elsewhere.
                 (let [handler (:handler @(subscribe [:route]))]
                   (when-not (= handler routes/dnd-e5-char-list-page-route)
                     [library-health-status
@@ -2283,19 +2281,11 @@
   (into (subvec items 0 i) (subvec items (inc i))))
 
 (defn isolate-culprit
-  "Fault isolation by re-execution — the active counterpart to render-guard.
-   `render-coll` renders/processes a whole collection and may throw; `items` is
-   that collection. Return the item(s) NECESSARY for the failure: an item is a
-   culprit if removing it makes render-coll stop throwing. Catches AGGREGATE
-   failures (e.g. a sort over a nil key) that a per-item guard never sees — and
-   pinpoints the culprit even when the failure only manifests in combination
-   (a nil sort key never throws alone, but removing the item fixes the whole list,
-   so leave-one-out finds it where 'does this item alone fail?' cannot).
-
-   Returns nil if render-coll doesn't throw. Honest limit: with two INDEPENDENT
-   faulty items (each breaks things by itself), removing one still throws, so
-   neither looks necessary — we then fall back to the smallest failing subset
-   found by bisection rather than claim a single culprit."
+  "Fault isolation by re-execution, the active counterpart to render-guard. `render-coll`
+   processes the collection `items` and may throw. Returns the item(s) whose removal stops
+   it throwing -- catching aggregate failures (a sort over a nil key) a per-item guard never
+   sees -- or nil if it doesn't throw. GOTCHA: with two independent faulty items neither is
+   necessary, so it falls back to the smallest failing subset found by bisection."
   [render-coll items]
   (letfn [(throws? [coll]
             (try (doall (render-coll coll)) false (catch :default _ true)))
@@ -3016,14 +3006,9 @@
         (fn on-change [e]
           (let [v (-> e .-target .-value)]
             (when initial-value
-              ; we have to dispatch-sync because in the case where id is nil,
-              ; this event handler dispatches, so the call below gets
-              ; a stale DB value and overwrites this one. It ought be
-              ; possible to make it affect the :db directly, but I don't
-              ; know what sort of side effects that could have....
-              ; See: update-character-fx, and its use of :dispatch; might
-              ; be able to replace that with:
-              ;  {:db (set-character db (update-fn (:character db)))}
+              ; dispatch-sync: when id is nil this handler dispatches too, so the call
+              ; below would read a stale db and overwrite this value. See
+              ; update-character-fx's use of :dispatch.
               (dispatch-sync [::char/toggle-feature-used id units initial-value]))
             ((toggle-feature-used-handler id units v))))
 
@@ -3333,13 +3318,9 @@
 
 (defn summary-details [num-columns id]
   (let [;; The builder renders character-display with an explicit nil id, so this
-        ;; was [:built-character nil] -- a different query vector from the
-        ;; builder's own [:built-character], hence a second debounced-build-sub
-        ;; over the same character (2 builds per click). Collapse only that case.
-        ;; The non-nil path is left exactly as it was: [:built-character id]
-        ;; ignores id and returns the builder's character, which looks wrong on a
-        ;; character page, but ::char/built-character id fetches over HTTP, so
-        ;; changing it needs its own verification.
+        ;; collapses [:built-character nil] into the builder's own [:built-character]
+        ;; rather than running a second debounced build. GOTCHA: [:built-character id]
+        ;; ignores id and returns the builder's character; changing it needs its own test.
         built-char @(subscribe (if id
                                  [:built-character id]
                                  [:built-character]))
@@ -4271,14 +4252,10 @@
        vec))
 
 (defn feature-render-error
-  "Recovery panel shown in place of a character section that failed to render.
-   General fail-soft: we do NOT try to guess the cause — by design this catches
-   failures we did not anticipate and cannot name. What we CAN always tell the
-   user is which section broke, that their data is safe, and how to recover
-   (try again / reload / open it in the builder to locate it). The exact error
-   is one click away for a bug report. The specific malformed item, when a single
-   item is at fault, is surfaced in place by the per-item render-guard / the
-   bisection isolator (see isolate-culprit)."
+  "Recovery panel shown in place of a character section that failed to render. It does not
+   guess the cause: it says which section broke, that the data is safe, and how to recover
+   (edit in the builder / reload), with the exact error one click away. A single faulty
+   selection is traced by isolate-culprit-selection (Features section only)."
   [_section _id _error _stack _retry]
   (let [show-details? (r/atom false)
         copied? (r/atom false)
@@ -4345,19 +4322,11 @@
              [:pre.f-s-12.m-t-5.wsp-prw {:style {:user-select "text"}} report]])]]))))
 
 (defn error-boundary
-  "React error boundary. If a child throws while rendering, render
-   (fallback error retry) instead of letting the exception unmount the whole app
-   (the black screen). Give the boundary a :key that changes with its content
-   (e.g. the selected tab) so navigating away clears the error automatically.
-
-   Recovery is driven by React's static getDerivedStateFromError, which is the
-   only React-18 hook that re-renders the boundary to show a fallback (a
-   setState/atom reset in componentDidCatch alone does NOT). component-did-catch
-   runs in the commit phase and is where React hands us the component stack — the
-   one generically-available 'where' for an error we can't otherwise diagnose — so
-   we both log it and stash it in state for the fallback to surface.
-
-   The fallback is called as (fallback error component-stack retry)."
+  "React error boundary: if a child throws while rendering, renders
+   (fallback error component-stack retry) instead of unmounting the whole app. Key it on its
+   content (e.g. the selected tab) so navigating away clears the error.
+   GOTCHA: only getDerivedStateFromError re-renders into the fallback; component-did-catch
+   logs the component stack and stores it for the fallback."
   [_fallback _child]
   (r/create-class
    {:display-name "error-boundary"
@@ -4667,16 +4636,10 @@
 
 
 (defn capture-images
-  "Reads the character's pictures in the browser when this mounts, so their bytes
-   are in hand before the export button is clicked. Renders nothing.
-
-   Kept off the click handler on purpose: the export is a synchronous form submit
-   into a new tab, and any await between the click and .submit() spends the
-   transient user activation that keeps that tab from being blocked. Each request
-   is idempotent, so re-rendering costs one read per URL and no more.
-
-   `urls` comes through the argv rather than a subscription so that a URL edited
-   while this is mounted is picked up by the update."
+  "Reads the character's pictures (`urls`) in the browser on mount, so their bytes are in
+   hand before export is clicked. Renders nothing; reads on mount only (no update hook).
+   GOTCHA: kept off the click handler: the export is a synchronous submit into a new tab, and
+   an await before .submit() spends the user activation that keeps it from being blocked."
   [_urls]
   (let [ask (fn [this]
               (doseq [url (second (r/argv this))
@@ -4740,8 +4703,7 @@
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
-      ;; how either is inked. The card options used to be split by the known /
-      ;; prepared choice, which is a sheet setting.
+      ;; how either is inked. The known / prepared choice is a sheet setting.
       [option-group "Character Sheet"
        [:div.m-b-10
         [labeled-dropdown
@@ -6834,13 +6796,9 @@
      delete-selection-event]]])
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
-;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring:
-;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
-;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
-;;                    [{:name .. :options {item-key qty}}]
-;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
-;; not offered here — it carries fn-valued modifiers that don't serialize.
+;; SRD shorthand keys, read by opt5e/class-option: fixed :weapons/:armor/:equipment
+;; {item-key qty}; choice :weapon-choices/:armor-choices/:equipment-choices
+;; [{:name .. :options {item-key qty}}]. No :selections form: fn modifiers don't serialize.
 
 (def starting-equipment-categories
   [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
@@ -6903,9 +6861,8 @@
 
 ;; ---- Rich equipment choices (:equipment-selections) ------------------------
 ;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
-;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
-;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
-;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+;; weapon sub-choice: the full SRD form, which subsumes one item per option.
+;; Consumed by opt5e/class-equipment-selections.
 
 (def ^:private grant-kinds
   [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
@@ -7568,8 +7525,8 @@
                    {:title (name kw)
                     :value (name kw)})
                  ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
+         ;; A subrace whose race is missing, or has no size, has no size to show.
+         :value (some-> (or (get subrace :size) (get race :size)) name)
          :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
       [:div.m-r-5
        [labeled-dropdown
@@ -8949,6 +8906,7 @@
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
             twin-idx   @(subscribe [::e5/collision-twin-index])
+            dangling   @(subscribe [::e5/dangling-links])
             select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
@@ -8976,8 +8934,11 @@
                :on-click (if global-off?
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
-              [:div.f-s-10 "enabled?"]
-              [comps/checkbox (not eff-off?) global-off?]]
+              [:span.dev-mode-switch.compact
+               (merge (switch-attrs (not eff-off?)
+                                    (when-not global-off?
+                                      (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
+                      {:class (when-not eff-off? "on") :title "On in the builder"})]]
              [:div.h-48.flex.align-items-c
               {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
@@ -9038,14 +8999,22 @@
                                  :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                       [:div.f-s-10 "enabled?"]
-                       [comps/checkbox
-                        (not (get-in plugin [type-key key :disabled?]))
-                        false]]
+                       (let [on? (not (get-in plugin [type-key key :disabled?]))]
+                         [:span.dev-mode-switch.compact
+                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                                 {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
                        [:span name]
+                       (when-let [missing (get dangling [source-name type-key key])]
+                         [:div.f-s-12 {:style {:color "#ffd21a"}}
+                          ;; `name` here is the item's name (destructured above), not the function.
+                          (str "Uses "
+                               (s/join ", " (for [{:keys [to target]} missing]
+                                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                                   " \u201c" (if (keyword? target) (cljs.core/name target) target) "\u201d")))
+                               ", which isn't in your library.")])
                        (when note
                          [:div.f-s-12
                           {:class (when (= :off (:kind note)) "b-color-gray")
@@ -9058,27 +9027,25 @@
                             (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                       [:div
                        [:button.form-button.m-l-5
-                        {:on-click (make-event-handler edit-event item)}
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
                         "edit"]
                        [:button.form-button.m-l-5
-                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
                         "delete"]]])))
                  visible))]])]))))))
 
-;; One data-driven table for the My Content library, replacing 13 near-identical
-;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
-;; rendered category rows (see my-content-item) and the add-content menu, so
-;; "hide empty categories" and "still be able to create the first item of a type
-;; that has none yet" read from the same list. Order here is the display order.
+;; The My Content library's content types, one entry each. Drives both the rendered
+;; category rows (my-content-item) and the add-content menu, so hiding empty categories
+;; and creating a type's first item read the same list. Order here is display order.
 (def my-content-types
   [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
    {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
    {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
    {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
    {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
-   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon "woman-elf-face" :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
    {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
-   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon "mounted-knight" :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
    {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
    {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
    {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
@@ -9149,10 +9116,10 @@
           {:on-click #(swap! expanded? not)}
           [:div.m-r-10.flex.align-items-c.flex-column
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-           [:div.f-s-10 "enabled?"]
-           [comps/checkbox
-            (not (get plugin :disabled?))
-            false]]
+           (let [on? (not (get plugin :disabled?))]
+             [:span.dev-mode-switch
+              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+                     {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
            ;; disabled badge(s), colored by reason — amber (app/compat) shown first
@@ -9187,7 +9154,9 @@
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
-                  [comps/checkbox show? false]
+                  [:span.dev-mode-switch.compact
+                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                          {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
               [:button.form-button
@@ -9375,11 +9344,9 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
-   ;; (Library-health status is rendered by content-page at the top of every
-   ;; content page — always-on here on the My Content hub, dismissable elsewhere.)
-   ;; Library-level mutual-exclusion summary: when duplicate keys have forced
-   ;; one side off, say so once at the top with a link into the conflict modal,
-   ;; so the silenced items are explained in aggregate — not just per-row.
+   ;; Library-health status is rendered by content-page, not here.
+   ;; When duplicate keys have forced items off, say so once at the top with a link into
+   ;; the conflict modal, explaining the silenced items in aggregate, not just per row.
    (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
      (when (pos? off-n)
        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
@@ -9398,7 +9365,9 @@
      [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
-       [comps/checkbox (not global-off?) false]
+       [:span.dev-mode-switch
+        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+               {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
@@ -9422,22 +9391,27 @@
    the now-valid entries into the live library (::e5/repair-quarantined-source) —
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
-  [src-name plugin]
-  (let [entries (vec (for [[ct items] (when (map? plugin) plugin)
-                           :when (and (qualified-keyword? ct) (map? items))
-                           [ik item] items]
-                       {:ct ct :ik ik :item item}))
-        ;; Set aside whole because nothing readable was left in them. There is no
-        ;; name to type for these, so only the export and discard below apply.
-        damaged (if (map? plugin)
-                  (vec (for [[ct v] plugin :when (e5/damaged-section? ct v)] ct))
-                  [::whole-source])
-        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
-                                         [[[ct ik :name] (or (:name item) "")]
-                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
-                                       entries)))]
+  [_ _]
+  ;; Only what the user has typed, kept across restores: an entry that restored leaves `plugin`, so
+  ;; its typing stops showing; one still set aside keeps what was typed for the next try.
+  (let [typed (r/atom {})]
     (fn [src-name plugin]
-      (let [current @edits]
+      (let [entries (vec (for [[ct items] (when (map? plugin) plugin)
+                               :when (and (qualified-keyword? ct) (map? items))
+                               [ik item] items]
+                           {:ct ct :ik ik :item item}))
+            ;; Set aside whole because nothing readable was left in them. There is no
+            ;; name to type for these, so only the export and discard below apply.
+            damaged (if (map? plugin)
+                      (vec (for [[ct v] plugin :when (e5/damaged-section? ct v)] ct))
+                      [::whole-source])
+            default-of (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                          [[[ct ik :name] (or (:name item) "")]
+                                           [[ct ik :option-pack] (or (not-empty (:option-pack item))
+                                                                     src-name)]])
+                                        entries))
+            current (merge default-of (select-keys @typed (keys default-of)))
+            edits typed]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
          (when (seq damaged)
@@ -9464,6 +9438,9 @@
                ^{:key (str ct "/" ik)}
                [:div.m-t-5.m-b-5
                 [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                (when-let [d (not-empty (str (get-in plugin [ct ik :description])))]
+                  [:div.f-s-12.i.m-t-5 {:style {:opacity 0.8}}
+                   (if (> (count d) 140) (str (subs d 0 140) "…") d)])
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
@@ -9484,7 +9461,7 @@
              [:div.f-s-12.m-t-5 "No entries to repair."]))
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
-                                      @edits))
+                                      current))
                ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
                ;; entry's current name is invalid AND repair-name-lead can't
                ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
@@ -9525,6 +9502,55 @@
                           (dispatch [::e5/discard-quarantined-source src-name]))}
              "Discard"]])]))))
 
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- item-name-in
+  "The name of the item any source of `plugins` holds under `k` of type `ct`, else `k`'s name."
+  [plugins ct k]
+  (or (some #(get-in % [ct k :name]) (vals plugins)) (name k)))
+
+(defn repairs-panel
+  "Links a past rename left behind, each with its suggested fix; nothing changes until the author
+   picks. Renders nothing when there are none."
+  []
+  (let [repairs @(subscribe [::e5/suggested-repairs])
+        plugins @(subscribe [::e5/plugins])]
+    (when (seq repairs)
+      [:div.decision-callout
+       [:div
+        [:div
+         [:div.message-title (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+         [:div.message-detail "A rename left these pointing at nothing."]
+         (doall
+          (for [{:keys [source type key name to target to-key] :as r} repairs]
+            ^{:key (str source type key target)}
+            [:div.flex.align-items-c.m-t-5
+             [:div.f-s-14
+              (str (quoted (or name (cljs.core/name key))) " uses "
+                   (quoted (cljs.core/name target))
+                   ", which was renamed. Switch it to "
+                   (quoted (item-name-in plugins to to-key))
+                   ". ")]
+             [:button.link-button.underline.m-l-5 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+         [:div.decision-actions
+          [:button.form-button {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+          [:button.link-button.underline {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]]]])))
+
+(defn pre-fix-copy-line
+  "The kept copy of the library from before it was first tidied, and the way back to it."
+  []
+  (when-let [at @(subscribe [::e5/pre-fix-at])]
+    [:div.decision-callout.quiet
+     [:div
+      [:div.message-title (str "Library tidied on " (.toLocaleDateString (js/Date. at)))]
+      [:div.message-detail "The copy from before is kept, in case you need it."]]
+     [:div.decision-actions
+     [:button.link-button.underline
+      {:on-click #(when (js/confirm "Replace your library with the copy from before it was tidied? Changes made since will be lost.")
+                    (dispatch [::e5/restore-pre-fix-library]))}
+      "Restore that copy"]
+     [:button.link-button.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Discard it"]]]))
+
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
    each source loaded normally; these are preserved, not discarded, so you can fix
@@ -9563,6 +9589,8 @@
    []
    [:div
     [quarantine-panel]
+    [repairs-panel]
+    [pre-fix-copy-line]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -9752,16 +9780,9 @@
 ;; events are set and passed by the individual pages defined below this
 (defn meta-edit-row
   "A quiet `label value change` line that swaps in an input when `change` is clicked.
-
-   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
-   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
-   same `.bf-meta` register.
-
-     :value        what to show at rest; nil renders nothing at all
-     :derived?     the value is the app's guess rather than a stored choice, shown muted
-     :placeholder  seeds the input
-     :on-save      called with the raw string typed; blank is the caller's to interpret
-     :help         a line a `?` opens beneath the row"
+   Opts: :label; :value shown at rest (nil renders nothing); :derived? the value is the app's
+   guess, shown muted; :placeholder seeds the input; :on-save gets the raw string typed
+   (blank is the caller's to interpret); :help, a line a `?` opens beneath the row."
   [_]
   (let [editing? (r/atom false)
         draft    (r/atom "")]
@@ -9798,18 +9819,27 @@
    only way an author fixes a key minted from a typo. Renders nothing until the item has one."
   [item save-event]
   (when-let [k (:key item)]
-    [meta-edit-row
-     {:label "key"
-      :value (str k)
-      :placeholder (name k)
-      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
-      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
+    (let [missing (some (fn [[[src _ ik] m]] (when (and (= src (:option-pack item)) (= ik k)) m))
+                        @(subscribe [::e5/dangling-links]))]
+      [:div
+       [meta-edit-row
+        {:label "key"
+         :value (str k)
+         :placeholder (name k)
+         ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+         :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
+       (when missing
+         [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
+          (str "The saved version uses "
+               (s/join ", " (for [{:keys [to target]} missing]
+                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+               ", which isn't in your library.")])])))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  ;; Draft event is derived from save-event (events/draft-event-for) and registered
-  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  ;; The key row rides the same derivation: builder-drafts already maps the save event to the
-  ;; builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  ;; The draft event and the builder-item sub are both derived from save-event
+  ;; (events/draft-event-for, events/builder-drafts), so the Export-draft hatch and the
+  ;; key row reach every builder unwired.
   (let [export-draft-event (events/draft-event-for save-event)
         [item-sub] (get events/builder-drafts save-event)
         item       (when item-sub @(subscribe [item-sub]))]
@@ -9898,13 +9928,9 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      ;; NOT "Save to Browser Storage", which is what every other
-                      ;; builder's button says and does. A magic item is saved to
-                      ;; the database like a character is: ::mi/save-item posts to
-                      ;; /dnd/5e/items with an auth header, so the label was
-                      ;; promising local storage while requiring an account, and a
-                      ;; logged-out click landed on the login page having said
-                      ;; nothing about needing one.
+                      ;; Not "Save to Browser Storage": a magic item is saved to the
+                      ;; server like a character (::mi/save-item posts to /dnd/5e/items
+                      ;; with an auth header), so saving needs an account.
                       {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]

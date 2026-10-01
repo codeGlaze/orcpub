@@ -36,9 +36,9 @@
     :route      routes/dnd-e5-items-route
     :db-key     ::mi5e/custom-items
     :set-event  ::mi5e/set-custom-items
-    ;; No redirect on 401: this sub fires on first subscribe, which can race
-    ;; :verify-user-session, and the default :route-to-login would loop. The warning is only
-    ;; there for diagnosis.
+    ;; Silent 401 on purpose: the default (:route-to-login) can login-loop, since this sub fires
+    ;; on first subscribe and can race :verify-user-session. The warn is diagnostic only (#669);
+    ;; grep the console for "custom-items fetch rejected".
     :on-401     (fn [_]
                   (js/console.warn
                    "custom-items fetch rejected (401); session may be stale"))
@@ -258,18 +258,14 @@
           mi5e/all-magic-items-map
           maps)))
 
-;; Switched off: fetching one item by id, meant for an item page that shows an item someone
-;; else owns. Nothing subscribes to it. To bring it back, restore these three forms together with
-;; ::mi/add-remote-item in events.cljs and the requires they use (reg-sub-raw, dispatch,
-;; subscribe, <!, go, url-for-route, auth-headers, handle-api-response), and point
-;; views/item-page at [::mi5e/item key]. Today that page reads ::mi/custom-item from the
-;; logged-in user's own list, so /items/<id> for another owner's item shows "not found".
-;;
-;; GET /dnd/5e/items/:id (routes/get-item) answers the item's owner only; anyone else gets
-;; a 404. Decide who may see, edit or copy another owner's items before wiring this up.
-;;
-;; The original guard read (:token (:user db)), which is always nil, so the fetch never fired;
-;; the copy below reads get-auth-token.
+;; ============================================================================
+;; ORPHANED, commented out: the client side of `GET /api/dnd/e5/items/:id` (another user's item by
+;; db-id). Nothing subscribes; views/item-page reads ::mi/custom-item. To restore, also uncomment
+;; ::mi/add-remote-item in events.cljs ("ORPHANED: see equipment_subs"). Chain, guard trap and
+;; open questions: plan-669-merge-verification.md (agents/develop).
+;; GET /dnd/5e/items/:id answers the item's owner only (404 otherwise), so decide who may see,
+;; edit or copy another owner's items before wiring this back up.
+;; ============================================================================
 
 #_(reg-sub
     ::mi5e/remote-items

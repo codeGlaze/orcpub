@@ -1,14 +1,9 @@
 (ns orcpub.fork.integrations
-  "Client-side integration hooks with minimal defaults.
-   Fork overrides: replace with full implementations.
-
-   Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops.
-   UI hooks provide basic defaults (e.g. supporter-link shows a Patreon
-   button when configured, share-line shows a character's sharing status and actions).
-
-   Companion to integrations.clj (server-side head tags).
-   Server-side loads third-party scripts in <head>;
-   this namespace provides the in-app component hooks."
+  "Client-side integration hooks with minimal defaults; forks replace them with full
+   implementations. Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops; UI
+   hooks have basic defaults (supporter-link shows a Patreon button when configured,
+   share-line shows a character's sharing status and actions). Companion to integrations.clj, which loads
+   third-party scripts in <head>; this namespace provides the in-app component hooks."
   (:require [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [re-frame.db]
@@ -91,17 +86,9 @@
 
 (defn sheet-styles
   "Available character sheet styles. Returns the default sheet only.
-
-   Fork overrides: return the extra styles only for a tier you positively
-   recognise, and the default sheet for everything else. Write the test as \"is
-   this a paying tier\" rather than \"is this not the free tier\" -- the second
-   form hands every style out for any value that is not exactly `:free`, which
-   includes nil from a subscription that failed to register and a tier that
-   arrives as a string. Failing closed costs a paying user their extra sheets,
-   which they report; failing open gives paid content away silently.
-
-   Whatever gates the styles should gate `pdf-options-slot` too, so the upsell
-   and the dropdown cannot disagree about who is paying."
+   Fork overrides: give extra styles only to a tier you positively recognise (\"is this a
+   paying tier\", not \"is this not :free\" -- nil or a string tier must fail closed), and
+   gate `pdf-options-slot` on the same predicate."
   [_user-tier]
   [{:title "Original 5e Character sheet" :value 1}])
 
@@ -118,12 +105,8 @@
   nil)
 
 ;; ─── Sharing ─────────────────────────────────────────────────
-;; People share a character by sending its link (WhatsApp, Discord,
-;; a DM), so the primary action is "copy the link" — not "open my
-;; mail client". On browsers that expose the native share sheet
-;; (navigator.share — mobile and most modern desktop browsers), we
-;; also offer "Share", which hands the URL to the OS so the user can
-;; pick WhatsApp/Messages/Mail/etc. directly.
+;; The primary action is "copy the link"; where navigator.share exists, "Share" also
+;; hands the URL to the OS share sheet.
 ;; Fork overrides: add frame support, per-network buttons, etc.
 
 (defn- char-url

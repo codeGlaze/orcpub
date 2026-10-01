@@ -5,7 +5,8 @@
             #?(:clj [clojure.edn :as edn])
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.languages :as languages]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.library-links :as links]))
 
 (spec/def ::spells (spec/map-of common/keyword-starts-with-letter?
                                 ::spells/homebrew-spell))
@@ -314,16 +315,11 @@
         {:data p :repairs (into (vec whole) rs)}))))
 
 (defn salvage-plugin-items
-  "Per-ENTRY salvage of ONE source. Walks each content group and splits its items
-   by `valid-item?` (a fn of [content-type item-key item]) — valid items go to
-   :kept, invalid to :rejected. Non-content entries (e.g. `:disabled?`, or a
-   content group that is a boolean) stay with :kept. Returns {:kept <plugin>
-   :rejected <plugin>}; a content-type key is absent on a side that has nothing.
-
-   This is what lets ONE bad entry be siloed WITHOUT quarantining its whole source:
-   the source keeps its valid items, only the broken ones are set aside for repair.
-   `valid-item?` is injected (content-specs supplies the load-floor version) so this
-   stays pure/JVM-testable. Non-map input yields two empty maps."
+  "Per-ENTRY salvage of ONE source: splits each content group's items by `valid-item?` (a fn of
+   [content-type item-key item]) into {:kept <plugin> :rejected <plugin>}, so one bad entry is set
+   aside without quarantining its source. Non-content entries (`:disabled?`, a boolean content
+   group) stay in :kept; a content type is absent on a side with nothing. Non-map input yields two
+   empty maps. `valid-item?` is injected (content-specs supplies it) so this stays JVM-testable."
   [valid-item? plugin]
   (if (map? plugin)
     (reduce-kv
@@ -370,13 +366,10 @@
     {:kept {} :rejected {}}))
 
 (defn reconcile-rejected
-  "Maintain the name-keyed quarantine map (`plugins:rejected`) across loads: merge
-   this load's rejected sources into the already-quarantined ones (latest-wins per
-   name, so nothing accumulates), then drop any whose name reappears in `kept` — a
-   repaired source clears itself. Returns the cleaned `{name → bad-source}` map
-   (caller removes the storage key when empty).
-
-   Pure/dependency-free for JVM tests. Non-map `old-rejected` is treated as empty."
+  "Merges this load's `new-rejected` sources into `old-rejected` (the name-keyed `plugins:rejected`
+   quarantine map; latest wins per name), then drops any name present in `kept`, so a repaired
+   source clears itself. Returns the cleaned {name → bad-source} map; the caller removes the
+   storage key when it is empty. A non-map `old-rejected` or `new-rejected` counts as empty."
   [old-rejected new-rejected kept]
   (let [old (if (map? old-rejected) old-rejected {})
         incoming (if (map? new-rejected) new-rejected {})
@@ -394,45 +387,65 @@
       (let [candidate (keyword (str (name base) "-" n))]
         (if (contains? taken candidate) (recur (inc n)) candidate)))))
 
-(defn rekey-content-group
-  "Re-key only items whose CURRENT key is invalid (the keyword trap — a key not
-   starting with a letter, e.g. `:9-lives`): move to the key derived from the
-   corrected `:name` and sync `:key`. Already-valid keys are left untouched (don't
-   disturb existing references); collisions get a numeric suffix; an item with no
-   usable `:name` keeps its original key (validation still flags it).
-
-   Pure so the JVM suite can cover re-key/collision/no-name."
-  [items]
+(defn rekey-content-group*
+  "`items` with each key that does not start with a letter (the keyword trap, `:9-lives`) moved to
+   the key derived from the item's corrected `:name`, and `:key` synced; valid keys stay.
+   Collisions get a numeric suffix; an item with no usable `:name` keeps its key. `taken`
+   (optional): keys in use elsewhere, also avoided. Returns {:items <re-keyed group> :renames
+   [[old-key new-key] ...]}."
+  ([items] (rekey-content-group* items #{}))
+  ([items taken]
   ;; Reserve the already-valid keys. distinct-key is seeded with these plus the
   ;; keys emitted so far, so a re-keyed item can't collide with — and be clobbered
   ;; by — a valid sibling processed later.
-  (let [reserved (into #{} (comp (map key)
-                                 (filter common/keyword-starts-with-letter?))
+  (let [reserved (into (set taken) (comp (map key)
+                                         (filter common/keyword-starts-with-letter?))
                        items)]
-    (reduce (fn [acc [k item]]
+    (reduce (fn [{acc :items :as out} [k item]]
               (if-let [derived (and (not (common/keyword-starts-with-letter? k))
                                     (string? (:name item))
                                     (common/name-to-kw (:name item)))]
                 ;; invalid key + a usable name → move to the name-derived key
                 (let [new-key (distinct-key (into reserved (keys acc)) derived)]
-                  (assoc acc new-key (assoc item :key new-key)))
+                  (-> out
+                      (assoc-in [:items new-key] (assoc item :key new-key))
+                      (update :renames conj [k new-key])))
                 ;; valid key, or no name to derive from → leave the item untouched
-                (assoc acc k item)))
-            {}
-            items)))
+                (assoc-in out [:items k] item)))
+            {:items {} :renames []}
+            items))))
+
+(defn rekey-content-group
+  "The re-keyed group from `rekey-content-group*`."
+  [items]
+  (:items (rekey-content-group* items)))
 
 (defn rekey-plugin
   "Apply `rekey-content-group` to every content group in a source map
    (`{content-type {item-key item}}`); non-content-group entries (e.g. `:disabled?`)
    pass through. The re-key half of a quarantine repair: after the user fixes a
-   trapped item's name, sync its map key so the source can pass `::plugin`."
-  [plugin]
-  (reduce-kv (fn [acc k v]
-               (assoc acc k (if (and (qualified-keyword? k) (map? v))
-                              (rekey-content-group v)
-                              v)))
-             {}
-             plugin))
+   trapped item's name, sync its map key so the source can pass `::plugin`. Each moved item
+   records its old key, and links to it elsewhere in the source are repointed. `live` (optional)
+   is the source as the library holds it now; a moved item never takes a key it holds."
+  ([plugin] (rekey-plugin plugin nil))
+  ([plugin live]
+  (let [{rekeyed :plugin renames :renames}
+        (reduce-kv (fn [acc ct v]
+                     (if (and (qualified-keyword? ct) (map? v))
+                       (let [{:keys [items renames]} (rekey-content-group* v (keys (get live ct)))]
+                         (-> acc
+                             (assoc-in [:plugin ct] items)
+                             (update :renames into (map (fn [[o n]] [ct o n])) renames)))
+                       (assoc-in acc [:plugin ct] v)))
+                   {:plugin {} :renames []}
+                   plugin)]
+    ;; Repoint after every group is re-keyed, so a link in any group is reached.
+    (reduce (fn [p [ct old new]]
+              (-> p
+                  (update-in [ct new] links/record-former-key old)
+                  (links/repoint ct old new)))
+            rekeyed
+            renames))))
 
 
 (defn invalid-keyed-items

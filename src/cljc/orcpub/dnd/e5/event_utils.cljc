@@ -28,12 +28,11 @@
 ;; -- Auth --
 
 (defn get-auth-token
-  "The auth token from app-db, or nil when nobody is logged in.
-
-   The one place the token path [:user-data :token] is read. Use it for the token itself (an
-   Authorization header, an :http :auth-token) and as the logged-in check,
-   (when (get-auth-token db) ...). A guard that reads another key fails silently: the old
-   (:token (:user db)) was always nil, so the fetch it guarded never fired."
+  "Returns the JWT at `[:user-data :token]` in app-db, or nil when not logged in.
+   The one access to that path: use it for the token (Authorization header, `:http` fx
+   `:auth-token`) and, since nil is falsy, as the logged-in guard everywhere.
+   GOTCHA: if 'logged in' ever needs more conditions, add a `logged-in?` predicate;
+   never inline compound logic at call sites."
   [db]
   (-> db :user-data :token))
 
