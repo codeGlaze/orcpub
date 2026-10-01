@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Point git at the repo's tracked hooks (.githooks/). Run once per clone.
-# Idempotent. Relative path resolves per-worktree, so each worktree runs the
-# hooks of its own checked-out branch.
-set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
-git config core.hooksPath .githooks
-echo "core.hooksPath -> .githooks"
-echo "active hooks: $(ls -1 .githooks 2>/dev/null | tr '\n' ' ')"
+# Arms the git hooks for every worktree of this clone. One implementation lives in
+# agent-setup.sh; this is its --hooks-only mode under the name the older docs use
+# (docs/kb/agent-hooks.md).
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+bash scripts/agent-setup.sh --hooks-only
+echo "core.hooksPath -> $(git config core.hooksPath 2>/dev/null || echo unset)"

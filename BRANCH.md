@@ -151,8 +151,9 @@ and the report is the input to it.
 
 ## Agent tooling
 
-Everything this branch exists to hold. **Run `scripts/setup-hooks.sh` first — `core.hooksPath`
-is unset on a fresh clone, and nothing enforcing below fires without it.**
+Everything this branch exists to hold. **The hooks arm themselves at session start**
+(`agent-setup.sh --hooks-only`); `agent-setup.sh --check` says whether they are armed and current.
+One installer, one versioned set: [`docs/kb/agent-hooks.md`](docs/kb/agent-hooks.md).
 
 | Piece | What it does |
 | --- | --- |
@@ -160,6 +161,7 @@ is unset on a fresh clone, and nothing enforcing below fires without it.**
 | `scripts/agent-setup.sh` | Pulls this branch's tooling into any code branch's working tree (gitignored there, so it cannot reach a PR), arms the hooks, prints where the KB is. `--check` verifies only |
 | `scripts/clj-grep.py` | Greps Clojure with `#_` discards separated from live code. `classes.cljc` has 160 discarded `:name "` hits against 346 live — plain grep reports both as real. Also on `integration` |
 | `scripts/check-docs.sh` | Dangling links, orphaned KB docs, the develop superset. Runs from `pre-commit` |
+| `.githooks/commit-msg` | Strips agent attribution trailers (`Co-Authored-By: Claude`, `Claude-Session:`) |
 | `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration |
 | `.claude/hooks/kb-doc-reminder.sh` | On push: code changed, no docs? Nudge. Register in `.claude/settings.json` |
 | `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop. Register under `Stop` |

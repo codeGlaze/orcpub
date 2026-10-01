@@ -12,25 +12,33 @@
 # Run from anywhere in the repo, on any branch, as often as you like:
 #   git show origin/agents/develop:scripts/agent-setup.sh | bash
 #
-# --check  verify only, change nothing.
+# --check       verify only, change nothing.
+# --hooks-only  arm the git hooks from the local copy of agents/develop and stop: no fetch,
+#               no tooling, no output beyond one line. What the SessionStart hook and
+#               setup-hooks.sh call, so there is one implementation.
 
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 CHECK_ONLY=0
-[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+HOOKS_ONLY=0
+case "${1:-}" in
+  --check) CHECK_ONLY=1 ;;
+  --hooks-only) HOOKS_ONLY=1 ;;
+esac
 
 KB=agents/develop
 branch="$(git branch --show-current)"
 say() { printf '%s\n' "$*"; }
 
+[ $HOOKS_ONLY -eq 1 ] && say() { :; }
 say ""
 say "  agent setup -- branch: ${branch:-(detached)}"
 say ""
 
 # --- the KB branch, fetched but never checked out -----------------------------------
 if git rev-parse --verify -q "origin/$KB" >/dev/null 2>&1; then
-  [ $CHECK_ONLY -eq 0 ] && git fetch -q origin "$KB" 2>/dev/null
+  [ $CHECK_ONLY -eq 0 ] && [ $HOOKS_ONLY -eq 0 ] && git fetch -q origin "$KB" 2>/dev/null
   KB_REF="origin/$KB"
 elif git rev-parse --verify -q "$KB" >/dev/null 2>&1; then
   KB_REF="$KB"
@@ -40,6 +48,7 @@ else
 fi
 say "  knowledge base:  $KB_REF ($(git log -1 --format=%h "$KB_REF"))"
 
+if [ $HOOKS_ONLY -eq 0 ]; then
 # --- agent tooling into the working tree ---------------------------------------------
 # Skipped on the KB branch itself, where these files are tracked and extracting would
 # overwrite live edits with committed ones.
@@ -81,20 +90,46 @@ else
   say "  entry point:     FAILED to read CLAUDE.md from $KB_REF"
 fi
 
-# --- git hooks ------------------------------------------------------------------------
-# core.hooksPath is per-clone and unset by default, so check-docs.sh and the changelog
-# guard silently do not run. This was true for a whole session once; two plan docs went
-# orphaned unnoticed.
-hp="$(git config core.hooksPath || true)"
-if [ "$hp" = ".githooks" ]; then
-  say "  git hooks:       armed ($hp)"
-elif [ $CHECK_ONLY -eq 1 ]; then
-  say "  git hooks:       NOT ARMED -- run without --check"
-elif [ -d .githooks ]; then
-  git config core.hooksPath .githooks && say "  git hooks:       armed (.githooks)"
-else
-  say "  git hooks:       no .githooks on this branch, skipped"
 fi
+
+# --- git hooks ------------------------------------------------------------------------
+# One versioned set (.githooks on agents/develop), installed inside .git where no branch can
+# track or commit it. core.hooksPath is in the clone's shared config, so this arms every
+# worktree at once, and it is the only thing that sets it: anything else pointing
+# core.hooksPath elsewhere is replaced here (agent-hooks.md).
+HOOKS="commit-msg pre-commit pre-push"
+hooks_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-hooks"
+hook_src() {
+  if [ "$branch" = "$KB" ]; then cat ".githooks/$1"; else git show "$KB_REF:.githooks/$1"; fi
+}
+hooks_current() {
+  [ "$(git config core.hooksPath 2>/dev/null)" = "$hooks_dir" ] || return 1
+  for h in $HOOKS; do
+    [ -x "$hooks_dir/$h" ] && hook_src "$h" 2>/dev/null | cmp -s - "$hooks_dir/$h" || return 1
+  done
+}
+if hooks_current; then
+  say "  git hooks:       armed ($HOOKS)"
+elif [ $CHECK_ONLY -eq 1 ]; then
+  say "  git hooks:       NOT ARMED or older than $KB_REF -- run without --check"
+  say "                   core.hooksPath is '$(git config core.hooksPath 2>/dev/null || echo unset)'"
+else
+  mkdir -p "$hooks_dir"
+  ok=1
+  for h in $HOOKS; do
+    if hook_src "$h" >"$hooks_dir/$h.new" 2>/dev/null && [ -s "$hooks_dir/$h.new" ]; then
+      mv "$hooks_dir/$h.new" "$hooks_dir/$h" && chmod +x "$hooks_dir/$h"
+    else
+      rm -f "$hooks_dir/$h.new"; ok=0
+      say "  git hooks:       FAILED to read .githooks/$h from $KB_REF"
+    fi
+  done
+  was="$(git config core.hooksPath 2>/dev/null || true)"
+  if [ $ok -eq 1 ] && git config core.hooksPath "$hooks_dir"; then
+    say "  git hooks:       armed ($HOOKS)$([ -n "$was" ] && [ "$was" != "$hooks_dir" ] && echo ", replacing $was")"
+  fi
+fi
+[ $HOOKS_ONLY -eq 1 ] && exit 0
 
 # --- verify rather than assume ---------------------------------------------------------
 if [ -x scripts/check-docs.sh ] && git ls-files --error-unmatch docs >/dev/null 2>&1; then

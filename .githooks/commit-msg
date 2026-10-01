@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Strips agent attribution trailers (Co-Authored-By: Claude, Claude-Session:, "Generated with
+# Claude Code") from a commit message. The harness re-issues the attribution instruction every
+# session, so asking agents not to add it does not hold; this does. Claude-Session: lines are
+# claude.ai session URLs, and codeGlaze/orcpub is public. Armed by agent-setup.sh (agent-hooks.md).
+msg_file="$1"
+[ -f "$msg_file" ] || exit 0
+before=$(cksum <"$msg_file")
+sed -i -E \
+  -e '/^Co-Authored-By:[[:space:]]*Claude/Id' \
+  -e '/^Claude-Session:/Id' \
+  -e '/^🤖[[:space:]]*Generated with/d' \
+  -e '/^Generated with \[Claude Code\]/Id' \
+  "$msg_file"
+# collapse the blank run the stripped trailers leave at the end
+printf '%s\n' "$(cat -s "$msg_file")" >"$msg_file"
+if [ "$before" != "$(cksum <"$msg_file")" ]; then
+  echo "commit-msg: stripped agent attribution trailers" >&2
+fi
+exit 0

@@ -5,7 +5,7 @@
 # instead of on CI. The fold itself stays a deliberate manual step:
 #   scripts/fold-branch-changelog.sh "<release>"    (then commit, then push)
 #
-# Activate once per clone:  scripts/setup-hooks.sh   (or: git config core.hooksPath .githooks)
+# Armed for every worktree by scripts/agent-setup.sh on agents/develop (docs/kb/agent-hooks.md).
 
 status=0
 zero="0000000000000000000000000000000000000000"
