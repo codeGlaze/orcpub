@@ -78,6 +78,12 @@ would confirm rather than discover. Do it as part of step 5, not before step 1.
 
 ### Step 5, mapped (2026-10-01)
 
+> **Superseded in part by the tested verdicts** in `hidden-selection-picks.md`, "Verified
+> 2026-10-01": D3 adds the hand-built `classes.cljc` selections and `starting-equipment-option`;
+> D4 (fixed gear) is a stale-data path, not this fix; S1 adds subclass level picks. Threading each
+> constructor (below) would miss the hand-built sites. The design question is now one condition
+> applied over a whole selection, with its deps declared (M2); not yet decided.
+
 **Status.** Steps 1–4 (skills) are done on `fix/hidden-multiclass-skill-pick` (`75fa9431`), which
 has `integration` merged in (`5451b299`). Step 5 is the rest of the branch, then one PR into
 `integration`, then down through the trunk to `feature/grant-rows` and `feature/extras-companions`

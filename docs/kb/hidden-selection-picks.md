@@ -3,6 +3,36 @@
 *Live defect class. Measured 2026-09-14, `feature/grant-rows` at `4b7dc0e6`; assertions in
 `test/cljc/orcpub/dnd/e5/conditional_selection_ref_test.clj`.*
 
+## Verified 2026-10-01: claims tested, verdicts
+
+Pinned on `fix/hidden-multiclass-skill-pick` (`65bb097a`), each deftest named for its claim, each
+asserting today's behaviour: `modifier_condition_research_test` (M), `hidden_pick_tools_equipment_
+research_test` (D), `subclass_gate_research_test` (S). All through a real `entity/build`.
+
+| claim | verdict | evidence |
+|---|---|---|
+| M1 a predicate conj'd onto a built modifier's `::mods/conditions` is enforced | CONFIRMED | `mods/apply-modifiers` checks `(every? #(% e) conditions)` |
+| M2 such a condition reads the right `:classes` without declaring the dep | **REFUTED** | without `:classes` in `::mods/deps` the modifier can run before classes are set (`apply-options` graphs only non-empty deps; ungraphed keys sort first): saw `[]` for a rogue. Result depends on order |
+| M3 one fn works as `prereq-fn` (built char) and as a condition (mid-build map) | CONFIRMED with the dep, REFUTED without | `char5e/classes` is `es/entity-val`, so it reads both shapes |
+| M4 a condition on a deferred modifier's record is lost | CONFIRMED | `collect-modifiers-2` replaces the record with the `deferred-fn` result |
+| M5 `add-mod-total-levels-prereq` throws on a list of modifiers | CONFIRMED, unreachable | `(map f lvl cls modifier)`; no built-in or homebrew path gives it a list |
+| D1 stored class tool picks outlive the class being first, both arms | CONFIRMED | bare `modifiers/tool-proficiency` at `tool-prof-selection` and `-aux` |
+| D2 the bard multiclass tool gate `(:classes c)` disagrees with `character/classes` | REFUTED | same value after build; the arm shows only when bard is second |
+| D3 every chosen starting-equipment shape outlives the class being first | CONFIRMED | weapon, any-simple, armor, pack, plain, nested group, holy symbol, hand-built bundle. `weapon`/`armor`/`equipment` are `map-mod`: no conditions |
+| D4 fixed starting gear follows the first class | REFUTED as stated | not template data: `char5e/set-class` writes it, only at class index 0; reordering classes leaves it. A stale-data path, not a gate |
+| S1 subclass LEVEL picks outlive their level | CONFIRMED | Hunter's Defensive Tactics (7) applies at ranger 6; Champion's level-10 fighting style shares `:ref [:class :fighter :fighting-style]` with level 1, so picks lose their source level |
+| S2 the subclass spell-selection gate `(>= lvl total-levels)` is inverted | CONFIRMED, latent | no live subclass reaches it (built-in EK/AT commented out; homebrew uses `:levels`) |
+| S3 `total-levels-prereq` and `-2` agree | on real input; `-prereq` throws where `-2` returns false/nil (absent class key, nil level, nil character) | |
+
+**Sites found since the scoping below:** hand-built starting-equipment `:selections` in
+`classes.cljc` (cleric, druid, fighter, paladin, ranger, rogue, sorcerer, warlock) and
+`starting-equipment-option` (holy symbols), all with bare modifiers; and subclass level selections
+(S1). Any fix that conditions modifier constructors one by one misses the hand-built ones; a
+condition applied over a whole selection does not.
+
+**Not tested, found by reading:** `delete-class` (`events.cljs`) re-runs `set-class` on the new first
+class, which resets that class's options to `{:levels [level-1]}`.
+
 ## The mechanism
 
 A selection's `::t/prereq-fn` controls **whether the builder offers it**, not whether a pick

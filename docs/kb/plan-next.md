@@ -21,7 +21,7 @@ before the next.
 
 | # | step | where | depends on |
 |---|---|---|---|
-| 0 | **Hidden-pick fix, Part A.** Skills done (`75fa9431`; same fix as `5230db89` on extras-companions); `integration` merged in (`5451b299`). Next: tools, then starting equipment, each characterized first (map: `plan-hidden-pick-fix-and-grant-fields.md`, "Step 5, mapped"), then PR into `integration` | `fix/hidden-multiclass-skill-pick` (cut from `integration` 2026-09-20, no PR yet) | — |
+| 0 | **Hidden-pick fix, Part A.** Skills done (`75fa9431`; same fix as `5230db89` on extras-companions); `integration` merged in (`5451b299`); every claim behind the rest tested and pinned (`65bb097a`, verdicts in `hidden-selection-picks.md`). Tools, every starting-equipment shape and subclass level picks confirmed. Next: decide one condition applied over a whole selection (deps declared) vs per-constructor threading, then build, then PR into `integration` | `fix/hidden-multiclass-skill-pick` (cut from `integration` 2026-09-20, no PR yet) | — |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
