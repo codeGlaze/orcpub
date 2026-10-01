@@ -33,18 +33,11 @@
 (def ^:private magical-ac-bonus :orcpub.dnd.e5.magic-items/magical-ac-bonus)
 
 (defn dex-cap
-  "The most Dex this armor allows, or nil for no limit. The MORE PERMISSIVE of what the armor TYPE
-  allows and what the item itself declares in :max-dex-mod.
-
-  `caps` is {armor-type -> cap-or-nil}; nil means uncapped, and a type absent from the map is
-  treated as 0. Defaults are {:light nil :medium 2 :heavy 0}, and features raise entries in it —
-  Medium Armor Master is `{:medium 3}`. Per-type rather than a lone medium scalar, so a
-  heavy armor that allows 2 Dex is expressible too; nothing about the rule is specific to medium.
-
-  Taking the max is load-bearing. Every shipped medium armor prints :max-dex-mod 2 and every heavy
-  prints 0, so reading the item's field alone would cap scale mail at 2 and silently disable Medium
-  Armor Master. Taking the max keeps the feat working and still lets a custom item be more generous
-  than its type."
+  "The most Dex this armor allows, or nil for no limit: the MORE PERMISSIVE of the armor TYPE's cap
+  and the item's own :max-dex-mod. `caps` is {armor-type -> cap-or-nil}; nil means uncapped and an
+  absent type is 0. Defaults {:light nil :medium 2 :heavy 0}; features raise entries ({:medium 3}).
+  GOTCHA: take the max, never the item field alone. Shipped medium armor prints :max-dex-mod 2, so
+  reading it alone would silently disable Medium Armor Master."
   [caps armor]
   (let [t        (:type armor)
         type-cap (if (contains? caps t) (get caps t) 0)

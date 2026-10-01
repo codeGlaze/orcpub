@@ -28,6 +28,7 @@
   (set! js/window.location.protocol "https"))
 
 (dispatch-sync [:initialize-db])
+(dispatch [:orcpub.dnd.e5/settle-loaded-library])
 
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
@@ -36,6 +37,8 @@
 ;; Fetch the app-shipped demo/example content pack into its own overlay slot.
 ;; Async: it loads through the real import path and never blocks boot.
 (dispatch [::e5/load-demo-content])
+;; Another tab's library write reloads this tab's copy.
+(events/start-library-watch!)
 
 (def pages
   ;; The homebrew builder pages are GENERATED from the content-types registry — see

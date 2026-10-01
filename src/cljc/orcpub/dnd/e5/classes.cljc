@@ -1274,8 +1274,7 @@
                                 (if (monk-weapon? weapon)
                                   (get ?ability-bonuses ::char5e/dex)
                                   0)))
-                 ;; Unarmored Defense. States "no armor and no shield" directly, where it used to
-                 ;; be implied by writing ?unarmored-ac-bonus and not the with-shield channel.
+                 ;; Unarmored Defense: applies only with no armor and no shield.
                  (mod5e/ac-formula
                   (fn [armor shield]
                     (if (or armor shield)

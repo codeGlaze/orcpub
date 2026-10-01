@@ -52,16 +52,9 @@
    (boolean (:dev-mode? db))))
 
 ;; ---------------------------------------------------------------------------
-;; Memoized library-health detectors.
-;;
-;; These walk the WHOLE library (every source × content-type × item), and the
-;; My Content views call them from several places — the twin index alone was
-;; being rebuilt once per content-type section per source, i.e. dozens of full
-;; walks on every render (and every search keystroke). As re-frame reactions
-;; keyed on ::e5/plugins they compute once per plugins change and share that one
-;; result across every row, section, and page, instead of recomputing in each
-;; component's render body. Keep them here (not inline in views) so the caching
-;; is structural, not something a future caller can accidentally bypass.
+;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
+;; they compute once per library change and share one result across every row, section and page.
+;; Keep them here, not inline in views, so no caller can bypass the caching.
 ;; ---------------------------------------------------------------------------
 
 ;; Cross-source same-key index for the collision-risk types — backs the
@@ -95,22 +88,19 @@
  (fn [plugins _]
    (orcbrew-val/mutual-exclusion-off-count plugins)))
 
-;; Ephemeral overlay for a SHARED character being viewed: content that arrived
-;; embedded in a share link (view-once) lives here, NOT in :plugins, so it is
-;; never persisted to the recipient's library and vanishes on reload without the
-;; link. The content-lookup subs below fold it in (last, so it wins key
-;; collisions for the shared view); the library manager / export read :plugins
-;; directly and never see it. See orcpub.dnd.e5.share-url / share-bundle.
+;; Ephemeral overlay for a SHARED character being viewed: content embedded in a share link lives
+;; here, NOT in :plugins, so it is never persisted and vanishes on reload. The content-lookup subs
+;; fold it in last (it wins key collisions for the shared view); the library manager and export
+;; read :plugins and never see it. See orcpub.dnd.e5.share-url / share-bundle.
 (reg-sub
  ::e5/shared-plugins
  (fn [db _]
    (get db :shared-plugins)))
 
-;; App-shipped example content, fetched at boot into :demo-plugins. The
-;; content-lookup subs fold it in (FIRST, so a user's own content wins a key
-;; collision) so it's usable in the builder, while export / the library manager
-;; read :plugins and never see it. Returns nothing while the pack is hidden by the
-;; user's top-of-My-Content toggle, so nothing else has to check the flag.
+;; App-shipped example content (:demo-plugins). The content-lookup subs fold it in FIRST, so a
+;; user's own content wins a key collision; export and the library manager read :plugins and
+;; never see it. ::e5/demo-plugins returns nil while the user hides the pack (My Content toggle),
+;; so nothing else has to check the flag.
 (reg-sub
  ::e5/demo-hidden?
  (fn [db _]
@@ -155,16 +145,11 @@
  (fn [db _]
    (get db :strict-import?)))
 
-(defn- process-plugin-vals
-  "Filter out malformed/disabled plugin data so a bad entry can't break the
-   subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps.
-
-   `overlay` (optional) applies the two LOCAL disable levels on top of the data
-   levels: :global? drops everything, and :sections drops a whole [source
-   content-type] pair. It's ORed with the source/item :disabled? flags, so an
-   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
-   path) applies only the data levels."
+(defn process-plugin-vals
+  "Clean {content-type {key def}} maps from `plugins`, dropping malformed and disabled items so one
+   bad entry cannot break the subscription chain. Each item carries its address (`:key`,
+   `:option-pack`), which the builders' edit and delete buttons trust. `overlay` (optional) adds the
+   local disable levels: :global? drops everything, :sections drops [source content-type] pairs."
   ([plugins] (process-plugin-vals plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -189,7 +174,10 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             [k v]))
+                             ;; Stamp the address on the item: a stored item may lack `:key` (from
+                             ;; before keys were stored) or carry a stale `:option-pack` (a renamed
+                             ;; source), and this map is the one place both are known.
+                             [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
                 p)))
@@ -257,22 +245,19 @@
  :<- [::e5/disable-overlay]
  :<- [::e5/demo-plugins]
  (fn [[plugins shared overlay demo] _]
-   ;; The disable overlay is a preference over the user's OWN library, so it
-   ;; applies to `plugins` only — demo (app-shipped) and shared (view-once) content
-   ;; are never hidden by the recipient's global/section toggles. Demo is appended
-   ;; FIRST so the user's own library wins a key collision against it; shared is
-   ;; appended LAST so it wins for the shared view only.
+   ;; The disable overlay applies to the user's OWN library only; demo and shared content are
+   ;; never hidden by it. Demo goes FIRST so the user's library wins a key collision against it;
+   ;; shared goes LAST so it wins, for the shared view only.
    (concat (process-plugin-vals demo)
            (process-plugin-vals plugins overlay)
            (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
-  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
-  ;; everything and a section pair drops that content-type from the source, so the
-  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+(defn process-plugins-with-sources
+  ;; [source-name plugin-data] pairs, skipping disabled and malformed entries. Items carry their
+  ;; address as process-plugin-vals stamps it, and the same disable overlay applies, so the
+  ;; dropdowns hide what the rest of the builder hides.
   ([plugins] (process-plugins-with-sources plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -282,9 +267,18 @@
         (fn [[source-name plugin-data]]
           (when (and (map? plugin-data) (not (:disabled? plugin-data)))
             [source-name
-             (into {} (remove (fn [[type-k _]]
-                                (contains? sections [source-name type-k]))
-                              plugin-data))]))
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
         plugins)))))
 
 (reg-sub
@@ -384,16 +378,10 @@
                :edit-event [::races5e/edit-subrace subrace])))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
-;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
-;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc) on profs/resist/immunity/
-;; save-adv/speed but diverges: B uniquely has :spell, :num-attacks, :tool-prof; A uniquely has
-;; :language/:initiative/etc. NOTE on :spell — it calls mod5e/spells-known, granting an *innate
-;; known spell* (castable via the chosen ability, like a racial spell), NOT a spell-slot
-;; progression. Real slot-based spellcasting comes only from the subclass-builder spellcasting UI,
-;; which is gated to #{:fighter :rogue :warlock :cleric :paladin} (views.cljs ~5975) — a custom
-;; non-caster base class cannot be given spellcasting via a subclass through the builders.
-;; The same capability living in two vocabularies (×UI ×compile = four sites) is the prime
-;; sustainability target. See docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
+;; Grant vocabulary B: `:level-modifiers {:type … :value …}` for classes and subclasses (no class
+;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc); only B has :spell,
+;; :num-attacks, :tool-prof. GOTCHA: :spell grants an innate KNOWN spell (mod5e/spells-known), not
+;; spell slots. docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
   (case type
     :weapon-prof (mod5e/weapon-proficiency value)
@@ -674,7 +662,7 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; Ensure the subclass has its key set (the map key is authoritative)
+          ;; the map key is authoritative; :option-pack arrives stamped by the reader
           (let [subclass-with-key (assoc subclass :key subclass-key)
                 levels (make-levels spell-lists spells-map selection-map subclass-with-key)
                 ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
@@ -686,7 +674,8 @@
                    :selections (concat (:selections subclass) ai-sels)
                    :levels levels
                    :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+                   :edit-event [::classes5e/edit-subclass subclass-with-key
+                                source-name subclass-key ::e5/subclasses])))
         (catch js/Error e
           (js/console.warn "Skipping malformed subclass:" subclass-key e)
           nil)))
@@ -781,8 +770,7 @@
     acolyte-bg
     plugin-backgrounds)))
 
-;; The built-in language list moved to languages.cljc so a cljc pool registry can read it.
-;; This var is kept as an alias: existing readers here are unchanged.
+;; Alias of langs5e/languages for this namespace's readers.
 (def languages langs5e/languages)
 
 (reg-sub
@@ -790,7 +778,7 @@
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub
@@ -960,18 +948,10 @@
 
 (defn draconic-ancestry-option [{:keys [name key props breath-weapon]}]
   (t/option-cfg
-   ;; Same mechanical heft for built-in and homebrew ancestries: resistance to the breath
-   ;; damage type + the breath-weapon value the race's Breath Weapon attack reads. Built-in
-   ;; entries carry no :key (so the key derives from name as before — behavior-preserving);
-   ;; homebrew entries pass their stored :key through (identity from a stable id, not a
-   ;; display name — direction doc D10).
-   ;;
-   ;; Richer ancestries (e.g. Fizban's gem/metallic dragonborn, or homebrew) can carry EXTRA
-   ;; mechanics beyond resistance+breath as a declarative :props map — flying/swimming speed,
-   ;; saving-throw advantage, skill profs, languages, etc. — compiled by the SAME
-   ;; opt5e/plugin-modifiers vocabulary homebrew races/feats already use. Built-in colours
-   ;; have no :props, so they are unchanged. (Level-gated ancestry features — Gem Flight at 5,
-   ;; Chromatic Warding — are NOT yet expressible this way; see the direction doc pins.)
+   ;; Built-in and homebrew alike: resistance to the breath damage type + the breath-weapon value
+   ;; the Breath Weapon attack reads. Homebrew passes its stored :key (D10); built-in has none, so
+   ;; the key derives from the name. Optional :props adds mechanics via opt5e/plugin-modifiers;
+   ;; level-gated ancestry features (Gem Flight, Chromatic Warding) are not expressible.
    (cond-> {:name name
             :modifiers (concat
                         [(mod5e/damage-resistance (:damage-type breath-weapon))
@@ -1025,23 +1005,18 @@
  (fn [plugin-vals _]
    (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
 
-;; The open fighting-style pool a feat's :grants {:pool :fighting-styles} draws from:
-;; the built-in styles ++ any homebrew styles an orcbrew pack adds under
-;; ::e5/fighting-styles. Unlike the draconic pool, the built-ins are ALREADY option
-;; cfgs (opt5e/fighting-style-options) while homebrew arrive as raw data, so the
-;; constructor is mapped over the homebrew entries only, then concatenated built-in
-;; first. Reads through ::e5/plugin-vals like every plugin pool.
+;; Homebrew fighting styles (::e5/fighting-styles), raw. Feats grant from
+;; ::classes5e/fighting-style-pool: built-in option cfgs first, then these mapped through
+;; opt5e/fighting-style-option. A class's own choice takes these RAW entries, because the
+;; `:classes` divvying rule reads authored data.
 (reg-sub
  ::classes5e/homebrew-fighting-styles
  :<- [::e5/plugin-vals]
  (fn [plugin-vals _]
    (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))
 
-;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
-;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
-;; THE grantable-pool registry, resolved. One sub for every pool: registering a pool is an entry in
-;; grant_pools.cljc and nothing here, which is the acceptance gate the direction doc sets. Derives
-;; from ::e5/plugin-vals — the single resolved-content seam every pool must read through.
+;; THE grantable-pool registry, resolved: one sub for every pool. Registering a pool is one entry
+;; in grant_pools.cljc and nothing here. Reads ::e5/plugin-vals, the seam every pool reads through.
 (reg-sub
  ::e5/grantable-pools
  :<- [::e5/plugin-vals]
@@ -1556,12 +1531,9 @@
                      (spell-option spells-map [nil spell-key ability-key class-name]))))
              levels))))
 
-;; Builder-item passthrough subscriptions, generated from the content-types registry
-;; (Phase 4b). Each homebrew content type exposes its in-progress builder item via
-;; ::<type>/builder-item. This loop registers the same 13 subs the hand-written block
-;; used to; the registry is the single source of truth (see content_types.cljc).
-;; content_types_test/builder-items-match-the-subs locks this set against drift.
-;; (Magic-item and combat are not registry types — the combat tracker-item sub stays below.)
+;; One builder-item passthrough sub per content-types registry entry: ::<type>/builder-item
+;; returns the in-progress builder item. content_types_test/builder-items-match-the-subs locks
+;; the set. Magic-item and combat are not registry types; the combat tracker-item sub is below.
 (doseq [{:keys [builder-item]} ct/content-types]
   (reg-sub builder-item (fn [db _] (get db builder-item))))
 

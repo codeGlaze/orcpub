@@ -12,6 +12,7 @@
             [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             ;; the rename history (:former-keys) is written here and read by the heal path
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library-links :as links]
             [orcpub.common :as common]))
 
 ;; Forward declarations for functions used before definition
@@ -82,15 +83,11 @@
     s))
 
 (defn count-non-ascii
-  "Count non-ASCII chars left after normalization so the importer can WARN about
-   content `normalize-text` deliberately keeps (e.g. accented letters — the
-   `unicode-to-ascii` map normalizes typographic punctuation but NOT letters).
-   Returns {:count N :chars #{...}} or nil if all ASCII. No callers yet; kept
-   correct for a future warn-don't-strip wire-up.
-
-   NOTE: cljs has no char type — seq'ing a string yields 1-char STRINGS, and
-   `(int \"é\")` is 0, NOT the code point, so `(> (int %) 127)` silently never
-   fires. Use `.charCodeAt`."
+  "Counts the non-ASCII chars `normalize-text` leaves (accented letters; `unicode-to-ascii` maps
+   punctuation only), for a future import warning; no callers yet. Returns {:count N :chars #{...}},
+   or nil when `s` is all ASCII or not a string.
+   GOTCHA: seq'ing a cljs string yields 1-char strings, and `(int \"é\")` is 0, not the code point;
+   use `.charCodeAt`."
   [s]
   (when (string? s)
     (let [non-ascii (filter #(> (.charCodeAt % 0) 127) s)]
@@ -115,16 +112,11 @@
 ;; ============================================================================
 
 (def crash-prevention-fields
-  "Hand-maintained EXTRA required fields (beyond any type's field schema) that keep the app
-   from breaking on import — auto-filled with dummies. The schema's required fields are merged
-   in by `required-fields` below, so this only holds what the schemas DON'T cover (e.g. the
-   universal :name, parent refs, and value checks for types with no field schema yet).
-
-   Structure: {content-type {:field-name {:dummy <value> :check-fn <optional-predicate>}}}
-
-   :dummy - The placeholder value to use when field is missing
-   :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
-               Default check is just (some? value)"
+  "Required fields the field schemas DON'T cover (the universal :name, parent refs, value checks
+   for types with no schema), filled with dummies on import so the app does not break.
+   `required-fields` merges in the schemas' own required fields.
+   Shape: {content-type {field {:dummy <placeholder when missing> :check-fn <optional pred>}}}.
+   A field fails when (check-fn value) is false; without :check-fn, when (some? value) is false."
   {:orcpub.dnd.e5/classes
    {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here
@@ -321,11 +313,9 @@
   (or (common/repair-name-lead nm) fallback))
 
 (defn sanitize-item-names
-  "Coerce the item's :name — and any nested :traits/:options names — to a valid,
-   letter-starting name (invalid/blank ones become a placeholder), then re-derive
-   the top-level :key from the coerced name. This is what makes 'save anyway'
-   safe: it can never persist a name that yields an invalid/structural key (the
-   keyword-trap class), the way it used to with e.g. \"1@-asdml;\"."
+  "`item` with its :name, and any nested :traits/:options names, coerced to a valid
+   letter-starting name; invalid or blank ones become \"Unnamed <type-label>\".
+   Never touches :key: a key is minted once and changed only by rename-key-in-plugin."
   [item type-label]
   (let [coerce-nested (fn [coll]
                         (if (vector? coll)
@@ -337,7 +327,7 @@
         item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
                 (:traits item)  (update :traits coerce-nested)
                 (:options item) (update :options coerce-nested))]
-    (assoc item* :key (common/name-to-kw (:name item*)))))
+    item*))
 
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.
@@ -468,11 +458,7 @@
   "Dedup options for a content item, handling BOTH shapes → [updated-item changes]:
    - a top-level homebrew selection whose `:options` live on the item, and
    - a content item (class/race/…) with a nested `:selections` map, each carrying
-     its own `:options`.
-
-   The first branch closed a gap: dedup used to walk only nested `:selections`, so
-   duplicate options on an actual homebrew Selection went undeduped on import
-   (guarded by test-dedup-options-in-import-full-pipeline)."
+     its own `:options`."
   [item]
   (cond
     ;; Top-level selection item — dedup its own :options.
@@ -610,14 +596,9 @@
 ;; ============================================================================
 ;; Error Message Formatting
 ;;
-;; Spec problems are notoriously hard to read in the dev console: predicates
-;; come through as raw compiler forms like
-;;   (cljs.core/fn [v] (cljs.core/or (cljs.core/= v :disabled?) ...))
-;; and the `:in` path uses bare integers (0 = a map entry's key, 1 = its
-;; value) that mean nothing to a human. The helpers below translate problems
-;; into plain English, using the failing spec name (`:via`) and a small table
-;; of known predicates, and surface the offending item's :name/:key instead of
-;; a value blindly chopped at 50 characters.
+;; Turns spec problems into plain English for the console: names the failing spec (`:via`) and
+;; known predicates from a small table, drops the 0/1 map-entry selectors from `:in` paths, and
+;; shows the offending item's :name/:key instead of a value cut at 50 characters.
 ;; ============================================================================
 
 (defn- pred-base-name
@@ -725,11 +706,9 @@
   [in]
   (if (empty? in)
     "the top level"
-    ;; A trailing 0 means the spec problem is about a map KEY itself (0 = key,
-    ;; 1 = value in map-of navigation), so we prefix the crumb with "the key".
-    ;; Known limitation: a genuine vector index of 0/1 is also treated as entry
-    ;; navigation and dropped — acceptable since this is console-only wording and
-    ;; `:in` alone can't tell a vector index from a map-entry selector.
+    ;; A trailing 0 means the problem is about a map KEY (0 = key, 1 = value in map-of
+    ;; navigation), so the crumb says "the key". A genuine vector index 0/1 is dropped as entry
+    ;; navigation too: `:in` alone cannot tell them apart.
     (let [targets-key? (= 0 (last in))
           segs (->> in
                     (remove map-entry-selector?)
@@ -784,11 +763,9 @@
   ([explain-data max-problems]
    (when explain-data
      (let [problems (:cljs.spec.alpha/problems explain-data)
-           ;; `:in` paths of the more specific (non-boolean) failures. When a
-           ;; map value fails `(s/or :items ... :bool boolean?)`, spec reports
-           ;; both the deep :items failure and a shallow "must be true or false"
-           ;; twin at the value's path; the latter is just noise, so drop it
-           ;; when a deeper specific failure exists under the same path.
+           ;; `:in` paths of the specific (non-boolean) failures. A value failing
+           ;; `(s/or :items ... :bool boolean?)` also reports a shallow "must be true or false"
+           ;; twin at its path; that twin is dropped when a deeper specific failure exists.
            specific-paths (keep (fn [{:keys [pred in]}]
                                   (when (not= "boolean?" (pred-base-name pred)) in))
                                 problems)
@@ -919,13 +896,9 @@
      :invalid-items (mapv #(select-keys % [:key :errors]) invalid)}))
 
 (defn validate-plugin-progressive
-  "Validates a plugin progressively, identifying which specific items are invalid.
-
-  Returns map with:
-    :valid - true if entire plugin is valid
-    :content-groups - validation results for each content type
-    :valid-items-count - total valid items
-    :invalid-items-count - total invalid items"
+  "Validates each content group of `plugin`, identifying which items are invalid. Returns
+   {:valid <true when no item is invalid> :content-groups <per-type results>
+   :valid-items-count n :invalid-items-count n}."
   [plugin]
   (let [content-groups (filter
                         (fn [[k _]] (and (qualified-keyword? k)
@@ -1043,17 +1016,10 @@
      :blocked (count blockers)}))
 
 (defn apply-user-edits-to-plugin
-  "Apply the user's export-modal edits to a plugin, then dummy-fill remaining gaps
-   into complete/valid content. Used wherever auto-fixed data is needed: the export
-   FILE, the write-back to My Content (so library matches file; placeholders are
-   self-labeling and flagged), and quarantine repair (re-validates first).
-
-   edits is a map of vector-path → value, e.g.:
-     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :level] → 3
-     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :trait 0 :name] → \"Fire Aura\"
-
-   Only edits whose first element matches plugin-name are applied; blank/NaN
-   values are ignored."
+  "Applies the export-modal `edits` ({[plugin-name content-type item-key & field-path] value}) to
+   `plugin`, then dummy-fills the remaining gaps (fill-missing-for-export). Only edits for
+   `plugin-name` apply; nil, NaN and blank values are skipped. A [:trait idx field] path edits that
+   trait. Used for the export file, the write-back to My Content, and quarantine repair."
   [plugin plugin-name edits]
   (let [edited-plugin
         (reduce-kv
@@ -1131,17 +1097,10 @@
    plugin))
 
 (defn import-progressive
-  "Progressive import: imports valid items and reports invalid ones.
-
-  Returns:
-    {:success true
-     :data <cleaned-plugin>
-     :imported-count <number>
-     :skipped-count <number>
-     :skipped-items [...]}
-
-  This allows users to recover as much data as possible from corrupted files.
-  Handles both single-plugin and multi-plugin structures."
+  "Imports the valid items of `plugin` and reports the invalid ones. Returns {:success true
+   :data <cleaned plugin> :imported-count n :skipped-count n :skipped-items [...] :had-errors b},
+   or {:success false :errors [...]} for a non-map. A multi-plugin map passes through whole and is
+   only counted."
   [plugin]
   (if (map? plugin)
     (if (is-multi-plugin? plugin)
@@ -1318,17 +1277,10 @@
      {:data data :changes []})))
 
 (defn rename-empty-plugin-key-with-log
-  "Renames a blank top-level SOURCE key (\"\") to a unique fallback name, tracking
-   changes. Returns {:data <cleaned> :changes [...]}.
-
-   DELIBERATE — do NOT collapse this into the Default Option Source. A blank
-   top-level key means a whole source arrived with no name (malformed / hand-edited
-   / a bad export), which is a DIFFERENT case from source-less ITEMS (a blank
-   :option-pack, which IS filled to `default-option-source` elsewhere). Nameless
-   sources are parked in a DISTINCT \"Unnamed Content\" bucket on purpose, so a user
-   can FIND and fix them in My Content instead of having them silently absorbed into
-   the default. Multiple nameless sources get numbered (\"Unnamed Content 2\", …) so
-   one never overwrites another."
+  "Renames a blank top-level SOURCE key (\"\") to \"Unnamed Content\" (numbered \"Unnamed
+   Content 2\", … when taken). Returns {:data <cleaned> :changes [...]}.
+   GOTCHA: deliberately NOT `default-option-source`, which is for source-less ITEMS (blank
+   :option-pack); a nameless source stays a distinct bucket the user can find in My Content."
   [data]
   (if (and (map? data) (contains? data ""))
     (let [base-name "Unnamed Content"
@@ -1360,12 +1312,8 @@
                            (:changes step2)
                            (:changes step3)))}))
 
-;; Keep original functions for backwards compatibility
-;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
-;; content-library code sweep found no callers of these bare wrappers anywhere
-;; (all live callers use the *-with-log variants above). Left pending a
-;; dedicated housekeeping pass to confirm the "backwards compatibility" note
-;; still applies before removing.
+;; Wrappers returning only the :data of the *-with-log fns above, kept for backwards compatibility.
+;; INVESTIGATE: no callers found; confirm the compatibility need still applies, then remove.
 (defn clean-nil-in-map [m]
   (:data (clean-nil-in-map-with-log m)))
 
@@ -1448,9 +1396,25 @@
    :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
    :orcpub.dnd.e5/boons "Boon"})
 
+(defn fill-option-pack
+  "`plugin` with every item's blank or missing `:option-pack` set to `source-name`, the source it
+   is stored under. Items that name a source keep it."
+  [plugin source-name]
+  (reduce-kv (fn [p ct items]
+               (assoc p ct (if (and (qualified-keyword? ct) (map? items))
+                             (reduce-kv (fn [m k item]
+                                          (assoc m k (if (and (map? item)
+                                                              (str/blank? (str (:option-pack item))))
+                                                       (assoc item :option-pack source-name)
+                                                       item)))
+                                        {} items)
+                             items)))
+             {} plugin))
+
 (defn coerce-invalid-names
   "Coerce any present-but-INVALID item name (and nested trait/option names) to a
-   valid letter-leading placeholder, re-keying the item from the fixed name.
+   valid letter-leading placeholder. Keys are left alone; e5/rekey-plugin moves an
+   item whose key is invalid to the key derived from its fixed name.
    Blanks are already handled by fill-missing-*; this catches the
    present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
    just works in one click instead of forcing the user to hand-type a name."
@@ -1573,15 +1537,11 @@
        (into {} (filter (fn [[_ entries]] (< 1 (count entries)))))))
 
 (defn twin-note
-  "Describe one item's mutual-exclusion relationship with its same-key twins, or
-   nil when there is no cross-source collision to explain. Given the twin index
-   and the item's [source content-type key] + its disabled? flag, returns:
-     {:kind :conflict :twin-name .. :twin-source ..} this item is ON and ANOTHER
-                                                      copy is ALSO on (unresolved —
-                                                      the app can't tell which wins)
-     {:kind :off :twin-name .. :twin-source ..}  this item is OFF, a twin is ON
-     {:kind :on  :twin-name .. :twin-source ..}  this item is ON, a twin is OFF
-   Never fires for plain user-disables with no live twin."
+  "Describes one item's relationship with its same-key twins in other sources, or nil when there
+   is none. Given the twin index, the item's [source content-type key] and its disabled? flag,
+   returns {:kind k :twin-name .. :twin-source ..}: :conflict when this item and a twin are both
+   ON (unresolved; the app can't tell which wins), :off when this is OFF and a twin ON, :on when
+   this is ON and a twin OFF. Never fires for plain user-disables with no live twin."
   [twin-idx source content-type key disabled?]
   (when-let [entries (get twin-idx [content-type key])]
     (let [others (remove #(= source (:source %)) entries)]
@@ -1663,16 +1623,9 @@
   (count (unresolved-collisions plugins)))
 
 (defn detect-duplicate-keys
-  "Detects duplicate keys in imported data and against existing plugins.
-
-   Parameters:
-   - import-data: the data being imported (single or multi-plugin)
-   - existing-plugins: currently loaded plugins map (optional)
-   - import-source-name: name for single-plugin imports
-
-   Returns:
-   {:internal-conflicts [...] - duplicates within the import
-    :external-conflicts [...] - conflicts with existing plugins}"
+  "Detects duplicate keys within `import-data` (single or multi-plugin) and against
+   `existing-plugins` (optional); `import-source-name` names a single-plugin import.
+   Returns {:internal-conflicts [...] :external-conflicts [...]}."
   [import-data existing-plugins import-source-name]
   (let [;; Normalize import to multi-plugin format for consistent processing
         import-as-multi (if (is-multi-plugin? import-data)
@@ -1729,13 +1682,9 @@
 ;; ============================================================================
 ;; Fuzzy Key Matching
 ;; ============================================================================
-;; INVESTIGATE 2026-08-23: this whole cluster is pre-existing before this branch
-;; (af228f12) and a content-library code sweep found no callers — its entry point
-;; suggest-key-matches is unused, and the live "did you mean" matcher is
-;; key-similarity/find-similar-content in orcpub.dnd.e5.content-reconciliation,
-;; which appears to have superseded it. Left in place pending a dedicated
-;; housekeeping pass to confirm and remove (with its Levenshtein tests) rather
-;; than widening this feature branch's scope.
+;; INVESTIGATE: no callers found for this cluster (entry point suggest-key-matches); the live "did
+;; you mean" matcher is key-similarity/find-similar-content in content-reconciliation. Confirm,
+;; then remove it with its Levenshtein tests.
 
 (defn levenshtein-distance
   "Calculate the Levenshtein edit distance between two strings.
@@ -1851,18 +1800,11 @@
 ;; ============================================================================
 
 (defn correct-library
-  "Runs the same data-level cleanups the importer runs, but over an entire
-   already-parsed library (multi-plugin map of source-name -> plugin), and
-   detects cross-source key conflicts. This is the single gate both boundaries
-   share: whatever import would fix, export runs too.
-
-   Returns {:data <corrected library>
-            :changes [...]                ; silent fixes applied (for logging)
-            :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
-
-   Note: unlike the import pipeline this does NOT auto-fill missing required
-   fields — on export those are surfaced to the user through the fill-in dialog
-   (classify-plugins-for-export) rather than silently placeholdered."
+  "Runs the importer's data-level cleanups and cross-source key-conflict detection over a parsed
+   library ({source-name plugin}): the one gate import and export share. Returns {:data <corrected>
+   :changes [...silent fixes] :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
+   GOTCHA: does NOT fill missing required fields; export surfaces those in the fill-in dialog
+   (classify-plugins-for-export)."
   [library]
   (let [normalized (normalize-text-in-data library)
         text-normalized? (not= library normalized)
@@ -1886,17 +1828,11 @@
 ;; ============================================================================
 
 (defn validate-import
-  "Main validation function for orcbrew file imports.
-
-  Options:
-    :strategy - :strict (all-or-nothing) or :progressive (import valid items)
-    :auto-clean - whether to apply automatic cleaning fixes
-    :existing-plugins - currently loaded plugins (for duplicate key detection)
-    :import-source-name - name to use for single-plugin imports
-
-  Returns detailed validation results with user-friendly error messages.
-  Includes :changes key with list of all cleaning operations performed.
-  Includes :key-conflicts key with duplicate key warnings."
+  "Validates and cleans orcbrew `edn-text` for import. Opts: :strategy :strict (all-or-nothing) or
+   :progressive (default; imports valid items), :auto-clean (default true) applies cleaning fixes,
+   :auto-fill (default true) fills missing required fields, :existing-plugins for duplicate-key
+   detection, :import-source-name names a single-plugin import. Returns results with user-friendly
+   errors, :changes (the cleaning performed) and :key-conflicts."
   [edn-text {:keys [strategy auto-clean auto-fill existing-plugins import-source-name]
              :or {strategy :progressive auto-clean true auto-fill true}}]
 
@@ -2029,46 +1965,34 @@
 ;; Key Renaming (for conflict resolution)
 ;; ============================================================================
 
-(def key-reference-map
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/links.
+#_(def key-reference-map
   "Maps content types to fields that reference other content keys.
    Used to update internal references when renaming keys."
   {:orcpub.dnd.e5/subclasses {:class :orcpub.dnd.e5/classes}    ; :class field references a class key
    :orcpub.dnd.e5/subraces {:race :orcpub.dnd.e5/races}})       ; :race field references a race key
 
 (defn generate-new-identity
-  "The {:name :key} an item takes when its source disambiguates it -- \"Artificer\"
-   from \"Kibbles Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}.
-
-   The key comes from the tagged NAME, so re-deriving it reproduces it. That is the
-   whole reason this exists: the visible name carries the disambiguation, and the
-   key just follows from it. It replaced a generate-new-key that minted a key on
-   its own, which reverted on the item's next save and brought the conflict back.
-
-   `taken?` (optional) is a predicate on a candidate key; when it reports a clash
-   the counter goes inside the parentheses -- \"Artificer (KsTy 2)\" -- so the
-   tie-break stays in the name and round-trips like the rest."
+  "The {:name :key} an item takes when its source disambiguates it: \"Artificer\" from \"Kibbles
+   Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}. The key derives from the
+   tagged name, so re-deriving it reproduces it. `taken?` (optional) is a predicate on a candidate
+   key; on a clash the counter goes inside the parentheses (\"Artificer (KsTy 2)\")."
   ([item-name source-name] (common/disambiguated item-name source-name))
   ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
+(def ^:private referenced-content-types
+  "Content types another item can point at by key (library-links/links :to)."
+  (set (map :to links/links)))
+
+(declare rename-key-in-plugin)
+
 (defn relocate-content
-  "Move or copy selected homebrew items to a target source. `selections` is a seq
-   of [source content-type key]; `op` is :move or :copy. Returns
-   {:plugins <new> :placed n :renamed [{:from :to :ct}] :missing n}.
-
-   Single vs bulk is just the length of `selections` — one mechanism for both.
-
-   Policy — predictable and clobber-free:
-   • MOVE relocates the item with its key AND name preserved, UNLESS the target
-     already holds that key — then it is disambiguated by the target's
-     abbreviation (\"Artificer\" -> \"Artificer (KsTy)\") and the key derived from
-     that name, so nothing is overwritten and the key survives a later save.
-     Moving an item to the source it already lives in is a no-op.
-   • COPY always disambiguates — a copy is a new, independent variant, which also
-     avoids creating a nondeterministic same-key twin of the original.
-   The placed item's :key and :option-pack are retagged to its new home, and its
-   :name carries the disambiguation whenever the key was not kept as-is. Selections
-   are applied in order against the accumulating result, so keys minted earlier in
-   the batch are accounted for when uniquifying later ones."
+  "Moves (`op` :move) or copies (:copy) `selections` ([source content-type key] ...) in `plugins`
+   to source `target`, as {:plugins :placed :renamed [{:from :to :ct :source}] :missing}. A move
+   keeps key and name unless `target` holds the key; then, and always for a copy, the name gains
+   the target's abbreviation (\"Artificer (KsTy)\") and the key derives from it. Moving to the
+   item's own source does nothing. Parents (classes, races) go first so later keys avoid earlier
+   ones."
   [plugins selections target op]
   (let [copy? (= op :copy)]
     (reduce
@@ -2079,27 +2003,44 @@
            (and (not copy?) (= src target))  (update acc :placed inc) ; already home
            :else
            (let [target-map (get-in plugins [target ct])
-                 ;; A relocation that has to rename disambiguates by NAME and
-                 ;; derives the key from it, exactly as an import conflict does.
-                 ;; Minting a key alone (what this used to do) leaves the item
-                 ;; called "Artificer" while keyed :artificer-kt, so the next save
-                 ;; in the builder re-derives :artificer and the item collides in
-                 ;; its new home all over again.
+                 ;; A renaming relocation disambiguates by NAME and derives the key from it, as an
+                 ;; import conflict does; the new key must also be free inside the source, where a
+                 ;; renaming move rekeys it.
+                 source-map (get-in plugins [src ct])
                  ident      (when (or copy? (contains? target-map k))
                               (generate-new-identity (or (:name item) (common/kw-to-name k))
                                                      target
-                                                     #(contains? target-map %)))
+                                                     #(or (contains? target-map %)
+                                                          (and (not copy?) (not= % k)
+                                                               (contains? source-map %)))))
                  new-key    (if ident (:key ident) k)
-                 new-item   (cond-> (assoc item :key new-key :option-pack target)
-                              ident (assoc :name (:name ident)))
-                 p1         (assoc-in plugins [target ct new-key] new-item)
-                 p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
-             (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
-               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
+                 ;; A renaming MOVE goes through rename-key-in-plugin in the source first, as an
+                 ;; import conflict does: it repoints the source's subclasses/subraces and records
+                 ;; the old key so characters rebind. A copy skips this.
+                 renamed-in-src (if (and ident (not copy?))
+                                  (update plugins src rename-key-in-plugin ct k new-key (:name ident))
+                                  plugins)
+                 new-item   (cond-> (assoc (if (and ident (not copy?))
+                                             (get-in renamed-in-src [src ct new-key])
+                                             item)
+                                           :key new-key :option-pack target)
+                              ident (assoc :name (:name ident))
+                              ;; the original keeps its history; a copy claiming it too would make
+                              ;; every old key ambiguous, and characters would stop healing
+                              copy? (dissoc :former-keys :former-key))
+                 p1         (assoc-in renamed-in-src [target ct new-key] new-item)
+                 p2         (if copy? p1 (update-in p1 [src ct] dissoc (if ident new-key k)))]
+             (cond-> (-> acc (assoc :plugins p2) (update :placed inc)) ;; not app-db
+               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct :source src}))))))
      {:plugins plugins :renamed [] :placed 0 :missing 0}
-     selections)))
+     ;; Parents first. The selection arrives as a set, in hash order, so a subclass
+     ;; could otherwise move before its class; the class's rename then repoints only
+     ;; what is still in the source, and the subclass sits in the target on the old
+     ;; key, under the target's same-keyed class. Stable, so order within a rank holds.
+     (sort-by (fn [[_ ct _]] (if (contains? referenced-content-types ct) 0 1)) selections))))
 
-(defn update-references-in-item
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/repoint.
+#_(defn update-references-in-item
   "Update references to a renamed key within a single item.
    reference-field: the field in this item that may reference the old key
    old-key: the original key being renamed
@@ -2109,7 +2050,7 @@
     (assoc item reference-field new-key)
     item))
 
-(defn update-references-in-content-group
+#_(defn update-references-in-content-group
   "Update all references to a renamed key within a content group."
   [items reference-field old-key new-key]
   (into {}
@@ -2118,45 +2059,20 @@
              items)))
 
 (defn rename-key-in-plugin
-  "Rename a key within a single plugin, updating all internal references.
-
-   Parameters:
-   - plugin: the plugin data map
-   - content-type: which content type contains the key (e.g., :orcpub.dnd.e5/classes)
-   - old-key: the current key to rename
-   - new-key: the new key to use
-   - new-name: (optional) the item's new display name, when the rename is a
-     disambiguation that renamed the item too. Omitted, only the key moves.
-
-   Returns the updated plugin with:
-   1. The item moved to the new key
-   2. Its :name replaced when new-name is given
-   3. All internal references updated (e.g., subclasses pointing to renamed class)"
+  "`plugin` with `content-type`'s `old-key` renamed to `new-key`: the item moves, takes `new-name`
+   as its `:name` when given (a disambiguating rename), records `old-key` in `:former-keys`, and
+   every link in this plugin that named `old-key` is repointed (library-links/links)."
   ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
   ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
-    ;; Only rename when the item actually exists. A redundant rename (e.g. a key
-    ;; that is BOTH an internal conflict — same key across import sources — and an
-    ;; external one vs existing content generates two renames for it) would
-    ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
-    ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
+    ;; Only rename when the item exists. A key that is both an internal and an external conflict
+    ;; gets two renames; the second would `(assoc new-key nil)`, and that `key -> nil` entry fails
+    ;; ::plugin and quarantines the whole source.
     (if-let [item (get content-group old-key)]
-      (let [;; Step 1: Rename the key in its content group. Update the item's OWN
-            ;; :key field too — the content subs (map-by-key) key by :key, so a
-            ;; stale :key would re-collide at read time and undo the rename.
-            ;; Record where this item came from. A character that selected it under
-            ;; the old key can be rebound on load (content-reconciliation/
-            ;; former-key-index), so resolving an import conflict stops silently
-            ;; unbinding everyone who already used the content.
-            ;;
-            ;; One key, not a history: the common case is a single disambiguation
-            ;; at import, a bounded field is defensible travelling in an .orcbrew,
-            ;; and anything a chain loses is caught by the relink UI. Renaming
-            ;; A -> B -> C remembers B.
-            ;; The name moves with the key when the caller supplies one. Key and
-            ;; name have to change together or the invariant they were computed
-            ;; under (key = name-to-kw of name) is broken the moment it is stored,
-            ;; and the next save in the editor derives the OLD key back.
+      (let [;; Step 1: move the item to new-key. Its own :key moves too (content subs key by :key,
+            ;; so a stale one re-collides); :former-keys records old-key so characters that chose
+            ;; it rebind on load (former-key-index); new-name, when given, moves with the key, or
+            ;; the next editor save derives the OLD key back from the name.
             updated-group (-> content-group
                               (dissoc old-key)
                               (assoc new-key (cond-> (-> item
@@ -2164,39 +2080,18 @@
                                                           (content-recon/record-former-key old-key))
                                                new-name (assoc :name new-name))))
 
-            ;; Step 2: Find content types that reference this type
-            referencing-types (keep (fn [[ct refs]]
-                                      (when (some #(= (val %) content-type) refs)
-                                        [ct (key (first (filter #(= (val %) content-type) refs)))]))
-                                    key-reference-map)
-
-            ;; Step 3: Update references in those content types
-            updated-plugin (reduce
-                            (fn [p [ref-content-type ref-field]]
-                              (if-let [ref-group (get p ref-content-type)]
-                                (assoc p ref-content-type
-                                       (update-references-in-content-group
-                                        ref-group ref-field old-key new-key))
-                                p))
-                            (assoc plugin content-type updated-group)
-                            referencing-types)]
+            ;; Step 2: repoint every link in this source that names the old key.
+            updated-plugin (links/repoint (assoc plugin content-type updated-group)
+                                          content-type old-key new-key)]
         updated-plugin)
       ;; old-key already gone — a no-op, not a nil-clobber.
       plugin)
     plugin)))
 
 (defn rename-key-in-plugins
-  "Rename a key within a multi-plugin structure.
-
-   Parameters:
-   - plugins: map of {source-name plugin-data}
-   - source-name: which source contains the key to rename
-   - content-type: which content type (e.g., :orcpub.dnd.e5/classes)
-   - old-key: current key
-   - new-key: new key
-   - new-name: (optional) the item's new display name
-
-   Returns updated plugins map."
+  "`plugins` ({source-name plugin}) with `source-name`'s `content-type` item renamed from
+   `old-key` to `new-key` (and `new-name` when given), as rename-key-in-plugin does. Unchanged
+   when the source is absent."
   ([plugins source-name content-type old-key new-key]
    (rename-key-in-plugins plugins source-name content-type old-key new-key nil))
   ([plugins source-name content-type old-key new-key new-name]
@@ -2206,14 +2101,9 @@
      plugins)))
 
 (defn apply-key-renames
-  "Apply a batch of key renames to import data.
-
-   Parameters:
-   - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :from :to :to-name}, where :to-name
-     is optional and renames the item's display name alongside its key.
-
-   Returns updated data with all renames applied."
+  "Import `data` (one plugin or several) with `renames` ({:source :content-type :from :to :to-name?}
+   ...) applied; `:to-name` also renames the item. Links follow only inside each item's own source;
+   `library/repoint-offer` finds the rest, to ask about."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce

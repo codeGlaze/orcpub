@@ -227,7 +227,6 @@
   [:div.conflict-modal
    [:div.conflict-modal-header
     [:div.flex.align-items-c
-     [:i.fa.fa-magic.m-r-5.conflict-title-icon]
      [:span.f-s-18.f-w-b.conflict-title "Ready to import"]]
     [:div.f-s-12.conflict-subtitle (str "Importing: " import-name)]
     [:div.f-s-12.conflict-count
@@ -257,7 +256,6 @@
     [:div.conflict-modal
      [:div.conflict-modal-header
       [:div.flex.align-items-c
-       [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
        [:span.f-s-18.f-w-b.conflict-title.warn "Key Conflicts Detected"]]
       [:div.f-s-12.conflict-subtitle
        (str (if library? "In: " "Importing: ") import-name)]
@@ -466,7 +464,6 @@
         ;; Header
         [:div.conflict-modal-header
          [:div.flex.align-items-c
-          [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
           [:span.f-s-18.f-w-b.conflict-title.warn "Missing Required Fields"]]
          [:div.f-s-12.conflict-subtitle
           (if multi?
@@ -536,7 +533,6 @@
        [:div.conflict-modal
         [:div.conflict-modal-header
          [:div.flex.align-items-c
-          [:i.fa.fa-i-cursor.m-r-5.conflict-title-icon]
           [:span.f-s-18.f-w-b.conflict-title "Which source name?"]]
          [:div.f-s-12.conflict-subtitle
           "This file's name differs from the source its content came from."]]
@@ -548,10 +544,10 @@
           [:strong.conflict-source-existing content-name] "."]
          [:div.f-s-14.m-t-10 "Import it under which name?"]]
         [:div.conflict-modal-footer
-         [:span.link-button
+         [:button.link-button.underline
           {:on-click #(dispatch [:cancel-source-name-choice])}
           "Cancel"]
-         [:button.form-button
+         [:button.link-button.underline
           {:on-click #(dispatch [:resolve-source-name filename-name])}
           (str "Rename to “" filename-name "”")]
          [:button.form-button
