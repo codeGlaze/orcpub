@@ -290,6 +290,19 @@
     (when-let [img (placed-of head)]
       (fx/crown (alpha-fn img) w h))))
 
+(defonce ^:private strand-cache (atom {}))
+
+(defn- strand-field-of
+  "The piece's strand field (portrait-effects/strand-field). It depends only
+   on the art, so it is worked out once per piece and size, not per render."
+  [^BufferedImage img ^ints d url crown layer-key w h]
+  (let [k [url w h crown]]
+    (or (get @strand-cache k)
+        (let [f (fx/strand-field (fn [i] (bit-and (aget d (int i)) 0xffffff)) (alpha-fn img) w h
+                                 (or crown [(/ w 2.0) 0.0]) (fx/piece-seed layer-key))]
+          (swap! strand-cache #(assoc (if (> (count %) 24) {} %) k f))
+          f))))
+
 (defn- draw-ombre-layer!
   "A hair piece: coloured root to tip (portrait-effects/ombre-rgb) instead of
    one flat colour, the linework kept."
@@ -301,8 +314,12 @@
                                                               (pa/selected-asset portrait layer-key))
           root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
           [root-rgb tip-rgb] (fx/layer-colours layer-key root-rgb (or (some-> tip colorize/hex->rgb) root-rgb) settings)
-          pix (fx/pixel-fn root-rgb tip-rgb settings
-                           (fx/gradient-frame (alpha-fn img) w h crown angle) layer-key)]
+          frame (fx/gradient-frame (alpha-fn img) w h crown angle)
+          ;; streaks only show where there is a second colour to streak
+          field (when (and tip (pos? (:clumps settings)))
+                  (strand-field-of img d (:asset/url (pa/selected-asset portrait layer-key))
+                                   crown layer-key w h))
+          pix (fx/pixel-fn root-rgb tip-rgb settings frame layer-key field)]
       (dotimes [i (* w h)]
         (let [argb (aget d i)
               a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]

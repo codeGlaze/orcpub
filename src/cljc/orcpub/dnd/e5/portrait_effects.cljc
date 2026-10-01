@@ -41,6 +41,15 @@
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
+(defn- new-doubles [n]
+  #?(:clj (double-array n) :cljs (js/Float64Array. n)))
+
+;; typed on the JVM, where an untyped aget over a whole frame reflects
+#?(:clj  (defn- ag ^double [^doubles a ^long i] (aget a i))
+   :cljs (defn- ag [a i] (aget a i)))
+#?(:clj  (defn- as! [^doubles a ^long i ^double v] (aset a i v))
+   :cljs (defn- as! [a i v] (aset a i v)))
+
 (defn ombre-settings
   "The portrait's ombre settings with defaults filled in and anything out of
    range pulled back in: a stored value is checked on the way out, as colours
@@ -223,6 +232,11 @@
       [(f root) (f tip)])
     [root tip]))
 
+(defn piece-seed
+  "A number per hair layer, so neighbouring pieces do not streak in step."
+  [layer-key]
+  (inc (.indexOf pa/layer-order layer-key)))
+
 (defn- clump-wave
   "A fixed wave across a piece, -1..1: three sines at unrelated frequencies,
    the same in every renderer and on every render. `seed` keeps neighbouring
@@ -234,6 +248,186 @@
             (* 0.6 (Math/sin (+ (* u 81.68) (* s 2.9))))
             (* 0.35 (Math/sin (+ (* u 144.5) (* s 4.3)))))
          1.95))))
+
+;; ---------------------------------------------------------------------------
+;; Streaks that follow the strands
+;; ---------------------------------------------------------------------------
+;;
+;; A wave across the piece made every streak a straight vertical stripe, which
+;; on a cut drawn swept and curled reads as paint on glass. The art already
+;; says which way the hair runs: its lines are drawn along the strands. So the
+;; strand direction is read from the linework (the smoothed structure tensor of
+;; the ink -- the direction the ink changes LEAST), turned to point away from
+;; the crown, and filled in from 'away from the crown' where no lines are
+;; drawn. Noise is then averaged along that direction (line integral
+;; convolution): a blob smeared along the strands becomes a streak that bends
+;; as they bend. Worked on a grid a few pixels coarse, the streaks being far
+;; softer than that; it depends only on the art, so renderers keep one per
+;; piece and a colour change costs nothing more.
+
+;; 32-bit integer maths that gives the same bits on the JVM and in JS
+#?(:clj  (defn- mul32 ^long [^long a ^long b] (long (unchecked-multiply-int (unchecked-int a) (unchecked-int b))))
+   :cljs (defn- mul32 [a b] (.imul js/Math a b)))
+#?(:clj  (defn- ushr32 ^long [^long h ^long n] (unsigned-bit-shift-right (bit-and h 0xffffffff) n))
+   :cljs (defn- ushr32 [h n] (unsigned-bit-shift-right h n)))
+
+(defn- hash01
+  "An integer hash of a grid point to 0..1, identical in every renderer."
+  ^double [^long a ^long b ^long seed]
+  (let [h (bit-xor (mul32 a 374761393) (mul32 b 668265263) (mul32 seed 1103515245))
+        h (mul32 (bit-xor h (ushr32 h 13)) 1274126177)
+        h (bit-xor h (ushr32 h 16))]
+    (/ (double (bit-and h 0xffff)) 65535.0)))
+
+(defn- value-noise ^double [^double x ^double y ^long seed]
+  (let [xi (Math/floor x) yi (Math/floor y)
+        u (- x xi) v (- y yi)
+        u (* u u (- 3.0 (* 2.0 u))) v (* v v (- 3.0 (* 2.0 v)))
+        a (long xi) b (long yi)
+        n00 (hash01 a b seed) n10 (hash01 (inc a) b seed)
+        n01 (hash01 a (inc b) seed) n11 (hash01 (inc a) (inc b) seed)]
+    (+ (* (- 1.0 v) (+ n00 (* u (- n10 n00))))
+       (* v (+ n01 (* u (- n11 n01)))))))
+
+(defn- box-pass!
+  "One box blur of radius `r` along `lines` lines of `len` samples: sample k
+   of line l is at l*`lstride` + k*`kstride`."
+  [src dst len lines lstride kstride r]
+  (let [len (long len) lines (long lines) lstride (long lstride) kstride (long kstride) r (long r)
+        norm (/ 1.0 (inc (* 2 r)))
+        last-k (dec len)]
+    (dotimes [l lines]
+      (let [base (* l lstride)]
+        (loop [k 0
+               acc (loop [j (- r) acc 0.0]
+                     (if (> j r) acc
+                         (recur (inc j) (+ acc (ag src (+ base (* kstride (max 0 (min last-k j)))))))))]
+          (when (< k len)
+            (as! dst (+ base (* k kstride)) (* acc norm))
+            (recur (inc k)
+                   (+ (- acc (ag src (+ base (* kstride (max 0 (min last-k (- k r)))))))
+                      (ag src (+ base (* kstride (max 0 (min last-k (+ k r 1))))))))))))))
+
+(defn- box-blur!
+  "`a` (gw x gh doubles) blurred in place by a box of radius `r`, twice
+   over -- near enough a gaussian for smoothing a direction field."
+  [a gw gh r]
+  (let [tmp (new-doubles (* gw gh))]
+    (dotimes [_ 2]
+      (box-pass! a tmp gw gh gw 1 r)
+      (box-pass! tmp a gh gw 1 gw r))
+    a))
+
+(defn strand-field
+  "Streak values for one hair piece, -1..1, on a grid `cell` pixels square:
+   {:cell :gw :gh :v doubles}. `rgb-at` gives the drawn 0xRRGGBB and
+   `alpha-at` the alpha (0..255) at a pixel index of the `w` x `h` image;
+   `crown` is [x y]; `seed` keeps neighbouring pieces from streaking alike."
+  [rgb-at alpha-at w h crown seed]
+  (let [w (long w) h (long h)
+        cell (max 1 (long (Math/round (/ (double h) 375.0))))
+        gw (long (Math/ceil (/ (double w) cell))) gh (long (Math/ceil (/ (double h) cell)))
+        n (* gw gh)
+        ink (new-doubles n) cov (new-doubles n)
+        area (double (* cell cell))]
+    ;; ink (dark, opaque) and coverage per cell
+    (dotimes [i (* w h)]
+      (let [al (long (alpha-at i))]
+        (when (pos? al)
+          (let [g (+ (quot (mod i w) cell) (* (quot (quot i w) cell) gw))
+                a (/ (double al) (* 255.0 area))
+                c (long (rgb-at i))
+                lum (/ (+ (* 0.299 (bit-and (bit-shift-right c 16) 0xff))
+                          (* 0.587 (bit-and (bit-shift-right c 8) 0xff))
+                          (* 0.114 (bit-and c 0xff)))
+                       255.0)]
+            (as! cov g (+ (ag cov g) a))
+            (as! ink g (+ (ag ink g) (* a (- 1.0 lum))))))))
+    (let [jxx (new-doubles n) jxy (new-doubles n) jyy (new-doubles n)]
+      (loop [gy 1]
+        (when (< gy (dec gh))
+          (loop [gx 1]
+            (when (< gx (dec gw))
+              (let [g (+ gx (* gy gw))
+                    dx (- (ag ink (inc g)) (ag ink (dec g)))
+                    dy (- (ag ink (+ g gw)) (ag ink (- g gw)))]
+                (as! jxx g (* dx dx)) (as! jxy g (* dx dy)) (as! jyy g (* dy dy)))
+              (recur (inc gx))))
+          (recur (inc gy))))
+      (doseq [a [jxx jxy jyy]] (box-blur! a gw gh 3))
+      (let [[cx cy] crown
+            cx (/ (double cx) cell) cy (/ (double cy) cell)
+            dirx (new-doubles n) diry (new-doubles n)]
+        (dotimes [g n]
+          (let [a (ag jxx g) b (ag jxy g) c (ag jyy g)
+                tr (+ a c)
+                coh (if (> tr 1e-12) (/ (Math/sqrt (+ (* (- a c) (- a c)) (* 4.0 b b))) tr) 0.0)
+                ;; along the lines: perpendicular to the strongest change
+                th (+ (* 0.5 (Math/atan2 (* 2.0 b) (- a c))) (/ Math/PI 2.0))
+                lx (Math/cos th) ly (Math/sin th)
+                rx (- (double (mod g gw)) cx) ry (- (double (quot g gw)) cy)
+                rl (max 1e-6 (Math/sqrt (+ (* rx rx) (* ry ry))))
+                rx (/ rx rl) ry (/ ry rl)
+                flip (if (neg? (+ (* lx rx) (* ly ry))) -1.0 1.0)
+                k (min 1.0 (* 1.5 coh))
+                dx (+ (* k flip lx) (* (- 1.0 k) rx))
+                dy (+ (* k flip ly) (* (- 1.0 k) ry))
+                dl (max 1e-6 (Math/sqrt (+ (* dx dx) (* dy dy))))]
+            (as! dirx g (/ dx dl)) (as! diry g (/ dy dl))))
+        (let [v (new-doubles n)
+              steps 18
+              freq (/ 1.0 3.5)
+              seed (long seed)
+              ;; the noise once per cell; the walk reads it 36 times over
+              nz (let [a (new-doubles n)]
+                   (dotimes [g n]
+                     (when (> (ag cov g) 0.0)
+                       (as! a g (value-noise (* (+ 0.5 (mod g gw)) freq) (* (+ 0.5 (quot g gw)) freq) seed))))
+                   a)
+              walk (fn ^double [^double x ^double y ^double sgn]
+                     (loop [s 0 x x y y acc 0.0 px 0.0 py 0.0]
+                       (let [ix (long x) iy (long y)]
+                         (if (or (= s steps) (< x 0.0) (< y 0.0) (>= ix gw) (>= iy gh))
+                           acc
+                           (let [g (+ ix (* iy gw))
+                                 dx (ag dirx g) dy (ag diry g)
+                                 ;; a direction field has no sign: keep the heading of the last step
+                                 f (if (neg? (+ (* dx px) (* dy py))) -1.0 1.0)
+                                 dx (* f dx) dy (* f dy)]
+                             (recur (inc s) (+ x (* sgn dx)) (+ y (* sgn dy))
+                                    (+ acc (ag nz g))
+                                    dx dy))))))]
+          (dotimes [g n]
+            (when (> (ag cov g) 0.05)
+              (let [x (+ 0.5 (mod g gw)) y (+ 0.5 (quot g gw))]
+                (as! v g (/ (+ (walk x y 1.0) (walk x y -1.0)) (* 2.0 steps))))))
+          ;; centre and scale over the piece so every piece streaks as strongly
+          (let [[sum sq cnt] (loop [g 0 sum 0.0 sq 0.0 cnt 0]
+                               (if (= g n) [sum sq cnt]
+                                   (if (> (ag cov g) 0.05)
+                                     (let [x (ag v g)] (recur (inc g) (+ sum x) (+ sq (* x x)) (inc cnt)))
+                                     (recur (inc g) sum sq cnt))))
+                mean (if (pos? cnt) (/ sum cnt) 0.0)
+                sd (if (pos? cnt) (Math/sqrt (max 1e-12 (- (/ sq cnt) (* mean mean)))) 1.0)]
+            (dotimes [g n]
+              (as! v g (if (> (ag cov g) 0.05)
+                         (max -1.0 (min 1.0 (/ (- (ag v g) mean) (* 2.0 sd))))
+                         0.0))))
+          {:cell cell :gw gw :gh gh :v v})))))
+
+(defn- field-fn
+  "A function of pixel `x` `y` giving the strand field's value there,
+   interpolated between cells. Unpacked once per piece, like `position-fn`."
+  [{:keys [cell gw gh v]}]
+  (let [cell (double cell) gw (long gw) gh (long gh)]
+    (fn ^double [^long x ^long y]
+      (let [fx (max 0.0 (- (/ (double x) cell) 0.5)) fy (max 0.0 (- (/ (double y) cell) 0.5))
+            x0 (min (dec gw) (long fx)) y0 (min (dec gh) (long fy))
+            x1 (min (dec gw) (inc x0)) y1 (min (dec gh) (inc y0))
+            u (- fx x0) t (- fy y0)
+            a (ag v (+ x0 (* y0 gw))) b (ag v (+ x1 (* y0 gw)))
+            c (ag v (+ x0 (* y1 gw))) d (ag v (+ x1 (* y1 gw)))]
+        (+ (* (- 1.0 t) (+ a (* u (- b a)))) (* t (+ c (* u (- d c)))))))))
 
 (defn piece-settings
   "The ombre settings for one piece: the portrait's, with the piece's own
@@ -250,15 +444,19 @@
   "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the
    coloured 0xRRGGBB. Wraps `position-fn` and `ombre-fn` with the quick-
    colouring tricks: :clumps wavers where the tip colour starts along the
-   piece, :light lifts the depth toward the upper left."
-  [root tip settings frame layer-key]
+   piece, :light lifts the depth toward the upper left. With a `field`
+   (`strand-field`) the streaks follow the strands; without one they fall
+   back to a wave across the piece."
+  ([root tip settings frame layer-key] (pixel-fn root tip settings frame layer-key nil))
+  ([root tip settings frame layer-key field]
   (let [pos (position-fn frame)
         colour (ombre-fn root tip settings)
         {:keys [clumps light tips-from]} settings
         tips-from (double (or tips-from 0.0))
         x0 (double (or (:x0 frame) 0.0))
         span (max 1.0 (- (double (or (:x1 frame) 1.0)) x0))
-        wave (clump-wave (inc (.indexOf pa/layer-order layer-key)))
+        wave (clump-wave (piece-seed layer-key))
+        strand (when field (field-fn field))
         amp (* 0.14 (double clumps))
         light (double light)]
     (fn ^long [^long x ^long y ^long rgb]
@@ -266,7 +464,9 @@
             t0 (pos x y)
             ;; streaks move where the tip colour starts, not the depth: hair
             ;; with no second colour looks exactly as it did
-            t (if (pos? amp) (clamp01 (+ t0 (* amp (wave u)))) t0)
+            t (if (pos? amp)
+                (clamp01 (+ t0 (* amp (if strand (strand x y) (wave u)))))
+                t0)
             ;; a piece held in the root colour until `tips-from` along it
             t (if (pos? tips-from)
                 (if (>= tips-from 1.0) 0.0 (clamp01 (/ (- t tips-from) (- 1.0 tips-from))))
@@ -274,7 +474,7 @@
             ;; light at the upper left: shift the depth curve's position so the
             ;; near side reads as further along (lighter), the far side less
             td (if (pos? light) (clamp01 (+ t0 (* light 0.35 (- 0.5 u)))) t0)]
-        (colour rgb t td)))))
+        (colour rgb t td))))))
 
 (defn ombre-rgb
   "A hair pixel's colour as [r g b] (see `ombre-fn`), for one pixel."
@@ -302,15 +502,6 @@
   "Whether this piece hangs over the face and so throws a shadow onto it."
   [asset]
   (boolean (:asset/casts-shadow asset)))
-
-(defn- new-doubles [n]
-  #?(:clj (double-array n) :cljs (js/Float64Array. n)))
-
-;; typed on the JVM, where an untyped aget over a whole frame reflects
-#?(:clj  (defn- ag ^double [^doubles a ^long i] (aget a i))
-   :cljs (defn- ag [a i] (aget a i)))
-#?(:clj  (defn- as! [^doubles a ^long i ^double v] (aset a i v))
-   :cljs (defn- as! [a i v] (aset a i v)))
 
 (defn shadow-map
   "How much each pixel is shaded, 0..`shadow-strength`, for a `w` x `h`
