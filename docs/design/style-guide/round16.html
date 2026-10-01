@@ -1,0 +1,117 @@
+<title>Phone Left Edges</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<style>
+.rows { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+.row { display: grid; grid-template-columns: 170px auto; align-items: center; gap: 12px; }
+.row span { font-size: 12px; color: var(--dim); }
+.row span b { color: var(--fg); }
+.a1 img { width: 600px; image-rendering: pixelated; }
+.a2 img { width: 600px; }
+.s75 img { width: 450px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+<style>
+.grp { font: 700 12px/1.3 var(--sans); color: var(--fg); margin-bottom: 4px; }
+.row { grid-template-columns: 110px auto; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+</style>
+<style>
+.pair { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.pair figure { flex: 0 0 auto; max-width: 100%; }
+.pair img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.pair img.strip { width: 140px; }
+.bar img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend li::marker { content: none; }
+.sw { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.sw.logo { background: #ff5c5c; } .sw.tabs { background: #3ddc84; } .sw.title { background: #4da3ff; }
+.sw.buttons { background: #c084fc; } .sw.panel { background: #ff8fd1; }
+table { border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+th { color: var(--dim); font-weight: 600; }
+</style>
+<div class="wrap">
+  <header><div>
+    <div class="cap">OrcPub · feature/style-guide · 942c177d</div>
+    <h1>Phone left edges</h1>
+    <p class="sub">The builder on a 390px phone, dark theme. On the left is the branch as built; on the right is a preview with every left edge on 10px. The preview is CSS injected for the screenshot only; nothing is built yet.</p>
+  </div></header>
+
+  <section><h2>The search and login buttons, fixed</h2>
+  <p>Built: the magnifier is centred in a 36px square, LOGIN is centred in its button, and the two are the same height.</p>
+  <figure class="bar"><img src="round16/bar.png" alt="Phone header bar with the search and login buttons"></figure></section>
+
+  <section><h2>Left edges</h2>
+  <ul class="legend">
+    <li><span class="sw logo"></span>Logo</li><li><span class="sw tabs"></span>Header tabs</li>
+    <li><span class="sw title"></span>Page title</li><li><span class="sw buttons"></span>Yellow buttons</li>
+    <li><span class="sw panel"></span>Builder panel</li>
+  </ul>
+  <table>
+    <tr><th></th><th>Logo</th><th>Tabs</th><th>Title</th><th>Buttons</th><th>Panel</th></tr>
+    <tr><td><b>As built</b></td><td>20px</td><td>12px</td><td>10px</td><td>15px</td><td>10px</td></tr>
+    <tr><td><b>Preview</b></td><td>10px</td><td>10px</td><td>10px</td><td>10px</td><td>10px</td></tr>
+  </table>
+  <div class="pair">
+    <figure><figcaption><b>As built</b> · four different edges</figcaption><img src="round16/edges-now.png" alt="As built, with a line at each left edge"></figure>
+    <figure><figcaption><b>Preview</b> · one edge</figcaption><img src="round16/edges-aligned.png" alt="Preview with all left edges on 10px"></figure>
+  </div>
+  <h3>The left edge, magnified</h3>
+  <div class="pair">
+    <figure><figcaption><b>As built</b></figcaption><img class="strip" src="round16/strip-now.png" alt="As built, left 70px magnified"></figure>
+    <figure><figcaption><b>Preview</b></figcaption><img class="strip" src="round16/strip-aligned.png" alt="Preview, left 70px magnified"></figure>
+  </div></section>
+
+  <div class="note"><h3>What the preview changes, on phones only</h3>
+  <p>The top bar's side padding goes from 20px to 10px, so the logo moves 10px left and LOGIN 10px right. The tab row's margin goes from 10px to 8px, so the tabs' own 2px puts them on 10px. The yellow buttons' row loses 5px, because each button already carries its own 5px.</p></div>
+</div>
