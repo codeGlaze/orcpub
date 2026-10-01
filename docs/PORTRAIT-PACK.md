@@ -33,6 +33,22 @@ twice with different values. Decide which is right and re-run with
 and the registry doesn't; add those to `asset-inventory` before they can be
 chosen.
 
+## After new or changed hair art
+
+Hair streaks follow the strands drawn in the art. Which way they run is
+worked out from the linework once, ahead of time, and stored beside each
+hair piece as `<name>.strands.png` (a small greyscale image, 5–15KB):
+
+```bash
+lein run -m orcpub.portrait-pack.strands                     # resources/public/image/portraits
+lein run -m orcpub.portrait-pack.strands /path/to/portraits  # a pack kept elsewhere
+```
+
+Run it wherever the real art is, and ship the files with the art. They are
+derived from it, so they are gitignored and never committed. A piece without
+one still streaks: the renderer works the field out from the art the first
+time (about 0.1–0.5s), then keeps it.
+
 ## Tweaking by hand
 
 Edit `pieces.edn`. The fields a piece can carry are listed at the top of the

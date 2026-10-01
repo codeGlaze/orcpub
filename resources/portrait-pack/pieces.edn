@@ -12,7 +12,9 @@
 ;;   :casts-shadow  hangs over the face, so throws a soft shadow onto the
 ;;                  skin; a cut that lies flat on the head does not
 ;;   :tips-from     hair: stays in the root colour until this far along the
-;;                  piece, 0..1 (1 = never takes the ombre's tip colour)
+;;                  piece, 0..1 (1 = never takes the ombre's tip colour). On
+;;                  bangs it is only the default for the Bangs control
+;;                  (Roots / Tipped / Dyed); a portrait's choice wins
 ;;
 ;; A piece listed here that the registry does not carry fails the build's
 ;; tests, so a typo cannot quietly do nothing.
@@ -26,7 +28,7 @@
  ;; 03 is a long fringe over the face: in an ombre a colourist keeps the
  ;; fringe in the root shade and lightens the lengths, and tipping it left a
  ;; band across the face. 02 is short and spiky, all ends, and takes the tip
- ;; colour well as it is.
+ ;; colour well as it is. Either can be switched in the Bangs control.
  {"l9_bangs_02.png" {:casts-shadow true}
   "l9_bangs_03.png" {:casts-shadow true
                      :tips-from 1.0}}}
