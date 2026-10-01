@@ -37,7 +37,9 @@
    :clumps 0.45   ; streaks: the tip colour starts higher on some strands, lower
                   ; on others (0.45 chosen on the real art; 1 looked stamped)
    :light 0.0     ; depth lifted toward a light at the upper left, deepened away
-   :under 0.0})   ; the hair behind the head a little darker, by how light it is
+   :under 0.0     ; the hair behind the head a little darker, by how light it is
+   :shine 0.0     ; a highlight across the crown, broken along the strands
+   :split false}) ; the tips colour on one side of a line through the crown
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
@@ -70,7 +72,10 @@
      :clumps (num :clumps)
      :light (num :light)
      :under (num :under)
-     :angle (let [a (:angle o)] (when (number? a) (mod (double a) 360.0)))
+     :shine (num :shine)
+     :split (true? (:split o))
+     ;; a split is its own way of running; an angle left over from before is not
+     :angle (let [a (:angle o)] (when (and (number? a) (not (true? (:split o)))) (mod (double a) 360.0)))
      ;; nil: each bangs piece does what its calibration says
      :bangs (let [b (:bangs o)
                   b (when (or (keyword? b) (string? b)) (keyword (name b)))]
@@ -105,27 +110,45 @@
 
 (declare arc-frame)
 
+(defn run-mode
+  "How the tips colour runs, for `gradient-frame`: nil (down from the crown
+   line), :split, or an angle in degrees."
+  [settings]
+  (if (:split settings) :split (:angle settings)))
+
 (defn gradient-frame
-  "How to place a piece's pixels between root (0) and tip (1): down from the
-   piece's crown line (`arc-frame`), or along an angle from the crown.
-   Measured over the piece's own pixels, ignoring the outermost 3% so a stray
-   wisp does not set the length."
-  [alpha-at w h crown angle]
-  (let [samples (for [i (range 0 (* w h) 5) :when (> (alpha-at i) 60)] i)
-        [cx cy] (or crown
-                    ;; no head chosen: the piece's own top, centred
-                    (let [ys (map #(quot % w) samples)]
-                      [(/ w 2.0) (double (or (percentile ys 0.03) 0))]))]
-    (if angle
-      (let [a (* angle (/ Math/PI 180.0))
-            ux (Math/sin a) uy (Math/cos a)
-            proj (fn [i] (+ (* (- (mod i w) cx) ux) (* (- (quot i w) cy) uy)))
-            ps (map proj samples)
-            lo (or (percentile ps 0.03) 0.0) hi (or (percentile ps 0.97) 1.0)]
-        {:kind :angle :cx cx :cy cy :ux ux :uy uy :lo lo :span (max 1.0 (- hi lo))
-         :x0 (double (or (percentile (map #(mod % w) samples) 0.0) 0))
-         :x1 (double (or (percentile (map #(mod % w) samples) 1.0) w))})
-      (arc-frame alpha-at w h))))
+  "How to place a piece's pixels between root (0) and tip (1), by `mode`
+   (`run-mode`):
+
+   - nil: down from the piece's own crown line (`arc-frame`), so every strand
+     runs root to tip wherever it starts.
+   - an angle: along a straight line, measured from the crown.
+   - :split: across a line down through the crown, root colour on one side
+     and tips on the other.
+
+   The angle and the split are measured from the CROWN and on the frame's
+   scale, never from the piece: every piece has to agree where the line is.
+   Measured per piece, each put it across its own middle, so the front hair
+   split in one place and the bangs in another.
+
+   `with-arc?` attaches the crown-line frame as :arc to an angle or a split
+   too, for the shine, which always follows the curve of the head."
+  ([alpha-at w h crown mode] (gradient-frame alpha-at w h crown mode false))
+  ([alpha-at w h crown mode with-arc?]
+   (if (nil? mode)
+     (arc-frame alpha-at w h)
+     (let [[cx cy] (or crown [(/ w 2.0) (/ h 10.0)])
+           arc (when with-arc? (arc-frame alpha-at w h))
+           frame (if (= mode :split)
+                   ;; narrow, so Starts moves the line and Blend softens it
+                   {:kind :split :cx (double cx) :span (* 0.25 h) :h (double h)}
+                   (let [a (* (double mode) (/ Math/PI 180.0))]
+                     ;; the crown about a third of the way along, the whole
+                     ;; head and shoulders within the span
+                     {:kind :angle :cx (double cx) :cy (double cy) :ux (Math/sin a) :uy (Math/cos a)
+                      :lo (* -0.25 h) :span (* 0.8 h)}))]
+       (cond-> (assoc frame :x0 0.0 :x1 (double w))
+         arc (assoc :arc arc))))))
 
 (defn arc-frame
   "Root to tip measured down from a smooth arc along the top of the piece --
@@ -170,10 +193,18 @@
    once per piece and called per pixel, so the frame is unpacked here and not
    on every call."
   [{:keys [kind cx cy ux uy lo span reach env]}]
-  (if (= kind :arc)
+  (cond
+    (= kind :split)
+    (let [cx (double cx) span (double span)]
+      (fn ^double [^long x ^long _y]
+        (clamp01 (+ 0.5 (/ (- (double x) cx) span)))))
+
+    (= kind :arc)
     (let [^doubles env env reach (double reach)]
       (fn ^double [^long x ^long y]
         (clamp01 (/ (- (double y) (aget env x)) reach))))
+
+    :else
   (let [cx (double cx) cy (double cy)]
     (if (= kind :angle)
       (let [ux (double ux) uy (double uy) lo (double lo) span (double span)]
@@ -281,7 +312,7 @@
 #?(:clj  (defn- ushr32 ^long [^long h ^long n] (unsigned-bit-shift-right (bit-and h 0xffffffff) n))
    :cljs (defn- ushr32 [h n] (unsigned-bit-shift-right h n)))
 
-(defn- hash01
+(defn hash01
   "An integer hash of a grid point to 0..1, identical in every renderer."
   ^double [^long a ^long b ^long seed]
   (let [h (bit-xor (mul32 a 374761393) (mul32 b 668265263) (mul32 seed 1103515245))
@@ -504,9 +535,35 @@
    (let [f (if-let [choice (and (= :bangs layer-key) (:bangs settings))]
              (bangs-dye choice)
              (:asset/tips-from asset))]
-     (if (and f (pos? f))
+     ;; holding a piece in the root colour is about root to tip; a split or
+     ;; an angle runs across the head, and the bangs carry it like the rest
+     (if (and f (pos? f) (nil? (run-mode settings)))
        (assoc settings :tips-from (clamp01 (double f)))
        (dissoc settings :tips-from)))))
+
+(def shine-layers
+  "The pieces over the top of the head, where light catches: not the hair
+   behind it or the bits hanging below."
+  #{:scalp :hair-front :bangs})
+
+(defn- split-wobble
+  "A slow wave down the frame, -1..1, the SAME for every piece: the split's
+   edge wavers with it. Each piece's own strand field would have put the edge
+   in a different place on each piece, leaving a wedge of the root colour
+   where the hair behind the bangs shows."
+  ^double [^double v]
+  (/ (+ (Math/sin (+ (* v 17.0) 0.6)) (* 0.55 (Math/sin (+ (* v 41.0) 2.1))) (* 0.3 (Math/sin (+ (* v 83.0) 4.4))))
+     1.85))
+
+(defn- shine-band
+  "How much highlight a pixel `t` along the crown line takes, with strand
+   field value `f` (0 without one): a band across the curve of the head,
+   wavering along the strands, with the strands on the low side of the field
+   dropping out so it reads as strands catching the light, not a ring."
+  ^double [^double t ^double f]
+  (let [dt (- t (+ 0.22 (* 0.09 f)))
+        band (Math/exp (- (/ (* dt dt) (* 2.0 0.045 0.045))))]
+    (* band (clamp01 (/ (+ f 0.35) 0.5)))))
 
 (defn pixel-fn
   "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the
@@ -519,7 +576,11 @@
   ([root tip settings frame layer-key field]
   (let [pos (position-fn frame)
         colour (ombre-fn root tip settings)
-        {:keys [clumps light tips-from]} settings
+        {:keys [clumps light tips-from shine]} settings
+        split? (= :split (:kind frame))
+        frame-h (double (or (:h frame) 1.0))
+        shine (if (shine-layers layer-key) (* 0.7 (double (or shine 0.0))) 0.0)
+        arc-pos (when (pos? shine) (if (= :arc (:kind frame)) pos (some-> (:arc frame) position-fn)))
         tips-from (double (or tips-from 0.0))
         x0 (double (or (:x0 frame) 0.0))
         span (max 1.0 (- (double (or (:x1 frame) 1.0)) x0))
@@ -533,7 +594,9 @@
             ;; streaks move where the tip colour starts, not the depth: hair
             ;; with no second colour looks exactly as it did
             t (if (pos? amp)
-                (clamp01 (+ t0 (* amp (if strand (strand x y) (wave u)))))
+                (clamp01 (+ t0 (* amp (cond split? (split-wobble (/ (double y) frame-h))
+                                            strand (strand x y)
+                                            :else (wave u)))))
                 t0)
             ;; a piece held in the root colour until `tips-from` along it
             t (if (pos? tips-from)
@@ -541,8 +604,23 @@
                 t)
             ;; light at the upper left: shift the depth curve's position so the
             ;; near side reads as further along (lighter), the far side less
-            td (if (pos? light) (clamp01 (+ t0 (* light 0.35 (- 0.5 u)))) t0)]
-        (colour rgb t td))))))
+            td (if (pos? light) (clamp01 (+ t0 (* light 0.35 (- 0.5 u)))) t0)
+            out (colour rgb t td)]
+        (if (and arc-pos (pos? shine))
+          ;; only on the fill: the ink stays ink
+          (let [lum (/ (+ (bit-and (bit-shift-right rgb 16) 0xff) (bit-and (bit-shift-right rgb 8) 0xff) (bit-and rgb 0xff)) 765.0)
+                k (* shine lum lum (shine-band (arc-pos x y) (if strand (strand x y) 0.0)))]
+            (if (> k 0.003)
+              (let [ch (fn ^long [^long c]
+                         ;; screen toward the colour lifted halfway to white
+                         (let [l (+ c (* 0.55 (- 255.0 c)))
+                               sc (- 255.0 (/ (* (- 255.0 c) (- 255.0 l)) 255.0))]
+                           (long (Math/round (+ c (* k (- sc c)))))))]
+                (bit-or (bit-shift-left (ch (bit-and (bit-shift-right out 16) 0xff)) 16)
+                        (bit-shift-left (ch (bit-and (bit-shift-right out 8) 0xff)) 8)
+                        (ch (bit-and out 0xff))))
+              out))
+          out))))))
 
 (defn ombre-rgb
   "A hair pixel's colour as [r g b] (see `ombre-fn`), for one pixel."

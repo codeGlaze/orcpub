@@ -2192,6 +2192,32 @@
                           (some? v) (assoc k v))]
                   (if (empty? o) (dissoc draft :ombre) (assoc draft :ombre o)))))))
 
+;; How the tips run: "roots", "angle" or "split". One event, because the
+;; angle and the split are two keys that must never both be set.
+(reg-event-db
+ :portrait/set-run
+ (fn [db [_ mode]]
+   (update-in db [:portrait/draft]
+              (fn [draft]
+                (let [o (-> (or (:ombre draft) {})
+                            (dissoc :angle :split)
+                            (cond-> (= mode "angle") (assoc :angle 0)
+                                    (= mode "split") (assoc :split true :start 0.5 :falloff 0.06)))]
+                  (if (empty? o) (dissoc draft :ombre) (assoc draft :ombre o)))))))
+
+;; Eye and skin effects (portrait-face/face-settings): {:pupil :second-eye
+;; :blush :blush-colour :freckles}. A nil value drops the key, as for the
+;; ombre.
+(reg-event-db
+ :portrait/set-face
+ (fn [db [_ k v]]
+   (update-in db [:portrait/draft]
+              (fn [draft]
+                (let [o (cond-> (or (:face draft) {})
+                          (nil? v) (dissoc k)
+                          (some? v) (assoc k v))]
+                  (if (empty? o) (dissoc draft :face) (assoc draft :face o)))))))
+
 (reg-event-db
  :portrait/clear-layer-tweak
  (fn [db [_ layer-key]]

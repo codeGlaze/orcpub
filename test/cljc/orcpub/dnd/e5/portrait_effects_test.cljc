@@ -5,9 +5,11 @@
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (deftest settings-default-and-clamp
-  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil :bangs nil}
+  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil :bangs nil
+          :shine 0.0 :split false}
          (fx/ombre-settings {})))
-  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0 :bangs nil}
+  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0 :bangs nil
+          :shine 0.0 :split false}
          (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450 :light 3}}))
       "out-of-range numbers are pulled back in, junk falls back to the default")
   (is (nil? (:tip (fx/ombre-settings {:ombre {:tip "teal"}}))) "only #rrggbb tips"))
@@ -40,10 +42,25 @@
     (is (= :arc (:kind roots)))
     (is (< (fx/position roots 50 12) 0.1) "near the top is root")
     (is (> (fx/position roots 50 88) 0.9) "the far end is tip")
-    (is (< (fx/position down 50 12) 0.1))
-    (is (> (fx/position down 50 88) 0.9))
-    (let [up (fx/gradient-frame alpha w h crown 180)]
-      (is (> (fx/position up 50 12) 0.9) "an angle of 180 turns it upside down"))))
+    (testing "an angle runs from the crown on the frame's scale"
+      (is (< (fx/position down 50 12) (fx/position down 50 50) (fx/position down 50 88)))
+      (is (< (Math/abs (- (fx/position down 50 10) 0.3125)) 1e-9) "the crown sits a third of the way along")
+      (let [up (fx/gradient-frame alpha w h crown 180)]
+        (is (> (fx/position up 50 12) (fx/position up 50 88)) "an angle of 180 turns it upside down")))))
+
+(deftest every-piece-agrees-where-a-split-or-angle-falls
+  ;; two pieces of very different extent: measured per piece, each put the
+  ;; line across its own middle
+  (let [w 200 h 200 crown [100.0 20.0]
+        wide (fn [i] (if (< 20 (mod i w) 180) 255 0))
+        narrow (fn [i] (if (< 120 (mod i w) 160) 255 0))]
+    (doseq [mode [:split 90 30]]
+      (let [a (fx/gradient-frame wide w h crown mode) b (fx/gradient-frame narrow w h crown mode)]
+        (is (= (fx/position a 140 90) (fx/position b 140 90)) (str mode))))
+    (let [s (fx/gradient-frame wide w h crown :split)]
+      (is (= :split (:kind s)))
+      (is (< (fx/position s 60 90) 0.5 (fx/position s 140 90)) "root colour on one side of the crown, tips on the other")
+      (is (= 0.5 (fx/position s 100 5)) "the line runs down through the crown"))))
 
 (deftest a-fringe-beside-the-crown-still-reaches-its-tips
   (testing "the bug a single crown point had: on a turned head, strands growing
@@ -235,3 +252,31 @@
       (is (= :tipped (:bangs (s {:bangs "tipped"}))))
       (is (nil? (:bangs (s {:bangs :purple}))))
       (is (nil? (:bangs (s {:bangs 3})))))))
+
+(deftest a-split-edge-wavers-alike-on-every-piece
+  (let [s (fx/ombre-settings {:ombre {:tip "#ffffff" :split true :start 0.5 :falloff 0.05 :clumps 0.8}})
+        frame {:kind :split :cx 100.0 :span 50.0 :h 200.0 :x0 0.0 :x1 200.0}
+        f (fn [k] (fx/pixel-fn [0 0 0] [255 255 255] s frame k {:gw 2 :gh 2 :w 200 :h 200 :v (double-array [1.0 -1.0 -1.0 1.0])}))]
+    (is (= (map #((f :hair-front) 104 % 0xffffff) (range 0 200 9))
+           (map #((f :bangs) 104 % 0xffffff) (range 0 200 9)))
+        "the hair behind the bangs and the bangs put the edge in the same place")
+    (is (not= 1 (count (distinct (map #((f :bangs) 104 % 0xffffff) (range 0 200 9))))) "and it does waver"))
+  (testing "a split ignores holding the bangs in the root colour"
+    (let [s (fx/ombre-settings {:ombre {:tip "#ffffff" :split true}})]
+      (is (nil? (:tips-from (fx/piece-settings s {:asset/tips-from 1.0} :bangs))))
+      (is (= :split (fx/run-mode s)))
+      (is (nil? (:angle (fx/ombre-settings {:ombre {:split true :angle 90}}))) "a split is not also an angle"))))
+
+(deftest shine-catches-the-crown-on-the-fill-only
+  (let [env (double-array 100 0.0)
+        frame {:kind :arc :env env :reach 100.0 :x0 0.0 :x1 100.0}
+        s (assoc (fx/ombre-settings {:ombre {:shine 1.0}}) :depth 0.0)
+        off (assoc s :shine 0.0)
+        root [92 58 30]
+        px (fn [settings k x y rgb] ((fx/pixel-fn root root settings frame k) x y rgb))
+        lum (fn [c] (+ (bit-and (bit-shift-right c 16) 0xff) (bit-and (bit-shift-right c 8) 0xff) (bit-and c 0xff)))]
+    (is (> (lum (px s :hair-front 50 22 0xffffff)) (+ 30 (lum (px off :hair-front 50 22 0xffffff))))
+        "a band across the top of the head lightens")
+    (is (= (px s :hair-front 50 70 0xffffff) (px off :hair-front 50 70 0xffffff)) "but not down the lengths")
+    (is (= (px s :hair-front 50 22 0x000000) (px off :hair-front 50 22 0x000000)) "the ink stays ink")
+    (is (= (px s :hair-back 50 22 0xffffff) (px off :hair-back 50 22 0xffffff)) "and the hair behind the head takes none")))
