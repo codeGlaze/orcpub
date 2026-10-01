@@ -79,7 +79,7 @@ elif [ $CHECK_ONLY -eq 1 ]; then
   say "  entry point:     $([ -f CLAUDE.md ] && echo 'present' || echo 'MISSING -- run without --check')"
 elif ! git check-ignore -q CLAUDE.md 2>/dev/null; then
   say "  entry point:     SKIPPED -- this branch does not gitignore /CLAUDE.md."
-  say "                   Copying it here would leave a file `git add -A` can commit."
+  say "                   Copying it here would leave a file 'git add -A' can commit."
   say "                   Add '/CLAUDE.md' to .gitignore on this branch, then re-run."
 elif [ -f CLAUDE.md ]; then
   say "  entry point:     CLAUDE.md already here, left alone (delete it to refresh)"
