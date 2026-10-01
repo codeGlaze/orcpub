@@ -297,7 +297,8 @@
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     (let [img (placed src w h)
           ^ints d (.. img getRaster getDataBuffer getData)
-          {:keys [tip angle] :as settings} (fx/ombre-settings portrait)
+          {:keys [tip angle] :as settings} (fx/piece-settings (fx/ombre-settings portrait)
+                                                              (pa/selected-asset portrait layer-key))
           root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
           [root-rgb tip-rgb] (fx/layer-colours layer-key root-rgb (or (some-> tip colorize/hex->rgb) root-rgb) settings)
           pix (fx/pixel-fn root-rgb tip-rgb settings

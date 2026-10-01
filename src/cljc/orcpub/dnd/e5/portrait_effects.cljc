@@ -234,6 +234,17 @@
             (* 0.35 (Math/sin (+ (* u 144.5) (* s 4.3)))))
          1.95))))
 
+(defn piece-settings
+  "The ombre settings for one piece: the portrait's, with the piece's own
+   calibration applied (pieces.edn). :asset/tips-from keeps a piece in the
+   root colour until that far along it -- how colourists treat bangs in an
+   ombre, which stay in the darkest shade while the lengths lighten -- so a
+   long fringe gets at most tipped ends instead of a band across it."
+  [settings asset]
+  (if-let [f (:asset/tips-from asset)]
+    (assoc settings :tips-from (clamp01 (double f)))
+    settings))
+
 (defn pixel-fn
   "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the
    coloured 0xRRGGBB. Wraps `position-fn` and `ombre-fn` with the quick-
@@ -242,7 +253,8 @@
   [root tip settings frame layer-key]
   (let [pos (position-fn frame)
         colour (ombre-fn root tip settings)
-        {:keys [clumps light]} settings
+        {:keys [clumps light tips-from]} settings
+        tips-from (double (or tips-from 0.0))
         x0 (double (or (:x0 frame) 0.0))
         span (max 1.0 (- (double (or (:x1 frame) 1.0)) x0))
         wave (clump-wave (inc (.indexOf pa/layer-order layer-key)))
@@ -252,6 +264,10 @@
       (let [u (/ (- (double x) x0) span)
             t (pos x y)
             t (if (pos? amp) (clamp01 (+ t (* amp (wave u)))) t)
+            ;; a piece held in the root colour until `tips-from` along it
+            t (if (pos? tips-from)
+                (if (>= tips-from 1.0) 0.0 (clamp01 (/ (- t tips-from) (- 1.0 tips-from))))
+                t)
             ;; light at the upper left: shift the depth curve's position so the
             ;; near side reads as further along (lighter), the far side less
             td (if (pos? light) (clamp01 (+ t (* light 0.35 (- 0.5 u)))) t)]
