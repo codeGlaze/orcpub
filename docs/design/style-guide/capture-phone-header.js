@@ -1,6 +1,6 @@
 // The phone header (round15.html): 390px and 320px phones, and desktop at 1280 to show it is
 // unchanged. Needs the app on :8890 (prod build) from feature/style-guide. Run from this folder:
-//   NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt node capture-phone-header.js
+//   NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt node capture-phone-header.js   (OUT=dir to save elsewhere)
 const { chromium, devices } = require('playwright');
 const SHOTS = [
   ['phone-390', { ...devices['iPhone 13'] }, 300],
@@ -24,7 +24,7 @@ const SHOTS = [
     const w = p.viewportSize().width;
     const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     console.log(name, 'sideways overflow', over);
-    await p.screenshot({ path: `round15/${name}.png`, clip: { x: 0, y: 0, width: w, height } });
+    await p.screenshot({ path: `${process.env.OUT || 'round15'}/${name}.png`, clip: { x: 0, y: 0, width: w, height } });
     await ctx.close();
   }
   await b.close();
