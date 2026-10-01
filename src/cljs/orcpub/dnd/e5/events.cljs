@@ -368,12 +368,9 @@
                  (and (whats-new/unseen? whats-new-seen)
                       (not (cookie-banner-pending?)))
                  (assoc :whats-new-open? true)
-                 ;; Through set-character, not a bare assoc. Restoring the builder's
-                 ;; in-progress character here used to skip the reconcilers entirely,
-                 ;; so a reload left a key that an import conflict had renamed pointing
-                 ;; at nothing -- the same character that healed when opened from the
-                 ;; list stayed broken when the page was refreshed. Plugins are already
-                 ;; threaded in above, which is what the former-key index reads.
+                 ;; Through set-character, not a bare assoc: reconciles a key an import
+                 ;; conflict renamed, against the plugins already threaded in above.
+                 ;; See homebrew-keys-design.md.
                  local-store-character (set-character [:set-character local-store-character])
                  local-store-user (update :user-data merge local-store-user)
                  local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -2155,12 +2152,10 @@
    (let [db' (set-character db event)
          relinks (::e5/pending-relinks cofx)
          ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
-     ;; Asked once per character (homebrew-keys-design.md §9, Q3): the builder shows
-     ;; ::e5/relink-question as a banner until the author answers, and only the answer
-     ;; (::e5/answer-relink) records it as asked.
-     ;; A heal is recorded but not announced here: every way a saved character reaches the builder
-     ;; dispatches [:route ...] beside this, and :route queues a [:hide-message] that runs after
-     ;; anything queued here, so a toast raised now was cleared before it painted. :route announces it.
+     ;; Asked once per character (homebrew-keys-design.md §9, Q3): ::e5/relink-question
+     ;; banners until ::e5/answer-relink records it as asked.
+     ;; A heal is not announced here: :route queues a [:hide-message] that runs after this,
+     ;; clearing a toast raised now before it painted. :route announces it instead.
      {:db (assoc db' ::e5/relink-question
                          (when ask
                            (let [{:keys [content-type from] :as r} (get relinks ask)]
@@ -2580,13 +2575,10 @@
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
            share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
-           ;; A character that healed on its way here -- opened from the list, or
-           ;; restored at boot -- is announced now, AFTER the [:hide-message] above.
-           ;; dispatch-n is FIFO, so this is the one place a heal toast cannot be
-           ;; cleared by the navigation that delivered it. Builder only: "save the
-           ;; character to keep the fix" means nothing on any other page. Marked
-           ;; announced so later navigation does not repeat it; the next
-           ;; :set-character replaces the whole map anyway.
+           ;; A character healed on its way here is announced now, after [:hide-message]
+           ;; above: dispatch-n is FIFO, the one place a heal toast survives navigation.
+           ;; Builder only -- "save to keep the fix" means nothing elsewhere.
+           ;; See homebrew-keys-design.md.
            (and (= (or handler new-route) routes/dnd-e5-char-builder-route)
                 (seq (get-in db [:character-healed :rewrote]))
                 (not (get-in db [:character-healed :announced?])))
@@ -2864,9 +2856,8 @@
                        routes/dnd-e5-char-builder-route)]}))
 
 (defn sign-in-failed-message []
-  ;; Says nothing about which half was wrong -- naming the username as unknown
-  ;; made this form a membership test. Both facts below are true whether or not
-  ;; the account exists, so nobody loses the help that used to be here.
+  ;; Deliberately vague about which half was wrong: naming the username as unknown
+  ;; would make this form a membership-disclosure oracle. See account-flows.md.
   [:show-login-message
    [:div "That username and password do not match. Usernames and passwords are case sensitive, "
     "email addresses are not. If you have not signed up yet you can "
@@ -2939,11 +2930,9 @@
 
 (reg-event-fx
  :register-failure
- ;; The server's objections had nowhere to go: this threw the body away, so a
- ;; password the server refused produced a JOIN button that appeared to do
- ;; nothing. Checks that only the server can make -- whether a password is a
- ;; common one, whether this host has signed up too often -- are kept here and
- ;; merged into what the form is already showing.
+ ;; :registration-server-errors holds checks only the server can make (common
+ ;; password, signup rate); a non-map :body clears them silently here instead of
+ ;; surfacing anything. See account-flows.md.
  (fn [{:keys [db]} [_ response]]
    {:db (assoc db :registration-server-errors
                (when (map? (:body response)) (:body response)))
@@ -5325,14 +5314,11 @@
      :changes changes}))
 
 (defn export-source
-  "The copy of a source an export works from: what the library holds now, whenever
-   it holds that source; the copy handed in only when it does not.
-
-   The save banner's link used to hand in the copy from the moment of saving. Once
-   export began saving its cleanup back, clicking the link after any later change
-   wrote that old copy over the library -- a source turned off came back on, an item
-   added since disappeared. Reading the library here means a stale copy can be
-   neither exported nor saved back, whoever passes one in."
+  "The copy of `plugin-name` an export works from: `library`'s current copy when
+   it holds that source, else `handed`.
+   GOTCHA: always prefers the library's copy over `handed` -- a stale `handed`
+   copy would overwrite later edits when export saves its cleanup back.
+   See homebrew-safety-net.md."
   [library plugin-name handed]
   (if (contains? library plugin-name)
     (get library plugin-name)
@@ -5540,13 +5526,19 @@
          db (dissoc db :homebrew-broken)]
      (if (empty? moved)
        {:db db}
-       ;; The set-aside copy first, as the loader does: if storage refuses it, the library
-       ;; copy is left alone and the entry is set aside for this session only.
-       (do
-         (when (set-rejected-plugins rejected)
-           (plugins->local-store plugins))
-         {:db (assoc db :plugins plugins :quarantined-plugins rejected)
-          :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]})))))
+       ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
+       ;; so the entry is never out of both places. A removal on purpose, hence :deleting?.
+       (if-not (set-rejected-plugins rejected)
+         {:db db
+          :dispatch [:show-error-message
+                     (str "Some homebrew stops characters from building, and it couldn't be set "
+                          "aside: this browser's storage refused the copy. Export your homebrew, "
+                          "then free some space.")]}
+         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db plugins {:deleting? true})]
+           (if ok?
+             {:db (assoc db' :quarantined-plugins rejected)
+              :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
+             {:db db' :dispatch-n refused})))))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events
