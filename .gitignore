@@ -25,7 +25,9 @@ pom.xml
 # no trailing slash: the e2e tooling is run by symlinking this to a sibling checkout's copy,
 # and a trailing slash matches only a real directory
 /node_modules
-.clj-kondo
+# the linter's cache, not its config: config.edn is tracked and must stay addable
+.clj-kondo/*
+!.clj-kondo/config.edn
 .calva
 .lein-deps-sum
 .lein-repl-history
@@ -80,6 +82,14 @@ cljs-test-runner-out
 # not in a code branch
 .claude-data/
 .claude/
+
+# The agent entry point. Versioned on agents/develop, the agentic silo, and copied into a
+# working tree per environment by scripts/agent-setup.sh. Ignored here because this branch
+# ships to the public repo: an untracked copy is one `git add -A` away from being committed,
+# which is how it drifted onto code branches before, and why the restructure deleted it.
+# Note `.claude/` above does NOT cover this — that is a directory, and CLAUDE.md is a file
+# at the repo root.
+/CLAUDE.md
 
 # NewRelic (DMV-specific, contains license key)
 newrelic*

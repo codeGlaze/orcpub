@@ -10,18 +10,10 @@
             [orcpub.dnd.e5.character :as char]))
 
 (defn- as-parts
-  "Normalise whatever a producer handed us into {:title :details}.
-
-   The structured map is the shape to use. A plain string is the LEGACY shape:
-   messages used to be one string with blank lines standing in for structure, and
-   HTML collapses those, which ran the sentences together with no punctuation
-   between them. Splitting happens here, at the edge, rather than being papered
-   over in CSS — and it goes away as producers move to the map.
-
-   HICCUP passes through untouched. Some messages are markup, not text — the
-   builders' \"please fill in X\" carries a bolded field name and a clickable
-   \"Save anyway with placeholders\" — and running (str) over a vector prints the
-   markup at the reader instead of rendering it."
+  "Normalise a producer's message into {:title :details}, or {:body hiccup}.
+   A map passes through. A string is the LEGACY shape, split on newlines into a title and
+   detail lines, since HTML collapses its blank lines. Hiccup passes through as :body:
+   (str) over a vector would print the markup instead of rendering it."
   [message-text]
   (cond
     (map? message-text) message-text
@@ -55,13 +47,8 @@
     [:div.message-detail line]))
 
 (defn message
-  "Transient banner. `message-text` is {:title :details} — or a plain string,
-   which `as-parts` splits (see there).
-
-   It says what happened and nothing else. An import banner briefly carried an
-   \"Export a backup\" button, which on My Content sat directly above the page's
-   own Export All: a message telling you to use a control that is already on
-   screen is noise, not help."
+  "Transient banner. `message-text` is {:title :details}, or a plain string or hiccup,
+   which `as-parts` normalises (see there). It says what happened and offers no actions."
   [message-type message-text close-handler]
   (let [{:keys [title details body]} (as-parts message-text)]
     [:div.pointer
@@ -87,24 +74,11 @@
         :aria-label "Dismiss"}]]]))
 
 (defn callout
-  "Persistent contextual notice: a box with an optional fa icon class, body content
-   (a string or hiccup — multi-line is fine), and optional actions.
-
-   `accent` draws a rail down the leading edge for a notice that wants an identity
-   without being tinted like a severity. It names a shade rather than carrying one:
-   :brand is the app's accent. Add further options in styles/core.clj.
-
-   `tone` picks the box: :warning (default) is the severity-coloured one, :note is
-   the neutral one for a callout that informs rather than warns, so an offer or an
-   explanation is not dressed as a problem.
-
-   Each action is {:label ...} plus either :on-click for a button, or :href (with
-   optional :target) for a link. A link renders with the same button styling, so a
-   call to action sits flush with the buttons beside it instead of trailing off as
-   a bare anchor. An action may also carry :icon, which is a COMPLETE set of icon
-   classes -- \"fab fa-patreon\" as readily as \"fa fa-download\" -- so an action can
-   name where it goes. The callout's own :icon above is prefixed with .fa for it,
-   which is why that one cannot reach the brand icons."
+  "Persistent contextual notice: a box with an optional :icon (fa class, prefixed with .fa),
+   :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
+   :note (neutral); :accent :brand draws a leading-edge rail. Each action is {:label} plus
+   :on-click (a button) or :href and optional :target (a link styled as a button), and an
+   optional :icon that is a COMPLETE icon class string (\"fab fa-patreon\")."
   [{:keys [icon text actions tone accent]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]

@@ -42,35 +42,30 @@
     :follows? #(= :folk-x (get-in % [::e5/subraces :hill :race]))}
 
    {:link "spell :spell-lists -> class"
-    :gap true
     :plugin {::e5/classes {:caster (item :caster)}
              ::e5/spells  {:bolt (item :bolt :level 1 :spell-lists {:caster true})}}
     :rename [::e5/classes :caster :caster-x "caster (X)"]
     :follows? #(true? (get-in % [::e5/spells :bolt :spell-lists :caster-x]))}
 
    {:link "class :spellcasting :spell-list-kw -> class (borrowed list)"
-    :gap true
     :plugin {::e5/classes {:caster   (item :caster)
                            :borrower (item :borrower :spellcasting {:spell-list-kw :caster})}}
     :rename [::e5/classes :caster :caster-x "caster (X)"]
     :follows? #(= :caster-x (get-in % [::e5/classes :borrower :spellcasting :spell-list-kw]))}
 
    {:link "class :spellcasting :spell-list -> spell"
-    :gap true
     :plugin {::e5/spells  {:bolt (item :bolt :level 1)}
              ::e5/classes {:caster (item :caster :spellcasting {:spell-list {1 #{:bolt}}})}}
     :rename [::e5/spells :bolt :bolt-x "bolt (X)"]
     :follows? #(contains? (get-in % [::e5/classes :caster :spellcasting :spell-list 1]) :bolt-x)}
 
    {:link "subclass :paladin-spells -> spell"
-    :gap true
     :plugin {::e5/spells     {:bolt (item :bolt :level 1)}
              ::e5/subclasses {:oath (item :oath :class :paladin :paladin-spells {1 {0 :bolt}})}}
     :rename [::e5/spells :bolt :bolt-x "bolt (X)"]
     :follows? #(= :bolt-x (get-in % [::e5/subclasses :oath :paladin-spells 1 0]))}
 
    {:link "class :level-modifiers :spell -> spell"
-    :gap true
     :plugin {::e5/spells  {:bolt (item :bolt :level 1)}
              ::e5/classes {:caster (item :caster :level-modifiers [{:type :spell :level 1
                                                                     :value {:key :bolt}}])}}
@@ -78,28 +73,24 @@
     :follows? #(= :bolt-x (get-in % [::e5/classes :caster :level-modifiers 0 :value :key]))}
 
    {:link "race :spells -> spell"
-    :gap true
     :plugin {::e5/spells {:bolt (item :bolt :level 1)}
              ::e5/races  {:folk (item :folk :spells [{:level 1 :value {:key :bolt}}])}}
     :rename [::e5/spells :bolt :bolt-x "bolt (X)"]
     :follows? #(= :bolt-x (get-in % [::e5/races :folk :spells 0 :value :key]))}
 
    {:link "class :level-selections -> custom selection"
-    :gap true
     :plugin {::e5/selections {:tricks (item :tricks)}
              ::e5/classes    {:caster (item :caster :level-selections [{:type :tricks :level 1}])}}
     :rename [::e5/selections :tricks :tricks-x "tricks (X)"]
     :follows? #(= :tricks-x (get-in % [::e5/classes :caster :level-selections 0 :type]))}
 
    {:link "feat :path-prereqs :race -> race"
-    :gap true
     :plugin {::e5/races {:folk (item :folk)}
              ::e5/feats {:knack (item :knack :path-prereqs {:race {:folk true}})}}
     :rename [::e5/races :folk :folk-x "folk (X)"]
     :follows? #(true? (get-in % [::e5/feats :knack :path-prereqs :race :folk-x]))}
 
    {:link "race :props :language -> language"
-    :gap true
     :plugin {::e5/languages {:cant (item :cant)}
              ::e5/races     {:folk (item :folk :props {:language {:cant true}})}}
     :rename [::e5/languages :cant :cant-x "cant (X)"]
@@ -113,7 +104,6 @@
     :follows? #(contains? (get-in % [::e5/races :folk :languages]) "Cant (X)")}
 
    {:link "encounter :creatures :monster -> monster"
-    :gap true
     :plugin {::e5/monsters   {:wolf (item :wolf)}
              ::e5/encounters {:ambush (item :ambush :creatures [{:type :monster
                                                                  :creature {:monster :wolf :num 2}}])}}
@@ -158,9 +148,10 @@
       "the race key finds the race")
   ;; race-prereq matches (character/race c) against the looked-up names. A stale key looks up
   ;; nil, so the set is #{nil}: the feat is shown as " Only" and admits no character with a race.
-  (is (= [" Only"] (map :orcpub.template/label
-                        (opt5e/feat-prereqs nil {:race {:folk true}} {:folk-x {:name "Folk (X)"}})))
-      "GAP: once the race is rekeyed, the feat locks for everyone under a blank label"))
+  (is (= ["Needs \u201cFolk\u201d, which isn't in your library"]
+         (map :orcpub.template/label
+              (opt5e/feat-prereqs nil {:race {:folk true}} {:folk-x {:name "Folk (X)"}})))
+      "a race the library no longer holds: still locked, and the label says which race"))
 
 ;; ── What the player gets after a clash rename ───────────────────────────────────────────────
 ;; A rename only happens because another item already holds the key: an import conflict settled by
@@ -179,10 +170,10 @@
                ::e5/spells  {:bolt (item :bolt :level 1 :spell-lists {:caster true})}}}
    ::e5/classes :caster :caster-imp "Caster (Imp)")
   (let [lists @(rf/subscribe [::spells5e/plugin-spell-lists])]
-    (is (some #{:bolt} (get-in lists [:caster 1]))
-        "GAP: the imported spell joins the LIBRARY's Caster list")
-    (is (nil? (get-in lists [:caster-imp 1]))
-        "GAP: and the imported class it was written for offers nothing")))
+    (is (not (some #{:bolt} (get-in lists [:caster 1])))
+        "the imported spell stays off the LIBRARY's Caster list")
+    (is (some #{:bolt} (get-in lists [:caster-imp 1]))
+        "and joins the imported class it was written for")))
 
 (deftest a-stranded-feat-prerequisite-requires-the-other-race
   (after-import-rename!
@@ -192,9 +183,9 @@
    ::e5/races :folk :folk-imp "Folk (Imp)")
   (let [race-map (into {} (map (juxt :key identity)) @(rf/subscribe [::races5e/plugin-races]))
         feat     (get-in @app-db [:plugins "Import" ::e5/feats :knack])]
-    (is (= ["Folk Only"] (map :orcpub.template/label
-                              (opt5e/feat-prereqs nil (:path-prereqs feat) race-map)))
-        "GAP: the imported feat now requires the LIBRARY's Folk, not the Folk (Imp) it was written for")))
+    (is (= ["Folk (Imp) Only"] (map :orcpub.template/label
+                                    (opt5e/feat-prereqs nil (:path-prereqs feat) race-map)))
+        "the imported feat requires the Folk (Imp) it was written for")))
 
 (deftest a-stranded-level-selection-offers-the-other-list
   (after-import-rename!
@@ -207,7 +198,7 @@
    ::e5/selections :tricks :tricks-imp "Import Tricks (Imp)")
   (let [mage (first (filter #(= :mage (:key %)) @(rf/subscribe [::classes5e/plugin-classes])))
         pick (first (get-in mage [:levels 1 :selections]))]
-    (is (= "Library Tricks" (:orcpub.template/name pick))
-        "GAP: the imported class's level-1 choice offers the LIBRARY's list")
-    (is (= ["Juggle"] (map :orcpub.template/name (:orcpub.template/options pick)))
-        "GAP: with the library's options, not the ones it was written with")))
+    (is (= "Import Tricks (Imp)" (:orcpub.template/name pick))
+        "the imported class's level-1 choice offers its own list")
+    (is (= ["Vanish"] (map :orcpub.template/name (:orcpub.template/options pick)))
+        "with the options it was written with")))

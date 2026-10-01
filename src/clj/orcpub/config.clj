@@ -14,19 +14,11 @@
       (not-empty (str/trim (slurp f))))))
 
 (defn redact-secrets
-  "Blank out credentials in a connection string so it can be logged.
-
-   A Datomic SQL URI carries the database password in plain sight:
-
-     datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
-
-   Handles both shapes a credential arrives in -- a `password=`/`secret=`/`token=`
-   query parameter, and `scheme://user:pass@host` userinfo. Anything else is returned
-   unchanged, so a `datomic:mem://orcpub` or `datomic:dev://localhost:4334/orcpub`
-   still reads normally in the log.
-
-   Redacting is not the same as being safe to print: only call this on values that are
-   meant to be seen, and never widen what is logged because it is redacted."
+  "Blank out credentials in a connection string so it can be logged; nil for nil.
+   Redacts a `password=`/`secret=`/`token=`-style query parameter and `scheme://user:pass@host`
+   userinfo; anything else is returned unchanged.
+   GOTCHA: redacted is not safe to print. Call it only on values meant to be seen, and never
+   widen what is logged because it is redacted."
   [s]
   (when s
     (-> (str s)
@@ -53,15 +45,11 @@
       (some-> (System/getenv "SIGNATURE") not-empty)))
 
 (defn get-datomic-uri
-  "Return the Datomic URI from the environment or the default.
+  "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
+  default datomic:dev://localhost:4334/orcpub.
 
-  Prefers the raw env value (from `datomic-env`), otherwise returns a safe
-  local development default (datomic:dev://localhost:4334/orcpub).
-
-  If the URL does not contain a ?password= parameter and DATOMIC_PASSWORD
-  is set, appends it automatically. This allows admins to keep the password
-  out of DATOMIC_URL (e.g. for Docker secrets) while remaining backward
-  compatible with URLs that embed the password."
+  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `?password=<pw>`, so
+  the password can be kept out of DATOMIC_URL (e.g. in a Docker secret)."
   []
   (let [url (or (datomic-env) default-datomic-uri)
         pw  (datomic-password)]
@@ -69,8 +57,7 @@
       (str url "?password=" pw)
       url)))
 
-;; Content Security Policy configuration
-;; CSP_POLICY environment variable options:
+;; CSP_POLICY options (read by `get-csp-policy`):
 ;;   - "strict"     : Nonce-based CSP with 'strict-dynamic' (default, maximum security)
 ;;   - "permissive" : Allows same-origin scripts without strict-dynamic (legacy fallback)
 ;;   - "none"       : Disables CSP entirely (not recommended for production)
@@ -131,27 +118,18 @@
 
 (defn get-pdf-concurrency
   "How many character sheets may be generated at once, from ORCPUB_PDF_CONCURRENCY.
+   Defaults to twice the core count, minimum eight.
 
-   Bounded separately from the HTTP pool so a rush of exports cannot take the
-   whole site down with it: requests past this limit wait for a slot, and the
-   pages, logins and saves keep their own workers.
-
-   Sizing: an export in flight holds roughly 11 MB of heap, so the ceiling is
-   about (usable heap - 100 MB) / 11 MB. Throughput is bounded by cores, not by
-   this number -- raising it past what the cores can chew through lengthens the
-   queue without shortening the wait. Defaults to twice the core count, minimum
-   eight."
+   Separate from the HTTP pool: exports past this limit wait for a slot while pages, logins
+   and saves keep their own workers. Sizing against the heap: docs/PDF-EXPORT-CAPACITY.md."
   []
   (positive-int-env ["ORCPUB_PDF_CONCURRENCY"] (max 8 (* 2 @available-processors))))
 
 (defn get-pdf-max-caster-sections
-  "Most spellcasting sections one sheet may be grown to, from
-   ORCPUB_PDF_MAX_CASTER_SECTIONS.
-
-   The caster count comes from the field NAMES in the request -- the largest N in
-   spellcasting-class-N -- so without a ceiling a body of a few dozen bytes can
-   ask for thousands of cloned pages at about 14 MB each. Thirteen is every class
-   in the game, which no character can exceed."
+  "Most spellcasting sections one sheet may be grown to, from ORCPUB_PDF_MAX_CASTER_SECTIONS.
+   Defaults to 13, every class in the game.
+   GOTCHA: the count comes from the field NAMES in the request (the largest N in
+   spellcasting-class-N), so without a ceiling a tiny body can ask for thousands of pages."
   []
   (positive-int-env ["ORCPUB_PDF_MAX_CASTER_SECTIONS"] 13))
 
@@ -166,16 +144,10 @@
 
 (defn get-pdf-max-cards
   "Most cards of one kind a single export will print, from ORCPUB_PDF_MAX_CARDS.
-
-   Whole sheets: 22 pages of nine. The caller says how many cards it wants, so without a cap
-   an export is only as bounded as the request body -- a 2 MB body holds about 60,000 spell
-   entries, some 13,000 pages, and a quarter of an hour holding an export slot.
-
-   198 is far past any real character; a level 20 wizard's spellbook is about 44. It was 200,
-   which is 22 sheets plus two cards on a twenty-third -- a ragged last page for no reason,
-   since nothing about the limit wanted a round decimal number.
-
-   Counted per KIND, so spells, items and features are each bounded separately."
+   Defaults to 22 whole sheets (198). Counted per KIND, so spells, items and features are
+   each bounded separately.
+   GOTCHA: the caller says how many cards it wants, so without a cap an export is only as
+   bounded as the request body. Sizing: docs/PDF-EXPORT-CAPACITY.md."
   []
   (positive-int-env ["ORCPUB_PDF_MAX_CARDS"] (* 22 cards-per-page)))
 
@@ -204,15 +176,9 @@
   (= "true" (str/lower-case (or (env :dev-mode) ""))))
 
 (defn strict-csp?
-  "Returns true when CSP_POLICY=strict (regardless of dev mode).
-
-   When true, nonce-interceptor generates per-request nonces and adds them
-   to script tags. The header type depends on mode:
-   - Dev mode: Content-Security-Policy-Report-Only (violations logged, not blocked)
-   - Prod mode: Content-Security-Policy (violations blocked)
-
-   This allows catching CSP issues during development while still allowing
-   Figwheel's document.write() scripts to execute."
+  "Returns true when CSP_POLICY=strict, regardless of dev mode.
+   `orcpub.pedestal/make-nonce-interceptor` acts on it only outside dev mode, where it adds
+   per-request nonces and an enforcing Content-Security-Policy header."
   []
   (= "strict" (get-csp-policy)))
 
@@ -298,14 +264,10 @@
 
 (def settings
   "Everything the boot banner reports, in print order.
-
-   `:secret?` means the VALUE IS NEVER PRINTED -- only whether it is present. This whole
-   banner exists because a password reached a log; it must not become the next way one does.
-   `:critical?` marks a setting whose absence breaks the site, so it is called out below the
-   table rather than left to be spotted in a row.
-
-   `:get` supplies the resolved value where an accessor exists; without one the raw
-   environment value is shown, which is right for settings that have no default of ours."
+   `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
+   `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
+   `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
+   which is right for settings that have no default of ours."
   (concat
    [{:group "runtime"  :var "PORT"}
     {:group "runtime"  :var "DEV_MODE"      :note "dev-only behaviour and relaxed CORS"}
@@ -474,8 +436,8 @@
    - none: Disables CSP entirely"
   []
   (cond
-    ;; Strict mode - nonce-interceptor handles CSP dynamically
-    ;; (uses Report-Only in dev, enforcing in prod)
+    ;; Strict mode - nonce-interceptor sets an enforcing CSP outside dev mode; in dev mode
+    ;; it is a no-op and Pedestal's default CSP stays active
     (= "strict" (get-csp-policy))
     {:content-security-policy-settings nil}
 

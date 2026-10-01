@@ -60,8 +60,15 @@
               (catch :default e
                 (js/console.error "Startup failed while setting homebrew aside:" e))))
 
+;; Tidies what past renames left in the library. Its own step: a failure here must not
+;; undo a load that worked.
+(boot-step "settle-loaded-library" #(dispatch [:orcpub.dnd.e5/settle-loaded-library]))
+
 ;; Startup reads homebrew and builds nothing from it. The character template autosave
 ;; needs is built on the first save (autosave-fx/ensure-template-cache!).
+
+;; Another tab's library write reloads this tab's copy.
+(events/start-library-watch!)
 
 (def pages
   {nil views-2/splash-page

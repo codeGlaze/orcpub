@@ -1,6 +1,6 @@
 ;; What a party can hold, and how it keeps the share token of a character added from a share link.
 (ns orcpub.routes.party-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [datomic.api :as d]
             [orcpub.routes.party :as party-routes]
             [orcpub.routes.share :as share]
@@ -107,3 +107,21 @@
                                             ::party/shared-tokens [{:orcpub.party-share/character bard
                                                                     :orcpub.party-share/token token}]}))))
       (is (= token (:orcpub.party-share/token (first (listed conn))))))))
+
+(deftest add-and-remove-answer-with-the-updated-party
+  ;; `:db` is the snapshot the db-interceptor takes before the handler runs, so a handler that pulls
+  ;; from it answers with the party as it was before the change.
+  (with-conn conn
+    (setup! conn)
+    (let [party-id (:db/id (:body (new-party! conn)))
+          bard     (bobs-character! conn "Wren")
+          members  #(set (map :db/id (::party/character-ids (:body %))))
+          added    (add! conn party-id bard)]
+      (testing "add-character answers with the new member in the party"
+        (is (= 200 (:status added)))
+        (is (= #{bard} (members added))))
+      (let [removed (party-routes/remove-character {:db (d/db conn) :conn conn :identity {:user "alice"}
+                                                    :path-params {:id party-id :character-id (str bard)}})]
+        (testing "remove-character answers with the member gone"
+          (is (= 200 (:status removed)))
+          (is (empty? (members removed))))))))

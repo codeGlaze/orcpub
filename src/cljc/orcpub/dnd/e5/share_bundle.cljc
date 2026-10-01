@@ -1,34 +1,17 @@
 (ns orcpub.dnd.e5.share-bundle
-  "Compute the complete homebrew (\"plugin\") content a single character depends
-   on, so it can be bundled into a shareable file (the \"embed the content in
-   the shared link\" feature).
-
-   Pure data functions — no re-frame, no DOM — so the core unit-tests under
-   `lein test`.
-
-   Strategy:
-     1. DIRECT   — sweep every ::entity/key the character selected
-        (entity/flatten-options) and keep those that exist in the plugins map.
-     2. CLOSURE  — follow the shallow (<=2 hop) reference edges homebrew defs
-        carry (subclass->class, subrace->race, granted spells, race->language
-        by NAME, class->selection) to a fixpoint.
-     3. REVERSE  — a homebrew class's spell list is stored ON the spells
-        (:spell-lists {class-key true}), not on the class, so pull every
-        homebrew spell that names an included class.
-
-   Emits a :plugins-shaped map grouped by original source, ready to serialize
-   like an .orcbrew export.
-
-   Custom magic items, weapons and armor are not plugins: each account's are
-   stored on the server, so this closure skips them. used-custom-items below
-   picks the ones a character equips, without database ids or owner, for the
-   server to send with the character (routes/get-character-for-id). Links made
-   before that carry them, and whitelist-shared still accepts those."
+  "The homebrew one character depends on, as a :plugins-shaped map grouped by source, for a share
+   link. Pure. The closure is the character's selected keys, then every :follow link to a fixpoint,
+   then every item pointing in through a :reverse link, repeated until nothing is added
+   (library-links/links). Custom magic items are server-side, not plugins, so never included; a
+   character's equipped ones travel with the character from the server (used-custom-items).
+   Embedded media is stripped (without-embedded-media)."
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.library-links :as links]))
 
 ;; Content-type keywords are written as literals (:orcpub.dnd.e5/...) rather
 ;; than via the ::e5 alias so this namespace stays clj-loadable for `lein test`
@@ -74,10 +57,10 @@
         idx pdata)))
    {} plugins))
 
-(defn- type-of
-  "The content-type of key k in the index, or nil if k is not homebrew."
+(defn- types-of
+  "Every content-type in the index holding key k."
   [idx k]
-  (some (fn [[ctype cmap]] (when (contains? cmap k) ctype)) idx))
+  (keep (fn [[ctype cmap]] (when (contains? cmap k) ctype)) idx))
 
 ;; ── Pass 1: direct references ────────────────────────────────────────────────
 
@@ -91,17 +74,20 @@
         (entity/flatten-options (::entity/options character))))
 
 (defn- direct-refs
-  "Seed set {ctype #{keys}} — selected keys that are actually homebrew."
+  "Seed set {ctype #{keys}}: each selected key that is homebrew, under the content types a pick
+   under its selection can be (`library/pick-types`)."
   [idx character]
-  (reduce (fn [acc k]
-            (if-let [ct (type-of idx k)]
-              (update acc ct (fnil conj #{}) k)
-              acc))
-          {} (selected-keys character)))
+  (reduce (fn [acc {path ::t/path option ::t/key}]
+            (let [k (::entity/key option)]
+              (reduce (fn [acc ct] (update acc ct (fnil conj #{}) k))
+                      acc (library/pick-types (vec (take-nth 2 path)) (types-of idx k)))))
+          {} (entity/flatten-options (::entity/options character))))
 
 ;; ── Transitive edges ─────────────────────────────────────────────────────────
 
-(defn- spell-key-refs
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/links, which
+;; outgoing-refs and add-reverse now read.
+#_(defn- spell-key-refs
   "Spell keys a race/subrace/class/subclass def grants, from every known shape."
   [d]
   (concat
@@ -114,7 +100,7 @@
    (mapcat (fn [gk] (when-let [m (get d gk)] (mapcat vals (vals m))))
            [:paladin-spells :cleric-spells :warlock-spells])))
 
-(defn- language-name-refs
+#_(defn- language-name-refs
   "Homebrew language keys a def grants by NAME (races/subraces :languages is a
    set of name strings). The one fuzzy edge — resolved via name-to-kw; names
    that do not resolve to a loaded homebrew language are simply not added
@@ -126,17 +112,17 @@
               (when (contains? lang-idx k) k)))
           (:languages d))))
 
-(defn- prop-language-refs
+#_(defn- prop-language-refs
   "Language keys referenced via a :props :language map (feats and friends)."
   [d]
   (keys (get-in d [:props :language])))
 
-(defn- selection-refs
+#_(defn- selection-refs
   "Selection keys a class references via :level-selections :type."
   [d]
   (keep :type (:level-selections d)))
 
-(defn- outgoing-refs
+#_(defn- outgoing-refs
   "All [ctype key] a def points at. Callers filter these against the index."
   [idx ctype d]
   (cond-> []
@@ -146,6 +132,27 @@
     true (into (for [k (language-name-refs idx d)] [languages k]))
     true (into (for [k (prop-language-refs d)] [languages k]))
     true (into (for [k (selection-refs d)] [selections k]))))
+
+(defn- resolve-target
+  "The key `v` names through `link`: `v` itself, or for a `:by :name` link the loaded item with
+   that name, else the one under the name-derived key (nil when none)."
+  [idx link v]
+  (if (= :name (:by link))
+    (or (some (fn [[k {d :def}]] (when (= v (:name d)) k)) (get idx (:to link)))
+        (let [k (common/name-to-kw (str v))]
+          (when (contains? (get idx (:to link)) k) k)))
+    v))
+
+(defn- outgoing-refs
+  "All [ctype key] a def of `ctype` points at through :follow links. Callers filter these
+   against the index."
+  [idx ctype d]
+  (for [link links/links
+        :when (and (= :follow (:bundle link)) (links/holds? link ctype))
+        v (links/targets link d)
+        :let [k (resolve-target idx link v)]
+        :when (some? k)]
+    [(:to link) k]))
 
 (defn- add-ref [acc ctype k] (update acc ctype (fnil conj #{}) k))
 (defn- has-ref? [acc ctype k] (contains? (get acc ctype) k))
@@ -168,7 +175,8 @@
                acc acc)]
       (if (= nxt acc) acc (recur nxt)))))
 
-(defn- add-reverse-spell-lists
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by add-reverse.
+#_(defn- add-reverse-spell-lists
   "A homebrew class's spell list is declared ON the spells (:spell-lists
    {class-key true}), so pull every homebrew spell that names an included class."
   [idx acc]
@@ -180,6 +188,31 @@
                   (add-ref a spells spell-key)
                   a))
               acc (get idx spells)))))
+
+(defn- add-reverse
+  "`acc` plus every item that points, through a :reverse link, at an item already in `acc`."
+  [idx acc]
+  (reduce
+   (fn [a link]
+     (let [wanted (get a (:to link))]
+       (if (empty? wanted)
+         a
+         (reduce (fn [a [ctype items]]
+                   (if (links/holds? link ctype)
+                     (reduce (fn [a [k {d :def}]]
+                               (if (some wanted (links/targets link d)) (add-ref a ctype k) a))
+                             a items)
+                     a))
+                 a idx))))
+   acc
+   (filter #(= :reverse (:bundle %)) links/links)))
+
+(defn- close
+  "Fixpoint of `closure` then `add-reverse`: what a reversed item needs is followed too."
+  [idx seed]
+  (loop [acc seed]
+    (let [nxt (add-reverse idx (closure idx acc))]
+      (if (= nxt acc) acc (recur nxt)))))
 
 ;; ── Emit ─────────────────────────────────────────────────────────────────────
 
@@ -210,8 +243,7 @@
   (let [idx (plugin-index plugins)]
     (without-embedded-media
      (->> (direct-refs idx character)
-          (closure idx)
-          (add-reverse-spell-lists idx)
+          (close idx)
           (emit-bundle idx)))))
 
 ;; The share link always carries the character's FULL content — descriptions and
@@ -225,12 +257,9 @@
   (pr-str bundle))
 
 ;; ── Structural whitelist (security layer 5) ──────────────────────────────────
-;; The fail-closed shape gate for an UNTRUSTED shared bundle. It keeps only the
-;; parts that match the exact {source {content-type {item-key def}}} shape with a
-;; known content type and a letter-leading keyword key; everything else is
-;; dropped. This is a SHAPE gate only — item CONTENT is validated and sanitized
-;; afterward by the same .orcbrew import path a file upload goes through
-;; (salvage-library-items + per-type spec + sanitize-item-names).
+;; Fail-closed SHAPE gate for an untrusted bundle: keeps only {source {content-type
+;; {item-key def}}} with a known content type and a letter-leading keyword key. CONTENT
+;; is checked later by the .orcbrew import path (salvage + spec + sanitize-item-names).
 
 (defn- flatten-by-type
   "Collapse {source {content-type {key def}}} into {content-type {key def}},
