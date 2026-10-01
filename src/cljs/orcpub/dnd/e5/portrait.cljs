@@ -1510,7 +1510,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   "The hair's second colour and how it runs. With no tips colour the hair is
    one colour with a little depth, which is where everyone starts."
   [portrait]
-  (let [{:keys [tip start falloff depth angle]} (fx/ombre-settings portrait)]
+  (let [{:keys [tip start falloff depth angle clumps]} (fx/ombre-settings portrait)]
     [:div.pl-ombre
      [:span.pl-panel-heading "Tips"]
      [:div.pl-presets
@@ -1531,7 +1531,9 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
      (when tip
        [:<>
         [ombre-slider "Starts" :start start]
-        [ombre-slider "Blend" :falloff falloff]])
+        [ombre-slider "Blend" :falloff falloff]
+        ;; how far the tip colour runs up some strands and holds back on others
+        [ombre-slider "Streaks" :clumps clumps]])
      [ombre-slider "Depth" :depth depth]
      [:label.pl-ombre-row
       [:span.pl-ombre-label "Runs"]

@@ -34,7 +34,8 @@
    :depth 0.3     ; soft-light: darker roots, lighter ends, 0..1
    :angle nil     ; nil: down from the crown line; degrees: a straight line, 0 = down
    ;; the quick-colouring tricks, each 0 (off) .. 1
-   :clumps 0.0    ; the tip colour starts higher on some strands, lower on others
+   :clumps 0.45   ; streaks: the tip colour starts higher on some strands, lower
+                  ; on others (0.45 chosen on the real art; 1 looked stamped)
    :light 0.0     ; depth lifted toward a light at the upper left, deepened away
    :under 0.0})   ; the hair behind the head a little darker, by how light it is
 
@@ -262,15 +263,17 @@
         light (double light)]
     (fn ^long [^long x ^long y ^long rgb]
       (let [u (/ (- (double x) x0) span)
-            t (pos x y)
-            t (if (pos? amp) (clamp01 (+ t (* amp (wave u)))) t)
+            t0 (pos x y)
+            ;; streaks move where the tip colour starts, not the depth: hair
+            ;; with no second colour looks exactly as it did
+            t (if (pos? amp) (clamp01 (+ t0 (* amp (wave u)))) t0)
             ;; a piece held in the root colour until `tips-from` along it
             t (if (pos? tips-from)
                 (if (>= tips-from 1.0) 0.0 (clamp01 (/ (- t tips-from) (- 1.0 tips-from))))
                 t)
             ;; light at the upper left: shift the depth curve's position so the
             ;; near side reads as further along (lighter), the far side less
-            td (if (pos? light) (clamp01 (+ t (* light 0.35 (- 0.5 u)))) t)]
+            td (if (pos? light) (clamp01 (+ t0 (* light 0.35 (- 0.5 u)))) t0)]
         (colour rgb t td)))))
 
 (defn ombre-rgb

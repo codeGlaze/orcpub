@@ -5,9 +5,9 @@
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (deftest settings-default-and-clamp
-  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.0 :light 0.0 :under 0.0 :angle nil}
+  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil}
          (fx/ombre-settings {})))
-  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.0 :light 1.0 :under 0.0 :angle 90.0}
+  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0}
          (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450 :light 3}}))
       "out-of-range numbers are pulled back in, junk falls back to the default")
   (is (nil? (:tip (fx/ombre-settings {:ombre {:tip "teal"}}))) "only #rrggbb tips"))
@@ -99,7 +99,7 @@
         alpha (fn [i] (let [x (mod i w) y (quot i w)] (if (and (<= 10 x 90) (<= 10 y 90)) 255 0)))
         frame (fx/gradient-frame alpha w h [50.0 10.0] nil)
         white 0xffffff brown [92 58 30] teal [47 127 154]
-        base (assoc (fx/ombre-settings {}) :depth 0.0)
+        base (assoc (fx/ombre-settings {}) :depth 0.0 :clumps 0.0)
         at (fn [settings x y] ((fx/pixel-fn brown teal settings frame :hair-front) x y white))]
     (testing "off, the line where the tips start is level across the piece"
       (is (= (at base 20 50) (at base 80 50))))
@@ -124,10 +124,23 @@
         alpha (fn [i] (let [x (mod i w) y (quot i w)] (if (and (<= 10 x 90) (<= 10 y 90)) 255 0)))
         frame (fx/gradient-frame alpha w h [50.0 10.0] nil)
         brown [92 58 30] teal [47 127 154]
-        base (assoc (fx/ombre-settings {}) :depth 0.0)
+        base (assoc (fx/ombre-settings {}) :depth 0.0 :clumps 0.0)
         at (fn [asset y] ((fx/pixel-fn brown teal (fx/piece-settings base asset) frame :bangs) 50 y 0xffffff))
         packed (fn [[r g b]] (bit-or (bit-shift-left r 16) (bit-shift-left g 8) b))]
     (is (= (packed teal) (at {} 88)) "an ordinary piece reaches the tip colour")
     (is (= (packed brown) (at {:asset/tips-from 1.0} 88)) "1.0: the fringe stays in the root colour")
     (is (= (packed brown) (at {:asset/tips-from 0.7} 60)) "0.7: root colour until 70% along")
     (is (not= (packed brown) (at {:asset/tips-from 0.7} 89)) "and only the ends take the tips")))
+
+(deftest streaks-never-touch-hair-with-one-colour
+  (testing "the default streaks move only the tip colour, so a portrait with
+            no tips colour is exactly as it was before streaks existed"
+    (let [w 100 h 100
+          alpha (fn [i] (let [x (mod i w) y (quot i w)] (if (and (<= 10 x 90) (<= 10 y 90)) 255 0)))
+          frame (fx/gradient-frame alpha w h [50.0 10.0] nil)
+          brown [92 58 30]
+          s (fx/ombre-settings {})
+          with (fn [settings x y] ((fx/pixel-fn brown brown settings frame :hair-front) x y 0xc8c8c8))]
+      (is (= 0.45 (:clumps s)))
+      (is (every? true? (for [x (range 12 89 7) y (range 12 89 11)]
+                          (= (with s x y) (with (assoc s :clumps 0.0) x y))))))))
