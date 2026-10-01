@@ -2367,13 +2367,17 @@
 
 
 (defn desktop-or-tablet-columns [device-type]
-  (let [current-tab (or @(subscribe [::char5e/builder-tab]) :options)]
+  ;; The phone's Details tab is the right column here, so a window widened while
+  ;; on it lands on Description; narrowing keeps Description too.
+  (let [current-tab (if (= :options (or @(subscribe [::char5e/builder-tab]) :options))
+                      :options
+                      :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
+        [builder-tab "Description" :description current-tab]]
        (if (= current-tab :options)
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
@@ -2684,9 +2688,8 @@
          [:div
           [missing-content-warning]
           [relink-question-banner]]
-         ;; on phones .content has no side padding; keep the toggles off the edge
-         [:div.flex.flex-wrap.justify-cont-end
-          {:class (when mobile? "p-r-10")}
+         ;; .content has no side padding of its own; keep the toggles off the edge
+         [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
           [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c

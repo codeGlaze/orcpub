@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
+            [orcpub.user-agent :as user-agent]
             [cljs-http.client :as http]
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
@@ -34,6 +35,9 @@
 
 ;; Another tab's library write reloads this tab's copy.
 (events/start-library-watch!)
+
+;; Resizing across the phone breakpoint re-lays the page.
+(user-agent/watch-narrow-screen! #(dispatch [:set-narrow-screen %]))
 
 (def pages
   {nil views-2/splash-page

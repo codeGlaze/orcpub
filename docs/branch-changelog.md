@@ -22,8 +22,10 @@ site. Bold across the site was then tuned by a size rule (700 small capitals, 60
 
 ## Fixed
 
+- A desktop browser narrowed to phone width now gets the phone layout, and the desktop one back when widened; before, the layout was fixed by the device at load and a narrow desktop window drew the desktop page squeezed into phone width. A phone keeps the phone layout at any width.
+- The builder stays on Description when the window crosses phone width; it used to jump to the character sheet.
 - On phones, all six ability buttons fit on the row; the sixth (CHA) used to be cut off at the right edge.
-- On phones, the Light Theme and Dark Button Text toggles no longer touch the right edge of the screen.
+- The Light Theme and Dark Button Text toggles no longer touch the right edge of the screen.
 - White text on the yellow buttons has a faint dark edge, and the optional dark text a faint light one, so the letters stand out from the amber. The header tabs get the same dark edge, and the small ability buttons a stronger glow plus a thin yellow outline.
 - "MY CONTENT" fits on one line in the header: the tab titles are 4% tighter.
 - Text marked bold now renders bold: Open Sans is loaded at 400, 600 and 700, not 400 alone. (`4159164c`)

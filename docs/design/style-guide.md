@@ -200,6 +200,14 @@ everything. Only the dev-mode toggle adds one back (`core.clj:2217`, a 2px orang
 elements (orange in dark, `#33658A` in light), using the dev-mode toggle's style as the
 standard. Until then, new components must add their own.
 
+**Phone width.** One breakpoint: 767px and under is a phone (`xs-query`). The stylesheet and the
+page code use the same cutoff: at phone width the page draws the phone layout on any device,
+and resizing across it re-lays the page (`user-agent/layout-type`, the `:device-type`
+subscription). Wider than that, the device decides between desktop and tablet as before. What the
+device *can do* (a keyboard for the roll buttons' ctrl/shift tip) reads `:ua-device-type` instead.
+To capture the phone layout, a narrow window is enough now; a real phone's user agent still
+matters for touch-only behaviour.
+
 ---
 
 ## 5. Buttons

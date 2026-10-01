@@ -2269,7 +2269,8 @@
 (def button-roll-handler (memoize button-roll-fn))
 
 (defn roll-button [message roll & {:keys [text disable-tooltip style]}]
-  (let [mobile? @(subscribe [:mobile?])
+  ;; the tip is about ctrl and shift, so it follows the device, not the width
+  (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)

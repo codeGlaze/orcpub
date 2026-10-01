@@ -33,6 +33,32 @@
     (g-device/isTablet) :tablet
     :else :not-found))
 
+;; The stylesheet's phone breakpoint (xs-query in orcpub.styles.core). Layout
+;; follows this, so the component tree and the CSS always agree.
+(def narrow-query "(max-width: 767px)")
+
+(defn- narrow-mql []
+  (when (and (exists? js/window) (.-matchMedia js/window))
+    (.matchMedia js/window narrow-query)))
+
+(defn narrow-screen?
+  "True when the window is at phone width; nil when it can't be measured."
+  []
+  (some-> (narrow-mql) .-matches))
+
+(defn watch-narrow-screen!
+  "Calls f with true or false whenever the window crosses the phone breakpoint."
+  [f]
+  (when-let [mql (narrow-mql)]
+    (.addEventListener mql "change" #(f (.-matches %)))))
+
+(defn layout-type
+  "The layout to draw: the phone layout at phone width whatever the device,
+   otherwise the device's own type. Width only ever asks for the smaller
+   layout, so a phone turned sideways keeps its compact header."
+  [device narrow?]
+  (if narrow? :mobile device))
+
 (defn platform []
   (cond
     (g-platform/isAndroid) :android

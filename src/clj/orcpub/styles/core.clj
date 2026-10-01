@@ -918,6 +918,8 @@
    (at-media xs-query
     [:.ability-scores
      [:>div {:flex "1 1 0" :min-width 0}]
+     ;; with a keyboard the button sits in its ctrl/shift tip; let that fill too
+     [:.tooltip {:display "block"}]
      [:.roll-button {:min-width 0 :width "calc(100% - 4px)"}]])
 
    (at-media xs-query

@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
             [orcpub.route-map :as routes]
+            [orcpub.user-agent :as user-agent]
             [clojure.string :as s]
             [reagent.ratom :as ra]
             [cljs.core.async :refer [<!]]
@@ -741,10 +742,25 @@
  (fn [db _]
    (:message-type db)))
 
+;; What the device says it is. For what the device can do (a keyboard for
+;; ctrl+click), not for layout.
 (reg-sub
- :device-type
+ :ua-device-type
  (fn [db _]
    (:device-type db)))
+
+;; The layout to draw, which follows the window width. Every view keys off this.
+(reg-sub
+ :narrow-screen?
+ (fn [db _]
+   (:narrow-screen? db)))
+
+(reg-sub
+ :device-type
+ :<- [:ua-device-type]
+ :<- [:narrow-screen?]
+ (fn [[device narrow?] _]
+   (user-agent/layout-type device narrow?)))
 
 (reg-sub
  :mobile?

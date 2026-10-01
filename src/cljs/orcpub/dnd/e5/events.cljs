@@ -2027,6 +2027,12 @@
  :dark-button-text-saved
  (fn [db _] db))
 
+;; The window crossed the phone breakpoint; the layout follows (:device-type).
+(reg-event-db
+ :set-narrow-screen
+ (fn [db [_ narrow?]]
+   (assoc db :narrow-screen? narrow?)))
+
 (reg-event-fx
  :unfollow-user
  (fn [{:keys [db]} [_ username]]
