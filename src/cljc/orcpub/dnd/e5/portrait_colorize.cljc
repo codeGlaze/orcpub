@@ -128,47 +128,63 @@
 #?(:clj  (defn- as! [^doubles a ^long i ^double v] (aset a i v))
    :cljs (defn- as! [a i v] (aset a i v)))
 
+(defn blur
+  "Coverage (0..255 per pixel, `w` x `h`, row-major) blurred by a gaussian of
+   radius `r` (sigma r/2). Only the area around covered pixels is computed;
+   everything else is 0. Shared by the iris feather and the cast shadows."
+  [cov w h r]
+  (let [n (* w h)
+        ;; bounding box of anything covered, grown by the radius
+        [x0 y0 x1 y1] (loop [i 0 x0 w y0 h x1 -1 y1 -1]
+                        (if (= i n)
+                          [x0 y0 x1 y1]
+                          (if (pos? (ag cov i))
+                            (let [x (mod i w) y (quot i w)]
+                              (recur (inc i) (min x0 x) (min y0 y) (max x1 x) (max y1 y)))
+                            (recur (inc i) x0 y0 x1 y1))))]
+    (if (or (neg? x1) (< r 1))
+      cov
+      (let [x0 (max 0 (- x0 r)) y0 (max 0 (- y0 r))
+            x1 (min (dec w) (+ x1 r)) y1 (min (dec h) (+ y1 r))
+            sigma (max 0.5 (/ r 2.0))
+            kernel (let [ws (mapv #(Math/exp (- (/ (* % %) (* 2 sigma sigma)))) (range (- r) (inc r)))
+                         s (reduce + ws)
+                         k (new-doubles (count ws))]
+                     (doseq [[i v] (map-indexed vector ws)] (as! k i (/ v s)))
+                     k)
+            w (long w) h (long h) r (long r)
+            x0 (long x0) x1 (long x1) y0 (long y0) y1 (long y1)
+            ;; primitive loops: this runs over a whole frame's worth of pixels
+            pass (fn [src horizontal?]
+                   (let [out (new-doubles n)]
+                     (loop [y y0]
+                       (when (<= y y1)
+                         (loop [x x0]
+                           (when (<= x x1)
+                             (as! out (+ x (* y w))
+                                  (loop [k 0 acc 0.0]
+                                    (if (> k (* 2 r))
+                                      acc
+                                      (let [d (- k r)
+                                            xx (if horizontal? (max 0 (min (dec w) (+ x d))) x)
+                                            yy (if horizontal? y (max 0 (min (dec h) (+ y d))))]
+                                        (recur (inc k) (+ acc (* (ag kernel k) (ag src (+ xx (* yy w))))))))))
+                             (recur (inc x))))
+                         (recur (inc y))))
+                     out))]
+        (pass (pass cov true) false)))))
+
 (defn feather
   "Coverage (0..255 per pixel, `w` x `h`, row-major) with its edge faded
    inward over radius `r`: a gaussian blur, then never more than the
-   original covered. Only the area around covered pixels is touched."
+   original covered."
   [cov w h r]
   (if (< r 1)
     cov
-    (let [n (* w h)
-          ;; bounding box of anything covered, grown by the radius
-          [x0 y0 x1 y1] (loop [i 0 x0 w y0 h x1 -1 y1 -1]
-                          (if (= i n)
-                            [x0 y0 x1 y1]
-                            (if (pos? (ag cov i))
-                              (let [x (mod i w) y (quot i w)]
-                                (recur (inc i) (min x0 x) (min y0 y) (max x1 x) (max y1 y)))
-                              (recur (inc i) x0 y0 x1 y1))))]
-      (if (neg? x1)
+    (let [blurred (blur cov w h r)]
+      (if (identical? blurred cov)
         cov
-        (let [x0 (max 0 (- x0 r)) y0 (max 0 (- y0 r))
-              x1 (min (dec w) (+ x1 r)) y1 (min (dec h) (+ y1 r))
-              sigma (max 0.5 (/ r 2.0))
-              kernel (let [ws (mapv #(Math/exp (- (/ (* % %) (* 2 sigma sigma)))) (range (- r) (inc r)))
-                           s (reduce + ws)
-                           k (new-doubles (count ws))]
-                       (doseq [[i v] (map-indexed vector ws)] (as! k i (/ v s)))
-                       k)
-              pass (fn [src horizontal?]
-                     (let [out (new-doubles n)]
-                       (doseq [y (range y0 (inc y1)) x (range x0 (inc x1))]
-                         (as! out (+ x (* y w))
-                               (loop [k 0 acc 0.0]
-                                 (if (> k (* 2 r))
-                                   acc
-                                   (let [d (- k r)
-                                         xx (if horizontal? (max 0 (min (dec w) (+ x d))) x)
-                                         yy (if horizontal? y (max 0 (min (dec h) (+ y d))))]
-                                     (recur (inc k) (+ acc (* (ag kernel k) (ag src (+ xx (* yy w)))))))))))
-                       out))
-              blurred (pass (pass cov true) false)
-              out (new-doubles n)]
+        (let [n (* w h) out (new-doubles n)]
           (dotimes [i n]
             (as! out i (min (ag cov i) (* 2.0 (max 0.0 (- (ag blurred i) 127.5))))))
           out)))))
-

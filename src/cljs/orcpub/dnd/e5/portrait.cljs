@@ -20,6 +20,7 @@
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
+            [orcpub.dnd.e5.portrait-effects :as fx]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.fork.branding :as branding]))
 
@@ -278,6 +279,167 @@
           :style {:position "absolute" :inset 0 :width "100%" :height "100%"
                   :object-fit "contain" :z-index z :pointer-events "none"}}])})))
 
+;; ---------------- hair ombre and cast shadows (portrait-effects) ----------------
+;;
+;; The same maths the share card runs, on a canvas at the art's own size.
+
+(defn- pixels-of
+  "An image's RGBA pixels at `w` x `h`."
+  [img w h]
+  (let [c (new-canvas w h) g (.getContext c "2d")]
+    (.drawImage g img 0 0 w h)
+    (.-data (.getImageData g 0 0 w h))))
+
+(defn- alpha-fn [rgba] (fn [i] (aget rgba (+ 3 (* 4 i)))))
+
+(defonce ^:private crown-cache (atom {}))
+
+(defn- crown-of
+  "Where the hair grows from, on this head image."
+  [head w h]
+  (let [k [(.-src head) w h]]
+    (if (contains? @crown-cache k)
+      (get @crown-cache k)
+      (let [c (fx/crown (alpha-fn (pixels-of head w h)) w h)]
+        (swap! crown-cache assoc k c)
+        c))))
+
+(defn- ombre-image
+  "A canvas the size of `img` holding the hair piece coloured root to tip."
+  [img head root-hex settings]
+  (let [w (.-naturalWidth img) h (.-naturalHeight img)
+        c (new-canvas w h) ctx (.getContext c "2d")
+        _ (.drawImage ctx img 0 0)
+        image-data (.getImageData ctx 0 0 w h)
+        px (.-data image-data)
+        root (colorize/hex->rgb root-hex)
+        tip (or (some-> (:tip settings) colorize/hex->rgb) root)
+        pos (fx/position-fn (fx/gradient-frame (alpha-fn px) w h (when head (crown-of head w h)) (:angle settings)))
+        colour (fx/ombre-fn root tip settings)]
+    (dotimes [p (* w h)]
+      (let [i (* 4 p)]
+        (when (pos? (aget px (+ i 3)))
+          (let [rgb (colour (aget px i) (aget px (+ i 1)) (aget px (+ i 2)) (pos (mod p w) (quot p w)))]
+            (aset px i (bit-and (bit-shift-right rgb 16) 0xff))
+            (aset px (+ i 1) (bit-and (bit-shift-right rgb 8) 0xff))
+            (aset px (+ i 2) (bit-and rgb 0xff))))))
+    (.putImageData ctx image-data 0 0)
+    c))
+
+(defonce ^:private ombre-cache (atom {}))
+
+(defn- ombre
+  "`ombre-image`, remembered; dragging an ombre slider redraws constantly."
+  [img head root-hex settings]
+  (let [k [(.-src img) (some-> head .-src) root-hex settings]]
+    (or (get @ombre-cache k)
+        (let [c (ombre-image img head root-hex settings)]
+          (swap! ombre-cache #(assoc (if (> (count %) 48) {} %) k c))
+          c))))
+
+(defn- with-images
+  "Call `f` with the loaded images for `urls`, in order (nil for a nil url)."
+  [urls f]
+  (let [urls (vec urls) out (atom (vec (repeat (count urls) nil))) left (atom (count (remove nil? urls)))]
+    (if (zero? @left)
+      (f @out)
+      (doseq [[i u] (map-indexed vector urls) :when u]
+        (with-image u (fn [img]
+                        (swap! out assoc i img)
+                        (when (zero? (swap! left dec)) (f @out))))))))
+
+(defn- ombre-layer
+  "A hair piece, drawn on a canvas so it can take the ombre."
+  [asset root-hex settings head-url z]
+  (let [node (atom nil)
+        paint! (fn [asset root-hex settings head-url]
+                 (with-images [(:asset/url asset) head-url]
+                   (fn [[img head]]
+                     (when-let [^js el @node]
+                       (let [src (ombre img head root-hex settings)]
+                         (set! (.-width el) (.-width src))
+                         (set! (.-height el) (.-height src))
+                         (.drawImage (.getContext el "2d") src 0 0))))))]
+    (r/create-class
+     {:component-did-mount (fn [_] (paint! asset root-hex settings head-url))
+      :component-did-update (fn [this _] (let [[_ a r s hu] (r/argv this)] (paint! a r s hu)))
+      :reagent-render
+      (fn [_ _ _ _ z]
+        [:canvas.portrait-layer.portrait-layer-hair
+         {:ref #(reset! node %)
+          :style {:position "absolute" :inset 0 :width "100%" :height "100%"
+                  :object-fit "contain" :z-index z :pointer-events "none"}}])})))
+
+(defn- combined-alpha [imgs w h]
+  (let [out (js/Float64Array. (* w h))]
+    (doseq [img imgs :when img]
+      (let [px (pixels-of img w h)]
+        (dotimes [i (* w h)]
+          (aset out i (max (aget out i) (aget px (+ 3 (* 4 i))))))))
+    out))
+
+(defn- shadow-image
+  "A canvas of the shade the overhanging hair throws onto the skin, to be
+   laid over the portrait with multiply: white where there is none."
+  [casters skins hairs]
+  (let [ref (first (remove nil? casters))
+        w (.-naturalWidth ref) h (.-naturalHeight ref)
+        k (fx/shadow-map (combined-alpha casters w h) (combined-alpha skins w h) (combined-alpha hairs w h) w h)
+        c (new-canvas w h) ctx (.getContext c "2d")
+        image-data (.createImageData ctx w h)
+        px (.-data image-data)]
+    (dotimes [p (* w h)]
+      (let [kk (aget k p)]
+        (when (pos? kk)
+          (let [[fr fg fb] (fx/shadow-factors kk) i (* 4 p)]
+            (aset px i (* 255 fr)) (aset px (+ i 1) (* 255 fg)) (aset px (+ i 2) (* 255 fb))
+            (aset px (+ i 3) 255)))))
+    (.putImageData ctx image-data 0 0)
+    c))
+
+(defonce ^:private shadow-cache (atom {}))
+
+(defn- shadow [casters skins hairs]
+  (let [k (mapv #(mapv (fn [i] (some-> i .-src)) %) [casters skins hairs])]
+    (or (get @shadow-cache k)
+        (let [c (shadow-image casters skins hairs)]
+          (swap! shadow-cache #(assoc (if (> (count %) 16) {} %) k c))
+          c))))
+
+(defn- shadow-urls
+  "The images the cast shadow needs, as [casters skin hair] url lists, or nil
+   when nothing selected hangs over the face."
+  [portrait]
+  (let [sel (fn [ks pred] (vec (keep #(let [a (pa/selected-asset portrait %)] (when (and a (pred a)) (:asset/url a))) ks)))
+        casters (sel pa/layer-order fx/casts-shadow?)]
+    (when (seq casters)
+      [casters (sel [:head :ears] any?) (sel [:scalp :hair-front :bangs] any?)])))
+
+(defn- shadow-layer
+  "The cast shadow, over everything, multiplied: it is already confined to
+   skin the hair does not cover, so it darkens nothing else."
+  [[caster-urls skin-urls hair-urls :as urls]]
+  (let [node (atom nil)
+        paint! (fn [[cu su hu]]
+                 (let [n1 (count cu) n2 (count su)]
+                   (with-images (concat cu su hu)
+                     (fn [imgs]
+                       (when-let [^js el @node]
+                         (let [src (shadow (subvec imgs 0 n1) (subvec imgs n1 (+ n1 n2)) (subvec imgs (+ n1 n2)))]
+                           (set! (.-width el) (.-width src))
+                           (set! (.-height el) (.-height src))
+                           (.drawImage (.getContext el "2d") src 0 0)))))))]
+    (r/create-class
+     {:component-did-mount (fn [_] (paint! urls))
+      :component-did-update (fn [this _] (paint! (second (r/argv this))))
+      :reagent-render
+      (fn [_]
+        [:canvas.portrait-layer.portrait-layer-shadow
+         {:ref #(reset! node %)
+          :style {:position "absolute" :inset 0 :width "100%" :height "100%"
+                  :object-fit "contain" :z-index 100 :pointer-events "none"
+                  :mix-blend-mode "multiply"}}])})))
+
 (defn composite
   "Stacked, tinted portrait for a `portrait` map (see ns doc). `attrs`
    (optional) merges into the outer div so callers can size/position it."
@@ -289,7 +451,10 @@
          ;; so a switch read in there would not redraw the face
          dev? @(subscribe [:orcpub.dnd.e5/dev-mode?])
          _ @iris-alternative?
-         whites (pa/whites-colour portrait)]
+         whites (pa/whites-colour portrait)
+         ombre-settings (fx/ombre-settings portrait)
+         head-url (:asset/url (pa/selected-asset portrait :head))
+         shadows (shadow-urls portrait)]
      [:div.portrait-composite
       (merge {:style {:position "relative" :width "100%" :height "100%"}} attrs)
       (map-indexed
@@ -306,13 +471,17 @@
                [colorized-layer (as-placed asset dev?)
                 (pa/tint-for portrait layer-key)
                 (pa/effective-gamma portrait layer-key asset) z]]
-              ^{:key layer-key}
-              [:div.portrait-layer
-               {:style (if (= :as-drawn (pa/render-mode layer-key asset))
-                         (as-drawn-style (:asset/url asset) z)
-                         (mask-style (:asset/url asset)
-                                     (pa/tint-for portrait layer-key) z))}])))
-        pa/layer-order)])))
+              (if (fx/hair-layer? layer-key)
+                ^{:key layer-key}
+                [ombre-layer asset (pa/tint-for portrait layer-key) ombre-settings head-url z]
+                ^{:key layer-key}
+                [:div.portrait-layer
+                 {:style (if (= :as-drawn (pa/render-mode layer-key asset))
+                           (as-drawn-style (:asset/url asset) z)
+                           (mask-style (:asset/url asset)
+                                       (pa/tint-for portrait layer-key) z))}]))))
+        pa/layer-order)
+      (when shadows ^{:key "shadow"} [shadow-layer shadows])])))
 
 ;; ---------------- rasterization (for PDF export) ----------------
 ;;
@@ -404,7 +573,9 @@
                       tmp (.createElement js/document "canvas")
                       _ (set! (.-width tmp) raster-width)
                       _ (set! (.-height tmp) raster-height)
-                      tctx (.getContext tmp "2d")]
+                      tctx (.getContext tmp "2d")
+                      img-of (into {} (map (fn [[[k _] img]] [k img]) (map vector selected (array-seq imgs))))
+                      settings (fx/ombre-settings portrait)]
                   (doseq [[[layer-key asset] img] (map vector selected (array-seq imgs))
                           :when img]
                     ;; filled-in whites go down first, under the eye art
@@ -450,6 +621,15 @@
                                                     (pa/effective-gamma portrait layer-key asset))
                                     x y dw dh))
 
+                      ;; hair: root to tip, the same as the drawer and the card
+                      (fx/hair-layer? layer-key)
+                      (let [[x y dw dh] (layout/contain-rect (.-naturalWidth img)
+                                                             (.-naturalHeight img)
+                                                             raster-width raster-height)]
+                        (.clearRect tctx 0 0 raster-width raster-height)
+                        (.drawImage tctx (ombre img (img-of :head) (pa/tint-for portrait layer-key) settings)
+                                    x y dw dh))
+
                       :else
                       (do
                       (set! (.-globalCompositeOperation tctx) "multiply")
@@ -463,6 +643,16 @@
                                                              raster-width raster-height)]
                         (.drawImage tctx img x y dw dh))))
                     (.drawImage ctx tmp 0 0))
+                  ;; the cast shadow after every layer, before the credit
+                  (when-let [[cu su hu] (shadow-urls portrait)]
+                    (let [by-url (into {} (map (fn [[_ a] img] [(:asset/url a) img]) selected (array-seq imgs)))
+                          casters (keep by-url cu)]
+                      (when (seq casters)
+                        (let [s (shadow (vec casters) (vec (keep by-url su)) (vec (keep by-url hu)))
+                              [x y dw dh] (layout/contain-rect (.-width s) (.-height s) raster-width raster-height)]
+                          (set! (.-globalCompositeOperation ctx) "multiply")
+                          (.drawImage ctx s x y dw dh)
+                          (set! (.-globalCompositeOperation ctx) "source-over")))))
                   (when-let [names (not-empty (pa/credit-names portrait))]
                     ;; The face has to be resident before fillText or the
                     ;; canvas silently substitutes; document.fonts.load is
@@ -658,6 +848,15 @@
 .pl-btn-ghost { border-color: rgba(255,255,255,0.10); color: #8b95a5; }
 .pl-btn-ghost:hover:not(:disabled) { border-color: #f0a100; color: #ffcc5e; }
 .pl-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+.pl-ombre { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.pl-ombre-row { display: grid; grid-template-columns: 54px 1fr 40px; gap: 6px; align-items: center; }
+.pl-ombre-row input[type=range] { width: 100%; accent-color: #f0a100; margin: 0; }
+.pl-ombre-row select { font: 500 11px/1 inherit; background: #131924; color: #c9d0da; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 3px 4px; grid-column: 2 / 4; }
+.pl-ombre-label { font: 500 11px/1 inherit; color: #8b95a5; }
+.pl-preset.on { box-shadow: 0 0 0 2px #f0a100; }
+.pl-preset-none { background: transparent; color: #8b95a5; font: 600 12px/1 inherit; border: 1px dashed rgba(255,255,255,0.3); }
+.pl-root.light-theme .pl-ombre-row select { background: #fff; color: #363636; border-color: rgba(0,0,0,0.16); }
+.pl-root.light-theme .pl-ombre-row input[type=range] { accent-color: #33658A; }
 .pl-dev-switch {
   display: flex; align-items: center; gap: 6px; justify-content: center;
   margin: 8px auto 0; padding: 5px 8px; width: fit-content;
@@ -1292,6 +1491,59 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
        :on-click #(dispatch [:portrait/clear-slot-color slot])}
       "×"]]))
 
+(defn- ombre-slider
+  "One ombre setting, 0..100 on screen, 0..1 stored."
+  [label k value]
+  [:label.pl-ombre-row
+   [:span.pl-ombre-label label]
+   [:input {:type "range" :min 0 :max 100 :step 5
+            :value (js/Math.round (* 100 value))
+            :aria-label label
+            :on-change #(dispatch [:portrait/set-ombre k (/ (js/parseInt (target-value %) 10) 100)])}]
+   [:span.pl-sub-shade-val (str (js/Math.round (* 100 value)))]])
+
+(defn- ombre-controls
+  "The hair's second colour and how it runs. With no tips colour the hair is
+   one colour with a little depth, which is where everyone starts."
+  [portrait]
+  (let [{:keys [tip start falloff depth angle]} (fx/ombre-settings portrait)]
+    [:div.pl-ombre
+     [:span.pl-panel-heading "Tips"]
+     [:div.pl-presets
+      [:button.pl-preset.pl-preset-none
+       {:type "button" :title "No second colour"
+        :class (when-not tip "on")
+        :on-click #(dispatch [:portrait/set-ombre :tip nil])} "\u2205"]
+      (for [c (pa/color-presets :hair)]
+        ^{:key c}
+        [:button.pl-preset
+         {:type "button" :style {:background c} :title c
+          :class (when (= c tip) "on")
+          :on-click #(dispatch [:portrait/set-ombre :tip c])}])
+      [:span.pl-preset.custom {:title "Custom tips colour"}
+       [:input {:type "color" :value (or tip "#c0a080")
+                :aria-label "Custom tips colour"
+                :on-change #(dispatch [:portrait/set-ombre :tip (target-value %)])}]]]
+     (when tip
+       [:<>
+        [ombre-slider "Starts" :start start]
+        [ombre-slider "Blend" :falloff falloff]])
+     [ombre-slider "Depth" :depth depth]
+     [:label.pl-ombre-row
+      [:span.pl-ombre-label "Runs"]
+      [:select {:value (if angle "angle" "roots")
+                :aria-label "Which way the tips run"
+                :on-change #(dispatch [:portrait/set-ombre :angle (when (= "angle" (target-value %)) 0)])}
+       [:option {:value "roots"} "From the roots"]
+       [:option {:value "angle"} "At an angle"]]]
+     (when angle
+       [:label.pl-ombre-row
+        [:span.pl-ombre-label "Angle"]
+        [:input {:type "range" :min 0 :max 345 :step 15 :value angle
+                 :aria-label "Tips angle"
+                 :on-change #(dispatch [:portrait/set-ombre :angle (js/parseInt (target-value %) 10)])}]
+        [:span.pl-sub-shade-val (str angle "\u00b0")]])]))
+
 (defn- slot-panel [portrait slot]
   (let [pieces (pa/layers-in-slot portrait slot)]
     [:div.pl-slot-panel
@@ -1308,6 +1560,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
                  :value (or (get-in portrait [:colors slot]) "#c0a080")
                  :aria-label (str "Custom " (pa/color-slot-labels slot) " color")
                  :on-change #(dispatch [:portrait/set-slot-color slot (target-value %)])}]]]]
+     (when (= slot :hair) [ombre-controls portrait])
      (when (seq pieces)
        [:div.pl-sublayers
         [:span.pl-panel-heading (str (pa/color-slot-labels slot) " pieces")]

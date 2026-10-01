@@ -23,7 +23,8 @@
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
-            [orcpub.dnd.e5.portrait-colorize :as colorize])
+            [orcpub.dnd.e5.portrait-colorize :as colorize]
+            [orcpub.dnd.e5.portrait-effects :as fx])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
            [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double]
            [java.awt.image BufferedImage]
@@ -267,6 +268,86 @@
       (colorize! img color (pa/effective-gamma portrait layer-key asset) cov)
       (.drawImage g img 0 0 nil))))
 
+;; ---------- hair ombre and cast shadows (portrait-effects) ----------
+
+(defn- alpha-fn
+  "Alpha (0..255) at a pixel index of an ARGB image."
+  [^BufferedImage img]
+  (let [^ints d (.. img getRaster getDataBuffer getData)]
+    (fn [i] (bit-and (unsigned-bit-shift-right (aget d (int i)) 24) 0xff))))
+
+(defn- placed-asset
+  "An asset's raster placed in the frame, or nil for a vector or unreadable one."
+  [asset w h]
+  (let [{:keys [mime bytes]} (asset-source (:asset/url asset))]
+    (when (and bytes (not (s/includes? (str mime) "svg")))
+      (some-> (ImageIO/read (ByteArrayInputStream. bytes)) (placed w h)))))
+
+(defn- hair-crown
+  "Where the hair grows from, for this portrait's head, in frame pixels."
+  [portrait placed-of w h]
+  (when-let [head (pa/selected-asset portrait :head)]
+    (when-let [img (placed-of head)]
+      (fx/crown (alpha-fn img) w h))))
+
+(defn- draw-ombre-layer!
+  "A hair piece: coloured root to tip (portrait-effects/ombre-rgb) instead of
+   one flat colour, the linework kept."
+  [^Graphics2D g ^bytes data portrait layer-key ^Color root crown w h]
+  (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
+    (let [img (placed src w h)
+          ^ints d (.. img getRaster getDataBuffer getData)
+          {:keys [tip angle] :as settings} (fx/ombre-settings portrait)
+          root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
+          tip-rgb (or (some-> tip colorize/hex->rgb) root-rgb)
+          pos (fx/position-fn (fx/gradient-frame (alpha-fn img) w h crown angle))
+          colour (fx/ombre-fn root-rgb tip-rgb settings)]
+      (dotimes [i (* w h)]
+        (let [argb (aget d i)
+              a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+          (when (pos? a)
+            (let [rgb (.invokePrim ^clojure.lang.IFn$LLLDL colour
+                                   (bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                                   (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                                   (bit-and argb 0xff)
+                                   (.invokePrim ^clojure.lang.IFn$LLD pos (rem i w) (quot i w)))]
+              (aset d i (unchecked-int (bit-or (bit-shift-left a 24) rgb)))))))
+      (.drawImage g img 0 0 nil))))
+
+(defn- combined-alpha
+  "The alphas of these layers' selected assets, combined (max), as doubles."
+  [portrait placed-of layer-keys pred w h]
+  (let [out (double-array (* w h))]
+    (doseq [k layer-keys
+            :let [asset (pa/selected-asset portrait k)]
+            :when (and asset (pred asset))
+            :let [img (placed-of asset)]
+            :when img]
+      (let [a (alpha-fn img)]
+        (dotimes [i (* w h)]
+          (aset out i (max (aget out i) (double (a i)))))))
+    out))
+
+(defn- cast-shadows!
+  "Shade the skin under the hair pieces that hang over the face."
+  [^BufferedImage img portrait placed-of w h]
+  (when (some #(some-> (pa/selected-asset portrait %) fx/casts-shadow?) pa/layer-order)
+    (let [caster (combined-alpha portrait placed-of pa/layer-order fx/casts-shadow? w h)
+          skin (combined-alpha portrait placed-of [:head :ears] any? w h)
+          hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
+          k (fx/shadow-map caster skin hair w h)
+          ^ints d (.. img getRaster getDataBuffer getData)]
+      (dotimes [i (* w h)]
+        (let [kk (aget ^doubles k i)]
+          (when (pos? kk)
+            (let [argb (aget d i)
+                  [fr fg fb] (fx/shadow-factors kk)]
+              (aset-int d i (unchecked-int
+                             (bit-or (bit-and argb (unchecked-int 0xff000000))
+                                     (bit-shift-left (int (* fr (bit-and (unsigned-bit-shift-right argb 16) 0xff))) 16)
+                                     (bit-shift-left (int (* fg (bit-and (unsigned-bit-shift-right argb 8) 0xff))) 8)
+                                     (int (* fb (bit-and argb 0xff)))))))))))))
+
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")
 
@@ -391,7 +472,11 @@
                         pa/layer-order)]
      (when (seq drawable)
        (let [img (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
-             g (.createGraphics img)]
+             g (.createGraphics img)
+             ;; each piece decoded and placed once, shared by the crown and
+             ;; the shadows, which both need pieces other than the one drawing
+             placed-of (memoize #(placed-asset % w h))
+             crown (delay (try (hair-crown portrait placed-of w h) (catch Exception _ nil)))]
          (try
            (.setRenderingHint g RenderingHints/KEY_ANTIALIASING
                               RenderingHints/VALUE_ANTIALIAS_ON)
@@ -424,9 +509,16 @@
                      (and color (colorizes? layer-key asset))
                      (draw-colorized-layer! g bytes portrait layer-key asset color w h)
 
+                     (and color (fx/hair-layer? layer-key))
+                     (draw-ombre-layer! g bytes portrait layer-key color @crown w h)
+
                      :else (draw-raster-layer! g bytes color w h))))
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
+           ;; after every layer, before the marks: the marks are not skin
+           (try (cast-shadows! img portrait placed-of w h)
+                (catch Exception e
+                  (println "portrait-render: shadows skipped -" (.getMessage e))))
            (try
              (when-let [names (not-empty (pa/credit-names portrait))]
                (draw-credit! g names w h))
