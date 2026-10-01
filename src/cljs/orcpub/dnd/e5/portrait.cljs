@@ -306,20 +306,22 @@
 
 (defn- ombre-image
   "A canvas the size of `img` holding the hair piece coloured root to tip."
-  [img head root-hex settings]
+  [img head layer-key root-hex settings]
   (let [w (.-naturalWidth img) h (.-naturalHeight img)
         c (new-canvas w h) ctx (.getContext c "2d")
         _ (.drawImage ctx img 0 0)
         image-data (.getImageData ctx 0 0 w h)
         px (.-data image-data)
-        root (colorize/hex->rgb root-hex)
-        tip (or (some-> (:tip settings) colorize/hex->rgb) root)
-        pos (fx/position-fn (fx/gradient-frame (alpha-fn px) w h (when head (crown-of head w h)) (:angle settings)))
-        colour (fx/ombre-fn root tip settings)]
+        root0 (colorize/hex->rgb root-hex)
+        [root tip] (fx/layer-colours layer-key root0 (or (some-> (:tip settings) colorize/hex->rgb) root0) settings)
+        pix (fx/pixel-fn root tip settings
+                         (fx/gradient-frame (alpha-fn px) w h (when head (crown-of head w h)) (:angle settings))
+                         layer-key)]
     (dotimes [p (* w h)]
       (let [i (* 4 p)]
         (when (pos? (aget px (+ i 3)))
-          (let [rgb (colour (aget px i) (aget px (+ i 1)) (aget px (+ i 2)) (pos (mod p w) (quot p w)))]
+          (let [rgb (pix (mod p w) (quot p w)
+                         (bit-or (bit-shift-left (aget px i) 16) (bit-shift-left (aget px (+ i 1)) 8) (aget px (+ i 2))))]
             (aset px i (bit-and (bit-shift-right rgb 16) 0xff))
             (aset px (+ i 1) (bit-and (bit-shift-right rgb 8) 0xff))
             (aset px (+ i 2) (bit-and rgb 0xff))))))
@@ -330,10 +332,10 @@
 
 (defn- ombre
   "`ombre-image`, remembered; dragging an ombre slider redraws constantly."
-  [img head root-hex settings]
-  (let [k [(.-src img) (some-> head .-src) root-hex settings]]
+  [img head layer-key root-hex settings]
+  (let [k [(.-src img) (some-> head .-src) layer-key root-hex settings]]
     (or (get @ombre-cache k)
-        (let [c (ombre-image img head root-hex settings)]
+        (let [c (ombre-image img head layer-key root-hex settings)]
           (swap! ombre-cache #(assoc (if (> (count %) 48) {} %) k c))
           c))))
 
@@ -350,21 +352,21 @@
 
 (defn- ombre-layer
   "A hair piece, drawn on a canvas so it can take the ombre."
-  [asset root-hex settings head-url z]
+  [layer-key asset root-hex settings head-url z]
   (let [node (atom nil)
-        paint! (fn [asset root-hex settings head-url]
+        paint! (fn [layer-key asset root-hex settings head-url]
                  (with-images [(:asset/url asset) head-url]
                    (fn [[img head]]
                      (when-let [^js el @node]
-                       (let [src (ombre img head root-hex settings)]
+                       (let [src (ombre img head layer-key root-hex settings)]
                          (set! (.-width el) (.-width src))
                          (set! (.-height el) (.-height src))
                          (.drawImage (.getContext el "2d") src 0 0))))))]
     (r/create-class
-     {:component-did-mount (fn [_] (paint! asset root-hex settings head-url))
-      :component-did-update (fn [this _] (let [[_ a r s hu] (r/argv this)] (paint! a r s hu)))
+     {:component-did-mount (fn [_] (paint! layer-key asset root-hex settings head-url))
+      :component-did-update (fn [this _] (let [[_ lk a r s hu] (r/argv this)] (paint! lk a r s hu)))
       :reagent-render
-      (fn [_ _ _ _ z]
+      (fn [_ _ _ _ _ z]
         [:canvas.portrait-layer.portrait-layer-hair
          {:ref #(reset! node %)
           :style {:position "absolute" :inset 0 :width "100%" :height "100%"
@@ -381,10 +383,10 @@
 (defn- shadow-image
   "A canvas of the shade the overhanging hair throws onto the skin, to be
    laid over the portrait with multiply: white where there is none."
-  [casters skins hairs]
+  [casters skins hairs light]
   (let [ref (first (remove nil? casters))
         w (.-naturalWidth ref) h (.-naturalHeight ref)
-        k (fx/shadow-map (combined-alpha casters w h) (combined-alpha skins w h) (combined-alpha hairs w h) w h)
+        k (fx/shadow-map (combined-alpha casters w h) (combined-alpha skins w h) (combined-alpha hairs w h) w h light)
         c (new-canvas w h) ctx (.getContext c "2d")
         image-data (.createImageData ctx w h)
         px (.-data image-data)]
@@ -399,10 +401,10 @@
 
 (defonce ^:private shadow-cache (atom {}))
 
-(defn- shadow [casters skins hairs]
-  (let [k (mapv #(mapv (fn [i] (some-> i .-src)) %) [casters skins hairs])]
+(defn- shadow [casters skins hairs light]
+  (let [k (conj (mapv #(mapv (fn [i] (some-> i .-src)) %) [casters skins hairs]) light)]
     (or (get @shadow-cache k)
-        (let [c (shadow-image casters skins hairs)]
+        (let [c (shadow-image casters skins hairs light)]
           (swap! shadow-cache #(assoc (if (> (count %) 16) {} %) k c))
           c))))
 
@@ -418,22 +420,22 @@
 (defn- shadow-layer
   "The cast shadow, over everything, multiplied: it is already confined to
    skin the hair does not cover, so it darkens nothing else."
-  [[caster-urls skin-urls hair-urls :as urls]]
+  [[caster-urls skin-urls hair-urls :as urls] light]
   (let [node (atom nil)
-        paint! (fn [[cu su hu]]
+        paint! (fn [[cu su hu] light]
                  (let [n1 (count cu) n2 (count su)]
                    (with-images (concat cu su hu)
                      (fn [imgs]
                        (when-let [^js el @node]
-                         (let [src (shadow (subvec imgs 0 n1) (subvec imgs n1 (+ n1 n2)) (subvec imgs (+ n1 n2)))]
+                         (let [src (shadow (subvec imgs 0 n1) (subvec imgs n1 (+ n1 n2)) (subvec imgs (+ n1 n2)) light)]
                            (set! (.-width el) (.-width src))
                            (set! (.-height el) (.-height src))
                            (.drawImage (.getContext el "2d") src 0 0)))))))]
     (r/create-class
-     {:component-did-mount (fn [_] (paint! urls))
-      :component-did-update (fn [this _] (paint! (second (r/argv this))))
+     {:component-did-mount (fn [_] (paint! urls light))
+      :component-did-update (fn [this _] (let [[_ u l] (r/argv this)] (paint! u l)))
       :reagent-render
-      (fn [_]
+      (fn [_ _]
         [:canvas.portrait-layer.portrait-layer-shadow
          {:ref #(reset! node %)
           :style {:position "absolute" :inset 0 :width "100%" :height "100%"
@@ -473,7 +475,7 @@
                 (pa/effective-gamma portrait layer-key asset) z]]
               (if (fx/hair-layer? layer-key)
                 ^{:key layer-key}
-                [ombre-layer asset (pa/tint-for portrait layer-key) ombre-settings head-url z]
+                [ombre-layer layer-key asset (pa/tint-for portrait layer-key) ombre-settings head-url z]
                 ^{:key layer-key}
                 [:div.portrait-layer
                  {:style (if (= :as-drawn (pa/render-mode layer-key asset))
@@ -481,7 +483,7 @@
                            (mask-style (:asset/url asset)
                                        (pa/tint-for portrait layer-key) z))}]))))
         pa/layer-order)
-      (when shadows ^{:key "shadow"} [shadow-layer shadows])])))
+      (when shadows ^{:key "shadow"} [shadow-layer shadows (:light ombre-settings)])])))
 
 ;; ---------------- rasterization (for PDF export) ----------------
 ;;
@@ -627,7 +629,7 @@
                                                              (.-naturalHeight img)
                                                              raster-width raster-height)]
                         (.clearRect tctx 0 0 raster-width raster-height)
-                        (.drawImage tctx (ombre img (img-of :head) (pa/tint-for portrait layer-key) settings)
+                        (.drawImage tctx (ombre img (img-of :head) layer-key (pa/tint-for portrait layer-key) settings)
                                     x y dw dh))
 
                       :else
@@ -648,7 +650,7 @@
                     (let [by-url (into {} (map (fn [[_ a] img] [(:asset/url a) img]) selected (array-seq imgs)))
                           casters (keep by-url cu)]
                       (when (seq casters)
-                        (let [s (shadow (vec casters) (vec (keep by-url su)) (vec (keep by-url hu)))
+                        (let [s (shadow (vec casters) (vec (keep by-url su)) (vec (keep by-url hu)) (:light settings))
                               [x y dw dh] (layout/contain-rect (.-width s) (.-height s) raster-width raster-height)]
                           (set! (.-globalCompositeOperation ctx) "multiply")
                           (.drawImage ctx s x y dw dh)

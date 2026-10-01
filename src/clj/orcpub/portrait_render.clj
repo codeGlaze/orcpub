@@ -299,18 +299,15 @@
           ^ints d (.. img getRaster getDataBuffer getData)
           {:keys [tip angle] :as settings} (fx/ombre-settings portrait)
           root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
-          tip-rgb (or (some-> tip colorize/hex->rgb) root-rgb)
-          pos (fx/position-fn (fx/gradient-frame (alpha-fn img) w h crown angle))
-          colour (fx/ombre-fn root-rgb tip-rgb settings)]
+          [root-rgb tip-rgb] (fx/layer-colours layer-key root-rgb (or (some-> tip colorize/hex->rgb) root-rgb) settings)
+          pix (fx/pixel-fn root-rgb tip-rgb settings
+                           (fx/gradient-frame (alpha-fn img) w h crown angle) layer-key)]
       (dotimes [i (* w h)]
         (let [argb (aget d i)
               a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
           (when (pos? a)
-            (let [rgb (.invokePrim ^clojure.lang.IFn$LLLDL colour
-                                   (bit-and (unsigned-bit-shift-right argb 16) 0xff)
-                                   (bit-and (unsigned-bit-shift-right argb 8) 0xff)
-                                   (bit-and argb 0xff)
-                                   (.invokePrim ^clojure.lang.IFn$LLD pos (rem i w) (quot i w)))]
+            (let [rgb (.invokePrim ^clojure.lang.IFn$LLLL pix (rem i w) (quot i w)
+                                   (bit-and argb 0xffffff))]
               (aset d i (unchecked-int (bit-or (bit-shift-left a 24) rgb)))))))
       (.drawImage g img 0 0 nil))))
 
@@ -335,7 +332,7 @@
     (let [caster (combined-alpha portrait placed-of pa/layer-order fx/casts-shadow? w h)
           skin (combined-alpha portrait placed-of [:head :ears] any? w h)
           hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
-          k (fx/shadow-map caster skin hair w h)
+          k (fx/shadow-map caster skin hair w h (:light (fx/ombre-settings portrait)))
           ^ints d (.. img getRaster getDataBuffer getData)]
       (dotimes [i (* w h)]
         (let [kk (aget ^doubles k i)]
