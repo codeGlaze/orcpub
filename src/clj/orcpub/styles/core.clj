@@ -1546,10 +1546,11 @@
      {:color :white
       :min-width "68px"
       :font-weight 700
-      :font-size "14px"
+      ;; 16px reads at phone size; the trimmed padding keeps the button 31px tall
+      :font-size "16px"
       :border :none
       :border-radius "2px"
-      :padding "6px 6px"
+      :padding "4.5px 6px"
       :margin-right "2px"
       :margin-left "2px"
       :margin-bottom "2px"

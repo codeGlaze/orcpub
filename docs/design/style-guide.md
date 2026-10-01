@@ -143,7 +143,7 @@ soft light glow) under the opt-in dark text. It sharpens the letters without cha
 people know. Applied to `.form-button` (dark theme only, since it's slate in the light theme),
 `.mc-btn` and `.roll-button` (amber in both themes), and to every header tab (the active one is
 amber; the grey ones on the banner firm up too). The ability buttons (`.roll-button`, "+2",
-"-1") are 700 like the other amber buttons. A one- or two-character label has too little stroke
+"-1") are 700 like the other amber buttons, with 16px labels (decided 2026-10-01; padding 4.5px top and bottom keeps them 31px tall). The class is shared by every roll button on the sheet: abilities, saves, skills, weapons, spells, tools, and the builder's hit-die roll. A one- or two-character label has too little stroke
 to hold up with the standard lift, so with dark text they get a stronger glow (70% white) and a
 yellow rim: `-webkit-text-stroke: 2px` in `warning-yellow` (`#ffd21a`) with `paint-order: stroke
 fill`, which draws the rim behind the letters so about 1px shows outside them and the letters keep

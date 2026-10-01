@@ -38,5 +38,6 @@ site. Bold across the site was then tuned by a size rule (700 small capitals, 60
 
 - Bold text at 18px and up renders at 600, not 700: page titles, headings, spell and monster names. One stylesheet rule; 700 looked plump at those sizes.
 - The builder's info boxes are regular weight, not bold; their CLICK HERE links stay bold.
+- The roll buttons on the character sheet (abilities, saves, skills, weapons, spells, tools) have 16px labels instead of 14px, at the same 31px height.
 - The yellow buttons, including the ability buttons, are 700, restoring the stroke weight they had in Arial Bold.
 - Page titles are 600 rather than bold, which looked heavy at 36px. (`4159164c`)
