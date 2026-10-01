@@ -5,9 +5,9 @@
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (deftest settings-default-and-clamp
-  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil}
+  (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil :bangs nil}
          (fx/ombre-settings {})))
-  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0}
+  (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0 :bangs nil}
          (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450 :light 3}}))
       "out-of-range numbers are pulled back in, junk falls back to the default")
   (is (nil? (:tip (fx/ombre-settings {:ombre {:tip "teal"}}))) "only #rrggbb tips"))
@@ -163,19 +163,19 @@
   (let [n 375]
     (testing "lines drawn straight down make streaks straight down"
       (let [{:keys [rgb alpha]} (lined n (fn [x _] (zero? (mod x 9))))
-            f (fx/strand-field rgb alpha n n [187 0] 3)]
-        (is (= 1 (:cell f)))
+            f (fx/strand-field rgb alpha n n 3)]
+        (is (= [375 375 375 375] ((juxt :gw :gh :w :h) f)) "one cell a pixel, for art this size")
         (is (> (correlation f 0 5) 0.8) "alike along the lines")
         (is (< (correlation f 5 0) 0.3) "and not across them")))
     (testing "lines drawn on a slant make slanted streaks, whichever way they lean"
       (doseq [[line? along across] [[(fn [x y] (zero? (mod (- x y) 9))) [4 4] [4 -4]]
                                     [(fn [x y] (zero? (mod (+ x y) 9))) [-4 4] [4 4]]]]
         (let [{:keys [rgb alpha]} (lined n line?)
-              f (fx/strand-field rgb alpha n n [187 0] 3)]
+              f (fx/strand-field rgb alpha n n 3)]
           (is (> (apply correlation f along) 0.75))
           (is (< (apply correlation f across) 0.3)))))
     (testing "values stay in -1..1 and nothing lands outside the piece"
-      (let [f (fx/strand-field (fn [_] 0xffffff) (fn [i] (if (< (mod i n) 100) 255 0)) n n [50 0] 3)
+      (let [f (fx/strand-field (fn [_] 0xffffff) (fn [i] (if (< (mod i n) 100) 255 0)) n n 3)
             v (:v f)]
         (is (every? #(<= -1.0 % 1.0) (seq v)))
         (is (every? zero? (for [y (range 0 n 10) x (range 120 n 10)] (aget v (+ x (* y (:gw f)))))))))))
@@ -189,7 +189,49 @@
 (deftest streaks-follow-a-field-when-given-one
   (let [s (assoc (fx/ombre-settings {:ombre {:tip "#ffffff"}}) :depth 0.0 :start 0.3 :falloff 0.4)
         frame {:kind :arc :env (double-array 10 0.0) :reach 10.0 :x0 0.0 :x1 10.0}
-        field (fn [x] {:cell 1 :gw 10 :gh 10 :v (double-array 100 x)})
+        field (fn [x] {:gw 10 :gh 10 :w 10 :h 10 :v (double-array 100 x)})
         at (fn [f] ((fx/pixel-fn [0 0 0] [255 255 255] s frame :hair-back f) 5 5 0xffffff))]
     (is (< (at (field -1.0)) (at (field 0.0)) (at (field 1.0)))
         "where the field is high the tip colour comes in sooner")))
+
+(deftest a-stored-field-reads-back-as-it-was
+  (let [n 375
+        f (fx/strand-field (fn [i] (if (zero? (mod (mod i n) 9)) 0 0xffffff)) (fn [_] 255) n n 3)
+        bytes (fx/field->bytes f)
+        back (fx/bytes->field (fn [g] (bit-and (aget bytes g) 0xff)) (:gw f) (:gh f) n n)]
+    (is (every? #(< (Math/abs (double %)) (/ 0.5 127.0))
+                (map - (seq (:v f)) (seq (:v back))))
+        "within half a step of 1/127")
+    (is (= "/image/portraits/bangs/l9_bangs_03.strands.png"
+           (fx/strands-url "/image/portraits/bangs/l9_bangs_03.png")))
+    (is (nil? (fx/strands-url "/image/portraits/x.svg")) "only beside raster art")))
+
+(deftest a-placed-field-maps-frame-pixels-to-the-art
+  (let [v (double-array 4 0.0)
+        _ (aset v 3 1.0)   ;; bottom-right cell of a 2x2 field
+        f {:gw 2 :gh 2 :w 100 :h 100 :v v}
+        at (fn [field x y] ((#'fx/field-fn field) x y))]
+    (is (= 1.0 (at f 90 90)))
+    (is (= 0.0 (at f 10 10)))
+    (is (= (at f 90 90) (at (assoc f :rect [100 100 200 200]) 280 280))
+        "art drawn at 2x, 100px in: frame (280,280) is art (90,90)")
+    (is (= (at f 10 10) (at (assoc f :rect [100 100 200 200]) 120 120)))))
+
+(deftest the-bangs-can-keep-the-root-tip-or-dye
+  (let [fringe {:asset/tips-from 1.0}   ;; Bangs 03's calibration
+        spiky {}                        ;; Bangs 02's: none
+        s (fn [o] (fx/ombre-settings {:ombre (merge {:tip "#ffffff"} o)}))]
+    (testing "untouched, each piece does what its calibration says"
+      (is (= 1.0 (:tips-from (fx/piece-settings (s {}) fringe :bangs))))
+      (is (nil? (:tips-from (fx/piece-settings (s {}) spiky :bangs))))
+      (is (= [:roots :dyed] (map fx/bangs-choice [fringe spiky]))))
+    (testing "a choice wins over the calibration, either way"
+      (is (nil? (:tips-from (fx/piece-settings (s {:bangs :dyed}) fringe :bangs))) "the long fringe dyed")
+      (is (= 0.45 (:tips-from (fx/piece-settings (s {:bangs :tipped}) fringe :bangs))))
+      (is (= 1.0 (:tips-from (fx/piece-settings (s {:bangs :roots}) spiky :bangs))) "the spiky one kept dark"))
+    (testing "only on the bangs"
+      (is (nil? (:tips-from (fx/piece-settings (s {:bangs :roots}) spiky :hair-back)))))
+    (testing "stored as a keyword or a string; anything else is no choice"
+      (is (= :tipped (:bangs (s {:bangs "tipped"}))))
+      (is (nil? (:bangs (s {:bangs :purple}))))
+      (is (nil? (:bangs (s {:bangs 3})))))))
