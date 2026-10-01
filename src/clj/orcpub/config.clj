@@ -251,13 +251,10 @@
 
 (defn pwned-check-enabled?
   "Whether a new password is screened against Have I Been Pwned, from
-   ORCPUB_PWNED_CHECK. On by default, because the check costs one request and
-   catches what no rule of ours can.
-
-   Off is the kill switch: set it to off/false/0/no and registration stops
-   calling out entirely, with no other behaviour change. The check already fails
-   open on a timeout, so this exists for the case where the service is not down
-   but bad -- slow enough to be felt on every signup."
+   ORCPUB_PWNED_CHECK; on by default.
+   GOTCHA: fails open on a timeout, so a slow or down HIBP service never blocks
+   signup. Set the env var to off/false/0/no to disable the check entirely.
+   See account-flows.md."
   []
   (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim str/lower-case)]
     (not (contains? #{"off" "false" "0" "no"} raw))))

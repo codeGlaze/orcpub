@@ -242,20 +242,12 @@
   (.toLocaleDateString (js/Date. iso) js/undefined #js {:year "numeric" :month "long" :day "numeric"}))
 
 (defn share-controls
-  "Reactive share cluster for a character: Copy link (+ native Share where the
-   browser supports it), both carrying a link with the character's homebrew
-   embedded in the URL fragment (share-bundle -> share-url). The embedded URL is
-   recomputed only when the character or plugins actually change (identical?
-   guard, so it is not rebuilt on every render), which keeps it ready
-   synchronously when a button is clicked — gesture-safe for the native share
-   sheet and the async clipboard alike. Falls back to the plain character URL for
-   a vanilla character, while a payload is still encoding, or when the homebrew is
-   too big to fit in a link (:file tier — the recipient then needs the .orcbrew).
-
-   Rendered as one line (.share-line in styles/core.clj): for the owner of a character with homebrew, a
-   status pill (Not shared, Shared, Link expired) and text-button actions that grow from Share link to
-   Copy link, New link and Stop sharing once a link exists; for everyone else, Copy link. `mode` :line
-   draws that line; :row draws the character list row's single Copy link button."
+  "Reactive share cluster for a character: Copy link (plus native Share where
+   supported), carrying a link with the character's homebrew embedded in the URL.
+   `mode` :line draws the owner's status pill and growing actions; :row draws the
+   list row's plain Copy link button.
+   GOTCHA: recomputed only via an identical? check on character/plugins, so a
+   click has the link ready synchronously for the native-share gesture. See share-links.md."
   [id mode]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]

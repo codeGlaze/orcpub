@@ -100,22 +100,16 @@
 
 
 ;; ---------------------------------------------------------------------------
-;; Windowed limits for the endpoints that cost something to serve
-;;
-;; Login has been throttled since the brute-force work. The two endpoints that
-;; SEND MAIL never were, and they are the ones a stranger can make expensive:
-;; each call spends our sending reputation on a message we did not choose to
-;; send. Neither limit may change a response -- an endpoint that answers
-;; differently once throttled is an oracle for whether a limit was reached, and
-;; on password reset that is the membership test we just closed.
+;; Windowed limits for the endpoints that cost something to serve: the two that
+;; SEND MAIL spend our sending reputation on a message a stranger chose, not us.
+;; Neither limit may change the response -- an endpoint that answers differently
+;; once throttled is an oracle for whether a limit was reached, which on reset is the membership test already closed.
 ;; ---------------------------------------------------------------------------
 
-;; A limit nobody counts is a limit nobody can tune. A number chosen against a
-;; guess about real behaviour -- ten signups an hour from one household -- is
-;; only as good as the guess, and the only way to find out it was wrong is to
-;; see how often it bites. Steady refusals on the household limits means the
-;; number is too low and real people are hitting it; a sudden spike on one host
-;; means it is doing its job.
+;; A limit nobody counts is a limit nobody can tune: numbers like ten signups
+;; an hour from one household are guesses, validated only by how often they bite.
+;; Steady refusals across many hosts means the number is too low and hurting real
+;; people; a sudden spike on one host means it's doing its job.
 (def ^:private refusals (atom {}))
 
 (defn note-refusal!
@@ -152,20 +146,10 @@
 ;; ---------------------------------------------------------------------------
 ;; Tokens withdrawn by a password change
 ;;
-;; A JWT is stateless and nothing can take one back, so changing a password left
-;; every session that existed before it still working -- including, in the case
-;; that matters, whoever's session prompted the change.
-;;
-;; This holds the moment each account's password last moved. A token minted
-;; before that moment is refused. It is IN MEMORY rather than a database read
-;; because check-auth runs on every authenticated request and is otherwise pure
-;; signature verification; the map only ever holds accounts whose password moved
-;; inside the token lifetime, because anything older is moot -- the tokens it
-;; would withdraw have expired on their own.
-;;
-;; It is not about how many places somebody is signed in. Resetting a password
-;; signs out that account's other sessions once, which is the point of resetting
-;; it; nothing here limits or counts concurrent logins.
+;; Holds the moment each account's password last moved; a token minted before
+;; that is refused. IN MEMORY, not a database read, because check-auth runs on
+;; every request doing pure signature verification, and only holds accounts whose password moved within the token lifetime -- older entries have already expired on their own.
+;; ---------------------------------------------------------------------------
 
 (def ^:private password-changes (atom {}))
 
@@ -199,11 +183,10 @@
 (defn absorb-password-changes!
   "Folds `username->millis`, read from the database, into the map, keeping the
    later instant per account, then drops entries older than `cutoff-millis`.
-
-   Merges rather than replaces because the database read is a snapshot: a reset
-   or sign-out-everywhere that commits after the read notes itself here before
-   this runs, and replacing the map would drop it -- reinstating the very tokens
-   it withdrew until the next refresh, an hour on."
+   GOTCHA: merges rather than replaces -- the database read is a snapshot, and
+   a reset or sign-out-everywhere committing after the read would be dropped
+   by a replace, reinstating the tokens it withdrew until the next hourly
+   refresh. See account-flows.md."
   [username->millis cutoff-millis]
   (swap! password-changes
          (fn [m]
@@ -280,14 +263,10 @@
   (and (under-limit? [:reset-address email] reset-per-address-hourly (hours 1))
        (under-limit? [:reset-host ip] reset-per-host-hourly (hours 1))))
 
-;; What this defends is NOT the account table. An unverified account cannot log
-;; in, so bulk signups sit there inert. What signup can be made to do is send
-;; mail to an address the person filling the form does not have to own -- the
-;; same cannon the reset endpoint was, pointed at whoever you name.
-;;
-;; So the number is set by the table it must not break, not by the attack. Eight
-;; people signing up at one game night, plus retries and a typo or two, has to
-;; fit. A bulk run wants thousands and is stopped by any of these numbers.
+;; What this defends is NOT the account table -- an unverified account cannot log
+;; in, so bulk signups sit inert. What signup CAN do is send mail to an address
+;; the filler doesn't own, same as the reset endpoint. Sized to real use (eight
+;; people at one game night, plus retries and typos), not to the attack: a bulk run wants thousands, so any sane number stops it.
 (def registrations-per-host-hourly 10)
 
 (defn registration-allowed? [ip]

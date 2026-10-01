@@ -91,13 +91,10 @@
    ;; found rather than replacing it.
    (merge-with (comp vec distinct concat)
                (registration/validate-registration form email-taken? username-taken?)
-               ;; :general is deliberately excluded. It is not a field fault and
-               ;; the submit button is disabled while this map has anything in
-               ;; it -- a rate limit the person cannot edit their way out of
-               ;; would leave them with a button that never comes back.
-               ;; :password-common likewise: it is the meter's verdict, shown by
-               ;; the meter. Left in here it would print a red field error above
-               ;; a meter cheerfully reporting UNCOMMON about the same password.
+               ;; :general is excluded: the submit button disables while this map has
+               ;; anything in it, and a rate limit here would leave it stuck forever.
+               ;; :password-common is excluded too -- it's the meter's verdict already,
+               ;; not a field fault. See account-flows.md.
                (dissoc (or server {}) :general :password-common))))
 
 (reg-sub

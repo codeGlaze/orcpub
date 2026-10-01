@@ -101,24 +101,12 @@
        messages))]))
 
 (defn base-input
-  "One auth field: a notched outline label, an optional reveal, and the notice
-   slot its message goes in.
-
-   The label is a real <label for>, not a placeholder, so the field never stops
-   saying what it is -- a placeholder stops the moment somebody types. It rides
-   on the input's own border via :placeholder-shown in the stylesheet rather
-   than a class this has to keep in step; a class desynced as soon as anybody
-   typed and tabbed away, dropping the label back over their own text.
-
-   When the field is WRONG the label leaves the notch and becomes a plain line
-   above the message, which sits above the input -- GOV.UK's order, so the
-   explanation is read before the box about to be retyped. Both labels are
-   always rendered and the stylesheet picks; a live check and a submitted one
-   cannot then lay the field out differently, which is exactly what happened
-   when only the submitted path knew about the lifted label.
-
-   :messages, :hint and :reveal? are optional; everything else is passed to the
-   input untouched."
+  "One auth field: a notched-outline label, an optional reveal button, and the
+   notice slot `messages`/`hint` render into.
+   GOTCHA: both label positions are always rendered and the stylesheet picks
+   via :placeholder-shown / .is-wrong, so a live check and a submit lay out
+   the same. :messages, :hint, :reveal? are optional; other keys pass to <input>.
+   See account-flows.md."
   [{:keys [title messages hint action reveal? revealed? on-reveal] :as attrs}]
   (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
         message-id (str id "-message")
@@ -147,11 +135,9 @@
        [:div.field-notice.is-note
         (when hint [:span.field-notice-what hint])
         (when-let [{:keys [label on-choose]} action]
-          ;; on-mouse-down, NOT on-click. Pressing it blurs the field, the blur
-          ;; re-renders this notice, and the button is gone between mousedown and
-          ;; mouseup -- so the click never lands and the offer appears to do
-          ;; nothing. mouseDown fires first; preventDefault stops the focus moving
-          ;; at all.
+          ;; on-mouse-down, NOT on-click: blur re-renders this notice and the
+          ;; button is gone before mouseup, so a click handler here never fires.
+          ;; preventDefault stops focus moving at all.
           [:button.field-notice-action
            {:type "button"
             :on-mouse-down (fn [e] (.preventDefault e) (on-choose))}
@@ -187,13 +173,10 @@
           :on-blur (fn [_] (reset! blurred? true))}]))))
 
 (def ^:private password-rule-chips
-  "One chip per rule, so a refusal is never a single sentence standing in for
-   five separate things. Each says which rule it is and whether this password
-   satisfies it, before anybody has pressed anything.
-
-   \"not your name\" only appears where there IS a name: the reset page knows no
-   username or email, and a chip that always passes because nothing was checked
-   is worse than no chip."
+  "One chip per rule: which rule it is, and whether `password` satisfies it.
+   GOTCHA: the \"not your name\" chip only renders where `ctx` has identifying
+   info -- the reset page passes none, so a context chip there would always
+   pass. See account-flows.md."
   [{:label "12 or more"
     :ok? (fn [p _] (>= (count (or p "")) registration/min-password-length))}
    {:label "no triples"
@@ -207,14 +190,10 @@
     :ok? (fn [p ctx] (not (registration/contains-identifier? p ctx)))}])
 
 (def ^:private password-tips
-  "What to say at each rung once nothing is wrong -- the one moment somebody is
-   looking at this field and NOT being told off.
-
-   Every rung below the top points FORWARD. A line saying \"nobody is guessing
-   this now\" is permission to stop, on a ladder whose whole job is to get them
-   to keep going, so only Legendary says the work is done. Several per rung,
-   chosen by length so the line holds still while they type rather than flicking
-   between sentences on every keystroke."
+  "Per-rung lines to show once the password passes that rung, several per rung.
+   GOTCHA: `password-tip` picks among a rung's lines by text length, not
+   randomly, so the line holds still while typing instead of flickering on
+   every keystroke. See account-flows.md."
   [["Two words that have no business together beat one clever one."
     "Another word buys more than another symbol."
     "Swapping o for 0 fools nobody. That is the first thing tried."]
@@ -236,19 +215,12 @@
       (nth set (mod length (count set))))))
 
 (defn password-meter
-  "The strength meter, as a component rather than a block inside the register
-   form, because a password gets MADE in two places and only one of them had it.
-
-   The meter is the only thing that argues with a weak password while it can
-   still be changed -- the reset form refuses by exactly the same rules, so
-   without this it refuses in silence and the first a person hears of it is a
-   rejection.
-
-   `context` is what the password must not simply be, and the reset page has no
-   username or email to hand, which is also what the server judges it against
-   there. Rarity names rather than Weak/Moderate/Strong: the ladder is the
-   vocabulary this site's readers already have, and Common is not a joke -- a
-   password the corpus knows is exactly that."
+  "The password-strength meter, shared by the register and reset forms.
+   `context` is identifying info the password must not contain, empty on the
+   reset page, which is also what the server judges it against. `refused`
+   shows \"too common\" once the server has rejected the password.
+   GOTCHA: only this meter checks live; the server enforces the same rules
+   silently otherwise. See account-flows.md."
   ([password] (password-meter password nil nil))
   ([password context] (password-meter password context nil))
   ([password context refused]
@@ -307,25 +279,12 @@
                 [:div.pw-note.is-tip tip]))])))
 
 (defn password-pair
-  "A password and its confirmation, where revealing the password retires the
-   confirmation.
-
-   The confirm box exists only because the field is masked; being able to read
-   it back is what the box was standing in for, so it goes rather than sitting
-   there doing nothing. It is REMOVED, not faded: that keeps it out of the
-   accessibility tree, so nothing announces a field nobody can see and a submit
-   cannot fail pointing at one.
-
-   Symmetrical on purpose. Hiding again brings it back holding whatever it held,
-   so a password edited while revealed genuinely differs from the confirmation
-   and the mismatch is true rather than a trap.
-
-   `revealed?` and `on-toggle` are the CALLER's, because whatever decides
-   whether the form may be submitted has to know the confirmation is not being
-   asked for. A reveal hidden inside this component is invisible to that.
-
-   NIST asks for the reveal regardless: \"the verifier SHOULD offer an option to
-   display the password ... while it is entered\"."
+  "A password field and its confirmation; revealing the password retires the
+   confirmation field entirely.
+   GOTCHA: the confirm field is REMOVED, not faded, on reveal -- faded would
+   stay in the accessibility tree and a submit could fail pointing at a field
+   nobody can see. `revealed?`/`on-toggle` are the caller's, since submit-gating
+   has to know confirmation isn't being asked for. See account-flows.md."
   [{:keys [password confirm messages confirm-messages show-errors? revealed?
            on-toggle on-password on-confirm]}]
   [:div
@@ -860,13 +819,9 @@
       [:div.registration-image]]]]]))
 
 (defn auth-page
-  "The auth shell with its heading. registration-page has always been shared --
-   all nine of these pages render through it -- but the HEADING was not: six of
-   them carried their own copy of the same orange drop-shadowed div, which is
-   why changing it meant changing it six times.
-
-   `lede` is the line under the rule and is optional; pages that are a single
-   statement do not want one."
+  "The shared auth shell: heading, rule, optional `lede` line, then `content`.
+   `lede` is the line under the rule and is optional.
+   See account-flows.md."
   ([heading content] (auth-page heading nil content nil))
   ([heading lede content] (auth-page heading lede content nil))
   ([heading lede content {:keys [legal-links?] :or {legal-links? true}}]
@@ -879,17 +834,11 @@
     legal-links?)))
 
 (defn- token-username
-  "Whose password the reset page is changing, from the session token the server
-   set when it accepted the emailed key.
-
-   READ, not trusted. It feeds one rule -- that a password must not be the
-   username -- and the server applies that same rule again using the username it
-   gets from VERIFYING this token. A forged claim here makes the page warn about
-   the wrong word and changes nothing about what is accepted.
-
-   Without it the reset page judged a password against no username at all while
-   the register page judged it against one, so the server refused a password the
-   page had just called fine."
+  "Username decoded from the session token's JWT payload.
+   GOTCHA: read, not trusted -- used only to flag \"password equals username\"
+   client-side; the server re-derives the username by verifying the token
+   itself, so a forged claim here cannot change what gets accepted.
+   See account-flows.md."
   []
   (try
     (when-let [token (get (events/cookies) "token")]
@@ -903,18 +852,10 @@
     (catch :default _ nil)))
 
 (defn password-fields
-  "The whole area where a password gets made: the pair, and the meter under it.
-
-   password-pair and password-meter were already shared, but the COMPOSITION of
-   them was not -- both pages wrote out the same pair, the same meter, the same
-   mismatch derivation and the same reveal handling for themselves, in two
-   different state idioms. That is how the reset page came to judge a password
-   against no username while the register page judged it against one, and how
-   the reset page went a whole design pass without the meter at all.
-
-   The caller still owns the state, because one keeps it in app-db and the other
-   in a local atom, and that is a real difference between a form the app
-   remembers and a form that exists for ninety seconds behind a one-use link."
+  "The password pair plus the strength meter under it, as one unit.
+   GOTCHA: state stays with the caller -- register keeps it in app-db, reset in
+   a local atom, since a reset form exists for ninety seconds behind a one-use
+   link. See account-flows.md."
   [{:keys [password confirm revealed? context messages confirm-messages
            show-errors? refused on-password on-confirm on-toggle]}]
   [:div
@@ -931,19 +872,9 @@
    [password-meter password context refused]])
 
 (defn auth-form-page
-  "A page that asks for something: a column of fields, then whatever acts on
-   them.
-
-   auth-page shares the shell and the heading and takes the body as an OPAQUE
-   blob, so everything below the amber rule stayed per-page hiccup -- and four
-   pages then hand-assembled the identical
-   `[:div [:div.m-t-10.auth-form ...] [:div.m-t-10.auth-tail ...]]` four times
-   over. That is why a gutter, a submit width, a line-height and a message slot
-   each had to be fixed once PER PAGE rather than once: the shell was shared and
-   the body was not.
-
-   `tail` is what acts on the fields and everything under it -- a submit, and
-   whatever links or fineprint that page carries."
+  "An auth-page shell for a form: `fields` in a column, then `tail` (submit and
+   any links or fineprint) below them.
+   See account-flows.md."
   [{:keys [heading lede fields tail legal-links?]
     :or {legal-links? true}}]
   (auth-page heading lede
@@ -1064,19 +995,10 @@
             ;; one rule only the server can apply -- sits alongside whatever the
             ;; form already found rather than replacing it.
             server-errors @(subscribe [:password-reset-server-errors])
-            ;; The username, and deliberately NOT the email. The server judges
-            ;; against both here; the token carries only :user, and putting the
-            ;; address in a cookie to match would be a real disclosure -- worse
-            ;; than the one it would be closing. So a password holding the email's
-            ;; local part passes the chips and is refused on submit, where the
-            ;; server's reason now reaches the page.
-            ;;
-            ;; The "not your name" chip is a confirmation oracle, which is fine:
-            ;; it fires only on the WHOLE username, never a prefix ("kayl" is
-            ;; silent, "kaylee" flags), so it cannot be walked letter by letter --
-            ;; and reaching this page at all needs the emailed key, whose cookie
-            ;; already carries the username in plain base64. It tells nobody
-            ;; anything the cookie has not already handed them.
+            ;; GOTCHA: context carries only :user, never email, to avoid a disclosure
+            ;; via cookie; the server checks email separately on submit. The "not
+            ;; your name" chip is a safe oracle: it only fires on the WHOLE
+            ;; username, which this page's cookie already carries. See account-flows.md.
             context {:username (token-username)}
             ;; Reading the password back is what the confirm box stands in for,
             ;; so revealing it retires the box -- and the check that decides
@@ -1100,14 +1022,10 @@
           :lede "This replaces the password on your account."
           :fields
           [:div
-           ;; The same pair and the same meter the register form uses. A password
-           ;; is made in two places and only one of them helped: these messages
-           ;; were commented out years before the rules got stricter, which
-           ;; nobody noticed while the minimum was eight and almost everything
-           ;; passed. At twelve an ordinary password fails here, and with no
-           ;; message, no meter and a dimmed button the page simply stopped
-           ;; working with nothing said. This is account RECOVERY -- the last
-           ;; door somebody has.
+           ;; The same pair and meter the register form uses.
+           ;; GOTCHA: this is account RECOVERY, the last door somebody has -- a
+           ;; silently dimmed button with no message is worse here than anywhere
+           ;; else. See account-flows.md.
            [password-fields
             {:password password
              :confirm verify-password
@@ -1146,16 +1064,9 @@
    "LOGIN"])
 
 (defn auth-outcome
-  "A page with nothing to ask for: a statement, and at most one way onward.
-
-   These four had no layout of their own. The heading was centred and everything
-   under it was not, so the sentence sat hard against the card's left edge with
-   no gutter, and because a div preceded it the one link fell onto its own line
-   below -- \"You can now\" on one line and LOGIN stranded under it. They also
-   stacked from the top of a 600px card and left most of it empty.
-
-   `onward` is a button rather than the inline link the register form uses: on a
-   page with one thing to do, the one thing to do should look like it."
+  "A page with nothing to ask for: a statement, and at most one `onward` action.
+   GOTCHA: `onward` is a button, not the inline link the register form uses --
+   the one thing to do should look like it. See account-flows.md."
   ([heading message] (auth-outcome heading message nil))
   ([heading message onward]
    (auth-page heading
@@ -1219,20 +1130,12 @@
    [:first-and-last-name "Name"]])
 
 (defn error-summary
-  "What is wrong, above the form, after a submit that could not go through.
-
-   Counts FIELDS rather than messages: a field with two faults is one thing to
-   fix, and saying \"three things need fixing\" over two fields is the kind of
-   arithmetic that makes people distrust the rest of the page.
-
-   Each line is a link to its field. That is the whole point of a summary -- on
-   a form long enough to scroll, the first fault can be off screen -- and it is
-   why the lines carry the message rather than the field's name: prefixing
-   \"Username\" to \"Username is required\" says it twice, and the link text is
-   what a screen reader reads out on its own.
-
-   Renders nothing until a submit has been attempted. A summary of everything
-   wrong with an untouched form is a scolding, not help."
+  "A list of faults above the form, each a link to its field, after a submit
+   that could not go through. Renders nothing until a submit has been attempted.
+   GOTCHA: counts FIELDS, not messages (two faults on one field count as one),
+   and each link's text is the fault message, not the field name -- prefixing
+   the field name would say it twice, and the link text is what a screen
+   reader reads on its own. See account-flows.md."
   [validation]
   (let [faults (for [[k label] field-order
                      :let [messages (seq (get validation k))]
@@ -1394,11 +1297,8 @@
             [:button.form-button.join-button
              {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
-            ;; One group, one rhythm. Each of these was its own block with two
-            ;; <br> inside it, so a question and its answer were three lines
-            ;; apart and the three pairs were differently shaped -- two stacked,
-            ;; one inline. A question and the thing that answers it now sit on
-            ;; one line, the way the register page already asks its one.
+            ;; One group, one rhythm: each question and its answer share a line,
+            ;; the way the register page already asks its one.
             [:div.m-t-20.auth-alts
              [:div.auth-alt
               [:span "Don't have a login?"]
@@ -9673,10 +9573,9 @@
                 :on-change #(reset! confirm-email (event-value %))}]
               (when emails-dont-match?
                 [:div.m-t-5.red "Email addresses don't match"])
-              ;; Moving the account to another address takes it away from this
-              ;; one, and it used to ask for nothing but a session. The password
-              ;; is proof that the person doing it is the account holder and not
-              ;; somebody who sat down at their desk.
+              ;; Re-entering the password here proves the account holder, not just
+              ;; the session, before moving the account to another address.
+              ;; See account-flows.md.
               [:input.input.m-t-5
                {:type :password
                 :value @current-password

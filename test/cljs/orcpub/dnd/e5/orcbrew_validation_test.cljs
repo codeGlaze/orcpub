@@ -1530,6 +1530,7 @@
     (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
         "both enabled → :conflict, not nil")))
 
+;; ============================================================================
 ;; Import mends damaged sections instead of calling them imported
 ;; ============================================================================
 
@@ -1601,7 +1602,6 @@
   (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]
     (is (:success (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true})) text)))
 
-=======
 ;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
 
 (deftest an-import-rename-moves-links-only-in-its-own-source

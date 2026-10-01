@@ -1,25 +1,18 @@
 (ns orcpub.pwned
   "Screens a password against Have I Been Pwned without ever sending it.
-
-   The password is hashed locally and only the first five hex characters of that
-   hash leave this process. The range endpoint answers with every suffix sharing
-   that prefix -- several hundred of them -- and the comparison happens here, so
-   a listener who breaks TLS learns which of roughly eight hundred hashes the
-   password might be, and nothing more.
-
-   The check is advisory by construction. Every failure path returns :unknown
-   rather than throwing or blocking: this service must not be able to take
-   registration down when a third party is slow, rate-limiting, or gone."
+   GOTCHA: only the first five hex chars of the local SHA-1 hash leave this
+   process (k-anonymity range query); a listener who breaks TLS learns at most
+   1-in-~800 candidate hashes, never the password. Every failure path returns
+   :unknown rather than throwing or blocking. See account-flows.md."
   (:require [clj-http.client :as client]
             [clojure.string :as s]
             [orcpub.config :as config])
   (:import (java.security MessageDigest)))
 
-;; Counted since boot so the check can be audited at all. Without these a
-;; permanently broken lookup -- an unset variable, a firewall, a CDN that has
-;; started refusing our User-Agent -- is indistinguishable from a working one:
-;; registration succeeds either way and nobody is ever told their password is
-;; common. Fail-open is the right call; fail-open and BLIND is not.
+;; Counted since boot for audit: fail-open must not mean fail-open BLIND. A
+;; permanently broken lookup -- unset env var, firewall, a CDN rejecting our
+;; User-Agent -- is otherwise indistinguishable from a working one: registration
+;; succeeds either way and nobody learns their password is common.
 (def ^:private tally (atom {:asked 0 :common 0 :clear 0 :unavailable 0}))
 
 (defn stats [] @tally)

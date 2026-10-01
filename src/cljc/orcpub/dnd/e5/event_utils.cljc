@@ -13,9 +13,9 @@
    (defn backend-url
      "A path on the server that served the page.
 
-      It used to send every http://localhost page to port 8890, from when figwheel served the page
-      on another port. dev.cljs.edn now opens the app on the server itself, so that rewrite only
-      broke a server on any other localhost port: logins and API calls went to 8890."
+      Assumes frontend and backend share an origin: dev.cljs.edn opens the app on the server itself, so
+      logins and API calls follow whatever port served the page. Running the frontend from any other
+      localhost port breaks this -- there is no prefix here to redirect it to the backend's port."
      [path]
      (if (s/starts-with? path "/") path (str "/" path))))
 

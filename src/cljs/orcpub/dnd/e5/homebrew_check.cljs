@@ -1,13 +1,10 @@
 (ns orcpub.dnd.e5.homebrew-check
-  "Wires homebrew-guard into the app, and checks homebrew deeply when it is worth the cost.
-
-   While the builder works, each entry is guarded where it is converted, so an entry that
-   throws there is skipped and reported, and ::e5/homebrew-entry-broke sets it aside and
-   says so. A throw can also hide in a lazy part of an option and only surface when a page
-   draws it. deep-check finds those by converting and fully realizing every entry, one at
-   a time. Measured with a 12-source library that is about two seconds, against about
-   40 ms for converting without realizing, so it runs only for the sources an import or a
-   restore changed, and when a page has already failed."
+  "Wires homebrew-guard into the app. deep-check converts and fully realizes every
+   entry to catch a throw hidden in a lazy part of an option, one that per-entry
+   builder guarding would miss.
+   GOTCHA: realizing everything costs ~2s for a 12-source library vs ~40ms without
+   realizing, so call it only for sources an import/restore changed, or after a
+   page has already failed. See homebrew-safety-net.md."
   (:require [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
             [re-frame.core :refer [reg-fx dispatch subscribe]]

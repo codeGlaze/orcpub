@@ -271,12 +271,10 @@
 
 (defn send-sign-in-attempts-email
   "Tells an account holder that failed sign-ins arrived from several places at once.
-
-   Never throws. It is sent from the login path on behalf of somebody who is not
-   signed in and may well be an attacker, so nothing about it -- success, failure
-   or timing -- may reach the response. The link goes to the reset PAGE rather
-   than carrying a token, because an unexpected mail that contains a working
-   credential teaches people to click exactly what a phishing mail sends them."
+   GOTCHA: never throws and leaks nothing (success, failure, timing) to the
+   response -- sent on behalf of someone not signed in, possibly an attacker.
+   Links to the reset PAGE, never a token, to avoid training people to click
+   mailed credentials. See account-flows.md."
   [base-url {:keys [email first-and-last-name user-agent]}]
   (try
     (postal/send-message (email-cfg)
@@ -318,16 +316,9 @@
 
 (defn send-password-changed-email
   "Tells an account holder their password has just been changed.
-
-   The one signal that makes an unauthorised reset VISIBLE. Without it a
-   takeover is silent until the owner tries to log in, and then they learn only
-   that they cannot -- not when, not from where, and with nothing to act on.
-
-   Never throws, and its outcome never reaches the response: the reset has
-   already been committed by the time this runs, and a mail failure must not
-   turn a successful password change into an error the person then repeats. The
-   link goes to the reset PAGE and carries no token, for the same reason the
-   sign-in notice does not."
+   GOTCHA: the only signal that makes an unauthorised reset visible; never
+   throws since the reset is already committed. Same no-token reset-page link
+   as the sign-in notice. See account-flows.md."
   [base-url {:keys [email first-and-last-name user-agent]}]
   (try
     (postal/send-message (email-cfg)
@@ -367,14 +358,10 @@
 
 (defn send-email-change-notice
   "Tells the address that currently OWNS the account that somebody is moving it.
-
-   The verification goes to the new address, which is the one place the owner
-   cannot read if this was not them. Without this the address losing the account
-   is the only party to the change never told about it -- and an attacker with a
-   session could move the account out from under somebody in silence.
-
-   Never throws: the change request has already been accepted, and this failing
-   must not report an error for something that did happen."
+   GOTCHA: goes to the new address, unreachable by the current owner if this
+   wasn't them -- the only notice the losing address gets. Never throws: the
+   change is already accepted, so a failure here must not report an error for it.
+   See account-flows.md."
   [base-url {:keys [email first-and-last-name new-email]}]
   (try
     (postal/send-message (email-cfg)
