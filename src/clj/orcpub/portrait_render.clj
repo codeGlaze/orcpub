@@ -24,7 +24,8 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
-            [orcpub.dnd.e5.portrait-effects :as fx])
+            [orcpub.dnd.e5.portrait-effects :as fx]
+            [orcpub.dnd.e5.portrait-face :as face])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
            [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double]
            [java.awt.image BufferedImage]
@@ -257,6 +258,32 @@
        (or (seq (:asset/iris asset))
            (not= :eyes (pa/slot-for-asset layer-key asset)))))
 
+(defn- colorize-eyes!
+  "The eyes: each iris coloured through its luminance in its own colour, lit
+   from below, with the pupil the portrait asks for (portrait-face)."
+  [^BufferedImage img portrait asset ^Color color gamma ^doubles cov rect]
+  (let [w (.getWidth img) h (.getHeight img)
+        ^ints d (.. img getRaster getDataBuffer getData)
+        {:keys [second-eye pupil]} (face/face-settings portrait)
+        f (face/eye-pixel-fn (colorize/iris-shapes asset rect)
+                             [(.getRed color) (.getGreen color) (.getBlue color)]
+                             (some-> second-eye colorize/hex->rgb)
+                             gamma pupil)
+        all? (not= pupil :round)]
+    (dotimes [i (* w h)]
+      (let [argb (aget d i)
+            a (bit-and (unsigned-bit-shift-right argb 24) 0xff)
+            k (/ (aget cov i) 255.0)]
+        ;; a new pupil paints where the drawn one is, outside the iris region
+        (when (and (pos? a) (or all? (pos? k)))
+          (let [[r g b] (f (rem i w) (quot i w)
+                           [(bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                            (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                            (bit-and argb 0xff)]
+                           k)]
+            (aset d i (unchecked-int (bit-or (bit-shift-left a 24) (bit-shift-left (int r) 16)
+                                             (bit-shift-left (int g) 8) (int b))))))))))
+
 (defn- draw-colorized-layer!
   "Place the asset in the frame and colour it through its luminance: the iris
    inside its placed region, the lips all over."
@@ -264,8 +291,11 @@
   (when-let [src (ImageIO/read (ByteArrayInputStream. data))]
     (let [img (placed src w h)
           rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)
-          cov (when (seq (:asset/iris asset)) (iris-coverage asset rect w h))]
-      (colorize! img color (pa/effective-gamma portrait layer-key asset) cov)
+          cov (when (seq (:asset/iris asset)) (iris-coverage asset rect w h))
+          gamma (pa/effective-gamma portrait layer-key asset)]
+      (if (and cov (= :eyes (pa/slot-for-asset layer-key asset)))
+        (colorize-eyes! img portrait asset color gamma cov rect)
+        (colorize! img color gamma cov))
       (.drawImage g img 0 0 nil))))
 
 ;; ---------- hair ombre and cast shadows (portrait-effects) ----------
@@ -329,9 +359,11 @@
                                                               (pa/selected-asset portrait layer-key) layer-key)
           root-rgb [(.getRed root) (.getGreen root) (.getBlue root)]
           [root-rgb tip-rgb] (fx/layer-colours layer-key root-rgb (or (some-> tip colorize/hex->rgb) root-rgb) settings)
-          frame (fx/gradient-frame (alpha-fn img) w h crown angle)
-          ;; streaks only show where there is a second colour to streak
-          field (when (and tip (pos? (:clumps settings)))
+          shine? (and (pos? (:shine settings)) (fx/shine-layers layer-key))
+          frame (fx/gradient-frame (alpha-fn img) w h crown (fx/run-mode settings) shine?)
+          ;; streaks only show where there is a second colour to streak; the
+          ;; shine breaks along the strands too
+          field (when (or shine? (and tip (pos? (:clumps settings)) (not (:split settings))))
                   (assoc (strand-field-of (:asset/url (pa/selected-asset portrait layer-key)) src layer-key)
                          :rect (layout/contain-rect (.getWidth src) (.getHeight src) w h)))
           pix (fx/pixel-fn root-rgb tip-rgb settings frame layer-key field)]
@@ -346,7 +378,7 @@
 
 (defn- combined-alpha
   "The alphas of these layers' selected assets, combined (max), as doubles."
-  [portrait placed-of layer-keys pred w h]
+  ^doubles [portrait placed-of layer-keys pred w h]
   (let [out (double-array (* w h))]
     (doseq [k layer-keys
             :let [asset (pa/selected-asset portrait k)]
@@ -358,25 +390,53 @@
           (aset out i (max (aget out i) (double (a i)))))))
     out))
 
-(defn- cast-shadows!
-  "Shade the skin under the hair pieces that hang over the face."
+(defn- asset-rect
+  "Where an asset's art lands in a `w` x `h` frame."
+  [asset w h]
+  (when-let [{:keys [bytes]} (asset-source (:asset/url asset))]
+    (when-let [^BufferedImage src (ImageIO/read (ByteArrayInputStream. bytes))]
+      (layout/contain-rect (.getWidth src) (.getHeight src) w h))))
+
+(defn- shade-skin!
+  "Multiply what lands on the skin after every layer is down: the shadow the
+   overhanging hair casts, then blush and freckles (portrait-face). All of it
+   confined to skin that shows."
   [^BufferedImage img portrait placed-of w h]
-  (when (some #(some-> (pa/selected-asset portrait %) fx/casts-shadow?) pa/layer-order)
-    (let [caster (combined-alpha portrait placed-of pa/layer-order fx/casts-shadow? w h)
-          skin (combined-alpha portrait placed-of [:head :ears] any? w h)
-          hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
-          k (fx/shadow-map caster skin hair w h (:light (fx/ombre-settings portrait)))
-          ^ints d (.. img getRaster getDataBuffer getData)]
-      (dotimes [i (* w h)]
-        (let [kk (aget ^doubles k i)]
-          (when (pos? kk)
-            (let [argb (aget d i)
-                  [fr fg fb] (fx/shadow-factors kk)]
-              (aset-int d i (unchecked-int
-                             (bit-or (bit-and argb (unchecked-int 0xff000000))
-                                     (bit-shift-left (int (* fr (bit-and (unsigned-bit-shift-right argb 16) 0xff))) 16)
-                                     (bit-shift-left (int (* fg (bit-and (unsigned-bit-shift-right argb 8) 0xff))) 8)
-                                     (int (* fb (bit-and argb 0xff)))))))))))))
+  (let [casts? (some #(some-> (pa/selected-asset portrait %) fx/casts-shadow?) pa/layer-order)
+        fs (face/face-settings portrait)
+        eyes (pa/selected-asset portrait :eyes)
+        marks? (and (face/marks? fs) (seq (:asset/iris eyes)))]
+    (when (or casts? marks?)
+      (let [^doubles skin (combined-alpha portrait placed-of [:head :ears] any? w h)
+            ^doubles hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
+            ^doubles k (when casts?
+                (fx/shadow-map (combined-alpha portrait placed-of pa/layer-order fx/casts-shadow? w h)
+                               skin hair w h (:light (fx/ombre-settings portrait))))
+            m (when marks?
+                (let [^doubles eye-alpha (combined-alpha portrait placed-of [:eyes] any? w h)
+                      showing (double-array (* w h))]
+                  (dotimes [i (* w h)]
+                    (aset showing i (* (/ (aget skin i) 255.0)
+                                       (- 1.0 (/ (max (aget hair i) (aget eye-alpha i)) 255.0)))))
+                  (when-let [rect (asset-rect eyes w h)]
+                    (face/marks fs (colorize/iris-shapes eyes rect) showing w h))))
+            ^doubles mb (:blush m) ^doubles mf (:freckles m)
+            blush-rgb (colorize/hex->rgb (:blush-colour fs))
+            ^ints d (.. img getRaster getDataBuffer getData)]
+        (dotimes [i (* w h)]
+          (let [kk (if k (aget k i) 0.0)
+                kb (if mb (aget mb i) 0.0)
+                kf (if mf (aget mf i) 0.0)]
+            (when (or (pos? kk) (pos? kb) (pos? kf))
+              (let [argb (aget d i)
+                    [sr sg sb] (fx/shadow-factors kk)
+                    [mr mg mbb] (face/mark-factors kb kf blush-rgb)
+                    ch (fn [shift f] (int (* f (bit-and (unsigned-bit-shift-right argb shift) 0xff))))]
+                (aset-int d i (unchecked-int
+                               (bit-or (bit-and argb (unchecked-int 0xff000000))
+                                       (bit-shift-left (ch 16 (* sr mr)) 16)
+                                       (bit-shift-left (ch 8 (* sg mg)) 8)
+                                       (ch 0 (* sb mbb)))))))))))))
 
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")
@@ -546,7 +606,7 @@
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
            ;; after every layer, before the marks: the marks are not skin
-           (try (cast-shadows! img portrait placed-of w h)
+           (try (shade-skin! img portrait placed-of w h)
                 (catch Exception e
                   (println "portrait-render: shadows skipped -" (.getMessage e))))
            (try

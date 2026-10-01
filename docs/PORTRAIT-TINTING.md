@@ -149,6 +149,42 @@ crown" where nothing is drawn. It then averages noise along that direction
   Comparing against motion flipped the backward walk at every step, and the
   smear went back and forth on the spot. That produced blotches, not streaks.
 
+## Eye and skin effects, hair shine and split
+
+All in shared cljc (`portrait_face.cljc` for eyes and skin, `portrait_effects.cljc`
+for hair), so the share card, the builder and the PDF draw them identically.
+
+- **Light from below (always on):** the lower part of each iris is lifted in
+  its own colour, the way light comes through a real iris. No catchlight is
+  added: the art already draws one beside the pupil, and a second highlight
+  read as salt on the real art, however it was shaped.
+- **Second eye colour** goes to the eye on the right of the picture.
+- **Snake and goat pupils** are painted over the drawn round pupil, in the
+  iris's own middle tone, then the slit or bar on top. They are placed in
+  SCREEN space: several eyes were placed in the Loom with the oval turned
+  90 degrees, and a slit that followed the oval's rotation came out sideways.
+- **Blush and freckles** are multiplied onto skin that shows, the same mask as
+  the cast shadows, and placed from the eye placements, so no piece needs a
+  cheek or a nose marked. They share the skin overlay with the shadows.
+- **Shine:** a highlight band across the crown line on the scalp, front hair
+  and bangs, broken along the strand field, on the fill only.
+- **Split:** the tips colour on one side of a line down through the crown.
+  The line and its wobble are measured on the frame, the same for every
+  piece. Each piece's own measure put the line somewhere different on each
+  piece, and the hair behind the bangs showed a wedge of the other colour.
+  Angle mode had the same fault and is now measured from the crown too. A
+  split or an angle ignores the bangs' hold-the-root-colour choice.
+
+**Cost bug:** blush and freckles first took 105s per share card. The skin masks
+were untyped locals, so every pixel read in the overlay loop went through
+reflection. With type hints the effects cost nothing measurable (3.4s, the
+same as without them).
+
+**Art bug, ours:** a scratch copy of the art had every enclosed gap in the hair
+filled white, from a test during the scalp work. Bangs 03 has two arcs that
+touch at the tip; filling the gap between them drew a jagged sliver over the
+face. Mock-ups must be rendered from the artist's pack as delivered.
+
 ## The tests
 
 - `test/clj/orcpub/portrait_tint_behaviour_test.clj` -- proves masking flattens
