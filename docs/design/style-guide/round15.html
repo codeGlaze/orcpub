@@ -1,0 +1,85 @@
+<title>Phone Header</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<style>
+.rows { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+.row { display: grid; grid-template-columns: 170px auto; align-items: center; gap: 12px; }
+.row span { font-size: 12px; color: var(--dim); }
+.row span b { color: var(--fg); }
+.a1 img { width: 600px; image-rendering: pixelated; }
+.a2 img { width: 600px; }
+.s75 img { width: 450px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+<style>
+.grp { font: 700 12px/1.3 var(--sans); color: var(--fg); margin-bottom: 4px; }
+.row { grid-template-columns: 110px auto; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+</style>
+<style>
+.phones { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.phones figure { flex: 0 0 auto; max-width: 100%; }
+.phones img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.phones img.w320 { width: 320px; }
+.wide img { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+</style>
+<div class="wrap">
+  <header><div>
+    <div class="cap">OrcPub · feature/style-guide · b58d2af3</div>
+    <h1>Phone header</h1>
+    <p class="sub">The running branch, dark theme, as a real phone at 390px and 320px, and a desktop at 1280px to show it is unchanged. The tabs share the row evenly with small gaps, the login button and the title stay off the edge, and nothing scrolls sideways.</p>
+  </div></header>
+  <section><h2>Phones</h2><div class="phones">
+    <figure><figcaption><b>390px</b> · iPhone 13</figcaption><img src="round15/phone-390.png" alt="Phone header at 390px"></figure>
+    <figure><figcaption><b>320px</b> · iPhone SE</figcaption><img class="w320" src="round15/phone-320.png" alt="Phone header at 320px"></figure>
+  </div></section>
+  <section><h2>Desktop, 1280px</h2><figure class="wide"><img src="round15/desktop-1280.png" alt="Desktop header at 1280px"></figure></section>
+</div>
