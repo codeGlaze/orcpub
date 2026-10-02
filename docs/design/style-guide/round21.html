@@ -1,0 +1,157 @@
+<title>Header Menus in Garden</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<style>
+.rows { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+.row { display: grid; grid-template-columns: 170px auto; align-items: center; gap: 12px; }
+.row span { font-size: 12px; color: var(--dim); }
+.row span b { color: var(--fg); }
+.a1 img { width: 600px; image-rendering: pixelated; }
+.a2 img { width: 600px; }
+.s75 img { width: 450px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+<style>
+.grp { font: 700 12px/1.3 var(--sans); color: var(--fg); margin-bottom: 4px; }
+.row { grid-template-columns: 110px auto; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+</style>
+<style>
+.phones { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.phones figure { flex: 0 0 auto; max-width: 100%; }
+.phones img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.phones img.w320 { width: 320px; }
+.wide img { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+</style>
+<style>
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.cmp pre { margin: 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; overflow-x: auto; white-space: pre; }
+.cmp .lbl { font: 700 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+.same { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+.pairs { display: flex; flex-direction: column; gap: 18px; }
+.pairrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.pairrow figure { flex: 0 0 auto; max-width: 100%; }
+.pairrow img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.pairrow img.p390 { width: 390px; } .pairrow img.p320 { width: 320px; } .pairrow img.d { width: 640px; }
+h3 { margin: 0; font: 700 15px/1.3 var(--sans); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+<div class="wrap">
+  <header><div>
+    <div class="cap">OrcPub · feature/style-guide · 521d0682 → 21375a5c → 66ccbcb6</div>
+    <h1>Header menus in Garden</h1>
+    <p class="sub">The header has no inline style maps left. The move changed nothing on screen. Checking the phone menus for it turned up a real bug, which is fixed in a separate commit.</p>
+  </div></header>
+<section><h2>1. Active tab, flyouts and user menu move to Garden</h2><div class="cmp">
+<div><div class="lbl">Before</div><pre>;; views.cljs: five style maps
+(def active-style {:background-color &quot;rgba(240, 161, 0, 0.7)&quot;})
+(def menu-color &quot;#2c3445&quot;)
+(def header-menu-item-style
+  {:position :absolute :background-color &quot;#2c3445&quot;
+   :z-index 10000 :top 84 :right 0})
+(def mobile-header-menu-item-style
+  (assoc header-menu-item-style :top 46))
+(def user-menu-style {... :display :none})
+
+;; and inline on the elements
+{:style (when active active-style) ...}
+[:div.header-flyout {:style (if mobile? mobile-... header-...)}]
+[:div {:style (when current-page? active-style)} name]
+[:div#user-menu {:style user-menu-style}]
+(set! (.-display style) &quot;block&quot;)   ; opening the user menu</pre></div>
+<div><div class="lbl">After</div><pre>;; views.cljs: classes only
+{:class (str ... (when active &quot; active&quot;))}
+[:div.header-flyout ...]
+[:div {:class (when current-page? &quot;active&quot;)} name]
+[:div#user-menu.user-menu ...]
+(.add (.-classList user-menu) &quot;open&quot;)
+
+;; core.clj
+[:.header-flyout :.user-menu
+ {:position :absolute :right 0 :z-index 10000
+  :background-color &quot;#2c3445&quot;}]
+[:.header-flyout {:top &quot;84px&quot;}]
+[:.phone-tabs [:.header-flyout {:top &quot;46px&quot;}]]
+[:.user-menu {:display :none}
+ [:&amp;.open {:display :block}]]
+[:.header-tab.active :.header-flyout&gt;.active
+ {:background-color &quot;rgba(240, 161, 0, 0.7)&quot;}]</pre></div></div></section>
+
+  <section><h2>The move, on screen</h2><p>Before and after are byte-identical for the desktop menu, the user menu and the closed header at 320, 390 and 1280px, and the menus' computed position, colour and stacking match.</p><div class="pairs"><div><h3>Characters menu, desktop <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="d" src="round21/before/desktop-flyout.png" alt="Characters menu, desktop, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="d" src="round21/after/desktop-flyout.png" alt="Characters menu, desktop, after"></figure></div></div><div><h3>User menu, logged in, desktop <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p320" src="round21/before/user-menu.png" alt="User menu, logged in, desktop, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p320" src="round21/after/user-menu.png" alt="User menu, logged in, desktop, after"></figure></div></div></div></section>
+<section><h2>2. The phone menus open on screen</h2><div class="cmp">
+<div><div class="lbl">Before</div><pre>;; core.clj, phone header
+[:.app-header
+ {...
+  :overflow-x :hidden}]   ; also clips vertically
+
+;; every flyout right-aligned to its tab</pre></div>
+<div><div class="lbl">After</div><pre>;; core.clj, phone header
+[:.app-header
+ {...
+  :overflow-x :clip}]     ; sideways only
+
+[:.phone-tabs
+ [:.header-flyout {:top &quot;46px&quot;}]
+ [&quot;.header-tab:nth-child(-n+3) .header-flyout&quot;
+  {:left 0 :right :auto}]]</pre></div></div></section>
+
+  <section><h2>The fix, on screen</h2><p>Before, a tapped tab showed nothing: all 12 tab menus across a 390px and a 320px phone were clipped below the tab row, and the first tab's menu also started 34px off the left edge. After, all 12 open fully on screen. Nothing scrolls sideways, and desktop is unchanged.</p><div class="pairs"><div><h3>Characters menu, 390px phone </h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p390" src="round21/menus-before/390-tab1.png" alt="Characters menu, 390px phone, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p390" src="round21/menus/390-tab1.png" alt="Characters menu, 390px phone, after"></figure></div></div><div><h3>My Content menu, 390px phone </h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p390" src="round21/menus-before/390-tab6.png" alt="My Content menu, 390px phone, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p390" src="round21/menus/390-tab6.png" alt="My Content menu, 390px phone, after"></figure></div></div><div><h3>Characters menu, 320px phone </h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p320" src="round21/menus-before/320-tab1.png" alt="Characters menu, 320px phone, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p320" src="round21/menus/320-tab1.png" alt="Characters menu, 320px phone, after"></figure></div></div></div></section>
+  <div class="note"><h3>Same bug on f1852203-accounts</h3><p>The clipping rule came from 0a089349 on <code>f1852203-accounts</code>, so that branch has the same broken phone menus. It isn't changed here.</p></div>
+</div>
