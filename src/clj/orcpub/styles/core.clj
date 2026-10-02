@@ -1102,7 +1102,8 @@
       :background-color "rgba(0, 0, 0, 0.3)"
       :min-height 0
       ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
-      :overflow-x :hidden}]
+      ;; clip, not hidden: hidden also clips vertically, which cut off the tab menus.
+      :overflow-x :clip}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
@@ -1369,7 +1370,10 @@
       :z-index 10000
       :background-color "#2c3445"}]
     [:.header-flyout {:top "84px"}]
-    [:.phone-tabs [:.header-flyout {:top "46px"}]]
+    ;; On a phone the left three tabs open their menu to the right, so it stays on screen.
+    [:.phone-tabs
+     [:.header-flyout {:top "46px"}]
+     [".header-tab:nth-child(-n+3) .header-flyout" {:left 0 :right :auto}]]
     [:.user-menu {:display :none}
      [:&.open {:display :block}]]
 

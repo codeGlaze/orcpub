@@ -22,6 +22,7 @@ site. Bold across the site was then tuned by a size rule (700 small capitals, 60
 
 ## Fixed
 
+- On phones the header tab menus open again: they were clipped out of view by the header, and the first tab's menu also hung off the left edge. The three left-hand tabs now open their menus to the right.
 - On phones the header tabs share the row evenly with small gaps, instead of spreading out with wide gaps from an empty slot on the left; the top bar fits the screen (the login button ran off the right edge), and the page title is 28px so it fits a 320px screen.
 - On phones the search button is a square with its magnifier centred, the LOGIN label is centred in its button, and the two are the same height.
 - On phones the logo, header tabs, page title, buttons and builder all start the same 10px from the edge; they started at 20, 12, 10 and 15px.

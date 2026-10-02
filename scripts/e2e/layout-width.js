@@ -128,6 +128,19 @@ async function resize(page, width, height) {
     check(`${w}px phone: logo, tabs, title, buttons and builder share the 10px gutter`,
           h.lefts.every(x => x === 10) && h.loginR === 10 && Math.round(h.right) === 10, JSON.stringify(h));
     check(`${w}px phone: the page title keeps off the edge`, h.title >= 10, h.title);
+    // every tab's menu opens fully on screen, not clipped by the header
+    const menus = [];
+    for (let i = 0; i < await page.locator('.header-tab').count(); i++) {
+      const tab = page.locator('.header-tab').nth(i);
+      if (!(await tab.locator('.header-flyout').count())) continue;
+      await tab.focus(); await page.waitForTimeout(250);
+      menus.push(await tab.locator('.header-flyout').evaluate(f => {
+        const b = f.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.bottom - 4);
+        return b.left >= 0 && b.right <= innerWidth && !!hit && f.contains(hit);
+      }));
+      await page.evaluate(() => document.activeElement.blur());
+    }
+    check(`${w}px phone: every header tab's menu opens fully on screen`, menus.length > 0 && menus.every(Boolean), JSON.stringify(menus));
     check(`${w}px phone: the header tabs sit evenly, close together`,
           h.gaps.every(g => g === h.gaps[0] && g <= 8) && Math.abs(h.left - h.right) <= 1, JSON.stringify(h));
     await ctx.close();
