@@ -70,6 +70,12 @@ rebuilds. Three details that make it hold:
 
 The same check covers `styles.css` against `src/clj/orcpub/styles`.
 
+**The folders it watches come from the build config, not from `run.sh`** (2026-10-01). It used to
+keep its own list, `src/cljs src/cljc`, which missed `web/cljs` where startup lives: an edit to
+`core.cljs` was tested against the old bundle with no warning. It now reads `:watch-dirs` from
+`dev.cljs.edn` or `prod.cljs.edn`, whichever bundle is on disk, and stops the run if it cannot.
+A check that keeps a second copy of what it checks drifts from it; read the original.
+
 **The lesson:** this trap exists wherever **some parts compile from source and others are
 prebuilt artifacts**. The fresh half is what makes the stale half invisible. Anywhere that
 split exists, the runner must check, not the human.
