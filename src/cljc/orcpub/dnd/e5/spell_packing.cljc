@@ -1,30 +1,16 @@
 (ns orcpub.dnd.e5.spell-packing
-  "Which spell level goes in which box of a printed spell page.
-
-   A sheet's boxes are fixed: ten of them, in three columns, each holding a
-   different number of rows. Today one box carries one level of one class, so a
-   character with three level 1 spells and two level 2s spends two pages on five
-   spells, and eight casting classes spend eight pages.
-
-   This decides the assignment instead. It runs in the BUILDER -- the server sees
-   a flat map of field names and knows nothing about classes or levels -- and the
-   result travels to the export as field values plus a small list of relabel
+  "Which spell level goes in which box of a printed spell page (ten fixed boxes in three
+   columns, each with its own row count), so classes and levels share pages instead of
+   taking one box per level per class. Runs in the BUILDER -- the server sees only a flat
+   field map -- and the result travels to the export as field values plus relabel
    instructions the server applies with pdf/relabel-numeral!."
   (:require [clojure.string :as s]))
 
 (def sheet-geometry
   "Rows each level box holds, by sheet style, level 0 through 9.
-
-   The count of FIELDS in the box, not of printed rows, because a row with no
-   field behind it cannot be filled: whatever is placed there is reported
-   unplaceable and dropped. The two are equal today and a test keeps them so.
-
-   Counted off the masters in resources/, and wrong twice when they were not.
-   Styles 1 and 3 were recorded as holding 13 at level 3, which they printed but
-   could not fill -- their fields were numbered 1-10, 12, 13, 14, so spells-3-11
-   went nowhere. Style 4 was recorded with 12 at level 1 where it has 13, and 13
-   at level 2 where it had 11. dev/fix_spell_row_fields.clj repaired the
-   templates; these are the counts that survived it."
+   The count of FIELDS in the box, not printed rows: a row with no field behind it cannot be
+   filled, so whatever lands there is reported unplaceable. A test keeps the two equal.
+   Counted off the template masters in resources/ (dev/fix_spell_row_fields.clj)."
   {1 [8 12 13 13 13 9 9 9 7 7]
    2 [8 12 13 13 13 9 9 9 7 7]
    3 [8 12 13 13 13 9 9 9 7 7]
@@ -52,30 +38,17 @@
   (get sheet-geometry style (get sheet-geometry 1)))
 
 (defn- box-may-hold?
-  "Whether `level` may be printed in `box`.
-
-   Box 0 is the cantrips box and takes cantrips only. Its bar has no slot inputs
-   and no numeral field of its own, so giving it a spell level means drawing a
-   numeral, a bar divider, slot labels and two inputs onto the artwork -- and the
-   only measurements for that are style 1's. On style 3 the numeral missed the
-   ring and the printed 0 stayed; on every style the class name was clipped by
-   the input drawn over it. A no-cantrips class that would have started at box 0
-   starts at box 1 instead."
+  "Whether `level` may be printed in `box`. Box 0 is the cantrips box and takes cantrips
+   only: its bar has no slot inputs or numeral field, and drawing them onto the artwork is
+   measured for style 1 alone. A no-cantrips class that would start at box 0 starts at box 1."
   [box level]
   (or (not= box 0) (= level 0)))
 
 (defn- assign
-  "The boxes `klass` would occupy in `col`, or nil if it does not fit.
-
-   Each level is checked against the SPECIFIC box it would land in. Column totals
-   are not enough and using them is the obvious way to get this wrong: the boxes
-   are unequal, so a twelve-row level 1 list does not fit a nine-row box however
-   many rows the column has left over.
-
-   The class stays contiguous and in level order -- that is what lets a player read
-   one down a column -- but it may start at any free box, not only the next one. A
-   cantrip list too long for box 0 can begin at box 1 instead, and skipping a box
-   costs nothing since an unused box has to be blanked either way."
+  "The boxes `klass` would occupy in `col` (as `{:class :level :box :rows :capacity}`
+   entries), or nil if it does not fit. Each level is checked against the SPECIFIC box it
+   lands in; column totals are not enough, since the boxes are unequal. The class stays
+   contiguous and in level order but may start at any free box, not only the next one."
   [col style {:keys [class levels]}]
   (let [rows (style-rows style)
         taken (set (map :box (:placed col)))
@@ -109,13 +82,9 @@
   (apply max (map count columns)))
 
 (defn- spread-across-page
-  "Lays one class across a whole page's boxes in order, checking each level fits
-   the box it lands in.
-
-   For a class with more levels than any column holds. Keeping it in one column is
-   what stops several classes interleaving and becoming hard to read; a class that
-   fills the sheet on its own has nothing to be confused with, and this is how the
-   sheet already reads today."
+  "Lays one class across a whole page's boxes in order, for a class with more levels than any
+   column holds. Returns its entries, or nil when the boxes run out or a level does not fit
+   the box it lands in."
   [style {:keys [class levels]}]
   (let [rows (style-rows style)
         wanted (sort-by key levels)
@@ -141,18 +110,10 @@
         columns))
 
 (def pact-column
-  "The column a pact caster is given: boxes 0, 1 and 2.
-
-   A 5e Warlock casts every spell at its highest slot level, so it needs ONE
-   level box however high it climbs -- the numeral is relabelled as the character
-   levels rather than a new box being used. Cantrips take box 0 and the spell list
-   takes box 1, spilling into box 2 only because a level 20 Warlock knows 15
-   spells against box 1's 12 rows.
-
-   Reserving the first column rather than fitting it like any other class is what
-   keeps its slot count off everything else: the boxes it holds carry its own
-   spell-slots fields, and the rest of the sheet is left to casters whose slots
-   come from the shared table."
+  "The column a pact caster is given, reserved so its own spell-slots fields stay off other
+   classes: boxes 0, 1 and 2. A 5e Warlock casts at one slot level, so it needs ONE level box,
+   relabelled as it levels. Cantrips take box 0 and the list box 1, spilling into box 2 when
+   it outgrows box 1."
   0)
 
 (defn- place-pact
@@ -185,18 +146,12 @@
                    :capacity (nth rows second-box)}))))))))
 
 (defn pack
-  "Assigns `classes` to boxes: first fit by column, never splitting a class.
-
-   `classes` is `[{:class label :levels {level row-count}} ...]` in the order they
-   should read. Returns a vector of pages, each a vector of three columns carrying
-   `:placed` entries of `{:class :level :box :rows :capacity}`.
-
-   Keeping a class within one column is what makes the result worth reading: a
-   player finds their list by looking down one column rather than hunting across a
-   page, and a column takes more than one class when they fit. A class with more
-   levels than any column holds is the exception -- it gets a page laid out the way
-   the sheet already reads, since with nothing beside it there is nothing to
-   confuse it with."
+  "Assigns `classes` to boxes: first fit by column, never splitting a class, so a player reads
+   one list down one column. `classes` is `[{:class label :levels {level row-count} :pact?}
+   ...]` in reading order. Returns a vector of pages, each a vector of three columns carrying
+   `:placed` entries of `{:class :level :box :rows :capacity}` (a pact spill adds `:offset`).
+   A pact caster takes `pact-column` of page one; a class wider than any column gets a page of
+   its own. A class that fits nowhere is dropped (see `unplaced`)."
   [style classes]
   (->>
    (reduce
@@ -234,19 +189,12 @@
    (filterv (fn [page] (some (comp seq :placed) page)))))
 
 (defn relabel-instructions
-  "The boxes whose printed numeral no longer matches what they hold.
-
-   Two kinds, both of which read as a lie if left alone: a box carrying a level
-   other than its own needs renumbering, and a box a class did not use still
-   carries its printed numeral, so an unused box 4 in a Paladin column reads as
-   Paladin level 4 spells.
-
-   `:section` counts from ONE, matching the suffix every field name carries --
-   spells-3-1-1 and spell-slots-1-1 are section 1. It came off map-indexed and so
-   counted from zero, which named a section no template has.
-
-   Caller-supplied by the time the server sees them, so section, box and label are
-   bounds-checked there before use -- the same hole as the sheet style id."
+  "The boxes whose printed numeral no longer matches what they hold, as `{:section :box
+   :label}`: a box holding another level gets that level, and an unused box gets a nil label
+   so its printed numeral does not claim spells it lacks. `:section` counts from ONE,
+   matching every field-name suffix (spells-3-1-1 and spell-slots-1-1 are section 1).
+   GOTCHA: caller-supplied by the time the server sees them, so the server bounds-checks
+   section, box and label before use."
   [pages]
   (vec (for [[index page] (map-indexed vector pages)
              col page
@@ -258,19 +206,11 @@
           :label (when held (str (:level held)))})))
 
 (defn unplaced
-  "What `pages` failed to hold, as `{class {level rows}}`, empty when it holds
-   everything.
-
-   Packing can lose a class without saying so, in three places: a class with more
-   levels than any column holds is skipped when no page-wide spread fits it, a
-   class that fits no column on a fresh page is skipped too, and a pact caster's
-   list is truncated to the two boxes reserved for it. All three are silent, and
-   the sheet that comes out looks complete -- a Wizard 20 beside a Cleric and a
-   Druid printed without the Cleric at all, 33 spells gone with nothing reported.
-
-   So the count that went in is compared against the count placed, and the caller
-   decides. Nothing here tries to place the remainder: a packing that cannot hold
-   a character is one the caller should not print."
+  "What `pages` failed to hold, as `{class {level rows}}`, empty when it holds everything.
+   Packing drops silently in three places: a wide class no page-wide spread fits, a class no
+   column of a fresh page fits, and a pact list past its two boxes. The counts that went in
+   are compared with those placed; nothing is re-placed, and the caller should not print a
+   packing that loses spells."
   [classes pages]
   (let [placed (reduce (fn [acc {:keys [class level rows]}]
                          (update-in acc [class level] (fnil + 0) rows))
@@ -335,23 +275,11 @@
   (contains? styles-with-measured-numerals style))
 
 (defn packed-fields
-  "The field map a packing produces.
-
-   `classes` is what pack was given, plus what to print:
-
-       [{:class \"Wizard\" :levels {0 [\"Fire Bolt\" ...] 1 [...]}
-         :slots {1 4, 2 3}} ...]
-
-   `:levels` holds the spell NAMES, and their counts are what pack fits.
-   `:slots` is that class's own slot totals by level -- which is the point of
-   packing by class rather than by ability. Each of the nine level boxes carries
-   its own spell-slots field, so a class holding its own column carries its own
-   slot counts in those boxes, and a Warlock's Pact Magic stops being averaged
-   into whatever else shares its casting ability.
-
-   Returns {:fields :relabels :pages}. `:relabels` is the instruction list the
-   server bounds-checks and applies; the browser cannot renumber a printed
-   numeral itself."
+  "The field map a packing produces. `classes` is pack's input with `:levels` holding spell
+   NAMES (their counts are what pack fits), plus per class `:slots` {level total} (printed in
+   the class's own boxes), `:ability`, `:dc`, `:attack` and `:pact?`.
+   Returns {:pages <count> :unplaced :relabels :headings :fields}. `:relabels` is the list
+   the server bounds-checks and applies; the browser cannot renumber a printed numeral."
   [style classes]
   (let [by-class (into {} (map (juxt :class identity)) classes)
         ;; :pact? has to survive into what pack sees, or the pact caster is fitted
@@ -372,19 +300,10 @@
      ;; fall back to a page per class.
      :unplaced (unplaced counted pages)
      :relabels (relabel-instructions pages)
-     ;; Where to write each class's name: the cantrips box its column starts
-     ;; with. A class with no cantrips -- a Paladin, a Ranger -- starts at a level
-     ;; box whose slot inputs the player writes in, so it gets no heading and the
-     ;; section header is all that names it.
-     ;; The save DC and attack bonus travel with the heading rather than as
-     ;; section fields. The sheet gives a section ONE ability/DC/attack triple,
-     ;; and a packed page holds several classes whose numbers differ, so filling
-     ;; it would print one class's DC over everyone's list.
-     ;; One heading a class, on the FIRST box of its run. A class with cantrips
-     ;; starts at a cantrips box, whose bar is free because the box has no slots.
-     ;; A Paladin or Ranger has no cantrips and starts at a level box, whose bar
-     ;; carries live slot inputs -- so it is flagged, and the drawing side makes
-     ;; room there rather than skipping it and leaving the column unnamed.
+     ;; One heading per class, on the FIRST box of its run, carrying its ability, DC and
+     ;; attack: a section has ONE such triple and a packed page holds several classes.
+     ;; A class without cantrips (Paladin, Ranger) starts at a level box whose bar holds
+     ;; live slot inputs; `:cantrips?` false tells the drawing side to make room there.
      :headings (vec (for [[class entries] (group-by :class placements)
                           :let [first-box (apply min (map :box entries))
                                 {:keys [section level]} (first (filter #(= first-box (:box %))
@@ -430,12 +349,9 @@
                                      (min (+ from (or rows (count all))) (count all)))]
                   [row nm] (map-indexed vector mine)]
               [(keyword (str "spells-" box "-" (inc row) "-" section)) nm])
-            ;; The slot total belongs to the class that holds the box, at the
-            ;; level it is holding -- not to the level the box is printed with.
-            ;; Box 0 is the cantrips box, holds cantrips only, and has no slots.
-            ;; Only the box a level STARTS in carries the slot total: a
-            ;; continuation is the same pool, and printing it twice reads as two
-            ;; sets of slots for one level.
+            ;; The slot total belongs to the class holding the box, at the level it holds,
+            ;; not the box's printed level. Box 0 (cantrips) has no slots, and only the box
+            ;; a level STARTS in carries the total: a continuation is the same pool.
             (for [{:keys [class level box section offset]} placements
                   :when (and (pos? box) (zero? (or offset 0)))
                   :let [n (get-in by-class [class :slots level])]

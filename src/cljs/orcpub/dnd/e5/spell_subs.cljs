@@ -49,16 +49,9 @@
    (boolean (:dev-mode? db))))
 
 ;; ---------------------------------------------------------------------------
-;; Memoized library-health detectors.
-;;
-;; These walk the WHOLE library (every source × content-type × item), and the
-;; My Content views call them from several places — the twin index alone was
-;; being rebuilt once per content-type section per source, i.e. dozens of full
-;; walks on every render (and every search keystroke). As re-frame reactions
-;; keyed on ::e5/plugins they compute once per plugins change and share that one
-;; result across every row, section, and page, instead of recomputing in each
-;; component's render body. Keep them here (not inline in views) so the caching
-;; is structural, not something a future caller can accidentally bypass.
+;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
+;; they compute once per library change and share one result across every row, section and page.
+;; Keep them here, not inline in views, so no caller can bypass the caching.
 ;; ---------------------------------------------------------------------------
 
 ;; Cross-source same-key index for the collision-risk types — backs the
@@ -92,12 +85,10 @@
  (fn [plugins _]
    (orcbrew-val/mutual-exclusion-off-count plugins)))
 
-;; Ephemeral overlay for a SHARED character being viewed: content that arrived
-;; embedded in a share link (view-once) lives here, NOT in :plugins, so it is
-;; never persisted to the recipient's library and vanishes on reload without the
-;; link. The content-lookup subs below fold it in (last, so it wins key
-;; collisions for the shared view); the library manager / export read :plugins
-;; directly and never see it. See orcpub.dnd.e5.share-url / share-bundle.
+;; Ephemeral overlay for a SHARED character being viewed: content embedded in a share link lives
+;; here, NOT in :plugins, so it is never persisted and vanishes on reload. The content-lookup subs
+;; fold it in last (it wins key collisions for the shared view); the library manager and export
+;; read :plugins and never see it. See orcpub.dnd.e5.share-url / share-bundle.
 (reg-sub
  ::e5/shared-plugins
  (fn [db _]
@@ -117,16 +108,11 @@
  (fn [db _]
    (get db :quarantined-plugins)))
 
-(defn- process-plugin-vals
-  "Filter out malformed/disabled plugin data so a bad entry can't break the
-   subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps.
-
-   `overlay` (optional) applies the two LOCAL disable levels on top of the data
-   levels: :global? drops everything, and :sections drops a whole [source
-   content-type] pair. It's ORed with the source/item :disabled? flags, so an
-   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
-   path) applies only the data levels."
+(defn process-plugin-vals
+  "Clean {content-type {key def}} maps from `plugins`, dropping malformed and disabled items so one
+   bad entry cannot break the subscription chain. Each item carries its address (`:key`,
+   `:option-pack`), which the builders' edit and delete buttons trust. `overlay` (optional) adds the
+   local disable levels: :global? drops everything, :sections drops [source content-type] pairs."
   ([plugins] (process-plugin-vals plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -151,7 +137,10 @@
                          (fn [[k v]]
                            ;; Only include if v is a map and not disabled
                            (when (and (map? v) (not (:disabled? v)))
-                             [k v]))
+                             ;; Stamp the address on the item: a stored item may lack `:key` (from
+                             ;; before keys were stored) or carry a stale `:option-pack` (a renamed
+                             ;; source), and this map is the one place both are known.
+                             [k (assoc v :key k :option-pack source-name)]))
                          type-m))
                        type-m)]))
                 p)))
@@ -227,11 +216,10 @@
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources
-  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
-  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
-  ;; everything and a section pair drops that content-type from the source, so the
-  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+(defn process-plugins-with-sources
+  ;; [source-name plugin-data] pairs, skipping disabled and malformed entries. Items carry their
+  ;; address as process-plugin-vals stamps it, and the same disable overlay applies, so the
+  ;; dropdowns hide what the rest of the builder hides.
   ([plugins] (process-plugins-with-sources plugins nil))
   ([plugins overlay]
    (if (:global? overlay)
@@ -241,9 +229,18 @@
         (fn [[source-name plugin-data]]
           (when (and (map? plugin-data) (not (:disabled? plugin-data)))
             [source-name
-             (into {} (remove (fn [[type-k _]]
-                                (contains? sections [source-name type-k]))
-                              plugin-data))]))
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
         plugins)))))
 
 (reg-sub
@@ -611,7 +608,8 @@
                                                       subclass-key)
                    :levels levels
                    :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+                   :edit-event [::classes5e/edit-subclass subclass-with-key
+                                source-name subclass-key ::e5/subclasses])))
         (catch js/Error e
           (js/console.warn "Skipping malformed subclass:" subclass-key e)
           nil)))
@@ -706,46 +704,12 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
-
 (reg-sub
  ::langs5e/languages
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub

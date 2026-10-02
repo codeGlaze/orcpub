@@ -245,30 +245,30 @@ html {
        [:div.h-full {:style "display:flex;justify-content:space-around"}
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
-    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the
-    ;; app once it has actually rendered. Nothing has to DETECT a failure — a
-    ;; broken bundle, a CLJS error, a homebrew blob that crashes the app on load
-    ;; all simply leave it standing. It sits below the fold during a normal boot,
-    ;; so the second or two before the app clears it costs nothing.
-    ;;
-    ;; Deliberately independent of everything the app owns: server-rendered
-    ;; markup, inline styles (styles.css may not have loaded either), plain
-    ;; localStorage and a vanilla anchor download rather than FileSaver. Every
-    ;; dependency it takes is one more thing that can be broken when it is needed.
+    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
+    ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
+    ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
+    ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
     (boot-rescue nonce)
     (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
+    ;; Under CSP_POLICY=strict outside dev mode, the CSP is enforcing and every script needs
+    ;; this nonce (orcpub.pedestal/make-nonce-interceptor)
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
+    ;; 400, 600 and 700: the stylesheet asks for bold on tabs, titles and labels, and with only
+    ;; 400 loaded Chrome rendered all of it at regular weight. One variable file serves all
+    ;; three, so the extra weights cost nothing over 400 alone. See docs/design/style-guide.md.
+    (include-css "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
       (script-tag {:nonce nonce}
        (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
+        const noLibrary = () => {
+          const p = localStorage.getItem('plugins');
+          return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
+        };
+        if (noLibrary()) {
           fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
@@ -277,8 +277,10 @@ html {
               return resp.text();
             })
             .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
+              // only into a library that is still empty, and bumped like any write so other tabs reload
+              if (!text.toUpperCase().includes('NOT FOUND') && noLibrary()) {
                 localStorage.setItem('plugins', text);
+                localStorage.setItem('plugins:rev', String(Number(localStorage.getItem('plugins:rev') || 0) + 1));
                 window.location.reload(false);
               }
             })

@@ -11,6 +11,8 @@
             [orcpub.dnd.e5.spell-packing-test]
             [orcpub.image-url-test]
             [orcpub.whats-new-test]
+            ;; layout follows the window width, not just the device
+            [orcpub.user-agent-test]
             [orcpub.dnd.e5.spell-annotations-test]
             ;; CLJS-only re-frame integration tests (events-test now also holds
             ;; the toggle-corruption stress harness)
@@ -22,6 +24,7 @@
             [orcpub.dnd.e5.content-reconciliation-test]
             ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
             [orcpub.dnd.e5.homebrew-save-lifecycle-test]
+            [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
@@ -38,6 +41,7 @@
              'orcpub.dnd.e5.spell-packing-test
              'orcpub.image-url-test
              'orcpub.whats-new-test
+             'orcpub.user-agent-test
              'orcpub.dnd.e5.spell-annotations-test
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
@@ -46,6 +50,7 @@
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.homebrew-save-lifecycle-test
+             'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
