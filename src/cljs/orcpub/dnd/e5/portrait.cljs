@@ -429,7 +429,7 @@
   "A canvas of what lands on the skin, to be laid over the portrait with
    multiply -- white where nothing does: the shadow the overhanging hair
    casts, then blush and freckles placed from the eyes (portrait-face)."
-  [casters skins hairs eyes-img eyes-asset light fs]
+  [casters skins hairs eyes-img eyes-asset nose-img light fs]
   (let [ref (first (remove nil? (concat casters skins)))
         w (.-naturalWidth ref) h (.-naturalHeight ref)
         skin (combined-alpha skins w h)
@@ -444,7 +444,8 @@
                                    (- 1 (/ (max (aget hair i) (aget eye-alpha i)) 255)))))
               (face/marks fs (colorize/iris-shapes eyes-asset
                                                    (layout/contain-rect (.-naturalWidth eyes-img) (.-naturalHeight eyes-img) w h))
-                          showing w h)))
+                          showing w h
+                          (when nose-img (face/alpha-box (combined-alpha [nose-img] w h) w h)))))
         mb (:blush m) mf (:freckles m)
         blush-rgb (colorize/hex->rgb (:blush-colour fs))
         c (new-canvas w h) ctx (.getContext c "2d")
@@ -465,11 +466,11 @@
 
 (defonce ^:private skin-cache (atom {}))
 
-(defn- skin-overlay [casters skins hairs eyes-img eyes-asset light fs]
+(defn- skin-overlay [casters skins hairs eyes-img eyes-asset nose-img light fs]
   (let [k (conj (mapv #(mapv (fn [i] (some-> i .-src)) %) [casters skins hairs])
-                (some-> eyes-img .-src) (:asset/iris eyes-asset) light fs)]
+                (some-> eyes-img .-src) (:asset/iris eyes-asset) (some-> nose-img .-src) light fs)]
     (or (get @skin-cache k)
-        (let [c (skin-image casters skins hairs eyes-img eyes-asset light fs)]
+        (let [c (skin-image casters skins hairs eyes-img eyes-asset nose-img light fs)]
           (swap! skin-cache #(assoc (if (> (count %) 16) {} %) k c))
           c))))
 
@@ -487,6 +488,7 @@
     (when (and (seq skin) (or (seq casters) marks?))
       {:casters casters :skin skin :hair (sel [:scalp :hair-front :bangs] any?)
        :eyes (when marks? (:asset/url eyes))
+       :nose (when marks? (some-> (pa/selected-asset portrait :nose) :asset/url))
        :eyes-asset (when marks? (as-placed eyes dev?))
        :light (:light (fx/ombre-settings portrait))
        :face fs})))
@@ -496,14 +498,14 @@
    the hair does not cover, so they darken nothing else."
   [spec]
   (let [node (atom nil)
-        paint! (fn [{:keys [casters skin hair eyes eyes-asset light face]}]
+        paint! (fn [{:keys [casters skin hair eyes nose eyes-asset light face]}]
                  (let [n1 (count casters) n2 (count skin) n3 (count hair)]
-                   (with-images (concat casters skin hair [eyes])
+                   (with-images (concat casters skin hair [eyes nose])
                      (fn [imgs]
                        (when-let [^js el @node]
                          (let [src (skin-overlay (subvec imgs 0 n1) (subvec imgs n1 (+ n1 n2))
-                                                 (subvec imgs (+ n1 n2) (+ n1 n2 n3)) (peek imgs)
-                                                 eyes-asset light face)]
+                                                 (subvec imgs (+ n1 n2) (+ n1 n2 n3))
+                                                 (nth imgs (+ n1 n2 n3)) eyes-asset (peek imgs) light face)]
                            (set! (.-width el) (.-width src))
                            (set! (.-height el) (.-height src))
                            (.drawImage (.getContext el "2d") src 0 0)))))))]
@@ -734,13 +736,13 @@
                     (.drawImage ctx tmp 0 0))
                   ;; the cast shadow, blush and freckles after every layer,
                   ;; before the credit
-                  (when-let [{:keys [casters skin hair eyes eyes-asset light face]}
+                  (when-let [{:keys [casters skin hair eyes nose eyes-asset light face]}
                              (skin-spec portrait (:dev-mode? @re-frame.db/app-db))]
                     (let [by-url (into {} (map (fn [[_ a] img] [(:asset/url a) img]) selected (array-seq imgs)))
                           skins (vec (keep by-url skin))]
                       (when (seq skins)
                         (let [s (skin-overlay (vec (keep by-url casters)) skins (vec (keep by-url hair))
-                                              (by-url eyes) eyes-asset light face)
+                                              (by-url eyes) eyes-asset (by-url nose) light face)
                               [x y dw dh] (layout/contain-rect (.-width s) (.-height s) raster-width raster-height)]
                           (set! (.-globalCompositeOperation ctx) "multiply")
                           (.drawImage ctx s x y dw dh)

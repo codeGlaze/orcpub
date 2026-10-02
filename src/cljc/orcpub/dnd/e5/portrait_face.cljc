@@ -252,9 +252,11 @@
   "How much blush and how much freckle each pixel takes, 0..1:
    {:blush doubles :freckles doubles}, either nil when off. `skin` is how
    much of each pixel is skin that shows (0..1, `w` x `h`), `shapes` the
-   placed eyes in the same pixels. nil when there are no two eyes to place
-   from."
-  [{:keys [blush freckles]} shapes skin w h]
+   placed eyes in the same pixels, `nose` the nose art's box [x0 y0 x1 y1]
+   in them (`alpha-box`), or nil to estimate it. nil when there are no two
+   eyes to place from."
+  ([settings shapes skin w h] (marks settings shapes skin w h nil))
+  ([{:keys [blush freckles]} shapes skin w h nose]
   (when-let [{:keys [a b sep]} (face-frame shapes)]
     (let [w (long w) h (long h) sep (double sep)
           blush-map
@@ -280,19 +282,33 @@
           freckle-map
           (when (pos? freckles)
             (let [out (new-doubles (* w h))
-                  mx (/ (+ (first a) (first b)) 2.0)
-                  cy (+ (/ (+ (second a) (second b)) 2.0) (* 0.42 sep))
-                  n (long (* 140 (double freckles)))
+                  [ax ay] a [bx by] b
+                  ;; the nose, measured from its art when given, else
+                  ;; estimated between the eyes
+                  [nx0 ny0 nx1 ny1] (or nose [(- bx (* 0.55 sep)) (+ (max ay by) (* 0.25 sep))
+                                              (+ bx (* 0.05 sep)) (+ (max ay by) (* 0.95 sep))])
+                  nw (max 1.0 (- nx1 nx0)) nh (max 1.0 (- ny1 ny0))
+                  ;; three groups, each [cx cy rx ry share]: the near cheek
+                  ;; under the left eye, the bridge of the nose, and the far
+                  ;; cheek under the right eye, narrower as the face turns
+                  ;; away. A single oval between the eyes put nearly all of
+                  ;; them on the near cheek.
+                  groups [[ax (+ ay (* 0.55 sep)) (* 0.42 sep) (* 0.17 sep) 0.45]
+                          [(/ (+ nx0 nx1) 2.0) (+ ny0 (* 0.32 nh)) (* 0.55 nw) (* 0.2 nh) 0.25]
+                          [(+ bx (* 0.12 sep)) (+ by (* 0.52 sep)) (* 0.26 sep) (* 0.15 sep) 0.3]]
+                  n (long (* 150 (double freckles)))
                   scale (/ h 1500.0)]
               (dotimes [j n]
-                (let [h1 (fx/hash01 j 11 5) h2 (fx/hash01 j 23 5) h3 (fx/hash01 j 37 5)
-                      ;; spread evenly over an oval across the nose and cheeks,
-                      ;; thinning toward its edge
+                (let [h0 (fx/hash01 j 7 5) h1 (fx/hash01 j 11 5) h2 (fx/hash01 j 23 5) h3 (fx/hash01 j 37 5)
+                      [gx gy grx gry] (cond (< h0 (nth (nth groups 0) 4)) (nth groups 0)
+                                            (< h0 (+ (nth (nth groups 0) 4) (nth (nth groups 1) 4))) (nth groups 1)
+                                            :else (nth groups 2))
+                      ;; spread evenly over the group's oval, thinning to its edge
                       ang (* 2.0 Math/PI h1) rr (Math/sqrt h2)
-                      fx* (+ mx (* rr (Math/cos ang) 0.95 sep))
-                      fy* (+ cy (* rr (Math/sin ang) 0.30 sep))
+                      fx* (+ gx (* rr (Math/cos ang) grx))
+                      fy* (+ gy (* rr (Math/sin ang) gry))
                       r (* scale (+ 1.6 (* 1.8 h3)))
-                      k (* (- 1.0 (* 0.7 rr)) (+ 0.45 (* 0.55 h3)))]
+                      k (* (- 1.0 (* 0.6 rr)) (+ 0.45 (* 0.55 h3)))]
                   (doseq [yy (range (long (- fy* r 2)) (long (+ fy* r 3)))
                           xx (range (long (- fx* r 2)) (long (+ fx* r 3)))]
                     (when (and (< -1 xx w) (< -1 yy h))
@@ -304,7 +320,20 @@
                 (let [v (ag out i)] (when (pos? v) (as! out i (* 0.6 v (ag skin i))))))
               out))]
       (when (or blush-map freckle-map)
-        {:blush blush-map :freckles freckle-map}))))
+        {:blush blush-map :freckles freckle-map})))))
+
+(defn alpha-box
+  "[x0 y0 x1 y1] of where `alpha` (0..255 doubles, `w` x `h`) is solid, or
+   nil when it is empty: where a piece of art actually sits in the frame."
+  [alpha w h]
+  (let [w (long w) n (* w (long h))]
+    (loop [i 0 x0 w y0 h x1 -1 y1 -1]
+      (if (= i n)
+        (when (>= x1 0) [x0 y0 x1 y1])
+        (if (> (ag alpha i) 100.0)
+          (let [x (mod i w) y (quot i w)]
+            (recur (inc i) (min x0 x) (min y0 y) (max x1 x) (max y1 y)))
+          (recur (inc i) x0 y0 x1 y1))))))
 
 (defn mark-factors
   "What a pixel's r g b are multiplied by for blush `kb` in `blush-rgb` and

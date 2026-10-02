@@ -148,21 +148,24 @@
 
 (deftest tint-for-precedence
   (let [base pa/empty-portrait]
-    (testing "nothing set → category tint"
-      (is (= (pa/layer-colors :bangs) (pa/tint-for base :bangs)))
-      (is (= (pa/layer-colors :bangs) (pa/tint-for nil :bangs)) "nil portrait tolerated"))
+    (testing "nothing set → the slot's default, the same for every piece in it"
+      (is (= (pa/default-slot-colors :hair) (pa/tint-for base :bangs)))
+      (is (= (pa/default-slot-colors :hair) (pa/tint-for nil :bangs)) "nil portrait tolerated")
+      (is (apply = (map #(pa/tint-for base %) (pa/layers-in-slot :hair))) "every hair piece alike")
+      (is (= (pa/tint-for base :head) (pa/tint-for base :nose) (pa/tint-for base :ears))
+          "the nose and ears match the face"))
     (testing "slot color paints every layer in the slot, nothing else"
       (let [p (assoc-in base [:colors :hair] "#112233")]
         (doseq [k (pa/layers-in-slot :hair)]
           (is (= "#112233" (pa/tint-for p k)) (str k)))
-        (is (= (pa/layer-colors :head) (pa/tint-for p :head)))))
+        (is (= (pa/default-slot-colors :skin) (pa/tint-for p :head)))))
     (testing "shade applies to one piece against the slot base"
       (let [p (-> base
                   (assoc-in [:colors :hair] "#000000")
                   (assoc-in [:tweaks :bangs :shade] 100))]
         (is (= "#ffffff" (pa/tint-for p :bangs)))
         (is (= "#000000" (pa/tint-for p :hair-back)) "sibling piece keeps base")))
-    (testing "shade with no slot color shades the category tint"
+    (testing "shade with no slot color shades the slot's default"
       (let [p (assoc-in base [:tweaks :bangs :shade] -100)]
         (is (= "#000000" (pa/tint-for p :bangs)))))
     (testing "override beats shade and base"
