@@ -257,7 +257,10 @@
             :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
            user)
     (:orcpub.user/pending-email user)
-    (assoc :pending-email (:orcpub.user/pending-email user))))
+    (assoc :pending-email (:orcpub.user/pending-email user))
+
+    (some? (:orcpub.user/dark-button-text? user))
+    (assoc :dark-button-text? (:orcpub.user/dark-button-text? user))))
 
 (defn bad-credentials-response [db username ip]
   (security/add-failed-login-attempt! username ip)
@@ -490,7 +493,7 @@
           {:status 400 :body "Invalid or tampered token"})))))
 
 (defn update-user-preferences
-  "PUT handler for /user — update user preferences (currently send-updates?).
+  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?).
    Requires authentication. Only updates fields present in transit-params.
    Re-reads from DB after transact to return authoritative state."
   [{:keys [transit-params db conn identity]}]
@@ -500,10 +503,15 @@
       (do (when (contains? transit-params :send-updates?)
             @(d/transact conn [{:db/id id
                                 :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+          (when (contains? transit-params :dark-button-text?)
+            @(d/transact conn [{:db/id id
+                                :orcpub.user/dark-button-text? (boolean (:dark-button-text? transit-params))}]))
           ;; Re-read from DB after transact for authoritative response
           (let [updated-user (d/entity (d/db conn) id)]
             {:status 200
-             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
+             :body (cond-> {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}
+                     (some? (:orcpub.user/dark-button-text? updated-user))
+                     (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))
       {:status 400 :body {:error "User not found"}})))
 
 (defn do-send-password-reset [user-id email conn request]

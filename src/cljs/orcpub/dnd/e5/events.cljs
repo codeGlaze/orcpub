@@ -1972,6 +1972,34 @@
  (fn [db _]
    db))
 
+;; Dark text on the amber buttons (dark theme). Saved in this browser with the
+;; theme, and on the account when logged in, so it follows the user.
+(reg-event-fx
+ :toggle-dark-button-text
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} _]
+   (let [on? (not (get-in db [:user-data :dark-button-text?]))]
+     (cond-> {:db (assoc-in db [:user-data :dark-button-text?] on?)}
+       (event-utils/get-auth-token db)
+       (assoc :http {:method :put
+                     :headers (authorization-headers db)
+                     :url (backend-url (routes/path-for routes/user-route))
+                     :transit-params {:dark-button-text? on?}
+                     :on-success [:dark-button-text-saved]
+                     :on-failure [:dark-button-text-saved]})))))
+
+;; Nothing to reconcile: this browser already shows the choice, and a failed
+;; save only means the account keeps its previous one.
+(reg-event-db
+ :dark-button-text-saved
+ (fn [db _] db))
+
+;; The window crossed the phone breakpoint; the layout follows (:device-type).
+(reg-event-db
+ :set-narrow-screen
+ (fn [db [_ narrow?]]
+   (assoc db :narrow-screen? narrow?)))
+
 (reg-event-fx
  :unfollow-user
  (fn [{:keys [db]} [_ username]]
@@ -2750,7 +2778,10 @@
  :login-success
  [user->local-store-interceptor]
  (fn [{:keys [db]} [_ backtrack? response]]
-   {:db (update db :user-data merge (-> response :body))
+   ;; A button-text choice saved on the account wins over this browser's.
+   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
+          (cond-> (update db :user-data merge (-> response :body))
+            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
     :dispatch [:route (or
                        (:return-route db)
                        routes/dnd-e5-char-builder-route)]}))

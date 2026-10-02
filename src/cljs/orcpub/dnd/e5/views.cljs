@@ -160,9 +160,6 @@
 (def login-style
   {:color "#f0a100"})
 
-(def login-style-menu
-  {:background-color "rgba(0,0,0,0.4)"})
-
 (defn dispatch-logout []
   (dispatch [:logout]))
 
@@ -177,33 +174,6 @@
 #_(def header-tab-style
   {:width "85px"})
 
-(def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
-
-(def menu-color "#2c3445")
-
-(def header-menu-item-style
-  {:position :absolute
-   :background-color "#2c3445"
-   :z-index 10000
-   :top 84
-   :right 0})
-
-;; dead — zero callers
-#_(def desktop-menu-item-style
-  (assoc header-menu-item-style
-         :width "100%"))
-
-(def mobile-header-menu-item-style
-  (assoc header-menu-item-style
-         :top 46))
-
-(def user-menu-style
-  {:background-color menu-color
-   :z-index 10000
-   :position :absolute
-   :right 0
-   :display :none})
-
 (defn handle-user-menu [e]
   (let [user-header (js/document.getElementById "user-header")
         user-menu (js/document.getElementById "user-menu")
@@ -211,14 +181,12 @@
         width (.-offsetWidth user-header)
         bottom (.-bottom bounding-rect)
         right (.-right bounding-rect)
-        style (.-style user-menu)
         window-width js/document.documentElement.clientWidth]
-    (set! (.-display style) "block")))
+    (.add (.-classList user-menu) "open")))
 
 (defn hide-user-menu [e]
-  (let [user-menu (js/document.getElementById "user-menu")
-        style (.-style user-menu)]
-    (set! (.-display style) "none")))
+  (let [user-menu (js/document.getElementById "user-menu")]
+    (.remove (.-classList user-menu) "open")))
 
 (defn user-header-view []
   (let [username @(subscribe [:username])
@@ -227,20 +195,22 @@
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
-      [:div.user-icon [svg-icon "orc-head" 35 ""]]
+     ;; on a phone: no icon, and the same 36px height as the search button
+     [:div.header-login-box.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
+      {:class (if mobile? "h-36" "p-t-5 p-b-5")}
+      ;; the gap rides on the icon, so a phone (which hides it) centres LOGIN
+      [:div.user-icon.m-r-5 [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
          (when (not @(subscribe [:mobile?])) [:span.m-r-5 username])]
         [:span.pointer.flex.flex-column.align-items-end
-         [:span.white.f-w-b.m-l-5
+         [:span.white.f-w-b
           {:on-click dispatch-route-to-login}
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
-     [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style
-       :on-click hide-user-menu}
+     [:div#user-menu.user-menu.shadow.f-w-b
+      {:on-click hide-user-menu}
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -283,7 +253,7 @@
 
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -293,10 +263,12 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (on-click e)))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
+              ;; on a phone the tabs share the row evenly instead of spreading out
               :class (str (if disabled "disabled" "pointer")
                           " "
-                          (when (not mobile?) " w-110"))}
+                          (if mobile? "flex-grow-1" "w-110")
+                          (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -307,15 +279,14 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
             ^{:key name}
             [:div.p-10.opacity-5.hover-opacity-full
              (let [current-route @(subscribe [:route])]
-               {:style (when (or (= route current-route)
-                               (= route (get current-route :handler))) active-style)
+               {:class (when (or (= route current-route)
+                               (= route (get current-route :handler))) "active")
                 :on-click (fn [e]
                             (.stopPropagation e)
                             (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
@@ -326,7 +297,7 @@
 
 (defn header-tab2 [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -336,10 +307,11 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (when-not mobile? "w-110"))}
+                               (if mobile? "flex-grow-1" "w-110")
+                               (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -351,7 +323,6 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
@@ -361,9 +332,9 @@
                           (.stopPropagation e)
                           (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
                             (.blur tab)))
-              :style (let [current-route @(subscribe [:route])]
+              :class (let [current-route @(subscribe [:route])]
                        (when (or (= route current-route)
-                                 (= route (get current-route :handler))) active-style))}
+                                 (= route (get current-route :handler))) "active"))}
              [:a.no-text-decoration {:href route} name]])
           buttons))])]))
 
@@ -404,9 +375,6 @@
 #_(def search-icon-style
   {:top 6
    :right 25})
-
-(def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.3)"})
 
 ;; dead — zero callers
 #_(def transparent-search-input-style
@@ -456,14 +424,17 @@
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
-          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20.h-100-p
+          ;; phones share one 10px gutter with the tabs, title and builder below
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.h-100-p
+           {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20")}
            logo
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
-              [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style}
+              ;; on a phone the search is a 36px square with its icon centred
+              [:div.header-search-box.b-rad-5.flex.align-items-c
+               {:class (when mobile? "h-36 w-36 justify-cont-c")}
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
                   [:input.w-100-p.main-text-color
@@ -472,16 +443,18 @@
                     :on-key-press search-input-keypress
                     :on-change set-search-text
                     :placeholder "search"}]])
-               [:div.p-r-10.pointer
-                {:on-click open-orcacle}
-                [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
+               [:div.pointer.flex
+                {:class (when (not mobile?) "p-r-10")
+                 :on-click open-orcacle}
+                [svg-icon "magnifying-glass" (if mobile? 24 48) ""]]]])
            [user-header-view]]]]]
        [:div.container
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
+          ;; room for the supporter link beside the social icons; a phone shows neither
           [:div
-           {:style {:min-width "53px"}}
+           {:class (when (not mobile?) "supporter-slot")}
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -496,6 +469,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
+           {:class (when mobile? "phone-tabs")}
            [header-tab
             "characters"
             "battle-gear"
@@ -1053,12 +1027,15 @@
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
-       [:h1.f-s-36.f-w-b.m-t-5.m-l-10
-        {:class (when (not= :mobile device-type) "m-t-21 m-b-20")}
+       ;; 36px fills a 320px phone with "Character Builder" alone
+       [:h1.f-w-b.m-t-5.m-l-10
+        {:class (if (= :mobile device-type) "f-s-28" "f-s-36 m-t-21 m-b-20")}
         title]
        (when frame?
          logo)]
-      [:div.flex.align-items-c.justify-cont-end.flex-wrap.m-r-10.m-l-10
+      ;; each button carries 5px of its own, so on a phone the row adds only 5
+      [:div.flex.align-items-c.justify-cont-end.flex-wrap
+       {:class (if (= :mobile device-type) "m-l-5 m-r-5" "m-l-10 m-r-10")}
        (map-indexed
         (fn [i {:keys [title icon on-click style class-name] :as cfg}]
           (if (vector? cfg)
@@ -1581,10 +1558,11 @@
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
+              dark-button-text? @(subscribe [:dark-button-text?])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
           [:div.app.min-h-full
-           {:class theme
+           {:class (str theme (when dark-button-text? " dark-button-text"))
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?
@@ -2249,7 +2227,8 @@
 (def button-roll-handler (memoize button-roll-fn))
 
 (defn roll-button [message roll & {:keys [text disable-tooltip style]}]
-  (let [mobile? @(subscribe [:mobile?])
+  ;; the tip is about ctrl and shift, so it follows the device, not the width
+  (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)

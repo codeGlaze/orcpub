@@ -10,6 +10,8 @@
             [orcpub.dnd.e5.spell-packing-test]
             [orcpub.image-url-test]
             [orcpub.whats-new-test]
+            ;; layout follows the window width, not just the device
+            [orcpub.user-agent-test]
             [orcpub.dnd.e5.spell-annotations-test]
             ;; CLJS-only re-frame integration tests (events-test now also holds
             ;; the toggle-corruption stress harness)
@@ -37,6 +39,7 @@
              'orcpub.dnd.e5.spell-packing-test
              'orcpub.image-url-test
              'orcpub.whats-new-test
+             'orcpub.user-agent-test
              'orcpub.dnd.e5.spell-annotations-test
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test

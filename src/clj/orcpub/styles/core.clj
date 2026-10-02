@@ -20,6 +20,13 @@
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
+;; Text on the amber buttons is small and low-contrast either way, so it gets a
+;; faint edge in the opposite tone: dark under white text, light under dark.
+(def text-lift-dark "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)")
+(def text-lift-light "0 0 2px rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.3)")
+;; for the short ability-button labels, which have too little stroke for the standard lift
+(def text-lift-light-strong "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)")
+
 (def container-style
   {:display :flex
    :justify-content :center})
@@ -125,6 +132,11 @@
    [:.f-w-b
     {:font-weight :bold}]
    [:.f-w-600
+    {:font-weight 600}]
+   ;; Bold at display sizes renders at 600: at 18px and up, 700 thickens
+   ;; mixed-case letters. Small caps labels keep 700. See the style guide.
+   [:.f-w-b.f-s-18 :.f-w-b.f-s-20 :.f-w-b.f-s-24 :.f-w-b.f-s-28
+    :.f-w-b.f-s-32 :.f-w-b.f-s-36 :.f-w-b.f-s-48
     {:font-weight 600}]
 
    [:.l-h-19
@@ -899,6 +911,14 @@
     [:th.visible-xs,
      :td.visible-xs {:display "table-cell !important"}])
 
+   ;; Six 68px roll buttons need 432px, wider than a phone; share the row instead.
+   (at-media xs-query
+    [:.ability-scores
+     [:>div {:flex "1 1 0" :min-width 0}]
+     ;; with a keyboard the button sits in its ctrl/shift tip; let that fill too
+     [:.tooltip {:display "block"}]
+     [:.roll-button {:min-width 0 :width "calc(100% - 4px)"}]])
+
    (at-media xs-query
     [:.visible-xs-block
      {:display "block !important"}])
@@ -1075,11 +1095,22 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
+      ;; clip, not hidden: hidden also clips vertically, which cut off the tab menus.
+      :overflow-x :clip}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     ;; A full-width child plus its padding measures wider than the bar without this.
+     [:.w-100-p {:box-sizing :border-box}]
+     ;; The logo is sized for the desktop header and crowds the search row here.
+     ;; On the narrowest phones it also gives up width before the login does.
+     [:a {:min-width 0}]
+     [:img {:max-height "40px" :max-width "100%" :object-fit "contain"}]]
+    [:.import-log-panel
+     {:max-width "100vw"}]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
@@ -1208,6 +1239,47 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; Opt-in dark text on the amber buttons: white on this amber is 2.1:1, dark
+    ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
+    [".app.dark-button-text:not(.light-theme)"
+     [:.form-button :.mc-btn :.roll-button
+      {:color "#15202e"
+       :text-shadow text-lift-light}]
+     ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
+     ;; hold them up. paint-order draws the rim behind the letters, not over them.
+     [:.roll-button
+      {:text-shadow text-lift-light-strong
+       :-webkit-text-stroke (str "2px " warning-yellow)
+       :paint-order "stroke fill"}]]
+
+    ;; Browsers give buttons their own default font (Arial), not the page's, so every
+    ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
+    [:button
+     {:font-family font-family}]
+
+    ;; Amber everywhere except .form-button in the light theme, which is slate.
+    [".app:not(.light-theme) .form-button" :.mc-btn :.roll-button
+     {:text-shadow text-lift-dark}]
+
+    ;; The header tabs sit on the banner art, and the active one on amber.
+    ;; -4% tracking fits MY CONTENT on one line at 700 in the fixed 110px tab
+    ;; (it needs 86.9px of 90px; untracked it needs 92.5px).
+    [:.header-tab
+     {:text-shadow text-lift-dark}
+     [:.title {:letter-spacing "-0.04em"}]]
+    ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
+    ;; row's padding is the 10px gutter.
+    [:.app-header-menu
+     {:gap "4px"
+      :padding "0 2px"}
+     [:&.phone-tabs {:padding "0 10px"}]]
+
+    ;; The header bar's search and login boxes, and the desktop slot left of the
+    ;; tabs that holds the supporter link.
+    [:.header-search-box {:background-color "rgba(0,0,0,0.3)"}]
+    [:.header-login-box {:background-color "rgba(0,0,0,0.4)"}]
+    [:.supporter-slot {:min-width "53px"}]
+
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white
     ;; text, so an unclassed dropdown opens as a blank white box with invisible
@@ -1276,6 +1348,31 @@
     [:.header-flyout
      {:scrollbar-width "thin"
       :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
+
+    ;; The flyout hangs under its tab (84px desktop tabs, 46px phone tabs), and the
+    ;; user menu under the login box. Both open over the page, so the z-index.
+    [:.header-flyout :.user-menu
+     {:position :absolute
+      :right 0
+      :z-index 10000
+      :background-color "#2c3445"}]
+    [:.header-flyout {:top "84px"}]
+    ;; On a phone the left three tabs open their menu to the right, so it stays on screen.
+    [:.phone-tabs
+     [:.header-flyout {:top "46px"}]
+     [".header-tab:nth-child(-n+3) .header-flyout" {:left 0 :right :auto}]]
+    [:.user-menu {:display :none}
+     [:&.open {:display :block}]]
+
+    ;; The current section's tab, and its page in the flyout.
+    [:.header-tab.active :.header-flyout>.active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    ;; The Light Theme and Dark Button Text settings are keyboard switches; the same
+    ;; focus ring as the dev-mode switch, since *:focus removes the browser's.
+    [:.setting-toggle:focus-visible
+     {:outline (str "2px solid " orange)
+      :outline-offset "3px"}]
 
     ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
     ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
@@ -1430,7 +1527,7 @@
 
     [:.form-button
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"
@@ -1471,11 +1568,12 @@
     [:.roll-button
      {:color :white
       :min-width "68px"
-      :font-weight 600
-      :font-size "14px"
+      :font-weight 700
+      ;; 16px reads at phone size; the trimmed padding keeps the button 31px tall
+      :font-size "16px"
       :border :none
       :border-radius "2px"
-      :padding "6px 6px"
+      :padding "4.5px 6px"
       :margin-right "2px"
       :margin-left "2px"
       :margin-bottom "2px"
@@ -1508,7 +1606,7 @@
     [:.mc-right {:display :flex :align-items :center :gap "10px"}]
     [:.mc-btn
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"

@@ -154,6 +154,7 @@
    :return-route default-route
    :registration-form {:send-updates? false}
    :device-type (user-agent/device-type)
+   :narrow-screen? (user-agent/narrow-screen?)
    :import-log {:panel-shown? false
                 :changes []
                 :errors []
