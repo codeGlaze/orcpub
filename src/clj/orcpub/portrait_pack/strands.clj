@@ -16,6 +16,7 @@
    never committed with the code."
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
+            [com.stuartsierra.component :as component]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-effects :as fx])
   (:import [java.awt.image BufferedImage]
@@ -49,6 +50,35 @@
   (let [img (BufferedImage. gw gh BufferedImage/TYPE_BYTE_GRAY)]
     (.setDataElements (.getRaster img) 0 0 gw gh (fx/field->bytes field))
     img))
+
+(defn missing
+  "The hair pieces the server can serve whose strand field it cannot: art on
+   the classpath with no .strands.png beside it. Each would be worked out
+   in every visitor's browser instead."
+  []
+  (for [k pa/layer-order :when (fx/hair-layer? k)
+        a (pa/assets-for-layer k)
+        :let [url (:asset/url a)]
+        :when (and (s/starts-with? (str url) "/")
+                   (io/resource (str "public" url))
+                   (not (io/resource (str "public" (fx/strands-url url)))))]
+    url))
+
+(defrecord StrandCheck []
+  component/Lifecycle
+  (start [this]
+    ;; one line, so a deploy that forgot the step says so in its log
+    (try
+      (let [m (vec (missing))]
+        (when (seq m)
+          (println (str "portrait strands: " (count m) " hair piece(s) have no .strands.png ("
+                        (s/join ", " (map #(last (s/split % #"/")) m))
+                        "); run lein run -m orcpub.portrait-pack.strands <art-dir>"))))
+      (catch Exception e (println "portrait strands: not checked -" (.getMessage e))))
+    this)
+  (stop [this] this))
+
+(defn new-strand-check [] (->StrandCheck))
 
 (defn -main [& args]
   (let [dir (or (first args) default-dir)
