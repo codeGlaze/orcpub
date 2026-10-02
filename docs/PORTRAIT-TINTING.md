@@ -166,8 +166,12 @@ for hair), so the share card, the builder and the PDF draw them identically.
 - **Blush and freckles** are multiplied onto skin that shows, the same mask as
   the cast shadows, and placed from the eye placements, so no piece needs a
   cheek or a nose marked. They share the skin overlay with the shadows.
-- **Shine:** a highlight band across the crown line on the scalp, front hair
-  and bangs, broken along the strand field, on the fill only.
+- **Shine:** one clean ring across each crown piece (scalp, front hair, bangs),
+  measured along that piece's own crown line, crisp edged, in the hair's own
+  hue lifted toward white, on the fill only with the paper grain flattened.
+  Two attempts were rejected on the real art: a band broken along the strand
+  field read as salt drying on cloth, and one ellipse across the whole head
+  arched over every piece like a halo. Each piece takes its own ring.
 - **Split:** the tips colour on one side of a line down through the crown.
   The line and its wobble are measured on the frame, the same for every
   piece. Each piece's own measure put the line somewhere different on each
