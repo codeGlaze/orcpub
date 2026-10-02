@@ -481,7 +481,7 @@
   [portrait dev?]
   (let [sel (fn [ks pred] (vec (keep #(let [a (pa/selected-asset portrait %)] (when (and a (pred a)) (:asset/url a))) ks)))
         casters (sel pa/layer-order fx/casts-shadow?)
-        fs (select-keys (face/face-settings portrait) [:blush :blush-colour :freckles])
+        fs (select-keys (face/face-settings portrait) [:blush :blush-colour :freckles :freckle-place :freckle-strength])
         eyes (pa/selected-asset portrait :eyes)
         marks? (and (face/marks? fs) (seq (:asset/iris eyes)))
         skin (sel [:head :ears] any?)]
@@ -943,7 +943,7 @@
 .pl-btn-ghost:hover:not(:disabled) { border-color: #f0a100; color: #ffcc5e; }
 .pl-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
 .pl-ombre { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.pl-ombre-row { display: grid; grid-template-columns: 66px 1fr 40px; gap: 6px; align-items: center; }
+.pl-ombre-row { display: grid; grid-template-columns: 76px 1fr 40px; gap: 6px; align-items: center; }
 .pl-ombre-row input[type=range] { width: 100%; accent-color: #f0a100; margin: 0; }
 .pl-ombre-row select { font: 500 11px/1 inherit; background: #131924; color: #c9d0da; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 3px 4px; grid-column: 2 / 4; }
 .pl-ombre-label { font: 500 11px/1 inherit; color: #8b95a5; }
@@ -1652,7 +1652,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    placed irises is chosen."
   [portrait]
   (when (seq (:asset/iris (pa/selected-asset portrait :eyes)))
-    (let [{:keys [blush blush-colour freckles]} (face/face-settings portrait)]
+    (let [{:keys [blush blush-colour freckles freckle-place freckle-strength]} (face/face-settings portrait)]
       [:div.pl-ombre
        [ombre-slider "Blush" :blush blush :portrait/set-face]
        (when (pos? blush)
@@ -1663,7 +1663,12 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
              {:type "button" :style {:background c} :title c
               :class (when (= c blush-colour) "on")
               :on-click #(dispatch [:portrait/set-face :blush-colour c])}])])
-       [ombre-slider "Freckles" :freckles freckles :portrait/set-face]])))
+       [ombre-slider "Freckles" :freckles freckles :portrait/set-face]
+       (when (pos? freckles)
+         [:<>
+          ;; 0 over the near cheek, 100 across both cheeks and the nose
+          [ombre-slider "Placement" :freckle-place freckle-place :portrait/set-face]
+          [ombre-slider "Prominence" :freckle-strength freckle-strength :portrait/set-face]])])))
 
 (defn- ombre-controls
   "The hair's second colour and how it runs. With no tips colour the hair is
