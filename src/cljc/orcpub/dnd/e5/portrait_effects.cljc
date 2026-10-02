@@ -555,15 +555,26 @@
   (/ (+ (Math/sin (+ (* v 17.0) 0.6)) (* 0.55 (Math/sin (+ (* v 41.0) 2.1))) (* 0.3 (Math/sin (+ (* v 83.0) 4.4))))
      1.85))
 
+(defn- smoothstep* ^double [^double e0 ^double e1 ^double x]
+  (let [t (clamp01 (/ (- x e0) (- e1 e0)))] (* t t (- 3.0 (* 2.0 t)))))
+
 (defn- shine-band
-  "How much highlight a pixel `t` along the crown line takes, with strand
-   field value `f` (0 without one): a band across the curve of the head,
-   wavering along the strands, with the strands on the low side of the field
-   dropping out so it reads as strands catching the light, not a ring."
+  "How much highlight a pixel `t` along its piece's crown line takes, with
+   strand field value `f` (0 without one): one clean ring across the piece,
+   crisp edged, barely wavering with the strands. Chosen on the real art. A
+   band broken into strand-shaped pieces read as salt drying on cloth, and
+   one ellipse across the whole head arched over every piece like a halo:
+   each piece takes its own ring."
   ^double [^double t ^double f]
-  (let [dt (- t (+ 0.22 (* 0.09 f)))
-        band (Math/exp (- (/ (* dt dt) (* 2.0 0.045 0.045))))]
-    (* band (clamp01 (/ (+ f 0.35) 0.5)))))
+  (let [dt (Math/abs (- t (+ 0.22 (* 0.02 f))))]
+    (* 0.55 (- 1.0 (smoothstep* 0.035 0.055 dt)))))
+
+(defn- shine-colour
+  "The highlight: the hair colour a little more saturated, then lifted most
+   of the way toward white -- light in the hair's own hue, not grey."
+  [[r g b]]
+  (let [m (/ (+ r g b) 3.0)]
+    (mapv #(min 255.0 (+ (* (+ m (* 1.25 (- % m))) 0.55) (* 255.0 0.45))) [r g b])))
 
 (defn pixel-fn
   "The per-pixel function for one hair piece: (x, y, drawn 0xRRGGBB) -> the
@@ -579,7 +590,9 @@
         {:keys [clumps light tips-from shine]} settings
         split? (= :split (:kind frame))
         frame-h (double (or (:h frame) 1.0))
-        shine (if (shine-layers layer-key) (* 0.7 (double (or shine 0.0))) 0.0)
+        shine (if (shine-layers layer-key) (double (or shine 0.0)) 0.0)
+        root-shine (shine-colour root)
+        tip-shine (when (not= root tip) (shine-colour tip))
         arc-pos (when (pos? shine) (if (= :arc (:kind frame)) pos (some-> (:arc frame) position-fn)))
         tips-from (double (or tips-from 0.0))
         x0 (double (or (:x0 frame) 0.0))
@@ -607,18 +620,19 @@
             td (if (pos? light) (clamp01 (+ t0 (* light 0.35 (- 0.5 u)))) t0)
             out (colour rgb t td)]
         (if (and arc-pos (pos? shine))
-          ;; only on the fill: the ink stays ink
+          ;; on the fill only, and on the fill flattened: the art's paper
+          ;; grain must not turn into speckle
           (let [lum (/ (+ (bit-and (bit-shift-right rgb 16) 0xff) (bit-and (bit-shift-right rgb 8) 0xff) (bit-and rgb 0xff)) 765.0)
-                k (* shine lum lum (shine-band (arc-pos x y) (if strand (strand x y) 0.0)))]
-            (if (> k 0.003)
-              (let [ch (fn ^long [^long c]
-                         ;; screen toward the colour lifted halfway to white
-                         (let [l (+ c (* 0.55 (- 255.0 c)))
-                               sc (- 255.0 (/ (* (- 255.0 c) (- 255.0 l)) 255.0))]
+                ta (arc-pos x y)
+                k (* shine (smoothstep* 0.55 0.8 lum) (shine-band ta (if strand (strand x y) 0.0)))]
+            (if (> k 0.004)
+              (let [[cr cg cb] (if (and tip-shine (> ta 0.5)) tip-shine root-shine)
+                    ch (fn ^long [^long c ^double l]
+                         (let [sc (- 255.0 (/ (* (- 255.0 c) (- 255.0 l)) 255.0))]
                            (long (Math/round (+ c (* k (- sc c)))))))]
-                (bit-or (bit-shift-left (ch (bit-and (bit-shift-right out 16) 0xff)) 16)
-                        (bit-shift-left (ch (bit-and (bit-shift-right out 8) 0xff)) 8)
-                        (ch (bit-and out 0xff))))
+                (bit-or (bit-shift-left (ch (bit-and (bit-shift-right out 16) 0xff) cr) 16)
+                        (bit-shift-left (ch (bit-and (bit-shift-right out 8) 0xff) cg) 8)
+                        (ch (bit-and out 0xff) cb)))
               out))
           out))))))
 
