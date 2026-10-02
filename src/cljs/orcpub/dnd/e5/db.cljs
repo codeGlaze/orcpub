@@ -558,11 +558,6 @@
       (set-item local-storage-plugins-rejected-key (str rejected))
       (.removeItem js/window.localStorage local-storage-plugins-rejected-key))))
 
-;; Resilient plugins loader. The old all-or-nothing version returned nil — dropping
-;; the ENTIRE library — if any single source failed the ::e5/plugins spec. Instead,
-;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
-;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
-;; because the salvage/quarantine behavior is plugins-specific.
 (def local-storage-relinks-key "plugins:relinks")
 
 (defn pending-relinks
@@ -608,6 +603,9 @@
   (.addEventListener js/window "storage"
                      (fn [e] (when (= local-storage-plugins-key (.-key e)) (on-change)))))
 
+;; Loads the library salvaging per item: each source keeps its valid items and its invalid ones
+;; are set aside in `plugins:rejected` for repair. Registered directly, not via
+;; reg-local-store-cofx, because the salvage is plugins-specific.
 (re-frame/reg-cofx
  ::e5/plugins
  (fn [cofx _]
@@ -625,15 +623,13 @@
                       "'. Loaded no homebrew."))
                 nil)
 
-              ;; It's a map: salvage per source — keep the valid sources and
-              ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
+              ;; It's a map: salvage per item and reconcile the quarantine map (see
+              ;; reconcile-rejected-items).
               (let [{:keys [kept rejected]}
-                    ;; PER-ENTRY salvage: keep each source's valid items, set aside
-                    ;; only its broken ones — so one bad entry can't drop a whole
-                    ;; source. The item floor comes from the shared content-specs
-                    ;; registry (save & load agree), not inline, so it can't drift.
-                    ;; `stored` normally holds only valid items, so `rejected` is
-                    ;; usually empty here — it's the defensive net if the floor tightens.
+                    ;; Per-item salvage: each source keeps its valid items; only broken ones are
+                    ;; set aside. The floor is content-specs/valid-item-for-load?, shared with
+                    ;; save. `rejected` is usually empty; it catches items a tightened floor now
+                    ;; rejects.
                     (e5/salvage-library-items content-specs/valid-item-for-load? stored)
                     reconciled (e5/reconcile-rejected-items
                                 (get-local-storage-item local-storage-plugins-rejected-key)

@@ -359,13 +359,10 @@
                            t @tmpl-sub]
                        (reset! built-from [c t])
                        (reset! result (built-character c t))))
-        ;; Both inputs are derived from app-db, so ONE interaction dirties both
-        ;; and this watch fires twice — but reagent updates them one at a time.
-        ;; Building on the first notification therefore paired the NEW character
-        ;; with the OLD template, and the corrected result only arrived from the
-        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
-        ;; settle first: one build, from values that agree. Still same-frame, so
-        ;; "dropdown changes compute instantly" is preserved.
+        ;; Both inputs derive from app-db, so one interaction dirties both and this watch fires
+        ;; twice, one input at a time. Building on the first notice would pair the new character
+        ;; with the old template; coalescing to a microtask builds once, from values that agree,
+        ;; still within the same frame.
         pending    (atom false)
         disposed?  (atom false)
         settled    (fn []
@@ -476,17 +473,10 @@
 ;; behavior in place across the P5 reg-api-sub migration.
 
 (defn user-sub-on-401-actions
-  "Pure: returns the sequence of dispatch vectors the :user sub's 401
-   handler would produce, given the current `:user-data` map and the
-   subscription query-v.
-
-   Always clears the login credentials (via `:set-user-data` with
-   `:user-data` and `:token` dissoced — preserves `:theme` and any
-   other non-login fields). Additionally bounces to the login route
-   when the subscription was invoked with `required?` true.
-
-   Split from the side-effecting `user-sub-on-401` so tests can
-   assert on the action sequence without stubbing dispatch."
+  "Pure: the dispatch vectors the :user sub's 401 handler produces, given the current `:user-data`
+   map and the query-v. Always clears the login credentials (`:set-user-data` with `:user-data`
+   and `:token` dissoced, keeping `:theme` and other fields); adds `[:route-to-login]` when the
+   query-v's `required?` is true. `user-sub-on-401` dispatches them."
   [user-data-map [_ required?]]
   (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
     required? (conj [:route-to-login])))
@@ -510,11 +500,8 @@
  {:sub-key    :user
   :route      routes/user-route
   :db-key     :user
-  ;; No :set-event / :on-success — the :user sub is fire-and-forget
-  ;; in the current design (the response is discarded on 200). Preserved
-  ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
-  ;; dead-storage cleanup follow-up in the investigation notes for
-  ;; context on why this is intentional today.
+  ;; No :set-event / :on-success: the :user sub is fire-and-forget and a 200 response is
+  ;; discarded, deliberately for now (see the db[:user] dead-storage cleanup follow-up).
   :on-401     user-sub-on-401
   :on-500     user-sub-on-500
   :context    "fetch user"})
@@ -610,11 +597,9 @@
               (handle-api-response response
                 #(let [body (:body response)]
                    (if (http/decode-failed? body)
-                     ;; Response was unreadable even after self-heal: don't feed
-                     ;; the marker to from-strict (that silently builds a blank
-                     ;; default character). Flag the load as failed so the
-                     ;; character page renders an in-place recovery panel
-                     ;; (delete / go to list) instead of a blank sheet.
+                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                     ;; would silently build a blank default character.
                      (dispatch [::char5e/set-character-load-error int-id body])
                      (do (dispatch [::char5e/set-character-load-error int-id nil])
                          (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
@@ -627,11 +612,9 @@
                        @(subscribe [::content-recon/former-key-indexes])))
            (get @app-db :character)))))))
 
-;; Records that a character's server response could not be decoded even after
-;; self-heal; the character page reads it to show an in-place recovery panel
-;; (with a copyable diagnostic report) instead of a blank sheet. `marker` is the
-;; http-safe decode-error map (carries the raw body + reader error); nil clears
-;; it on a subsequent successful load.
+;; Records that a character's server response could not be decoded even after self-heal; the
+;; character page shows an in-place recovery panel with a copyable report instead of a blank
+;; sheet. `marker` is the http-safe decode-error map (raw body + reader error); nil clears it.
 (reg-event-db
  ::char5e/set-character-load-error
  (fn [db [_ id marker]]
@@ -1094,20 +1077,10 @@
    (common/aloof-sort-by :name spells)))
 
 (defn reg-filtered-sub
-  "Register a reactively-filtered sub composing a sorted input and a
-   text-filter input.
-
-   When `filter-text` is absent or shorter than `min-length`, returns
-   the sorted input unchanged. Otherwise calls `filter-fn filter-text
-   sorted` to produce the filtered slice.
-
-   This replaced a `(or (::key db) sorted)` pattern where the filter
-   event handler computed a snapshot and wrote it to db, freezing the
-   list from that point forward — breaking reactivity whenever the
-   underlying data changed (#669). The reactive composition here
-   recomputes automatically when either input changes and re-frame's
-   sub memoization keeps the per-keystroke cost low: the upstream
-   sorted-sub is cached, so only the filter step re-runs."
+  "Registers `sub-key` composing `sorted-sub-vec` and `text-filter-sub-vec`: the sorted input
+   unchanged when the filter text is absent or shorter than `min-length`, else
+   `(filter-fn filter-text sorted)`. Recomputes whenever either input changes; per keystroke only
+   the filter step re-runs, since the sorted sub is cached."
   [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
   (reg-sub sub-key
     (fn [_ _]
