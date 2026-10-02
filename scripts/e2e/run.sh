@@ -65,12 +65,24 @@ newer_sources() {
   find "$@" -name '*.clj*' -newer "$artifact" 2>/dev/null | head -5
 }
 
+# The folders the bundle compiles from, read from its own build config (:watch-dirs), never kept
+# by hand here: a hand-kept list missed web/cljs, and startup edits were tested against an old
+# bundle with no warning. Unreadable config stops the run rather than skip the check.
+cljs_dirs() {
+  local cfg=prod.cljs.edn
+  grep -q CLOSURE_UNCOMPILED_DEFINES "$BUNDLE" 2>/dev/null && cfg=dev.cljs.edn
+  sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'
+}
+
 if [ ! -f "$BUNDLE" ]; then
   echo "Building the ClojureScript bundle (first run only)..."
   lein fig:prod || exit 1
-elif [ -n "$(newer_sources "$BUNDLE" src/cljs src/cljc)" ]; then
-  echo "ClojureScript changed since the bundle was built:"
-  newer_sources "$BUNDLE" src/cljs src/cljc | sed 's/^/    /'
+elif ! CLJS_DIRS="$(cljs_dirs)" || [ -z "$CLJS_DIRS" ]; then
+  echo "Could not read :watch-dirs from the build config, so cannot tell whether the bundle is stale."
+  exit 1
+elif [ -n "$(newer_sources "$BUNDLE" $CLJS_DIRS)" ]; then
+  echo "ClojureScript changed since the bundle was built (sources: $CLJS_DIRS):"
+  newer_sources "$BUNDLE" $CLJS_DIRS | sed 's/^/    /'
   if [ -n "${E2E_SKIP_BUILD:-}" ]; then
     echo "  E2E_SKIP_BUILD is set, so this run tests the OLD client code."
   else
