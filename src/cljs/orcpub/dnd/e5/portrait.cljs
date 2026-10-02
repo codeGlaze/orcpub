@@ -1721,7 +1721,10 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
                 :on-change #(dispatch [:portrait/set-run (target-value %)])}
        [:option {:value "roots"} "From the roots"]
        [:option {:value "angle"} "At an angle"]
-       [:option {:value "split"} "Split"]]]
+       ;; not ready: one line across every piece, which is not how a split
+       ;; dye falls on layered hair. Developer mode only, for the rework.
+       (when (or split @(subscribe [:orcpub.dnd.e5/dev-mode?]))
+         [:option {:value "split"} "Split"])]]
      (when angle
        [:label.pl-ombre-row
         [:span.pl-ombre-label "Angle"]
