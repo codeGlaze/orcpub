@@ -47,10 +47,15 @@
   (some-> (narrow-mql) .-matches))
 
 (defn watch-narrow-screen!
-  "Calls f with true or false whenever the window crosses the phone breakpoint."
+  "Calls f with true or false whenever the window crosses the phone breakpoint.
+   GOTCHA: Safari before 14 has only addListener; calling addEventListener there throws at the
+   top of core.cljs, and the app never mounts."
   [f]
   (when-let [mql (narrow-mql)]
-    (.addEventListener mql "change" #(f (.-matches %)))))
+    (let [on-change #(f (.-matches %))]
+      (if (.-addEventListener mql)
+        (.addEventListener mql "change" on-change)
+        (.addListener mql on-change)))))
 
 (defn layout-type
   "The layout to draw: the phone layout at phone width whatever the device,
