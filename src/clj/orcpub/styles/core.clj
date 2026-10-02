@@ -24,6 +24,8 @@
 ;; faint edge in the opposite tone: dark under white text, light under dark.
 (def text-lift-dark "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)")
 (def text-lift-light "0 0 2px rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.3)")
+;; for the short ability-button labels, which have too little stroke for the standard lift
+(def text-lift-light-strong "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)")
 
 (def container-style
   {:display :flex
@@ -1250,7 +1252,7 @@
      ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
      ;; hold them up. paint-order draws the rim behind the letters, not over them.
      [:.roll-button
-      {:text-shadow "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)"
+      {:text-shadow text-lift-light-strong
        :-webkit-text-stroke (str "2px " warning-yellow)
        :paint-order "stroke fill"}]]
 
@@ -1269,11 +1271,18 @@
     [:.header-tab
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
-    ;; On a phone the row's padding is the gutter, so the outer tabs drop the
-    ;; 2px that only spaces them from their neighbours.
-    [:.phone-tabs
-     [:.header-tab:first-child {:margin-left "0 !important"}]
-     [:.header-tab:last-child {:margin-right "0 !important"}]]
+    ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
+    ;; row's padding is the 10px gutter.
+    [:.app-header-menu
+     {:gap "4px"
+      :padding "0 2px"}
+     [:&.phone-tabs {:padding "0 10px"}]]
+
+    ;; The header bar's search and login boxes, and the desktop slot left of the
+    ;; tabs that holds the supporter link.
+    [:.header-search-box {:background-color "rgba(0,0,0,0.3)"}]
+    [:.header-login-box {:background-color "rgba(0,0,0,0.4)"}]
+    [:.supporter-slot {:min-width "53px"}]
 
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white

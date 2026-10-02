@@ -160,9 +160,6 @@
 (def login-style
   {:color "#f0a100"})
 
-(def login-style-menu
-  {:background-color "rgba(0,0,0,0.4)"})
-
 (defn dispatch-logout []
   (dispatch [:logout]))
 
@@ -228,9 +225,8 @@
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
      ;; on a phone: no icon, and the same 36px height as the search button
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
-      {:style login-style-menu
-       :class (if mobile? "h-36" "p-t-5 p-b-5")}
+     [:div.header-login-box.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
+      {:class (if mobile? "h-36" "p-t-5 p-b-5")}
       ;; the gap rides on the icon, so a phone (which hides it) centres LOGIN
       [:div.user-icon.m-r-5 [svg-icon "orc-head" 35 ""]]
       (if username
@@ -291,7 +287,7 @@
 
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -335,7 +331,7 @@
 
 (defn header-tab2 [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -414,9 +410,6 @@
   {:top 6
    :right 25})
 
-(def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.3)"})
-
 ;; dead — zero callers
 #_(def transparent-search-input-style
   (assoc search-input-style :color :transparent))
@@ -474,9 +467,8 @@
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
               ;; on a phone the search is a 36px square with its icon centred
-              [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style
-                :class (when mobile? "h-36 w-36 justify-cont-c")}
+              [:div.header-search-box.b-rad-5.flex.align-items-c
+               {:class (when mobile? "h-36 w-36 justify-cont-c")}
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
                   [:input.w-100-p.main-text-color
@@ -496,7 +488,7 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           ;; room for the supporter link beside the social icons; a phone shows neither
           [:div
-           {:style (when (not mobile?) {:min-width "53px"})}
+           {:class (when (not mobile?) "supporter-slot")}
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -511,7 +503,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
-           {:class (when mobile? "p-l-10 p-r-10 phone-tabs")}
+           {:class (when mobile? "phone-tabs")}
            [header-tab
             "characters"
             "battle-gear"
