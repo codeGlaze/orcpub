@@ -32,7 +32,7 @@ async function shoot(p, name, selector, above, h) {
   await el.scrollIntoViewIfNeeded();
   await p.evaluate(() => scrollBy(0, -120)); await p.waitForTimeout(200);
   const r = await el.boundingBox();
-  await p.screenshot({ path: `round19/${name}.png`, clip: { x: 0, y: Math.max(0, r.y - above), width: p.viewportSize().width, height: h } });
+  await p.screenshot({ path: `${process.env.OUT || 'round19'}/${name}.png`, clip: { x: 0, y: Math.max(0, r.y - above), width: p.viewportSize().width, height: h } });
 }
 (async () => {
   const fs = require('fs'); const d = fs.readdirSync('/opt/pw-browsers').filter(x => x.startsWith('chromium-') && !x.includes('headless')).pop();
