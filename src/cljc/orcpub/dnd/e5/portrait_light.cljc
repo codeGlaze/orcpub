@@ -83,6 +83,12 @@
 
 (def ^:private shade-colour [60.0 70.0 105.0])
 
+(def ^:dynamic *edge*
+  "The Edge style's lit band: how far in from the outline it reaches (`:d`,
+   pixels of a 1500-tall picture), how soft it is (`:blur`), how strong
+   (`:k`), and whether it keeps off the ink (`:fill?`)."
+  {:d 10.0 :blur 6 :k 0.9 :fill? false})
+
 (defn light-maps
   "The two overlays for `settings` (`light-settings`) over a `w` x `h`
    picture with `masks` (see the namespace doc): {:mul [r g b] :add [r g b]},
@@ -110,13 +116,13 @@
               edge-rim (when (= style :edge)
                          ;; the picture's alpha slid toward the light and
                          ;; blurred: where it is thin, an edge faces the light
-                         (let [d (* 10.0 s) shifted (new-doubles n)]
+                         (let [d (* (double (:d *edge*)) s) shifted (new-doubles n)]
                            (dotimes [i n]
                              (let [x (+ (mod i w) (long (Math/round (* d lx))))
                                    y (+ (quot i w) (long (Math/round (* d ly))))]
                                (when (and (< -1 x w) (< -1 y h))
                                  (as! shifted i (ag alpha (+ x (* y w)))))))
-                           (colorize/blur shifted w h (radius 6))))
+                           (colorize/blur shifted w h (radius (:blur *edge*)))))
               outer (when (= style :rim)
                       ;; the outline of the WHOLE portrait, softened, and
                       ;; which way it faces
@@ -129,7 +135,8 @@
                   :edge
                   (let [cast 0.25
                         k-lit (* cast t) k-shade (* cast 0.6 (- 1.0 t))
-                        rim (* 0.9 (/ (ag alpha i) 255.0) (clamp01 (- 1.0 (/ (ag edge-rim i) 255.0))))]
+                        rim (* (double (:k *edge*)) (if (:fill? *edge*) fill 1.0)
+                               (/ (ag alpha i) 255.0) (clamp01 (- 1.0 (/ (ag edge-rim i) 255.0))))]
                     (as! mr i (* (factor cr k-lit) (factor (shade-colour 0) k-shade)))
                     (as! mg i (* (factor cg k-lit) (factor (shade-colour 1) k-shade)))
                     (as! mb i (* (factor cb k-lit) (factor (shade-colour 2) k-shade)))
