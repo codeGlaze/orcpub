@@ -58,10 +58,9 @@
     ?shield-ac-bonus (fn [shield]
                        (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
     ;; Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are competing
-    ;; "AC = 10 + Dex + X" bases — take the BETTER, never both. ?base-armor-class already
-    ;; drops natural when unarmored wins; these must drop unarmored when natural wins, or a
-    ;; character with both (e.g. Draconic Sorcerer / Barbarian, Lizardfolk Barbarian) STACKS
-    ;; them. The two `if`s are the two halves of one symmetric max.
+    ;; "AC = 10 + Dex + X" bases — take the BETTER, never both. ?base-armor-class drops
+    ;; natural when unarmored wins; the two `if`s below drop unarmored when natural wins,
+    ;; or a character with both (Lizardfolk Barbarian) STACKS them.
     ?unarmored-armor-class (+ ?base-armor-class
                              (if (> ?unarmored-ac-bonus ?natural-ac-bonus) ?unarmored-ac-bonus 0)
                              ?ac-bonus)
@@ -236,13 +235,8 @@
                                 (apply +
                                        (+ (or (::mi5e/magical-damage-bonus weapon) 0)
                                           (?weapon-ability-damage-modifier weapon definitely-finesse? off-hand?))
-                                       ;(if melee?
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?melee-damage-bonus-fns)
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?ranged-damage-bonus-fns)) ;any non-melee is assumed to be ranged/finesse/dex
+                                       ;; Only ?damage-bonus-fns apply; ?melee-damage-bonus-fns
+                                       ;; is never read (see modifiers.cljc :user/comment).
                                        (map
                                         #(% weapon)
                                         ?damage-bonus-fns))))

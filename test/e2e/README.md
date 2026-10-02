@@ -44,6 +44,43 @@ Exit 0 = pass.
   keyed otherwise applies on a built character but does NOT render for the player to choose
   (the bug this test caught; see roadmap A4).
 
+### The homebrew save gate
+
+Four scripts cover one subject between them — where a save lands, and what an author is told when
+it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
+
+- **`move-between-sources.js`** — retyping Option Source Name MOVES the item rather than copying it.
+- **`relink-question.js`** — needs the seeded server (see its header). After an import renames the
+  library's copy of a race, a saved character using it is asked once, by a banner in the builder,
+  which one it meant; switching relinks it, and it is not asked again.
+- **`move-note.js`** — a Move that has to rename says how many items in other packs still use the copy
+  already in the target.
+- **`links-to-nothing.js`** — invariant I11: one item per kind of link (read from the running app), each
+  pointing at nothing; My Content, every such item's builder and the character builder open with no
+  uncaught error. A new kind of link without a row fails it.
+- **`library-repairs.js`** — a library damaged by past renames: the load tidies it after keeping a copy,
+  the repair panel offers the renamed target and fixes it, My Content and the builder mark a link to
+  nothing, and renaming a language carries the new name into the race that names it.
+- **`two-tabs.js`** — two tabs saving to the library: a stale tab's save is merged onto the other's,
+  and the other tab picks it up without a reload.
+- **`quarantine-restore.js`** — restoring entries the loader set aside: the panel lists only what is
+  still set aside after each click, a restore whose write fails keeps what was typed, an empty
+  source is filled from the pack, the message says what came back and what each is now called, and
+  working keys are kept.
+- **`switches-keyboard.js`** — every on/off switch on My Content takes focus and toggles with Space
+  or Enter, and the library records it.
+- **`move-homebrew-keeps-dependents.js`** — moving a class into a source that already has its key:
+  the renamed class keeps its subclass, the other source's subclass stays put, and it survives a
+  reload.
+- **`change-item-key.js`** — the key control: what it accepts, and that a change records
+  `:former-keys` so characters rebind.
+- **`source-key-tag.js`** — a source's own abbreviation, and that keys already minted do not move
+  when it changes.
+- **`replace-or-refuse.js`** — the two refusals and the difference between them: a key taken in THIS
+  source offers *Replace it*; one that answers in another source explains why there is nothing to
+  replace and offers nothing. Also pins that replacing moves rather than copies, and that a refusal
+  writes nothing. Captures both banners to `target/e2e-shots/collision-*.png`.
+
 ## Gotchas these scripts encode (verified)
 
 - Input `[1]` is the **Orcacle search box** (`placeholder="search"`); typing there opens an
@@ -51,6 +88,10 @@ Exit 0 = pass.
   (`input.input.h-40`) / placeholder, never by index-into-all-`input`s.
 - "Save to Browser Storage" exists **twice** in the DOM (hidden mobile twin + visible desktop);
   select with `button:visible`.
+- **A message-banner action is an inline `span` inside a full-width detail row, and the row reports
+  the same text.** `lib.js/clickText` picks the shortest match and ties go to the ancestor, so a
+  click by text lands on the row — which only dismisses the banner, silently doing nothing. Click
+  `#app .message span.pointer` by its exact text instead (`replace-or-refuse.js`).
 - reagent re-renders async after each dispatch — pause between successive `selectOption`s so
   each on-change closure sees the latest state.
 

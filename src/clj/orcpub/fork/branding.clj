@@ -93,8 +93,7 @@
   (or (env :app-help-url) ""))
 
 ;; ─── Social Links ──────────────────────────────────────────────────
-;; Each link appears in the header/footer when non-empty.
-;; Set the corresponding env var to a URL to enable, or leave unset to hide.
+;; Each link shows in the header/footer when its env var is set to a URL; unset hides it.
 ;; e.g. in .env:  APP_SOCIAL_PATREON=https://www.patreon.com/YourProject
 ;;                APP_SOCIAL_DISCORD=https://discord.gg/your-invite
 

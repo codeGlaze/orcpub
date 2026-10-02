@@ -2,31 +2,9 @@
   "Fills the AcroForm character sheet templates in resources/, and draws spell
    cards and monster stat blocks.
 
-   Template behaviour that affects callers:
-
-   - Text fields auto-size. Their default appearance is `/Helv 0 Tf`, so PDFBox
-     scales text down to fit, stops at 4pt, and clips beyond that. `fit-text`
-     splits text at `min-font-size` instead.
-   - Widgets with no page came with the templates, and `dev/prepare_templates.clj`
-     has already removed them from everything in `resources/`. Nothing prunes at
-     export time except `add-missing-spell-pages!`, and only on the branch where
-     it is about to generate pages, in case it is handed an unbaked template.
-     `widget-box` ignores pageless widgets when measuring.
-   - Fields sharing a name share one value, so repeated pages need unique names.
-   - Field names do not describe their contents:
-
-       features-and-traits     equipped item list
-       features-and-traits-2   features, actions, reactions
-       treasure                unequipped items and valuables
-       equipment               unused; pdf_spec emits no such key
-       cha                     ability modifier
-       cha-mod                 ability score
-
-     pdf_spec/equipment-fields and pdf_spec/traits-fields build these maps.
-
-   PDFBox 3.x: fonts are constructed rather than static fields, `Loader/loadPDF`
-   replaces `PDDocument/load`, and `PDPageContentStream$AppendMode` replaces the
-   old boolean flags."
+   Text fields auto-size (`/Helv 0 Tf`): PDFBox shrinks text to 4pt, then clips;
+   `fit-text` splits text at `min-font-size` instead. Fields sharing a name share
+   one value, so repeated pages need unique names."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -63,6 +41,15 @@
            (java.awt RenderingHints)
            (java.awt.image BufferedImage)
            (java.net URL)))
+
+;; Pageless widgets came with the templates; dev/prepare_templates.clj has removed them
+;; from resources/. Only add-missing-spell-pages! prunes at export time, before it
+;; generates pages, in case it gets an unbaked template. widget-box ignores them.
+
+;; Field names do not describe their contents (pdf_spec/equipment-fields and
+;; traits-fields build them): features-and-traits = equipped items; features-and-traits-2
+;; = features, actions, reactions; treasure = unequipped items and valuables;
+;; equipment = unused (pdf_spec emits no such key); cha = modifier; cha-mod = score.
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
 (def HELVETICA
@@ -145,13 +132,11 @@
        (+ cy (* sin-p ex) (* cos-p ey))])))
 
 (defn svg-path-ops
-  "Parses an SVG `d` attribute into [:move x y], [:line x y] and
-   [:curve x1 y1 x2 y2 x y] in the SVG's own coordinates, plus [:close].
-
-   Covers the commands game-icons.net glyphs use -- M L H V C S Q T A Z and their
-   relative forms -- including the rule that coordinate pairs after an M continue
-   as implicit L. Quadratics are raised to cubics, which PDF has; arcs are sampled,
-   which PDF does not."
+  "Parses an SVG `d` attribute into [:move x y], [:line x y],
+   [:curve x1 y1 x2 y2 x y] and [:close], in the SVG's own coordinates.
+   Covers M L H V C S Q T A Z and their relative forms, with pairs after an M
+   continuing as implicit L. Quadratics are raised to cubics; arcs, which PDF
+   lacks, are sampled as lines."
   [d]
   (loop [[t & more :as ts] (svg-tokens d)
          cmd nil, cx 0.0, cy 0.0, sx 0.0, sy 0.0
@@ -227,25 +212,19 @@
 
 (defn draw-svg-path!
   "Fills `ops` straight into a `size`-inch box whose top-left is (x, y) on the
-   page, scaling from a `view` square viewBox.
-
-   SVG counts y downward from the top of its box and PDF counts it upward from the
-   bottom of the page, hence the flip. This writes the whole path into the page's
-   content stream; anything drawn more than once should go through the image
-   loader instead, which writes it once for the document."
+   page, scaling from a `view` square viewBox and flipping SVG's downward y.
+   GOTCHA: writes the whole path into the page's content stream every call;
+   anything drawn more than once should go through the image loader instead."
   [cs ops x y size view]
   (emit-svg-path! cs ops
                   (fn [v] (float (* 72 (+ x (* size (/ v view))))))
                   (fn [v] (float (* 72 (- 11 y (* size (/ v view))))))))
 
 (defn last-svg-path
-  "The `d` of the LAST <path> in an SVG document.
-
-   game-icons.net wraps each glyph in a square background path that is present but
-   transparent; filling it would black out the icon, so the glyph is the last one.
-
-   Attribute values are matched in either quote style: the colour icons in this
-   repo were saved with double quotes and the `black/` set with single."
+  "The `d` of the LAST <path> in an SVG document, in either quote style (the
+   colour icons use double quotes, the `black/` set single).
+   GOTCHA: game-icons.net glyphs open with a transparent square background path;
+   filling it would black out the icon, so the glyph is the last one."
   [svg]
   (when-let [m (last (re-seq #"<path\b[^>]*\sd\s*=\s*(?:\"([^\"]*)\"|'([^']*)')" svg))]
     (or (nth m 1) (nth m 2))))
@@ -258,26 +237,16 @@
           slurp last-svg-path svg-path-ops))
 
 (defn- round-unit
-  "A form coordinate, at one decimal place.
-
-   Every digit written is a byte in the file, and the geometry is the whole cost
-   of a vector icon over a raster one -- trimming to a tenth of a unit takes about
-   2.5% off a card-heavy export. A tenth of a 512-unit box is 1/5120 of the icon:
-   at the 0.25in a card draws one that is a third of a 600 DPI dot, and it stays
-   under a dot even at an inch."
+  "A form coordinate, rounded to one decimal place to keep the file small. A
+   tenth of a 512-unit box stays under a 600 DPI dot at card icon sizes."
   [v]
   (float (/ (Math/round (* 10.0 (double v))) 10.0)))
 
 (defn svg-form
   "An icon's paths as a Form XObject in a `svg-view`-unit box, y already flipped
-   so the form's own space is upright.
-
-   A form is written into the file ONCE and referenced wherever it is drawn.
-   Emitting the path at each draw site instead costs about 2.8 KB per card, which
-   on a 45-card spellbook more than doubles the file.
-
-   The form sets no colour of its own, so the fill colour and alpha in force at
-   each draw site apply to it."
+   so the form's own space is upright. Written into the file once and referenced
+   wherever it is drawn. The form sets no colour of its own, so the fill colour
+   and alpha in force at each draw site apply to it."
   [doc ops]
   (let [form (PDAppearanceStream. doc)]
     (.setBBox form (PDRectangle. 0 0 (float svg-view) (float svg-view)))
@@ -289,13 +258,8 @@
 (defn make-image-loader
   "Returns a memoized (resource-path -> XObject) embedder scoped to ONE document:
    a PDImageXObject for a raster path, a form (see svg-form) for a `.svg` one.
-
-   The card icons and logo are drawn dozens of times across a spellbook; without
-   this, each use re-decodes the source and embeds a DUPLICATE object — wasting
-   CPU + transient memory per embed and bloating the file. Memoized so each
-   distinct resource is embedded exactly once, then referenced thereafter. That
-   matters as much for vector as for raster: an icon's paths run to a few kilobytes
-   and every card would otherwise carry its own copy."
+   Each distinct resource is embedded once and referenced thereafter, so repeated
+   icons and logos are neither re-decoded nor duplicated in the file."
   [doc]
   (memoize
    (fn [resource-path]
@@ -305,21 +269,11 @@
          (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
 
 (defn- normalize-text
-  "Coerce a string into the WinAnsiEncoding subset PDFBox 3.x can render.
-   WinAnsiEncoding maps only 0x20-0xFF; PDType1Font throws on anything else, which
-   the appearance generator would hit at fill time -- blanking that field.
-
-   - \\t (U+0009)         -> space (keep separation in proportional fonts)
-   - other 0x00-0x1F      -> dropped
-   - \\n and \\r          -> preserved (PDF multi-line line break)
-   - U+2018 / U+2019      -> apostrophe
-   - U+201C / U+201D      -> double quote
-   - U+2013 / U+2014      -> hyphen / double hyphen
-   - U+2026               -> three dots
-   - any remaining > U+00FF -> '?' (a stray glyph degrades to a placeholder rather
-                              than blanking the whole field)
-
-   nil -> nil; non-strings stringified."
+  "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
+   (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
+   stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
+   quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; anything else
+   above U+00FF -> '?'."
   [s]
   (when (some? s)
     (-> (str s)
@@ -434,24 +388,16 @@
 (def ^:private widget-entries
   "Widget dictionary entries a cloned spell-page field takes from its source:
    geometry and styling only.
-
-   /AP is deliberately absent. An appearance stream is a shared COS object, so a
-   clone carrying its source's /AP would render from the same baked visual and
-   writing one class's spells would rewrite the other's page. write-fields!
+   GOTCHA: no /AP. An appearance stream is a shared COS object, so a copied /AP
+   would make writing one class's spells rewrite the other's page; write-fields!
    generates a fresh appearance from the value instead."
   [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT])
 
 (defn add-spell-pages!
   "Copies the page for class `from` once per entry in `to-suffixes`, renaming
    every field to that suffix. Returns the number of pages added.
-
-   (2026-09) The same result as calling add-spell-page! in a loop, and much
-   cheaper. That scans the whole form for the source page's fields and rebuilds
-   the form's field list on every call, so growing style 1 to six sections cost
-   65, 71, 75, 81 then 87 ms as the form grew, allocating 39 to 51 MB a clone to
-   add 214 fields. The source page does not change between clones, so its fields
-   are found once here and the form's list rebuilt once at the end: 321 ms and
-   44 MB for the same six sections."
+   Same result as add-spell-page! in a loop, but finds the source page's fields
+   once and rebuilds the form's field list once, not once per clone."
   [doc from to-suffixes]
   ;; A character with one casting class asks for no clones, and that is the common
   ;; case. Everything below -- finding the page, indexing its annotations, scanning
@@ -500,12 +446,9 @@
           ;; and 2 carry a features and traits page after their spell pages.
           anchor-page (some (fn [p] (when (> (.indexOf pages p) (.indexOf pages template)) p))
                             (vec pages))]
-      ;; Both branches insert. PDPageTree.add walks the whole object graph looking
-      ;; for a cycle, and these masters nest deeply enough through the AcroForm
-      ;; that the walk overflows the stack -- so a style whose spell page is LAST
-      ;; (3 and 4) threw StackOverflowError at two or more casters while styles 1
-      ;; and 2, which have a page to insert before, were fine. insertAfter does no
-      ;; such walk.
+      ;; Both branches insert. PDPageTree.add walks the whole object graph for a
+      ;; cycle and overflows the stack on these deeply nested masters (styles 3 and
+      ;; 4, whose spell page is last, at two or more casters). insertAfter does not.
       (if anchor-page
         (doseq [[page _] made] (.insertBefore pages page anchor-page))
         (reduce (fn [prev [page _]] (.insertAfter pages page prev) page) template made))
@@ -560,74 +503,22 @@
 
 ;; ─── Generating a sheet from a master ─────────────────────────────────────────
 ;;
-;; (2026-09, a second pass over the templates.) The first pass baked the static
-;; cleanups into resources/ -- see dev/prepare_templates.clj -- but left seven
-;; variants of every style on disk, one per spell-page count. Each carries its
-;; own copy of that style's artwork: across the 28 files that is 32.7 MB of
-;; images against 13.2 MB of distinct pixels. The wider variants are generated
-;; here instead, from one master per style.
-;;
-;; Two measurements shaped this and are easy to undo by accident.
-;;
-;; Grow a narrow master rather than trimming the widest one. Trimming makes every
-;; export bigger -- style 1's one-caster sheet went from 276 KB to 654 -- because
-;; removing pages removes no shared resource. Growing shrinks them: six casters
-;; on style 1 lands at 328 KB against the 565 KB file that ships today.
-;;
-;; Every style's master is a ONE-spell-page file. Style 4's shipped two, because
-;; its licence footer was read as baked into the artwork -- and a baked footer can
-;; be spread by cloning but never removed, so a last-page-only style needed a
-;; plain page to clone and a marked page to end on.
-;;
-;; It is not baked. Both of those pages referenced the same background XObject and
-;; the marked one was the plain one plus an appended BT/ET block, so keeping the
-;; marked page alone gives a master whose clones all carry the footer, like every
-;; other style. dev/style4_one_spell_page.clj is what built it and records what
-;; removing the page took.
+;; Each style has one ONE-spell-page master, grown here by cloning (dev/prepare_templates.clj
+;; and dev/style4_one_spell_page.clj built them). Never trim a wider file instead:
+;; removing a page frees none of the resources it shared, so every export grows.
+
+;; :site-line GOTCHA: PDFTextStripper reports text, not artwork, and a 150 dpi render
+;; hides the footer bars, so measure at 300. Styles 1-2 sit at 0.13 to clear a solid bar
+;; (0.03in under the frame); 3-4 at 0.06, where their artwork stops. Whether a style
+;; takes a packed layout is packing-supported? (via numeral-boxes), not a key here.
 
 (def sheet-masters
-  "The file each style grows from, and where that style's artwork carries its
-   attribution.
-
-   :marks describes what the style's own pages do, not a preference. A footer
-   drawn into a page's content stream can be spread by cloning a marked page but
-   never removed from one, so an :all style has no plain spell page to offer.
-
-   :without-casters is the variant with no spell page at all, opened for a
-   character who casts nothing. Every style has one, so this only ever ADDS pages
-   to a master and never removes any. Removing was tried and is worse twice over:
-   a removed page takes its fields but leaves the resources it referenced, so
-   style 2's non-caster sheet came out 453 KB against the 241 KB of the file that
-   already has no spell page. Shipping four more files costs 1.2 MB of the 44.3
-   this replaces.
-
-   It also covers style 4, whose marked page IS a spell page: without this its
-   licence line would vanish along with the spell pages.
-
-   :prints-site-line? marks a style whose artwork already carries the site name --
-   only style 4, whose footer reads \"dungeonmastersvault.com by permission -
-   Petersen Games LLC 2021\". stamp-site-line! leaves those pages alone rather than
-   printing it twice.
-
-   Whether a packed layout may be printed on a style is packing-supported?,
-   which follows numeral-boxes: the styles whose printed level numeral has been
-   measured, all four today.
-
-   :site-line is where stamp-site-line! puts that line, in inches from the page's
-   bottom-left corner, and is MEASURED off rendered pages -- see
-   dev/scan_site_line.clj, with a test holding the result.
-
-   Reasoning about it from the page text does not work and was tried: every style
-   got one position picked from where its lowest TEXT sat, which is all
-   PDFTextStripper reports, and the line came down through the corner flourish on
-   the last page of styles 1 and 2 and through the frame on style 4. Nor is a
-   coarse render enough -- at 150 dpi the second attempt looked clear and at 300
-   the footer band of that same last page turned out to be a solid bar under the
-   whole width of it.
-
-   x is shared; the heights are not. Styles 1 and 2 sit at 0.13 to clear that bar,
-   which leaves about 0.03in of headroom before the frame above, and styles 3 and
-   4 sit lower at 0.06 where their own artwork stops."
+  "The file each style grows from. :marks is what the style's pages do: a footer in
+   a page's content stream spreads by cloning and cannot be removed. :without-casters
+   is the no-spell-page file for non-casters, so pages are only ever added (and style
+   4's licence line, on its spell page, is kept). :prints-site-line? = the artwork names
+   the site (style 4), so stamp-site-line! skips it. :site-line is where that line goes,
+   [x y] inches from bottom-left, MEASURED by dev/scan_site_line.clj and held by a test."
   {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
       :site-line [0.95 0.13]}
@@ -643,28 +534,19 @@
       :prints-site-line? true}})
 
 (def unsupported-fields
-  "Values a style's sheet has nowhere to print, by style.
-
-   Style 4 is the Cthulhu Mythos sheet and is laid out differently rather than
-   incompletely: it carries \"Conditions and Insanities\" where the others carry
-   an inspiration box, so inspiration has nowhere to go at all. Its backstory and
-   allies are not here -- see merged-fields, which puts them in its Notes box.
-
-   These are DECLARED so the export can be checked against them: a test fills
-   every style and asserts the values write-fields! could not place are exactly
-   this set, so a newly missing field fails the build instead of printing an
-   empty box. Adding a field to a template means deleting its name from here."
+  "Values a style's sheet has nowhere to print, by style. Style 4 (Cthulhu Mythos)
+   has \"Conditions and Insanities\" where others have inspiration; its backstory
+   and allies go to Notes (see merged-fields). A test asserts the values
+   write-fields! cannot place are exactly this set, so adding a field to a template
+   means deleting its name here."
   {4 #{"inspiration"}})
 
 (def merged-fields
   "Values a style prints together in one box, by style: target field -> the
-   headed sections that go into it, in order.
-
-   Style 4 has no allies or backstory box and one general Notes box, so the two
-   are written into it under headings rather than dropped. Notes is multiline and
-   263x252pt against the 354x369 and 176x219 boxes style 1 gives the same two
-   values, so a long backstory shrinks to fit and a very long one clips at the
-   4pt floor -- which loses the tail of a paragraph rather than all of both."
+   headed sections that go into it, in order. Style 4 has no allies or backstory
+   box, so both go into its Notes box under headings rather than being dropped.
+   GOTCHA: Notes is smaller than style 1's two boxes, so a long backstory shrinks
+   and a very long one clips at the 4pt floor."
   {4 {:Notes [["BACKSTORY" :backstory]
               ["ALLIES & ORGANIZATIONS" :allies]]}})
 
@@ -730,11 +612,9 @@
 (defn grow-spell-sections!
   "Reshapes an opened master to hold exactly `wanted` spellcasting sections,
    numbered 1 upward in page order. Returns the number of pages added.
-
-   Every master holds one spell page, so this only ever clones it. `marks` is
-   accepted because callers read it from sheet-masters alongside :file, and is not
-   consulted: an attribution footer lives in the page's content stream and so is
-   carried by every clone whatever the style."
+   Every master holds one spell page, so this only clones it. `marks` (read from
+   sheet-masters with :file) is ignored: a footer lives in the page's content
+   stream, so every clone carries it."
   [doc wanted _marks]
   ;; A character who casts nothing is opened from :without-casters, which has no
   ;; spell page to grow. Answering that before the let keeps the form untouched:
@@ -753,24 +633,12 @@
           (range 1 21)))
 
 (defn add-missing-spell-pages!
-  "Appends a spellcasting page for every class in `fields` beyond the ones the
-   template carries. Returns the number of pages added.
-
-   Templates provide a fixed set of spellcasting sections -- six at most, fewer on
-   the variants for characters with fewer casting classes -- while pdf_spec emits
-   one per class with no limit. Without this the extra classes are dropped
-   outright: write-fields! has nowhere to put their names, slots or spells.
-
-   Prunes orphaned widgets before adding anything, which is required rather than
-   tidy: a template that has not been through dev/prepare_templates.clj still
-   carries the FIELDS of its deleted pages, so spellcasting-class-4 and its spells
-   exist with no page, and a page claiming those names would collide with the
-   ghosts and share their values.
-
-   `max-sections` is a ceiling on how many this will generate, and callers taking
-   `fields` from a request must pass one. The count comes from the field NAMES, so
-   a single \"spellcasting-class-9999\" asks for thousands of cloned pages at about
-   14 MB each -- an out of memory error from a request of a few dozen bytes."
+  "Appends a spellcasting page for every class in `fields` beyond those the
+   template carries (pdf_spec emits one per class, unbounded), pruning orphan
+   widgets first so new pages do not share names with a stale template's ghosts.
+   Returns the number of pages added. GOTCHA: pass `max-sections` for request data;
+   the count comes from field NAMES, so \"spellcasting-class-9999\" would clone
+   thousands of pages."
   ([doc fields] (add-missing-spell-pages! doc fields Integer/MAX_VALUE))
   ([doc fields max-sections]
   (let [wanted (->> (keys fields)
@@ -809,21 +677,12 @@
       [(Math/round (.getWidth r)) (Math/round (.getHeight r)) states])))
 
 (defn share-checkbox-appearances!
-  "Points every checkbox widget that draws the same thing at one shared appearance
-   dictionary. Returns the number of widgets redirected.
-
-   The templates carry a separate appearance stream per checkbox -- 582 on the
-   style 1 six-caster sheet, drawing four distinct things between them -- and each
-   is a compressed stream object. Collapsing them halves the file.
-
-   Safe for checkboxes and NOT for text fields. A checkbox's appearance is chosen
-   by its state, so ticking one selects a different entry in the shared dictionary
-   and leaves the stream alone. A text field's appearance encodes its VALUE, and
-   PDFBox rewrites that stream in place when the value changes, so sharing one
-   between text fields makes an edit to either rewrite both.
-
-   Fields are matched on what their appearance draws, not on their size, so two
-   boxes that merely happen to share a rectangle keep their own artwork."
+  "Points every checkbox widget that draws the same thing (matched on what the
+   appearance draws, not box size) at one shared appearance dictionary. Returns
+   the number of widgets redirected.
+   GOTCHA: checkboxes only. A checkbox's state selects an entry and leaves the
+   stream alone; PDFBox rewrites a text field's stream in place when its value
+   changes, so a shared one would edit both fields."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [cache (volatile! {})]
@@ -842,11 +701,7 @@
 (defn- paeth-filtered
   "PNG-predicts `pixels` row by row with the Paeth filter, the form a PDF image
    asks for with /Predictor 15. Each row gains a leading filter-type byte.
-
-   `bpp` is bytes per pixel, so the left neighbour is that many bytes back.
-   Trying all five PNG filters per row and keeping the cheapest is the textbook
-   approach and was measured to be no better here -- 1238.1 KB against Paeth's
-   1237.0, for seventeen times the work."
+   `bpp` is bytes per pixel, so the left neighbour is that many bytes back."
   ^bytes [^bytes pixels rows cols bpp]
   (let [stride (* cols bpp)
         out (byte-array (* rows (inc stride)))]
@@ -875,18 +730,11 @@
     (.toByteArray out)))
 
 (defn add-image-predictors!
-  "Re-encodes every Flate-compressed image that has no PNG predictor, adding one.
-   Returns the number of images shrunk.
-
-   Lossless: the pixels are unchanged, only how they are encoded. A predictor
-   stores each byte as its difference from a neighbour, which for the shaded
-   backgrounds on the raster sheets compresses far better than the raw values --
-   style 4's page background goes from 1629.9 KB to 1237.0. Re-deflating without
-   a predictor gains only 6%, so the predictor is doing the work, not the
-   compression level.
-
-   Skipped where it cannot be shown safe: anything but 8 bits per component, and
-   any image whose re-encoded bytes do not decode back to the original pixels."
+  "Re-encodes each 8-bit Flate image on the pages that has no PNG predictor,
+   adding a Paeth one; the pixels are unchanged. Returns the number of images
+   shrunk. Keeps the old encoding when the new one is not smaller or the pixel
+   count does not match. Throws ex-info if a re-encoding does not decode back to
+   the original pixels."
   [doc]
   (let [shrunk (volatile! 0)]
     (doseq [page (.getPages doc)
@@ -927,16 +775,10 @@
     @shrunk))
 
 (defn share-duplicate-images!
-  "Points every page at a single copy of each image it uses more than once.
-   Returns the number of references redirected.
-
-   Styles 3 and 4 are raster sheets -- a full-page background per page rather
-   than vector art -- and style 3 ships the same 192 KB image twice in every
-   template. An image XObject is immutable reference data, so two byte-identical
-   ones are interchangeable in a way two text-field appearances are not.
-
-   Matched on the raw encoded bytes, so a re-encoding of the same picture is left
-   alone rather than assumed equivalent."
+  "Points every page at a single copy of each image the document carries more
+   than once, matched on the raw encoded bytes (a re-encoding of the same picture
+   is left alone). Returns the number of references redirected. Safe because an
+   image XObject is immutable, unlike a text-field appearance."
   [doc]
   (let [seen (volatile! {})
         redirected (volatile! 0)]
@@ -958,16 +800,9 @@
 
 (defn split-fields-across-pages!
   "Splits any field whose widgets sit on more than one page into one field per
-   page. Returns the number of fields added.
-
-   A field is one value however many widgets show it, so a checkbox with a widget
-   on two spell pages ticks on both at once. The style 1 six-caster template ships
-   101 of these: the prepared ticks and the SLOTS EXPENDED fields are shared
-   between the first two classes' pages, so a Wizard and a Cleric would mirror
-   each other.
-
-   Must run before the naming passes. They name a field after the row beside one
-   of its widgets and then skip it, since it no longer looks unnamed -- so a
+   page, named <name>-pN. Returns the number of fields added. One field is one
+   value, so otherwise a shared checkbox ticks on two classes' pages at once.
+   GOTCHA: run before the naming passes. They skip a field once it is named, so a
    spanning field would keep the first page's name and go on mirroring."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
@@ -1014,17 +849,10 @@
 
 (defn name-slots-expended!
   "Renames the templates' \"SlotsRemaining N\" blanks after the level box each one
-   sits beside, so SlotsRemaining 19 becomes slots-expended-1-1 next to
-   spell-slots-1-1. Returns the number renamed.
-
-   The pairing is geometric and exact: the blank shares its level box's baseline
-   and sits immediately to its right, and the nine levels are far apart
-   vertically. The name is the only link -- the two are separate fields with no
-   reference between them.
-
-   Nothing writes these; the sheet leaves them blank for the player to fill in
-   after download. Run before disambiguate-duplicate-fields! so the split copies
-   get a level rather than a numeric suffix."
+   sits beside (same baseline, just to its right), so SlotsRemaining 19 becomes
+   slots-expended-1-1 next to spell-slots-1-1. Returns the number renamed. Nothing
+   writes these; the player fills them in after download. Run before
+   disambiguate-duplicate-fields! so split copies get a level, not a numeric suffix."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [fields (vec (.getFields form))
@@ -1066,17 +894,10 @@
 
 (defn name-prepared-checkboxes!
   "Renames the templates' anonymous \"Check Box N\" fields after the spell row each
-   one sits beside, so Check Box 25 becomes prepared-1-1-1 next to spells-1-1-1.
-   Returns the number renamed.
-
-   The pairing is geometric: a row's checkbox sits about 8pt to its left on the
-   same baseline, which is unambiguous — the next row is 14pt away vertically.
-   Rows without a checkbox (cantrips, which are always prepared) simply have no
-   match and are left alone.
-
-   Safe because pdf_spec writes to none of these names; they are ticked by hand
-   after download. Run before disambiguate-duplicate-fields! so these get a
-   meaningful name rather than a numeric suffix."
+   one sits beside (about 8pt left, same baseline), so Check Box 25 becomes
+   prepared-1-1-1 next to spells-1-1-1. Returns the number renamed. Rows with no
+   box (cantrips) are left alone; pdf_spec writes none of these names. Run before
+   disambiguate-duplicate-fields! so these get a meaningful name, not a number."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [fields (vec (.getFields form))
@@ -1116,12 +937,9 @@
 
 (defn name-death-save-checkboxes!
   "Names the death-save ticks on the character page, which carry no spell row to
-   take a name from. Returns the number renamed.
-
-   Applies only when exactly six anonymous checkboxes remain on a page in two rows
-   of three, which is the death-save block: successes above failures, each row
-   left to right. Verified by ticking the upper row and rendering. Any other
-   arrangement is left alone rather than guessed at."
+   take a name from. Returns the number renamed. Applies only when exactly six
+   anonymous checkboxes remain on a page in two rows of three: successes above
+   failures, each row left to right. Any other arrangement is left alone."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [fields (vec (.getFields form))]
@@ -1148,19 +966,10 @@
     0))
 
 (defn disambiguate-duplicate-fields!
-  "Gives each field its own name where several share one. Returns the number
-   renamed.
-
-   Fields sharing a fully-qualified name are ONE field with one value, so ticking a
-   prepared-spell box on one class's spell page ticks the same box on every other
-   class's page. The style 1 templates ship 103 such names: 92 anonymous
-   \"Check Box N\" fields repeated across the six spell pages, the SlotsRemaining
-   bubbles, and the two image placeholders.
-
-   The first field in each group keeps the original name so anything addressing it
-   by name still resolves; the rest take a numeric suffix. Safe for the export
-   path because pdf_spec writes to none of the duplicated names — they are filled
-   by hand after download."
+  "Gives each field its own name where several share one: the first in each group
+   keeps the name, the rest take a numeric suffix. Returns the number renamed.
+   Same-named fields are ONE field with one value, so a prepared tick would show on
+   every class's page. Safe for export: pdf_spec writes none of the duplicated names."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [fields (vec (.getFields form))
@@ -1200,11 +1009,8 @@
 (defn- shrink-single-line-to-fit!
   "Rewrites a single-line field at a smaller size when its value is wider than its
    box, and returns the size used, or nil when nothing was needed.
-
-   PDFBox sizes a single-line field by HEIGHT alone, so the skill and save boxes
-   settle on 8pt whatever they hold. Those are 14.4pt wide with a 12.4pt clip, and
-   \"+11\" is 13.6pt at 8pt: every modifier of +10 or worse loses its last
-   character, which a level 20 caster reaches in its own casting stat."
+   GOTCHA: PDFBox sizes a single-line field by HEIGHT alone (8pt on the skill and
+   save boxes), so without this a modifier of +10 or worse loses its last character."
   [field widget value]
   (let [rect (.getRectangle widget)
         ;; The generated appearance clips at "1 1 w h re", so 1pt each side.
@@ -1220,22 +1026,12 @@
         fitted))))
 
 (defn write-fields!
-  "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
-
-   - `fields`     {field-name-keyword value}. Checkboxes take truthy/falsey; text
-                  fields take any value (normalized to WinAnsi).
-   - `flatten?`   truthy => bake appearances into page content and remove the
-                  interactive form (locked PDF). Falsey => stays fillable.
-   - `font-sizes` {field-name-keyword pt-size}, consulted ONLY when flattening —
-                  interactive forms keep the template's `/Helv 0 Tf` auto-sizing.
-
-   Bakes real appearance streams (NeedAppearances false + /Helv in the default
-   resources) so values render AND print in every viewer — not just ones that honor
-   NeedAppearances (Firefox's print path does not).
-
-   Returns the sorted names in `fields` that the template has no field for, and
-   logs them; those values are dropped. Templates vary in which fields they
-   define, so this is reported rather than thrown."
+  "Populates the AcroForm in `doc` from `fields` {field-name-keyword value}: checkboxes
+   take truthy/falsey, text is normalized to WinAnsi. Truthy `flatten?` bakes the values
+   into page content and removes the form; `font-sizes` {field-name-keyword pt} applies
+   ONLY then. Bakes real appearance streams, as Firefox's print path ignores
+   NeedAppearances. Returns the sorted names the template has no field for, and logs
+   them; those values are dropped rather than thrown."
   [doc fields flatten? font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
@@ -1252,11 +1048,8 @@
     (.setDefaultResources form res)
     ;; Bake appearances ourselves rather than deferring to the viewer.
     (.setNeedAppearances form false)
-    ;; (2026-09) One index rather than a lookup per value. PDAcroForm.getField
-    ;; walks the field tree on every call, and this asked it twice for each name
-    ;; -- once to report the unplaceable ones and once to write. On a six-caster
-    ;; sheet that is 284 names against 1403 fields, twice, and it dominated the
-    ;; export: 294 MB of the 607 MB a full sheet allocated.
+    ;; One index rather than a lookup per value: PDAcroForm.getField walks the
+    ;; field tree on every call, which dominated the export's allocation.
     (let [by-name (persistent!
                    (reduce (fn [m field]
                              (assoc! m (.getFullyQualifiedName field) field))
@@ -1297,14 +1090,8 @@
       unplaceable)))
 
 (defn content-stream
-  "Create a PDPageContentStream for appending content to an existing page.
-   
-   PDFBox 3.x API: Use AppendMode enum instead of boolean flags.
-   - APPEND: Add content after existing page content (what we want for templates)
-   - OVERWRITE: Replace existing content (triggers warning on non-empty pages)
-   - PREPEND: Add content before existing content
-   
-   The 4th arg (true) enables compression."
+  "Opens a compressed PDPageContentStream that APPENDs to `page`'s existing
+   content, so template artwork survives (OVERWRITE would replace it)."
   [doc page]
   (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
 
@@ -1359,19 +1146,12 @@
   [0.5686 0.0 0.0 0.5])
 
 (defn draw-svg-icon!
-  "Draws a named icon into a `size`-inch box, filled in `color` at `alpha`.
-
-   Takes draw-imagex's coordinates: `y` is inches from the page TOP to the box's
-   top edge. (draw-imagex reaches that by way of a bottom-left PDF origin, so it
-   reads as though it counted from the bottom. It does not.)
-
-   The icon is a form shared across the document, placed by a transform rather
-   than re-emitted, so a page of nine cards costs nine references. Colour and alpha
-   are set inside a save/restore, both because the form inherits them and so
-   neither leaks into the label drawn over the icon.
-
-   Falls back to the PNG of the same name when no SVG was vendored, which ignores
-   `color` because the PNG's colour is baked in."
+  "Draws a named icon into a `size`-inch box, filled in `color` at `alpha`. `y` is
+   inches from the page TOP to the box's top edge, as in draw-imagex (whose PDF
+   arithmetic makes it look otherwise). The icon is the document's shared form, placed
+   by a transform; colour and alpha sit in a save/restore so they reach the form but
+   not the label drawn over it. Without a vendored SVG it falls back to the PNG of the
+   same name, which ignores `color`."
   [cs img icon-name x y size [r g b] alpha]
   (if (io/resource (str "public/image/" icon-name ".svg"))
     ;; The form is a svg-view-unit square; this maps that square onto `size` inches.
@@ -1444,15 +1224,11 @@
       (v4 2))))
 
 (defn- private-address?
-  "Addresses no user-supplied URL has any business reaching.
-
-   InetAddress has a predicate for most of them. Three it does not, all confirmed
-   reachable through this guard before they were added here:
-
-   - fc00::/7, the unique local addresses an internal IPv6 network actually uses.
-     isSiteLocalAddress only knows fec0::/10, deprecated in 2004.
-   - 100.64.0.0/10 and the other reserved IPv4 blocks in reserved-v4?.
-   - the v4-in-v6 wrappers embedded-v4 unpacks."
+  "Addresses no user-supplied URL has any business reaching: InetAddress's
+   loopback, any-local, link-local, site-local and multicast predicates, plus three
+   it lacks: fc00::/7 unique local (isSiteLocalAddress knows only fec0::/10), the
+   reserved IPv4 blocks in reserved-v4?, and the v4-in-v6 wrappers embedded-v4
+   unpacks."
   [^java.net.InetAddress addr]
   (let [b (.getAddress addr)]
     (or (.isLoopbackAddress addr)
@@ -1483,33 +1259,20 @@
     (catch Exception _ nil)))
 
 (defn safe-image-url?
-  "Whether the server may fetch this URL.
-
-   The route's own filter allowed file:// and ftp:// and placed no restriction
-   on the host, so a character image of
-   http://169.254.169.254/latest/meta-data/ made the PDF exporter fetch cloud
-   instance metadata, and file:///etc/passwd made it open local files. Neither
-   needs the response to be rendered: whether the fetch succeeds, fails or
-   times out is itself the signal.
-
-   Returns false rather than throwing so a bad URL is skipped like an image
-   that failed to load, which is a state the sheet already handles."
+  "Whether the server may fetch this URL: http(s) only, with no resolved address
+   private (see validated-addresses). Guards against fetches of cloud instance
+   metadata or local files, where the fetch's outcome alone leaks. Returns false
+   rather than throwing, so a bad URL is skipped like an image that failed to load."
   [url]
   (some? (validated-addresses url)))
 
 (defn- pinned-connection-manager
   "A connection manager that resolves `host` to `addrs` and nothing else, so the
-   connection goes to the address validated-addresses checked rather than to a
-   second lookup that may answer differently.
-
-   Two constraints hold this shape:
-
-   - The resolver must go on the connection MANAGER. HttpClientBuilder's
-     setDnsResolver is documented as overridden by setConnectionManager, and
-     clj-http always sets one, so pinning there is silently ignored.
-   - The hostname must stay in the URL, so the socket factories below do their
-     ordinary certificate and hostname checks. Addressing the IP directly with a
-     Host header needs those checks overridden, which is the larger hole."
+   connection goes to the address validated-addresses checked. Any other host is
+   recorded in `refused` and throws UnknownHostException.
+   GOTCHA: the resolver must go on the MANAGER (clj-http always sets one, which
+   overrides HttpClientBuilder's setDnsResolver), and the hostname must stay in the
+   URL so the socket factories still check certificate and hostname."
   ^BasicHttpClientConnectionManager [host addrs refused]
   (let [pinned (into-array java.net.InetAddress addrs)]
     (BasicHttpClientConnectionManager.
@@ -1530,14 +1293,10 @@
                (throw (UnknownHostException. (str "not the pinned host: " h))))))))))
 
 (defn- proxied?
-  "Whether the JVM's proxy settings route this URL through a proxy.
-
-   Behind one the client connects to the PROXY, so the resolver is asked for the
-   proxy's host and a pin on the target host refuses it -- every HTTPS fetch fails.
-   The pin is also pointless there, since the proxy does the resolving.
-
-   Reads the same ProxySelector as clj-http's route planner, so the two cannot
-   disagree about whether a proxy applies."
+  "Whether the JVM's proxy settings route this URL through a proxy, read from the
+   same ProxySelector as clj-http's route planner so the two agree. Behind a proxy
+   the client resolves the PROXY's host, so a pin on the target would refuse every
+   fetch, and the proxy does the resolving anyway. False on any error."
   [url]
   (boolean
    (try
@@ -1595,13 +1354,10 @@
 
 (defn- open-image-stream
   "Opens `url` against `addrs`, with redirects disabled and the size bounded.
-
-   Redirects are off because they defeat any host check: a permitted host that
-   offers an open redirect would otherwise hand the fetch straight to a private
-   address. Taking `addrs` rather than resolving again is what closes the gap
-   between checking an address and connecting to it.
-
-   Returns [stream connection-manager-or-nil]; the caller closes both."
+   Returns [stream connection-manager-or-nil]; the caller closes both. Throws
+   ex-info on a non-2xx status or a Content-Length over max-image-bytes. Redirects
+   are off because a permitted host's open redirect would reach a private address;
+   using `addrs` rather than resolving again closes the check-to-connect gap."
   [url addrs]
   (let [refused (atom nil)
         cm (when-not (proxied? url)
@@ -1648,13 +1404,9 @@
             (finally (.dispose r))))))))
 
 (def ^:private image-transfer-deadline-ms
-  "Total wall clock allowed for pulling one image body.
-
-   setReadTimeout bounds each READ, not the transfer. A server that sends a byte
-   just before each timeout would expire holds the connection for the timeout
-   times the number of reads -- 128 KB in 8 KB reads is sixteen of them, so 160
-   seconds -- and holds an export slot for every one of them. Bounding the bytes
-   without bounding the time leaves the same hole the request clamp closed."
+  "Total wall clock allowed for pulling one image body, in ms. setReadTimeout
+   bounds each READ, not the transfer, so a server trickling a byte per timeout
+   would otherwise hold the connection, and an export slot, for timeout x reads."
   20000)
 
 (defn- read-bounded-bytes
@@ -1744,13 +1496,10 @@
                       e)))))
 
 (defn draw-image-bytes!
-  "Draws already-fetched image `data` at `x`,`y`.
-
-   Split from draw-image! so an export can fetch its images before it draws any
-   of them: fetching is where the seconds go, drawing is arithmetic. `jpg?`
-   decides the embedding -- JPEG bytes go into the file as they are, and anything
-   else is decoded and re-encoded losslessly, which is the only way PDFBox will
-   take it."
+  "Draws already-fetched image `data` at `x`,`y`, so an export can fetch all its
+   images before drawing any. `jpg?` true embeds the bytes as they are; anything
+   else is decoded and re-encoded losslessly, the only way PDFBox takes it. Logs a
+   failure and returns nil rather than throwing."
   [doc page data jpg? x y width height]
   (try
     (with-open [c-stream (content-stream doc page)]
@@ -1849,13 +1598,10 @@
     (or (s/ends-with? lower "jpg") (s/ends-with? lower "jpeg"))))
 
 (defn- failure-reason
-  "A coarse, reportable reason a picture could not be had.
-
-   Coarse on purpose. Every address refusal -- a private range, a reserved range,
-   a DNS answer that did not survive the pin -- collapses into one code, so the
-   answer cannot be read back as a map of what this server can and cannot reach.
-   The rest describe the HOST's behaviour, which the asker could observe anyway,
-   and are what turn a blank sheet into something a person can act on."
+  "A coarse, reportable reason a picture could not be had, from the ex-data or the
+   root cause. Every address refusal collapses into :blocked-address, so the answer
+   cannot map what this server can reach; the rest describe the HOST's behaviour,
+   which the asker could observe anyway."
   [e]
   (let [{:keys [error status]} (ex-data e)]
     (or (case error
@@ -1899,14 +1645,10 @@
       {:reason (failure-reason e)})))
 
 (defn fetch-image
-  "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had.
-
-   Returns nil rather than throwing for the same reason safe-image-url? does: a
-   picture that will not load is a state the sheet already handles, and it must
-   not cost the character their sheet. Validation happens here, in
-   safe-image-bytes, whose resolved addresses are the ones the fetch is pinned
-   to -- so a caller does NOT need to call safe-image-url? first, and a caller
-   that does resolves the host twice."
+  "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had;
+   a picture that will not load must not cost the character their sheet.
+   GOTCHA: validation happens inside (safe-image-bytes pins the resolved addresses),
+   so do NOT call safe-image-url? first; that resolves the host twice."
   [url]
   (:image (fetch-image-outcome url)))
 
@@ -1917,15 +1659,10 @@
   (+ 4 (quot (* 4 max-embedded-bytes) 3)))
 
 (defn decode-image-bytes
-  "Image bytes the browser read, as {:data bytes :jpg? bool}, or nil.
-
-   Every ceiling safe-image-bytes applies is applied here too. These arrive from
-   the same untrusted client that supplies the URL, so sending bytes skips the
-   fetch and nothing else; in particular the pixel budget is still read from the
-   header, because a small file can declare an enormous canvas.
-
-   Returns nil rather than throwing, for the reason fetch-image does: a picture
-   that cannot be used must cost the character their picture, not their sheet."
+  "Base64 image bytes the browser read, as {:data bytes :jpg? bool}, or nil rather
+   than a throw (the picture is lost, not the sheet). As untrusted as a URL: refused
+   over max-embedded-bytes (the encoded length is checked first) or over the pixel
+   budget, read from the header since a small file can declare a huge canvas."
   [b64]
   (try
     (when (and (string? b64)
@@ -2114,18 +1851,12 @@
         [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)]))))
 
 (defn fit-text
-  "Splits `text` at the last line fitting a `width` x `height` point box at `size`,
-   defaulting to `min-font-size`.
-
-   Returns {:head fitting-text :tail remainder-or-nil :lines line-count}. Callers
-   place :head in the field and :tail on a continuation page.
-
-   Line breaks in `text` are hard breaks and are preserved on both sides of the
-   split; `traits-fields` in pdf_spec separates its sections with them. Wrapping
-   within a paragraph uses `split-lines`, whose width is in inches.
-
-   A single word too wide for the box still occupies its own line, so text always
-   makes progress and callers cannot loop forever."
+  "Splits `text` at the last line fitting a `width` x `height` point box at `size`
+   (default `min-font-size`). Returns {:head fitting-text :tail remainder-or-nil
+   :lines line-count}; callers place :head in the field and :tail on a continuation
+   page. Line breaks are hard breaks, kept on both sides of the split (pdf_spec's
+   traits-fields separates sections with them). A word too wide for the box still
+   takes its own line, so callers cannot loop forever."
   ([text width height] (fit-text text width height min-font-size))
   ([text width height size]
    (let [paragraphs (s/split-lines (str text))
@@ -2162,34 +1893,17 @@
 
 ;; ─── Relabelling a spell level box ────────────────────────────────────────────
 ;;
-;; Each spell level's rows live in a box whose level number is printed ARTWORK,
-;; not a field, so the boxes are bound to their levels by the page itself. That
-;; is why a class with more 1st-level spells than the twelve rows of the level 1
-;; box spills to another page while levels 4-9 sit empty -- on a level 5 cleric
-;; that is 13 spells moved for want of 59 rows that were right there.
-;;
-;; A white rectangle over the numeral's own box covers it, letting a box be
-;; re-pointed at another level -- see numeral-boxes.
+;; A level box's number is printed ARTWORK, not a field, so a level with more spells
+;; than its box spills to another page while other boxes sit empty. A white rectangle
+;; over the numeral re-points a box at another level -- see numeral-boxes.
 
 (def numeral-boxes
   "Where each style prints a level's numeral, relative to that level's SLOTS TOTAL
    box, and the size to set a replacement at. Measured by dev/scan_numerals.clj.
-
-   Sized to the TALLEST and widest digit a style prints, not a typical one. Style
-   3 sets its 1 at 10.7pt where its other digits are 8.6, and a box cut to 8.6
-   left the top of that 1 showing above the replacement.
-
-   Covering the DIGIT rather than the badge it sits in is what makes one method
-   work on four styles. The badges differ -- style 1 and 2 hexagons, style 3 a
-   ring, style 4 a small hexagon -- but the paper immediately around every printed
-   numeral is white on all of them, so a white rectangle over the digit's own box
-   hides it and leaves the badge art alone. Tracing four shapes was the
-   alternative, and the traced style 1 hexagon is what limited packing to one
-   style.
-
-   The box is the widest digit plus a point of margin, not the digit measured: a
-   box holding level 1 may be relabelled 9, and a patch cut to a 1 would leave the
-   9 hanging out of it."
+   The box fits the style's widest and TALLEST digit plus a point of margin (style
+   3's 1 is taller than its other digits, and a box holding 1 may be relabelled 9).
+   It covers the DIGIT, not its badge: the paper around every printed numeral is
+   white, so one white patch works on all four styles' badge shapes."
   {1 {:dx -15.8 :dy 4.3 :w 8.4 :h 12.4 :size 9.5}
    2 {:dx -14.4 :dy 5.4 :w 9.4 :h 11.0 :size 10.0}
    3 {:dx -30.4 :dy 6.6 :w 11.2 :h 13.8 :size 11.5}
@@ -2197,12 +1911,9 @@
 
 (def ^:private hexagon-offset
   "Where a level's hexagon sits relative to its SLOTS TOTAL box, and how big it
-   is, in points. Measured on the style 1 spell page, where the hexagon abuts the
-   left edge of the slots box at every one of the nine levels.
-
-   Only the position is used now -- to find the bar a column heading sits in --
-   and every style places its box-0 badge where style 1 does, which the packed
-   renders on all four confirm."
+   is, in points, measured on the style 1 spell page. Callers use only the
+   position, to find the bar a column heading sits in; every style places its
+   box-0 badge where style 1 does."
   {:dx -21.0 :dy -7.5 :width 19.0 :height 37.0})
 
 (defn spell-level-numeral-box
@@ -2228,11 +1939,9 @@
 
 ;; ─── Reusing the cantrips box ─────────────────────────────────────────
 ;;
-;; The cantrips box is eight more rows, and cantrips only need printing once, so
-;; on a continuation page it is dead space. It can carry a spell level like any
-;; other box, but it needs more than a new numeral: it has no slots field to
-;; locate it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / SLOTS
-;; EXPENDED labels because cantrips do not use slots.
+;; Cantrips print once, so on a continuation page the cantrips box's eight rows can
+;; carry a spell level. It needs more than a numeral: it has no slots field to locate
+;; it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / EXPENDED labels.
 
 (defn- cantrips-hexagon-box
   "The cantrips bar's hexagon, as [x y width height]. The cantrips box has no
@@ -2298,12 +2007,8 @@
 (defn spill-overflow!
   "Trims values in `fields` that will not fit their box at min-font-size, moving
    the remainder onto appended continuation pages. Returns the trimmed map.
-
-   Without this a long value is not cropped: the field auto-sizes, shrinking to
-   4pt before it clips, so the sheet becomes unreadable rather than visibly full.
-
-   Sections are gathered into one stream and paginated together so a few
-   overflowing boxes cost one page rather than one page each."
+   Otherwise a field auto-sizes down to 4pt before it clips. All spilled sections
+   share one paginated stream, so a few overflowing boxes cost one page, not one each."
   [doc fields]
   (let [form (.getAcroForm (.getDocumentCatalog doc))
         [trimmed sections]
@@ -2434,13 +2139,9 @@
       (str class-nm " Level " (or level "?") " " school-str))))
 
 (defn draw-spell-field [cs img title value x y bw? bw-faded?]
-  ;; The label overprints the icon. Three treatments (draw-spell-field is the
-  ;; single choke point for all four per-spell icons):
-  ;;   color (default)  -> icon in icon-red, plain black text
-  ;;   B&W solid (A)     -> solid-black icon, WHITE-HALO text so it reads
-  ;;   B&W faded (B)     -> black icon at 40% (light backdrop), plain black text
-  ;; One vector source covers all three, so the `-bw` PNGs -- a second copy of the
-  ;; same art, recoloured -- are no longer read.
+  ;; The label overprints the icon; this is the one choke point for all four
+  ;; per-spell icons. Colour: icon-red icon, black text. B&W solid: black icon,
+  ;; WHITE-HALO text. B&W faded: black icon at 40%, black text. One SVG serves all.
   (let [iy (- 11 y 0.12)
         [color alpha] (cond (and bw? bw-faded?) [[0 0 0] 0.4]
                             bw?                 [[0 0 0] 1.0]
@@ -2499,15 +2200,9 @@
   0.35)
 
 (defn- draw-site-stamp!
-  "Centres the site line just above a card's bottom edge.
-
-   `x` and `y` are the card's top-left in the grid's own terms: x from the page
-   left, y from the page TOP, both in inches. draw-text wants a baseline measured
-   from the page BOTTOM, which is the flip every caller in here does by hand.
-
-   Grey rather than black so it reads as a mark on the card and not as part of the
-   card's text, and it stays grey in B&W mode -- greyscale is what that mode is
-   for."
+  "Centres the site line, in grey even in B&W mode, just above a card's bottom
+   edge. `x` and `y` are the card's top-left in inches, y from the page TOP; this
+   flips it to draw-text's baseline from the page BOTTOM."
   [cs fonts x y box-width box-height]
   (let [font (:plain fonts)
         width (string-width site-stamp font site-stamp-size)]
@@ -2541,12 +2236,8 @@
 
 (def ^:private annotation-columns
   "Where each mark sits, in points left of the row's RIGHT edge, with its size.
-
-   FIXED columns, which is the whole point. Appending the marks to the name fits,
-   but a C among letters is the same visual class as the letters -- single
-   capital, same weight -- so finding it is a serial search and the eye has to
-   read every row. A column turns that into one vertical sweep. Spacing does not
-   fix a serial search; alignment does."
+   FIXED columns, so a mark is found in one vertical sweep; appended to the name,
+   a capital C reads as one more letter and every row must be read."
   {:concentration {:dx 56.0 :size 7.0 :bold? true :grey 0.0}
    :tag           {:dx 46.0 :size 6.0 :bold? true :grey 0.25}
    :material      {:dx 32.0 :size 5.6 :bold? false :grey 0.45}})
@@ -2566,13 +2257,9 @@
 
 (def ^:private row-right-edge-key
   "Widget dictionary key holding a spell row's right edge as it came off the
-   template.
-
-   Reservation moves that edge left, and two things still need the original: the
-   annotation columns, which are drawn in the strip beyond it, and the cantrips
-   bar of a style with no slots-expended field, whose wide compartment is
-   measured from the row below it. Recording the edge is also what makes
-   reservation idempotent."
+   template. Reservation moves that edge left; the annotation columns and the
+   cantrips bar on a style with no slots-expended field still need the original,
+   and recording it keeps reservation idempotent."
   "OrcpubRowRight")
 
 (defn- row-right-edge
@@ -2603,17 +2290,11 @@
                                         (.getHeight rect)))))
 
 (defn annotate-spell-rows!
-  "Draws each filled spell row's marks in the reserved columns.
-
-   `annotate` takes the row's printed value -- the spell name -- and returns
-   {:concentration? :tag :material} or nil. Looking the spell up by the name in
-   the field is what keeps this side free of the spell data: the server is handed
-   a flat map of field names to values and knows nothing else about them. A name
-   it cannot place, a renamed spell or a homebrew one simply gets no marks.
-
-   Drawn rather than written into fields. Measured over 594 annotated rows, the
-   marks cost 11 bytes a row drawn against 671 as form fields -- 6.6 KB against
-   389 KB, on a branch whose point was making these files smaller."
+  "Draws each filled spell row's marks in the reserved columns. `annotate` takes the
+   row's printed value (the spell name) and returns {:concentration? :tag :material}
+   or nil, so the server needs no spell data; a name it cannot place (renamed or
+   homebrew) gets no marks. Drawn rather than written as form fields, which cost far
+   more bytes per row."
   [doc annotate]
   (let [rows (->> (spell-row-widgets doc)
                   (keep (fn [{:keys [field widget rect page]}]
@@ -2646,21 +2327,11 @@
   10)
 
 (defn valid-relabel?
-  "Whether one caller-supplied relabel instruction may be applied.
-
-   These arrive from the browser, which is where the packing decision is made,
-   and reach field names and a drawn label -- so they are checked the way the
-   sheet style id is, which reached a resource path before anyone validated it.
-
-   `section` names a page the document actually has, `box` is one of the ten
-   level boxes, and `label` is a single digit or nil. nil blanks a box nothing
-   uses, which otherwise keeps printing a numeral that reads as a level the
-   character does not have.
-
-   Box 0 takes no label. It is the cantrips box, and renumbering it means
-   drawing the bar, labels and inputs of a level box onto it from style 1's
-   measurements alone -- the packer never asks for it, and a client that does is
-   refused rather than handed a sheet whose first column is drawn wrong."
+  "Whether one caller-supplied relabel instruction may be applied; these come from
+   the browser and reach field names and a drawn label. `section` must name a page
+   the document has, `box` one of the ten level boxes (0-9), and `label` a single
+   digit or nil (nil blanks a box nothing uses). Box 0, the cantrips box, takes no
+   label: the packer never asks, and a level bar drawn onto it is unmeasured."
   [{:keys [section box label]} sections]
   ;; boolean, not the last truthy value: group-by keys on what this RETURNS, and
   ;; re-matches hands back the matched string, so the groups came out keyed "2"
@@ -2708,14 +2379,11 @@
   (contains? numeral-boxes style))
 
 (defn apply-relabel-instructions!
-  "Renumbers the boxes `instructions` names. Returns [applied refused].
-
-   Refuses rather than throws, and counts what it refused: a malformed list is a
-   client sending something this server does not understand, which must not cost
-   the character their sheet. The count is returned so the caller can log it.
-
-   Box 0 is the cantrips box and takes no label, which valid-relabel? holds; a
-   blank for it is a no-op, since it has no slots field to place a patch by."
+  "Renumbers the boxes `instructions` names. Returns [applied refused], counting
+   rather than throwing on a malformed list so it cannot cost the character their
+   sheet. At most ten apply per section, and none on a style packing-supported?
+   rejects. Box 0 takes no label (valid-relabel?); a blank for it is a no-op, having
+   no slots field to place a patch by."
   ([doc instructions sections] (apply-relabel-instructions! doc instructions sections 1))
   ([doc instructions sections style]
   (let [wanted (if (packing-supported? style)
@@ -2737,14 +2405,9 @@
 (def ^:private cantrips-label-size 6.5)
 
 (def ^:private cantrips-label-pad
-  "Points of clear space to the left of the CANTRIPS label.
-
-   Measured from whatever bounds the word on that bar, which is not the same thing
-   on both kinds of box: a level bar's narrow compartment simply opens at its
-   SLOTS TOTAL field, while box 0's bar puts a divider at x 51-59, right where the
-   compartment borrowed from level 1 begins. Padding from the compartment alone
-   left box 0's word two points off its divider while a level box's sat in nine
-   points of open bar -- the same number, and visibly different."
+  "Points of clear space to the left of the CANTRIPS label, from whatever bounds the
+   word on that bar: a level bar's SLOTS TOTAL field, or box 0's divider (x 51-59),
+   which starts where the compartment borrowed from level 1 begins."
   9.0)
 
 (def ^:private heading-target-size
@@ -2770,13 +2433,9 @@
       (max heading-floor-size (* heading-target-size (/ width natural))))))
 
 (defn- fit-heading
-  "`label` and the size to draw it at, both trimmed to `width`.
-
-   Class names are not a fixed length -- Bard against Eldritch Knight -- and the
-   compartment is. Shrinking alone does not solve it: at the 6pt floor \"Eldritch
-   Knight\" still measures 43pt against a narrow compartment, and would print
-   through the bar's rules. So a name that will not fit even floored is shortened
-   to what does, with an ellipsis saying so."
+  "`label` and the size to draw it at, both trimmed to `width`: shrunk toward
+   heading-floor-size, then shortened with an ellipsis if even the floor does not
+   fit (\"Eldritch Knight\" at 6pt would print through the bar's rules)."
   [label width]
   (let [size (heading-size label width)]
     (if (<= (* 72 (string-width label HELVETICA_BOLD size)) width)
@@ -2790,15 +2449,11 @@
             :else (recur (dec n))))))))
 
 (defn- bar-compartments
-  "The bar's two compartments for `box`, as [[x width] [x width]] -- the narrow
-   one a level bar gives SLOTS TOTAL, then the wide one it gives SLOTS EXPENDED.
-
-   Read off the live fields rather than written down, so they follow the artwork.
-   Box 0 has no slots fields of its own, so it borrows level 1's raised by
-   cantrips-box-rise, which is where its bar sits above level 1's.
-
-   A style with no slots-expended field -- styles 2 and 4 -- has no second rect to
-   read, so the wide compartment is taken from the spell row's right edge instead."
+  "The bar's two compartments for `box`, as {:narrow [x width] :wide [x width]} --
+   the narrow one a level bar gives SLOTS TOTAL, the wide one SLOTS EXPENDED -- or
+   nil. Read off the live fields, so they follow the artwork; box 0 borrows level
+   1's x positions. A style with no slots-expended field (2 and 4) takes the wide
+   one from the spell row's template right edge."
   [doc box suffix]
   (let [form (.getAcroForm (.getDocumentCatalog doc))
         ;; Box 0 has no slots fields, so its compartments come from level 1's.
@@ -2823,13 +2478,10 @@
           {:narrow narrow :wide wide})))))
 
 (defn- shrink-slots-expended!
-  "Moves the SLOTS EXPENDED input's left edge to `x`, so a class name can sit
-   beside it in the same compartment.
-
-   Only for the first box of a class that has no cantrips. Its bar is the only
-   one that must carry both a heading and a live input the player writes in --
-   every other heading sits on a cantrips box, whose slot inputs are meaningless
-   and can simply be drawn over."
+  "Moves the SLOTS EXPENDED input's left edge to `x`, so a class name can sit beside
+   it in the same compartment, unless that leaves the input under 12pt. Only for the
+   first box of a class with no cantrips: every other heading sits on a cantrips
+   box, whose slot inputs are meaningless and are simply drawn over."
   [doc box suffix x]
   (when-let [field (some-> (.getAcroForm (.getDocumentCatalog doc))
                            (.getField (str "slots-expended-" box "-" suffix)))]
@@ -2841,16 +2493,11 @@
                                               (float (- right x)) (.getHeight r))))))))
 
 (def ^:private cantrips-word-patch
-  "The band each style prints CANTRIPS in inside its cantrips bar, as a dy and
-   height from the bar's middle, with a couple of points of margin.
-
-   draw-column-heading! writes the class name where that word is printed, so the
-   word is covered first. The styles do not agree on where it sits -- style 3
-   rides three points higher than styles 1 and 2 -- and one band wide enough for
-   all four painted over style 4's rules. Measured by dev/scan_cantrips_word.clj,
-   except style 4, whose bar carries ornament the scan cannot tell from lettering
-   and whose band was read off the render.
-
+  "The band each style prints CANTRIPS in inside its cantrips bar, as a dy and height
+   from the bar's middle plus a couple of points of margin; draw-column-heading!
+   covers it before writing the class name there. Per style: the word sits at
+   different heights, and one band wide enough for all painted over style 4's rules.
+   Measured by dev/scan_cantrips_word.clj, except style 4's, read off the render.
    A style with no entry gets no patch and keeps its printed word."
   {1 {:dy -5.3 :h 9.0}
    2 {:dy -5.3 :h 9.2}
@@ -2858,18 +2505,12 @@
    4 {:dy -5.0 :h 10.0}})
 
 (defn draw-column-heading!
-  "Labels a packed cantrips box: CANTRIPS in the narrow compartment, `label` --
-   the class holding the column -- centred in the wide one.
-
-   The bar of a CANTRIPS box is the only place with room for this. Scanning for a
-   clear band above each box found one above two of the ten, and the sheet is
-   dense everywhere else. A cantrips box has no slots, so the two compartments a
-   level bar gives SLOTS TOTAL and SLOTS EXPENDED are free there -- which is why
-   this is only ever called for a box holding cantrips, and never for one whose
-   slot inputs the player writes in.
-
-   Box 0 additionally has CANTRIPS printed into its artwork, in the middle of the
-   bar where the class name now goes, so that word is covered before drawing."
+  "Labels a packed cantrips box: CANTRIPS in the narrow compartment, `label` -- the
+   class holding the column -- in the wide one, with any ability/DC/attack above the
+   bar. Only a cantrips bar has room, as its slot compartments are free. With
+   `cantrips?` false the name shares the wide compartment with the SLOTS EXPENDED
+   input. Box 0 prints CANTRIPS in its artwork where the name goes, so that word is
+   covered first."
   ([doc style box suffix label] (draw-column-heading! doc style box suffix label nil))
   ([doc style box suffix label {:keys [ability dc attack cantrips?]
                                 :or {cantrips? true}}]
@@ -2887,13 +2528,9 @@
           (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                                true true)]
             (when-let [{pdy :dy ph :h} (and (zero? box) (get cantrips-word-patch style))]
-              ;; Only the lettering's own band. The bar's rules sit a few points
-              ;; outside it and a patch tall enough to reach them left the bar
-              ;; looking cut through.
-              ;;
-              ;; From the divider rather than from the wide compartment: the
-              ;; printed word is centred on the bar, not on the compartment, so
-              ;; its first letter starts left of wx and survived a narrower patch.
+              ;; Only the lettering's own band: a patch reaching the bar's rules
+              ;; makes the bar look cut through. It starts at the divider, not wx:
+              ;; the printed word is centred on the bar and begins left of wx.
               (let [x0 (+ hx hw 6.0)]
                 (.setNonStrokingColor cs (float 1) (float 1) (float 1))
                 (.addRect cs (float x0) (float (+ middle pdy))
@@ -2935,10 +2572,8 @@
                   ;; "Sorcerer" came out as "Sorce...".
                   small 7.0
                   ;; A cantrips bar gives the whole wide compartment to the name.
-                  ;; A level bar has to keep its SLOTS EXPENDED input, so the name
-                  ;; takes the left of that compartment and the input is moved to
-                  ;; the right of it -- the alternative being a column with no
-                  ;; name on it at all, which is what a Paladin had.
+                  ;; A level bar keeps its SLOTS EXPENDED input, so the name takes
+                  ;; the left half and the input moves to the right of it.
                   room (if cantrips? (- ww 6.0) (* ww 0.5))
                   {label :label size :size} (fit-heading label room)
                   lw (* 72 (string-width label HELVETICA_BOLD size))
@@ -2972,22 +2607,11 @@
                              [0.1 0.1 0.1])))))))))))
 
 (defn stamp-site-line!
-  "Prints the site line in the bottom-left corner of every page that lacks one.
-
-   `position` is the style's :site-line from sheet-masters. It is not one shared
-   spot: the corner carries a flourish on the last page of styles 1 and 2, a panel
-   border on style 3's first page and a frame on style 4's, so each style has the
-   position that clears all of its own pages.
-
-   `prints-own?` says the style's artwork carries the line on SOME of its pages --
-   style 4, and only on its spell pages, leaving the rest to be stamped. It gates
-   the per-page text scan so the styles that never print their own do not pay for
-   it.
-
-   Appends a content stream per page rather than editing the page's own. Cloned
-   spell pages SHARE the master's content stream, so writing into it would print
-   the line once per clone on every one of them; PDFBox's append mode leaves the
-   shared stream alone and gives each page its own small addition."
+  "Prints the site line at `position` (the style's :site-line from sheet-masters,
+   chosen per style to clear its corner artwork) on every page that lacks one.
+   `prints-own?` means the artwork carries it on SOME pages (style 4's spell pages)
+   and gates the per-page text scan. Appends a stream per page: cloned spell pages
+   SHARE the master's content stream, so writing into it would print once per clone."
   [doc [x y] prints-own?]
   (doseq [[index page] (map-indexed vector (vec (.getPages doc)))
           :when (not (and prints-own? (page-prints-site-line? doc index)))]
@@ -3050,12 +2674,9 @@
                                (- 11.0 y 0.08)
                                (- box-width 0.3)
                                (- box-height 0.2)))
-           ;; Blank back — a large, CENTERED logo (~80% of the card). logo-img is
-           ;; the resource path chosen by the caller (grayscale or solid-black DMV
-           ;; mark), or nil when the logo is turned off. Both are hi-res, full-bleed
-           ;; 997x997 PNGs, NOT the front's tiny 22x30 card-logo.png (which pixelates
-           ;; and is cropped in-source). draw-imagex fits to the box preserving
-           ;; aspect and centers it.
+           ;; Blank back: a large, CENTERED logo (~80% of the card). logo-img is the
+           ;; caller's resource path (a hi-res grayscale or solid-black DMV mark, not
+           ;; the front's tiny card-logo.png), or nil when the logo is turned off.
            (when logo-img
              (draw-imagex cs
                           (img logo-img)
@@ -3264,15 +2885,10 @@
   {:common 1 :uncommon 2 :rare 3 :very-rare 4 :legendary 5})
 
 (defn item-charges
-  "How many charges the item's own text says it has, or nil.
-
-   Reads the number off the description rather than a field, because the data has
-   no charge count -- it is prose. A die expression takes its maximum, so the
-   tracker has a circle for the best roll: `1d8 + 1 charges` gives nine.
-
-   Anything past 99 is parse noise rather than a charge pool. Note what is NOT
-   matched: the Manuals and Tomes whose words are \"charged with magic\" have no
-   charges, and the word alone must not be enough to draw a tracker."
+  "How many charges the item's description says it has, or nil. The data has no
+   charge count, so it is read off the prose; a die expression takes its maximum
+   (`1d8 + 1 charges` gives nine). Only \"<number or dice> charges\" matches, so the
+   Manuals and Tomes \"charged with magic\" get no tracker; over 99 is noise, nil."
   [description]
   (when description
     (let [flat (s/replace description #"\s+" " ")]
@@ -3317,13 +2933,9 @@
       (str "(requires attunement by a " listed ")"))))
 
 (defn magic-item-subtitle
-  "The italic line under a magic item's name: what kind of thing it is and how
-   rare, in the order the books use.
-
-   The attunement clause is deliberately NOT here. The card prints it at the foot,
-   and a line carrying both was not only saying it twice -- \"requires attunement
-   by a sorcerer, warlock, or wizard\" does not fit one line, so the subtitle
-   clipped mid-phrase on exactly the items whose condition matters most."
+  "The italic line under a magic item's name: what kind of thing it is and how rare,
+   in the order the books use. GOTCHA: the attunement clause is NOT here; the card
+   prints it at the foot, and a long clause clipped a one-line subtitle."
   [{:keys [::mi/type ::mi/subtype ::mi/rarity]}]
   (let [kind (when type
                ;; Capitalised, and only the first word: the books write "Wondrous
@@ -3432,15 +3044,10 @@
     nil))
 
 (defn- draw-rarity-rail!
-  "The rank marks on their own rule across the top of the card.
-
-   Diamonds filled to the item's rank, centred, with a hairline running out to
-   each side. On its own row rather than beside the name: at the name's shoulder
-   the two compete, and neither reads first. Fanned through a deck the filled
-   count sorts the cards, which setting the word in type does not do.
-
-   :varies has no rank, so the rail is drawn plain -- an item whose rarity depends
-   on the table is not ranked against one that does not."
+  "The rank marks on their own rule across the top of the card: five diamonds, filled
+   to the item's rank, centred, with a hairline out to each side. Its own row so it
+   does not compete with the name; the filled count sorts a fanned deck. :varies has
+   no rank, so its rail is drawn unfilled."
   [cs x y w rarity dy]
   (let [rank (rarity-rank rarity)
         span 0.115
@@ -3559,21 +3166,9 @@
   12)
 
 (defn- draw-charge-track!
-  "Somewhere to track charges, along the bottom of the card.
-
-   Drawn only when the item's text names a number: empty circles on an item with
-   nothing to spend are furniture, and the reason to print a card at all is that
-   it is the thing you mark during play.
-
-   Up to `tickable-charges` that is a circle each. Past it -- a Staff of the Magi
-   has fifty -- it is a rule to write the remaining count on, over the total,
-   because nobody ticks fifty boxes at a table. Capping the parse instead would
-   have drawn nothing at all for exactly the items that most need tracking.
-
-   Drawn at `cy`, in its own band under the header rather than at the foot. It is
-   the one thing on the card anybody touches mid-game, and under the description
-   it arrived last and cramped: name, then what the thing is, then what you have
-   left to spend, then what it does."
+  "Somewhere to track `n` charges, drawn at `cy` in its own band under the header.
+   Up to `tickable-charges` it is a circle each; past it (a Staff of the Magi has
+   fifty) a rule to write the remaining count on, over the total."
   [cs x y w n cy label-y]
   (.setLineWidth cs (float 0.8))
   (if (<= n tickable-charges)
@@ -3597,22 +3192,11 @@
 
 (defn print-items
   "Draws one page of magic item cards, and returns what did not fit for the backs.
-
-   Same grid, box and overflow handling as print-spells, and everything drawn here
-   is vector: a chamfered frame, rarity diamonds, a rule under the header and a
-   charge track. Nothing is rasterised, so the cards stay sharp at any size and
-   cost the file almost nothing.
-
-   The layout differs from a blank card template on purpose. A template spends its
-   room on labelled slots to write into; this card already knows the name, the
-   kind, the rarity and the attunement, so that room goes to the description --
-   the part a player actually rereads at the table. Attunement sits at the foot,
-   out of the header, and only when the item needs it.
-
-   `opts` selects the look, so alternatives can be rendered side by side rather
-   than argued about: `:flourish` is one of card-flourishes, `:name-face` a key
-   into `fonts` or a font, `:name-size` points, `:name-tracking` extra spacing
-   between letters."
+   Same grid, box and overflow handling as print-spells; everything is vector, so
+   cards stay sharp and cost the file almost nothing. The room a blank template
+   gives labelled slots goes to the description; attunement sits at the foot, only
+   when needed. `opts`: `:flourish` (one of card-flourishes), `:name-face` (a key
+   into `fonts`, or a font), `:name-size` in points, `:name-tracking` letter spacing."
   ([cs document fonts img box-width box-height items page-number bw? bw-faded?]
    (print-items cs document fonts img box-width box-height items page-number
                 bw? bw-faded? nil))
@@ -3651,14 +3235,9 @@
                ;; room when there is not.
                body-top (if charges (:body-charged down) (:body down))
                ;; Whether the description spills is settled before it is drawn, so
-               ;; the note saying so has reserved room rather than being squeezed
-               ;; in afterwards. Measured against the box WITHOUT the note: adding
-               ;; it only shrinks the box, so anything that overflowed still does.
-               ;;
-               ;; The LINES are kept, not just their count. Splitting a 1300
-               ;; character description measures every word against the font and
-               ;; costs 4ms and 2MB; doing it once to decide and again inside
-               ;; draw-text-to-box to draw threw half of that away on every card.
+               ;; the note saying so has reserved room. Measured against the box
+               ;; WITHOUT the note, which only shrinks it. The LINES are kept, not
+               ;; just their count, because splitting is the expensive part.
                body-lines (split-lines body (:plain fonts) 8 (- box-width 0.4))
                capacity (fn [h] (int (dec (/ (* 72 h) (* 8 1.1)))))
                spills? (> (count body-lines)
@@ -3669,18 +3248,10 @@
            (draw-foot-ornament! cs x y box-width (- box-height (:ornament up)))
            (when clause
              (draw-attunement-badge! cs x y box-width (:badge down)))
-           ;; The name is indented further than anything else and set larger, so
-           ;; it reads as a title rather than a wide block of type. It gets two
-           ;; lines at whatever size fits them: holding the size loses the end of
-           ;; "Amulet of Proof against Detection and Location", and a card nobody
-           ;; can find in a stack has failed at its only job. The block reserves
-           ;; both lines whatever size it lands on, so the rule under the header
-           ;; falls level across a sheet and a stack cuts square; a one-line name
-           ;; is dropped into the middle of it rather than left on top of a gap.
-           ;; Shrinking stops at :name-floor and the name takes a third line
-           ;; instead. Without a floor "Instrument of the Bards, Anstruth Harp of
-           ;; Deepest Sorrow" set itself at 8.5pt to hold two lines -- smaller
-           ;; than the description under it, which is not a title any more.
+           ;; The name is indented further and set larger, so it reads as a title.
+           ;; It shrinks to fit two lines, but not below :name-floor, where it takes
+           ;; a third instead. The block's height is fixed so header rules fall level
+           ;; across a sheet; a one-line name sits in the middle of it.
            (let [face (name-face fonts)
                  width (- box-width 0.56)
                  lines-at (fn [pt] (count (split-lines item-name face pt width)))

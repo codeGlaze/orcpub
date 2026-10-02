@@ -561,12 +561,8 @@
 (defn unarmored-ac-bonus
   "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
   stacks onto whichever AC calculation wins.
-
-  It used to write ?unarmored-ac-bonus, expressing \"no shield\" by NOT also writing
-  ?unarmored-with-shield-ac-bonus. That put a flat bonus in a channel that also carries Barbarian's
-  and Monk's ability modifiers, which compete as calculations and get zeroed by the tie-break in
-  ?unarmored-armor-class when ?natural-ac-bonus wins. A natural-armor character therefore lost the
-  bonus entirely — AC 15 where the rules give 17."
+  GOTCHA: goes through ?ac-bonus-fns, not ?unarmored-ac-bonus, whose values compete and lose to
+  ?natural-ac-bonus in ?unarmored-armor-class. See armor-class-refactor.md."
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 

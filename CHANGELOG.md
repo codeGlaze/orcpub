@@ -993,6 +993,76 @@ load, so work done during the session is in the file.
 - Thirteen tests cover filtered-list reactivity, two of which fail against the
   old shape, plus the share overlay and eight regression guards (`436284ad`).
 
+### port/save-gate
+
+**Highlights**
+
+Homebrew edits can no longer quietly lose data. Changes made in the app go through one check that
+keeps links intact or says what a deliberate delete breaks, merges edits made in two tabs, and asks
+before touching another pack, and characters keep their homebrew through renames on every page.
+
+**Added**
+
+- **One gate for the app's library writes** — saves, imports, moves, restores and key changes pass
+  one check. A save, move or key change that would strand a link is refused; a deliberate delete or
+  a re-import goes ahead and says which links it left pointing at nothing. The server's first-load
+  fetch writes only into an empty library (`31329bcd`, `5209eb97`, `4f7ebf3b`).
+- **Two tabs no longer overwrite each other** — a write from a tab holding an old copy is merged onto
+  the newer library, and a real conflict is reported instead of lost (`bf1ca6a5`, `f3578592`,
+  `4f7ebf3b`).
+- **Links follow a key change** — changing an item's key moves the links in its own pack and offers
+  to move the ones in other packs; those move only when the author clicks (`1042c746`, `b5f2a1b6`,
+  `7c199b20`).
+- **A copy of the library before its one-time tidy**, with Restore on My Content (`c0e38458`).
+- **Repairs for links a past rename left behind** — My Content marks items that link to nothing and
+  suggests the renamed target; nothing changes until the author picks (`8e76bbf3`, `c0e38458`).
+- **A character is asked which item it meant** when an import renames an item it used, once, in a
+  banner that waits for an answer (`c50e6536`).
+- **Asking before deleting what other items use**, and saying what a re-import updated (`12eb5a23`).
+- **A check on comments and docstrings** — a test flags history, long docstrings and long comment
+  blocks; each hit is fixed or approved with a reason, and field notes are kept by hash
+  (`90334b7a`, `d34bdb2f`, `76395a16`, `48f945b3`, `332ae1dd`).
+
+**Fixed**
+
+- **Saves land on the item the builder opened** — a stale or ambiguous address is refused rather
+  than guessed, and an older untagged entry is replaced only with consent (`b5b36d29`, `b9a98f4f`,
+  `4968a3be`).
+- **Characters keep homebrew renamed since they were saved** — picks heal on every page, not only in
+  the builder, and a key two kinds of content share (the Dragonborn "Blue" ancestry and a background
+  picked as `:blue`) no longer blocks the heal (`43f93777`, `38dbaa91`).
+- **The missing-content warning** also reports missing spells and languages, and a background whose
+  key another type holds (`4e88b04c`, `43f93777`).
+- **"Link to nothing" is judged by content type** — a built-in language `Orc` no longer answers a
+  race's link to `:orc` (`7c199b20`, `a376470b`).
+- **A move takes an item's subclasses and subraces along** (`3fb06300`, `ab8b0393`).
+- **Restore shows what is still set aside, and keeps what the author typed** when its write fails
+  (`796e15dd`, `6cfccce3`).
+- **Every on/off switch on My Content works from the keyboard** (`6cfccce3`).
+- **Share links bundle a picked key only as the content types its choice can hold** (`4f7ebf3b`,
+  `a90fe7c6`).
+- **The server's first-load `.orcbrew` fetch** writes only into a library that is still empty
+  (`4f7ebf3b`).
+
+**Changed**
+
+- **Homebrew backgrounds are offered under their stored key**; characters that picked one under its
+  name's key heal to it (`5209eb97`, `43f93777`).
+- **Notices and import modals share one design** — each decision in one framed callout, names
+  instead of keys, no decorative icons (`b1feb5b3`, `7ae78fc6`).
+
+### fix/comment-debt
+
+**Fixed**
+
+- **Party add/remove answer with the updated party** — both returned the party as it was before the change, because they pulled from the request's snapshot. The app ignored the body, so nothing visible broke; a new test covers both (`d09964ce`).
+- **Stale comments and docstrings corrected against the code** — among them the CSP notes that described a Report-Only dev policy that no longer exists, and PDF, spell-packing and share-link docstrings that named the wrong return shape (`ac0dc950`).
+
+**Changed**
+
+- **Comments and docstrings trimmed to spec** across 47 source files, clearing the comment check's recorded debt; history and measurements moved to the knowledge base (`ac0dc950`).
+- **The linter's config is tracked** — `.gitignore` now ignores the linter's cache, not `.clj-kondo/config.edn` (`ac0dc950`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure

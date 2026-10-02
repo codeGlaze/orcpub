@@ -10,22 +10,13 @@
 
 ;; ─── How to add an integration ───────────────────────────────────────
 ;;
-;; 1. Define env-var-gated config:
-;;      (def my-service-id (env :my-service-id))
-;;
-;; 2. Write a tag function that returns hiccup (or nil when disabled):
-;;      (defn- my-service-tag [nonce]
-;;        (when (seq my-service-id)
-;;          [:script {:nonce nonce :async ""
-;;                    :src (str "https://example.com/sdk.js?id=" my-service-id)}]))
-;;
-;; 3. Add it to head-tags's concat list below.
+;; 1. Gate its config on an env var:  (def my-service-id (env :my-service-id))
+;; 2. Write a tag fn of `nonce` returning hiccup, or nil when disabled; give each <script> :nonce.
+;; 3. Call it from head-tags below, returning a flat seq of the enabled tags.
 
 ;; ─── Client-Side Config Bridge ──────────────────────────────────
-;; Passes server-side integration config to CLJS components.
-;; index.clj injects this as window.__INTEGRATIONS__ JSON in <head>.
-;; integrations.cljs reads it at namespace load time.
-;; See branding.clj/client-config for a working example.
+;; index.clj injects client-config into <head> as window.__INTEGRATIONS__ JSON, which
+;; integrations.cljs reads at namespace load time. Working example: branding.clj/client-config.
 
 (defn client-config
   "Map of integration config for CLJS injection. Empty by default.

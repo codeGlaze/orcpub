@@ -8,7 +8,8 @@
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.library :as library]))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Inline configs for data that lives in .cljs or is #_ commented in prod.
@@ -294,3 +295,22 @@
       (is (has-spell? built 0 "Warlock" :spare-the-dying))
       ;; Beast Speech invocation grants speak-with-animals at will
       (is (has-spell? built 1 "Warlock" :speak-with-animals)))))
+
+;; The missing-content warning also reports spells and languages the builder no longer offers,
+;; found by the tags the builder puts on those choices. On a real character it must stay silent
+;; about everything else.
+(deftest missing-picks-reports-spells-and-languages-and-nothing-else
+  (let [offered (library/offered-keys test-template)
+        tags (library/choice-tags test-template)
+        picks (fn [ch] (set (map :key (library/missing-picks ch offered tags #{:spells :language-profs}))))
+        reported (picks warlock-entity)]
+    (is (not (contains? reported :any-simple-weapon)) "an equipment pick is not a spell or a language")
+    (is (not (contains? reported :the-archfey)) "a subclass is the six-kind check's, not this")
+    (is (not (contains? reported :dark-elf-drow-)) "nor a legacy race key")
+    (is (every? #(contains? #{:spells :language-profs} (:tag %))
+                (library/missing-picks warlock-entity offered tags #{:spells :language-profs})))
+    (is (contains? (picks (update-in warlock-entity [:orcpub.entity/options :class 0 :orcpub.entity/options
+                                                     :warlock-cantrips-known]
+                                     conj {:orcpub.entity/key :no-such-spell}))
+                   :no-such-spell)
+        "a cantrip nothing offers is reported")))

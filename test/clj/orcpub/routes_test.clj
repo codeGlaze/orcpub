@@ -355,3 +355,28 @@
             body (routes/user-body db user)]
         (is (true? (:send-updates? body))
             "user-body should include send-updates? field")))))
+
+(deftest test-dark-button-text-preference
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/send-updates? true}])
+      (let [put! (fn [params] (routes/update-user-preferences
+                               {:transit-params params :db (d/db mocked-conn)
+                                :conn mocked-conn :identity {:user "testy"}}))
+            body (fn [] (let [db (d/db mocked-conn)]
+                          (routes/user-body db (routes/user-for-email db "test@test.com"))))]
+        (testing "never chosen: absent, so the browser's own choice is not overwritten at login"
+          (is (not (contains? (body) :dark-button-text?))))
+        (testing "turning it on saves it and returns it"
+          (let [resp (put! {:dark-button-text? true})]
+            (is (= 200 (:status resp)))
+            (is (true? (get-in resp [:body :dark-button-text?]))))
+          (is (true? (:dark-button-text? (body)))))
+        (testing "turning it off is a choice too, and is returned as false"
+          (put! {:dark-button-text? false})
+          (is (false? (:dark-button-text? (body)))))
+        (testing "saving it leaves the email preference alone"
+          (is (true? (:send-updates? (body)))))))))

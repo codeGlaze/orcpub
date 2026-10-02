@@ -25,7 +25,9 @@ pom.xml
 # no trailing slash: the e2e tooling is run by symlinking this to a sibling checkout's copy,
 # and a trailing slash matches only a real directory
 /node_modules
-.clj-kondo
+# the linter's cache, not its config: config.edn is tracked and must stay addable
+.clj-kondo/*
+!.clj-kondo/config.edn
 .calva
 .lein-deps-sum
 .lein-repl-history

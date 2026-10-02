@@ -1,15 +1,10 @@
 (ns orcpub.dnd.e5.starting-equipment-ledger
-  "Stores a homebrew class's starting equipment as an SRD base class plus the changes made to
-   it, instead of a full copy. Items match by identifiers already in the data — no invented
-   keys: fixed grants (:weapons/:armor/:equipment, {item-key qty}) match by item key (changed
-   or added in :fixed :set, removed in :fixed :del); choice groups (:equipment-selections)
-   match by their :name, and a group the user changed is stored whole in :groups :set (the
-   nested choice menus are rarely edited and not worth a finer diff), removed group names in
-   :groups :del.
-
-   resolve-delta turns a base plus its changes back into the plain :equipment-selections the
-   existing class-option functions consume — this namespace adds no new runtime shape. A change
-   that doesn't line up with the base is appended or ignored, never a crash."
+  "Stores a homebrew class's starting equipment as an SRD base class plus a delta. Fixed grants
+   (:weapons/:armor/:equipment, {item-key qty}) match by item key, in :fixed :set / :del; choice
+   groups (:equipment-selections) match by :name, a changed group stored whole in :groups :set,
+   removed names in :groups :del. resolve-delta rebuilds the plain :equipment-selections that
+   class-option consumes; a change that doesn't line up with the base is appended or ignored,
+   never a crash."
   (:require [orcpub.dnd.e5.srd-starting-equipment :as srd]))
 
 (def ^:private buckets [:weapons :armor :equipment])

@@ -3,11 +3,14 @@
 What the site's styles are, which ones are canonical, and the rules for adding more.
 Written 2026-09-30 from the Garden stylesheet, `src/clj/orcpub/styles/core.clj`.
 
-**Which branch this describes.** `core.clj` on `integration` (2026-09-20) and on the portrait
-branch differ by 9 lines, all in `.builder-tabs` (the portrait branch wraps the tabs for a
-fourth one). So this guide holds for both. Line numbers are the portrait branch's; on
-`integration` anything after line 1304 sits 7 lines earlier. The portrait drawer
-(`portrait.cljs`) exists only on the portrait branch.
+**Which branch this describes.** Written against `claude/artist-profile-pages`, whose `core.clj`
+differed from `integration` (2026-09-30) by 9 lines, all in `.builder-tabs`. Line numbers are from
+that snapshot and drift as the file changes; the named `def`s and class names don't. The portrait
+drawer (`portrait.cljs`) exists only on the portrait branch.
+
+**Captures.** The before/after screenshots and comparison pages are on `claude/artist-profile-pages`
+under `docs/design/style-guide/` (about 8 MB of PNGs, kept off the trunk). The capture scripts are
+here in `docs/design/style-guide/` and re-shoot them against a running `lein e2e-server`.
 
 **How it was made.** A cheap agent inventoried every colour, size and spacing value with
 file:line references (`style-inventory.md`, alongside this file). Its counts are approximate
@@ -97,15 +100,15 @@ These recur as literals. **Proposed:** give each a name.
 
 | Face | Loaded | Used for |
 |---|---|---|
-| **Open Sans** | Google Fonts, `index.clj:265`, **regular weight only** | Everything in the app |
+| **Open Sans** | Google Fonts, `index.clj`, weights 400, 600 and 700 | Everything in the app, buttons included |
 | **Vollkorn** italic | `@font-face` in the portrait drawer's CSS string, a Latin-1 subset | Artist names in credits; the baked portrait caption |
 | `ui-monospace, Menlo, monospace` | system | Code and seed values in the portrait drawer |
 
-**Bold is missing.** Only Open Sans 400 is loaded (`css?family=Open+Sans`), but tabs, titles
-and labels ask for 600 and 700. In Chrome and Edge that text renders at **regular** weight: the
-browser doesn't even fake the bold. Firefox and Safari may fake it by smearing the regular weight.
-Loading `Open+Sans:wght@400;600;700` fixes both. For a modern browser that's one more file, about
-48 KB for Latin text. Before/after, captured from the site: `style-guide/bold.html`.
+**Bold was missing (fixed on this branch).** Only Open Sans 400 used to be loaded
+(`css?family=Open+Sans`), while tabs, titles and labels asked for 600 and 700, so in Chrome and Edge
+that text rendered at regular weight; Firefox and Safari faked it by smearing the regular weight.
+`index.clj` now loads `Open+Sans:wght@400;600;700`: one more file, about 48 KB for Latin text.
+Before/after, captured from the site: `style-guide/bold.html`.
 
 **Decided (owner, 2026-09-30): header tabs 700, page title 600.** At 700 the tabs are far more
 readable: they are small, all caps and sit on a busy banner, and capitals carry the extra weight
@@ -114,10 +117,56 @@ plump, so it takes 600. Both share the generic `.f-w-b` bold class today, so eac
 weight in Garden: `.header-tab` 700, the page title (`h1.f-s-36` in `views/header`) 600. Chosen
 from the pair captured together: `style-guide/weights.html`.
 
-**Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
-because browsers give buttons their own default font and nothing here sets `button
-{font-family: inherit}`. Confirmed with the browser's own font report: the builder's buttons use
-Arial Bold (Liberation Sans on Linux), the header tabs Open Sans.
+### Weights (decided 2026-09-30)
+
+| Weight | For | How |
+|---|---|---|
+| **700** | Small capitals labels, 14px and under: header tabs, sheet tabs, `.form-button`, `.mc-btn` | `.f-w-b`; the button classes set 700 |
+| **600** | Bold text 18px and up: page and panel titles, section headings, spell and monster names, big numbers | One rule: `.f-w-b` combined with `.f-s-18` or larger renders at 600 (155 call sites, no per-site edits) |
+| **400** | Sentences, e.g. the builder's info boxes (`info-block`) | No weight class; links inside them keep `.f-w-b` |
+
+Why: at display sizes 700 thickens mixed-case letters and reads plump, while small capitals carry
+700 well and read more easily for it. Found by the owner on the builder's "Race" heading, its info
+sentence and My Content's "Import Option Source"; a survey of every bold element on four pages
+(`survey-weights.js` on `claude/artist-profile-pages`) showed the same split.
+
+**Button contrast: opt-in dark text.** White on the amber button gradient is 2.1:1, under the
+4.5:1 minimum for text; dark text (`#15202e`) is 7.8:1. Long-time dark-theme users know the
+white, so it stays the default, and a "Dark Button Text" checkbox beside "Light Theme" (dark
+theme only) switches `.form-button`, `.mc-btn` and `.roll-button` to dark text. The choice is
+saved in the browser with the theme, and on the account when logged in
+(`:orcpub.user/dark-button-text?`); at login a choice saved on the account wins.
+
+**Text lift on amber (decided).** Text on the amber buttons gets a faint edge in the opposite
+tone: `text-lift-dark` (a soft dark shadow) under the default white text, `text-lift-light` (a
+soft light glow) under the opt-in dark text. It sharpens the letters without changing the colours
+people know. Applied to `.form-button` (dark theme only, since it's slate in the light theme),
+`.mc-btn` and `.roll-button` (amber in both themes), and to every header tab (the active one is
+amber; the grey ones on the banner firm up too). The ability buttons (`.roll-button`, "+2",
+"-1") are 700 like the other amber buttons, with 16px labels (decided 2026-10-01; padding 4.5px top and bottom keeps them 31px tall). The class is shared by every roll button on the sheet: abilities, saves, skills, weapons, spells, tools, and the builder's hit-die roll. A one- or two-character label has too little stroke
+to hold up with the standard lift, so with dark text they get a stronger glow (70% white) and a
+yellow rim: `-webkit-text-stroke: 2px` in `warning-yellow` (`#ffd21a`) with `paint-order: stroke
+fill`, which draws the rim behind the letters so about 1px shows outside them and the letters keep
+their full weight. Chosen over white, pale yellow, amber and orange rims (captures `round9.html`,
+`round10.html` on `claude/artist-profile-pages`). Orange and amber blend in because they're about as
+light as the button; an outline only separates a letter when it's lighter or darker than the button.
+
+*Fallback if the rim doesn't hold up in use*, in order:
+1. Pale yellow `#ffe680` rim (option l): crisper, still warm; adds one colour to the palette.
+2. Remove the two stroke properties and keep the stronger glow (option d, the state at `844c15ca`).
+3. Drop the `.roll-button` override entirely: the standard `text-lift-light`, as on the other buttons.
+
+**Light-theme inconsistency.** `.form-button` turns slate blue in the light theme, but its copies
+`.mc-btn` and `.roll-button` stay amber, because the light-theme rule was only written for one
+copy. The shared button base (section 5) fixes this properly.
+
+**My Content tab wrap (decided).** At 700, "MY CONTENT" needed 92.5px of the tab's fixed 90px
+and wrapped. The tab titles have −4% letter spacing (86.9px, 3px to spare; −2% left only 0.3px).
+
+**Buttons are in Open Sans (fixed on this branch).** Browsers give `<button>` its own default
+font, and nothing set one, so `.form-button` and the other button classes rendered in Arial Bold
+(Liberation Sans on Linux, confirmed with the browser's font report). Garden now sets `button
+{font-family: ...}` to the site font.
 
 **Screenshot caveat.** In the Claude Code sandbox, the headless browser can't verify the network
 proxy's certificate for Google Fonts, so pages silently fall back to another sans. Captures made
@@ -150,6 +199,20 @@ everything. Only the dev-mode toggle adds one back (`core.clj:2217`, a 2px orang
 3px). **Proposed:** replace the global rule with `:focus-visible` rings on interactive
 elements (orange in dark, `#33658A` in light), using the dev-mode toggle's style as the
 standard. Until then, new components must add their own.
+
+**Phone width.** One breakpoint: 767px and under is a phone (`xs-query`). The stylesheet and the
+page code use the same cutoff: at phone width the page draws the phone layout on any device,
+and resizing across it re-lays the page (`user-agent/layout-type`, the `:device-type`
+subscription). Wider than that, the device decides between desktop and tablet as before. What the
+device *can do* (a keyboard for the roll buttons' ctrl/shift tip) reads `:ua-device-type` instead.
+To capture the phone layout, a narrow window is enough now; a real phone's user agent still
+matters for touch-only behaviour.
+
+**Phone gutter: 10px, both sides (decided 2026-10-01).** On a phone every row's visible edge sits
+10px from the screen edge: logo and login, header tabs, page title, yellow buttons, toggles and
+the builder panel. Containers sit on the gutter and their contents indent inside them; a row's
+own spacing (a button's 5px, a tab's 2px) counts toward the 10px rather than adding to it. Chosen
+over 16px to keep the width for content.
 
 ---
 
@@ -223,7 +286,7 @@ belong in it as tokens.
 
 ## 7. Open decisions
 
-1. Load Open Sans 600 and 700, and make buttons inherit the site font (section 3).
+1. ~~Load Open Sans 600 and 700, and make buttons use the site font~~ Done on `feature/style-guide`, with the header weights (section 3).
 2. Replace the global `outline: 0` with focus-visible rings (section 4).
 3. Name the surface colours and the light accent (section 2).
 4. Build the shared button base on a branch off `integration` (section 5).

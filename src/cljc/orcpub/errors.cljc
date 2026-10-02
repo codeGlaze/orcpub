@@ -24,17 +24,9 @@
   nil)
 
 (defn log-error
-  "Logs an error message with optional context data.
-
-  Args:
-    prefix - A prefix string (e.g., 'ERROR:', 'WARNING:')
-    message - The error message
-    context - Optional map of context data to log
-
-  When *error-prefix* is bound, it replaces the caller-supplied prefix.
-
-  Example:
-    (log-error \"ERROR\" \"Failed to save\" {:user-id 123})"
+  "Prints `prefix` (e.g. \"ERROR:\") and `message`, then `context` (an optional map) on its
+  own line when non-empty. Returns nil.
+  When *error-prefix* is bound, it replaces the caller-supplied prefix."
   ([prefix message]
    (println (or *error-prefix* prefix) message))
   ([prefix message context]
@@ -43,40 +35,18 @@
      (println "  Context:" context))))
 
 (defn create-error
-  "Creates a structured exception with ex-info.
-
-  Args:
-    user-msg - User-friendly error message
-    error-code - Keyword identifying the error type
-    context - Map of additional context data
-    cause - Optional underlying exception
-
-  Returns:
-    An ExceptionInfo with structured data
-
-  Example:
-    (create-error \"Unable to save\" :save-failed {:id 123} original-exception)"
+  "An ExceptionInfo with message `user-msg` (user-friendly) and ex-data `context` plus
+  `:error error-code`, wrapping the optional underlying exception `cause`."
   ([user-msg error-code context]
    (ex-info user-msg (assoc context :error error-code)))
   ([user-msg error-code context cause]
    (ex-info user-msg (assoc context :error error-code) cause)))
 
 (defn with-error-handling*
-  "Core function for wrapping operations with error handling.
-
-  This is typically not called directly - use the macro versions instead.
-
-  Args:
-    operation-fn - Zero-arg function to execute
-    opts - Map with keys:
-           :operation-name - Name for logging (e.g., 'database transaction')
-           :user-message - Message shown to users on failure
-           :error-code - Keyword for the error type
-           :context - Additional context data
-           :on-error - Optional function called with exception
-
-  Returns:
-    Result of operation-fn, or re-throws with structured error"
+  "Calls zero-arg `operation-fn` and returns its result; prefer the macros over calling this.
+  An ExceptionInfo is re-thrown as-is. Any other exception is logged with `:operation-name`,
+  passed to the optional `:on-error` fn, and re-thrown via `create-error` with
+  `:user-message`, `:error-code` and `:context` from the opts map."
   [operation-fn {:keys [operation-name user-message error-code context on-error]}]
   (try
     (operation-fn)
@@ -92,21 +62,9 @@
 
 #?(:clj
    (defmacro with-db-error-handling
-     "Wraps database operations with consistent error handling.
-
-     Automatically logs errors and creates user-friendly exceptions.
-
-     Args:
-       error-code - Keyword identifying the error type
-       context - Map of context data (will be in error's ex-data)
-       user-message - User-friendly error message
-       & body - Code to execute
-
-     Example:
-       (with-db-error-handling :user-creation-failed
-         {:username \"alice\"}
-         \"Unable to create user. Please try again.\"
-         @(d/transact conn [{:db/id \"temp\" :user/name \"alice\"}]))"
+     "Runs `body` as a \"database operation\" under `with-error-handling*`: a failure is
+     logged and re-thrown as an ExceptionInfo carrying `user-message`, with `context` plus
+     `:error error-code` as its ex-data. Examples: docs/ERROR_HANDLING.md."
      [error-code context user-message & body]
      `(with-error-handling*
         (fn [] ~@body)
@@ -117,21 +75,9 @@
 
 #?(:clj
    (defmacro with-email-error-handling
-     "Wraps email operations with consistent error handling.
-
-     Automatically logs errors and creates user-friendly exceptions.
-
-     Args:
-       error-code - Keyword identifying the error type
-       context - Map of context data (e.g., {:email \"user@example.com\"})
-       user-message - User-friendly error message
-       & body - Code to execute
-
-     Example:
-       (with-email-error-handling :verification-email-failed
-         {:email user-email :username username}
-         \"Unable to send verification email.\"
-         (postal/send-message config message))"
+     "Runs `body` as an \"email operation\" under `with-error-handling*`: a failure is logged
+     and re-thrown as an ExceptionInfo carrying `user-message`, with `context` plus
+     `:error error-code` as its ex-data. Examples: docs/ERROR_HANDLING.md."
      [error-code context user-message & body]
      `(with-error-handling*
         (fn [] ~@body)
@@ -142,21 +88,10 @@
 
 #?(:clj
    (defmacro with-validation
-     "Wraps parsing/validation operations with error handling.
-
-     Specifically handles NumberFormatException and other parsing errors.
-
-     Args:
-       error-code - Keyword identifying the error type
-       context - Map of context data
-       user-message - User-friendly error message
-       & body - Code to execute
-
-     Example:
-       (with-validation :invalid-id
-         {:id-string \"abc\"}
-         \"Invalid ID format.\"
-         (Long/parseLong id-string))"
+     "Runs parsing/validation `body`. An ExceptionInfo is re-thrown as-is; any other exception
+     (NumberFormatException included) is logged with `context` and re-thrown as an
+     ExceptionInfo carrying `user-message`, with `context` plus `:error error-code` as its
+     ex-data. Examples: docs/ERROR_HANDLING.md."
      [error-code context user-message & body]
      `(try
         ~@body

@@ -124,6 +124,11 @@
    {:db/ident :orcpub.user/send-updates?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
+   ;; Dark text on the amber buttons in the dark theme, for contrast. Unset
+   ;; means the user never chose, which is not the same as choosing white.
+   {:db/ident :orcpub.user/dark-button-text?
+    :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
