@@ -635,7 +635,7 @@
               ^{:key layer-key}
               [:<>
                ;; filled-in whites go under the eye they belong to
-               (when (:asset/whites asset)
+               (when (and whites (:asset/whites asset))
                  [whites-layer (as-placed asset dev?) whites z])
                [colorized-layer (as-placed asset dev?)
                 (pa/tint-for portrait layer-key)
@@ -758,7 +758,7 @@
                   (doseq [[[layer-key asset] img] (map vector selected (array-seq imgs))
                           :when img]
                     ;; filled-in whites go down first, under the eye art
-                    (when (:asset/whites asset)
+                    (when (and (:asset/whites asset) (pa/whites-colour portrait))
                       (fill-whites! ctx (as-placed asset (:dev-mode? @re-frame.db/app-db))
                                     (layout/contain-rect (.-naturalWidth img) (.-naturalHeight img)
                                                          raster-width raster-height)
@@ -1664,12 +1664,14 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
         [:span.pl-sub-shade-val (str (when (pos? depth) "+") depth)]])]))
 
 (defn- slot-chip [portrait slot open-slot]
-  (let [cur     (get-in portrait [:colors slot])
+  (let [stored  (get-in portrait [:colors slot])
+        none?   (= stored pa/no-whites)
+        cur     (when-not none? stored)
         tweaked (pa/tweaked-layers-in-slot portrait slot)
         open?   (= open-slot slot)
         label   (pa/color-slot-labels slot)]
     [:div.pl-slot
-     {:class (classes (when cur "on") (when (seq tweaked) "has-tweaks") (when open? "open"))}
+     {:class (classes (when stored "on") (when (seq tweaked) "has-tweaks") (when open? "open"))}
      [:span.pl-slot-name label]
      (when (seq tweaked)
        [:span.pl-slot-tweaks
@@ -1680,7 +1682,9 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
        :class (when-not cur "unset")
        :style (when cur {:background cur})
        :aria-expanded open?
-       :title (if cur (str "Base color " (s/upper-case cur)) "Not set — tap to pick")
+       :title (cond none? "No whites: the eye as drawn"
+                    cur (str "Base color " (s/upper-case cur))
+                    :else "Not set — tap to pick")
        :on-click #(dispatch [:portrait/toggle-slot-panel slot])}
       [:span.pl-sub-dots
        (map-indexed
@@ -1885,6 +1889,12 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
      [:div
       [:span.pl-panel-heading "Presets"]
       [:div.pl-presets
+       ;; whites can be left unfilled: the art as drawn
+       (when (= slot :whites)
+         [:button.pl-preset.pl-preset-none
+          {:type "button" :title "No whites: the eye as drawn"
+           :class (when (= pa/no-whites (get-in portrait [:colors :whites])) "on")
+           :on-click #(dispatch [:portrait/set-slot-color :whites pa/no-whites])} "\u2205"])
        (for [c (pa/color-presets slot)]
          ^{:key c}
          [:button.pl-preset
@@ -1892,7 +1902,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
            :on-click #(dispatch [:portrait/set-slot-color slot c])}])
        [:span.pl-preset.custom {:title "Custom color"}
         [:input {:type "color"
-                 :value (or (get-in portrait [:colors slot]) "#c0a080")
+                 :value (let [c (get-in portrait [:colors slot])]
+                          (if (and (string? c) (re-matches #"#[0-9a-fA-F]{6}" c)) c "#c0a080"))
                  :aria-label (str "Custom " (pa/color-slot-labels slot) " color")
                  :on-change #(dispatch [:portrait/set-slot-color slot (target-value %)])}]]]]
      (when (= slot :hair) [ombre-controls portrait])

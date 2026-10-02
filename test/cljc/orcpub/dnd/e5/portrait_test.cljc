@@ -535,3 +535,8 @@
     (is (= (reduce + (for [k pa/layer-order :when (seq (get-in pa/house-pack [:artist/layers k]))]
                        (get pa/layer-credit-weight k 1)))
            weight))))
+
+(deftest whites-can-be-left-unfilled
+  (is (= "#ffffff" (pa/whites-colour {})) "white unless someone picks")
+  (is (= "#e6e2d8" (pa/whites-colour {:colors {:whites "#e6e2d8"}})))
+  (is (nil? (pa/whites-colour {:colors {:whites pa/no-whites}})) "none: the eye as drawn"))
