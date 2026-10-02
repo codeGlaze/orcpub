@@ -66,6 +66,14 @@
     (is (zero? (at :blush 150 20)) "not on the forehead")
     (is (zero? (at :blush 50 170)) "not where the hair covers")
     (is (some pos? (for [y (range 140 190) x (range 110 190)] (at :freckles x y))) "freckles across the nose")
+    (testing "both cheeks and the nose take freckles"
+      (let [m2 (face/marks (face/face-settings {:face {:freckles 1.0}}) shapes skin w h [140 140 170 200])
+            any-in (fn [x0 x1 y0 y1] (some pos? (for [y (range y0 y1) x (range x0 x1)] (aget (:freckles m2) (+ x (* y w))))))]
+        (is (any-in 75 140 150 200) "under the left eye")
+        (is (any-in 175 230 150 200) "under the right eye")
+        (is (any-in 140 170 140 175) "across the bridge of the nose")
+        (is (= [140 140 170 200] (face/alpha-box (let [a (#?(:clj double-array :cljs (fn [n] (js/Float64Array. n))) (* w h))]
+                                                     (doseq [y (range 140 201) x (range 140 171)] (aset a (+ x (* y w)) 255.0)) a) w h)))))
     (is (every? zero? (for [y (range 0 300 7) x (range 0 60 3)] (at :freckles x y))))
     (is (nil? (face/marks (face/face-settings {:face {:blush 0.5}}) [(first shapes)] skin w h))
         "one eye is not enough to place a face from")

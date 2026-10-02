@@ -419,7 +419,8 @@
                     (aset showing i (* (/ (aget skin i) 255.0)
                                        (- 1.0 (/ (max (aget hair i) (aget eye-alpha i)) 255.0)))))
                   (when-let [rect (asset-rect eyes w h)]
-                    (face/marks fs (colorize/iris-shapes eyes rect) showing w h))))
+                    (face/marks fs (colorize/iris-shapes eyes rect) showing w h
+                                (face/alpha-box (combined-alpha portrait placed-of [:nose] any? w h) w h)))))
             ^doubles mb (:blush m) ^doubles mf (:freckles m)
             blush-rgb (colorize/hex->rgb (:blush-colour fs))
             ^ints d (.. img getRaster getDataBuffer getData)]

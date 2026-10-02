@@ -692,10 +692,14 @@
    :whites ["#ffffff" "#f4efe4" "#e6e2d8" "#dfe6ee" "#efe3c2" "#f0d4cf" "#2a2a2e" "#a8322c"]})
 
 (def default-slot-colors
-  "What a slot renders as before anyone picks. Only :lips has one: the other
-   slots fall back to their layer's category tint, but a lipped mouth with no
-   lip colour would render in greys, which is the bug this slot exists to fix."
-  {:lips "#c98d82"
+  "What a slot renders as before anyone picks. Without one, each layer fell
+   back to its own category tint, so a slot's pieces disagreed: a pale head
+   with a pink ear and a clay-red nose, and five hair pieces in five ambers.
+   Every slot whose pieces must match has a default. A lipped mouth with no
+   lip colour would render in greys."
+  {:skin "#f2ddc4"
+   :hair "#a06430"
+   :lips "#c98d82"
    ;; only for an eye style drawn without painted whites (:asset/whites), where
    ;; the whites are filled in underneath it; white unless someone picks
    :whites "#ffffff"})
