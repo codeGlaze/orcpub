@@ -81,6 +81,35 @@ build test; that's the pattern to copy here.
 
 ---
 
+## 📌 PINNED — keyboard focus is invisible site-wide (`outline: 0`), and the fix is undecided
+
+**The owner hasn't decided what to do here.** Pinned so it isn't settled by default, either by
+leaving it forever or by someone "fixing" it without asking.
+
+**Status:** Open — awaiting a decision
+**Severity:** Medium — accessibility: keyboard users can't see where they are
+**Reported:** 2026-09-30
+
+`core.clj` has `[:*:focus {:outline 0}]` (line 1490 on `agents/develop`), so no element shows
+where keyboard focus is: tabbing through the builder moves focus with no visible sign of it. The
+browser's default ring is gone everywhere; a few components add their own (the dev-mode toggle,
+`core.clj:2546`, a 2px orange outline offset 3px). The rule is common in older sites because the
+default ring also appears on mouse clicks, which looks like a bug.
+
+Options, none chosen:
+
+- **Leave it.** Mouse and touch users see no change; keyboard users keep having no indicator.
+- **Replace it with `:focus-visible` rings.** The browser shows them for keyboard focus only, not
+  for clicks, which removes the original reason for `outline: 0`. Needs a ring style for both
+  themes (the dev-mode toggle's orange in dark, `#33658A` in light, is the proposal in
+  `docs/design/style-guide.md` section 4) and a check of the header tabs, flyouts and buttons,
+  some of which set `outline: none` on their own.
+- **Per component.** Keep the global rule and add rings where they are missing. Lowest risk, and
+  the one most likely to leave gaps.
+
+Before deciding, a capture of a keyboard walk through the builder with each option would show
+what changes.
+
 ## 📌 PINNED — localStorage corrupt data persistence (HANDS OFF until deliberately scheduled)
 
 **Do not touch this without explicit intent.** It sits in the homebrew-consistency-sensitive
@@ -289,7 +318,11 @@ Beyond refuse both and are upload-or-nothing.
 
 ## Layout is chosen by user agent, not by viewport width
 
-**Status:** Open
+**Status:** Fixed on `feature/style-guide`, in PR #40 against `integration` (2026-10-02). At
+767px and under the phone layout is drawn on any device, from `matchMedia`, live on resize; wider,
+the device decides as before, and a phone keeps the phone layout at any width. The builder's
+Description tab now has one key in both layouts. Checked by `scripts/e2e/layout-width.js`. Close
+this entry when the PR merges.
 **Severity:** Medium — a desktop browser at phone width gets a broken hybrid
 **Reported:** 2026-09-05
 

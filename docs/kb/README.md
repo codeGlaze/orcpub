@@ -17,6 +17,7 @@ sides had been written blind to the other's findings.
 | Looking for which doc owns a topic | [topic-index.md](topic-index.md) |
 | New to the codebase | [namespace-architecture.md](namespace-architecture.md) |
 | About to touch a builder, a control, or CSS | [before-you-start.md](before-you-start.md) |
+| Adding or changing styles (colours, weights, buttons, phone layout) | [style-guide.md](../design/style-guide.md) |
 | Writing a doc | [documentation-discipline.md](documentation-discipline.md) · [verification-discipline.md](verification-discipline.md) |
 
 ## Index
