@@ -11,6 +11,7 @@
             [orcpub.dnd.e5.portrait-colorize-test]
             [orcpub.dnd.e5.portrait-effects-test]
             [orcpub.dnd.e5.portrait-face-test]
+            [orcpub.dnd.e5.portrait-light-test]
             [orcpub.artist-links-test]
             [orcpub.dnd.e5.spell-packing-test]
             [orcpub.image-url-test]
@@ -42,7 +43,7 @@
              'orcpub.dnd.e5.hunter-evasion-test
              'orcpub.dnd.e5.portrait-layout-test
              'orcpub.dnd.e5.portrait-colorize-test
-             'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test
+             'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test 'orcpub.dnd.e5.portrait-light-test
              'orcpub.artist-links-test
              'orcpub.dnd.e5.spell-packing-test
              'orcpub.image-url-test

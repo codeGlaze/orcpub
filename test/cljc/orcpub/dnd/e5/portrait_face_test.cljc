@@ -5,10 +5,10 @@
 
 (deftest settings-default-and-clamp
   (is (= {:pupil :round :second-eye nil :blush 0.0 :blush-colour "#e0606a" :freckles 0.0
-          :freckle-place 0.5 :freckle-strength 0.5}
+          :freckle-place 0.5 :freckle-strength 0.5 :shade 0.0}
          (face/face-settings {})))
   (is (= {:pupil :snake :second-eye "#3d5c8f" :blush 1.0 :blush-colour "#e0606a" :freckles 0.0
-          :freckle-place 0.5 :freckle-strength 0.5}
+          :freckle-place 0.5 :freckle-strength 0.5 :shade 0.0}
          (face/face-settings {:face {:pupil "snake" :second-eye "#3d5c8f" :blush 4 :blush-colour "pink" :freckles -1}}))
       "strings read as keywords, numbers clamp, junk falls back")
   (is (= :round (:pupil (face/face-settings {:face {:pupil :cat}}))) "only pupils we draw")

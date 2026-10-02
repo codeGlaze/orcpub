@@ -2205,6 +2205,20 @@
                                     (= mode "split") (assoc :split true :start 0.5 :falloff 0.06)))]
                   (if (empty? o) (dissoc draft :ombre) (assoc draft :ombre o)))))))
 
+;; Glowing eyes and mood light (portrait-light/light-settings): {:mood :style
+;; :from :glow :glow-strength}. A nil value drops the key.
+(reg-event-db
+ :portrait/set-light
+ (fn [db [_ k v]]
+   (update-in db [:portrait/draft]
+              (fn [draft]
+                (let [o (cond-> (or (:light draft) {})
+                          (nil? v) (dissoc k)
+                          (some? v) (assoc k v)
+                          ;; a new mood comes from its own side until one is picked
+                          (= k :mood) (dissoc :from))]
+                  (if (empty? o) (dissoc draft :light) (assoc draft :light o)))))))
+
 ;; Eye and skin effects (portrait-face/face-settings): {:pupil :second-eye
 ;; :blush :blush-colour :freckles}. A nil value drops the key, as for the
 ;; ombre.
