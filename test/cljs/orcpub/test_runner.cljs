@@ -1,5 +1,6 @@
 (ns orcpub.test-runner
   (:require [cljs.test :refer-macros [run-tests]]
+            [re-frame.core :as rf]
             ;; .cljc tests (run on both JVM and CLJS)
             [orcpub.common-test]
             [orcpub.dnd.e5.homebrew-guard-test]
@@ -32,6 +33,12 @@
             [orcpub.dnd.e5.orcbrew-validation-test]
             ;; encrypted share snapshots use Web Crypto, so they run only here
             [orcpub.dnd.e5.share-url-test]))
+
+
+;; Building the character template starts a watcher that recomputes it on every app-db change and
+;; dispatches into whichever test runs next. Tests that need the request capture it (events-test
+;; effects-of), which overrides this.
+(rf/reg-fx :orcpub.dnd.e5.autosave-fx/ensure-template-cache (fn [_]))
 
 (defn -main []
   (run-tests 'orcpub.common-test

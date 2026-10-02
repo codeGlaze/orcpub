@@ -2112,6 +2112,17 @@
     (str "Reconnected " n " reference" (when (not= 1 n) "s")
          " to content that had been renamed. Save the character to keep the fix.")))
 
+(defn- heal-announcement
+  "The [:show-message ...] for a recorded heal not yet announced, or nil. Builder only: \"save to
+   keep the fix\" means nothing elsewhere (homebrew-keys-design.md)."
+  [db]
+  (let [rewrote (get-in db [:character-healed :rewrote])
+        route (:route db)]
+    (when (and (= routes/dnd-e5-char-builder-route (or (:handler route) route))
+               (seq rewrote)
+               (not (get-in db [:character-healed :announced?])))
+      [:show-message (healed-message rewrote) 8000])))
+
 (reg-event-fx
  ::char5e/relink-content
  (fn [{:keys [db]} [_ from-key to-key content-type]]
@@ -2156,7 +2167,8 @@
      ;; banners until ::e5/answer-relink records it as asked.
      ;; A heal is not announced here: :route queues a [:hide-message] that runs after this,
      ;; clearing a toast raised now before it painted. :route announces it instead.
-     {:db (assoc db' ::e5/relink-question
+     {::autosave-fx/ensure-template-cache true
+      :db (assoc db' ::e5/relink-question
                          (when ask
                            (let [{:keys [content-type from] :as r} (get relinks ask)]
                              (assoc (select-keys r [:content-type :from :to :to-name :import])
@@ -2575,16 +2587,22 @@
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
            share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
-           ;; A character healed on its way here is announced now, after [:hide-message]
-           ;; above: dispatch-n is FIFO, the one place a heal toast survives navigation.
-           ;; Builder only -- "save to keep the fix" means nothing elsewhere.
-           ;; See homebrew-keys-design.md.
-           (and (= (or handler new-route) routes/dnd-e5-char-builder-route)
-                (seq (get-in db [:character-healed :rewrote]))
-                (not (get-in db [:character-healed :announced?])))
-           (-> (update :dispatch-n conj
-                       [:show-message (healed-message (get-in db [:character-healed :rewrote])) 8000])
+           ;; The heal waits for the template's offered keys, so a page showing a character
+           ;; starts building it; other pages build nothing (homebrew-safety-net.md).
+           (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} (or handler new-route))
+           (assoc ::autosave-fx/ensure-template-cache true)
+           ;; After [:hide-message] above: dispatch-n is FIFO, so the toast survives navigation.
+           (heal-announcement (assoc db :route new-route))
+           (-> (update :dispatch-n conj (heal-announcement (assoc db :route new-route)))
                (assoc-in [:db :character-healed :announced?] true))))))))
+
+(reg-event-fx
+ ::e5/announce-heal
+ ;; For a heal that lands after the route change, when the template's offered keys arrive.
+ (fn [{:keys [db]} _]
+   (if-let [message (heal-announcement db)]
+     {:db (assoc-in db [:character-healed :announced?] true) :dispatch message}
+     {})))
 
 (reg-event-db
  :set-user-data
