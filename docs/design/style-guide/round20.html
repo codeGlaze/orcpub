@@ -1,0 +1,157 @@
+<title>Style Tidy Before and After</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+figcaption b { color: var(--fg); }
+</style>
+<style>
+.rows { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+.row { display: grid; grid-template-columns: 170px auto; align-items: center; gap: 12px; }
+.row span { font-size: 12px; color: var(--dim); }
+.row span b { color: var(--fg); }
+.a1 img { width: 600px; image-rendering: pixelated; }
+.a2 img { width: 600px; }
+.s75 img { width: 450px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+<style>
+.grp { font: 700 12px/1.3 var(--sans); color: var(--fg); margin-bottom: 4px; }
+.row { grid-template-columns: 110px auto; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+</style>
+<style>
+.phones { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.phones figure { flex: 0 0 auto; max-width: 100%; }
+.phones img { width: 390px; max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.phones img.w320 { width: 320px; }
+.wide img { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+</style>
+<style>
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.cmp pre { margin: 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; overflow-x: auto; white-space: pre; }
+.cmp .lbl { font: 700 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+.same { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+.pairs { display: flex; flex-direction: column; gap: 18px; }
+.pairrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.pairrow figure { flex: 0 0 auto; max-width: 100%; }
+.pairrow img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.pairrow img.p390 { width: 390px; } .pairrow img.p320 { width: 320px; } .pairrow img.d { width: 640px; }
+h3 { margin: 0; font: 700 15px/1.3 var(--sans); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+<div class="wrap">
+  <header><div>
+    <div class="cap">OrcPub · feature/style-guide · 1e677a3f → 521d0682</div>
+    <h1>Style tidy, before and after</h1>
+    <p class="sub">The three cleanups, plus the header's last inline styles. The code is tighter and the page is unchanged: before-and-after screenshots at 320, 390 and 1280px are byte-for-byte identical, and every header measurement matches.</p>
+  </div></header>
+<section><h2>1. The ability buttons’ strong glow is a named value</h2><div class="cmp">
+<div><div class="lbl">Before</div><pre>;; core.clj, dark-text rule
+[:.roll-button
+ {:text-shadow &quot;0 0 2px rgba(255,255,255,0.7),
+                0 1px 0 rgba(255,255,255,0.55)&quot;
+  ...}]</pre></div>
+<div><div class="lbl">After</div><pre>;; core.clj, beside the other two lifts
+(def text-lift-light-strong
+  &quot;0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)&quot;)
+
+[:.roll-button
+ {:text-shadow text-lift-light-strong
+  ...}]</pre></div></div></section>
+<section><h2>2. Header tabs spaced by a gap; the !important override is gone</h2><div class="cmp">
+<div><div class="lbl">Before</div><pre>;; views.cljs, each tab
+[:div ... .header-tab.m-l-2.m-r-2 ...]
+;; the tab row on a phone
+{:class (when mobile? &quot;p-l-10 p-r-10 phone-tabs&quot;)}
+
+;; core.clj, undoing the tab margins on a phone
+[:.phone-tabs
+ [:.header-tab:first-child {:margin-left &quot;0 !important&quot;}]
+ [:.header-tab:last-child {:margin-right &quot;0 !important&quot;}]]</pre></div>
+<div><div class="lbl">After</div><pre>;; views.cljs, each tab
+[:div ... .header-tab ...]
+;; the tab row on a phone
+{:class (when mobile? &quot;phone-tabs&quot;)}
+
+;; core.clj
+[:.app-header-menu
+ {:gap &quot;4px&quot;
+  :padding &quot;0 2px&quot;}
+ [:&amp;.phone-tabs {:padding &quot;0 10px&quot;}]]</pre></div></div></section>
+<section><h2>3. No inline styles in the header</h2><div class="cmp">
+<div><div class="lbl">Before</div><pre>;; views.cljs
+(def login-style-menu
+  {:background-color &quot;rgba(0,0,0,0.4)&quot;})
+(def search-input-parent-style
+  {:background-color &quot;rgba(0,0,0,0.3)&quot;})
+
+[:div.b-rad-5 ... {:style login-style-menu ...}]
+[:div.b-rad-5 ... {:style search-input-parent-style ...}]
+[:div {:style (when (not mobile?) {:min-width &quot;53px&quot;})}]</pre></div>
+<div><div class="lbl">After</div><pre>;; views.cljs (both style maps deleted)
+[:div.header-login-box.b-rad-5 ...]
+[:div.header-search-box.b-rad-5 ...]
+[:div {:class (when (not mobile?) &quot;supporter-slot&quot;)}]
+
+;; core.clj
+[:.header-search-box {:background-color &quot;rgba(0,0,0,0.3)&quot;}]
+[:.header-login-box {:background-color &quot;rgba(0,0,0,0.4)&quot;}]
+[:.supporter-slot {:min-width &quot;53px&quot;}]</pre></div></div></section>
+
+  <section><h2>The running page</h2><p>Nine screenshots taken before and after; all nine are byte-identical. Five are shown.</p><div class="pairs"><div><h3>Header, 390px phone <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p390" src="round20/before/phone-390.png" alt="Header, 390px phone, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p390" src="round20/after/phone-390.png" alt="Header, 390px phone, after"></figure></div></div><div><h3>Header, 320px phone <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p320" src="round20/before/phone-320.png" alt="Header, 320px phone, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p320" src="round20/after/phone-320.png" alt="Header, 320px phone, after"></figure></div></div><div><h3>Ability row, Dark Button Text, 390px <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p390" src="round20/before/phone-390-dark.png" alt="Ability row, Dark Button Text, 390px, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p390" src="round20/after/phone-390-dark.png" alt="Ability row, Dark Button Text, 390px, after"></figure></div></div><div><h3>Ability row, Dark Button Text, 320px <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="p320" src="round20/before/phone-320-dark.png" alt="Ability row, Dark Button Text, 320px, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="p320" src="round20/after/phone-320-dark.png" alt="Ability row, Dark Button Text, 320px, after"></figure></div></div><div><h3>Header, desktop 1280px <span class="same">identical</span></h3><div class="pairrow">
+<figure><figcaption><b>Before</b></figcaption><img class="d" src="round20/before/desktop-1280.png" alt="Header, desktop 1280px, before"></figure>
+<figure><figcaption><b>After</b></figcaption><img class="d" src="round20/after/desktop-1280.png" alt="Header, desktop 1280px, after"></figure></div></div></div></section>
+  <div class="note"><h3>Inline styles still in the header</h3><p>The active tab's amber and the tab flyout menus are still inline maps in the tab component (<code>active-style</code>, <code>header-menu-item-style</code>). They predate this branch and change with state, so they would move together with the shared button work rather than here.</p></div>
+</div>
