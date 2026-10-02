@@ -174,33 +174,6 @@
 #_(def header-tab-style
   {:width "85px"})
 
-(def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
-
-(def menu-color "#2c3445")
-
-(def header-menu-item-style
-  {:position :absolute
-   :background-color "#2c3445"
-   :z-index 10000
-   :top 84
-   :right 0})
-
-;; dead — zero callers
-#_(def desktop-menu-item-style
-  (assoc header-menu-item-style
-         :width "100%"))
-
-(def mobile-header-menu-item-style
-  (assoc header-menu-item-style
-         :top 46))
-
-(def user-menu-style
-  {:background-color menu-color
-   :z-index 10000
-   :position :absolute
-   :right 0
-   :display :none})
-
 (defn handle-user-menu [e]
   (let [user-header (js/document.getElementById "user-header")
         user-menu (js/document.getElementById "user-menu")
@@ -208,14 +181,12 @@
         width (.-offsetWidth user-header)
         bottom (.-bottom bounding-rect)
         right (.-right bounding-rect)
-        style (.-style user-menu)
         window-width js/document.documentElement.clientWidth]
-    (set! (.-display style) "block")))
+    (.add (.-classList user-menu) "open")))
 
 (defn hide-user-menu [e]
-  (let [user-menu (js/document.getElementById "user-menu")
-        style (.-style user-menu)]
-    (set! (.-display style) "none")))
+  (let [user-menu (js/document.getElementById "user-menu")]
+    (.remove (.-classList user-menu) "open")))
 
 (defn user-header-view []
   (let [username @(subscribe [:username])
@@ -238,9 +209,8 @@
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
-     [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style
-       :on-click hide-user-menu}
+     [:div#user-menu.user-menu.shadow.f-w-b
+      {:on-click hide-user-menu}
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -297,11 +267,12 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (on-click e)))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
               ;; on a phone the tabs share the row evenly instead of spreading out
               :class (str (if disabled "disabled" "pointer")
                           " "
-                          (if mobile? "flex-grow-1" "w-110"))}
+                          (if mobile? "flex-grow-1" "w-110")
+                          (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -312,15 +283,14 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
             ^{:key name}
             [:div.p-10.opacity-5.hover-opacity-full
              (let [current-route @(subscribe [:route])]
-               {:style (when (or (= route current-route)
-                               (= route (get current-route :handler))) active-style)
+               {:class (when (or (= route current-route)
+                               (= route (get current-route :handler))) "active")
                 :on-click (fn [e]
                             (.stopPropagation e)
                             (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
@@ -341,10 +311,11 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (if mobile? "flex-grow-1" "w-110"))}
+                               (if mobile? "flex-grow-1" "w-110")
+                               (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -356,7 +327,6 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
@@ -366,9 +336,9 @@
                           (.stopPropagation e)
                           (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
                             (.blur tab)))
-              :style (let [current-route @(subscribe [:route])]
+              :class (let [current-route @(subscribe [:route])]
                        (when (or (= route current-route)
-                                 (= route (get current-route :handler))) active-style))}
+                                 (= route (get current-route :handler))) "active"))}
              [:a.no-text-decoration {:href route} name]])
           buttons))])]))
 

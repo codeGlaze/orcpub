@@ -1361,6 +1361,22 @@
      {:scrollbar-width "thin"
       :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
 
+    ;; The flyout hangs under its tab (84px desktop tabs, 46px phone tabs), and the
+    ;; user menu under the login box. Both open over the page, so the z-index.
+    [:.header-flyout :.user-menu
+     {:position :absolute
+      :right 0
+      :z-index 10000
+      :background-color "#2c3445"}]
+    [:.header-flyout {:top "84px"}]
+    [:.phone-tabs [:.header-flyout {:top "46px"}]]
+    [:.user-menu {:display :none}
+     [:&.open {:display :block}]]
+
+    ;; The current section's tab, and its page in the flyout.
+    [:.header-tab.active :.header-flyout>.active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
