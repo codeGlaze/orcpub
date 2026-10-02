@@ -172,6 +172,10 @@ for hair), so the share card, the builder and the PDF draw them identically.
   Two attempts were rejected on the real art: a band broken along the strand
   field read as salt drying on cloth, and one ellipse across the whole head
   arched over every piece like a halo. Each piece takes its own ring.
+  The ring sits the same depth below every piece's top, set by the Shine at
+  slider (default 0.3, chosen on the purple short cut). It used to sit 22% of
+  each piece's own length down, which put a long piece's ring by the ear and
+  well below the fringe's.
 - **Split:** the tips colour on one side of a line down through the crown.
   The line and its wobble are measured on the frame, the same for every
   piece. Each piece's own measure put the line somewhere different on each

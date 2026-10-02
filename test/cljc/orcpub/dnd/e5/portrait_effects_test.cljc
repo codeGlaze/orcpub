@@ -6,10 +6,10 @@
 
 (deftest settings-default-and-clamp
   (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil :bangs nil
-          :shine 0.0 :split false}
+          :shine 0.0 :shine-at 0.3 :split false}
          (fx/ombre-settings {})))
   (is (= {:tip "#2f7f9a" :start 1.0 :falloff 0.0 :depth 0.3 :clumps 0.45 :light 1.0 :under 0.0 :angle 90.0 :bangs nil
-          :shine 0.0 :split false}
+          :shine 0.0 :shine-at 0.3 :split false}
          (fx/ombre-settings {:ombre {:tip "#2f7f9a" :start 7 :falloff -1 :depth "x" :angle 450 :light 3}}))
       "out-of-range numbers are pulled back in, junk falls back to the default")
   (is (nil? (:tip (fx/ombre-settings {:ombre {:tip "teal"}}))) "only #rrggbb tips"))
@@ -268,15 +268,23 @@
       (is (nil? (:angle (fx/ombre-settings {:ombre {:split true :angle 90}}))) "a split is not also an angle"))))
 
 (deftest shine-catches-the-crown-on-the-fill-only
+  ;; a frame 1000 tall; a piece 500 long hanging from y 0
   (let [env (double-array 100 0.0)
-        frame {:kind :arc :env env :reach 100.0 :x0 0.0 :x1 100.0}
+        frame {:kind :arc :env env :reach 500.0 :x0 0.0 :x1 100.0 :h 1000.0}
+        long-frame (assoc frame :reach 900.0)
         s (assoc (fx/ombre-settings {:ombre {:shine 1.0}}) :depth 0.0)
         off (assoc s :shine 0.0)
         root [92 58 30]
-        px (fn [settings k x y rgb] ((fx/pixel-fn root root settings frame k) x y rgb))
-        lum (fn [c] (+ (bit-and (bit-shift-right c 16) 0xff) (bit-and (bit-shift-right c 8) 0xff) (bit-and c 0xff)))]
-    (is (> (lum (px s :hair-front 50 22 0xffffff)) (+ 30 (lum (px off :hair-front 50 22 0xffffff))))
-        "a band across the top of the head lightens")
-    (is (= (px s :hair-front 50 70 0xffffff) (px off :hair-front 50 70 0xffffff)) "but not down the lengths")
-    (is (= (px s :hair-front 50 22 0x000000) (px off :hair-front 50 22 0x000000)) "the ink stays ink")
-    (is (= (px s :hair-back 50 22 0xffffff) (px off :hair-back 50 22 0xffffff)) "and the hair behind the head takes none")))
+        px (fn [settings k x y rgb & [fr]] ((fx/pixel-fn root root settings (or fr frame) k) x y rgb))
+        lum (fn [c] (+ (bit-and (bit-shift-right c 16) 0xff) (bit-and (bit-shift-right c 8) 0xff) (bit-and c 0xff)))
+        at (long (* 1000 (fx/shine-depth 0.3)))]
+    (is (> (lum (px s :hair-front 50 at 0xffffff)) (+ 30 (lum (px off :hair-front 50 at 0xffffff))))
+        "a ring across the top of the piece lightens")
+    (is (= (px s :hair-front 50 (+ at 150) 0xffffff) (px off :hair-front 50 (+ at 150) 0xffffff)) "but not down the lengths")
+    (is (= (px s :hair-front 50 at 0x000000) (px off :hair-front 50 at 0x000000)) "the ink stays ink")
+    (is (= (px s :hair-back 50 at 0xffffff) (px off :hair-back 50 at 0xffffff)) "and the hair behind the head takes none")
+    (is (= (px s :hair-front 50 at 0xffffff) (px s :hair-front 50 at 0xffffff long-frame))
+        "a long piece puts its ring as far below its top as a short one")
+    (let [low (assoc s :shine-at 0.9) at2 (long (* 1000 (fx/shine-depth 0.9)))]
+      (is (> (lum (px low :hair-front 50 at2 0xffffff)) (+ 30 (lum (px low :hair-front 50 at 0xffffff))))
+          "Shine at moves the ring down"))))

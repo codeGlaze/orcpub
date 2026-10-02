@@ -38,7 +38,10 @@
                   ; on others (0.45 chosen on the real art; 1 looked stamped)
    :light 0.0     ; depth lifted toward a light at the upper left, deepened away
    :under 0.0     ; the hair behind the head a little darker, by how light it is
-   :shine 0.0     ; a highlight across the crown, broken along the strands
+   :shine 0.0     ; a highlight ring across each crown piece
+   :shine-at 0.3  ; how far below each piece's top the ring sits, 0 (at the
+                  ; top) .. 1 (well down); 0.3 is where the purple short cut
+                  ; was chosen
    :split false}) ; the tips colour on one side of a line through the crown
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
@@ -73,6 +76,7 @@
      :light (num :light)
      :under (num :under)
      :shine (num :shine)
+     :shine-at (num :shine-at)
      :split (true? (:split o))
      ;; a split is its own way of running; an angle left over from before is not
      :angle (let [a (:angle o)] (when (and (number? a) (not (true? (:split o)))) (mod (double a) 360.0)))
@@ -186,7 +190,7 @@
               drops (for [i (range 0 (* w h) 5) :when (> (alpha-at i) 60)]
                       (- (quot i w) (aget env (mod i w))))]
           {:kind :arc :env env :reach (max 1.0 (or (percentile drops 0.97) 1.0))
-           :x0 (double lo) :x1 (double hi)})))))
+           :x0 (double lo) :x1 (double hi) :h (double h)})))))
 
 (defn position-fn
   "A function of pixel `x` `y` giving 0 at the root and 1 at the tip. Made
@@ -559,15 +563,23 @@
   (let [t (clamp01 (/ (- x e0) (- e1 e0)))] (* t t (- 3.0 (* 2.0 t)))))
 
 (defn- shine-band
-  "How much highlight a pixel `t` along its piece's crown line takes, with
-   strand field value `f` (0 without one): one clean ring across the piece,
-   crisp edged, barely wavering with the strands. Chosen on the real art. A
-   band broken into strand-shaped pieces read as salt drying on cloth, and
-   one ellipse across the whole head arched over every piece like a halo:
-   each piece takes its own ring."
-  ^double [^double t ^double f]
-  (let [dt (Math/abs (- t (+ 0.22 (* 0.02 f))))]
-    (* 0.55 (- 1.0 (smoothstep* 0.035 0.055 dt)))))
+  "How much highlight a pixel takes, `d` below its piece's crown line (as a
+   fraction of the frame's height), with strand field value `f` (0 without
+   one): one clean ring across the piece at depth `at`, crisp edged, barely
+   wavering with the strands. Chosen on the real art. A band broken into
+   strand-shaped pieces read as salt drying on cloth, and one ellipse across
+   the whole head arched over every piece like a halo: each piece takes its
+   own ring. The depth is the same on every piece, not a fraction of the
+   piece's own length -- that put a long piece's ring down by the ear."
+  ^double [^double d ^double f ^double at]
+  (let [dd (Math/abs (- d (+ at (* 0.0048 f))))]
+    (* 0.55 (- 1.0 (smoothstep* 0.0084 0.0132 dd)))))
+
+(defn shine-depth
+  "Where the ring sits below a piece's top, as a fraction of the frame's
+   height, for the Shine-at setting 0..1."
+  ^double [^double shine-at]
+  (+ 0.01 (* 0.14 shine-at)))
 
 (defn- shine-colour
   "The highlight: the hair colour a little more saturated, then lifted most
@@ -593,7 +605,12 @@
         shine (if (shine-layers layer-key) (double (or shine 0.0)) 0.0)
         root-shine (shine-colour root)
         tip-shine (when (not= root tip) (shine-colour tip))
-        arc-pos (when (pos? shine) (if (= :arc (:kind frame)) pos (some-> (:arc frame) position-fn)))
+        arc-frame* (if (= :arc (:kind frame)) frame (:arc frame))
+        arc-pos (when (pos? shine) (some-> arc-frame* position-fn))
+        ;; arc-pos is a fraction of this piece's length; the ring is placed
+        ;; in frame terms, the same depth on every piece
+        shine-scale (/ (double (or (:reach arc-frame*) 1.0)) (double (or (:h arc-frame*) 1.0)))
+        shine-at (shine-depth (double (or (:shine-at settings) 0.3)))
         tips-from (double (or tips-from 0.0))
         x0 (double (or (:x0 frame) 0.0))
         span (max 1.0 (- (double (or (:x1 frame) 1.0)) x0))
@@ -624,7 +641,8 @@
           ;; grain must not turn into speckle
           (let [lum (/ (+ (bit-and (bit-shift-right rgb 16) 0xff) (bit-and (bit-shift-right rgb 8) 0xff) (bit-and rgb 0xff)) 765.0)
                 ta (arc-pos x y)
-                k (* shine (smoothstep* 0.55 0.8 lum) (shine-band ta (if strand (strand x y) 0.0)))]
+                k (* shine (smoothstep* 0.55 0.8 lum)
+                     (shine-band (* ta shine-scale) (if strand (strand x y) 0.0) shine-at))]
             (if (> k 0.004)
               (let [[cr cg cb] (if (and tip-shine (> ta 0.5)) tip-shine root-shine)
                     ch (fn ^long [^long c ^double l]

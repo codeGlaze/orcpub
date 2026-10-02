@@ -1667,7 +1667,7 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   "The hair's second colour and how it runs. With no tips colour the hair is
    one colour with a little depth, which is where everyone starts."
   [portrait]
-  (let [{:keys [tip start falloff depth angle clumps bangs shine split]} (fx/ombre-settings portrait)]
+  (let [{:keys [tip start falloff depth angle clumps bangs shine shine-at split]} (fx/ombre-settings portrait)]
     [:div.pl-ombre
      [:span.pl-panel-heading "Tips"]
      [:div.pl-presets
@@ -1712,6 +1712,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
      [ombre-slider "Depth" :depth depth]
      ;; light catching across the top of the head
      [ombre-slider "Shine" :shine shine]
+     ;; how far down each piece the ring sits
+     (when (pos? shine) [ombre-slider "Shine at" :shine-at shine-at])
      [:label.pl-ombre-row
       [:span.pl-ombre-label "Runs"]
       [:select {:value (cond split "split" angle "angle" :else "roots")
