@@ -28,7 +28,7 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 ## Fixed
 
-- The Light Theme and Dark Button Text settings work from the keyboard: Tab reaches them, Space or Enter switches them, they show a focus ring, and screen readers hear them as on/off switches. (`06d1d443`)
+- The Light Theme and Dark Button Text settings work from the keyboard: Tab reaches them, Space or Enter switches them, they show a focus ring, and screen readers hear them as on/off switches. (`8568786f`)
 - A desktop browser narrowed to phone width gets the phone layout, and the desktop one back when widened; it used to keep the desktop page squeezed into the narrow window. A phone keeps the phone layout at any width. (`77fcb2e6`)
 - The builder stays on Description when the window crosses phone width; it used to jump to the character sheet. (`77fcb2e6`)
 - On phones the header tab menus open on screen; the header clipped them out of view. (`66ccbcb6`)
