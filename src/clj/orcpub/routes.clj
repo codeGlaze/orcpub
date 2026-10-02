@@ -35,6 +35,7 @@
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
             [orcpub.email :as email]
+            [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.config :as config]
@@ -1371,7 +1372,8 @@
         :title (or title default-title)
         :description (or description default-description)
         :image (or image-url (default-image-url host))
-        :nonce csp-nonce}
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]

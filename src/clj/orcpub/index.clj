@@ -6,6 +6,7 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
+            [orcpub.loading-spinner :as spinner]
             [environ.core :refer [env]]))
 
 (def homebrew-url
@@ -123,7 +124,8 @@
                           description
                           image
                           fb-type
-                          nonce]}
+                          nonce
+                          spinner-kind]}
                   & [splash?]]
   (html5
    {:lang :en}
@@ -227,6 +229,7 @@ table {
 html {
 	min-height: 100%;
 }"]
+    [:style spinner/css]
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
@@ -236,9 +239,7 @@ html {
     [:div#app
      (if splash?
        (views-2/splash-page)
-       [:div.h-full {:style "display:flex;justify-content:space-around"}
-        [:img {:src "/image/spiral.gif"
-               :style "height:200px;width:200px;margin-top:200px"}]])]
+       (spinner/markup (or spinner-kind (spinner/pick nil))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
     ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
     ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
