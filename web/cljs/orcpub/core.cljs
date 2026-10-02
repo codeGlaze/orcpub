@@ -1,5 +1,6 @@
 (ns orcpub.core
   (:require [orcpub.character-builder :as ch]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.events :as events]
@@ -60,8 +61,8 @@
 ;; undo a load that worked.
 (boot-step "settle-loaded-library" #(dispatch [:orcpub.dnd.e5/settle-loaded-library]))
 
-;; Startup reads homebrew and builds nothing from it. The character template autosave
-;; needs is built on the first save (autosave-fx/ensure-template-cache!).
+;; Startup builds nothing from homebrew, except the character template on a page that shows a
+;; character (build-template, below). See homebrew-safety-net.md.
 
 ;; Another tab's library write reloads this tab's copy.
 (events/start-library-watch!)
@@ -177,6 +178,13 @@
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (boot-step "verify-user-session" #(dispatch-sync [:verify-user-session]))
+
+;; Under the spinner, so the page is responsive when it appears: the heal of renamed picks waits
+;; for this template. Guarded like the lazy build; a failure leaves the cache empty.
+(boot-step "build-template"
+           #(when (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route}
+                   (:handler (routes/match-route js/window.location.pathname)))
+              (autosave-fx/ensure-template-cache!)))
 
 ;; React 18 createRoot API (Reagent 2.0)
 (defonce root (rdc/create-root (js/document.getElementById "app")))
