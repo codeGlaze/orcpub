@@ -4,9 +4,11 @@
             [orcpub.dnd.e5.portrait-face :as face]))
 
 (deftest settings-default-and-clamp
-  (is (= {:pupil :round :second-eye nil :blush 0.0 :blush-colour "#e0606a" :freckles 0.0}
+  (is (= {:pupil :round :second-eye nil :blush 0.0 :blush-colour "#e0606a" :freckles 0.0
+          :freckle-place 0.5 :freckle-strength 0.5}
          (face/face-settings {})))
-  (is (= {:pupil :snake :second-eye "#3d5c8f" :blush 1.0 :blush-colour "#e0606a" :freckles 0.0}
+  (is (= {:pupil :snake :second-eye "#3d5c8f" :blush 1.0 :blush-colour "#e0606a" :freckles 0.0
+          :freckle-place 0.5 :freckle-strength 0.5}
          (face/face-settings {:face {:pupil "snake" :second-eye "#3d5c8f" :blush 4 :blush-colour "pink" :freckles -1}}))
       "strings read as keywords, numbers clamp, junk falls back")
   (is (= :round (:pupil (face/face-settings {:face {:pupil :cat}}))) "only pupils we draw")
@@ -67,7 +69,7 @@
     (is (zero? (at :blush 50 170)) "not where the hair covers")
     (is (some pos? (for [y (range 140 190) x (range 110 190)] (at :freckles x y))) "freckles across the nose")
     (testing "both cheeks and the nose take freckles"
-      (let [m2 (face/marks (face/face-settings {:face {:freckles 1.0}}) shapes skin w h [140 140 170 200])
+      (let [m2 (face/marks (face/face-settings {:face {:freckles 1.0 :freckle-place 1.0}}) shapes skin w h [140 140 170 200])
             any-in (fn [x0 x1 y0 y1] (some pos? (for [y (range y0 y1) x (range x0 x1)] (aget (:freckles m2) (+ x (* y w))))))]
         (is (any-in 75 140 150 200) "under the left eye")
         (is (any-in 175 230 150 200) "under the right eye")
@@ -79,3 +81,17 @@
         "one eye is not enough to place a face from")
     (is (= [1.0 1.0 1.0] (face/mark-factors 0.0 0.0 [224 96 106])))
     (let [[r g b] (face/mark-factors 0.5 0.0 [224 96 106])] (is (and (> r g) (< g 1.0))) "blush warms")))
+
+(deftest freckle-controls
+  (let [w 300 h 300
+        shapes [(assoc-in (eye 110.0 0) [:iris :cy] 120.0) (assoc-in (eye 190.0 0) [:iris :cy] 120.0)]
+        skin (let [a #?(:clj (double-array (* w h)) :cljs (js/Float64Array. (* w h)))] (dotimes [i (* w h)] (aset a i 1.0)) a)
+        f (fn [o] (:freckles (face/marks (face/face-settings {:face (merge {:freckles 0.8} o)}) shapes skin w h [140 140 170 200])))
+        total (fn [a] (reduce + (seq a)))
+        darkest (fn [a] (reduce max (seq a)))
+        right-of-nose (fn [a] (reduce + (for [y (range 140 200) x (range 172 240)] (aget a (+ x (* y w))))))]
+    (is (< (total (f {:freckles 0.3})) (total (f {:freckles 0.9}))) "Freckles: more of them")
+    (is (< (darkest (f {:freckle-strength 0.1})) (darkest (f {:freckle-strength 0.9}))) "Prominence: darker")
+    (is (< (total (f {:freckle-strength 0.1})) (total (f {:freckle-strength 0.9}))) "and larger")
+    (is (< (right-of-nose (f {:freckle-place 0.0})) (right-of-nose (f {:freckle-place 1.0})))
+        "Placement: toward 1 more of them reach the far cheek")))

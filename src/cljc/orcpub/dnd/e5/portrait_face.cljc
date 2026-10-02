@@ -38,7 +38,9 @@
    :second-eye nil      ; nil: both eyes take the Eyes colour
    :blush 0.0           ; 0..1
    :blush-colour (first blush-colours)
-   :freckles 0.0})      ; 0..1
+   :freckles 0.0        ; how many, 0..1
+   :freckle-place 0.5   ; 0: over the near cheek .. 1: both cheeks and the nose
+   :freckle-strength 0.5}) ; how dark and how large, 0..1
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
@@ -56,7 +58,9 @@
      :second-eye (hex :second-eye)
      :blush (num :blush)
      :blush-colour (or (hex :blush-colour) (:blush-colour face-defaults))
-     :freckles (num :freckles)}))
+     :freckles (num :freckles)
+     :freckle-place (num :freckle-place)
+     :freckle-strength (num :freckle-strength)}))
 
 (defn marks?
   "Whether the skin carries anything (blush or freckles) to draw."
@@ -256,7 +260,7 @@
    in them (`alpha-box`), or nil to estimate it. nil when there are no two
    eyes to place from."
   ([settings shapes skin w h] (marks settings shapes skin w h nil))
-  ([{:keys [blush freckles]} shapes skin w h nose]
+  ([{:keys [blush freckles freckle-place freckle-strength]} shapes skin w h nose]
   (when-let [{:keys [a b sep]} (face-frame shapes)]
     (let [w (long w) h (long h) sep (double sep)
           blush-map
@@ -296,17 +300,25 @@
                   groups [[ax (+ ay (* 0.55 sep)) (* 0.42 sep) (* 0.17 sep) 0.45]
                           [(/ (+ nx0 nx1) 2.0) (+ ny0 (* 0.32 nh)) (* 0.55 nw) (* 0.2 nh) 0.25]
                           [(+ bx (* 0.12 sep)) (+ by (* 0.52 sep)) (* 0.26 sep) (* 0.15 sep) 0.3]]
+                  ;; the first layout: one oval across the face between the eyes
+                  ox (/ (+ ax bx) 2.0) oy (+ (/ (+ ay by) 2.0) (* 0.42 sep))
+                  place (double (or freckle-place 0.5))
+                  strength (double (or freckle-strength 0.5))
                   n (long (* 150 (double freckles)))
-                  scale (/ h 1500.0)]
+                  scale (* (/ h 1500.0) (+ 0.75 (* 0.5 strength)))
+                  darkness (* 0.6 (+ 0.4 (* 1.2 strength)))]
               (dotimes [j n]
                 (let [h0 (fx/hash01 j 7 5) h1 (fx/hash01 j 11 5) h2 (fx/hash01 j 23 5) h3 (fx/hash01 j 37 5)
                       [gx gy grx gry] (cond (< h0 (nth (nth groups 0) 4)) (nth groups 0)
                                             (< h0 (+ (nth (nth groups 0) 4) (nth (nth groups 1) 4))) (nth groups 1)
                                             :else (nth groups 2))
-                      ;; spread evenly over the group's oval, thinning to its edge
+                      ;; spread evenly over the oval, thinning to its edge. Each
+                      ;; freckle has a place in both layouts and Placement
+                      ;; slides it between them, so they move rather than jump
                       ang (* 2.0 Math/PI h1) rr (Math/sqrt h2)
-                      fx* (+ gx (* rr (Math/cos ang) grx))
-                      fy* (+ gy (* rr (Math/sin ang) gry))
+                      c (Math/cos ang) sn (Math/sin ang)
+                      fx* (+ (* (- 1.0 place) (+ ox (* rr c 0.95 sep))) (* place (+ gx (* rr c grx))))
+                      fy* (+ (* (- 1.0 place) (+ oy (* rr sn 0.30 sep))) (* place (+ gy (* rr sn gry))))
                       r (* scale (+ 1.6 (* 1.8 h3)))
                       k (* (- 1.0 (* 0.6 rr)) (+ 0.45 (* 0.55 h3)))]
                   (doseq [yy (range (long (- fy* r 2)) (long (+ fy* r 3)))
@@ -317,7 +329,7 @@
                             i (+ xx (* yy w))]
                         (when (> c (ag out i)) (as! out i c)))))))
               (dotimes [i (* w h)]
-                (let [v (ag out i)] (when (pos? v) (as! out i (* 0.6 v (ag skin i))))))
+                (let [v (ag out i)] (when (pos? v) (as! out i (min 1.0 (* darkness v (ag skin i)))))))
               out))]
       (when (or blush-map freckle-map)
         {:blush blush-map :freckles freckle-map})))))
