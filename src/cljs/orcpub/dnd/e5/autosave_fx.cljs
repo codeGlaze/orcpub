@@ -84,13 +84,14 @@
                         ::content-recon/offered-keys offered
                         ::content-recon/offered-by-type by-type
                         ::content-recon/choice-tags (library/choice-tags template))}
-      heal? (assoc :dispatch [:set-character character]))))
+      ;; No route follows this heal, so it announces itself.
+      heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
 
 (reg-event-fx ::cache-template cache-template)
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.
-   Started once, by ensure-template-cache!, when a character save first needs it.
+   Started once, by ensure-template-cache!.
    Guards the subscribe call itself — if the handler isn't registered yet,
    subscribe returns nil and we skip (no @nil crash). r/track! re-fires
    reactively when the subscription value changes."
@@ -109,11 +110,10 @@
 (defonce ^:private template-cache (atom nil))
 
 (defn ensure-template-cache!
-  "Starts the template cache the first time a character save needs it, lazily --
-   not at app start, where it would build before anything is drawn and outside
-   every error boundary.
-   GOTCHA: bad homebrew would stop the app from starting if built eagerly; only
-   saving a character reads the cache. See homebrew-safety-net.md."
+  "Starts the template cache once: when a character is opened or a page showing one is
+   reached, or when a save needs it. Never at app start.
+   GOTCHA: built eagerly, bad homebrew stopped the app from starting. The save and the
+   heal of renamed picks both read it. See homebrew-safety-net.md."
   []
   (when-not @template-cache
     (reset! template-cache (init-template-cache!))))

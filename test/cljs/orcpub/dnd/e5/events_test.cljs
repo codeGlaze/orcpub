@@ -1167,9 +1167,10 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [:set-character character] (:dispatch fx)) "the waiting heal runs once the list exists")
-    (is (nil? (:dispatch (autosave-fx/cache-template {:db (:db fx)}
-                                                     [::autosave-fx/cache-template small-template])))
+    (is (= [[:set-character character] [::e5/announce-heal]] (:dispatch-n fx))
+        "the waiting heal runs once the list exists, and announces itself: no route follows it")
+    (is (nil? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
+                                                       [::autosave-fx/cache-template small-template])))
         "and only on the first list")))
 
 (deftest a-character-with-nothing-to-heal-is-not-reloaded
@@ -1242,12 +1243,13 @@
                (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
 
 ;; ---------------------------------------------------------------------------
-;; A heal is announced by :route, and a reload heals too
+;; A heal waits for the template, and is announced once
 ;;
-;; Both found in a real browser by test/browser/character_heal_e2e.js, not by
-;; these tests: a toast raised from :set-character was cleared by the [:hide-message]
-;; the accompanying [:route ...] queues, and :initialize-db restored the builder's
-;; stored character with a bare assoc that never reached the reconcilers.
+;; The heal reads the template's offered keys (homebrew-keys-design.md), and the template is
+;; built when a character is opened or its page reached, never at startup
+;; (homebrew-safety-net.md). So a reloaded draft heals when the template arrives, after the
+;; route to the builder, and announces itself then. Watched in a browser by
+;; test/browser/character_heal_e2e.js and scripts/e2e/template-on-open.js.
 ;; ---------------------------------------------------------------------------
 
 (def ^:private stored-plugins
@@ -1259,46 +1261,55 @@
                          :name "Half-Elf (UA)"
                          :option-pack "Pak"}}}})
 
-(deftest initialize-db-heals-a-character-restored-from-storage
+(def ^:private race-key [:character :orcpub.entity/options :race :orcpub.entity/key])
+
+(defn- template-arrives!
+  "Runs ::autosave-fx/cache-template with `template`, then each event it queues, in order."
+  [template]
+  (let [fx (autosave-fx/cache-template {:db @app-db} [::autosave-fx/cache-template template])]
+    (reset! app-db (:db fx))
+    (doseq [e (:dispatch-n fx)] (rf/dispatch-sync e))))
+
+(deftest a-reloaded-draft-heals-when-the-template-arrives
   (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
     (.setItem js/localStorage "plugins" (pr-str stored-plugins))
     (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
     (try
       (reset! app-db {})
       (rf/dispatch-sync [:initialize-db])
-      (testing "the restored character is rewritten to the live item"
-        (is (= :half-elf-ua
-               (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
-      (testing "and the repair is recorded, so the save button can ask for it"
-        (is (= [{:from :half-elf-phb :to :half-elf-ua}]
-               (get-in @app-db [:character-healed :rewrote]))))
+      (is (= :half-elf-phb (get-in @app-db race-key)) "startup restores the draft as stored")
+      (is (true? (::autosave-fx/ensure-template-cache
+                  (effects-of [:route routes/dnd-e5-char-builder-route {:skip-path? true}]
+                              [::autosave-fx/ensure-template-cache]))))
+      (template-arrives! small-template)
+      (testing "the template's arrival heals it, records it and announces it"
+        (is (= :half-elf-ua (get-in @app-db race-key)))
+        (is (= [{:from :half-elf-phb :to :half-elf-ua}] (get-in @app-db [:character-healed :rewrote])))
+        (is (true? (get-in @app-db [:character-healed :announced?]))))
+      (testing "and the healed draft is stored, so the next load restores it healed"
+        (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))))
       (finally
         (.removeItem js/localStorage "character")
         (.removeItem js/localStorage "plugins")))))
 
-(deftest a-repaired-draft-is-saved-back-so-a-refresh-does-not-repair-it-again
-  ;; Found in a browser: three refreshes, three repairs of the same key, three toasts,
-  ;; and the stored draft still broken after all of them.
-  (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
-    (.setItem js/localStorage "plugins" (pr-str stored-plugins))
-    (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
-    (try
-      (reset! app-db {})
-      (rf/dispatch-sync [:initialize-db])
-      (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))
-          "the stored draft carries the repair")
-      (testing "so the next load has nothing left to repair"
-        (reset! app-db {})
-        (rf/dispatch-sync [:initialize-db])
-        (is (= :half-elf-ua
-               (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key])))
-        (is (nil? (:character-healed @app-db))))
-      (finally
-        (.removeItem js/localStorage "character")
-        (.removeItem js/localStorage "plugins")))))
+(deftest a-character-is-opened-and-its-pages-reached-with-the-template-requested
+  (reset! app-db {:plugins renamed-plugins})
+  (is (true? (::autosave-fx/ensure-template-cache
+              (effects-of [:set-character {:orcpub.entity/options {}}]
+                          [::autosave-fx/ensure-template-cache]))))
+  (doseq [r [routes/dnd-e5-char-builder-route
+             {:handler routes/dnd-e5-char-page-route :route-params {:id 7}}]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (pr-str r)))
+  (is (nil? (::autosave-fx/ensure-template-cache
+             (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
+                         [::autosave-fx/ensure-template-cache])))
+      "a page with no character builds nothing"))
 
 (deftest routing-to-the-builder-announces-a-heal-once
-  (reset! app-db {:plugins renamed-plugins})
+  ;; The offered keys are known, so :set-character heals at once.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
   (rf/dispatch-sync [:set-character
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
   (is (not (get-in @app-db [:character-healed :announced?]))
@@ -1312,7 +1323,7 @@
 
 (deftest routing-elsewhere-does-not-announce-a-heal
   ;; "Save the character to keep the fix" is meaningless off the builder.
-  (reset! app-db {:plugins renamed-plugins})
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
   (rf/dispatch-sync [:set-character
                      {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
   (rf/dispatch-sync [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}])
