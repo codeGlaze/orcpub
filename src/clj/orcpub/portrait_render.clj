@@ -25,7 +25,8 @@
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
-            [orcpub.dnd.e5.portrait-face :as face])
+            [orcpub.dnd.e5.portrait-face :as face]
+            [orcpub.dnd.e5.portrait-light :as light])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
            [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double]
            [java.awt.image BufferedImage]
@@ -405,8 +406,9 @@
   (let [casts? (some #(some-> (pa/selected-asset portrait %) fx/casts-shadow?) pa/layer-order)
         fs (face/face-settings portrait)
         eyes (pa/selected-asset portrait :eyes)
-        marks? (and (face/marks? fs) (seq (:asset/iris eyes)))]
-    (when (or casts? marks?)
+        marks? (and (face/marks? fs) (seq (:asset/iris eyes)))
+        shade? (pos? (:shade fs))]
+    (when (or casts? marks? shade?)
       (let [^doubles skin (combined-alpha portrait placed-of [:head :ears] any? w h)
             ^doubles hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
             ^doubles k (when casts?
@@ -421,11 +423,16 @@
                   (when-let [rect (asset-rect eyes w h)]
                     (face/marks fs (colorize/iris-shapes eyes rect) showing w h
                                 (face/alpha-box (combined-alpha portrait placed-of [:nose] any? w h) w h)))))
+            ^doubles ks (when shade?
+                          (let [showing (double-array (* w h))]
+                            (dotimes [i (* w h)]
+                              (aset showing i (* (/ (aget skin i) 255.0) (- 1.0 (/ (aget hair i) 255.0)))))
+                            (face/shade-map fs showing hair w h)))
             ^doubles mb (:blush m) ^doubles mf (:freckles m)
             blush-rgb (colorize/hex->rgb (:blush-colour fs))
             ^ints d (.. img getRaster getDataBuffer getData)]
         (dotimes [i (* w h)]
-          (let [kk (if k (aget k i) 0.0)
+          (let [kk (+ (if k (aget k i) 0.0) (if ks (aget ks i) 0.0))
                 kb (if mb (aget mb i) 0.0)
                 kf (if mf (aget mf i) 0.0)]
             (when (or (pos? kk) (pos? kb) (pos? kf))
@@ -438,6 +445,44 @@
                                        (bit-shift-left (ch 16 (* sr mr)) 16)
                                        (bit-shift-left (ch 8 (* sg mg)) 8)
                                        (ch 0 (* sb mbb)))))))))))))
+
+(defn- light!
+  "Glowing eyes and mood light over the finished picture (portrait-light)."
+  [^BufferedImage img portrait drawable placed-of w h]
+  (let [ls (light/light-settings portrait)]
+    (when (light/lit? ls)
+      (let [n (* w h)
+            ^ints d (.. img getRaster getDataBuffer getData)
+            alpha (double-array n)
+            ink (double-array n)]
+        ;; the drawing itself, uncoloured, top piece wins
+        (doseq [[_ asset] drawable
+                :let [^BufferedImage pi (placed-of asset)]
+                :when pi]
+          (let [^ints pd (.. pi getRaster getDataBuffer getData)]
+            (dotimes [i n]
+              (let [v (aget pd i) a (bit-and (unsigned-bit-shift-right v 24) 0xff)]
+                (when (pos? a)
+                  (aset alpha i (max (aget alpha i) (double a)))
+                  (when (> a 128)
+                    (aset ink i (/ (+ (bit-and (bit-shift-right v 16) 0xff) (bit-and (bit-shift-right v 8) 0xff) (bit-and v 0xff)) 765.0))))))))
+        (let [eyes (pa/selected-asset portrait :eyes)
+              iris (when (and (:glow ls) (seq (:asset/iris eyes)))
+                     (when-let [rect (asset-rect eyes w h)] (iris-coverage eyes rect w h)))
+              maps (light/light-maps ls {:alpha alpha :ink ink :iris iris
+                                         :hair-cover (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)}
+                                     w h)]
+          (dotimes [i n]
+            (let [argb (aget d i) a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
+              (when (pos? a)
+                (let [[r g b] (light/apply-pixel maps i
+                                                 (double (bit-and (unsigned-bit-shift-right argb 16) 0xff))
+                                                 (double (bit-and (unsigned-bit-shift-right argb 8) 0xff))
+                                                 (double (bit-and argb 0xff)))]
+                  (aset d i (unchecked-int (bit-or (bit-shift-left a 24)
+                                                   (bit-shift-left (int (min 255.0 r)) 16)
+                                                   (bit-shift-left (int (min 255.0 g)) 8)
+                                                   (int (min 255.0 b))))))))))))))
 
 (def credit-face "public/fonts/Vollkorn-Italic.ttf")
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")
@@ -610,6 +655,9 @@
            (try (shade-skin! img portrait placed-of w h)
                 (catch Exception e
                   (println "portrait-render: shadows skipped -" (.getMessage e))))
+           (try (light! img portrait drawable placed-of w h)
+                (catch Exception e
+                  (println "portrait-render: light skipped -" (.getMessage e))))
            (try
              (when-let [names (not-empty (pa/credit-names portrait))]
                (draw-credit! g names w h))

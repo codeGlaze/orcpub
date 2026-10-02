@@ -22,6 +22,7 @@
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
             [orcpub.dnd.e5.portrait-face :as face]
+            [orcpub.dnd.e5.portrait-light :as light]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.fork.branding :as branding]))
 
@@ -446,13 +447,18 @@
                                                    (layout/contain-rect (.-naturalWidth eyes-img) (.-naturalHeight eyes-img) w h))
                           showing w h
                           (when nose-img (face/alpha-box (combined-alpha [nose-img] w h) w h)))))
+        ks (when (pos? (:shade fs))
+             (let [showing (js/Float64Array. (* w h))]
+               (dotimes [i (* w h)]
+                 (aset showing i (* (/ (aget skin i) 255) (- 1 (/ (aget hair i) 255)))))
+               (face/shade-map fs showing hair w h)))
         mb (:blush m) mf (:freckles m)
         blush-rgb (colorize/hex->rgb (:blush-colour fs))
         c (new-canvas w h) ctx (.getContext c "2d")
         image-data (.createImageData ctx w h)
         px (.-data image-data)]
     (dotimes [p (* w h)]
-      (let [kk (if k (aget k p) 0)
+      (let [kk (+ (if k (aget k p) 0) (if ks (aget ks p) 0))
             kb (if mb (aget mb p) 0)
             kf (if mf (aget mf p) 0)]
         (when (or (pos? kk) (pos? kb) (pos? kf))
@@ -481,11 +487,11 @@
   [portrait dev?]
   (let [sel (fn [ks pred] (vec (keep #(let [a (pa/selected-asset portrait %)] (when (and a (pred a)) (:asset/url a))) ks)))
         casters (sel pa/layer-order fx/casts-shadow?)
-        fs (select-keys (face/face-settings portrait) [:blush :blush-colour :freckles :freckle-place :freckle-strength])
+        fs (select-keys (face/face-settings portrait) [:blush :blush-colour :freckles :freckle-place :freckle-strength :shade])
         eyes (pa/selected-asset portrait :eyes)
         marks? (and (face/marks? fs) (seq (:asset/iris eyes)))
         skin (sel [:head :ears] any?)]
-    (when (and (seq skin) (or (seq casters) marks?))
+    (when (and (seq skin) (or (seq casters) marks? (pos? (:shade fs))))
       {:casters casters :skin skin :hair (sel [:scalp :hair-front :bangs] any?)
        :eyes (when marks? (:asset/url eyes))
        :nose (when marks? (some-> (pa/selected-asset portrait :nose) :asset/url))
@@ -520,6 +526,88 @@
                   :object-fit "contain" :z-index 100 :pointer-events "none"
                   :mix-blend-mode "multiply"}}])})))
 
+(defn- light-images
+  "The two overlays of portrait-light at the art's size: a canvas to lay
+   over the portrait with multiply (white where nothing darkens) and one
+   with screen (black where nothing lights)."
+  [layer-imgs eyes-asset hair-imgs ls]
+  (let [ref (first (remove nil? layer-imgs))
+        w (.-naturalWidth ref) h (.-naturalHeight ref) n (* w h)
+        raw (let [c (new-canvas w h) g (.getContext c "2d")]
+              (doseq [img layer-imgs :when img] (.drawImage g img 0 0 w h))
+              (.-data (.getImageData g 0 0 w h)))
+        alpha (js/Float64Array. n) ink (js/Float64Array. n)
+        _ (dotimes [p n]
+            (let [i (* 4 p)]
+              (aset alpha p (aget raw (+ i 3)))
+              (aset ink p (/ (+ (aget raw i) (aget raw (+ i 1)) (aget raw (+ i 2))) 765))))
+        maps (light/light-maps ls {:alpha alpha :ink ink
+                                   :iris (when (and (:glow ls) (seq (:asset/iris eyes-asset))) (iris-coverage eyes-asset w h))
+                                   :hair-cover (combined-alpha hair-imgs w h)}
+                               w h)
+        paint (fn [arrays fill]
+                (let [c (new-canvas w h) ctx (.getContext c "2d")
+                      data (.createImageData ctx w h) px (.-data data)]
+                  (dotimes [p n]
+                    (let [i (* 4 p)]
+                      (if arrays
+                        (let [[r g b] arrays]
+                          (aset px i (* fill (aget r p))) (aset px (+ i 1) (* fill (aget g p))) (aset px (+ i 2) (* fill (aget b p))))
+                        (do (aset px i fill) (aset px (+ i 1) fill) (aset px (+ i 2) fill)))
+                      (aset px (+ i 3) 255)))
+                  (.putImageData ctx data 0 0)
+                  c))]
+    [(when (:mul maps) (paint (:mul maps) 255)) (paint (:add maps) 1)]))
+
+(defonce ^:private light-cache (atom {}))
+
+(defn- light-overlays [layer-imgs eyes-asset hair-imgs ls]
+  (let [k [(mapv #(some-> % .-src) layer-imgs) (:asset/iris eyes-asset) (mapv #(some-> % .-src) hair-imgs) ls]]
+    (or (get @light-cache k)
+        (let [c (light-images layer-imgs eyes-asset hair-imgs ls)]
+          (swap! light-cache #(assoc (if (> (count %) 12) {} %) k c))
+          c))))
+
+(defn- light-spec
+  "What the light overlays need, or nil when there is no light."
+  [portrait dev?]
+  (let [ls (light/light-settings portrait)]
+    (when (light/lit? ls)
+      (let [url-of #(some-> (pa/selected-asset portrait %) :asset/url)]
+        {:layers (vec (keep url-of pa/layer-order))
+         :hair (vec (keep url-of [:scalp :hair-front :bangs]))
+         :eyes-asset (some-> (pa/selected-asset portrait :eyes) (as-placed dev?))
+         :settings ls}))))
+
+(defn- light-layer
+  "Glow and mood light over everything: a multiply canvas, then a screen one."
+  [spec]
+  (let [mul-node (atom nil) add-node (atom nil)
+        paint! (fn [{:keys [layers hair eyes-asset settings]}]
+                 (with-images (concat layers hair)
+                   (fn [imgs]
+                     (let [[m a] (light-overlays (subvec imgs 0 (count layers)) eyes-asset
+                                                 (subvec imgs (count layers)) settings)]
+                       (doseq [[node src] [[@mul-node m] [@add-node a]]]
+                         (when-let [^js el node]
+                           (if src
+                             (do (set! (.-width el) (.-width src))
+                                 (set! (.-height el) (.-height src))
+                                 (.drawImage (.getContext el "2d") src 0 0)
+                                 (set! (.. el -style -display) "block"))
+                             (set! (.. el -style -display) "none"))))))))
+        style (fn [z blend] {:position "absolute" :inset 0 :width "100%" :height "100%"
+                             :object-fit "contain" :z-index z :pointer-events "none"
+                             :mix-blend-mode blend})]
+    (r/create-class
+     {:component-did-mount (fn [_] (paint! spec))
+      :component-did-update (fn [this _] (paint! (second (r/argv this))))
+      :reagent-render
+      (fn [_]
+        [:<>
+         [:canvas.portrait-layer.portrait-layer-light {:ref #(reset! mul-node %) :style (style 101 "multiply")}]
+         [:canvas.portrait-layer.portrait-layer-light {:ref #(reset! add-node %) :style (style 102 "screen")}]])})))
+
 (defn composite
   "Stacked, tinted portrait for a `portrait` map (see ns doc). `attrs`
    (optional) merges into the outer div so callers can size/position it."
@@ -534,7 +622,8 @@
          whites (pa/whites-colour portrait)
          ombre-settings (fx/ombre-settings portrait)
          head-url (:asset/url (pa/selected-asset portrait :head))
-         skin (skin-spec portrait dev?)]
+         skin (skin-spec portrait dev?)
+         lit (light-spec portrait dev?)]
      [:div.portrait-composite
       (merge {:style {:position "relative" :width "100%" :height "100%"}} attrs)
       (map-indexed
@@ -563,7 +652,8 @@
                            (mask-style (:asset/url asset)
                                        (pa/tint-for portrait layer-key) z))}]))))
         pa/layer-order)
-      (when skin ^{:key "skin"} [skin-layer skin])])))
+      (when skin ^{:key "skin"} [skin-layer skin])
+      (when lit ^{:key "light"} [light-layer lit])])))
 
 ;; ---------------- rasterization (for PDF export) ----------------
 ;;
@@ -746,6 +836,18 @@
                               [x y dw dh] (layout/contain-rect (.-width s) (.-height s) raster-width raster-height)]
                           (set! (.-globalCompositeOperation ctx) "multiply")
                           (.drawImage ctx s x y dw dh)
+                          (set! (.-globalCompositeOperation ctx) "source-over")))))
+                  ;; glow and mood light over everything, before the credit
+                  (when-let [{:keys [layers hair eyes-asset settings]}
+                             (light-spec portrait (:dev-mode? @re-frame.db/app-db))]
+                    (let [by-url (into {} (map (fn [[_ a] img] [(:asset/url a) img]) selected (array-seq imgs)))
+                          limgs (vec (keep by-url layers))]
+                      (when (seq limgs)
+                        (let [[m a] (light-overlays limgs eyes-asset (vec (keep by-url hair)) settings)]
+                          (doseq [[src op] [[m "multiply"] [a "screen"]] :when src]
+                            (let [[x y dw dh] (layout/contain-rect (.-width src) (.-height src) raster-width raster-height)]
+                              (set! (.-globalCompositeOperation ctx) op)
+                              (.drawImage ctx src x y dw dh)))
                           (set! (.-globalCompositeOperation ctx) "source-over")))))
                   (when-let [names (not-empty (pa/credit-names portrait))]
                     ;; The face has to be resident before fillText or the
@@ -947,6 +1049,7 @@
 .pl-ombre-row input[type=range] { width: 100%; accent-color: #f0a100; margin: 0; }
 .pl-ombre-row select { font: 500 11px/1 inherit; background: #131924; color: #c9d0da; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; padding: 3px 4px; grid-column: 2 / 4; }
 .pl-ombre-label { font: 500 11px/1 inherit; color: #8b95a5; }
+.pl-light { margin-top: 12px; }
 .pl-segmented { grid-column: 2 / 4; display: flex; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; overflow: hidden; }
 .pl-segmented button { flex: 1; white-space: nowrap; font: 500 11px/1 inherit; padding: 5px 4px; background: #131924; color: #c9d0da; border: 0; cursor: pointer; }
 .pl-segmented button + button { border-left: 1px solid rgba(255,255,255,0.14); }
@@ -1645,14 +1748,48 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
         [:span.pl-preset.custom {:title "Custom colour for the right eye"}
          [:input {:type "color" :value (or second-eye "#3d5c8f")
                   :aria-label "Custom second eye colour"
-                  :on-change #(dispatch [:portrait/set-face :second-eye (target-value %)])}]]]])))
+                  :on-change #(dispatch [:portrait/set-face :second-eye (target-value %)])}]]]
+       (let [{:keys [glow glow-strength]} (light/light-settings portrait)]
+         [:<>
+          [:span.pl-panel-heading "Glow"]
+          [:div.pl-presets
+           [:button.pl-preset.pl-preset-none
+            {:type "button" :title "No glow" :class (when-not glow "on")
+             :on-click #(dispatch [:portrait/set-light :glow nil])} "\u2205"]
+           (for [c light/glow-colours]
+             ^{:key c}
+             [:button.pl-preset
+              {:type "button" :style {:background c} :title c :class (when (= c glow) "on")
+               :on-click #(dispatch [:portrait/set-light :glow c])}])
+           [:span.pl-preset.custom {:title "Custom glow colour"}
+            [:input {:type "color" :value (or glow "#ff8a3a") :aria-label "Custom glow colour"
+                     :on-change #(dispatch [:portrait/set-light :glow (target-value %)])}]]]
+          (when glow [ombre-slider "Strength" :glow-strength glow-strength :portrait/set-light])])])))
+
+(defn- light-controls
+  "Mood light over the whole portrait: which light, how it falls, from where."
+  [portrait]
+  (let [{:keys [mood style from]} (light/light-settings portrait)]
+    [:div.pl-light.pl-ombre
+     [:span.pl-strip-label "light"]
+     [segmented "Mood" "Mood light" mood
+      [[nil "None"] [:torch "Torch"] [:moon "Moon"] [:arcane "Arcane"]]
+      #(dispatch [:portrait/set-light :mood %])]
+     (when mood
+       [:<>
+        [segmented "Style" "How the light falls" style
+         [[:edge "Edge"] [:cast "Cast"] [:rim "Rim"]]
+         #(dispatch [:portrait/set-light :style %])]
+        [segmented "From" "Where the light comes from" from
+         [[:left "Left"] [:right "Right"] [:above "Above"] [:below "Below"]]
+         #(dispatch [:portrait/set-light :from %])]])]))
 
 (defn- skin-controls
   "Blush and freckles, placed from the eyes -- so only once an eye style with
    placed irises is chosen."
   [portrait]
   (when (seq (:asset/iris (pa/selected-asset portrait :eyes)))
-    (let [{:keys [blush blush-colour freckles freckle-place freckle-strength]} (face/face-settings portrait)]
+    (let [{:keys [blush blush-colour freckles freckle-place freckle-strength shade]} (face/face-settings portrait)]
       [:div.pl-ombre
        [ombre-slider "Blush" :blush blush :portrait/set-face]
        (when (pos? blush)
@@ -1668,7 +1805,9 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
          [:<>
           ;; 0 over the near cheek, 100 across both cheeks and the nose
           [ombre-slider "Placement" :freckle-place freckle-place :portrait/set-face]
-          [ombre-slider "Prominence" :freckle-strength freckle-strength :portrait/set-face]])])))
+          [ombre-slider "Prominence" :freckle-strength freckle-strength :portrait/set-face]])
+       ;; the skin a little dimmer where the hair sits over it
+       [ombre-slider "Shade" :shade shade :portrait/set-face]])))
 
 (defn- ombre-controls
   "The hair's second colour and how it runs. With no tips colour the hair is
@@ -2021,7 +2160,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
         "Reset"]
        (when seed
          [:div.pl-seed-row [:span "seed"] [:code seed]])]
-      [color-strip portrait open-slot]]
+      [color-strip portrait open-slot]
+      (when any? [light-controls portrait])]
      [:div.pl-pickers-side
       (for [layer-key pa/pickable-layers]
         ^{:key layer-key}

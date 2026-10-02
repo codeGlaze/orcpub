@@ -40,7 +40,8 @@
    :blush-colour (first blush-colours)
    :freckles 0.0        ; how many, 0..1
    :freckle-place 0.5   ; 0: over the near cheek .. 1: both cheeks and the nose
-   :freckle-strength 0.5}) ; how dark and how large, 0..1
+   :freckle-strength 0.5 ; how dark and how large, 0..1
+   :shade 0.0})          ; soft shade on the skin from the hair over it, 0..1
 
 (defn- clamp01 ^double [^double x] (if (< x 0.0) 0.0 (if (> x 1.0) 1.0 x)))
 
@@ -60,7 +61,8 @@
      :blush-colour (or (hex :blush-colour) (:blush-colour face-defaults))
      :freckles (num :freckles)
      :freckle-place (num :freckle-place)
-     :freckle-strength (num :freckle-strength)}))
+     :freckle-strength (num :freckle-strength)
+     :shade (num :shade)}))
 
 (defn marks?
   "Whether the skin carries anything (blush or freckles) to draw."
@@ -355,3 +357,20 @@
     [(* (f blush-rgb kb 0) (f freckle-colour kf 0))
      (* (f blush-rgb kb 1) (f freckle-colour kf 1))
      (* (f blush-rgb kb 2) (f freckle-colour kf 2))]))
+
+(defn shade-map
+  "The soft shade the hair over the face throws onto the skin, 0..1 per
+   pixel: `hair` (0..255, the scalp, front hair and bangs) blurred wide, on
+   skin that shows (`skin`, 0..1). Not a cast shadow -- that is the narrow
+   band under an overhanging fringe -- but the general dimness near hair.
+   nil when off."
+  [{:keys [shade]} skin hair w h]
+  (when (pos? (or shade 0.0))
+    (let [n (* w h)
+          ao (colorize/blur hair w h (max 1 (long (Math/round (* 40.0 (/ h 1500.0))))))
+          out (new-doubles n)
+          k (* 0.24 (/ (double shade) 0.5))]
+      (dotimes [i n]
+        (let [v (* k (ag skin i) (/ (ag ao i) 255.0))]
+          (when (> v 0.002) (as! out i (min 0.6 v)))))
+      out)))

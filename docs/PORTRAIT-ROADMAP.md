@@ -39,86 +39,44 @@ the image).
 | Style 3 whites | place lower lids in the Loom, or not | Loom already supports it |
 | Ombré tricks | under-layer on by default, light-direction dropped (my pick), or leave both | both off by default |
 
-## 3. Split dye, reworked
+## 3. Split dye: parked
 
-**Goal:** each hair piece takes its own split or stripe, following its own
-strands. The pieces' lines need not meet. The fringe can be split, striped,
-flipped or left one colour.
+Hidden outside Developer mode. Every automatic split tried so far regressed
+somewhere, or left artifacts and hairlines that make no sense:
+- one line across every piece;
+- a line per piece traced up the strands (good on the spiky bangs only);
+- the trace with wider smoothing and a turn limit (broke the spiky bangs);
+- a straight line per piece.
 
-**What we know**
-- Per-piece lines traced up the strands worked on the spiky bangs.
-- They failed on the long fringe: long overlapping strands confuse the
-  direction read from the ink, and the traces wander.
-- One line across every piece is wrong in principle. It is hidden outside
-  Developer mode.
+Reading the hair's shape alone has not been enough. Don't restart from any of
+these. The open route is the artist marking each piece's parting, with a few
+guide strokes, in the Loom (item 7), if you decide to ask her.
 
-**Candidates, mocked together**
-- **A, iterate the spiky-bangs method:** smooth the direction field more
-  widely, weight it by how clearly the lines agree, and stop a trace that
-  turns more than a set angle. Measure stripes across the strands, not down
-  them. Spiky bangs must stay as good as they are now.
-- **B, artist marks (new):** in the Loom, the artist clicks each hair piece's
-  parting point and, where needed, draws two or three guide strokes along the
-  strands. The split follows her strokes. That is about 11 hair pieces, a few
-  clicks each.
-- **C, per-piece controls:** a Line slider and a side (split, flip, none)
-  for each hair piece, starting from A's placement.
+## 4. Glowing eyes: built
 
-**Order:** mock A and C on the long fringe, the spiky bangs and the long back
-hair. Ask the artist for B only if A fails the fringe.
+A hot core in the iris and a wide halo onto the skin, never onto the hair over
+the face. Five presets, a custom colour and a strength slider, in the Eyes
+panel.
 
-**Done when:** the long fringe takes a clean split and a clean stripe in all
-three test portraits, and nothing regresses on the spiky bangs.
+## 5. Mood light: built
 
-## 4. Glowing eyes
+Torch, moon and arcane, each in three styles, under the colour strip:
+- **Edge:** a lit edge along the side facing the light.
+- **Cast:** the lit side warmed or cooled and the far side shaded.
+- **Rim:** Cast plus a rim on the outer edge of the whole portrait. Worked out
+  per piece, it lit inside edges and drew the head's outline and a hairline
+  across the face.
 
-**Goal:** fiend, celestial and undead eyes that visibly light the skin round
-them.
+The light can come from the left, right, above or below. Each mood starts
+from its own side.
 
-**What we know:** the first try was a pale iris with no halo. The second, a
-two-radius bloom, read better but was still weak.
+## 6. Skin
 
-**Candidates**
-- **Iterate the bloom:** a hot core (iris near white in its colour), a tight
-  bloom and a wide soft bloom, screened, clipped to skin and lashes so it
-  never tints hair. Strength and colour controls.
-- **New:** light from the eyes added to the cast-shadow overlay. The
-  surrounding skin is lit by distance from the iris, falling off with the
-  square.
-
-**Done when:** at thumbnail size the glow reads from across the room, and the
-iris stays coloured, not white.
-
-## 5. Mood light
-
-**Goal:** torch, moon and arcane light from a chosen side.
-
-**What we know:** a tint plus a blurred-edge rim read as a dirty outline on
-dark hair and grey skin.
-
-**Candidates**
-- **Iterate:** colour cast only, per region (skin, hair, shirt), screened on
-  the lit side and multiplied on the far side. No rim.
-- **New, a form-aware rim:** estimate how each piece's surface turns from the
-  distance to its own edge (a bevel). The rim lights only edges facing the
-  light, never the ink.
-
-**Done when:** each preset reads as light, not paint, on dark and light hair
-and on four skin tones.
-
-## 6. Skin form shading
-
-**Goal:** the skin reads as round, not flat.
-
-**Candidates**
-- **Iterate the shadow overlay:** occlusion under the jaw onto the neck,
-  under the hair line, and in the ear's bowl, using masks we already have.
-- **New:** the bevel from item 5 on the head silhouette for soft cheek and
-  jaw shading, plus a gentle light from the upper left.
-- Tested on pale, deep brown, green, blue and red skin. Strength slider,
-  default subtle.
-
-**Done when:** shading reads at portrait size and no skin tone turns muddy.
+- **Built: Shade.** A soft dimming of the skin near the hair over it, as a
+  slider, off by default.
+- **To do: a skin-tone render.** What was actually wanted is skin painted with
+  tone: warm and cool variation, flush where blood sits, light on the planes
+  that catch it. It needs its own mock-up rounds.
 
 ## 7. Artist calibration in the Loom
 
@@ -127,7 +85,7 @@ few clicks per piece from the artist.
 
 **Plan**
 - The Loom gains per-piece marks:
-  - hair: parting point and optional guide strokes (item 3);
+  - hair: parting point and optional guide strokes (for item 3, if revived);
   - casts a shadow: yes or no;
   - bangs default: roots, tipped or dyed.
 - These export in the manifest. `orcpub.portrait-pack.import` writes them to
@@ -136,21 +94,15 @@ few clicks per piece from the artist.
 
 **Needs:** your go-ahead before anything is asked of the artist.
 
-## 8. Release notes for changed portraits
+## 8. What's New
 
-Existing portraits change in two ways:
-- every iris now takes light from below;
-- "At an angle" ombrés are measured from the crown.
-
-One line each in What's New.
+The portrait builder has not shipped yet, so no saved portraits change. When
+it ships it needs one What's New entry for the builder as a whole.
 
 ---
 
 ## Suggested order
 
-1. Item 1 (deploy) and item 8 (notes): small, no art judgement.
-2. Item 3 (split): the item with the most back and forth.
-3. Items 4 and 5 (glow, mood light), mocked together; they share the bloom
-   and bevel work.
-4. Item 6 (skin), reusing the bevel.
-5. Item 7 (Loom): after 3 settles what marks the artist actually needs.
+1. Item 1, the deploy step (yours).
+2. Item 6, the skin-tone render: mock-up rounds.
+3. Item 7, the Loom: only if you decide to ask the artist for marks.
