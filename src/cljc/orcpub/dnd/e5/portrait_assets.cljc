@@ -704,10 +704,17 @@
    ;; the whites are filled in underneath it; white unless someone picks
    :whites "#ffffff"})
 
+(def no-whites
+  "Stored as the Whites colour to leave an eye style's whites unfilled: the
+   art as drawn, with the skin showing through."
+  "none")
+
 (defn whites-colour
-  "What an eye style's filled-in whites are drawn in."
+  "What an eye style's filled-in whites are drawn in, or nil when the
+   portrait leaves them unfilled."
   [portrait]
-  (or (get-in portrait [:colors :whites]) (default-slot-colors :whites)))
+  (let [c (or (get-in portrait [:colors :whites]) (default-slot-colors :whites))]
+    (when-not (= c no-whites) c)))
 
 (defn selected-asset
   "The asset a portrait has chosen for `layer-key`, or nil."

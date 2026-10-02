@@ -635,7 +635,8 @@
                      color (when-not as-drawn?
                              (hex->color (pa/tint-for portrait layer-key)))]
                  ;; the whites go down first, so the eye art sits on them
-                 (when (and bytes (:asset/whites asset) (not (s/includes? (str mime) "svg")))
+                 (when (and bytes (:asset/whites asset) (pa/whites-colour portrait)
+                            (not (s/includes? (str mime) "svg")))
                    (draw-whites! g bytes asset (hex->color (pa/whites-colour portrait)) w h))
                  (when (and mime bytes (or as-drawn? color))
                    (cond
