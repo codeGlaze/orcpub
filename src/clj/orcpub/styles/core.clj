@@ -1368,6 +1368,12 @@
     [:.header-tab.active :.header-flyout>.active
      {:background-color "rgba(240, 161, 0, 0.7)"}]
 
+    ;; The Light Theme and Dark Button Text settings are keyboard switches; the same
+    ;; focus ring as the dev-mode switch, since *:focus removes the browser's.
+    [:.setting-toggle:focus-visible
+     {:outline (str "2px solid " orange)
+      :outline-offset "3px"}]
+
     ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
     ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
     ;; tab is a stacking context, so the flyout's own z-index resolves inside it, and at

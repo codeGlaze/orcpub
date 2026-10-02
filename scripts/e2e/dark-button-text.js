@@ -3,7 +3,7 @@
 //   ./scripts/e2e/run.sh dark-button-text.js
 //
 // Checks that the choice is off by default, applies to the buttons, survives a
-// reload in the same browser without an account, hides in the light theme, and
+// reload in the same browser without an account, works from the keyboard, hides in the light theme, and
 // follows a logged-in user into a fresh browser through the account.
 //
 // SHOT=path.png saves the builder header with the toggle on.
@@ -75,10 +75,22 @@ async function login(page) {
     }
     await builder(page);
     check('it survives a reload without an account', await buttonColor(page) === DARK, await buttonColor(page));
+    // keyboard: the setting is a switch, reachable by Tab and flipped by Space or Enter
+    await toggle(page).focus();
+    await page.keyboard.press('Space'); await page.waitForTimeout(200);
+    check('Space turns it off from the keyboard', await buttonColor(page) === WHITE, await buttonColor(page));
+    check('and it says so to a screen reader', await toggle(page).getAttribute('aria-checked') === 'false');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(200);
+    check('Enter turns it back on', await buttonColor(page) === DARK, await buttonColor(page));
+    const ring = await toggle(page).evaluate(e => getComputedStyle(e).outlineStyle);
+    check('keyboard focus shows a ring', ring === 'solid', ring);
     await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
     await page.waitForTimeout(200);
     check('the light theme hides the toggle', await toggle(page).count() === 0);
     check('and keeps its white-on-slate buttons', await buttonColor(page) === WHITE, await buttonColor(page));
+    await page.locator('div.pointer', { hasText: 'Light Theme' }).first().focus();
+    await page.keyboard.press('Space'); await page.waitForTimeout(200);
+    check('Light Theme switches back from the keyboard too', await toggle(page).count() === 1);
     await ctx.close();
   }
 

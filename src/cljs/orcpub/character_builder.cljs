@@ -2501,8 +2501,9 @@
 
 (defn theme-toggle []
   (let [theme @(subscribe [:theme])]
-    [:div.pointer
-     {:on-click toggle-theme}
+    [:div.pointer.setting-toggle
+     (merge {:on-click toggle-theme}
+            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
      [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
@@ -2513,10 +2514,11 @@
   (let [theme @(subscribe [:theme])
         on? @(subscribe [:dark-button-text?])]
     (when (not= "light-theme" theme)
-      [:div.pointer.m-l-20
-       {:on-click #(dispatch [:toggle-dark-button-text])}
-       [:span.m-r-5 (comps/checkbox on? false)]
-       [:span.main-text-color "Dark Button Text"]])))
+      (let [toggle #(dispatch [:toggle-dark-button-text])]
+        [:div.pointer.setting-toggle.m-l-20
+         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
   (dispatch-sync [:set-loading true]))

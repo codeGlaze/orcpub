@@ -100,15 +100,15 @@ These recur as literals. **Proposed:** give each a name.
 
 | Face | Loaded | Used for |
 |---|---|---|
-| **Open Sans** | Google Fonts, `index.clj:265`, **regular weight only** | Everything in the app |
+| **Open Sans** | Google Fonts, `index.clj`, weights 400, 600 and 700 | Everything in the app, buttons included |
 | **Vollkorn** italic | `@font-face` in the portrait drawer's CSS string, a Latin-1 subset | Artist names in credits; the baked portrait caption |
 | `ui-monospace, Menlo, monospace` | system | Code and seed values in the portrait drawer |
 
-**Bold is missing.** Only Open Sans 400 is loaded (`css?family=Open+Sans`), but tabs, titles
-and labels ask for 600 and 700. In Chrome and Edge that text renders at **regular** weight: the
-browser doesn't even fake the bold. Firefox and Safari may fake it by smearing the regular weight.
-Loading `Open+Sans:wght@400;600;700` fixes both. For a modern browser that's one more file, about
-48 KB for Latin text. Before/after, captured from the site: `style-guide/bold.html`.
+**Bold was missing (fixed on this branch).** Only Open Sans 400 used to be loaded
+(`css?family=Open+Sans`), while tabs, titles and labels asked for 600 and 700, so in Chrome and Edge
+that text rendered at regular weight; Firefox and Safari faked it by smearing the regular weight.
+`index.clj` now loads `Open+Sans:wght@400;600;700`: one more file, about 48 KB for Latin text.
+Before/after, captured from the site: `style-guide/bold.html`.
 
 **Decided (owner, 2026-09-30): header tabs 700, page title 600.** At 700 the tabs are far more
 readable: they are small, all caps and sit on a busy banner, and capitals carry the extra weight
@@ -163,10 +163,10 @@ copy. The shared button base (section 5) fixes this properly.
 **My Content tab wrap (decided).** At 700, "MY CONTENT" needed 92.5px of the tab's fixed 90px
 and wrapped. The tab titles have −4% letter spacing (86.9px, 3px to spare; −2% left only 0.3px).
 
-**Buttons aren't in Open Sans.** `.form-button` and the other `<button>` classes render in Arial,
-because browsers give buttons their own default font and nothing here sets `button
-{font-family: inherit}`. Confirmed with the browser's own font report: the builder's buttons use
-Arial Bold (Liberation Sans on Linux), the header tabs Open Sans.
+**Buttons are in Open Sans (fixed on this branch).** Browsers give `<button>` its own default
+font, and nothing set one, so `.form-button` and the other button classes rendered in Arial Bold
+(Liberation Sans on Linux, confirmed with the browser's font report). Garden now sets `button
+{font-family: ...}` to the site font.
 
 **Screenshot caveat.** In the Claude Code sandbox, the headless browser can't verify the network
 proxy's certificate for Google Fonts, so pages silently fall back to another sans. Captures made
