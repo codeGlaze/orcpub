@@ -6,6 +6,7 @@
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
             [orcpub.artist-accounts :as artist-accounts]
+            [orcpub.portrait-pack.strands :as strands]
             [orcpub.config :as config]
             [orcpub.pdf :as pdf]
             [environ.core :as environ])
@@ -110,6 +111,10 @@
     :artist-accounts
     (component/using
       (artist-accounts/new-artist-accounts)
-      [:conn])))
+      [:conn])
+
+    ;; says in the log if the portrait art shipped without its strand fields
+    :strand-check
+    (strands/new-strand-check)))
 
 (rrepl/set-init! #(system :prod))

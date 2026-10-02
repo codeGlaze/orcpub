@@ -65,3 +65,12 @@
         new {:eyes {"a.png" {:pupil 0.4} "b.png" {:pupil 0.5} "c.png" {:pupil 0.4}}}]
     (is (= {:added [[:eyes "c.png"]] :removed [] :changed [[:eyes "b.png"]]}
            (update-vals (imp/changes old new) vec)))))
+
+(deftest the-server-says-which-hair-pieces-lack-strand-fields
+  (require 'orcpub.portrait-pack.strands)
+  (let [missing (resolve 'orcpub.portrait-pack.strands/missing)
+        m (vec (missing))]
+    ;; the repo ships silhouettes and no strand files, so every hair piece on
+    ;; the classpath is listed -- and nothing that is not hair
+    (is (seq m))
+    (is (every? #(re-find #"/(hair-back|hair-bits|hair-front|bangs|scalp)/" %) m))))
