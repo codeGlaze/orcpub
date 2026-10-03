@@ -96,6 +96,10 @@ A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and report
 - `starting_equipment_browser`: "save-class persists the class + equipment into :plugins" sees
   `:weapons = nil`, while the export of the same class contains the weapons. Fails identically on
   its own server. App bug or suite drift, not yet investigated.
+- `export_busy_retry`: timing-dependent. It fills the one export slot by looping eight heavy PDF
+  requests and hopes the slot is still held when the real export arrives. It passed 9/9 in one full
+  run, then failed 3/9 three times on identical code (the real export reached the PDF). The server
+  had the busy settings each time. Needs a deterministic way to hold the slot.
 - `chunked_parse_spike`: defaults to `dev-scratch/paks/mega-64.orcbrew`, a local scratch file
   that no longer exists. Pass a large pack as its argument, or regenerate the fixture.
 
