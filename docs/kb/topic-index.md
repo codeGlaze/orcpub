@@ -1335,7 +1335,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, development, e2e-logged-in-sessions, inside-the-app, prints, production, rebuilds, run, runner, server, starts, stops, suite, suites
+**topics:** 2026-10-03, account-flows, agent-hooks, bundle, dev-only, development, e2e-logged-in-sessions, inside-the-app, killed, pidfile, prints, production, run, runner, server, stops, suite, suites
 
 - The rule
 - Production is the default
@@ -1469,7 +1469,7 @@ _equipment-option-picker · equipment option picker_
 
 _error-handling-import-validation · error handling import validation_
 
-**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews, validation
+**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, prs, re-frame, slide-out, subviews, validation
 
 - Context
 - What Was Built

@@ -44,14 +44,20 @@ Three header lines change how a suite is treated:
   (`registrations-per-host-hourly` accumulates on a shared server).
 - `// Overlays: NOT suppressed` — it tests the cookie banner or What's New itself. Every other
   suite starts with both stamped as seen, through `test/browser/lib/suppress-overlays-preload.js`
-  injected via `NODE_OPTIONS` (the release id is read from `src/cljc/orcpub/whats_new.cljc`). The
-  What's New backdrop covering the Export button is what broke `export_busy_retry`.
+  injected via `NODE_OPTIONS` (the release id is read from `src/cljc/orcpub/whats_new.cljc` into
+  `PROBE_WHATS_NEW_RELEASE`). The What's New backdrop covering the Export button is what broke
+  `export_busy_retry`. Never stamp `whats-new-seen` with a literal id in a suite: init scripts run
+  in order, so a suite's old id overwrites the runner's and the panel returns with the next
+  release. `orcbrew-import.js` reads the same variable.
 
 `importPack` (`test/browser/lib/orcbrew-import.js`) drives the visible import flow and works on a
-production bundle; using it is NOT a reason to tag a suite dev-only. Six suites were wrongly tagged
-for it and moved to production in PR #43. Read what a suite actually touches before tagging.
+production bundle; using it is NOT a reason to tag a suite dev-only. Six suites were tagged for it;
+PR #43 moved five to production. The sixth, `homebrew_render_split`, and `freeze_cpu_profile` stay
+dev-only for a different reason: they split a CPU profile by function NAME, and a production bundle
+renames functions, so the probe would exit 0 with every bucket empty. A probe passing on production
+proves only that it ran; read what it measures before moving it.
 
-As of 2026-10-03 (PR #43): 39 suites, 21 need a dev bundle, 18 are probes, **18 run on production**.
+As of 2026-10-03 (PR #43): 39 suites, 22 need a dev bundle, 18 are probes, **17 run on production**.
 
 `run.sh --describe <suite>` prints `<bundle> <profiles> <own-server yes|no> <kind>`. It is the only
 parser of these headers; `run-all.sh` asks it rather than grepping on its own.
@@ -74,7 +80,8 @@ runs is the `orcpub-int` worktree, detached at `origin/integration`; builds ther
 `scripts/e2e/server.sh start [profiles] | stop` owns the server: in-memory Datomic, seeded user, a
 pidfile per port, and the whole process group killed on stop (lein forks a JVM that otherwise keeps
 the port). It refuses to start when something already answers on the port, so a stale server can
-never be tested by mistake.
+never be tested by mistake. `stop` signals the recorded group only while it still runs `e2e-boot`,
+so a pidfile left by a killed run cannot hit a reused group id.
 
 `run.sh` alone starts and stops its own. `run-all.sh` starts one for the production batch and one
 for the development batch (`CSP_POLICY=none`), and runs those suites with `E2E_SHARED_SERVER=1`;
