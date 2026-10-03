@@ -1,4 +1,5 @@
-// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Needs: dev bundle (ranks functions by name, and a production bundle renames them).
+// Needs: pack argument (imports the homebrew pack named by its first argument).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
 // CPU-profile the freeze and rank functions by self time.
 //

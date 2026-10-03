@@ -1,3 +1,4 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
 // Does make-inventory-item's memoize cost anything in practice?

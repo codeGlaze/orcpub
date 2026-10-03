@@ -1,3 +1,4 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Can you still add an inventory item through whatever control the Equipment tab uses?
 //
