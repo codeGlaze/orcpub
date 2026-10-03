@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does the boot-shell rescue survive a broken view? Drives the REAL server on
 // :8890 and breaks the app in the ways it actually breaks — bundle missing,
 // bundle throwing on init, a component throwing after a clean mount — checking

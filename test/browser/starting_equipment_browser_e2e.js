@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Browser-driven e2e for the starting-equipment class-builder UI.
 //
 // Drives the REAL app in headless chromium: boots it, navigates to the class

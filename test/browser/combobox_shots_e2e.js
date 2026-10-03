@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Screenshot the Equipment filter-and-pick combobox open, filtered and on mobile.
 //
 // The popover lives in the browser's top layer but is still real DOM, so unlike a

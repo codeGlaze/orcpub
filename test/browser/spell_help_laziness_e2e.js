@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Is the spell peek REALLY only built when opened?
 //
 // Deferring :help to a thunk is worthless if something forces it during ordinary rendering.

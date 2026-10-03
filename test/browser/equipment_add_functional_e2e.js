@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Can you still add an inventory item through whatever control the Equipment tab uses?
 //
 // The add control has changed four times on this branch: a native <select>, then

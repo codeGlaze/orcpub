@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // kahn-sort order equivalence, in the ClojureScript runtime.
 //
 // WHY THIS EXISTS AND WHY `lein test` IS NOT ENOUGH:

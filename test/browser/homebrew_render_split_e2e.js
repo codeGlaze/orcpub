@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Where a real race click spends its time as homebrew grows.
 // Same real import + real clicks, but the instrument is a 50us CPU profile: it splits a
 // click into the rebuild path (entity/build, kahn-sort, collect-modifiers-2) versus the

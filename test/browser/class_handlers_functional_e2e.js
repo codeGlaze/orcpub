@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Do the class handlers still WORK after being unmemoized?
 //
 // set-class, set-class-level, add-class and delete-class were wrapped in cljs.core/memoize.

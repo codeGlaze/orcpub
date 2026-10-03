@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Browser-driven e2e: can you actually click what an overlay puts on screen?
 //
 // Drives the REAL app against `lein e2e-server` on :8890.

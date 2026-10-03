@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Does the builder chug under REAL use? Thick homebrew, then click around the character
 // creation options often and relatively quickly - the way someone actually builds a
 // character, not the 1.5s-apart taps a measurement probe makes.

@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Can you BROWSE the combobox, or only search it?
 //
 // Characterization + A/B. Opens the largest inventory section, then asks:

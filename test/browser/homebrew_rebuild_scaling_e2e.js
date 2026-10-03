@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // How the character rebuild scales with homebrew VOLUME.
 // Imports a .orcbrew through the My Content page's own file input, opens the real
 // character builder, picks a race by clicking the real card, then microbenchmarks the
