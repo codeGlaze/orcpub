@@ -1,0 +1,74 @@
+<title>Artist Pages in Garden</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital@1&display=swap">
+<style>
+/* Layout: one row per capture, the before and after side by side, stacking on a phone. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+main { max-width: 1180px; margin: 0 auto; padding: 28px 16px 48px; display: flex; flex-direction: column; gap: 28px; }
+header { display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 34px/1.15 var(--serif); text-wrap: balance; }
+header p { margin: 0; max-width: 68ch; color: var(--dim); }
+.verdict { align-self: start; padding: 6px 12px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-weight: 700; font-size: 13px; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; }
+nav button { font: 600 12px/1 var(--sans); letter-spacing: 0.04em; padding: 9px 14px; border-radius: 5px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+nav button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 600 11px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); display: flex; gap: 10px; align-items: center; }
+h2 .same { color: var(--good); letter-spacing: 0.06em; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.pair.phone { grid-template-columns: repeat(2, minmax(0, 300px)); }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figcaption { font-size: 12px; color: var(--dim); }
+figure img { display: block; width: 100%; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+@media (max-width: 640px) { .pair, .pair.phone { grid-template-columns: 1fr; } }
+</style>
+
+<main>
+  <header>
+    <h1>The artist pages, moved into Garden</h1>
+    <p>The page's stylesheet was a CSS string in a style tag. It is now the <code>artist-pages</code> rules in <code>styles/core.clj</code>. Each pair is the same page captured before and after the move.</p>
+    <span class="verdict">All 8 pairs are byte-identical</span>
+  </header>
+  <nav aria-label="Which captures">
+    <button type="button" id="f-all" data-f="all" aria-pressed="true">All</button>
+    <button type="button" id="f-profile" data-f="profile" aria-pressed="false">Profile page</button>
+    <button type="button" id="f-index" data-f="index" aria-pressed="false">Artist list</button>
+  </nav>
+  <div id="rows"></div>
+</main>
+
+<script>
+const rows = document.getElementById('rows');
+const pages = [['profile', 'Profile page, /artists/fusspot'], ['index', 'Artist list, /artists']];
+for (const [page, pageLabel] of pages)
+  for (const theme of ['dark', 'light'])
+    for (const size of ['desktop', 'phone']) {
+      const s = document.createElement('section');
+      s.dataset.page = page;
+      const name = `${page}-${theme}-${size}.png`;
+      s.innerHTML = `<h2>${pageLabel} · ${theme} theme · ${size} <span class="same">identical</span></h2>
+        <div class="pair ${size}">
+          <figure><img src="before-${name}" alt="Before: ${pageLabel}, ${theme} theme, ${size}" loading="lazy"><figcaption>Before: inline style tag</figcaption></figure>
+          <figure><img src="after-${name}" alt="After: ${pageLabel}, ${theme} theme, ${size}" loading="lazy"><figcaption>After: Garden stylesheet</figcaption></figure>
+        </div>`;
+      rows.appendChild(s);
+    }
+document.querySelector('nav').addEventListener('click', e => {
+  const f = e.target.dataset && e.target.dataset.f;
+  if (!f) return;
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)));
+  document.querySelectorAll('#rows section').forEach(s => { s.hidden = f !== 'all' && s.dataset.page !== f; });
+});
+</script>
