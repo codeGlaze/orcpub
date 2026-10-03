@@ -74,3 +74,10 @@
     ;; the classpath is listed -- and nothing that is not hair
     (is (seq m))
     (is (every? #(re-find #"/(hair-back|hair-bits|hair-front|bangs|scalp)/" %) m))))
+
+(deftest loom-edn-records-which-pack-it-came-from
+  (let [text (imp/render-loom {:eyes {"l6_eyes_01.png" {:pupil 0.45 :iris []}}} "v1.6")]
+    (is (= "v1.6" (imp/pack-of text)))
+    (is (= {:eyes {"l6_eyes_01.png" {:pupil 0.45 :iris []}}} (clojure.edn/read-string text)) "still reads as the same data")
+    (is (nil? (imp/pack-of (imp/render-loom {}))) "an older file without the line"))
+  (is (= "v1.6" (imp/pack-of (slurp "resources/portrait-pack/loom.edn"))) "the working placements say which pack they came from"))

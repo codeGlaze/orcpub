@@ -107,8 +107,19 @@
      :removed (sort (remove n o))
      :changed (sort (filter #(and (o %) (n %) (not= (get-in old %) (get-in new %))) n))}))
 
-(defn render-loom [loom]
-  (str header (with-out-str (binding [pp/*print-right-margin* 100] (pp/pprint loom)))))
+(defn render-loom
+  "loom.edn's text: the header, which pack the placements came from (the Loom
+   shows it as the pack version), then the placements."
+  ([loom] (render-loom loom nil))
+  ([loom pack]
+   (str header
+        (when pack (str ";;\n;; Placed in pack " pack ".\n"))
+        (with-out-str (binding [pp/*print-right-margin* 100] (pp/pprint loom))))))
+
+(defn pack-of
+  "The pack version loom.edn's placements came from, or nil."
+  [text]
+  (second (re-find #"(?m)^;; Placed in pack (\S+)\.$" (str text))))
 
 (defn- current-loom []
   (let [f (io/file loom-file)]
@@ -146,6 +157,6 @@
       (when (every? empty? [added changed removed]) (println "  none -- already up to date"))
       (if dry?
         (println "\n--dry-run: nothing written.")
-        (do (spit loom-file (render-loom loom))
+        (do (spit loom-file (render-loom loom (:packVersion manifest)))
             (println "\nWrote" loom-file "-- rebuild to see it."))))
     (shutdown-agents)))
