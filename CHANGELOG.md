@@ -1116,6 +1116,18 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **Two browser tests follow the app again** — the export test selects the footer's developer switch, not the first on/off switch on the page, and the rescue test compares with the library as stored when the view fails, not the seed (`cf6ceec5`).
 
+### fix/test-runner-fails-loudly
+
+**Fixed**
+
+- **A browser run that tests nothing now fails, and says why** — no browser found, a stale or wrong-kind bundle, an app that never starts (scripts blocked by the security policy, a missing bundle, a startup error), a suite that reports no checks, or a failed check behind a clean exit. Each was a silent false result before (`586140e1`).
+- **The Changelog guard runs on pull requests**, where an un-folded branch changelog can still be folded; it only ran after the merge before (`51946ed0`).
+
+**Changed**
+
+- **Browser suites run on the production build unless they declare otherwise** — 27 read the app's internals and say `Needs: dev bundle`, 18 measure rather than check and say `Kind: probe`, and the other 12 run on what the site serves (`8acf1093`).
+- **One command runs every browser suite** and prints a table that keeps production and development-only results apart (`edd5c14f`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
