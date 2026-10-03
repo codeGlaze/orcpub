@@ -1,20 +1,10 @@
 (ns orcpub.dnd.e5.portrait-assets
-  "Data-only registry of paper-doll portrait layers, per contributing artist.
-
-   The compositor stacks assets in fixed z-order (`layer-order` below,
-   bottom → top). Every asset is `{:asset/id … :asset/url …}` — the
-   compositor renders each selected layer as a CSS mask tinted by the
-   character's colours, absolute-positioned in a common frame.
-
-   `asset-inventory` is the illustrator's real set: ten layers, twenty-eight
-   pieces, their own filenames. The files under
-   resources/public/image/portraits/ are currently silhouettes at the paths
-   the finished art will occupy; a production run overwrites them in place.
-
-   Attribution reads directly off this registry: for a composed set of
-   layers, look up each layer's asset by id, find the artist whose
-   library contains that asset, list them once with :artist/name and
-   :artist/link. See `artist-for-asset` and `all-artists-for-layers`."
+  "Registry of portrait layer art per contributing artist, the colour model, and the credit.
+   Assets are {:asset/id … :asset/url …}, stacked in `layer-order` and tinted per
+   `render-mode`. Attribution resolves each selected asset to its artist through
+   `registry`: see `credit-order` and `credit-line`, shared by every surface.
+   GOTCHA: the files in the repo are silhouettes; the real art is never committed.
+   Why the code is shaped this way: PORTRAIT-COMPOSITOR.md, PORTRAIT-TINTING.md."
   (:require [clojure.string :as s]))
 
 (def layer-order
@@ -23,13 +13,9 @@
   [:hair-bits :hair-back :head :scalp :shirt :hair-front :ears :eyes :nose :mouth :bangs])
 
 (def hidden-layers
-  "Layers that render but are not offered in the picker.
-
-   :scalp is a plain blob that sits between the head and the hair and takes the
-   hair colour. Some hair-front and bangs pairs do not meet, leaving an island
-   of skin on the crown with hair all round it; this fills it. There is nothing
-   to choose, so putting it in the picker would only add a control with one
-   option that changes nothing."
+  "Layers that render but are not offered in the picker. :scalp is one hair-coloured blob
+   between head and hair that fills the skin gap where some hair-front and bangs pairs do
+   not meet; with one option there is nothing to pick."
   #{:scalp})
 
 (def pickable-layers
@@ -74,14 +60,10 @@
   "/image/portraits/")
 
 (def asset-inventory
-  "The illustrator's real inventory: ten layers, twenty-eight pieces, their
-   own filenames and counts.
-
-   The files currently on disk are SILHOUETTES -- the Loom's 48px alpha
-   shapes, un-squashed back to the source proportions and written to the paths
-   the finished art will occupy. Real shapes and real arrangement, no line
-   detail. Running scripts/build-portrait-assets.py over the originals
-   overwrites these same paths and nothing here changes."
+  "{layer-key [{:asset/id :asset/label :asset/file}]}: the illustrator's ten layers and
+   twenty-eight pieces under their own filenames, plus the generated :scalp.
+   GOTCHA: the files in the repo are silhouettes at the real art's paths;
+   scripts/build-portrait-assets.py overwrites them from the originals."
   {
    :hair-bits
    [{:asset/id :l0-hair-bits-pony-long
@@ -189,16 +171,9 @@
      :asset/file  "l9_bangs_03.png"}]})
 
 (def gap-inventory
-  "Pieces the illustrator has planned but not drawn yet, per layer.
-
-   Her convention is a `no <name>.txt` file sitting in the layer folder beside
-   the art. Both asset scripts already read those and report them, so filling
-   this in is a transcription job, not a guess -- run either one and it prints
-   the gaps it found.
-
-   The picker shows these as inert \"coming\" swatches. Empty is fine and means
-   only that nothing is marked pending; it is not a claim that the set is
-   finished."
+  "{layer-key [{:gap/id :gap/label}]}: pieces planned but not drawn, shown in the picker as
+   inert \"soon\" swatches. Transcribe from the `no <name>.txt` files the asset scripts
+   report. Empty means nothing is marked pending, not that the set is finished."
   {}
   ;; shape, when there is something to record:
   ;;   {:head  [{:gap/id :l2-head-04 :gap/label "Head 04"}]
@@ -241,26 +216,11 @@
    ;; break every link already shared. See artist-profile/slug.
    :artist/slug    "fusspot"
    :artist/name    "Fusspot"
-   ;; The single link, for surfaces that can only hold one -- the character
-   ;; page credit is a 100px strip. Her homepage, because it is the list she
-   ;; maintains, so it cannot go stale the way a copied handle can.
+   ;; The one link for surfaces that hold one, such as the character page's credit strip.
    :artist/link    "https://fusspot.rip/"
-   ;; The full set, for the builder, which has room. Chosen with her rather
-   ;; than harvested: not every handle she has, the ones she wants on this.
-   ;; Twitch is where she does most of the work, so it is not an afterthought
-   ;; here -- someone who liked the art can go and watch it being made.
-   ;; :link/icon names a mark in /image/social. A link with no icon falls back
-   ;; to its label as text, so adding a service nobody has drawn yet degrades
-   ;; to a word rather than to an empty box.
-   ;; Her site and her Twitch, which is what she asked for. The bluesky and
-   ;; kofi marks stay in /image/social -- they cost nothing sitting there and
-   ;; the next artist may want them.
-   ;; :link/color is the mark's own brand colour, and it is worn at REST, not
-   ;; only on hover. A credit rendered in the same quiet grey as everything
-   ;; around it is a credit designed to be skipped; the eye finds a purple
-   ;; Twitch mark and slides straight past a grey globe. Site takes the app's
-   ;; amber because her homepage has no mark of its own and it is the primary
-   ;; link.
+   ;; Exactly the links she asked for; add none she did not list. :link/icon names a mark
+   ;; in /image/social (no icon shows the label as text); :link/color is the mark's colour,
+   ;; worn at rest. Reasons: docs/design/artist-profiles/PLAN.md, "Fusspot's links".
    :artist/links   [{:link/label "Site"   :link/icon "site"
                      :link/color "#f0a100"
                      :link/url "https://fusspot.rip/"}
@@ -323,14 +283,10 @@
 (defonce ^:private artist-overrides (atom {}))
 
 (defn set-artist-overrides!
-  "Replace the runtime artist overrides. `m` is {artist-id {field value}};
-   only :artist/name, :artist/link, :artist/links, :artist/license and
-   :artist/profile? are honoured.
-
-   :artist/profile? false turns the artist's public profile page off (see
-   artist-profile/profile). It is here, beside the credit fields, so whatever
-   ends up owning the artist's choice -- a deployment's config today, the
-   artist's own account setting later -- can flip it without touching code."
+  "Replace the runtime artist overrides. `m` is {artist-id {field value}}; only
+   :artist/name, :artist/link, :artist/links, :artist/license and :artist/profile? are
+   kept. :artist/profile? false turns the artist's profile page off (artist-profile/profile).
+   See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\"."
   [m]
   (reset! artist-overrides
           (into {}
@@ -361,13 +317,9 @@
   (if-not (map? layers-selection)
     []
     (let [in-use? (into #{}
-                      ;; Resolve through the registry by asset id first, and
-                      ;; only then fall back to whatever artist the saved
-                      ;; portrait names. A portrait is client-supplied data
-                      ;; stored as EDN: trusting its :artist/id meant deleting
-                      ;; that one key detached the credit from art that is
-                      ;; plainly in the registry -- on the page, on the sheet,
-                      ;; and in the picture itself.
+                      ;; Registry by asset id first, the saved :artist/id only as
+                      ;; a fallback: a saved portrait is client data. See
+                      ;; PORTRAIT-COMPOSITOR.md, "Saved portraits are untrusted".
                       (keep (fn [[layer-key sel]]
                               (or (artist-for-asset layer-key (:asset/id sel))
                                   (:artist/id sel))))
@@ -377,12 +329,9 @@
             registry))))
 
 (defn drawable-layers
-  "The entries of a selection whose asset ids actually resolve in the registry.
-
-   A selection can be non-empty and still draw nothing: an id that no longer
-   exists, or one from a pack this deployment does not carry. `seq` on the raw
-   selection cannot tell the difference, which is how a share card came to
-   advertise a portrait the renderer then 404ed on."
+  "The entries of a selection whose asset ids resolve in the registry; nil for a non-map.
+   GOTCHA: a non-empty selection can draw nothing (a removed id, a pack this deployment
+   lacks), so test drawable?, not `seq`."
   [layers-selection]
   (when (map? layers-selection)
     (into {}
@@ -396,17 +345,9 @@
   (boolean (seq (drawable-layers (:layers portrait)))))
 
 (def layer-credit-weight
-  "How much of a portrait each layer is, for ordering the credit.
-
-   Roughly by area and by how much the piece defines the character: the head
-   is the foundation everything else sits on, the hair is most of the
-   silhouette, a nose is a few strokes. Fixed numbers rather than measured
-   pixel area, so the browser and the server agree without loading a single
-   image, the numbers can be read and tuned, and a large mostly transparent
-   asset cannot climb the list.
-
-   The scalp is 0: it is a generated patch under the hair, not a drawing.
-   A layer missing from this map counts 1."
+  "How much of a portrait each layer is, for credit-order: roughly area and how much the
+   piece defines the character. :scalp is 0 (generated, not drawn); a layer missing from
+   the map counts 1. Why fixed numbers: PORTRAIT-COMPOSITOR.md, \"Who the credit names\"."
   {:head 10
    :hair-front 6
    :hair-back 6
@@ -420,20 +361,10 @@
    :scalp 0})
 
 (defn credit-order
-  "The artists on canvas, in the order a credit should name them: most of the
-   picture first, like the ingredients on a label.
-
-   Ranked by the total `layer-credit-weight` of the pieces each drew, then by
-   how many pieces, then by registry order so the credit never reshuffles
-   between two renders of the same portrait. Weight comes before count because
-   count misleads: someone who drew the ears, nose and hair bits has three
-   pieces and one who drew the head and shirt has two, and the second drew the
-   face.
-
-   Pieces are attributed the way `all-artists-for-layers` attributes them --
-   through the registry by asset id first -- and an artist not in the registry
-   is left out, as there. Each artist map gains :credit/weight and
-   :credit/pieces."
+  "Artist maps (artist-info) for the artists on canvas, most of the picture first: by total
+   layer-credit-weight, then piece count, then registry order. Each gains :credit/weight
+   and :credit/pieces. Attribution as all-artists-for-layers; artists not in the registry
+   are left out. [] for a non-map selection."
   [layers-selection]
   (if-not (map? layers-selection)
     []
@@ -472,15 +403,9 @@
   4)
 
 (defn credit-mark-layout
-  "Where an artist's link marks sit around their name in the credit.
-
-   Marks flank the name only when they can do it symmetrically -- an even
-   count, up to `max-flanking-marks`, split evenly. Anything else (one link,
-   three, more than four) goes on a centred line under the name instead. Both
-   outcomes balance on the name; the credit's broken rule is symmetric, and a
-   lone mark on one side of it reads as a mistake.
-
-   Returns {:left [...] :right [...] :below [...]}, links in their given order."
+  "Where an artist's link marks sit around their name: {:left [...] :right [...] :below
+   [...]}, links in their given order. An even count up to max-flanking-marks is split
+   either side of the name; any other count goes below, so the credit always balances."
   [links]
   (let [links (vec links)
         n (count links)]
@@ -497,13 +422,9 @@
     (str "Art: " (s/join ", " names))))
 
 (defn credit-line
-  "One-line attribution for a composed portrait.
-
-   nil when nothing is composed, or when no artist on canvas has said how they
-   want to be credited -- an unnamed artist is skipped rather than given an
-   invented byline. Every caller can `when-let` and drop the surface entirely.
-   Shared by the PDF export, the share card and the character summary so all
-   three credit the same people the same way."
+  "\"Art: A, B\" for a composed portrait's named artists in credit order, or nil when none
+   is named. Artists without :artist/name are skipped, never given a byline. Shared by the
+   PDF export, the share card and the character summary."
   [portrait]
   (format-credit (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))))
 
@@ -567,23 +488,16 @@
 
 ;; ---------- character colors ----------
 ;;
-;; A portrait is {:layers {…} :colors {slot hex} :tweaks {layer {:shade n
-;; :override hex}}}. `:colors` holds one base color per slot that paints
-;; every layer mapped to that slot; `:tweaks` lets a single piece shade
-;; lighter/darker than the base or override it outright (bangs highlight,
-;; hair-back shadow, dyed streak). Rendering applies the tint via CSS mask,
-;; so one asset renders in any color — see portrait.cljs/composite.
+;; A portrait is {:layers {…} :colors {slot hex} :tweaks {layer {:shade n :override hex}}}.
+;; :colors paints every layer in a slot; :tweaks shades one piece or overrides its colour.
+;; Each renderer applies `tint-for` as `render-mode` says: PORTRAIT-TINTING.md.
 
 (def empty-portrait {:layers {} :colors {} :tweaks {}})
 
 (def color-slots
-  "Which color slot each LAYER draws its base tint from. nil = the layer has no
-   slot of its own and falls back to its category tint.
-
-   A layer-wide rule is not enough for every layer. The mouth carries three
-   assets that want three different things -- a bare line, lips, and teeth --
-   so the lipped one names its own slot with :asset/slot and slot-for-asset
-   prefers that. See `lips` in color-slot-order."
+  "The colour slot each LAYER draws its base tint from; nil means no slot (category tint).
+   An asset's own :asset/slot wins over its layer's (slot-for-asset): the mouth's lipped
+   piece names :lips while its line and teeth have none."
   {:hair-bits  :hair
    :hair-back  :hair
    :hair-front :hair
@@ -714,17 +628,10 @@
         (layer-colors layer-key))))
 
 (defn render-mode
-  "How a renderer should apply `base-tint` to this asset.
-
-   :multiply  -- the default. Lay the colour down through the art's alpha and
-                 multiply the drawing back over it, so lines stay lines.
-   :colorize  -- map the art's own luminance through the colour. For art drawn
-                 as a hueless ramp: the irises, and the lips.
-   :as-drawn  -- do not tint at all. Teeth are not lips.
-
-   Assets that name a conditional slot are colorized, because that is what
-   naming one is for; an asset with no slot at all is left alone. Returning a
-   MODE rather than a boolean is what lets the mouth's three pieces differ."
+  "How a renderer tints `asset` in `layer-key`: :multiply (the default; lines stay lines),
+   :colorize (luminance mapped through the colour, for the eyes slot and conditional slots
+   such as :lips), or :as-drawn (no slot: left as the illustrator drew it, like the teeth).
+   See PORTRAIT-TINTING.md."
   [layer-key asset]
   (let [slot (slot-for-asset layer-key asset)]
     (cond
@@ -734,14 +641,9 @@
       :else :multiply)))
 
 (defn tint-gamma
-  "The luminance gamma for a :colorize asset.
-
-   Not one number, because the art it applies to sits at opposite ends of the
-   tonal range: the irises are drawn near-black and need a gamma below 1 to
-   lift them off the floor, while the lips are drawn light -- 75% of that
-   asset is above the ramp's midpoint -- and need one above 1 to pull them
-   down into the colour. A single value washes out whichever it was not
-   chosen for."
+  "The luminance gamma for a :colorize asset: its :asset/gamma, else 2.2 for lips (drawn
+   light) and 0.5 otherwise (irises, drawn near-black). See PORTRAIT-TINTING.md, \"Floor
+   and gamma\"."
   [layer-key asset]
   (or (:asset/gamma asset)
       (if (= :lips (slot-for-asset layer-key asset)) 2.2 0.5)))

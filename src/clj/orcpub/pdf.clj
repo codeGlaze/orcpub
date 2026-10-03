@@ -1678,18 +1678,9 @@
       nil)))
 
 (def ^:private max-artwork-embedded
-  "What generated artwork may weigh in the PDF.
-
-   Deliberately not max-embedded-bytes. That 128k is the number the builder
-   advertises beside the Image URL field -- a promise about what a user may
-   UPLOAD. A composed portrait is neither uploaded nor untrusted: the app
-   rasterizes it, at a size the app chose to print well.
-
-   Holding it to the upload limit costs resolution, and measurably: a 600x750
-   portrait fitted to 128k comes back 367x459, which is 156 dpi in the 2.35in
-   box the sheet prints it at -- under the 200 dpi the assets are built for.
-   320k keeps the full raster and still bounds the document; the fit below is
-   the backstop for anything larger."
+  "Bytes generated artwork may weigh in the PDF. Not max-embedded-bytes, which is the upload
+   limit: at 128k a composed portrait prints under 200 dpi. Measurements in
+   PORTRAIT-COMPOSITOR.md, \"Artwork in the PDF\"."
   (* 320 1024))
 
 (defn- scaled-copy-argb
@@ -1715,18 +1706,9 @@
     (.toByteArray out)))
 
 (defn- fit-artwork
-  "Shrink generated artwork until it fits max-embedded-bytes, keeping alpha.
-
-   NOT fit-for-sheet. That one scales into TYPE_INT_RGB and re-encodes as
-   JPEG, which is right for a photograph and wrong for anything transparent:
-   a composed portrait put through it comes back with its transparent ground
-   turned black, which prints as a black box around the character. Artwork
-   gives up pixels instead of transparency, and stays PNG.
-
-   Steps the longest edge down by 15% a time rather than walking a fixed
-   ladder, so the first attempt always actually shrinks something -- a ladder
-   starting above the image's own size burns iterations re-encoding it
-   unchanged."
+  "PNG `data` fitted to max-artwork-embedded as {:data bytes :jpg? false}, or nil if it will
+   not decode or will not fit in 12 tries. Shrinks the longest edge 15% a try, keeping alpha.
+   GOTCHA: not fit-for-sheet, which re-encodes as JPEG and turns transparency black."
   [^bytes data]
   (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
     (if (<= (alength data) max-artwork-embedded)
@@ -1746,21 +1728,10 @@
   (+ 4 (quot (* 4 (* 2 1024 1024)) 3)))
 
 (defn decode-artwork-bytes
-  "Artwork the app itself produced, fitted to the sheet rather than refused.
-
-   decode-image-bytes turns away anything over max-embedded-bytes, and rightly
-   so: the browser is expected to have done the fitting already, because
-   orcpub.image-capture measures against the same print edge before it sends.
-
-   A composed portrait has no such stage. It is rasterized from CSS-mask layers
-   at the frame's own size and lands about twice the ceiling -- more once the
-   layers carry real line art rather than silhouettes. Refusing it would drop
-   the picture from the sheet for being the size we chose to make it, so it
-   gets what an oversized FETCHED image gets: fit-for-sheet. The ceiling still
-   belongs on what goes into the document.
-
-   Guards before the decode are unchanged -- encoded length bounds the
-   allocation, and the header still has to declare a sane canvas."
+  "Base64 artwork the app generated (a composed portrait), decoded and passed through
+   fit-artwork; {:data :jpg?} or nil. Unlike decode-image-bytes it fits an oversized image
+   instead of refusing it. The encoded length and the declared canvas are bounded before the
+   decode. See PORTRAIT-COMPOSITOR.md, \"Artwork in the PDF\"."
   [b64]
   (try
     (when (and (string? b64)

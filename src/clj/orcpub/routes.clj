@@ -669,15 +669,10 @@
           (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
 
 (defn stamp-document-info!
-  "Set the exported sheet's own metadata.
-
-   The templates are third-party InDesign files, so a fresh export inherits
-   their info dictionary and claims to have been made by 'Adobe InDesign CS6
-   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
-   digital-asset tool or a search index reads. Overwriting it costs nothing
-   and puts the art credit somewhere besides the picture.
-
-   This is provenance, not protection: metadata strips in seconds."
+  "Overwrites `doc`'s info dictionary: title from `character-name` (or the default page
+   title), creator and producer the app name, and `credit` as subject and keywords when it
+   is set. Replaces the InDesign template's own metadata. Logs and continues on failure.
+   See PORTRAIT-COMPOSITOR.md, \"The baked credit and the site mark\"."
   [doc {:keys [character-name credit]}]
   (try
     (let [info (.getDocumentInformation doc)]
@@ -1135,15 +1130,10 @@
                       ;; cached.
                       (some-> (wanted url failed?)
                               (as-> u (future (:image (probed-outcome u)))))))
-            ;; A composed (paper-doll) portrait has no URL that could produce
-            ;; it -- the client bakes its CSS-mask layers -- and it arrives
-            ;; larger than an uploaded picture may be, so it goes through
-            ;; decode-artwork-bytes, which fits it instead of refusing it.
-            ;;
-            ;; Decoded eagerly rather than in a delay: it is local CPU with no
-            ;; network in it, and a delay that derefs to nil would be truthy
-            ;; here, so a portrait that failed to decode would suppress the
-            ;; pasted image-url that should have taken over.
+            ;; A composed portrait arrives baked by the client, often over the upload
+            ;; limit, so decode-artwork-bytes fits it rather than refusing it.
+            ;; GOTCHA: decoded eagerly, not in a delay: a delay of nil is truthy and
+            ;; would suppress the pasted image-url fallback.
             composed (pdf/decode-artwork-bytes portrait-png)
             portrait (if composed
                        (delay composed)
@@ -1155,10 +1145,7 @@
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
             4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
-          ;; The credit is baked into the composed PNG itself now (see
-          ;; portrait/draw-credit!), so there is nothing to print here: a
-          ;; second drawn line landed 0.12in under the first and said the
-          ;; same thing.
+          ;; No credit line: portrait/draw-credit! bakes it into the composed PNG.
           )
         (when-let [{:keys [data jpg?]} (some-> faction deref)]
           (case print-character-sheet-style?
@@ -1166,11 +1153,8 @@
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
             4 nil))
-        ;; Inside this let, so it can see whether the composed portrait was
-        ;; actually used. Keyed on the decode, not on the field being present:
-        ;; a portrait-png that fails to decode falls back to the pasted
-        ;; image-url above, and crediting the illustrator for somebody else's
-        ;; photograph is the one thing this feature must not do.
+        ;; Credit only when the composed portrait DECODED: one that did not fell back to
+        ;; the pasted image-url, and that picture is not the illustrator's.
         (stamp-document-info! doc {:character-name character-name
                                    :credit (when composed portrait-credit)}))
       (.save doc output))
@@ -1588,12 +1572,9 @@
       {:status 200 :body character})))
 
 (defn character-summary-for-id
-  "The share-card data for a character: {::se/summary … ::se/values …}.
-
-   Returns the WHOLE pull, not just ::se/summary. It used to return the summary
-   submap while its caller went on to destructure ::se/summary and ::se/values
-   back out of it -- so every og:title and og:image came out nil and shared
-   links fell back to the site defaults."
+  "The share-card data for a character: the whole pull, {::se/summary … ::se/values …}.
+   GOTCHA: character-page destructures both keys, so returning only the summary submap
+   blanks every og:title and og:image."
   [db id]
   (d/pull db
           '[::se/summary
@@ -1799,50 +1780,29 @@
    [route-map/dnd-e5-orcacle-page-route]])
 
 (def ^:private artwork-epoch
-  "Identifies THIS PROCESS's copy of the portrait art.
-
-   The validator below hashes what the character chose, which says \"the same
-   selections\" but not \"the same pixels\": the layer PNGs and the registry that
-   names them are classpath resources, so they change with a DEPLOYMENT and not
-   with anything in the database. Mixing the epoch in means a restart
-   invalidates every portrait validator, which is exactly when the pixels can
-   have changed underneath one."
+  "This process's start time, mixed into portrait-etag so a restart, which is when the
+   classpath art can change, invalidates every portrait validator. See
+   PORTRAIT-COMPOSITOR.md, \"Caching the share-card PNG\"."
   (str (System/currentTimeMillis)))
 
 (defn portrait-etag
-  "A validator for a composed portrait: everything its pixels depend on.
-
-   Route-local on purpose. The app's global etag-interceptor cannot do this one,
-   because it derives a validator from the response BODY and has no method for a
-   stream -- and teaching it one would hash every exported PDF, which shares that
-   body type, on every export. Here the key is the stored EDN, which is already
-   in hand before anything is rendered."
+  "A quoted strong ETag over everything a composed portrait's pixels depend on: the
+   artwork epoch, the `stored` EDN, the `credit` and the site `mark`. Computable before
+   rendering. Route-local; see PORTRAIT-COMPOSITOR.md, \"Caching the share-card PNG\"."
   [stored credit mark]
   (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
 
 (defn- any-representation-requested?
-  "Whether If-None-Match is the wildcard.
-
-   RFC 7232 s3.2 gives the grammar as `\"*\" / 1#entity-tag`, so the wildcard is
-   the ENTIRE header value and can never be a list member. Reading it as one
-   meant a tag containing commas -- which the grammar permits inside the quotes
-   -- could be split into a bare `*` and fabricate a match, answering 304 to a
-   client holding a stale picture. A miss costs a render; this costs
-   correctness, so the two are not symmetrical."
+  "Whether the If-None-Match `header` is the wildcard.
+   GOTCHA: `*` is the whole header value, never a list member (RFC 7232 s3.2); splitting a
+   quoted tag on commas can invent one and answer 304 to a stale client."
   [header]
   (= "*" (some-> header s/trim)))
 
 (defn- covered-by-if-none-match?
-  "Whether an If-None-Match header lists `tag`.
-
-   Entity tags are quoted strings and the grammar does not forbid a comma inside
-   one, so the tags are MATCHED OUT rather than split on -- splitting is what
-   invented a wildcard above. Comparison is the weak one RFC 7232 s3.2 specifies
-   for If-None-Match, so W/\"x\" covers \"x\"; the --gzip suffix some re-encoding
-   proxies append is dropped the way the app's own etag-interceptor drops it.
-
-   The wildcard is deliberately NOT handled here: it asks whether a
-   representation exists at all, which cannot be answered before rendering one."
+  "Whether an If-None-Match `header` lists `tag`, by weak comparison (W/\"x\" covers \"x\"),
+   ignoring a --gzip suffix. Tags are matched out of the header, not split on commas.
+   The wildcard is not handled here; see any-representation-requested?."
   [header tag]
   (boolean
    (when (and (not (s/blank? header)) tag)
@@ -1851,15 +1811,9 @@
        (contains? offered (bare tag))))))
 
 (defn character-portrait-png
-  "PNG of a character's composed portrait, for og:image.
-
-   A crawler has no browser, so unlike the PDF path (where the client bakes
-   the layers with canvas) this is rendered here. Access matches the character
-   page itself -- unauthenticated by id -- because that page already exposes
-   the same character's name, race and description in its meta tags.
-
-   404 when the character has no composed portrait, so a crawler falls back to
-   whatever og:image the page did declare."
+  "Ring handler: PNG of character :id's composed portrait, for og:image. Unauthenticated,
+   like the character page, whose meta tags already expose the character. 304 when
+   If-None-Match covers portrait-etag; 404 when nothing composed is drawable."
   [{:keys [db headers] {:keys [id]} :path-params}]
   (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
                        ::se/values
@@ -1885,12 +1839,8 @@
       {:status 304 :headers (dissoc png-headers "Content-Type")}
 
       :else
-      ;; The wildcard cannot take the path above. `*` asks whether a
-      ;; representation EXISTS, and a stored portrait selecting nothing drawable
-      ;; has none -- it 404s. Answering 304 there would tell a client its cached
-      ;; copy is current when the resource has no current copy at all. So it
-      ;; renders first and lets the outcome decide, which costs the saving on a
-      ;; wildcard request and keeps it on every request that names a tag.
+      ;; The wildcard is answered only after rendering: a portrait that draws nothing
+      ;; has no representation and must 404, not 304.
       (if-let [png (portrait-render/render-png portrait)]
         (if (any-representation-requested? (get headers "if-none-match"))
           {:status 304 :headers (dissoc png-headers "Content-Type")}
@@ -1908,11 +1858,9 @@
         ;; sheet, the summary and the PDF use. It is served as a real PNG
         ;; because crawlers will not render CSS masks -- or, mostly, SVG.
         parsed-portrait (char5e/parse-portrait portrait)
-        ;; drawable?, not (seq :layers). A selection naming only assets this
-        ;; deployment does not have is non-empty and draws nothing, so the card
-        ;; pointed at /portrait.png, the renderer returned 404, and the link
-        ;; previewed broken -- even when the character had a usable image-url
-        ;; to fall back on.
+        ;; drawable?, not (seq :layers): a selection of assets this deployment lacks is
+        ;; non-empty, draws nothing, and would point the card at a 404 instead of
+        ;; falling back to image-url.
         composed? (portrait-assets5e/drawable? parsed-portrait)
         share-image (if composed?
                       (str "https://" host

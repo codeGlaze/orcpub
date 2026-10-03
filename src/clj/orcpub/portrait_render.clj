@@ -1,22 +1,9 @@
 (ns orcpub.portrait-render
-  "Server-side rasterization of a composed paper-doll portrait.
-
-   The PDF path gets its picture from the browser, which bakes the layers with
-   canvas before posting them. A share crawler has no browser: it reads
-   og:image out of the page HTML and fetches that URL, so the image has to be
-   rendered here.
-
-   No new dependency is needed. Vector assets reuse pdf/svg-path-ops -- the
-   same `d`-attribute parser the card icons are drawn with -- and its
-   [:move]/[:line]/[:curve]/[:close] output maps directly onto a Java2D
-   Path2D. Raster assets -- the illustrator's own layer art, read off the
-   classpath under resources/public -- are tinted with AlphaComposite/SrcIn,
-   which is the exact server-side equivalent of the canvas 'source-in' trick
-   the client uses.
-
-   Every failure degrades to 'no portrait' rather than throwing: a share card
-   without a picture is a state the page already handles, and it must not cost
-   the character their page."
+  "Server-side rendering of a composed portrait to PNG, for the share card (og:image).
+   Entry points: `render-png`, `site-mark`. Vector assets are drawn with pdf/svg-path-ops;
+   raster assets are read off the classpath and tinted by `multiply!`.
+   GOTCHA: every failure returns nil (no portrait), never throws.
+   Why: PORTRAIT-COMPOSITOR.md, \"Rendering on the server\"."
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
@@ -48,14 +35,9 @@
         (catch Exception _ nil)))))
 
 (defn asset-source
-  "Bytes for an asset URL, plus the mime that decides how to draw it.
-
-   The registry moved from inline data URIs to real files under
-   resources/public once the illustrator's inventory landed, so this resolves
-   both: a data URI is decoded in place, and a site-absolute path is read off
-   the classpath. Anything else -- an off-site URL especially -- returns nil,
-   because rendering a share card must never become a way to make the server
-   fetch arbitrary URLs."
+  "{:mime :bytes} for an asset URL: a base64 data URI decoded in place, or a site-absolute
+   path read off the classpath under public/. nil for anything else.
+   GOTCHA: never fetches an off-site URL; a share card must not make the server fetch one."
   [uri]
   (or (parse-data-uri uri)
       (when (and (string? uri) (s/starts-with? uri "/") (not (s/includes? uri "..")))
@@ -136,16 +118,9 @@
     out))
 
 (defn- multiply!
-  "out.rgb = colour.rgb * art.rgb, out.a = art.a, in place.
-
-   Masking -- which is what this did -- reads the asset's ALPHA and throws its
-   RGB away, so a drawing with black lines over a white fill came out as one
-   flat colour, indistinguishable from its own silhouette. Multiply keeps the
-   lines: white fill takes the colour exactly, black lines stay black, a grey
-   darkens the colour by however grey it is.
-
-   Java2D has no multiply -- AlphaComposite is Porter-Duff only -- so this is a
-   pixel pass over the frame's backing int[]."
+  "Tints `img` in place: out.rgb = colour.rgb * art.rgb, out.a = art.a. A pixel pass over
+   the backing int[], because Java2D's AlphaComposite has no multiply.
+   Why multiply and not a mask: PORTRAIT-TINTING.md."
   [^BufferedImage img ^Color colour]
   (let [dst (.. img getRaster getDataBuffer getData)
         tr (.getRed colour) tg (.getGreen colour) tb (.getBlue colour)
@@ -177,13 +152,8 @@
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")
 
 (def ^:private load-face
-  "Vollkorn off the classpath, parsed once.
-
-   Not java.awt.Font/SANS_SERIF: that is a *logical* family the JVM resolves
-   through the host's fontconfig, so a slim container renders the marks in
-   whatever it happens to have, or in a fallback full of boxes. This is the
-   same face the PDF is set in, shipped with the app, so the picture looks the
-   same wherever it is rendered."
+  "The java.awt.Font at classpath `path`, parsed once per path; nil if it will not load.
+   GOTCHA: ship the face; a logical family like SANS_SERIF depends on the host's fonts."
   (memoize
     (fn [path]
       (try
@@ -202,17 +172,9 @@
     (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN (int size))))
 
 (defn- draw-credit!
-  "Burn the artist credit into the picture itself.
-
-   The page and the sheet can both carry a credit beside the portrait, but the
-   composed image is what people actually pass around -- saved off a share
-   card, pulled out of a PDF -- and it arrives detached from either. A caption
-   in the pixels travels with it.
-
-   Dark fill under a white outline, because the background is unknowable: the
-   PNG is transparent, so it may land on a white page or a dark chat client,
-   and one of the two always reads. Not a watermark -- a crop removes it --
-   just a credit that survives being right-click-saved."
+  "Draws `text` centred along the bottom of a `w`x`h` frame, outlined then filled, at
+   layout/credit-layout's metrics. Why it is in the pixels: PORTRAIT-COMPOSITOR.md,
+   \"The baked credit and the site mark\"."
   [^Graphics2D g text w h]
   (let [{:keys [size halo baseline]
          [or* og ob oa] :outline

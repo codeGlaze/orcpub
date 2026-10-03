@@ -99,6 +99,13 @@ very little mean and costs spread quickly; dropping the gamma below ~0.4 starts
 to look harsh. Both numbers are tuned to art with near-black irises and should
 be re-measured if a second illustrator's work comes in with lighter ones.
 
+**The lips need the opposite gamma.** They are colorized too, since an asset that
+names a conditional slot is colorized, but they are drawn light: 75% of the lipped
+mouth sits above the ramp's midpoint. A gamma below 1 washes them out, so they
+take 2.2 to pull them down into the colour. One value cannot serve both ends of
+the tonal range, so `tint-gamma` picks by slot and an asset can set its own
+`:asset/gamma`.
+
 ## Colour slot presets
 
 The eye slot is the one that needed the most saturation: at portrait size an

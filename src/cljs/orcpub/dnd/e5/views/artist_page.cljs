@@ -1,15 +1,8 @@
 (ns orcpub.dnd.e5.views.artist-page
-  "Public artist profiles: /artists and /artists/<slug>.
-
-   The site's showcase of a portrait artist, in the drawer's vocabulary --
-   the small uppercase label, the name in Vollkorn italic on a broken rule,
-   the link marks in their own colours, portrait frames that stay dark in both
-   themes. What the page shows is decided in artist-profile (cljc), which the
-   server also reads for the share tags.
-
-   The page wears .pl-root so the drawer's stylesheet, its credit face and its
-   --lk-* theme variables apply unchanged; .ap-* below is only what a page has
-   and a drawer does not."
+  "Views for the public artist profiles, /artists and /artists/<slug>. What they show is
+   decided in artist-profile (cljc). The page wears .pl-root so the drawer's stylesheet,
+   credit face and --lk-* theme variables apply; .ap-* styles only what the drawer lacks.
+   Plan and look: docs/design/artist-profiles/PLAN.md."
   (:require [re-frame.core :refer [subscribe]]
             [orcpub.dnd.e5.artist-profile :as ap]
             [orcpub.dnd.e5.portrait :as portrait]

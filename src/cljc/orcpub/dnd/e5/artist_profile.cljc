@@ -1,15 +1,10 @@
 (ns orcpub.dnd.e5.artist-profile
-  "What an artist's public profile page shows, as data.
-
-   The page is the site's showcase of a portrait artist -- their name, the
-   pieces they drew, a few portraits made from those pieces, and the links they
-   listed. It is not their home: the credit's name still links wherever they
-   chose (:artist/link), and the profile is reached by a second, quieter link.
-
-   Everything here reads the registry in portrait-assets, with the deployment
-   overrides the credit already honours. Nothing is stored and nothing is tied
-   to a site account. Shared by the server (share tags and the og image) and
-   the browser (the page), so the two cannot disagree."
+  "What an artist's public profile page (/artists/<slug>) shows, as data: name, pieces,
+   example portraits and listed links. Reads only the portrait-assets registry and its
+   overrides; nothing is stored or tied to a site account. Used by the server (share tags,
+   og image) and the browser (the page). Entry points: `profile`, `artist-by-slug`,
+   `example-portraits`, `listed-links`, `profile-link`.
+   Plan and decisions: docs/design/artist-profiles/PLAN.md."
   (:require [clojure.string :as s]
             [orcpub.route-map :as route-map]
             [orcpub.dnd.e5.portrait-assets :as pa]))
@@ -132,15 +127,10 @@
   (nth v (int (Math/floor (* (rnd) (count v))))))
 
 (defn example-portraits
-  "A few portraits made from the artist's pieces, the same on every render.
-
-   Each layer they drew uses their pieces, rotated from a per-layer starting
-   point so the examples differ from one another and, across them, show every
-   piece a layer has when there are enough examples to. A layer they did not
-   draw is filled from the registry so the picture is whole; credit-order will
-   name whoever drew it. Colours come from the picker's presets.
-
-   Seeded from the slug, so the page, the og image and every reload agree."
+  "`n` (default example-count) portraits built from `artist-id`'s pieces, or nil when the
+   profile is off or unknown. Each of their layers rotates through their pieces; other
+   layers are filled from the registry; colours come from the presets. Seeded from the
+   slug, so every render agrees."
   ([artist-id] (example-portraits artist-id example-count))
   ([artist-id n]
    (when-let [artist (profile artist-id)]
