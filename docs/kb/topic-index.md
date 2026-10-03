@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, development, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, feat, floating, increment, mental, pool, released, rider, save, spread, spreads, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, feat, fixed, floating, increment, mental, pool, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -812,7 +812,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, dev, errors, f12, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1141,7 +1141,7 @@ _docker-infrastructure · docker infrastructure_
 
 _docker-security-decisions · docker security decisions_
 
-**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, reverted, security, sed, transactor
+**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, port, reverted, sed, transactor
 
 - Non-Root Containers (Entrypoint-Chown-Drop)
 - sed Replacement Escaping
@@ -1316,7 +1316,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1330,6 +1330,17 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 - What CLAUDE.md says about this is wrong
 - Related
 - Revisions
+
+## e2e-runner.md
+
+_e2e-runner · e2e runner_
+
+**topics:** 2026-10-03, account-flows, agent-hooks, bundle, changelog, development, e2e-logged-in-sessions, inside-the-app, internals, prints, production, rebuilds, result, run, runner, stops, suite, suites
+
+- The rule
+- Production is the default
+- Reading a result
+- Still open (step 2)
 
 ## edition-drift.md
 
@@ -1506,7 +1517,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, measuring, nine, pdf, probe, probes, run, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 52s, cancel, measuring, nine, pdf, playwright, probe, probes, run, runner, sheets, sleeps, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1731,7 +1742,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
+**topics:** 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -1823,7 +1834,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
+**topics:** address, auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -1881,7 +1892,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, strands, subclass, subrace
+**topics:** built-in, clash-driven, class, executed, feat, item, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -1931,7 +1942,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, immediately, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -3020,7 +3031,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3145,7 +3156,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, comparison, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, comparison, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -3167,7 +3178,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, move, race, race-only, shared, split, toolkit, truly, views
+**topics:** 30-line, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture
