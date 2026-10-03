@@ -1132,13 +1132,13 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 **Fixed**
 
-- **The busy-export browser test passes again** — it waits for the Export button now, and every suite starts with the What's New panel and cookie banner already seen (the panel was covering the button) unless the suite tests them (`a94af091`).
+- **Browser suites no longer click into the What's New panel** — every suite starts with it and the cookie banner already seen unless it tests them, and the busy-export test waits for the Export button the panel used to cover (`a94af091`).
 - **A browser suite that hangs is stopped** after 20 minutes and reported as failed, instead of holding the run open (`f374a758`).
 
 **Changed**
 
 - **The full browser run boots three servers instead of 39** — one per bundle batch, plus one for the busy-export test; all 39 suites take 20 minutes (`d84337f7`, `e310fd32`).
-- **Six more suites run on the production build**; importing homebrew through the visible import flow works there. Suites that take a homebrew pack use the test fixture pack when given none (`4c3fbba6`).
+- **Five more suites run on the production build**; importing homebrew through the visible import flow works there. Suites that take a homebrew pack use the test fixture pack when given none (`4c3fbba6`).
 
 ## [breaking/2026-stack-modernization]
 
