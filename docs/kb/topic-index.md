@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, errors, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1335,12 +1335,14 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, bundle, changelog, development, e2e-logged-in-sessions, inside-the-app, internals, prints, production, rebuilds, result, run, runner, stops, suite, suites
+**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, development, e2e-logged-in-sessions, inside-the-app, prints, production, rebuilds, run, runner, server, starts, stops, suite, suites
 
 - The rule
 - Production is the default
 - Reading a result
-- Still open (step 2)
+- Servers: one per batch
+- Known failures (2026-10-03, not runner problems)
+- Still open
 
 ## edition-drift.md
 
@@ -2046,7 +2048,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, problems, same-key, source, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2910,7 +2912,7 @@ _source-tagged-keys · source tagged keys_
 
 _spa-routing-architecture · spa routing architecture_
 
-**topics:** 1289-1326, 1828-1838, 302, 33-75, client, component, entity-id, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
+**topics:** 1289-1326, 1828-1838, 302, 33-75, component, entity-id, handler, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
 
 - Route Registration (3 places)
 - 1. Route Map — src/cljc/orcpub/routemap.cljc
@@ -3103,7 +3105,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, db-side, effects, extracting, handlers, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners

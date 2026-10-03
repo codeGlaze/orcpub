@@ -36,8 +36,25 @@ Three header lines change how a suite is treated:
   with the `busy-export` profile (`export_busy_retry`).
 - `// Kind: probe` — it measures and prints. The runner judges it by exit code only and reports
   `PROBE`, never `PASS`.
+- `// Needs: pack argument` — it imports the `.orcbrew` named by its first argument. With none,
+  `run.sh` passes `test/fixtures/test-pak.orcbrew` and the result line says `(fixture pack)`.
+  Pass a real pack after the suite name: `run.sh test/browser/x_e2e.js path/to/pack.orcbrew`.
+- `// Needs: fresh server` — `run-all.sh` gives it a server of its own instead of the shared one.
+  Nothing uses it yet; it is for suites that create accounts or need a clean database
+  (`registrations-per-host-hourly` accumulates on a shared server).
+- `// Overlays: NOT suppressed` — it tests the cookie banner or What's New itself. Every other
+  suite starts with both stamped as seen, through `test/browser/lib/suppress-overlays-preload.js`
+  injected via `NODE_OPTIONS` (the release id is read from `src/cljc/orcpub/whats_new.cljc`). The
+  What's New backdrop covering the Export button is what broke `export_busy_retry`.
 
-As of 2026-10-03: 39 suites, 27 need a dev bundle, 18 are probes, **12 run on production**.
+`importPack` (`test/browser/lib/orcbrew-import.js`) drives the visible import flow and works on a
+production bundle; using it is NOT a reason to tag a suite dev-only. Six suites were wrongly tagged
+for it and moved to production in PR #43. Read what a suite actually touches before tagging.
+
+As of 2026-10-03 (PR #43): 39 suites, 21 need a dev bundle, 18 are probes, **18 run on production**.
+
+`run.sh --describe <suite>` prints `<bundle> <profiles> <own-server yes|no> <kind>`. It is the only
+parser of these headers; `run-all.sh` asks it rather than grepping on its own.
 
 ## Reading a result
 
@@ -49,19 +66,36 @@ Every run ends with one line:
 only: …"), so an inside-the-app pass cannot be mistaken for the site working. A suite with no
 result line counts as `FAIL`.
 
-Landed on integration 2026-10-03 as PR #42 (`a3f23939`). The standing checkout for integration
+Landed on integration 2026-10-03 as PR #42 (`a3f23939`); shared servers and the header fixes in PR #43. The standing checkout for integration
 runs is the `orcpub-int` worktree, detached at `origin/integration`; builds there are incremental.
 
-## Still open (step 2)
+## Servers: one per batch
 
-- `export_busy_retry` fails inside the suite: the builder has no visible "Export" button where it
-  looks, at 1500px wide. Drifted like `builder_card_export` and `boot_rescue` were (PR #41).
-- Rewrite the suites that read internals to check what a visitor sees, wherever that is possible,
-  so more of them prove the production build. Counting calls (`spell_help_laziness`) cannot move
-  and stays dev-only. `importPack` is the biggest lever: 20 suites use it.
-- One server for a batch of suites (each boots its own today, 1-2 minutes apiece), with a fresh
-  one only for suites that create accounts or need a clean database
-  (`registrations-per-host-hourly` accumulates).
+`scripts/e2e/server.sh start [profiles] | stop` owns the server: in-memory Datomic, seeded user, a
+pidfile per port, and the whole process group killed on stop (lein forks a JVM that otherwise keeps
+the port). It refuses to start when something already answers on the port, so a stale server can
+never be tested by mistake.
+
+`run.sh` alone starts and stops its own. `run-all.sh` starts one for the production batch and one
+for the development batch (`CSP_POLICY=none`), and runs those suites with `E2E_SHARED_SERVER=1`;
+a suite on another profile (`busy-export`) or tagged `fresh server` gets its own. That is 3 boots
+instead of 39: the full run took **20 minutes** on 2026-10-03. Each suite still gets a fresh
+browser, so client state (localStorage) never leaks between suites; only the database is shared.
+
+A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and reported `FAIL`.
+
+## Known failures (2026-10-03, not runner problems)
+
+- `starting_equipment_browser`: "save-class persists the class + equipment into :plugins" sees
+  `:weapons = nil`, while the export of the same class contains the weapons. Fails identically on
+  its own server. App bug or suite drift, not yet investigated.
+- `chunked_parse_spike`: defaults to `dev-scratch/paks/mega-64.orcbrew`, a local scratch file
+  that no longer exists. Pass a large pack as its argument, or regenerate the fixture.
+
+## Still open
+
+- Rewrite the suites that read internals to check what a visitor sees, wherever possible, so more
+  of them prove the production build. Counting calls (`spell_help_laziness`) cannot move.
 
 Related: [account-flows.md](account-flows.md) (the stale-artifact asymmetry),
 [e2e-logged-in-sessions.md](e2e-logged-in-sessions.md), [agent-hooks.md](agent-hooks.md).
