@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Browser end-to-end checks against a real server and a real database.
 #
-#   ./scripts/e2e/run.sh [suite]   a file in scripts/e2e/ (default run.js), or a path such as
-#                                  test/browser/boot_rescue_e2e.js
+#   ./scripts/e2e/run.sh --describe <suite>  prints: <bundle> <profiles> <own-server yes|no> <kind>
+#   ./scripts/e2e/run.sh [suite] [args...]   a file in scripts/e2e/ (default run.js), or a path
+#                                            such as test/browser/boot_rescue_e2e.js; any args
+#                                            are passed to the suite
 #
 # Builds the bundle the suite needs, boots the app on an in-memory Datomic with a seeded user,
 # proves the app starts in a browser, runs the suite, and judges what it printed. Every way a
@@ -15,6 +17,9 @@
 #                       Otherwise it runs on production, the build the public site serves.
 #   Needs: busy server  it needs the export queue small enough to fill (profile busy-export).
 #   Kind: probe         it measures and prints, and is judged by its exit code only.
+#   Needs: pack argument   it imports the homebrew pack named by its first argument; with none,
+#                       test/fixtures/test-pak.orcbrew is used and the result says so.
+#   Needs: fresh server  run-all.sh gives it a server of its own instead of the shared one.
 #   Overlays: NOT suppressed   it tests an overlay itself; otherwise the cookie banner and the
 #                       What's New panel are stamped as seen before any page loads.
 #
@@ -31,13 +36,32 @@ BASE="http://localhost:${PORT}"
 BUNDLE=resources/public/js/compiled/orcpub.js
 SHEET=resources/public/css/compiled/styles.css
 
+DESCRIBE=""
+[ "${1:-}" = --describe ] && { DESCRIBE=1; shift; }
 SUITE_ARG="${1:-run.js}"
+[ $# -gt 0 ] && shift
+SUITE_ARGS=("$@")
 case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG" ;; esac
 NAME="$(basename "$SUITE")"
 NEED=prod; grep -qiE '^//.*Needs:.*dev bundle' "$SUITE" 2>/dev/null && NEED=dev
 KIND=test; grep -qiE '^//.*Kind:.*probe' "$SUITE" 2>/dev/null && KIND=probe
 SUPPRESS=1; grep -qiE '^//.*Overlays:.*NOT suppressed' "$SUITE" 2>/dev/null && SUPPRESS=0
 PROFILES=init-db; grep -qiE '^//.*Needs:.*busy server' "$SUITE" 2>/dev/null && PROFILES=init-db,busy-export
+OWN_SERVER=no
+grep -qiE '^//.*Needs:.*fresh server' "$SUITE" 2>/dev/null && OWN_SERVER=yes
+[ "$PROFILES" != init-db ] && OWN_SERVER=yes
+
+# `run.sh --describe <suite>` prints what the suite needs, so run-all.sh reads these headers through
+# this one parser rather than a second copy of it.
+if [ "${DESCRIBE:-}" = 1 ]; then
+  echo "$NEED $PROFILES $OWN_SERVER $KIND"; exit 0
+fi
+
+NOTE=""
+if grep -qiE '^//.*Needs:.*pack argument' "$SUITE" 2>/dev/null && [ ${#SUITE_ARGS[@]} -eq 0 ]; then
+  SUITE_ARGS=("$(pwd)/test/fixtures/test-pak.orcbrew")
+  NOTE="(fixture pack)"; echo "$NAME takes a pack; none given, so using test/fixtures/test-pak.orcbrew."
+fi
 
 result() { echo "E2E RESULT $NAME $1 checks=${2:-0} failed=${3:-0} bundle=$NEED${4:+ $4}"; }
 fail() { echo; echo "E2E RUN STOPPED: $*"; result FAIL 0 0 "(stopped: $*)"; exit 1; }
@@ -129,24 +153,14 @@ if [ "$NEED" = dev ]; then
 fi
 
 # --- the server ---------------------------------------------------------------------------
-echo "Starting server on :${PORT} (profiles: $PROFILES)..."
-DATOMIC_URL="datomic:mem://orcpub-e2e" \
-ORCPUB_ENV=dev \
-SIGNATURE="${SIGNATURE:-e2e-test-signature}" \
-PORT="$PORT" \
-  setsid lein with-profile "$PROFILES" run -m e2e-boot > "$LOG" 2>&1 &
-SERVER_PID=$!
-# lein forks a JVM, and killing only the wrapper leaves that child holding the port -- the next
-# run then fails to bind and silently tests the stale server. setsid puts both in their own
-# process group so the whole group goes at once.
-trap 'kill -- -$SERVER_PID 2>/dev/null' EXIT
-
-for _ in $(seq 1 90); do
-  curl -sf -o /dev/null "$BASE/" && break
-  sleep 2
-done
-curl -sf -o /dev/null "$BASE/" || { tail -30 "$LOG"; fail "the server never came up (log above)"; }
-grep -q BindException "$LOG" 2>/dev/null && fail "port $PORT was already in use, so this would have tested a stale server"
+# run-all.sh starts one server per batch and sets E2E_SHARED_SERVER; otherwise this run has its own.
+if [ -n "${E2E_SHARED_SERVER:-}" ]; then
+  curl -sf -o /dev/null "$BASE/" || fail "E2E_SHARED_SERVER is set but nothing answers on :$PORT"
+  echo "Using the shared server on :${PORT}."
+else
+  ./scripts/e2e/server.sh start "$PROFILES" || fail "the server did not start (reason above)"
+  trap './scripts/e2e/server.sh stop' EXIT
+fi
 
 # --- the app must start before anything is judged ------------------------------------------
 node scripts/e2e/boot-check.js "$BASE" || fail "the app did not start in a browser (reason above)"
@@ -172,7 +186,7 @@ fi
 LIMIT="${E2E_SUITE_TIMEOUT:-1200}"
 E2E_BASE="$BASE" PROBE_SUPPRESS="$SUPPRESS" PROBE_WHATS_NEW_RELEASE="$RELEASE" \
   NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }$SUITE_NODE_OPTIONS" \
-  timeout --kill-after=10 "$LIMIT" node "$SUITE" 2>&1 | tee "$OUTPUT"
+  timeout --kill-after=10 "$LIMIT" node "$SUITE" "${SUITE_ARGS[@]}" 2>&1 | tee "$OUTPUT"
 NODE_RC=${PIPESTATUS[0]}
 if [ "$NODE_RC" -eq 124 ] || [ "$NODE_RC" -eq 137 ]; then
   rm -f "$MARK" "$OUTPUT"
@@ -203,12 +217,12 @@ rm -f "$MARK" "$OUTPUT"
 echo
 if [ "$KIND" = probe ]; then
   [ "$SAID_FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(probe printed FAILED, so a measurement did not complete)"; exit 1; }
-  [ "$NODE_RC" -eq 0 ] && { result PROBE "$PASSED" "$FAILED" "(measured, not judged)"; exit 0; }
+  [ "$NODE_RC" -eq 0 ] && { result PROBE "$PASSED" "$FAILED" "(measured, not judged)${NOTE:+ $NOTE}"; exit 0; }
   result FAIL "$PASSED" "$FAILED" "(probe exited $NODE_RC)"; exit 1
 fi
 [ "$NODE_RC" -ne 0 ] && { result FAIL "$PASSED" "$FAILED" "(exited $NODE_RC)"; exit 1; }
 [ "$FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(a check failed though it exited 0)"; exit 1; }
 [ "$SAID_FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(printed FAILED though it exited 0)"; exit 1; }
 [ "$PASSED" -eq 0 ] && { result FAIL 0 0 "(reported no checks: it ran nothing, or prints no PASS/ok lines)"; exit 1; }
-result PASS "$PASSED" 0
+result PASS "$PASSED" 0 "$NOTE"
 exit 0
