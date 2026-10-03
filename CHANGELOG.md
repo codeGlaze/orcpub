@@ -1128,6 +1128,18 @@ one 10px gutter, and the header's tab menus open on screen again.
 - **Browser suites run on the production build unless they declare otherwise** — 27 read the app's internals and say `Needs: dev bundle`, 18 measure rather than check and say `Kind: probe`, and the other 12 run on what the site serves (`8acf1093`).
 - **One command runs every browser suite** and prints a table that keeps production and development-only results apart (`edd5c14f`).
 
+### fix/e2e-step-2
+
+**Fixed**
+
+- **The busy-export browser test passes again** — it waits for the Export button now, and every suite starts with the What's New panel and cookie banner already seen (the panel was covering the button) unless the suite tests them (`a94af091`).
+- **A browser suite that hangs is stopped** after 20 minutes and reported as failed, instead of holding the run open (`f374a758`).
+
+**Changed**
+
+- **The full browser run boots three servers instead of 39** — one per bundle batch, plus one for the busy-export test; all 39 suites take 20 minutes (`d84337f7`, `e310fd32`).
+- **Six more suites run on the production build**; importing homebrew through the visible import flow works there. Suites that take a homebrew pack use the test fixture pack when given none (`4c3fbba6`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
