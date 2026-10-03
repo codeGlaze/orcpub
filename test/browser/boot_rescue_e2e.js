@@ -47,7 +47,7 @@ const visible = page => page.evaluate(() => {
 });
 
 // The whole point: not just "a button is there" but "the bytes come back out".
-async function rescues(page, label) {
+async function rescues(page, label, expected = PLUGINS) {
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 15000 }),
     page.click('#boot-rescue-btn'),
@@ -55,7 +55,7 @@ async function rescues(page, label) {
   const f = path.join(OUT, label + '.orcbrew');
   await dl.saveAs(f);
   const got = fs.readFileSync(f, 'utf8');
-  return { name: dl.suggestedFilename(), intact: got === PLUGINS, bytes: got.length };
+  return { name: dl.suggestedFilename(), intact: got === expected, bytes: got.length };
 }
 
 (async () => {
@@ -120,6 +120,10 @@ async function rescues(page, label) {
     const cleared = await visible(page);
     check('clean render -> control cleared', cleared.display === 'none', JSON.stringify(cleared));
 
+    // The app has loaded the library by now and may have tidied it (a missing :key filled in),
+    // so the rescue must hand back what is stored at the crash, not the seed.
+    const storedBeforeCrash = await page.evaluate(() => localStorage.getItem('plugins'));
+
     // Poison the function My Content calls while rendering each source row, so
     // the next render is a genuine throw through React's own error path.
     const poisoned = await page.evaluate(() => {
@@ -143,7 +147,7 @@ async function rescues(page, label) {
     const v = await visible(page);
     check('view errored -> control comes back', v.display === 'flex' && v.h > 0, JSON.stringify(v));
     if (v.display === 'flex') {
-      const r = await rescues(page, 'view-error');
+      const r = await rescues(page, 'view-error', storedBeforeCrash);
       check('view errored -> homebrew comes out intact', r.intact, r.name + ' ' + r.bytes + 'B');
     }
     await page.screenshot({ path: path.join(OUT, '3-view-error.png'), fullPage: true });
