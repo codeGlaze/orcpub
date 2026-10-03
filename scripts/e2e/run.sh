@@ -16,6 +16,8 @@
 #   Needs: busy server  it needs the export queue small enough to fill (profile busy-export).
 #   Kind: probe         it measures and prints, and is judged by its exit code only.
 #
+# A suite is killed after E2E_SUITE_TIMEOUT seconds (default 1200) and reported as timed out.
+#
 # The database is datomic:mem://, which only exists inside the JVM that created it -- that is
 # why dev/e2e_boot.clj starts the server AND seeds the user in one process.
 set -uo pipefail
@@ -149,8 +151,15 @@ node scripts/e2e/boot-check.js "$BASE" || fail "the app did not start in a brows
 # --- run the suite and judge what it printed ----------------------------------------------
 MARK="$(mktemp)"
 OUTPUT="$(mktemp)"
-E2E_BASE="$BASE" node "$SUITE" 2>&1 | tee "$OUTPUT"
+# A suite that hangs (an awaited click on a hidden element, a browser never closed on an error)
+# would hold the run forever. Past the limit it is killed and reported, never waited on.
+LIMIT="${E2E_SUITE_TIMEOUT:-1200}"
+E2E_BASE="$BASE" timeout --kill-after=10 "$LIMIT" node "$SUITE" 2>&1 | tee "$OUTPUT"
 NODE_RC=${PIPESTATUS[0]}
+if [ "$NODE_RC" -eq 124 ] || [ "$NODE_RC" -eq 137 ]; then
+  rm -f "$MARK" "$OUTPUT"
+  echo; result FAIL 0 0 "(timed out after ${LIMIT}s and was killed; E2E_SUITE_TIMEOUT raises the limit)"; exit 1
+fi
 # A check may carry a timing prefix ("[+1.2s] PASS ..."); a probe or a crash handler prints FAILED.
 PASSED=$(grep -cE '^\s*(\[[^]]*\]\s*)?(PASS|ok)\b' "$OUTPUT")
 FAILED=$(grep -cE '^\s*(\[[^]]*\]\s*)?(FAIL|not ok)\b' "$OUTPUT")
