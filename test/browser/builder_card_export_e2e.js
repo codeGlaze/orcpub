@@ -5,7 +5,8 @@
 // someone opened the file. So this asserts on the FILE, not on the click.
 //
 // Also covers the developer-mode toggle, because the raw dump behind it is the
-// fallback when this link refuses.
+// fallback when this link refuses. The source and item on/off toggles share the
+// .dev-mode-switch class, so the footer's is selected through .dev-mode-row.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
@@ -125,13 +126,13 @@ function check(name, pass, detail) {
 
   // --- developer mode -------------------------------------------------------
   await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.dev-mode-switch', { timeout: 180000 });
+  await page.waitForSelector('.dev-mode-row .dev-mode-switch', { timeout: 180000 });
   const toolsWhenOff = await page.locator('.dev-mode-tool').count();
   check('switch is visible, tools are not', toolsWhenOff === 0, 'tools: ' + toolsWhenOff);
-  await page.locator('.dev-mode-switch').first().scrollIntoViewIfNeeded();
+  await page.locator('.dev-mode-row .dev-mode-switch').scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(OUT, '2-dev-mode-off.png') });
 
-  await page.locator('.dev-mode-switch').first().click();
+  await page.locator('.dev-mode-row .dev-mode-switch').click();
   await page.waitForTimeout(400);
   const labels = await page.locator('.dev-mode-tool').allInnerTexts();
   check('switching on reveals the named tools', labels.length === 2,
@@ -140,7 +141,7 @@ function check(name, pass, detail) {
 
   // The point of persisting it: someone reaching for these is about to refresh.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.dev-mode-switch', { timeout: 180000 });
+  await page.waitForSelector('.dev-mode-row .dev-mode-switch', { timeout: 180000 });
   await page.waitForTimeout(1200);
   check('the choice survives a refresh', await page.locator('.dev-mode-tool').count() === 2,
         'tools after reload: ' + await page.locator('.dev-mode-tool').count());
