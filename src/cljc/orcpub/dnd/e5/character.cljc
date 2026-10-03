@@ -699,15 +699,10 @@
   (get-prop built-char ::image-url))
 
 (defn- sane-portrait
-  "Drop sub-values that are not the shape the compositor reads.
-
-   Checking only that the OUTER value is a map was not enough. A stored
-   `{:layers \"abc\"}` is valid EDN and passed, and the non-map :layers then
-   reached credit-line, which walks it as a selection: three of four malformed
-   shapes threw (a string, a vector and a number), and character-page calls
-   credit-line unguarded, so a crafted save took the PUBLIC character page down
-   with a 500. Entry-level junk is already harmless -- (:asset/id 42) is nil --
-   so only the containers need checking."
+  "`m` with any non-map :layers, :colors or :tweaks removed; nil when `m` is not a map.
+   GOTCHA: the containers must be checked, not just `m`: a stored {:layers \"abc\"} made
+   credit-line throw on the public character page. See PORTRAIT-COMPOSITOR.md,
+   \"Saved portraits are untrusted\"."
   [m]
   (when (map? m)
     (cond-> m
@@ -716,15 +711,9 @@
       (not (map? (:tweaks m))) (dissoc :tweaks))))
 
 (defn parse-portrait
-  "Coerce a stored portrait value into {:layers {…} :colors {…} :tweaks {…}}
-   or nil.
-
-   The portrait is persisted as an EDN STRING: ::se/values is a Datomic
-   component ref, so every key in it must be a registered attribute and none
-   can hold a nested map (see db/schema.clj). Tolerates an already-parsed map
-   (in-memory drafts before a save round-trip) and returns nil for blank or
-   malformed values rather than throwing — a corrupt portrait should degrade
-   to 'no portrait', not break the character sheet."
+  "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
+   :tweaks {…}} through sane-portrait; nil for blank or malformed input, never a throw.
+   Stored as a string because ::se/values cannot hold a nested map (db/schema.clj)."
   [v]
   (cond
     (map? v) (sane-portrait v)

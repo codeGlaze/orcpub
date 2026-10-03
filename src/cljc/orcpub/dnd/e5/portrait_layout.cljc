@@ -1,30 +1,13 @@
 (ns orcpub.dnd.e5.portrait-layout
-  "Where the pieces of a composed portrait land.
-
-   THREE renderers draw the same picture and cannot share drawing code: the
-   drawer stacks CSS-masked divs in the DOM, the export bakes a canvas in the
-   browser, and the share card is composed in Java2D because a crawler runs no
-   JavaScript. What they can share is every NUMBER, and until this namespace
-   existed they did not.
-
-   Each divergence cost a bug or a visible difference:
-
-     * both rasterizers stretched each layer to fill the frame while the DOM
-       composites with `mask-size: contain`, so a shared portrait and a printed
-       sheet came out 10% wider than the face the drawer showed;
-     * the credit was sized with `round` in the browser and `int` on the server,
-       so at a 750px frame it was set at 20px with a 2px halo in a PDF and 19px
-       with a 1px halo on a share card -- the same caption, tuned twice.
-
-   So the geometry lives here once, and each renderer asks rather than derives.
-   Nothing in here draws; it returns numbers, in frame pixels.")
+  "The geometry shared by the three portrait renderers (DOM drawer, browser canvas export,
+   Java2D share card): where a layer lands and where the credit and site mark sit, in frame
+   pixels. Nothing here draws. GOTCHA: a renderer must ask here, never derive its own
+   numbers. See PORTRAIT-COMPOSITOR.md, \"Three renderers, one geometry\".")
 
 (defn contain-rect
-  "Where a `sw`x`sh` asset lands in a `w`x`h` frame under `mask-size: contain`
-   -- scaled to fit, centred, aspect kept. Returns [x y w h].
-
-   This is the DOM's behaviour, and the DOM is the version a person is looking
-   at while they choose, so it is the one the other two have to match."
+  "[x y w h] where a `sw`x`sh` asset lands in a `w`x`h` frame: scaled to fit, centred,
+   aspect kept, as the DOM's `mask-size: contain` places it. The whole frame for a
+   zero-sized asset."
   [sw sh w h]
   (if (or (zero? sw) (zero? sh))
     [0 0 w h]
@@ -37,21 +20,14 @@
        dh])))
 
 (def credit-font-family
-  "The family the baked credit is set in. The browser reaches it through an
-   @font-face and the server loads the same file off the classpath, but the name
-   is one fact."
+  "The family the baked credit is set in: a webfont in the browser, the same file off the
+   classpath on the server."
   "Vollkorn")
 
 (defn credit-layout
-  "Metrics for the artist credit burned along the bottom of a `w`x`h` frame.
-
-   `:outline` and `:fill` are [r g b a] with a out of 255, because Java2D wants
-   it that way and a canvas can divide. Dark fill under a light outline: the PNG
-   is transparent, so it may land on a white page or a dark chat client, and one
-   of the two always reads.
-
-   Rounded, not truncated -- the browser rounded and the server truncated, and
-   the browser is what someone watched while they picked."
+  "Metrics for the credit along the bottom of a `w`x`h` frame: {:size :halo :center-x
+   :baseline :outline :fill}. Colours are [r g b a] with a out of 255 (alpha->unit for a
+   canvas): dark fill under a light outline. Sizes are rounded, never truncated."
   [w h]
   (let [size (max 9 (Math/round (* h 0.026)))]
     {:size size
@@ -62,16 +38,10 @@
      :fill [20 20 20 235]}))
 
 (defn site-mark-layout
-  "Metrics for the site's own mark running up the RIGHT edge of a `w`x`h` frame.
-
-   Deliberately on a different edge from the artist credit: two marks in one
-   caption band would give anyone who wants the advertising gone a reason to
-   crop her name off with it. On opposite edges the cheap crop takes this and
-   leaves her.
-
-   `:x` is the baseline's distance from the left. Where it starts vertically
-   depends on the rendered text width, which only a renderer with font metrics
-   knows, so that stays with the renderer."
+  "Metrics for the site mark running up the RIGHT edge of a `w`x`h` frame: {:size :x
+   :outline :fill}, `:x` the baseline's distance from the left. The vertical start needs
+   font metrics, so the renderer computes it. Kept off the credit's edge: see
+   PORTRAIT-COMPOSITOR.md, \"The baked credit and the site mark\"."
   [w h]
   {:size (max 8 (Math/round (* h 0.020)))
    :x (- w (max 4 (Math/round (* w 0.022))))

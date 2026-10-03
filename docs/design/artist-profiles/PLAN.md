@@ -55,8 +55,25 @@ the credit already honours. The pure functions go in a new cljc namespace,
 
 - **Server:** the share tags and the og PNG. Nothing about the page body.
 - **Client:** everything else. The examples use `portrait/composite`, the
-  same CSS-mask compositor as the drawer and the character page, so they cannot
+  same compositor as the drawer and the character page, so they cannot
   look different from a real portrait.
+
+## Fusspot's links
+
+The registry carries exactly the links she asked for, her site and her Twitch, and no
+others: not every handle she has, the ones she wants here. Twitch is where she does most of
+the work, so someone who liked the art can go and watch it being made.
+
+- **`:artist/link` is her homepage**, the one link for surfaces that hold one, such as the
+  character page's 100px credit strip. It is the list she maintains, so it cannot go stale
+  the way a copied handle can.
+- **A link with no `:link/icon` shows its label as text**, so a service nobody has drawn a
+  mark for degrades to a word, not an empty box. The bluesky and kofi marks stay in
+  `/image/social` for the next artist who wants them.
+- **`:link/color` is worn at rest, not only on hover.** A credit in the same quiet grey as
+  everything around it is designed to be skipped; the eye finds a purple Twitch mark and
+  slides past a grey globe. Site takes the app's amber because her homepage has no mark of
+  its own and it is the primary link.
 
 ## Look
 

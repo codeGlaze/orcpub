@@ -223,13 +223,10 @@
    :portrait/open-slot :portrait/open-layer])
 
 (defn drop-portrait-draft
-  "Clear the draft and count the change.
-
-   :character-epoch is bumped in step, so it counts how many times the character
-   being edited has been REPLACED. A save is dispatched at one epoch and answered
-   at another, and that is the only way the answer can tell whether the character
-   it is about is still the one on screen -- an id cannot, because a first save is
-   where the id appears."
+  "`db` without the portrait draft keys, with :character-epoch incremented. The epoch
+   counts replacements of the character on screen; saves compare it (see
+   saved-character-is-the-one-being-edited?) because an id cannot tell a first save from
+   a switch."
   [db]
   (-> (apply dissoc db portrait-ui-keys)
       (update :character-epoch (fnil inc 0))))
@@ -539,26 +536,10 @@
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
 (defn saved-character-is-the-one-being-edited?
-  "Whether a save that has just come back is about the character on screen.
-
-   It is decided from what the save was dispatched WITH, because nothing in the
-   response can answer it. A save is asynchronous, and the autosave queue is
-   throttled, so the answer routinely arrives after the builder has moved on --
-   toggle a prepared spell on one character from a list and the queued save for
-   it lands while another is open in the builder.
-
-   The two save paths know different things, so they say different things:
-
-     * the manual save posts db :character, so it passes the :epoch it was
-       dispatched at. A first save is exactly where the id appears, so an id
-       cannot distinguish 'the same character, now saved' from 'a different
-       character'; the epoch can, because it counts replacements.
-     * the autosave posts a character from the map BY ID, which may never have
-       been the one on screen, so it passes that :for-id to be compared.
-
-   Neither given (a bare re-dispatch) answers false, which is the safe way to be
-   wrong: a stale answer then updates the character map and leaves the screen
-   alone."
+  "Whether a returning save is about the character on screen, from the context it was
+   dispatched with: `:for-id` (autosave, by id) is compared to the on-screen id, `:epoch`
+   (manual save) to :character-epoch. Neither given answers false, which leaves the screen
+   alone. Why: PORTRAIT-COMPOSITOR.md, \"The draft and the character on screen\"."
   [db {:keys [epoch for-id]}]
   (cond
     (some? for-id) (= for-id (:db/id (:character db)))
@@ -567,12 +548,9 @@
 
 (reg-event-fx
  :character-save-success
- ;; ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect
- ;; dispatches (conj on-success response), so the response is APPENDED -- it
- ;; arrives LAST, after whatever the caller put in its :on-success vector.
- ;; Reading them the other way round bound the save context as the response,
- ;; so (:body ...) was nil and EVERY successful save silently failed to install
- ;; the character it got back, the first save's new :db/id included.
+ ;; GOTCHA: the :http effect APPENDS the response to the :on-success vector, so it
+ ;; arrives last, after the save context. Swapped, every save silently fails to
+ ;; install the character it got back.
  (fn [{:keys [db]} [_ save-context response]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
@@ -585,18 +563,13 @@
                   (str "Saved “" char-name "”")
                   "Your character has been saved.")]]
 
-        ;; The character on screen is only replaced when the save was ABOUT it.
-        ;; It used to be replaced by whatever came back: the autosave queue is
-        ;; throttled by 7.5s and every sheet control feeds it, so adjusting hit
-        ;; points on one character and opening another inside that window
-        ;; swapped the builder out from under you -- and db :character is where
-        ;; unsaved edits live, so they went with it. The portrait draft was only
-        ;; the loudest symptom.
+        ;; Only a save ABOUT the character on screen replaces it: a throttled autosave
+        ;; can land after the builder has opened another one, whose unsaved edits
+        ;; would go with it.
         current?
         (conj [:character-updated character])
 
         ;; Always: the saved character belongs in the map whoever is on screen.
-        ;; This is the half of the old behaviour that was right.
         true
         (conj [::char5e/set-character id character]))})))
 
@@ -2160,22 +2133,11 @@
          :character-healed (when (seq rewrote) {:rewrote rewrote})))
 
 (defn set-character
-  "Put a DIFFERENT character on screen: opening one, cloning, randomizing, New.
-
-   The portrait draft is dropped, unconditionally and without asking anything
-   about ids. Three review rounds went into guards that tried to work out
-   afterwards whether a replacement was really a switch, and each guard was
-   wrong in a way the next one found: a first save looks like a new id, two
-   never-saved characters share a nil one. The information was never in the
-   characters -- it is in which event the caller meant, so that is now what
-   they choose. Modifying the character on screen is :character-updated.
-
-   The one exception is a courtesy and nothing depends on it: re-opening the
-   SAME saved character (Edit, from a list, on the one already in the builder)
-   keeps the draft, so that is not a way to lose work. Unlike the guards it
-   replaced, this comparison cannot be wrong -- two different characters cannot
-   share a non-nil id, and a nil one is not a match. Nothing about a save
-   reaches it any more, so please do not make it load-bearing again."
+  "The :set-character db fn: put a DIFFERENT character on screen (open, clone, randomize,
+   New), reconciled, dropping the portrait draft. Modifying it is :character-updated.
+   Re-opening the same saved (non-nil) id keeps the draft, as a courtesy only.
+   GOTCHA: do not infer a switch from ids; the caller's choice of event decides.
+   See PORTRAIT-COMPOSITOR.md, \"The draft and the character on screen\"."
   [db [_ character]]
   (let [id (:db/id character)
         same-saved-character? (and (some? id) (= id (:db/id (:character db))))]
@@ -2354,13 +2316,9 @@
 
 ;; ---- portrait compositor drawer ----
 ;;
-;; Editing state (open/closed, the in-progress draft, which color panels are
-;; expanded) lives at the TOP of app-db under :portrait/* keys — UI state,
-;; not part of the persisted character. Only :portrait/save writes back, and
-;; it writes an EDN STRING to ::char5e/portrait: ::se/values is a Datomic
-;; component ref, so every key in it must be a registered attribute and no
-;; attribute can hold a nested map (see db/schema.clj). The char5e/portrait
-;; getter parses it back.
+;; Drawer state lives at the top of app-db under :portrait/*, not in the character.
+;; Only :portrait/save writes back: an EDN string to ::char5e/portrait (see
+;; char5e/parse-portrait for why a string).
 
 (defn- seed-portrait-draft
   "Reset the draft to whatever the character currently has saved.

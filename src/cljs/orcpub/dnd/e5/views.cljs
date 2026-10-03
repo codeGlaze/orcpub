@@ -129,14 +129,10 @@
        (when @blurred? (validation-messages messages))])))
 
 (defn export-pdf
-  "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component.
-
-   A composed portrait exists only as stacked CSS masks in the browser, so it
-   is baked to a PNG here and posted with the spec; the server embeds those
-   bytes directly instead of fetching an image URL. Rasterizing waits on image
-   decode, hence the async submit -- and a failure resolves to nil so the
-   sheet still prints, just without the picture."
+  "Returns an onClick handler that generates and submits the PDF. plugin-data is
+   pre-subscribed by the calling component. A composed portrait is first baked with
+   portrait/rasterize and posted with its credit as :portrait-png and :portrait-credit, so
+   the submit is async. GOTCHA: a failed bake still submits, without the picture."
   [built-char id plugin-data & [options]]
   (fn [_]
     (let [field (.getElementById js/document "fields-input")

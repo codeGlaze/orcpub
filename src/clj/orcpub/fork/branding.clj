@@ -139,22 +139,11 @@
 ;; ─── Portrait Artist Credits ───────────────────────────────────────
 
 (def portrait-artists
-  "Deployment overrides for how portrait artists are credited, as
-   {artist-id {:artist/name .. :artist/link .. :artist/license ..}}.
-
-   PORTRAIT_ARTISTS is JSON keyed by artist id:
-
-     {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}
-
-   The registry in portrait-assets.cljc holds the public default and the
-   structure -- which artist drew which asset -- because the app cannot
-   resolve an asset without it. Only the presentation of the credit is
-   overridable, so a fork can credit its own contributors without editing
-   shared code, and cannot silently re-attribute someone's art to a
-   different pack.
-
-   A malformed value is ignored with a warning rather than taking down the
-   page: a broken credit should cost the credit, not the site."
+  "Deployment overrides for portrait artist credits, {artist-id {:artist/name :artist/link
+   :artist/links :artist/license}}, from PORTRAIT_ARTISTS: JSON keyed by artist id, e.g.
+   {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}. Which artist drew
+   which asset is not overridable. See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\".
+   GOTCHA: a value that does not parse is ignored with a warning, not thrown."
   (or (when-let [raw (not-empty (or (env :portrait-artists)
                                     (System/getenv "PORTRAIT_ARTISTS")))]
         (try
