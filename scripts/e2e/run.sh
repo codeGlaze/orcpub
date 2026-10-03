@@ -15,6 +15,8 @@
 #                       Otherwise it runs on production, the build the public site serves.
 #   Needs: busy server  it needs the export queue small enough to fill (profile busy-export).
 #   Kind: probe         it measures and prints, and is judged by its exit code only.
+#   Overlays: NOT suppressed   it tests an overlay itself; otherwise the cookie banner and the
+#                       What's New panel are stamped as seen before any page loads.
 #
 # A suite is killed after E2E_SUITE_TIMEOUT seconds (default 1200) and reported as timed out.
 #
@@ -34,6 +36,7 @@ case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG
 NAME="$(basename "$SUITE")"
 NEED=prod; grep -qiE '^//.*Needs:.*dev bundle' "$SUITE" 2>/dev/null && NEED=dev
 KIND=test; grep -qiE '^//.*Kind:.*probe' "$SUITE" 2>/dev/null && KIND=probe
+SUPPRESS=1; grep -qiE '^//.*Overlays:.*NOT suppressed' "$SUITE" 2>/dev/null && SUPPRESS=0
 PROFILES=init-db; grep -qiE '^//.*Needs:.*busy server' "$SUITE" 2>/dev/null && PROFILES=init-db,busy-export
 
 result() { echo "E2E RESULT $NAME $1 checks=${2:-0} failed=${3:-0} bundle=$NEED${4:+ $4}"; }
@@ -151,10 +154,25 @@ node scripts/e2e/boot-check.js "$BASE" || fail "the app did not start in a brows
 # --- run the suite and judge what it printed ----------------------------------------------
 MARK="$(mktemp)"
 OUTPUT="$(mktemp)"
+# Overlays: the cookie banner and the What's New panel cover the page and swallow clicks, so every
+# suite's browser contexts stamp them as seen (test/browser/lib/suppress-overlays-preload.js),
+# unless the suite declares it tests them. The release id is read from the app's own list, so a
+# new release cannot silently bring the panel back over every suite.
+RELEASE="$(sed -n 's/.*{:id "\([^"]*\)".*/\1/p' src/cljc/orcpub/whats_new.cljc | head -1)"
+[ -n "$RELEASE" ] || fail "could not read the newest What's New id from src/cljc/orcpub/whats_new.cljc"
+PRELOAD="$(pwd)/test/browser/lib/suppress-overlays-preload.js"
+if [ "$SUPPRESS" = 1 ]; then
+  SUITE_NODE_OPTIONS="--require $PRELOAD"
+else
+  SUITE_NODE_OPTIONS=""; echo "Overlays left on: $NAME tests them."
+fi
+
 # A suite that hangs (an awaited click on a hidden element, a browser never closed on an error)
 # would hold the run forever. Past the limit it is killed and reported, never waited on.
 LIMIT="${E2E_SUITE_TIMEOUT:-1200}"
-E2E_BASE="$BASE" timeout --kill-after=10 "$LIMIT" node "$SUITE" 2>&1 | tee "$OUTPUT"
+E2E_BASE="$BASE" PROBE_SUPPRESS="$SUPPRESS" PROBE_WHATS_NEW_RELEASE="$RELEASE" \
+  NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }$SUITE_NODE_OPTIONS" \
+  timeout --kill-after=10 "$LIMIT" node "$SUITE" 2>&1 | tee "$OUTPUT"
 NODE_RC=${PIPESTATUS[0]}
 if [ "$NODE_RC" -eq 124 ] || [ "$NODE_RC" -eq 137 ]; then
   rm -f "$MARK" "$OUTPUT"

@@ -97,17 +97,17 @@ function saturate(until) {
   await page.click('text=D&D 5e Character Builder / Sheet');
   await page.waitForTimeout(4000);
 
-  (await visible(page.locator('button:has-text("Export")'))).click();
+  await (await visible(page.locator('button:has-text("Export")'))).click();
   await page.waitForTimeout(1200);
   // Create PDF stays pointer-events:none until a sheet style is chosen.
-  (await visible(page.locator('select'))).selectOption('1');
+  await (await visible(page.locator('select'))).selectOption('1');
   await page.waitForTimeout(600);
 
   const load = saturate(Date.now() + 10000);
   await page.waitForTimeout(500);
 
   const popup = ctx.waitForEvent('page', { timeout: 30000 });
-  (await visible(page.locator('button:has-text("Create PDF")'))).click();
+  await (await visible(page.locator('button:has-text("Create PDF")'))).click();
   const tab = await popup;
   tab.on('pageerror', e => errors.push('busy tab: ' + e));
   await tab.waitForLoadState('domcontentloaded').catch(() => {});
