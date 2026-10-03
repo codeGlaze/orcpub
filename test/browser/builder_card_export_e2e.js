@@ -42,7 +42,6 @@ function check(name, pass, detail) {
     try {
       if (!localStorage.getItem('plugins')) { localStorage.setItem('plugins', v); }
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
     } catch (e) {}
   }, EXISTING);
   const page = await ctx.newPage();
@@ -98,7 +97,6 @@ function check(name, pass, detail) {
   {
     const fresh = await browser.newContext({ acceptDownloads: true });
     await suppressCookieBanner(fresh);
-    await fresh.addInitScript(() => { try { localStorage.setItem('whats-new-seen','"summer-patch-2026"'); } catch (e) {} });
     const fp = await fresh.newPage();
     await fp.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
     await fp.waitForSelector('text=/My Content|MY CONTENT/i', { timeout: 180000 });

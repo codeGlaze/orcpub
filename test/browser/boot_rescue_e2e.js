@@ -30,7 +30,6 @@ async function seeded(browser, { breakage } = {}) {
     try {
       localStorage.setItem('plugins', v);
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
     } catch (e) {}
   }, PLUGINS);
   const page = await ctx.newPage();
@@ -166,7 +165,6 @@ async function rescues(page, label, expected = PLUGINS) {
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('orcpub:no-cookie-banner', '1');
-        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
       } catch (e) {}
     });
     const page = await ctx.newPage();

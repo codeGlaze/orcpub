@@ -169,9 +169,6 @@ const click = async (page, locator, ms = 4000) => {
 async function openLane(browser) {
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   await suppressCookieBanner(ctx);
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
-  });
 
   // SELFTEST=1 drops a sheet of glass over the page. Every audited state must then
   // FAIL: a probe nobody has ever seen fail is a probe nobody should trust.
