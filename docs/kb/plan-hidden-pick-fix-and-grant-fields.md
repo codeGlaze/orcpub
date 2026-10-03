@@ -78,6 +78,10 @@ would confirm rather than discover. Do it as part of step 5, not before step 1.
 
 ### Step 5, mapped (2026-10-01)
 
+> **Superseded by the owner's decision of 2026-10-03** (`decision-gate-hidden-picks.md`, top): one
+> set-aside path for every closed gate, held in memory, three steps. The map below stays as the
+> list of sites that path has to reach.
+
 > **Superseded in part by the tested verdicts** in `hidden-selection-picks.md`, "Verified
 > 2026-10-01": D3 adds the hand-built `classes.cljc` selections and `starting-equipment-option`;
 > D4 (fixed gear) is a stale-data path, not this fix; S1 adds subclass level picks. Threading each

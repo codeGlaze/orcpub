@@ -21,7 +21,7 @@ before the next.
 
 | # | step | where | depends on |
 |---|---|---|---|
-| 0 | **Hidden-pick fix, Part A.** Skills done (`75fa9431`; same fix as `5230db89` on extras-companions); `integration` merged in (`5451b299`); every claim behind the rest tested and pinned (`65bb097a`, verdicts in `hidden-selection-picks.md`). E2E (`babf234f`): subclass level picks are the live, silent case; the first-class family is unreachable in the UI because deleting or changing the first class resets slots, which destroys the remaining class's picks. Next: measure whether that reset drops levels, then a design note (gate over a whole selection, deps declared; stop resetting; a first-slot swap) for the owner | `fix/hidden-multiclass-skill-pick` (cut from `integration` 2026-09-20, no PR yet) | — |
+| 0 | **Hidden-pick fix.** Researched and designed (owner, 2026-10-03; `decision-gate-hidden-picks.md`, top): one set-aside path, held in memory, newest-first for shared slots, the counter's "N set aside" marker. Three steps: the fix, showing set-aside picks, "Make starting class". Open: a swap that breaks multiclass prerequisites. Tests and e2e research on the branch (`65bb097a`, `babf234f`, `e7239168`); round-2 mockups for review | `fix/hidden-multiclass-skill-pick` (has `integration`, no PR yet) | — |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
@@ -31,6 +31,10 @@ before the next.
 | 7 | Part B.4: `:if-held` with the resolution vocabulary | here | 4 |
 | 8 | Part B.5: convert the bespoke skill and tool builders, one at a time | here | 7 |
 | 9 | Handoff steps 5–8: effect kinds, E3 creatures and traits, `content-builder :feat`, spells as a pool | here | see handoff |
+
+Also open, found during the hidden-pick work, each its own item:
+- **One-pick sections click two ways.** "Pick up to 1" (Fighting Style) blocks a second option until the first is cleared; "pick exactly 1" (Defensive Tactics) swaps on click but can never be cleared. Proposed: in every one-pick section, clicking another option swaps and clicking the selected one clears; multi-pick sections keep "clear one first" but say why. Builder-wide behaviour change: owner to approve.
+- **`develop` has two commits `integration` lacks** (`15e1fe04`, `93c15c03`): three `.gitignore` rules (`*.log`, versioned design-handoff dirs, `*:Zone.Identifier`). Bring over by a small PR from `integration`; branch name to be approved.
 
 Decorative glyphs that leaked into content come out as their lines are touched
 (`before-you-start.md`, "Before adding an icon"); no branch of their own.

@@ -1,5 +1,31 @@
 # Decision: gate hidden picks at build time, and tell the player
 
+## Current decision (owner, 2026-10-01 to 2026-10-03) — supersedes the sections below where they differ
+
+**The rule a player is told, in full:** *Your sheet saves as you go. A choice that stops applying
+is set aside, and comes back by itself if it applies again and still fits. Anything set aside is
+forgotten when you leave or reload the page.* If a design change needs a "sometimes" added to
+that answer, the change is wrong.
+
+| decided | what |
+|---|---|
+| set aside, not refunded | a pick whose gate closes (level lowered, class removed, moved, or changed) leaves the character and is held. Mistaken clicks and build experiments cost nothing |
+| held in memory only | the hold lives with the open page: never saved, exported, or sent to the server. No session/local storage (tab and device behaviour is not predictable enough to explain) |
+| forgotten when | the page is left or reloaded; or the player clears it, or picks something new in that slot |
+| comes back | automatically when its gate reopens, if it still fits (a skill now held from elsewhere, deleted homebrew, a smaller slot: not restored, and named). A short notice with **Undo**, persistent until dismissed |
+| no reload warning | browsers show only a generic "changes may not be saved" on reload (custom text ignored), it is unreliable on mobile, and the app already uses it for pending autosave |
+| one path, nothing hides | on open and on every change, a pick that does not apply goes through the same set-aside path and is named. Opening a character with old ghost picks counts as the moment they stopped applying: set aside, the cleaned character saves, a short notice names them. The build-time check is a backstop for the same path, never a silent filter |
+| shared slots: newest first | a slot that loses room sets aside the most recently chosen pick. Stored order is click order (`event_handlers.cljc` `update-multi-select`, `conj`); nothing records which level granted a pick. The player keeps the other with one action ("Keep instead") |
+| the marker | a fourth state of the section header's existing counter (`remaining-component`): "1 set aside", tappable, opening the list with reason and actions. One count per section, however many picks |
+| copy | notices are glanceable: a few words, names not keys ("Steel Will set aside: needs level 7", "Steel Will is back · Undo") |
+| order of work | 1. the fix (picks stop applying, set-aside path) · 2. showing set-aside picks · 3. "Make starting class" |
+
+**Dropped:** the repair-log attribute (`::char5e/repair-log`, below). It would store ghost data on
+the character, which the owner ruled out: only the character the player decides on is saved.
+
+**OPEN:** what "Make starting class" does when the class moved to second fails its multiclass
+prerequisites (block, or allow with the builder's usual prerequisite warning).
+
 *DESIGN — nothing built. Fixes the defect in [hidden-selection-picks.md](hidden-selection-picks.md).
 Evidence measured 2026-09-14, `feature/grant-rows` at `ec04da1b`.*
 
@@ -237,3 +263,11 @@ character in the app.
 - [decision-already-held-resolution.md](decision-already-held-resolution.md) — the design that
   would multiply conditional selections from nine sites to every grant, which is why this is
   urgent rather than tidy
+
+## Corrections
+
+- **2026-10-03:** "The paper trail" (a durable `::char5e/repair-log` on the character) and Scope
+  steps 4–5 are superseded by the current decision at the top: set-aside picks are held in memory
+  and never saved, and the record is the on-open notice. Scope step 3's gate stays, as the
+  backstop of the set-aside path rather than a silent filter.
+

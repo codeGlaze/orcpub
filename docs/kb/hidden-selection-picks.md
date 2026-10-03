@@ -3,6 +3,15 @@
 *Live defect class. Measured 2026-09-14, `feature/grant-rows` at `4b7dc0e6`; assertions in
 `test/cljc/orcpub/dnd/e5/conditional_selection_ref_test.clj`.*
 
+## Two slot facts the design depends on (e2e, 2026-10-03)
+
+`test/e2e/slot-order-and-click.js` (`e7239168`). **A shared slot stores picks in click order**:
+`update-multi-select` (`event_handlers.cljc`) appends with `conj`; deselect then re-select moves a
+pick to the end; nothing records which level granted it; the UI lists options alphabetically.
+**The two one-pick kinds click differently:** Fighting Style (multi-pick, max 1) blocks a click on
+another option until the current one is cleared; Defensive Tactics (single pick) swaps on click and
+cannot be cleared. While overfull, clicking a selected pick removes it; unselected ones are inert.
+
 ## Reachable through the UI (e2e, 2026-10-01)
 
 `test/e2e/hidden-pick-flows.js` on `fix/hidden-multiclass-skill-pick` (`babf234f`): five flows,
