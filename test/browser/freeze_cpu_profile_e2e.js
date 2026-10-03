@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // CPU-profile the freeze and rank functions by self time.
 //
 // Attribution by counter needs a guess about which function to count. This needs none:

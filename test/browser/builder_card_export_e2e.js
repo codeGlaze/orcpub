@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // The save banner's export link must produce a file holding BOTH the content
 // that was already in that source and the item just saved. Documented history
 // (docs/HOMEBREW_DATA_LOSS.md, S1) is that this link has broken twice by

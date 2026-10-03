@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Are spells built into the character builder when you are NOT looking at spells?
 //
 // Scales homebrew SPELLCASTING classes/subclasses (each with a full spell list) plus custom

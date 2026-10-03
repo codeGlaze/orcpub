@@ -1,3 +1,4 @@
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // The real localStorage ceiling, not the "5 MB" folklore.
 //
 // Fills in 64k chunks until the quota throws, with two alphabets: matching ceilings mean

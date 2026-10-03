@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // entity/build calls per click, in the real app.
 //
 // The CLJS characterization test models the debounce in a synthetic harness. A model can be

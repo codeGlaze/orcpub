@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Browser-driven e2e for the notification view components (orcpub.dnd.e5.views.notifications).
 //
 // After lifting the transient message banner and the callout into views/notifications.cljs,

@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Reproduce the reported freeze: flipping between the Race and Class tabs, on a machine
 // that is also running the server.
 //

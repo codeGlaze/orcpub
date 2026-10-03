@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Which pickers in the app are actually big?
 //
 // Counts <option> elements per <select> across the pages that have selectors, so the

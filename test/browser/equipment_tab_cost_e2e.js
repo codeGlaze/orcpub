@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Does make-inventory-item's memoize cost anything in practice?
 //
 // It is memoized on [key item-map qty-input-width], and item-map is a full content map

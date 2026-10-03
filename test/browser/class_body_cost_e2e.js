@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // What do class BODIES cost — at builder open, and per class switch?
 //
 // plugin-classes runs make-levels for every homebrew class, and ::classes5e/classes runs
