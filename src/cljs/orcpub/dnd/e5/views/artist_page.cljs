@@ -1,101 +1,13 @@
 (ns orcpub.dnd.e5.views.artist-page
   "Views for the public artist profiles, /artists and /artists/<slug>. What they show is
    decided in artist-profile (cljc). The page wears .pl-root so the drawer's stylesheet,
-   credit face and --lk-* theme variables apply; .ap-* styles only what the drawer lacks.
+   credit face and --lk-* theme variables apply; what the drawer lacks is .ap-*, in
+   styles/core.clj `artist-pages`.
    Plan and look: docs/design/artist-profiles/PLAN.md."
   (:require [re-frame.core :refer [subscribe]]
             [orcpub.dnd.e5.artist-profile :as ap]
             [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.views :as views]))
-
-(def styles "
-.ap-root { font-family: 'Open Sans', system-ui, sans-serif; color: #ebeef4; padding: 24px 12px 40px; }
-.ap-root.light-theme { color: #363636; }
-.ap-card {
-  max-width: 640px; margin: 0 auto; padding: 28px 28px 24px;
-  background: #131924; border: 1px solid rgba(240,161,0,0.16); border-radius: 12px;
-  box-shadow: 0 20px 50px -30px rgba(0,0,0,0.7);
-  display: flex; flex-direction: column; gap: 30px;
-}
-.ap-root.light-theme .ap-card {
-  background: #fff; border-color: rgba(0,0,0,0.10);
-  box-shadow: 0 20px 50px -34px rgba(0,0,0,0.35);
-}
-.ap-head { display: flex; flex-direction: column; gap: 12px; text-align: center; }
-.ap-name {
-  margin: 0; font: italic 400 40px/1.1 'Vollkorn', Georgia, serif;
-  color: var(--lk-name); white-space: normal; text-wrap: balance;
-}
-.ap-head .lk-row { gap: 16px; }
-.ap-lede { margin: 0; font-size: 13px; line-height: 1.5; color: var(--lk-dim); }
-.ap-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
-.ap-link {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 16px; border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.02);
-  color: #ebeef4; text-decoration: none;
-  font: 600 12px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.04em;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-.ap-link:hover, .ap-link:focus-visible { border-color: #f0a100; background: rgba(240,161,0,0.06); outline: none; }
-.ap-link .lk-ico { width: 14px; height: 14px; }
-.ap-root.light-theme .ap-link { border-color: rgba(0,0,0,0.14); background: #fff; color: #363636; }
-.ap-root.light-theme .ap-link:hover,
-.ap-root.light-theme .ap-link:focus-visible { border-color: #33658A; background: rgba(51,101,138,0.06); }
-.ap-section { display: flex; flex-direction: column; gap: 14px; }
-.ap-section > .lk-cap { margin: 0; }
-.ap-examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.ap-example { margin: 0; display: flex; flex-direction: column; gap: 7px; }
-/* Dark in both themes, like the drawer's frame: it holds character colours,
-   and a light frame would swallow pale skin and blonde hair. */
-.ap-frame {
-  width: 100%; aspect-ratio: 4 / 5; box-sizing: border-box;
-  position: relative; overflow: hidden; border-radius: 10px;
-  background: radial-gradient(circle at 50% 35%, #202939, #131924 60%, #0f141c);
-  border: 1px solid rgba(240,161,0,0.16);
-}
-.ap-root.light-theme .ap-frame { border-color: rgba(0,0,0,0.12); }
-.ap-example figcaption {
-  font: italic 12px/1.4 'Vollkorn', Georgia, serif; color: var(--lk-dim); text-align: center;
-}
-.ap-groups { display: flex; flex-direction: column; gap: 14px; }
-.ap-group { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start; }
-.ap-group-name { font: 600 12px/1.3 'Open Sans', system-ui, sans-serif; padding-top: 6px; }
-.ap-group-count { display: block; font-weight: 400; font-size: 11px; color: var(--lk-dim); }
-.ap-pieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
-.ap-piece {
-  aspect-ratio: 1; border-radius: 6px; overflow: hidden;
-  background: #131924; border: 1px solid rgba(255,255,255,0.05);
-  display: grid; place-items: center;
-}
-.ap-root.light-theme .ap-piece { border-color: rgba(0,0,0,0.10); }
-.ap-root:not(.light-theme) .ap-card .ap-piece { background: #0e131a; }
-.ap-piece img { width: 100%; height: 100%; object-fit: contain; }
-.ap-foot {
-  margin: 0; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);
-  font-size: 12px; line-height: 1.55; color: var(--lk-dim); text-align: center;
-}
-.ap-root.light-theme .ap-foot { border-top-color: rgba(0,0,0,0.08); }
-.ap-foot a, .ap-missing a { color: inherit; text-decoration: underline dotted var(--lk-under); text-underline-offset: 3px; }
-.ap-foot a:hover, .ap-missing a:hover { color: var(--lk-glow-text); }
-.ap-missing { text-align: center; font-size: 13px; color: var(--lk-dim); }
-.ap-index { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
-.ap-index-card { display: flex; flex-direction: column; gap: 8px; text-decoration: none; text-align: center; }
-.ap-index-card .lk-name { font-size: 18px; white-space: normal; }
-.ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name {
-  color: var(--lk-glow-text); text-shadow: var(--lk-glow);
-}
-.ap-index-card:focus-visible { outline: none; }
-.ap-index-count { font-size: 11px; color: var(--lk-dim); }
-@media (max-width: 560px) {
-  .ap-card { padding: 22px 16px 18px; gap: 26px; }
-  .ap-name { font-size: 32px; }
-  .ap-examples { gap: 8px; }
-  .ap-group { grid-template-columns: 1fr; gap: 6px; }
-  .ap-group-name { padding-top: 0; }
-  .ap-group-count { display: inline; padding-left: 6px; }
-}
-")
 
 (defn- shell
   "The app's page chrome around a .pl-root, so the drawer's theme variables
@@ -106,7 +18,7 @@
      title
      []
      (into [:div.pl-root.ap-root {:class theme}
-            [:style (str portrait/drawer-styles styles)]]
+            [:style portrait/drawer-styles]]
            body)]))
 
 (defn- link-button [{:link/keys [label url icon color]}]
