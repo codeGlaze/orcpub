@@ -26,7 +26,7 @@ A suite runs on a **production** bundle unless its header says otherwise. That i
 public site serves, the only one where advanced-compilation bugs (renamed names breaking interop)
 and the strict Content Security Policy are real. A pass anywhere else says nothing about either.
 
-Two header lines change how a suite is treated:
+Three header lines change how a suite is treated:
 
 - `// Needs: dev bundle` — it reads the app's internals (`cljs.core`, `re_frame.db`,
   `window.orcpub`, or `test/browser/lib/orcbrew-import.js`'s `importPack`, which does). A
@@ -56,7 +56,6 @@ runs is the `orcpub-int` worktree, detached at `origin/integration`; builds ther
 
 - `export_busy_retry` fails inside the suite: the builder has no visible "Export" button where it
   looks, at 1500px wide. Drifted like `builder_card_export` and `boot_rescue` were (PR #41).
-
 - Rewrite the suites that read internals to check what a visitor sees, wherever that is possible,
   so more of them prove the production build. Counting calls (`spell_help_laziness`) cannot move
   and stays dev-only. `importPack` is the biggest lever: 20 suites use it.
