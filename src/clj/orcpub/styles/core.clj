@@ -19,6 +19,16 @@
 (def purple "#8b7ec8")    ; conflict skip option
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+(def light-text "#363636")     ; body text in the light theme
+(def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
+
+;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
+(def portrait-panel "#131924")      ; card and tile ground, dark theme
+(def portrait-panel-text "#ebeef4") ; text on portrait-panel
+(def portrait-piece "#0e131a")      ; a piece tile inside a dark card
+(def portrait-frame-glow "#202939") ; portrait frame gradient, centre
+(def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
 
 ;; Text on the amber buttons is small and low-contrast either way, so it gets a
 ;; faint edge in the opposite tone: dark under white text, light under dark.
@@ -1197,6 +1207,103 @@
       {:display :block}]
      [:.details-column
       {:max-width "500px"}])])
+
+(def artist-pages
+  "The public artist pages (views/artist_page.cljs), inside .pl-root so the drawer's
+   --lk-* variables and credit classes apply. .ap-* is only what the drawer lacks."
+  (let [vollkorn "'Vollkorn', Georgia, serif"
+        open-sans "'Open Sans', system-ui, sans-serif"
+        light ".ap-root.light-theme"]
+    [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
+     [light {:color light-text}]
+     [:.ap-card
+      {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
+       :background portrait-panel :border (str "1px solid " orange-hairline)
+       :border-radius "12px" :box-shadow "0 20px 50px -30px rgba(0,0,0,0.7)"
+       :display :flex :flex-direction :column :gap "30px"}]
+     [(str light " .ap-card")
+      {:background :white :border-color "rgba(0,0,0,0.10)"
+       :box-shadow "0 20px 50px -34px rgba(0,0,0,0.35)"}]
+     [:.ap-head {:display :flex :flex-direction :column :gap "12px" :text-align :center}]
+     [:.ap-name
+      {:margin 0 :font (str "italic 400 40px/1.1 " vollkorn)
+       :color "var(--lk-name)" :white-space :normal :text-wrap :balance}]
+     [".ap-head .lk-row" {:gap "16px"}]
+     [:.ap-lede {:margin 0 :font-size "13px" :line-height 1.5 :color "var(--lk-dim)"}]
+     [:.ap-links
+      {:display :flex :flex-wrap :wrap :justify-content :center :gap "8px" :margin-top "4px"}]
+     [:.ap-link
+      {:display :inline-flex :align-items :center :gap "8px"
+       :padding "9px 16px" :border-radius "5px"
+       :border "1px solid rgba(255,255,255,0.10)" :background "rgba(255,255,255,0.02)"
+       :color portrait-panel-text :text-decoration :none
+       :font (str "600 12px/1 " open-sans) :letter-spacing "0.04em"
+       :transition "border-color 160ms ease, background-color 160ms ease"}]
+     [".ap-link:hover, .ap-link:focus-visible"
+      {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
+     [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     [(str light " .ap-link")
+      {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
+      {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
+     [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
+     [".ap-section > .lk-cap" {:margin 0}]
+     [:.ap-examples {:display :grid :grid-template-columns "repeat(3, 1fr)" :gap "14px"}]
+     [:.ap-example {:margin 0 :display :flex :flex-direction :column :gap "7px"}]
+     ;; Dark in both themes, like the drawer's frame: a light frame would swallow pale
+     ;; skin and blonde hair.
+     [:.ap-frame
+      {:width "100%" :aspect-ratio "4 / 5" :box-sizing :border-box
+       :position :relative :overflow :hidden :border-radius "10px"
+       :background (str "radial-gradient(circle at 50% 35%, " portrait-frame-glow ", "
+                        portrait-panel " 60%, " portrait-frame-edge ")")
+       :border (str "1px solid " orange-hairline)}]
+     [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [".ap-example figcaption"
+      {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
+     [:.ap-groups {:display :flex :flex-direction :column :gap "14px"}]
+     [:.ap-group
+      {:display :grid :grid-template-columns "96px 1fr" :gap "12px" :align-items :start}]
+     [:.ap-group-name {:font (str "600 12px/1.3 " open-sans) :padding-top "6px"}]
+     [:.ap-group-count
+      {:display :block :font-weight 400 :font-size "11px" :color "var(--lk-dim)"}]
+     [:.ap-pieces
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(52px, 1fr))"
+       :gap "6px"}]
+     [:.ap-piece
+      {:aspect-ratio 1 :border-radius "6px" :overflow :hidden
+       :background portrait-panel :border "1px solid rgba(255,255,255,0.05)"
+       :display :grid :place-items :center}]
+     [(str light " .ap-piece") {:border-color "rgba(0,0,0,0.10)"}]
+     [".ap-root:not(.light-theme) .ap-card .ap-piece" {:background portrait-piece}]
+     [".ap-piece img" {:width "100%" :height "100%" :object-fit :contain}]
+     [:.ap-foot
+      {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
+       :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
+     [(str light " .ap-foot") {:border-top-color "rgba(0,0,0,0.08)"}]
+     [".ap-foot a, .ap-missing a"
+      {:color :inherit :text-decoration "underline dotted var(--lk-under)"
+       :text-underline-offset "3px"}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-glow-text)"}]
+     [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
+     [:.ap-index
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
+       :gap "16px"}]
+     [:.ap-index-card
+      {:display :flex :flex-direction :column :gap "8px"
+       :text-decoration :none :text-align :center}]
+     [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
+     [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
+      {:color "var(--lk-glow-text)" :text-shadow "var(--lk-glow)"}]
+     [".ap-index-card:focus-visible" {:outline :none}]
+     [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
+     (at-media {:max-width "560px"}
+       [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
+       [:.ap-name {:font-size "32px"}]
+       [:.ap-examples {:gap "8px"}]
+       [:.ap-group {:grid-template-columns "1fr" :gap "6px"}]
+       [:.ap-group-name {:padding-top 0}]
+       [:.ap-group-count {:display :inline :padding-left "6px"}])]))
 
 (def app
   (concat
@@ -2769,6 +2876,7 @@
      [:.inv-combo-row {:transition :none}])
 
 ];concat-bracket
+   artist-pages
    margin-lefts
    margin-tops
    widths
