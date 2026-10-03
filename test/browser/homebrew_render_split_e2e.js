@@ -1,3 +1,4 @@
+// Needs: dev bundle (splits the CPU profile by function name, and a production bundle renames them).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
 // Where a real race click spends its time as homebrew grows.
 // Same real import + real clicks, but the instrument is a 50us CPU profile: it splits a
