@@ -19,10 +19,13 @@ BASE="http://localhost:${PORT}"
 
 stop() {
   [ -f "$PIDFILE" ] || return 0
+  local pgid; pgid="$(cat "$PIDFILE")"; rm -f "$PIDFILE"
+  # A pidfile left by a killed run can name a group id the system has since reused; signal it only
+  # while it still holds this server.
+  pgrep -g "$pgid" -f e2e-boot > /dev/null || return 0
   # lein forks a JVM, and killing only the wrapper leaves that child holding the port -- the next
   # run then binds nothing and silently tests the stale server. The whole process group goes.
-  kill -- -"$(cat "$PIDFILE")" 2>/dev/null
-  rm -f "$PIDFILE"
+  kill -- -"$pgid" 2>/dev/null
   for _ in $(seq 1 20); do curl -sf -o /dev/null "$BASE/" || return 0; sleep 1; done
   echo "server.sh: the server on :${PORT} did not stop"; return 1
 }
