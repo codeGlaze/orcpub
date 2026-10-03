@@ -12,6 +12,8 @@
 ;; Keyed by layer, then by the art's file name, lower-cased. Positions are
 ;; fractions of the art's width and height. This is geometry, not artwork:
 ;; the art itself is never committed.
+;;
+;; Placed in pack v1.6.
 {:eyes
  {"l6_eyes_01.png"
   {:pupil 0.45,
@@ -51,10 +53,13 @@
      :rx 0.01609,
      :ry 0.01372,
      :rot 3.13,
-     :lid {:x0 0.70014, :y0 0.36467, :mx 0.72176, :my 0.35583, :x1 0.74676, :y1 0.36369}}
+     :lid {:x0 0.70014, :y0 0.36467, :mx 0.72176, :my 0.35583, :x1 0.74676, :y1 0.36369},
+     :lower {:x0 0.70014, :y0 0.36741, :mx 0.72168, :my 0.39157, :x1 0.74676, :y1 0.36643}}
     {:cx 0.59266,
      :cy 0.36083,
      :rx 0.02106,
      :ry 0.01568,
      :rot 3.15,
-     :lid {:x0 0.55564, :y0 0.37273, :mx 0.58665, :my 0.35386, :x1 0.63124, :y1 0.36271}}]}}}
+     :lid {:x0 0.5391, :y0 0.3747, :mx 0.58665, :my 0.35386, :x1 0.63124, :y1 0.36271},
+     :lower {:x0 0.55472, :y0 0.3686, :mx 0.58577, :my 0.39707, :x1 0.63124, :y1 0.36585}}],
+   :whites true}}}
