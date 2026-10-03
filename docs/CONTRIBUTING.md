@@ -57,9 +57,11 @@ Every feature/fix branch keeps a `docs/branch-changelog.md` while in flight. Sta
 by copying **[`docs/branch-changelog.template.md`](branch-changelog.template.md)** —
 that file is the single source of truth for the house style (bullet rules + when a
 `## Highlights` is earned); it travels with every branch so no one has to hunt for the
-rules here. **When the branch merges into `integration`, fold its entries into the
+rules here. **Before the branch merges into `integration`, fold its entries into the
 current in-progress release section of root `CHANGELOG.md` (e.g. `[Summer Patch]`) and
-delete the branch changelog — it's consumed.** That keeps root `CHANGELOG.md` a live
+delete the branch changelog — it's consumed.** Fold as the branch's last commit, then
+merge: a merge through GitHub cannot run the fold, and the PR check stays red until it is
+done. That keeps root `CHANGELOG.md` a live
 reflection of the pending-release diff on `integration`. Folding is a **deliberate
 step**, not automatic — don't skip it.
 
@@ -75,9 +77,9 @@ Automation:
   the guidance + Why, keeps Highlights, demotes `## Section` → `**Section**`, inserts a
   labeled block into `## [<release>]`, and `git rm`s the branch changelog. Review +
   commit after; editorial curation stays yours.
-- The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
-  still contains `docs/branch-changelog.md` — the unskippable backstop if the fold gets
-  skipped.
+- The **`changelog-guard` CI workflow** fails a pull request into, or a push to,
+  `integration`/`develop`/`main` that still contains `docs/branch-changelog.md`. On a PR
+  that red means "fold before merging"; on a push it is the backstop.
 - **`scripts/lint-changelog.py`** checks CHANGELOG.md against the mechanical half of the
   house style: bullets under 80 words, one change per bullet, no jargon, and prose only
   inside a Highlights block of at most three sentences. It runs in `changelog-guard` on

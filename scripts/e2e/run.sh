@@ -13,6 +13,7 @@
 # A suite's header can declare:
 #   Needs: dev bundle   it reads the app's internals, which a production bundle compiles away.
 #                       Otherwise it runs on production, the build the public site serves.
+#   Needs: busy server  it needs the export queue small enough to fill (profile busy-export).
 #   Kind: probe         it measures and prints, and is judged by its exit code only.
 #
 # The database is datomic:mem://, which only exists inside the JVM that created it -- that is
@@ -31,6 +32,7 @@ case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG
 NAME="$(basename "$SUITE")"
 NEED=prod; grep -qiE '^//.*Needs:.*dev bundle' "$SUITE" 2>/dev/null && NEED=dev
 KIND=test; grep -qiE '^//.*Kind:.*probe' "$SUITE" 2>/dev/null && KIND=probe
+PROFILES=init-db; grep -qiE '^//.*Needs:.*busy server' "$SUITE" 2>/dev/null && PROFILES=init-db,busy-export
 
 result() { echo "E2E RESULT $NAME $1 checks=${2:-0} failed=${3:-0} bundle=$NEED${4:+ $4}"; }
 fail() { echo; echo "E2E RUN STOPPED: $*"; result FAIL 0 0 "(stopped: $*)"; exit 1; }
@@ -77,6 +79,14 @@ cljs_dirs() {
   sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'
 }
 newer_sources() { local a="$1"; shift; find "$@" -name '*.clj*' -newer "$a" 2>/dev/null | head -5; }
+# The build config and the externs it names are inputs too: an externs change alters the
+# production bundle without touching a source file.
+newer_build_inputs() {
+  local cfg=prod.cljs.edn; [ "$1" = dev ] && cfg=dev.cljs.edn
+  for f in "$cfg" $(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'); do
+    [ -f "$f" ] && [ "$f" -nt "$BUNDLE" ] && echo "$f"
+  done
+}
 build_bundle() {
   echo "  Building the $NEED bundle..."
   if [ "$NEED" = dev ]; then lein fig:build; else lein fig:prod; fi || fail "the $NEED bundle did not build"
@@ -90,9 +100,9 @@ if [ "$HAVE" = none ]; then
 elif [ "$HAVE" != "$NEED" ]; then
   [ -n "${E2E_SKIP_BUILD:-}" ] && fail "$NAME needs a $NEED bundle and a $HAVE bundle is on disk; E2E_SKIP_BUILD forbids the rebuild"
   echo "$NAME needs a $NEED bundle; a $HAVE bundle is on disk."; build_bundle
-elif [ -n "$(newer_sources "$BUNDLE" $DIRS)" ]; then
+elif [ -n "$(newer_sources "$BUNDLE" $DIRS; newer_build_inputs "$NEED")" ]; then
   echo "ClojureScript changed since the bundle was built (sources: $DIRS):"
-  newer_sources "$BUNDLE" $DIRS | sed 's/^/    /'
+  { newer_sources "$BUNDLE" $DIRS; newer_build_inputs "$NEED"; } | sed 's/^/    /'
   if [ -n "${E2E_SKIP_BUILD:-}" ]; then
     echo "  E2E_SKIP_BUILD is set, so this run tests the OLD client code."
   else
@@ -114,12 +124,12 @@ if [ "$NEED" = dev ]; then
 fi
 
 # --- the server ---------------------------------------------------------------------------
-echo "Starting server on :${PORT}..."
+echo "Starting server on :${PORT} (profiles: $PROFILES)..."
 DATOMIC_URL="datomic:mem://orcpub-e2e" \
 ORCPUB_ENV=dev \
 SIGNATURE="${SIGNATURE:-e2e-test-signature}" \
 PORT="$PORT" \
-  setsid lein with-profile init-db run -m e2e-boot > "$LOG" 2>&1 &
+  setsid lein with-profile "$PROFILES" run -m e2e-boot > "$LOG" 2>&1 &
 SERVER_PID=$!
 # lein forks a JVM, and killing only the wrapper leaves that child holding the port -- the next
 # run then fails to bind and silently tests the stale server. setsid puts both in their own
@@ -141,19 +151,22 @@ MARK="$(mktemp)"
 OUTPUT="$(mktemp)"
 E2E_BASE="$BASE" node "$SUITE" 2>&1 | tee "$OUTPUT"
 NODE_RC=${PIPESTATUS[0]}
-PASSED=$(grep -cE '^\s*(PASS|ok)\b' "$OUTPUT")
-FAILED=$(grep -cE '^\s*(FAIL|not ok)\b' "$OUTPUT")
+# A check may carry a timing prefix ("[+1.2s] PASS ..."); a probe or a crash handler prints FAILED.
+PASSED=$(grep -cE '^\s*(\[[^]]*\]\s*)?(PASS|ok)\b' "$OUTPUT")
+FAILED=$(grep -cE '^\s*(\[[^]]*\]\s*)?(FAIL|not ok)\b' "$OUTPUT")
+SAID_FAILED=$(grep -cE '\bFAILED\b' "$OUTPUT")
 
 # The browser cannot read PDF field names, so exported PDFs are inspected here with PDFBox. Only
 # those this run wrote: a leftover from an earlier run is not evidence about this one.
 OUT="${E2E_OUT:-/tmp/e2e-pdf}"
 if [ "$NODE_RC" -eq 0 ]; then
-  for pdf in $(find "$OUT" -maxdepth 1 -name '*.pdf' -newer "$MARK" 2>/dev/null); do
+  mapfile -t PDFS < <(find "$OUT" -maxdepth 1 -name '*.pdf' -newer "$MARK" 2>/dev/null)
+  for pdf in "${PDFS[@]}"; do
     MIN_PAGES=""
     [ -f "${pdf%.pdf}.min-pages" ] && MIN_PAGES=$(cat "${pdf%.pdf}.min-pages")
     echo; echo "Inspecting $(basename "$pdf")..."
     if ! lein with-profile init-db run -m clojure.main dev/inspect_export.clj \
-           "$pdf" $MIN_PAGES 2>&1 | grep -Ev "JAVA_TOOL|^WARNING|WARN "; then
+           "$pdf" $MIN_PAGES < /dev/null 2>&1 | grep -Ev "JAVA_TOOL|^WARNING|WARN "; then
       NODE_RC=1
     fi
   done
@@ -162,11 +175,13 @@ rm -f "$MARK" "$OUTPUT"
 
 echo
 if [ "$KIND" = probe ]; then
+  [ "$SAID_FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(probe printed FAILED, so a measurement did not complete)"; exit 1; }
   [ "$NODE_RC" -eq 0 ] && { result PROBE "$PASSED" "$FAILED" "(measured, not judged)"; exit 0; }
   result FAIL "$PASSED" "$FAILED" "(probe exited $NODE_RC)"; exit 1
 fi
 [ "$NODE_RC" -ne 0 ] && { result FAIL "$PASSED" "$FAILED" "(exited $NODE_RC)"; exit 1; }
 [ "$FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(a check failed though it exited 0)"; exit 1; }
+[ "$SAID_FAILED" -gt 0 ] && { result FAIL "$PASSED" "$FAILED" "(printed FAILED though it exited 0)"; exit 1; }
 [ "$PASSED" -eq 0 ] && { result FAIL 0 0 "(reported no checks: it ran nothing, or prints no PASS/ok lines)"; exit 1; }
 result PASS "$PASSED" 0
 exit 0

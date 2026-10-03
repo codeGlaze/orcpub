@@ -39,12 +39,17 @@ const WAIT_MS = 90000;
       && !app.querySelector('img[src*="spiral.gif"], [data-spinner]');
   }, null, { timeout: WAIT_MS }).then(() => true, () => false);
 
-  if (mounted) {
+  // The app-root error boundary also fills #app, with its fallback page: that is a mount, not a boot.
+  const fallback = mounted && await page.waitForTimeout(1500).then(() =>
+    page.evaluate(() => /Something went wrong on this page/.test(document.body.innerText)));
+  if (mounted && !fallback) {
     console.log(`boot check: the app started in ${Date.now() - t0} ms`);
     await browser.close();
     process.exit(0);
   }
-  console.log(`boot check: THE APP DID NOT START within ${WAIT_MS / 1000} s on ${BASE}${PAGE}`);
+  console.log(fallback
+    ? `boot check: THE APP STARTED INTO ITS ERROR PAGE on ${BASE}${PAGE}`
+    : `boot check: THE APP DID NOT START within ${WAIT_MS / 1000} s on ${BASE}${PAGE}`);
   const seen = [...new Set(problems)];
   if (seen.length) {
     console.log('  what the browser reported:');

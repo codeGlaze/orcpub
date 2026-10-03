@@ -1,3 +1,4 @@
+// Needs: busy server (an export queue small enough to fill; the busy-export profile).
 // Export busy page, driven through the real builder UI.
 //
 // Clicks Export -> picks a sheet style -> clicks Create PDF while every export
