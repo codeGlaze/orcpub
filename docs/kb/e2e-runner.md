@@ -12,11 +12,11 @@ stops it with a named reason and a non-zero exit:
 | Silent failure seen before | What the runner does now |
 |---|---|
 | No Chromium where a suite looked (`/opt/pw-browsers` exists only in the cloud sandbox) | finds one browser once, exports it under all four variables suites read (`E2E_CHROMIUM`, `CHROME`, `CHROME_PATH`, `PLAYWRIGHT_CHROMIUM`), or stops naming where it looked |
-| A stale bundle: the server compiles from source, the bundle is an artifact nothing rebuilds | rebuilds when any source under the build's own `:watch-dirs` is newer; the folder list is read from `dev.cljs.edn`/`prod.cljs.edn`, never kept in the script |
+| A stale bundle: the server compiles from source, the bundle is an artifact nothing rebuilds | rebuilds when any source under the build's own `:watch-dirs`, the build config, or an `:externs` file is newer; all read from `dev.cljs.edn`/`prod.cljs.edn`, never kept in the script |
 | The wrong kind of bundle for the suite | rebuilds to the kind the suite declares, or stops if `E2E_SKIP_BUILD` forbids it |
-| An app that never mounted (a dev bundle under the strict CSP) read as a 3-minute "app bug" | `boot-check.js` loads a page first and stops naming the cause: blocked scripts, a 404ing bundle, an error thrown at startup |
+| An app that never mounted (a dev bundle under the strict CSP) read as a 3-minute "app bug" | `boot-check.js` loads a page first and stops naming the cause: blocked scripts, a 404ing bundle, an error thrown at startup, or the app's own error page (which also fills `#app`) |
 | "pass: 0, fail: 0" read as a result | a suite that prints no `PASS`/`ok` line fails ("reported no checks") |
-| A `FAIL` line in a suite that still exited 0 | fails |
+| A `FAIL` line, or a printed `FAILED`, in a suite that still exited 0 (two probes caught their own errors this way) | fails; a probe that prints `FAILED` did not finish measuring |
 | A PDF from an earlier run inspected after an unrelated suite | inspects only PDFs written during this run |
 | A branch changelog that only went red after the merge | the Changelog guard also runs on pull requests into integration/develop/main |
 
@@ -32,6 +32,8 @@ Two header lines change how a suite is treated:
   `window.orcpub`, or `test/browser/lib/orcbrew-import.js`'s `importPack`, which does). A
   production bundle compiles those names away, so these run on a development bundle with the
   CSP off, and only they do. They are inside-the-app checks, not proof the site works.
+- `// Needs: busy server` — it needs the export queue small enough to fill; the server starts
+  with the `busy-export` profile (`export_busy_retry`).
 - `// Kind: probe` — it measures and prints. The runner judges it by exit code only and reports
   `PROBE`, never `PASS`.
 
@@ -47,7 +49,13 @@ Every run ends with one line:
 only: …"), so an inside-the-app pass cannot be mistaken for the site working. A suite with no
 result line counts as `FAIL`.
 
+Landed on integration 2026-10-03 as PR #42 (`a3f23939`). The standing checkout for integration
+runs is the `orcpub-int` worktree, detached at `origin/integration`; builds there are incremental.
+
 ## Still open (step 2)
+
+- `export_busy_retry` fails inside the suite: the builder has no visible "Export" button where it
+  looks, at 1500px wide. Drifted like `builder_card_export` and `boot_rescue` were (PR #41).
 
 - Rewrite the suites that read internals to check what a visitor sees, wherever that is possible,
   so more of them prove the production build. Counting calls (`spell_help_laziness`) cannot move

@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, readme, rediscovering, reminder, standing, tenets, tradeoff, tried, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, person, readme, rediscovering, reminder, tenets, tradeoff, tried, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
