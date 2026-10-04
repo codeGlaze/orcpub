@@ -1142,6 +1142,12 @@ one 10px gutter, and the header's tab menus open on screen again.
 - **The full browser run boots three servers instead of 39** — one per bundle batch, plus one for the busy-export test; all 39 suites take 20 minutes (`d84337f7`, `e310fd32`).
 - **Five more suites run on the production build**; importing homebrew through the visible import flow works there. Suites that take a homebrew pack use the test fixture pack when given none (`4c3fbba6`).
 
+### fix/e2e-faster
+
+**Changed**
+
+- **The full browser test run takes 8.5 minutes instead of 21** — tests on a shared server run three at a time, the measuring probes run only with `--probes`, and the bundle already built goes first so a run rebuilds once. Same 21 verdicts (`36ce7ca6`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
