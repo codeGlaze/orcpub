@@ -188,3 +188,51 @@
           (dotimes [i n]
             (as! out i (min (ag cov i) (* 2.0 (max 0.0 (- (ag blurred i) 127.5))))))
           out)))))
+
+;; ---------------------------------------------------------------------------
+;; Solid insides
+;;
+;; Some pieces are not quite opaque inside: the head art has a few thousand
+;; pixels at 91-99% alpha in the middle of the face. Whatever is behind shows
+;; through them as faint dots -- invisible on pale skin, pale specks on dark
+;; skin. Every renderer draws a copy of the piece with its INSIDE made fully
+;; opaque; the soft, antialiased edge is left exactly as drawn.
+;; ---------------------------------------------------------------------------
+
+(def solid-threshold
+  "Alpha above which a pixel counts as part of the drawn shape."
+  200)
+
+#?(:clj  (defn- bget ^long [^bytes a ^long i] (long (aget a i)))
+   :cljs (defn- bget [a i] (aget a i)))
+#?(:clj  (defn- bset! [^bytes a ^long i] (aset a i (byte 1)))
+   :cljs (defn- bset! [a i] (aset a i 1)))
+
+(defn solid-mask
+  "Which pixels of a `w` x `h` piece are inside it -- every pixel within
+   `r` (default 3) of it is above `solid-threshold` -- as a byte per pixel, 1
+   inside. `alpha-at` gives a pixel index's alpha, 0..255. Two passes of a
+   running count (rows, then columns), so it costs the same for any radius."
+  ([alpha-at w h] (solid-mask alpha-at w h 3))
+  ([alpha-at w h r]
+   (let [w (long w) h (long h) r (long r) n (* w h)
+         mk (fn [] #?(:clj (byte-array n) :cljs (js/Uint8Array. n)))
+         solid (mk) rows (mk) out (mk)
+         span (inc (* 2 r))]
+     (dotimes [i n] (when (> (long (alpha-at i)) solid-threshold) (bset! solid i)))
+     ;; along each row: 1 where the whole run of `span` pixels is solid
+     (dotimes [y h]
+       (let [base (* y w)]
+         (loop [x 0 run 0]
+           (when (< x w)
+             (let [run (if (pos? (bget solid (+ base x))) (inc run) 0)]
+               (when (>= run span) (bset! rows (+ base (- x r))))
+               (recur (inc x) run))))))
+     ;; then down each column of that
+     (dotimes [x w]
+       (loop [y 0 run 0]
+         (when (< y h)
+           (let [run (if (pos? (bget rows (+ x (* y w)))) (inc run) 0)]
+             (when (>= run span) (bset! out (+ x (* (- y r) w))))
+             (recur (inc y) run)))))
+     out)))

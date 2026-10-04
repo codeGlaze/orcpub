@@ -218,18 +218,69 @@
           (swap! colorized-cache #(assoc (if (> (count %) 48) {} %) k c))
           c))))
 
+;; ---------------- solid insides ----------------
+;;
+;; Every piece is drawn from a copy with its inside made fully opaque
+;; (portrait-colorize/solid-mask): a few thousand nearly-opaque pixels inside
+;; the head art let the background show through as pale specks on dark skin.
+;; The copy is made once per piece and kept as a data URL, so the CSS layers
+;; can use it too. Strand fields are data, not art, and are left alone.
+
+(defonce ^:private solid-urls (r/atom {}))
+(defonce ^:private solid-pending (atom {}))
+
+(defn- solid-promise
+  "Resolves to the solid copy's URL for `url` (or `url` itself if it cannot
+   be made, e.g. the image will not decode)."
+  [url]
+  (or (get @solid-pending url)
+      (let [p (js/Promise.
+               (fn [resolve _]
+                 (if (or (nil? url) (re-find #"\.strands\.png$" url))
+                   (resolve url)
+                   (let [img (js/Image.)]
+                     (set! (.-onerror img) #(resolve url))
+                     (set! (.-onload img)
+                           (fn []
+                             (try
+                               (let [w (.-naturalWidth img) h (.-naturalHeight img)
+                                     c (new-canvas w h) g (.getContext c "2d")
+                                     _ (.drawImage g img 0 0)
+                                     data (.getImageData g 0 0 w h) px (.-data data)
+                                     m (colorize/solid-mask #(aget px (+ 3 (* 4 %))) w h)]
+                                 (dotimes [i (* w h)] (when (pos? (aget m i)) (aset px (+ 3 (* 4 i)) 255)))
+                                 (.putImageData g data 0 0)
+                                 ;; a data: URL, which the site's CSP allows for images
+                                 ;; (blob: it does not)
+                                 (let [u (.toDataURL c "image/png")]
+                                   (swap! solid-urls assoc url u)
+                                   (resolve u)))
+                               (catch :default _ (resolve url)))))
+                     (set! (.-src img) url)))))]
+        (swap! solid-pending assoc url p)
+        p)))
+
+(defn- solid-src
+  "The solid copy's URL for a CSS layer, or the original until it is ready
+   (deref'd, so the layer redraws when it is)."
+  [url]
+  (or (get @solid-urls url) (do (solid-promise url) url)))
+
 (defonce ^:private loaded-images (atom {}))
 
 (defn- with-image
-  "Call `f` with the loaded image for `url`, now if it is already loaded, or
-   with nil if it will not load (remembered, so it is asked for once)."
+  "Call `f` with the loaded (solid) image for `url`, now if it is already
+   loaded, or with nil if it will not load (remembered, so it is asked for
+   once)."
   [url f]
   (if (contains? @loaded-images url)
     (f (get @loaded-images url))
-    (let [img (js/Image.)]
-      (set! (.-onload img) #(do (swap! loaded-images assoc url img) (f img)))
-      (set! (.-onerror img) #(do (swap! loaded-images assoc url nil) (f nil)))
-      (set! (.-src img) url))))
+    (.then (solid-promise url)
+           (fn [src]
+             (let [img (js/Image.)]
+               (set! (.-onload img) #(do (swap! loaded-images assoc url img) (f img)))
+               (set! (.-onerror img) #(do (swap! loaded-images assoc url nil) (f nil)))
+               (set! (.-src img) src))))))
 
 (defn- colorized-layer
   "A layer the drawer draws on a canvas rather than in CSS, sized by
@@ -648,8 +699,8 @@
                 ^{:key layer-key}
                 [:div.portrait-layer
                  {:style (if (= :as-drawn (pa/render-mode layer-key asset))
-                           (as-drawn-style (:asset/url asset) z)
-                           (mask-style (:asset/url asset)
+                           (as-drawn-style (solid-src (:asset/url asset)) z)
+                           (mask-style (solid-src (:asset/url asset))
                                        (pa/tint-for portrait layer-key) z))}]))))
         pa/layer-order)
       (when skin ^{:key "skin"} [skin-layer skin])
@@ -667,14 +718,16 @@
 (def ^:private raster-height 750)   ;; 4:5, matching the on-screen frame
 
 (defn- load-image [url]
-  (js/Promise.
-    (fn [resolve _reject]
-      (let [img (js/Image.)]
-        (set! (.-onload img) #(resolve img))
-        ;; A layer that will not decode is skipped, not fatal -- the rest of
-        ;; the portrait is still worth printing.
-        (set! (.-onerror img) #(resolve nil))
-        (set! (.-src img) url)))))
+  (.then (solid-promise url)
+         (fn [src]
+           (js/Promise.
+             (fn [resolve _reject]
+               (let [img (js/Image.)]
+                 (set! (.-onload img) #(resolve img))
+                 ;; A layer that will not decode is skipped, not fatal -- the rest of
+                 ;; the portrait is still worth printing.
+                 (set! (.-onerror img) #(resolve nil))
+                 (set! (.-src img) src)))))))
 
 (defn- draw-credit!
   "Burn the artist credit into the baked picture.
