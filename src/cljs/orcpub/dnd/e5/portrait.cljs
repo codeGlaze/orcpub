@@ -192,7 +192,8 @@
         all? (and eye-fn (not= :round (:pupil eye)))]
     (dotimes [p (* w h)]
       (let [i (* 4 p)
-            k (if cov (/ (aget cov p) 255) 1)]
+            ;; irises by their placed region; lips by how solid the stroke is
+            k (if cov (/ (aget cov p) 255) (colorize/lip-weight (aget px (+ i 3))))]
         ;; a new pupil paints where the drawn one is, outside the iris region
         (when (and (pos? (aget px (+ i 3))) (or (pos? k) all?))
           (let [[r g b] (if eye-fn
