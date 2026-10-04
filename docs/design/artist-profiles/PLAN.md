@@ -2,7 +2,7 @@
 
 Branch: `claude/artist-profile-pages`, cut from `claude/character-portrait-generator-hOutO`.
 
-A public page per portrait artist at `/artists/<slug>`: their name, the pieces they
+A public page per portrait artist at `/artists/<slug>`: their name, how many pieces they
 drew, a few portraits composed from those pieces, and the links they listed. It is the
 site's showcase of them. It is not their home page, so the credit's name link still
 goes to wherever they chose (`:artist/link`), and the profile is reached by a second,
@@ -35,9 +35,10 @@ the credit already honours. The pure functions go in a new cljc namespace,
 (the page) agree and both can be tested:
 
 - `slug`, `artist-by-slug`, `profile-path`: resolve a URL to an artist and back.
-- `pieces-by-layer`, `piece-count`: what they drew, grouped in picker order. The
-  hidden `:scalp` is left out: `ARTISTS.md` says it is a generated patch, not
-  anyone's drawing.
+- `pieces-by-layer`, `piece-count`: what they drew, grouped in picker order, for the
+  piece count in the lede and the share description. The hidden `:scalp` is left out:
+  `ARTISTS.md` says it is a generated patch, not anyone's drawing. The page does not
+  list the pieces (below).
 - `listed-links`: `:artist/links` (or `:artist/link` alone as a "Site" link when no
   labelled set exists), **http(s) only**. A `mailto:` or any other scheme is dropped,
   so an email address cannot reach the page even if one is put in the registry.
@@ -175,10 +176,7 @@ to write it. When it is off:
 1. **The credit on the character page.** The profile link is only in the drawer credit.
    The 100px credit under the portrait on the character page is where viewers see a
    credit, but adding a line there changes that strip.
-2. **Piece tiles.** Every piece is drawn in the full portrait frame, so small pieces (nose,
-   mouth, eyes) are specks in their tiles. Cropping each tile to the piece's own bounds
-   would fix it. That needs either bounds stored in the registry or measuring at load.
-   It is worth doing once the real art is in.
+2. **Piece tiles.** Withdrawn: the page no longer lists pieces (below).
 3. **Example colours** are picked from the picker's presets by a seed. An artist may want
    to choose their own showcase portraits instead, which could be a registry field or an
    account feature later.
@@ -191,3 +189,17 @@ to write it. When it is off:
 6. **Signing:** commits are GPG-signed as codeGlaze with a key generated in this
    container. GitHub will show them as Unverified until the public key is added to the
    account.
+
+## Decided: the page does not list the pieces
+
+The owner: the page is easy to scrape and many AI crawlers ignore robots.txt, so it should
+not offer every asset; examples, if shown at all, should be small, low quality and
+watermarked. The Pieces grid, a tile per asset at full size, is removed. The lede keeps
+the count.
+
+**Still open:** the three examples are composed in the browser from the full-size layer
+files, and they rotate through every piece, so the page still downloads all of them. Making
+the examples small and watermarked means rendering each one on the server as a single
+flattened image (`portrait-render` already composes one for the share card) instead of
+composing it from the layers. That goes with the card layout choice (cards.html).
+

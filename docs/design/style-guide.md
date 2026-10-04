@@ -40,7 +40,7 @@ Decisions marked **Proposed** are the owner's to make. Everything else describes
 
 ## 2. Colour
 
-### Named colours (`core.clj:8-31`)
+### Named colours (`core.clj:8-30`)
 
 These are the palette. Use them by name.
 
@@ -61,7 +61,6 @@ These are the palette. Use them by name.
 | `orange-hairline` | `rgba(240,161,0,0.16)` | Orange border on dark portrait panels |
 | `portrait-panel` | `#131924` | Artist card and tile ground, dark theme; also the drawer's |
 | `portrait-panel-text` | `#ebeef4` | Text on `portrait-panel` |
-| `portrait-piece` | `#0e131a` | A piece tile inside a dark artist card |
 | `portrait-frame-glow` / `-edge` | `#202939` / `#0f141c` | The portrait frame's radial gradient |
 
 The portrait names are used by the artist pages' Garden rules (`artist-pages`). The drawer still

@@ -26,7 +26,6 @@
 ;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
 (def portrait-panel "#131924")      ; card and tile ground, dark theme
 (def portrait-panel-text "#ebeef4") ; text on portrait-panel
-(def portrait-piece "#0e131a")      ; a piece tile inside a dark card
 (def portrait-frame-glow "#202939") ; portrait frame gradient, centre
 (def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
 
@@ -1261,22 +1260,6 @@
      [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
      [".ap-example figcaption"
       {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
-     [:.ap-groups {:display :flex :flex-direction :column :gap "14px"}]
-     [:.ap-group
-      {:display :grid :grid-template-columns "96px 1fr" :gap "12px" :align-items :start}]
-     [:.ap-group-name {:font (str "600 12px/1.3 " open-sans) :padding-top "6px"}]
-     [:.ap-group-count
-      {:display :block :font-weight 400 :font-size "11px" :color "var(--lk-dim)"}]
-     [:.ap-pieces
-      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(52px, 1fr))"
-       :gap "6px"}]
-     [:.ap-piece
-      {:aspect-ratio 1 :border-radius "6px" :overflow :hidden
-       :background portrait-panel :border "1px solid rgba(255,255,255,0.05)"
-       :display :grid :place-items :center}]
-     [(str light " .ap-piece") {:border-color "rgba(0,0,0,0.10)"}]
-     [".ap-root:not(.light-theme) .ap-card .ap-piece" {:background portrait-piece}]
-     [".ap-piece img" {:width "100%" :height "100%" :object-fit :contain}]
      [:.ap-foot
       {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
        :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
@@ -1300,10 +1283,7 @@
      (at-media {:max-width "560px"}
        [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
        [:.ap-name {:font-size "32px"}]
-       [:.ap-examples {:gap "8px"}]
-       [:.ap-group {:grid-template-columns "1fr" :gap "6px"}]
-       [:.ap-group-name {:padding-top 0}]
-       [:.ap-group-count {:display :inline :padding-left "6px"}])]))
+       [:.ap-examples {:gap "8px"}])]))
 
 (def app
   (concat
