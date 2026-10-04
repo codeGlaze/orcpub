@@ -1154,6 +1154,23 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **The full browser test run takes 5.5 minutes instead of 8.5** — the bundle builds while the test server starts, so every test can start in parallel; the summary shows peak memory, the limit on running more at once (`7da2e4e8`).
 
+### hotfix/locale-safety
+
+**Fixed**
+
+- **The server gives the same content the same keys on any machine** — on a Turkish or Azerbaijani system, lowercasing turned "I" into a dotless "ı", so names, keys, sorting and HTTP dates depended on the operating system's language (`b86d3d12`, `5d2bbd14`).
+- **A blank setting counts as unset** — an empty `SIGNATURE=` signed login tokens with a publicly known empty key; every setting is now read through one place that treats blank as missing, and lint rejects the old pattern (`db2f7ee7`).
+- **Docker secrets work for the login key** — the server read `SIGNATURE` from the environment only, so a deployment that mounted the secret as documented failed every login (`969cf644`).
+- **`PORT` works in development**, where the server always took 8890 and the start scripts disagreed with it (`b6df8098`).
+- **A failed verification email no longer strands an account** — a new account is rolled back, a failed resend keeps the link already sent, and a sign-up failure now shows a message (`e4a69649`, `b29d89ef`, `94a71ea0`).
+- **Without email configured, registration fails closed** — accounts are auto-verified only when `ALLOW_UNVERIFIED_REGISTRATION` is set, and the server says at startup what registration will do (`fcaf894e`, `896d186f`).
+- **The Windows start scripts find ports and processes correctly**, and say so when they cannot (`c27cbd32`, `6636369a`).
+- **Source abbreviations, spell-card annotations and image hosts are locale-safe too**, as is the comment-rule test; code written after this fix began, pinned in the merge (`af0dd8a1`).
+
+**Changed**
+
+- **The security-policy docs match the server** — there is no report-only mode; development sends no policy, everything else enforces it (`4e972cf7`, `c9fd5a5b`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
