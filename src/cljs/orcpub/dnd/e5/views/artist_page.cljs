@@ -46,19 +46,6 @@
      (when (seq others)
        [:figcaption "with pieces by " (names others)])]))
 
-(defn- pieces [artist]
-  [:div.ap-groups
-   (for [{:keys [layer label] ps :pieces} (ap/pieces-by-layer artist)]
-     ^{:key layer}
-     [:div.ap-group
-      [:div.ap-group-name label
-       [:span.ap-group-count (count ps) (if (= 1 (count ps)) " piece" " pieces")]]
-      [:div.ap-pieces
-       (for [{:asset/keys [id url] piece-label :asset/label} ps]
-         ^{:key id}
-         [:div.ap-piece {:title piece-label}
-          [:img {:src url :alt (or piece-label "") :loading "lazy"}]])]])])
-
 (defn- profile-card [{:keys [:artist/id :artist/name] :as artist}]
   (let [links (ap/listed-links artist)
         n (ap/piece-count artist)]
@@ -79,9 +66,6 @@
       [:div.ap-examples
        (map-indexed (fn [i p] ^{:key i} [example id i p])
                     (ap/example-portraits id))]]
-     [:section.ap-section
-      [:h2.lk-cap "Pieces"]
-      [pieces artist]]
      [:p.ap-foot
       "Every portrait made with these pieces credits " name
       ", on the character page, the share card and the PDF. "

@@ -118,13 +118,13 @@ async function checkProfile(page, themeLabel) {
   check(`[${themeLabel}] a single-artist example credits nobody else`,
         await page.locator('.ap-example figcaption').count() === 0);
 
-  const pieces = await page.locator('.ap-piece').count();
+  // The page is easy to scrape, so it never lists the art piece by piece: the only
+  // pictures are the composed examples, drawn as CSS layers rather than <img> files.
+  const pieceImgs = await page.locator('.ap-root img[src*="/image/portraits/"]').count();
+  check(`[${themeLabel}] no piece of art is listed on its own`, pieceImgs === 0, `img=${pieceImgs}`);
   const lede = (await page.locator('.ap-lede').textContent()).trim();
-  check(`[${themeLabel}] the piece count in the lede matches the pieces shown`,
-        pieces > 0 && lede.startsWith(`${pieces} `), `pieces=${pieces} lede=${lede}`);
-  const groups = await page.locator('.ap-group-name').evaluateAll(g => g.map(e => e.firstChild.textContent));
-  check(`[${themeLabel}] pieces are grouped, the head first`, groups[0] === 'Head', JSON.stringify(groups));
-  check(`[${themeLabel}] the generated scalp is not claimed as a drawing`, !groups.includes('Scalp'));
+  check(`[${themeLabel}] the lede still says how many pieces she drew`,
+        /^\d+ hand-drawn pieces? in the portrait maker\.$/.test(lede), lede);
 
   const text = await page.locator('.ap-root').innerText();
   check(`[${themeLabel}] no email address anywhere on the page`, !EMAIL.test(text));
