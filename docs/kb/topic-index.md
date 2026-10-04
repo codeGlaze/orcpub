@@ -600,7 +600,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, curl, host, hosts, image, picture, pinterest, proxy, serve, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, person, readme, rediscovering, reminder, tenets, tradeoff, tried, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, person, readme, rediscovering, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1335,7 +1335,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, busy, dev-only, inside-the-app, min, prints, probes, production, profile, rebuilds, run, server, suite, suites
+**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, busy, dev-only, inside-the-app, pidfile, prints, probes, production, profile, rebuilds, run, server, suite, suites
 
 - The rule
 - Production is the default
@@ -1959,7 +1959,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** arrows, awesome, cause, fa5, font, fonts, glyph, hours, icon, locale-safety, mime, sent, separates, server, stylesheet, svg, webjar, width
+**topics:** arrows, awesome, cause, fa5, font, fonts, glyph, icon, locale-safety, mime, outline, sent, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it

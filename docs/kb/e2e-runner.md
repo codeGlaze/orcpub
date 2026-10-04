@@ -72,7 +72,7 @@ Every run ends with one line:
 only: …"), so an inside-the-app pass cannot be mistaken for the site working. A suite with no
 result line counts as `FAIL`.
 
-Landed on integration 2026-10-03 as PR #42 (`a3f23939`); shared servers and the header fixes in PR #43; parallel tests and opt-in probes in PR #44. The standing checkout for integration
+Landed on integration 2026-10-03 as PR #42 (`a3f23939`); shared servers and the header fixes in PR #43; parallel tests and opt-in probes in PR #44; build during server boot in PR #45. The standing checkout for integration
 runs is the `orcpub-int` worktree, detached at `origin/integration`; builds there are incremental.
 
 ## Servers, parallel tests, and what a run costs
@@ -87,20 +87,25 @@ so a pidfile left by a killed run cannot hit a reused group id.
 
 - One server per bundle batch (`CSP_POLICY=none` for dev), suites run with `E2E_SHARED_SERVER=1`.
   A suite on another profile (`busy-export`) or tagged `fresh server` gets its own.
-- **Tests run `--jobs` at a time (default 3)** on the shared server; the machine has 7GB and each
-  job is a Chromium beside the server JVM. The first test of a batch runs alone so it can build the
-  bundle; the rest get `E2E_SKIP_BUILD` so two never build at once. Each suite gets its own
-  `E2E_OUT`, because `run.sh` inspects every PDF newer than its start in that folder.
-- **Probes are opt-in (`--probes`)**, run one at a time once their batch's tests finish: they judge nothing, took 8
-  of 21 minutes, and a probe sharing the CPU measures its neighbours. `--jobs` below 1 is refused.
+- **The bundle builds while the shared server boots** (`run.sh --build-only <suite>`), then
+  every test of the batch runs `--jobs` at a time (default 3; the machine has 7GB and each job is
+  a Chromium beside the server JVM), all with `E2E_SKIP_BUILD` so none rebuilds. Each suite gets
+  its own `E2E_OUT`, because `run.sh` inspects every PDF newer than its start in that folder.
+- **Probes are opt-in (`--probes`)**, run one at a time once their batch's tests finish: they judge
+  nothing, took 8 of 21 minutes, and a probe sharing the CPU measures its neighbours. `--jobs`
+  below 1 is refused.
+- **Own-server suites (busy-export) run after their batch, on :8890.** A second port cannot work:
+  `views.cljs` `download-form` posts the PDF to `http://localhost:8890/character.pdf` whenever the
+  page is on localhost (so figwheel's dev page reaches the backend), and the strict CSP blocks that
+  cross-origin post from :8891, so no tab opens. Also, `system.clj` `dev-service-map-overrides`
+  hard-codes `::http/port 8890`, so `PORT`/`E2E_PORT` is ignored in dev mode; 26 suites hard-code
+  :8890 too. Tried and backed out in PR #45.
 - **The batch whose bundle is on disk goes first** (production and development share one output
-  folder), so a run rebuilds once.
+  folder), so a run rebuilds once. The summary prints peak memory in use.
 
-Measured 2026-10-03 (PR #44): 21 tests in **8.5 min** (was 21 min with probes, serial). Of that,
-about 3.5 min is tests; the rest is the production build (about 1.5 min, advanced compilation)
-and three server boots (about 1 min each). Next levers if needed: boot the server while the bundle
-builds (needs a build-only mode in run.sh), and run the busy-export suite on a second port beside
-the production batch (memory is the limit).
+Measured 2026-10-04 (PR #45): 21 tests in **5.4 min**, peak memory 5.6 of 7.6 GB (PR #44: 8.5 min;
+PR #43: 21 min with probes, serial). Wall-clock includes machine sleep: a run that reads hours
+while every suite passed inside its 20-minute limit was suspended, not hung.
 
 Running 3 at a time surfaced no shared-state collisions across two full runs. If a test ever
 fails only in parallel, give it `// Needs: fresh server` rather than lowering `--jobs` for all.
