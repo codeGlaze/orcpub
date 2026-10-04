@@ -440,10 +440,10 @@
                    {:plugin {} :renames []}
                    plugin)]
     ;; Repoint after every group is re-keyed, so a link in any group is reached.
-    (reduce (fn [p [ct old new]]
+    (reduce (fn [p [ct before after]]
               (-> p
-                  (update-in [ct new] links/record-former-key old)
-                  (links/repoint ct old new)))
+                  (update-in [ct after] links/record-former-key before)
+                  (links/repoint ct before after)))
             rekeyed
             renames))))
 

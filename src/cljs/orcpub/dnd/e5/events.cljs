@@ -68,7 +68,6 @@
                                       set-pending-relinks!
                                       pre-fix-copy
                                       drop-pre-fix-copy!
-                                      repairs-dismissed
                                       set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
@@ -97,6 +96,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -1518,8 +1518,8 @@
    (fn [{:keys [db]} [_ item source key confirmed?]]
      (let [source (or source (:option-pack item))
            key    (or key (:key item))
-           after  (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
-           broken (when after (:broken (library/commit (:plugins db) after {:deleting? true})))]
+           plugins-after (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
+           broken (when plugins-after (:broken (library/commit (:plugins db) plugins-after {:deleting? true})))]
        (cond
          (not (and source key (get-in db [:plugins source plugin-key key])))
          {:dispatch [:show-error-message
@@ -1531,7 +1531,7 @@
                         broken [event-key item source key true])
 
          :else
-         {:dispatch [::e5/set-plugins after {:deleting? true}]})))))
+         {:dispatch [::e5/set-plugins plugins-after {:deleting? true}]})))))
 
 (reg-delete-homebrew
  ::spells/delete-spell
@@ -2158,7 +2158,7 @@
    ;; rewrite to picks of that type; a race and a subrace can share a key. Goes through
    ;; :set-character, so the heals and the rebuild run as on any load.
    (let [{:keys [character]}
-         (content-recon/relink-picks (:character db) content-type from-key to-key)]
+         (picks/relink (:character db) content-type from-key to-key)]
      {:dispatch-n [[:set-character character]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
@@ -5117,17 +5117,17 @@
                                                     :when (and (qualified-keyword? ct) (map? items))]
                                                 (count items))))
              n-fixed (count-items kept-items)
-             n-left (count-items still-bad)]
+             n-left (count-items still-bad)
+             {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
          ;; Persist live + quarantine together so they never disagree, and show now.
-         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
-           (if-not ok?
-             {:db db' :dispatch-n refused}
-             (do (set-rejected-plugins new-rejected)
-                 {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
-                  ;; a restored entry that still breaks the character options is set aside again
-                  ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
-                  :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
-                             (restore-message source-name bad kept-items still-bad)]}))))))))
+         (if-not ok?
+           {:db db' :dispatch-n refused}
+           (do (set-rejected-plugins new-rejected)
+               {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
+                ;; a restored entry that still breaks the character options is set aside again
+                ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
+                :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
+                           (restore-message source-name bad kept-items still-bad)]})))))))
 
 ;; Permanently discard a quarantined source the user won't repair (a stale one never
 ;; self-clears). Drops it from BOTH the persisted rejected store and the panel.
@@ -5342,24 +5342,24 @@
        (let [renamed (orcbrew-val/rename-key-in-plugin (get plugins option-pack)
                                                        plugin-key old-key new-key)
              new-plugins (assoc plugins option-pack renamed)
-             moved (get-in renamed [plugin-key new-key])]
+             moved (get-in renamed [plugin-key new-key])
+             offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
          ;; Keep the author's item, re-keyed, not the library copy, so unsaved edits survive;
          ;; `:former-keys` comes across so the next save does not write it back out. Links in this
          ;; source follow now; links in other sources are offered.
-         (let [offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
-           {:dispatch-n
-            [[:set-builder-field-errors {}]
-             [::e5/set-plugins new-plugins
-              {:retargeting [[plugin-key old-key]]
-               :on-success [::e5/builder-saved item-key plugin-key
-                            (assoc item :key new-key :former-keys (:former-keys moved))
-                            (origin-of (assoc moved :option-pack option-pack :key new-key))
-                            [:show-message
-                             {:title (str "Key changed to " new-key)
-                              :details [(str "Characters that stored " old-key
-                                             " are rebound when they next load.")
-                                        (repoint-offer-line offer)]}
-                             (if (seq offer) :sticky 10000)]]}]]}))))))
+         {:dispatch-n
+          [[:set-builder-field-errors {}]
+           [::e5/set-plugins new-plugins
+            {:retargeting [[plugin-key old-key]]
+             :on-success [::e5/builder-saved item-key plugin-key
+                          (assoc item :key new-key :former-keys (:former-keys moved))
+                          (origin-of (assoc moved :option-pack option-pack :key new-key))
+                          [:show-message
+                           {:title (str "Key changed to " new-key)
+                            :details [(str "Characters that stored " old-key
+                                           " are rebound when they next load.")
+                                      (repoint-offer-line offer)]}
+                           (if (seq offer) :sticky 10000)]]}]]})))))
 
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
@@ -5837,12 +5837,12 @@
 (reg-event-fx
  ::e5/delete-plugin
  (fn [{:keys [db]} [_ source-name confirmed?]]
-   (let [after (dissoc (:plugins db) source-name)
-         broken (:broken (library/commit (:plugins db) after {:deleting? true}))]
+   (let [plugins-after (dissoc (:plugins db) source-name)
+         broken (:broken (library/commit (:plugins db) plugins-after {:deleting? true}))]
      (if (and (seq broken) (not confirmed?))
        (still-used-fx (str "content from \u201c" source-name "\u201d") broken
                       [::e5/delete-plugin source-name true])
-       {:dispatch [::e5/set-plugins after {:deleting? true}]}))))
+       {:dispatch [::e5/set-plugins plugins-after {:deleting? true}]}))))
 
 (reg-event-fx
  ::e5/toggle-plugin
@@ -6180,15 +6180,15 @@
              collapsed {source-name (apply merge-with
                                            (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
                                            (vals shared))}
-             live (e5/merge-all-plugins (:plugins db) collapsed)]
-         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
-           (if ok?
-             {:db (dissoc db' :shared-plugins :shared-content-info)
-              :dispatch [:show-message
-                         (str "Saved this character's custom content to your library as \""
-                              source-name "\".")]}
-             ;; the shared content stays on view, so Keep can be tried again
-             {:db db' :dispatch-n refused})))))))
+             live (e5/merge-all-plugins (:plugins db) collapsed)
+             {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
+         (if ok?
+           {:db (dissoc db' :shared-plugins :shared-content-info)
+            :dispatch [:show-message
+                       (str "Saved this character's custom content to your library as \""
+                            source-name "\".")]}
+           ;; the shared content stays on view, so Keep can be tried again
+           {:db db' :dispatch-n refused}))))))
 
 ;; Dismiss the shared-content banner without keeping (content stays view-only for
 ;; this session; the overlay itself is cleared on the next character route).

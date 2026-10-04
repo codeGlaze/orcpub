@@ -386,7 +386,7 @@
                 (cons (str "  [" (.toUpperCase ^String (or (:group (first gr)) "other") Locale/ROOT) "]")
                       (map #(trim (format fmt (:var %) (val %) (source %) (or (:note %) ""))) gr)))
               (partition-by :group rows))
-      [(str "  [BRANDING]")
+      ["  [BRANDING]"
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule

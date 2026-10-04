@@ -15,15 +15,14 @@
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            ;; …and every subscription: the collision the save refuses is the one pinned at the
+            ;; bottom of this file.
             [orcpub.dnd.e5.spell-subs :as subs5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.common :as common]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
             ;; Side effect: registers every event handler under test.
-            [orcpub.dnd.e5.events :as events]
-            ;; …and every subscription: the collision the save refuses is the one pinned at the
-            ;; bottom of this file.
-            [orcpub.dnd.e5.spell-subs]))
+            [orcpub.dnd.e5.events :as events]))
 
 (def ^:private SRC "Lifecycle Pak")
 (def ^:private ct :orcpub.dnd.e5/languages)
@@ -173,7 +172,7 @@
 (defn- moved-through
   "An item carried through a chain of deliberate key changes, oldest first."
   [ks]
-  (reduce (fn [item next-key] (reconcile/record-former-key (assoc item :key next-key) (:key item)))
+  (reduce (fn [item step-key] (reconcile/record-former-key (assoc item :key step-key) (:key item)))
           {:key (first ks) :option-pack SRC}
           (rest ks)))
 
@@ -370,10 +369,10 @@
 (defn- open-from-library!
   "Open a stored item the way My Content's edit button does, so the builder records where it came
    from."
-  [source k]
+  [source item-key]
   ;; My Content passes the ROW's address alongside the item -- the source holding it and the key
   ;; it answers to -- because neither is reliably on the item itself.
-  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct k]) source k ct]))
+  (dispatch! [::langs5e/edit-language (get-in @app-db [:plugins source ct item-key]) source item-key ct]))
 
 (defn- retarget! [source]
   (swap! app-db assoc-in [::langs5e/builder-item :option-pack] source))
@@ -486,8 +485,8 @@
 (def ^:private B "Pak B")
 
 (defn- lib [& sources]
-  (into {} (for [[src k nm] (partition 3 sources)]
-             [src {ct {k {:key k :name nm :option-pack src}}}])))
+  (into {} (for [[src item-key nm] (partition 3 sources)]
+             [src {ct {item-key {:key item-key :name nm :option-pack src}}}])))
 
 (defn- dest [plugins recorded option-pack key item]
   (:action (events/save-destination plugins recorded ct option-pack key item)))
