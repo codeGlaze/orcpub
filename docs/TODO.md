@@ -178,6 +178,42 @@ otherwise stubbornly persist.
 
 ---
 
+## PINNED — load the homebrew library without one long freeze (post-release enhancement)
+
+**Status:** Decided worth doing; not scheduled. Pinned 2026-10-04 because it had been forgotten.
+**Severity:** Performance, felt by users with large homebrew libraries.
+
+### Problem
+
+The whole homebrew library is one localStorage string, parsed in one go on load. Measured on
+real content: a 2 MB library freezes the page for 325-368 ms (1.6-1.8 s on a 4x slower CPU); a
+3.9 MB one for 612-654 ms (about 3 s at 4x). Nothing paints or responds during it.
+
+### What was measured (2026-09-05)
+
+Parsing per source (one book or pack at a time) with a yield between them keeps the same total
+time and the same data, but the longest freeze drops 5-6x on a realistic library (350 ms to
+about 60 ms) and about 2.3x when one source holds half the bytes. Full numbers, method, and the
+`##NaN` equivalence trap: [kb/perf-homebrew-builder-loop.md](kb/perf-homebrew-builder-loop.md),
+"Track 1 spike". The script is `chunked_parse_spike_e2e.js` (see that section for where it
+lives); it is not part of any test run.
+
+### The decision, and why it waits
+
+- Worth it (the spike's verdict), but it needs the stored format split per source plus a
+  one-time conversion of every existing user's library: a feature, not a fix.
+- Change the storage format **once**: the KB's plan parks it as a single decision, ideally
+  straight to IndexedDB (async, no ~5 MB ceiling, sources loaded lazily). Per-source parsing
+  under localStorage is a compatible stepping stone, not a competing design.
+- Known cost: a split library's save stops being all-or-nothing. A partial write must be
+  detectable on the next load (an index key written last), not shown as a silently truncated
+  library.
+- One giant single source still freezes for as long as that source takes; this fixes the
+  common shape, not that one.
+- Touches the same storage path as the HANDS OFF item above; schedule them together, deliberately.
+
+---
+
 ## Content-library management — remaining work
 
 **Status:** Open
