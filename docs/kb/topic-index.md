@@ -55,7 +55,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, channel, channels, con, custom, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -322,6 +322,18 @@ _character-heals · character heals_
 - Tests
 - History
 
+## character-rescue.md
+
+_character-rescue · character rescue_
+
+**topics:** auth, boot-rescue, browser-only, emergency, friendly, layer, layers, login, owner, pick, player, recovery, remove, rescue, server-rendered, stored, token, trapped
+
+- Why
+- The principle: an emergency path at the bottom, nicer layers on top
+- Precedents to build on, not beside (D29)
+- Limits, stated up front
+- Open, for the branch to settle by test
+
 ## character-validation.md
 
 _character-validation · character validation_
@@ -380,7 +392,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, contract, exported, hosted, invariant, invariants, keys, nets, non-additive, redesign, rollback, selection-key
+**topics:** 252, assessment, catalog, catalogs, characters, constrains, content-extensibility, exported, hosted, invariant, invariants, keys, nets, non-additive, redesign, rollback, selection-key, strict
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -401,7 +413,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** boilerplate, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, indirection, pool, re-derivation, readability, rejected
+**topics:** boilerplate, catalog, constraint, d12, d16, d17, d17b, d19, d23, factories, grant, hof, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -414,7 +426,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, descriptor, draconic, flight, ftd, gem, grant, metadata, openness, page-map, parametric, per-type, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, descriptor, draconic, flight, ftd, gem, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, registry, schema
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -480,7 +492,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, goal, golden, green, phase, phases, preconditions, require, revert, route, snapshots, stop
+**topics:** catalog, commands, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, goal, golden, green, loosen, phase, phases, preconditions, require, revert, seems, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -531,7 +543,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _content-to-character-pipeline · content to character pipeline_
 
-**topics:** 091, 157, 1588, 2026-09-15, assembly, attributed, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, role, stage, stages, tree
+**topics:** 091, 157, 1588, 2026-09-15, assembly, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, role, silo, stage, stages, tree
 
 - The five stages
 - What each file actually is
@@ -557,7 +569,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, garbage, guessing, harden, heal, healing, increment, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
+**topics:** fan-out, garbage, guessing, harden, heal, healing, increment, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface, unambiguous
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -570,7 +582,7 @@ _data-safety-layers · data safety layers_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, pick, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
+**topics:** 2024, courtier, edition-drift, elegant, expertise, investigation, iron, keen, mind, observant, proficiency, replacement, resolution, resolutions, skill, srd, terseness, xphb
 
 - The question
 - What the published rules actually do
@@ -588,8 +600,9 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** caller-supplied, concatenation, condition, construction, decision-already-held-resolution, filter, gate, hidden-selection-picks, log, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** applying, aside, attribute, backstop, condition, decision-already-held-resolution, filter, gate, hidden-selection-picks, log, mug, multiclass, nine, notice, paper, player, set-aside, skill
 
+- Current decision (owner, 2026-10-01 to 2026-10-03) — supersedes the sections below where they differ
 - Decision
 - The trace closes: there is no unknown family
 - The real diagnosis: the same rule, implemented twice, one of them wrong
@@ -600,12 +613,13 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 - The paper trail: a new attribute, not an existing text field
 - Scope
 - Related
+- Corrections
 
 ## decision-vocabulary.md
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, custom, expanded, feat-only, innate, non-caster, prereqs, prof, rich, spell, spell-choice, spellcasting, subclass, sustainability, templates
+**topics:** asi, caster, choices, cross-silo, custom, expanded, feat-only, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -669,7 +683,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, agents, appended, audit, before-you-start, css, docstring, docstrings, documentation, documented, dotfiles, history, learned, push, reminder, session, stale, top
+**topics:** agent, agents, appended, audit, before-you-start, css, directory, docstring, docstrings, documentation, documented, dotfiles, history, learned, machine, push, reminder, session
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -713,7 +727,7 @@ _edition-drift · edition drift_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, creator, feat, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, registry, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -790,7 +804,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, handoff, jvm, legacy, nested, normalization, normalize, rewrites, rows, session, silo, step, steps, strike, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, rewrites, row, rows, session, silo, step, steps, strike, widgets
 
 - Where you are
 - The work, in order
@@ -812,7 +826,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branch, branches, cut, directions, duplicate-key, integration, item, merge, merging, outcome, running, scripts, source
+**topics:** 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, integration, item, library, merge, merging, outcome, scripts, source, tag
 
 - Outcome
 - The branches, and the order
@@ -826,8 +840,12 @@ _handoff-integration-branches · handoff integration branches_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, decision-already-held-resolution, dies, equipment, fighter, multi-tab-character-contamination, nine, pick, remove, replacement, reproduced, rogue, skill, skills, starting, template, uncheck
+**topics:** athletics, confirmed, decision-already-held-resolution, dies, fighter, gear, hand-built, level, pick, picks, refuted, reproduced, resets, rogue, skill, skills, starting, uncheck
 
+- Trapped picks: homebrew that is not loaded (e2e, 2026-10-04)
+- Two slot facts the design depends on (e2e, 2026-10-03)
+- Reachable through the UI (e2e, 2026-10-01)
+- Verified 2026-10-01: claims tested, verdicts
 - The mechanism
 - What is NOT broken
 - What is broken
@@ -870,7 +888,7 @@ _homebrew-key-map · homebrew key map_
 
 _homebrew-keys-design · homebrew keys design_
 
-**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, grant-rows, holder, item, key, library, link, links, owner, rename, revision, step, tab, write
+**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, grant-rows, holder, item, library, link, links, owner, rename, renames, revision, step, tab, write
 
 - 1. What does not change (compatibility promises)
 - 2. One list of every kind of link
@@ -911,7 +929,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-save-rework · homebrew save rework_
 
-**topics:** address, draft, fix, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
+**topics:** address, conclusive, draft, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
 
 - The rule, if you read nothing else
 - Why re-deriving identity cannot work
@@ -1010,7 +1028,7 @@ _pdf-export-internals · pdf export internals_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, defect, four, hidden-pick, hidden-selection-picks, investigation, lossy, ornaments, part, per-pool, pool, skill, wrapper
+**topics:** arm, arms, characterize, characterizing, completing, conditions, decision-already-held-resolution, decision-gate-hidden-picks, hidden-pick, hidden-selection-picks, investigation, non-class, ornaments, part, single-class, skills, tool, tools
 
 - Position, stated once
 - Part A — the bug fix
@@ -1018,6 +1036,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 - The change
 - Blast radius
 - Order
+- Step 5, mapped (2026-10-01)
 - Part B — completing the grant compiler
 - Are the new fields ornaments?
 - Derived helpers, or more fields?
@@ -1027,13 +1046,14 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-next · plan next_
 
-**topics:** 2026-09-25, 2026-09-27, 2026-09-29, 2026-09-30, approved, delete, falsified, hits, lein, move, owner, paused, port, review, rounds, save, server, trunk
+**topics:** 2026-09-27, 2026-09-29, 2026-09-30, approved, branch, delete, falsified, handoff, hits, lein, merged, owner, port, review, save, step, steps, trunk
 
+- Now: back to grants (planned 2026-10-01)
 - Open checklist for PR #37 and around it (2026-09-29)
 - 0. Standing, do these first
 - 0a. The authoritative homebrew-keys fix — CURRENT
 - Phase 1: map the plugin system before changing it further (decided 2026-09-25)
-- 0b. Converge the save path across the four branches (2026-09-18) — PAUSED 2026-09-25 for 0a
+- 0b. Converge the save path across the four branches (2026-09-18) — DONE 2026-10-01
 - 1. Grants on the remaining four silos
 - 2. The mechanics the feat builder still can't author
 - 3. Damage and attack bonuses reach the requirements registry
@@ -1064,7 +1084,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, fully-scattered, hand-built, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type, wires
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, extra, fully-scattered, handlers, input-field, per-type, plumbing, registry-driven, representative, routes, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -1101,7 +1121,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, bespoke, bucket, class-feature, detail, feat, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -1158,7 +1178,7 @@ _server-and-share-safety · server and share safety_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, key, letter, mint, name, source, source-level, srd, stone, tag, tidewater, words
+**topics:** 2026-09-13, abbreviation, curios, d10a, elf, first-letter-plus-last-letter, initials, letter, mint, minted, name, override, source, source-level, srd, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -1199,7 +1219,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection
+**topics:** barbarian, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
