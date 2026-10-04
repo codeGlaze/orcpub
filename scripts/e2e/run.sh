@@ -72,7 +72,8 @@ fail() { echo; echo "E2E RUN STOPPED: $*"; result FAIL 0 0 "(stopped: $*)"; exit
 
 # Playwright is installed under scripts/e2e; a suite elsewhere (test/browser) resolves it from there.
 export NODE_PATH="$(pwd)/scripts/e2e/node_modules${NODE_PATH:+:$NODE_PATH}"
-node -e "require('playwright')" 2>/dev/null \
+# --build-only needs neither playwright nor a browser.
+[ -n "$BUILD_ONLY" ] || node -e "require('playwright')" 2>/dev/null \
   || fail "playwright is not installed: (cd scripts/e2e && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install)"
 
 # --- one browser for every suite ------------------------------------------------------------
@@ -92,9 +93,11 @@ find_browser() {
     [ -x "$d/chromium" ] && { echo "$d/chromium"; return; }
   done
 }
-BROWSER="$(find_browser)"
-[ -n "$BROWSER" ] || fail "no Chromium found (E2E_CHROMIUM${E2E_CHROMIUM:+=$E2E_CHROMIUM is not executable}, playwright's own, ~/.cache/ms-playwright, /opt/pw-browsers)"
-export E2E_CHROMIUM="$BROWSER" CHROME="$BROWSER" CHROME_PATH="$BROWSER" PLAYWRIGHT_CHROMIUM="$BROWSER"
+if [ -z "$BUILD_ONLY" ]; then
+  BROWSER="$(find_browser)"
+  [ -n "$BROWSER" ] || fail "no Chromium found (E2E_CHROMIUM${E2E_CHROMIUM:+=$E2E_CHROMIUM is not executable}, playwright's own, ~/.cache/ms-playwright, /opt/pw-browsers)"
+  export E2E_CHROMIUM="$BROWSER" CHROME="$BROWSER" CHROME_PATH="$BROWSER" PLAYWRIGHT_CHROMIUM="$BROWSER"
+fi
 
 # --- the bundle the suite needs, fresh ------------------------------------------------------
 # The server compiles from source at every boot; the bundle is an artifact nothing rebuilds. So a

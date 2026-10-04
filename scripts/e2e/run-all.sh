@@ -88,6 +88,10 @@ fail_all() {  # <bundle> <reason> <file>...
 # reasons that are not the app.
 ( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" &
 MEMPID=$!
+SHARED_UP=0
+# One exit path for an interrupted run: the sampler and a shared server both go.
+cleanup() { kill "$MEMPID" 2>/dev/null; [ "$SHARED_UP" = 1 ] && ./scripts/e2e/server.sh stop; }
+trap cleanup EXIT
 
 # Production and development bundles share one output folder, so switching costs a rebuild (about
 # 1.5 min). Start with the kind already on disk: one rebuild per run instead of two.
@@ -106,12 +110,13 @@ for kind in $ORDER; do
   # The server reads CSP_POLICY at start: off for development bundles, the real policy otherwise.
   if [ "$kind" = dev ]; then export CSP_POLICY=none; else unset CSP_POLICY; fi
   # The bundle builds while the shared server boots; neither needs the other (about 1 min saved).
-  ./scripts/e2e/run.sh --build-only "${all[0]}" > "$LOGDIR/build-$kind.log" 2>&1 &
+  # Empty E2E_SKIP_BUILD: this is the one build of the batch, so a caller's setting must not turn
+  # it into a run on stale client code.
+  E2E_SKIP_BUILD= ./scripts/e2e/run.sh --build-only "${all[0]}" > "$LOGDIR/build-$kind.log" 2>&1 &
   BUILDPID=$!
-  SHARED_UP=0
   if [ $(( ${#tests[@]} + ${#probes[@]} )) -gt 0 ]; then
     if ./scripts/e2e/server.sh start init-db > "$LOGDIR/server-$kind.log" 2>&1; then
-      SHARED_UP=1; trap './scripts/e2e/server.sh stop' EXIT
+      SHARED_UP=1
     else
       cat "$LOGDIR/server-$kind.log"
     fi
@@ -119,7 +124,7 @@ for kind in $ORDER; do
   if ! wait "$BUILDPID"; then
     tail -20 "$LOGDIR/build-$kind.log"
     fail_all "$kind" "the $kind bundle did not build; see $LOGDIR/build-$kind.log" "${all[@]}"
-    [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; trap - EXIT; }
+    [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; SHARED_UP=0; }
     unset CSP_POLICY; continue
   fi
 
@@ -130,7 +135,7 @@ for kind in $ORDER; do
   fi
   # Probes measure, so they run only once nothing else is running.
   for f in "${probes[@]}"; do run_one "$f" "$kind" 1 1; done
-  [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; trap - EXIT; }
+  [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; SHARED_UP=0; }
   # Own-server suites (busy-export) run after, on the same port: the app's PDF form posts to :8890
   # whenever the page is on localhost (views.cljs download-form), so a second port cannot work.
   for f in "${own[@]}" "${own_probes[@]}"; do run_one "$f" "$kind" "" 1; done
