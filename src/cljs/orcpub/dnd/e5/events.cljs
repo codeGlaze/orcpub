@@ -94,6 +94,7 @@
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -2066,7 +2067,7 @@
    ;; rewrite to picks of that type; a race and a subrace can share a key. Goes through
    ;; :set-character, so the heals and the rebuild run as on any load.
    (let [{:keys [character]}
-         (content-recon/relink-picks (:character db) content-type from-key to-key)]
+         (picks/relink (:character db) content-type from-key to-key)]
      {:dispatch-n [[:set-character character]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
