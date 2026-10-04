@@ -1162,7 +1162,8 @@ one 10px gutter, and the header's tab menus open on screen again.
 - **A blank setting counts as unset** — an empty `SIGNATURE=` signed login tokens with a publicly known empty key; every setting is now read through one place that treats blank as missing, and lint rejects the old pattern (`db2f7ee7`).
 - **Docker secrets work for the login key** — the server read `SIGNATURE` from the environment only, so a deployment that mounted the secret as documented failed every login (`969cf644`).
 - **`PORT` works in development**, where the server always took 8890 and the start scripts disagreed with it (`b6df8098`).
-- **A failed verification email no longer strands an account** — a new account is rolled back, a failed resend keeps the link already sent, and a sign-up failure now shows a message (`e4a69649`, `b29d89ef`, `94a71ea0`).
+- **A failed verification email no longer strands an account** — a new account is rolled back, a failed resend keeps the link already sent, and a sign-up failure now shows a message (`e4a69649`, `b29d89ef`, `94a71ea0`, `55c949da`).
+- **Resending a verification link to an address with no account does nothing** — it used to create a record and email a link to any address typed (`55c949da`).
 - **Without email configured, registration fails closed** — accounts are auto-verified only when `ALLOW_UNVERIFIED_REGISTRATION` is set, and the server says at startup what registration will do (`fcaf894e`, `896d186f`).
 - **The Windows start scripts find ports and processes correctly**, and say so when they cannot (`c27cbd32`, `6636369a`).
 - **Source abbreviations, spell-card annotations and image hosts are locale-safe too**, as is the comment-rule test; code written after this fix began, pinned in the merge (`af0dd8a1`).
