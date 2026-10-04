@@ -168,13 +168,14 @@ or closes, or a branch changes role, update this section in the same commit.
 | `fix/comment-debt` | merged into `integration` as `1aa80ec3` (#39, 2026-09-30): comment debt to zero, party-route fix. Owner to delete the branch |
 | `fix/hidden-multiclass-skill-pick` | the hidden-pick fix (Part A), from `integration`: skills done, equipment and tools next; no PR yet |
 | `feature/character-rescue` | from `integration`: fixing a character without the app (`character-rescue.md`); its own session |
-| `refactor/picks-namespace` | from `integration`: the shared `picks` engine both of the above build on (`character-rescue.md`, "Layer 1 spec"); no PR yet |
+| `refactor/picks-namespace` | from `integration`: the shared `picks` engine both of the above build on (`character-rescue.md`, "Layer 1 spec"), plus integration's lint cleared; PR #47 |
 
 | PR | from → to | note |
 |---|---|---|
 | #32 | `integration` → `develop` | the route by which the homebrew-keys fix reaches `develop` |
 | #34 | `f1852203-accounts` → `develop` | paused; its homebrew commits were inputs to #37 |
 | #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix |
+| #47 | `refactor/picks-namespace` → `integration` | shared `picks` namespace, lint clean; after merge, pull `integration` into the rescue and hidden-pick branches |
 
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 
