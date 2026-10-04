@@ -417,12 +417,6 @@
         ;; need different rollbacks -- never retract the ENTITY for a user who
         ;; already existed, only the attributes this attempt set.
         existing-id (:db/id tx-data)
-        ;; What a resend overwrites: verification-key is cardinality-one, so a failed send must
-        ;; restore the old key, or the link already in the inbox dies.
-        previous (when existing-id
-                   (d/pull (d/db conn)
-                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
-                           existing-id))
         tempid "verification-subject"
         report (try
                  @(d/transact
@@ -438,7 +432,14 @@
                    (throw (ex-info "Unable to complete registration. Please try again or contact support."
                                    {:error :verification-failed}
                                    e))))
-        eid (or existing-id (get (:tempids report) tempid))]
+        eid (or existing-id (get (:tempids report) tempid))
+        ;; What this resend overwrote, read from the database just before ITS OWN write, so an
+        ;; overlapping resend that wrote and emailed in between is what comes back if ours fails.
+        ;; verification-key is cardinality-one: without this the link already in the inbox dies.
+        previous (when existing-id
+                   (d/pull (:db-before report)
+                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
+                           existing-id))]
     (try
       (send-verification-email request params verification-key)
       {:status 200}
@@ -569,8 +570,12 @@
         {:keys [:orcpub.user/verification-sent
                 :orcpub.user/verified?
                 :db/id] :as user} (user-for-email db email)]
-    (if verified?
-      (redirect route-map/verify-success-route)
+    (cond
+      verified? (redirect route-map/verify-success-route)
+      ;; No account for this address: answer like a resend and create nothing. Passing
+      ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
+      (nil? id) {:status 200}
+      :else
       (do-verification request
                        (merge query-params
                               {:first-and-last-name auth/verification-display-name})

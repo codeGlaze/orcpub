@@ -13,9 +13,9 @@ name: Windows scripts
 
 on:
   push:
-    branches: [hotfix/locale-safety, develop, main]
+    branches: [hotfix/locale-safety, integration, develop, main]
   pull_request:
-    branches: [develop, main]
+    branches: [integration, develop, main]
   workflow_dispatch:
 
 permissions:
