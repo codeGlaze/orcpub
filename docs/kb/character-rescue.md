@@ -40,6 +40,12 @@ a client-side page in the boot-rescue style, which depends on nothing the app ow
 One engine over a character's stored picks, used by this rescue work AND the hidden-pick work
 (`decision-gate-hidden-picks.md`). Built ONCE, as its own small PR from `integration`, first.
 
+**Built** on `refactor/picks-namespace` (`439593dd`, 2026-10-04), in the planning session; no PR yet.
+As built: `walk` (public), `walk-typed` (private), `keys-of`, `relink` (the four moved, token-identical
+bar the names), plus `remove-at` / `put-at`. `remove-at` returns `{:character :removed}`; `:removed` is
+`{:address :entry :multi?}`, which `put-at` takes. Address: `[selection key, entry key]` pairs, the app's
+option-path format. JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
+
 **It is a consolidation, not new code.** Three walkers over stored picks already exist; a fourth
 would be the duplication to avoid:
 
@@ -61,7 +67,7 @@ Bonus: the heal-walker tests then also run in the JVM suite, which CI gates on.
 **The `.cljc` traps, and the rules that keep this PR safe** (`testing-infrastructure.md` on
 `agents/develop`; `clojurescript-type-tolerance.md`):
 - JVM and browser can disagree: `(into #{} …)` once diverged on 159 of 808 graphs in the browser
-  only. The namespace builds no sets and relies on no iteration order; its docstring says so.
+  only. The namespace never depends on the iteration order of a set or map; its docstring says so (`keys-of` returns a set, used only for membership).
 - CI runs only the JVM suite, so this PR also runs the browser suite by hand
   (`lein fig:test` + `node test/e2e/cljs-harness.js`).
 - No browser calls; one broken `.cljc` blocks the whole browser test build.
