@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Needs: fresh server (creates accounts and spends sign-in throttles that other suites' logins would hit).
 // Every state of every flow where an account is made, verified, entered or recovered.
 //

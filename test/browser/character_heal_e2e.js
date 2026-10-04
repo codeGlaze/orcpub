@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does a character that points at renamed homebrew heal in the real app, and say so?
 //
 // The resolution ladder is unit-tested end to end in CLJS and had never been watched

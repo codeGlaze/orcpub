@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // When is the character template built, and what does that cost?
 //
 //   ./scripts/e2e/run.sh template-on-open.js

@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Needs: fresh server (shares and unshares the seeded homebrew character another share suite expects unshared).
 // Does a short share link carry a character's homebrew to someone who does not have it, and keep
 // carrying the current homebrew?
 //

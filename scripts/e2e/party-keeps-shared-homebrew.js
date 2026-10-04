@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does a character added to a party from a share link keep showing its homebrew on the party page?
 //
 //   ./scripts/e2e/run.sh party-keeps-shared-homebrew.js

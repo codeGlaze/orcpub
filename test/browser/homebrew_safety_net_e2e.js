@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Homebrew that breaks the character options is set aside, and the app says so.
 //
 // Drives the REAL app against `lein e2e-server` on :8890.

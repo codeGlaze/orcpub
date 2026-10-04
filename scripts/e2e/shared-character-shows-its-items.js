@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does a character that uses its owner's custom items show them to someone else?
 //
 //   ./scripts/e2e/run.sh shared-character-shows-its-items.js

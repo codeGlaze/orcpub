@@ -35,6 +35,11 @@ done
 # 0 or a negative count would leave the scheduler waiting for a job slot no job will ever free.
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "run-all.sh: --jobs needs a whole number of 1 or more, got '$JOBS'"; exit 2; }
 
+# One run at a time: a second one shares the first's server and database, and both report results
+# that are neither's. The lock is released when this shell exits, however it exits.
+exec 9>"/tmp/e2e-run-all-${E2E_PORT:-8890}.lock"
+flock -n 9 || { echo "run-all.sh: another run is already using :${E2E_PORT:-8890}; wait for it or stop it"; exit 2; }
+
 LOGDIR="$(mktemp -d /tmp/e2e-all.XXXX)"
 RESULTS="$LOGDIR/results"
 : > "$RESULTS"

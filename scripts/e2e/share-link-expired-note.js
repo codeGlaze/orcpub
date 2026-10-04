@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does the owner's page say that a share link expired, and keep saying so until she acts on it?
 //
 //   ./scripts/e2e/run.sh share-link-expired-note.js

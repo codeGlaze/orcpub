@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Every fix the app applies to homebrew or a character has to be SAVED, not re-applied
 // in memory on each load.
 //
@@ -171,7 +172,11 @@ const letterFirst = k => /^[a-z]/.test(k);
     const s = await session(browser, { plugins: '[:not :a :library]' });
     await load(s);
     check('not a library: a copy is kept for recovery', (await stored(s, 'plugins:corrupt')) === '[:not :a :library]');
-    check('not a library: the active slot is cleared', (await stored(s, 'plugins')) === null, await stored(s, 'plugins'));
+    // The app then saves its default state, an empty "Default Option Source" (db.cljs), into the
+    // slot; what matters is that the bad value is no longer the active library.
+    const active = await stored(s, 'plugins');
+    check('not a library: the active slot no longer holds it',
+          active === null || !active.includes(':not :a :library'), active);
     await load(s, 'reload');
     const again = s.console.filter(t => /were not a map/.test(t));
     check('not a library: a reload does not handle it again', again.length === 0, again[0]);

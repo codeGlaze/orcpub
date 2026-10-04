@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does moving a class into a source that already has its key take the class's subclasses with it?
 //
 //   ./scripts/e2e/run.sh move-homebrew-keeps-dependents.js

@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Needs: fresh server (shares and unshares the seeded homebrew character another share suite expects unshared).
 // Can a character be shared from the character list, where there is no room for the share line?
 //
 //   ./scripts/e2e/run.sh share-from-character-list.js
