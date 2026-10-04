@@ -17,12 +17,6 @@
            [java.time.format DateTimeFormatter]
            [java.util Locale]))
 
-(def ^:private hostile-locales
-  [(Locale/forLanguageTag "es-ES")
-   (Locale/forLanguageTag "de-DE")
-   (Locale/forLanguageTag "tr-TR")
-   (Locale/forLanguageTag "ja-JP")])
-
 ;; A real Last-Modified from the Font Awesome webjar, and the ETag the English
 ;; locale has always produced for it. Pinning the exact value matters: if it
 ;; ever changes, every cached ETag in the wild is invalidated.
