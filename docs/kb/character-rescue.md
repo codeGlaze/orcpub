@@ -43,8 +43,17 @@ One engine over a character's stored picks, used by this rescue work AND the hid
 **Built** on `refactor/picks-namespace` (`439593dd`, 2026-10-04), in the planning session; no PR yet.
 As built: `walk` (public), `walk-typed` (private), `keys-of`, `relink` (the four moved, token-identical
 bar the names), plus `remove-at` / `put-at`. `remove-at` returns `{:character :removed}`; `:removed` is
-`{:address :entry :multi?}`, which `put-at` takes. Address: `[selection key, entry key]` pairs, the app's
-option-path format. JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
+`{:address :entry :multiselect?}`, which `put-at` takes. Address: `[selection key, entry key]` pairs, the
+app's option-path format.
+
+**Storage shapes, and why `:multiselect?` is recorded.** A selection stores its picks as a vector when
+it is `::t/multiselect?`, otherwise as the one entry map; absent means never chosen. `remove-at`
+leaves a multiselect's vector in place, empty if it took the last pick: the same state unticking
+the last pick leaves (`event_handlers.cljc` `update-multi-select`), so it is not a new state, and
+saving strips empty collections (`entity/remove-empty-fields`), so it never reaches storage. A single
+pick's selection is dissoc'd, as if never chosen. Neither shows its shape afterwards, so the removed
+record carries `:multiselect?` (the template's own word, `::t/multiselect?`) for `put-at`: true appends
+to the vector, false makes it the selection's entry. JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
 
 **It is a consolidation, not new code.** Three walkers over stored picks already exist; a fourth
 would be the duplication to avoid:
