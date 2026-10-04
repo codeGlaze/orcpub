@@ -11,8 +11,9 @@
 # line counts as FAIL: a run that cannot say what it did has not passed.
 #
 # Probes (`Kind: probe`) measure and print; they pass or fail nothing about the app, and were 8 of
-# the 21 minutes a full run took on 2026-10-03. They run only with --probes, one at a time after
-# the tests, because a probe sharing the machine with other suites measures the other suites.
+# the 21 minutes a full run took on 2026-10-03. They run only with --probes, one at a time once a
+# batch's parallel tests are done, because a probe sharing the machine with other suites measures
+# the other suites. They are not held until every batch ends: that would boot each server twice.
 #
 # Tests on a shared server run --jobs at a time (default 3: the machine this was sized on has 7GB,
 # and each job is a Chromium beside the server's JVM). The first test of a batch runs alone so it
@@ -30,6 +31,8 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+# 0 or a negative count would leave the scheduler waiting for a job slot no job will ever free.
+[[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "run-all.sh: --jobs needs a whole number of 1 or more, got '$JOBS'"; exit 2; }
 
 LOGDIR="$(mktemp -d /tmp/e2e-all.XXXX)"
 RESULTS="$LOGDIR/results"
