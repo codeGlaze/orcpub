@@ -40,7 +40,7 @@ a client-side page in the boot-rescue style, which depends on nothing the app ow
 One engine over a character's stored picks, used by this rescue work AND the hidden-pick work
 (`decision-gate-hidden-picks.md`). Built ONCE, as its own small PR from `integration`, first.
 
-**Built** on `refactor/picks-namespace` (`439593dd`, 2026-10-04), in the planning session; PR #47 into `integration`.
+**Built** on `refactor/picks-namespace` and **merged into `integration`** as `d2137952` (#47, 2026-10-04).
 As built: `walk` (public), `walk-typed` (private), `keys-of`, `relink` (the four moved, token-identical
 bar the names), plus `remove-at` / `put-at`. `remove-at` returns `{:character :removed}`; `:removed` is
 `{:address :entry :multiselect?}`, which `put-at` takes. Address: `[selection key, entry key]` pairs, the
