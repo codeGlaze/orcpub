@@ -91,8 +91,8 @@ so a pidfile left by a killed run cannot hit a reused group id.
   job is a Chromium beside the server JVM. The first test of a batch runs alone so it can build the
   bundle; the rest get `E2E_SKIP_BUILD` so two never build at once. Each suite gets its own
   `E2E_OUT`, because `run.sh` inspects every PDF newer than its start in that folder.
-- **Probes are opt-in (`--probes`)**, run one at a time after the tests: they judge nothing, took 8
-  of 21 minutes, and a probe sharing the CPU measures its neighbours.
+- **Probes are opt-in (`--probes`)**, run one at a time once their batch's tests finish: they judge nothing, took 8
+  of 21 minutes, and a probe sharing the CPU measures its neighbours. `--jobs` below 1 is refused.
 - **The batch whose bundle is on disk goes first** (production and development share one output
   folder), so a run rebuilds once.
 
