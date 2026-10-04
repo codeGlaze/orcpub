@@ -91,7 +91,7 @@ fail_all() {  # <bundle> <reason> <file>...
 
 # Peak memory: parallel tests are bounded by it, and a run that gets close slows or fails for
 # reasons that are not the app.
-( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" &
+( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" 9>&- &
 MEMPID=$!
 SHARED_UP=0
 # One exit path for an interrupted run: the sampler and a shared server both go.

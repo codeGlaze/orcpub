@@ -11,6 +11,8 @@
 # dev/e2e_boot.clj starts the server AND seeds the user in one process.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
+# run-all.sh's lock is fd 9; the JVM below outlives this script and must not keep it held.
+exec 9>&-
 
 PORT="${E2E_PORT:-8890}"
 LOG="${E2E_LOG:-/tmp/e2e-server-${PORT}.log}"
