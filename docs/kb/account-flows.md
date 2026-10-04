@@ -245,11 +245,19 @@ to click exactly what a phishing mail sends them.
 
 ## 7. Open, and deliberately so
 
-- **The reset token is a full session token.** Measured: `/user` returns 200 with it, 401
-  without. Following a reset link signs you in for an hour without a password being entered.
-  Pre-existing. It grants no more than the key already grants, but the silent-session path
-  is **stealthier** than the change-the-password path, which the owner notices. Two fixes
-  offered and not taken: a scoped claim (`{:scope :password-reset}`), or a shorter life.
+- **CLOSED 2026-10-04 (`21f772ab`, merge/accounts): a reset link no longer signs anyone in.**
+  It was a full session token: `/user` answered 200 with it, so following a link signed you in
+  for an hour without entering a password, and the owner was never told (stealthier than a
+  reset, which sends a notice and ends other sessions). Chosen fix, per OWASP's Forgot
+  Password cheat sheet: the link is a one-time permission to set a password. The reset page
+  sets no session, only a plain `reset-username` cookie for the meter's "not your username"
+  check and `Referrer-Policy: no-referrer` (the key is in the URL); the form submits the key;
+  `reset-password` checks digest, expiry and use AT SUBMIT (so mail scanners that open links
+  spend nothing) and the route needs no auth; the key is retracted in the same transaction as
+  the new password. No auto sign-in afterwards (the success page already sent people to log
+  in). Rejected: a scoped `{:scope :password-reset}` session, which still makes the link a
+  credential. Tests: `routes_test` `a-reset-link-is-a-one-time-permission-not-a-sign-in`,
+  `an-expired-reset-link-sets-nothing`; both fail on the old code.
 - **Deploy note:** the reset window went 24h → 2h AND keys are stored as SHA-256 digests, so
   any reset link already in an inbox stops matching on deploy. It fails gracefully onto the
   expired page, which offers a new one.
