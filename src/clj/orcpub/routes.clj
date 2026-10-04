@@ -1897,25 +1897,36 @@
      {:title (artist-profile/page-title artist)
       :description (artist-profile/share-description artist)
       :image-url (str "https://" (headers "host")
-                      (route-map/path-for route-map/artist-portrait-route
-                                          :slug (artist-profile/slug artist)))})
+                      (artist-profile/example-path artist 1))})
     (assoc (index-page-response request {:title "No such artist"}) :status 404)))
 
-(defn artist-portrait-png
-  "The artist's first example portrait as a PNG, for og:image. The examples
-   are seeded from the slug, so this is the same picture the page leads with."
-  [{{:keys [slug]} :path-params}]
+(def ^:private example-jpeg
+  "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`; nil when
+   there is none. Rendered once per process and then served from memory."
+  (memoize
+   (fn [artist-id n text]
+     (some-> (artist-profile/example-portraits artist-id)
+             (get (dec n))
+             (portrait-render/render-example-jpeg text)))))
+
+(defn artist-example-jpeg
+  "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
+   flattened and watermarked. 404 for an unknown slug, a page turned off, or any other :n."
+  [{{:keys [slug n]} :path-params}]
   (let [artist (artist-profile/artist-by-slug slug)
-        png (some-> artist :artist/id artist-profile/example-portraits first
-                    portrait-render/render-png)]
-    (if png
+        n (some->> n (re-matches #"[1-9]") parse-long)
+        jpeg (when (and artist n (<= n artist-profile/example-count))
+               (example-jpeg (:artist/id artist) n
+                             (artist-profile/watermark-text
+                              artist (or (portrait-render/site-mark) branding/app-name))))]
+    (if jpeg
       {:status 200
-       :headers {"Content-Type" "image/png"
-                 "Cache-Control" "public, max-age=300"
+       :headers {"Content-Type" "image/jpeg"
+                 "Cache-Control" "public, max-age=86400"
                  ;; contributed artwork -- see character-portrait-png
                  "X-Robots-Tag" "noai, noimageai"}
-       :body (ByteArrayInputStream. png)}
-      {:status 404 :body "no such artist"})))
+       :body (ByteArrayInputStream. jpeg)}
+      {:status 404 :body "no such example"})))
 
 (def header-style
   {:style "color:#2c3445"})
@@ -2032,8 +2043,8 @@
         {:get `artists-page}]
        [(route-map/path-for route-map/artist-page-route :slug ":slug")
         {:get `artist-page}]
-       [(route-map/path-for route-map/artist-portrait-route :slug ":slug")
-        {:get `artist-portrait-png}]
+       [(route-map/path-for route-map/artist-example-route :slug ":slug" :n ":n")
+        {:get `artist-example-jpeg}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

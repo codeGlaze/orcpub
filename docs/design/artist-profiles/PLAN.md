@@ -14,7 +14,7 @@ quieter link.
 |---|---|---|
 | `/artists` | index HTML, generic share tags | lists every registered artist |
 | `/artists/<slug>` | index HTML with that artist's share tags (title, description, `og:image`); **404** for an unknown slug | the profile |
-| `/artists/<slug>/portrait.png` | the first example portrait rendered by `portrait-render/render-png`, for `og:image` | — |
+| `/artists/<slug>/examples/<n>` | example `n` (1 to 3) as a small watermarked JPEG, rendered once per server start; the first is the `og:image` | shown as plain images |
 
 Declared once in `route-map.cljc` (bidi), served by `routes.clj`, and dispatched in
 `core.cljs` like every other page. This follows the character page: an SPA view, with
@@ -54,10 +54,9 @@ the credit already honours. The pure functions go in a new cljc namespace,
 
 ## What renders where
 
-- **Server:** the share tags and the og PNG. Nothing about the page body.
-- **Client:** everything else. The examples use `portrait/composite`, the
-  same compositor as the drawer and the character page, so they cannot
-  look different from a real portrait.
+- **Server:** the share tags and the example images.
+- **Client:** everything else. The examples are plain `<img>`s of the server's images, so
+  no layer file reaches the browser from these pages.
 
 ## Fusspot's links
 
@@ -129,7 +128,7 @@ accounts are being built elsewhere, so this branch adds only the switch the page
 `set-artist-overrides!` next to the other credit fields, so the account setting only has
 to write it. When it is off:
 
-- `/artists/<slug>` and its `portrait.png` return 404, the same as for a name nobody
+- `/artists/<slug>` and its example images return 404, the same as for a name nobody
   has, and the 404's share tags don't name the artist;
 - the artist drops out of `/artists`;
 - the credit loses its "About the artist" line;
@@ -141,7 +140,7 @@ to write it. When it is off:
 |---|---|
 | Pure functions: slug, lookup, pieces, listed links, examples, profile link, the off switch | `src/cljc/orcpub/dnd/e5/artist_profile.cljc` |
 | `:artist/slug "fusspot"`; `:artist/profile?` accepted as an override | `portrait_assets.cljc` |
-| Routes `/artists`, `/artists/:slug`, `/artists/:slug/portrait.png` | `route_map.cljc`, `routes.clj` |
+| Routes `/artists`, `/artists/:slug`, `/artists/:slug/examples/:n` | `route_map.cljc`, `routes.clj` |
 | The pages (profile, list, not-found) | `src/cljs/orcpub/dnd/e5/views/artist_page.cljs`, registered in `web/cljs/orcpub/core.cljs` |
 | "About the artist ›" at the foot of the drawer credit | `portrait.cljs` (`credit-lockup`, `.lk-about`) |
 
@@ -197,9 +196,23 @@ not offer every asset; examples, if shown at all, should be small, low quality a
 watermarked. The Pieces grid, a tile per asset at full size, is removed. The lede keeps
 the count.
 
-**Still open:** the three examples are composed in the browser from the full-size layer
-files, and they rotate through every piece, so the page still downloads all of them. Making
-the examples small and watermarked means rendering each one on the server as a single
-flattened image (`portrait-render` already composes one for the share card) instead of
-composing it from the layers. That goes with the card layout choice (cards.html).
+## Decided: the examples are rendered once, small and watermarked
+
+The owner: pre-generate three examples that between them use every piece, and serve the
+same three every time. They were composed in the browser from the full-size layer files,
+so the page downloaded every piece at full size.
+
+Now the server renders each example once per start (`routes/example-jpeg`, memoized),
+flattened onto the frame's own gradient at 240x300, about the size the page shows it, with
+the artist's host and the site's mark tiled diagonally across it, as a JPEG at quality 0.72.
+The first is also the `og:image`. The browser probe checks that neither artist page fetches
+any layer file, and a unit test that the three examples use all 28 pieces.
+
+They cannot be generated into the repo: they are made from the real art, which is never
+committed. A server start makes them from whatever art the deployment carries.
+
+**Found on the way:** `seed->int` and `mulberry32` gave different numbers in the browser
+than on the JVM (a cljs character read as 0, and 32-bit multiplies lost precision in
+floats), so the browser's examples never matched the server's share image. Both now match
+the reference JavaScript on both platforms, pinned by a test that runs on both.
 

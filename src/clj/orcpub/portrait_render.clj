@@ -10,12 +10,12 @@
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout])
-  (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
-           [java.awt.geom Path2D$Double]
+  (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RadialGradientPaint RenderingHints]
+           [java.awt.geom Path2D$Double Point2D$Double]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util Base64]
-           [javax.imageio ImageIO]))
+           [javax.imageio IIOImage ImageIO ImageWriteParam]))
 
 (def ^:private default-width 600)
 (def ^:private default-height 750)   ;; 4:5, matching the on-screen frame
@@ -243,10 +243,12 @@
       (finally (.setTransform g saved)))))
 
 (defn render
-  "Composite `portrait` ({:layers :colors :tweaks}) into a BufferedImage, or
-   nil when it selects nothing drawable."
+  "Composite `portrait` ({:layers :colors :tweaks}) into a `w`x`h` ARGB BufferedImage, or
+   nil when it selects nothing drawable. The credit and site mark are drawn in unless
+   `marks?` is false."
   ([portrait] (render portrait default-width default-height))
-  ([portrait w h]
+  ([portrait w h] (render portrait w h {:marks? true}))
+  ([portrait w h {:keys [marks?]}]
    (let [drawable (keep (fn [k]
                           (when-let [asset (some->> (get-in portrait [:layers k])
                                                     :asset/id
@@ -283,13 +285,14 @@
                      (draw-raster-layer! g bytes color w h))))
                (catch Exception e
                  (println "portrait-render: skipped layer" layer-key "-" (.getMessage e)))))
-           (try
-             (when-let [credit (pa/credit-line portrait)]
-               (draw-credit! g credit w h))
-             (when-let [mark (site-mark)]
-               (draw-site-mark! g mark w h))
-             (catch Exception e
-               (println "portrait-render: marks skipped -" (.getMessage e))))
+           (when marks?
+             (try
+               (when-let [credit (pa/credit-line portrait)]
+                 (draw-credit! g credit w h))
+               (when-let [mark (site-mark)]
+                 (draw-site-mark! g mark w h))
+               (catch Exception e
+                 (println "portrait-render: marks skipped -" (.getMessage e)))))
            (finally (.dispose g)))
          img)))))
 
@@ -305,3 +308,100 @@
      (catch Exception e
        (println "portrait-render: render failed -" (.getMessage e))
        nil))))
+
+;; ---------- example images for the artist pages ----------
+
+(defn- halve-toward
+  "`img` scaled by bilinear steps of at most half until it is `w`x`h`, so a large
+   reduction does not skip pixels the way one bilinear step would."
+  ^BufferedImage [^BufferedImage img w h]
+  (loop [^BufferedImage src img]
+    (if (and (= w (.getWidth src)) (= h (.getHeight src)))
+      src
+      (let [nw (max w (quot (.getWidth src) 2))
+            nh (max h (quot (.getHeight src) 2))
+            dst (BufferedImage. nw nh BufferedImage/TYPE_INT_ARGB)
+            g (.createGraphics dst)]
+        (try
+          (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                             RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+          (.drawImage g src 0 0 (int nw) (int nh) nil)
+          (finally (.dispose g)))
+        (recur dst)))))
+
+(defn- rgb [[r g b]] (Color. (int r) (int g) (int b)))
+(defn- rgba [[r g b a]] (Color. (int r) (int g) (int b) (int a)))
+
+(defn- paint-ground!
+  "Fills a `w`x`h` frame with layout/example-ground, the portrait frame's gradient."
+  [^Graphics2D g w h]
+  (let [{:keys [centre mid edge]} layout/example-ground
+        cx (/ w 2.0) cy (* h 0.35)
+        radius (Math/hypot (max cx (- w cx)) (max cy (- h cy)))]
+    (.setPaint g (RadialGradientPaint. (Point2D$Double. cx cy) (float radius)
+                                       (float-array [0.0 0.6 1.0])
+                                       (into-array Color [(rgb centre) (rgb mid) (rgb edge)])))
+    (.fillRect g 0 0 (int w) (int h))))
+
+(defn- draw-watermark!
+  "Tiles `text` across the whole `w`x`h` frame in diagonal rows, at
+   layout/example-watermark-layout's metrics, alternate rows offset by half a repeat."
+  [^Graphics2D g ^String text w h]
+  (let [{:keys [size angle step-x step-y fill outline]} (layout/example-watermark-layout w h)
+        font (face mark-face size)
+        repeat-w (+ (.stringWidth (.getFontMetrics g font) text) step-x)
+        reach (int (Math/hypot w h))
+        saved (.getTransform g)]
+    (try
+      (.setFont g font)
+      (.rotate g (double angle) (/ w 2.0) (/ h 2.0))
+      (doseq [[row y] (map-indexed vector (range (- reach) (* 2 reach) step-y))
+              x (range (- (- reach) (if (odd? row) (quot repeat-w 2) 0)) (* 2 reach) repeat-w)]
+        (.setColor g (rgba outline))
+        (.drawString g text (int (inc x)) (int (inc y)))
+        (.setColor g (rgba fill))
+        (.drawString g text (int x) (int y)))
+      (finally (.setTransform g saved)))))
+
+(defn- jpeg-bytes
+  "`img` as JPEG bytes at `quality` (0 to 1)."
+  ^bytes [^BufferedImage img quality]
+  (let [writer (.next (ImageIO/getImageWritersByFormatName "jpeg"))
+        param (doto (.getDefaultWriteParam writer)
+                (.setCompressionMode ImageWriteParam/MODE_EXPLICIT)
+                (.setCompressionQuality (float quality)))
+        out (ByteArrayOutputStream.)]
+    (with-open [ios (ImageIO/createImageOutputStream out)]
+      (.setOutput writer ios)
+      (.write writer nil (IIOImage. img nil nil) param)
+      (.dispose writer))
+    (.toByteArray out)))
+
+(def example-quality
+  "JPEG quality of an artist page's example: lossy on purpose."
+  0.72)
+
+(defn render-example-jpeg
+  "JPEG bytes of `portrait` as an artist page shows it: flattened onto the frame's ground
+   at layout/example-size, with `watermark` tiled across it and no credit line. nil when
+   there is nothing to draw or the render fails."
+  [portrait watermark]
+  (try
+    (when-let [full (render portrait default-width default-height {:marks? false})]
+      (let [[w h] layout/example-size
+            out (BufferedImage. w h BufferedImage/TYPE_INT_RGB)
+            g (.createGraphics out)]
+        (try
+          (doto g
+            (.setRenderingHint RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+            (.setRenderingHint RenderingHints/KEY_TEXT_ANTIALIASING
+                               RenderingHints/VALUE_TEXT_ANTIALIAS_ON))
+          (paint-ground! g w h)
+          (.drawImage g (halve-toward full w h) 0 0 nil)
+          (when-not (s/blank? watermark) (draw-watermark! g watermark w h))
+          (finally (.dispose g)))
+        (jpeg-bytes out example-quality)))
+    (catch Exception e
+      (println "portrait-render: example failed -" (.getMessage e))
+      nil)))
+

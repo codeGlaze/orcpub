@@ -96,8 +96,9 @@
 ;; under /pages/ -- these are addresses people are handed, from a credit.
 (def artists-page-route :artists-page)
 (def artist-page-route :artist-page)
-;; Server-rendered example portrait, for the profile's og:image.
-(def artist-portrait-route :artist-portrait)
+;; An artist's example portraits (1-based :n), rendered once on the server, small and
+;; watermarked. The first is also the profile's og:image.
+(def artist-example-route :artist-example)
 
 (def register-route :register)
 (def register-page-route :register-page)
@@ -164,7 +165,7 @@
 
                   "artists" {"" artists-page-route
                              ["/" :slug] artist-page-route
-                             ["/" :slug "/portrait.png"] artist-portrait-route}
+                             ["/" :slug "/examples/" :n] artist-example-route}
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
