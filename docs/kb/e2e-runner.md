@@ -91,17 +91,25 @@ browser, so client state (localStorage) never leaks between suites; only the dat
 
 A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and reported `FAIL`.
 
-## Known failures (2026-10-03, not runner problems)
+## Known failures
 
-- `starting_equipment_browser`: "save-class persists the class + equipment into :plugins" sees
-  `:weapons = nil`, while the export of the same class contains the weapons. Fails identically on
-  its own server. App bug or suite drift, not yet investigated.
-- `export_busy_retry`: timing-dependent. It fills the one export slot by looping eight heavy PDF
-  requests and hopes the slot is still held when the real export arrives. It passed 9/9 in one full
-  run, then failed 3/9 three times on identical code (the real export reached the PDF). The server
-  had the busy settings each time. Needs a deterministic way to hold the slot.
 - `chunked_parse_spike`: defaults to `dev-scratch/paks/mega-64.orcbrew`, a local scratch file
   that no longer exists. Pass a large pack as its argument, or regenerate the fixture.
+
+## Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
+
+- `export_busy_retry` failed about 4 runs in 10. The server's limit was fine: 8 simultaneous
+  exports got 1 PDF and 7 busy pages. But the slot queue is a FAIR semaphore, and with the busy
+  profile's 250ms wait an export arriving under load reached the front and got its PDF 5 times in
+  12. A heavier load made it worse (fewer requests queued ahead). The `busy-export` profile now
+  waits 1ms (12 of 12 busy), and the suite stops with one reason if it is not busy, rather than six
+  failures and a vacuous "delivered" pass. The profile is test-only; production waits 30s.
+- `starting_equipment_browser` read `:browser-test-class`, but save mints a source-tagged key
+  (`:browser-test-class-brttse`, D10b, `address-for` in events.cljs) and writes it back onto the
+  builder item. The test now reads that key. The class and its weapons had always saved.
+
+Lesson: before calling a failure an app bug or a flake, measure it directly (the burst and
+12-trial scripts took minutes) and dump the state the check reads.
 
 ## Still open
 

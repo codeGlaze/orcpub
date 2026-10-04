@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, feat, fixed, floating, increment, mental, pool, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, con, feat, floating, increment, mental, pool, released, rider, save, spread, spreads, standalone, terse, widget
 
 - The format
 - Examples
@@ -1335,13 +1335,14 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, bundle, dev-only, development, e2e-logged-in-sessions, inside-the-app, killed, pidfile, prints, production, run, runner, server, stops, suite, suites
+**topics:** 2026-10-03, account-flows, agent-hooks, bundle, busy, dev-only, inside-the-app, killed, pidfile, prints, production, profile, run, runner, server, stops, suite, suites
 
 - The rule
 - Production is the default
 - Reading a result
 - Servers: one per batch
-- Known failures (2026-10-03, not runner problems)
+- Known failures
+- Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
 - Still open
 
 ## edition-drift.md
@@ -1744,7 +1745,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
+**topics:** 1743, 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -1894,7 +1895,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, executed, feat, item, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, subclass, subrace
+**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, strands, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -2048,7 +2049,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, problems, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
