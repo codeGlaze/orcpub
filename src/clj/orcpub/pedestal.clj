@@ -48,16 +48,11 @@
          content-length)))
 
 (defn make-nonce-interceptor
-  "Creates an interceptor that generates per-request CSP nonces.
-
-   In prod (dev-mode?=false) with CSP_POLICY=strict:
-   - :enter phase generates a nonce and stores it in [:request :csp-nonce]
-   - :leave phase adds enforcing Content-Security-Policy header with the nonce
-
-   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
-   active, but the nonce interceptor becomes a no-op. This avoids flooding the
-   browser console with Report-Only violations (inline Figwheel scripts, etc.)
-   that obscure real issues during development."
+  "Creates an interceptor that sets per-request CSP nonces when CSP_POLICY=strict and
+   `dev-mode?` is false: :enter stores a nonce at [:request :csp-nonce], and :leave adds an
+   enforcing Content-Security-Policy header built with it.
+   In dev mode it is a no-op and Pedestal 0.7's default CSP stays active, so Figwheel's inline
+   scripts do not flood the console with Report-Only violations."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor
@@ -101,6 +96,21 @@
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
               (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+(defn- arm-boot-report!
+  "Print the boot banner when Jetty reports itself started.
+
+   Best effort: if the listener cannot be attached -- a different container, a Jetty API
+   change -- print immediately rather than lose the banner, since a missing report is worse
+   than one a few milliseconds early."
+  [created]
+  (let [server (get created ::http/server)]
+    (try
+      (.addEventListener
+       ^org.eclipse.jetty.util.component.LifeCycle server
+       (reify org.eclipse.jetty.util.component.LifeCycle$Listener
+         (lifeCycleStarted [_ _] (config/print-report! created))))
+      (catch Throwable _ (config/print-report! created)))))
+
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 
@@ -111,6 +121,11 @@
         ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
         true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
         true http/create-server
+        ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
+        ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first
+        ;; version printed nothing in the one configuration it exists for -- and printing
+        ;; before start would call it "started" while it is not yet listening.
+        (not (test? service-map)) (doto arm-boot-report!)
         (not (test? service-map)) http/start
         true ((partial assoc this :service)))))
 

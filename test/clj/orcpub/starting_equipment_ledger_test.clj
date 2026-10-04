@@ -30,8 +30,11 @@
       (:equipment-selections $)
       (update :equipment-selections #(vec (sort-by :name %))))))
 
-(defn- round-trips [base edited]
-  (is (= (norm edited) (norm (ledger/resolve-delta base (ledger/derive-delta base edited))))))
+(defn- round-trips
+  "Deriving a delta from `original` to `edited` and resolving it back gives `edited`."
+  [original edited]
+  (is (= (norm edited)
+         (norm (ledger/resolve-delta original (ledger/derive-delta original edited))))))
 
 (deftest identity-round-trip
   (is (= {} (ledger/derive-delta base base)) "no edits -> empty delta")

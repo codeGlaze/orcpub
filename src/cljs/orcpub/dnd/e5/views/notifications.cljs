@@ -2,37 +2,89 @@
   "Shared notification view components: the transient message banner, the reusable callout box,
    and the contextual banners built on it. Producers dispatch :show-*-message (events.cljs); the
    app-header mount reads :message-shown?/:message/:message-type and renders `message`. Severity
-   styling is in styles/core.clj (.message + .bg-red/.bg-orange/.bg-green for the banner,
+   styling is in styles/core.clj (.message + .tone-error/.tone-warning/.tone-success for the banner,
    .bg-warning for the callout)."
   (:require [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]))
 
+(defn- as-parts
+  "Normalise a producer's message into {:title :details}, or {:body hiccup}.
+   A map passes through. A string is the LEGACY shape, split on newlines into a title and
+   detail lines, since HTML collapses its blank lines. Hiccup passes through as :body:
+   (str) over a vector would print the markup instead of rendering it."
+  [message-text]
+  (cond
+    (map? message-text) message-text
+    (vector? message-text) {:body message-text}
+    :else
+    (let [lines (->> (s/split (str message-text) #"\n")
+                     (map s/trim)
+                     (remove s/blank?))]
+      {:title (first lines) :details (rest lines)})))
+
+(defn- tone-icon [message-type]
+  (case message-type
+    :error "fa-times-circle"
+    :warning "fa-exclamation-triangle"
+    "fa-check-circle"))
+
 (defn message
-  "Transient banner: colored by message-type (:error/:warning else success), click anywhere
-   to close via close-handler."
+  "Transient banner. `message-text` is {:title :details}, or a plain string or hiccup,
+   which `as-parts` normalises (see there). It says what happened and offers no actions."
   [message-type message-text close-handler]
-  [:div.pointer.f-w-b
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
+  (let [{:keys [title details body]} (as-parts message-text)]
+    [:div.pointer
+     {:on-click close-handler}
+     [:div.message
+      {:class (case message-type
+                :error "tone-error"
+                :warning "tone-warning"
+                "tone-success")}
+      [:i.fa.message-icon {:class (tone-icon message-type)}]
+      [:div.message-body
+       (if body
+         body
+         [:<>
+          [:div.message-title title]
+          ;; keyed by position: a detail line may be hiccup, which is no key at all
+          (map-indexed (fn [i line]
+                         ^{:key i}
+                         [:div.message-detail line])
+                       details)])]
+      [:i.fa.fa-times.message-close
+       {:title "Dismiss"
+        :aria-label "Dismiss"}]]]))
 
 (defn callout
-  "Persistent contextual notice: a warning-box (.bg-warning) with an optional fa icon class,
-   body content (a string or hiccup — multi-line is fine), and optional action buttons (each
-   {:label :on-click})."
-  [{:keys [icon text actions]}]
-  [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
+  "Persistent contextual notice: a box with an optional :icon (fa class, prefixed with .fa),
+   :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
+   :note (neutral); :accent :brand draws a leading-edge rail. Each action is {:label} plus
+   :on-click (a button) or :href and optional :target (a link styled as a button), and an
+   optional :icon that is a COMPLETE icon class string (\"fab fa-patreon\")."
+  [{:keys [icon text actions tone accent]}]
+  [:div.p-10.m-b-10.flex.align-items-c
+   {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
+             ;; A rail on the leading edge, the same device .health-rail uses, so a
+             ;; callout can carry an identity without a severity colour filling the
+             ;; box. Named, not a colour: the shades live in styles/core.clj.
+             (= accent :brand) (conj "callout-accent-brand"))
+    :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
-   (for [{:keys [label on-click]} actions]
-     ^{:key label} [:button.form-button {:on-click on-click} label])])
+   ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
+   ;; the form, never reaches what it returns, and React logs a missing-key warning
+   ;; for every action in the seq.
+   (for [{:keys [label on-click href target icon]} actions]
+     (let [body (if icon
+                  [:span [:i.m-r-5 {:class icon}] label]
+                  label)]
+       (with-meta
+         (if href
+           [:a.form-button {:href href :target (or target "_blank")} body]
+           [:button.form-button {:on-click on-click} body])
+         {:key label})))])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content

@@ -8,6 +8,12 @@
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
+;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
+;; 2:1 on the app's near-black ground, under half the readable minimum. The dark
+;; theme is the default and takes red-on-dark; .app.light-theme takes red back.
+(def red-on-dark "#ff6b6b")
+(def amber-on-dark "#f5b942")
+(def muted-on-dark "#9fb0c3")
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
@@ -256,6 +262,316 @@
     {:align-items :flex-end}]
    [:.flex-wrap
     {:flex-wrap :wrap}]
+   ;; ==== BUILDER-FORM CSS: START ====================================================
+   ;; Rendered by the declarative builder framework. builder_class_names_test requires every class
+   ;; here to be prefixed bf-/opt-/select-menu or allow-listed, and fails if it cannot find these
+   ;; sentinels. See docs/kb/before-you-start.md.
+
+   ;; Effect rows: implements docs/kb/assets/builder-form-mockup.html. Keep the two in step.
+   [:.effect-row
+    {:border "1px solid rgba(255,255,255,0.14)"
+     :border-radius "6px"
+     :overflow :hidden}]
+   [:.effect-row-header
+    {:background-color "rgba(240,161,0,0.10)"
+     :border-bottom "1px solid rgba(255,255,255,0.14)"
+     :padding "8px 12px"}
+    [:span
+     {:color "var(--accent, #f0a100)"
+      :font-size "13px"
+      :letter-spacing "0.04em"}]]
+   ;; A dashed outline chip reads as "more you could add"; a solid button reads as "do this now"
+   ;; and would compete with Save. Colour is the per-theme --accent var; #f0a100 is the fallback
+   ;; used when no theme defines it. Never hardcode the orange.
+   [:.chip
+    {:background :transparent
+     :border "1px dashed var(--accent, #f0a100)"
+     :border-radius "20px"
+     :color "var(--accent, #f0a100)"
+     :padding "5px 13px"
+     :font-size "12.5px"
+     :font-weight 700
+     :cursor :pointer}]
+   [:.tags
+    {:gap "8px 10px"}]
+   [:.tag
+    {:display :flex
+     :flex-direction :column
+     :gap "3px"}
+    ;; width:auto is the point — a tag is two words, not a page, and seven page-wide selects were
+    ;; the flat form's wall.
+    [:select
+     {:width :auto
+      :min-width "104px"
+      :padding "5px 8px"
+      :font-size "12.5px"}]
+    ]
+   [:.tag-label
+    {:font-size "11.5px"
+     :color "rgba(255,255,255,0.55)"}]
+   [:.when-label
+    {:color "rgba(255,255,255,0.55)"
+     :font-size "12px"
+     :text-transform :uppercase
+     :letter-spacing "0.07em"
+     :margin "2px 0 7px"}]
+   ;; Declarative fields flow on a fixed four-track GRID (not flex), so a field's width depends on
+   ;; its type, not its row's neighbours: :text and `:span :wide` take two tracks, number and toggle
+   ;; one, `:span :full` and :multi-enum the whole row. Direct-child selectors only, so fields
+   ;; inside an effect row keep their own sizing. See builder-conversion-gallery.md.
+   [:.bf-flow
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"
+     :align-items :end}
+    [:> [:.bf-field {:margin-bottom "0 !important"
+                     :grid-column "span 1"
+                     :min-width 0}]]
+    [:> [:.bf-field-text       {:grid-column "span 2"}]]
+    [:> [:.bf-field-number     {:grid-column "span 1"}]]
+    [:> [:.bf-field-boolean    {:grid-column "span 1"}]]
+    [:> [:.bf-field-multi-enum {:grid-column "1 / -1"}]]
+    [:> [:.bf-field-wide       {:grid-column "span 2"}]]
+    ;; A <input list=…> is a dropdown-with-typing, but Chromium draws it as a plain box: nothing on
+    ;; screen said the suggestions existed, so the combos read as text fields and the feature was
+    ;; invisible. Borrow the select's chevron.
+    [:> [:.bf-field-combo
+         [:input
+          {:background-image "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.55)' stroke-width='2' fill='none'/></svg>\")"
+           :background-repeat :no-repeat
+           :background-position "right 12px center"
+           :padding-right "32px"}]]]
+    [:> [:.bf-field-full       {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-stack       {:grid-column "span 1"}]]
+    [:> [:.bf-break            {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-row         {:grid-column "1 / -1"}]]]
+   ;; toggles that are the whole row: adjacent, not one per grid track
+   [:.bf-bool-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "8px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
+   ;; two 16px rows — the children kept their own margins and the column inherited the flow's
+   ;; leading — so it overshot the 42px select beside it top and bottom. Explicit gap, no child
+   ;; margins, and it sits on the same baseline as the inputs it accompanies.
+   [:.bf-bool-stack
+    {:flex "0 0 auto"
+     :display :flex
+     :flex-direction :column
+     :justify-content :center
+     :gap "8px"
+     :min-height "42px"
+     :margin-right "14px"
+     :align-self :flex-end
+     :padding-bottom "4px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; No margin rule for .bf-section: every titled section is an .opt-section card with its own
+   ;; margin. GOTCHA: `(:not .opt-section)` reads as a member expression; garden fails silently.
+   ;; a section heading, or a :rows node, owns its own line
+   [:.bf-break
+    {:flex "1 1 100%"
+     :width "100%"}]
+   [:.form-head
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"}
+    [:.form-col {:grid-column "span 2"
+                 :min-width 0}]]
+
+   ;; Narrow screens get fewer tracks rather than four squeezed ones. These MUST come after the
+   ;; base rules: same specificity, so source order decides, and declared first they lost to
+   ;; .form-head's four-track default — Name and Option Source stayed side by side at 390px with
+   ;; the source input clipped mid-word.
+   (at-media {:max-width "900px"}
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}]
+             ;; tablet: name and source stay side by side, one track each
+             [:.form-head {:grid-template-columns "repeat(2, 1fr)"}
+              [:.form-col {:grid-column "span 1"}]])
+   ;; Phones keep TWO tracks, not one. The hand-written form paired Level and School at 390px and
+   ;; two short selects genuinely do fit; collapsing every field to its own row cost ~270px of
+   ;; scrolling for no gain. Only the wide things take the full width.
+   (at-media {:max-width "600px"}
+             ;; Only :enum pairs on a phone — two short selects fit and everything else wants the
+             ;; width. Leaving :number at one track left a lone half-width box among full-width
+             ;; ones, which is the inconsistency it looked like.
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}
+              [:> [:.bf-field-text {:grid-column "span 2"}]]
+              [:> [:.bf-field-combo {:grid-column "span 2"}]]
+              [:> [:.bf-field-number {:grid-column "span 2"}]]
+              [:> [:.bf-field-wide {:grid-column "span 2"}]]
+              ;; the flags read better side by side than stacked once the screen is narrow
+              [:> [:.bf-bool-stack {:grid-column "span 2"
+                                    :flex-direction :row
+                                    :flex-wrap :wrap
+                                    :align-self :start
+                                    :min-height 0
+                                    :padding-bottom 0}]]]
+             ;; name and source are both text and each wants the width
+             [:.form-head {:grid-template-columns "1fr"}
+              [:.form-col {:grid-column "span 1"}]])
+   [:.effect-row-body
+    {:padding "12px"}]
+   ;; A toggle chip and an ACTION chip must not look alike. In the add-bar a chip means "click to
+   ;; add"; in a :multi-enum it means "this is/is not chosen". Same shape, different question — so
+   ;; an unchosen toggle is muted, and a chosen one is solid orange, which also keeps the form's
+   ;; one rule intact: a thing carrying a value is orange.
+   [:.chip-row
+    {:gap "8px"
+     :margin-bottom "6px"}]
+   ;; ── section cards (option_menu_views/card) ────────────────────────────────────────────────────
+   ;; A flat card per section with an accent tab beside the title. The global
+   ;; `.field {margin-top:30px}` is zeroed inside a card.
+   [:.opt-section
+    ;; A translucent white overlay, not a fixed colour: it lifts the card RELATIVE to whatever page
+    ;; it sits on, so the lift is the same on every background.
+    {:background "rgba(255,255,255,0.035)"
+     :border "1px solid rgba(255,255,255,0.08)"
+     :border-radius "14px"
+     :padding "20px 22px 22px"
+     ;; margin on the TOP, not the bottom. With margin-bottom the first card butted straight into
+     ;; the stat fields above it — a measured gap of 0px — because nothing preceded it to supply
+     ;; the space. Top margin gives every card the same 18px run-in, including the first.
+     :margin-top "18px"
+     :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+    [:.field {:margin-top "0"}]
+    [:.input {:margin-top "0"}]]
+   [:.opt-section-head
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "10px"
+     :margin-bottom "14px"}]
+   [:.opt-section-accent
+    {:width "4px"
+     :height "18px"
+     :border-radius "3px"
+     :background "var(--accent, #f0a100)"
+     :flex "0 0 auto"}]
+   [:.opt-section-accent.tall
+    {:height "22px"}]
+   [:.opt-section-title
+    {:font-size "clamp(19px, 3vw, 22px)"
+     :font-weight 700
+     :color "#f3f6fa"
+     :letter-spacing "-0.005em"
+     ;; wrap INSIDE this box rather than wrapping the whole title below the accent bar. The head is
+     ;; flex-wrap (the mock puts a count pill beside the title), so a long title on a narrow screen
+     ;; broke to its own line and stranded the accent alone above it — visible at 390px on
+     ;; "Add This Spell to Which Class Spell Lists?".
+     :flex "1 1 auto"
+     :min-width 0}]
+
+   ;; ── select-menu: ported from port/redesign-on-refactor (3384d4c5) ────────────────────────
+   ;; Kept as close to the original as possible so the merge is a delete rather than a
+   ;; reconciliation; the accent is the one deliberate change (var, per themes.cljs).
+   [:.select-menu
+    {:position :relative}]
+   [:.select-menu-btn
+    {:width "100%"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :gap "8px"
+     :background "rgba(0,0,0,0.3)"
+     :border "1px solid rgba(255,255,255,0.12)"
+     :border-radius "8px"
+     :color "#e7ecf2"
+     :font-size "14px"
+     :font-family :inherit
+     :padding "10px 12px"
+     :cursor :pointer}]
+   [:.select-menu-btn:hover
+    {:border-color "rgba(255,255,255,0.2)"}]
+   [:.select-menu-chev
+    {:display :inline-flex
+     :flex "0 0 auto"
+     :transition "transform .15s"}]
+   [:.select-menu-chev.open
+    {:transform "rotate(180deg)"}]
+   [:.select-menu-pop
+    {:position :absolute
+     :top "calc(100% + 4px)"
+     :left 0
+     :right 0
+     :z-index 30
+     :background "#0d1218"
+     :border "1px solid rgba(255,255,255,0.14)"
+     :border-radius "8px"
+     :overflow-y :auto
+     :max-height "320px"
+     :box-shadow "0 14px 30px -8px rgba(0,0,0,0.8)"}]
+   [:.select-menu-opt
+    {:display :block
+     :width "100%"
+     :text-align :left
+     :border :none
+     :cursor :pointer
+     :font-family :inherit
+     :font-size "14px"
+     :color "#e7ecf2"
+     :background :transparent
+     :padding "9px 12px"}]
+   [:.select-menu-opt:hover
+    {:background "rgba(255,255,255,0.06)"}]
+   [:.select-menu-opt.active
+    {:background "rgba(240,161,15,0.14)"
+     :color "var(--accent, #f0b54a)"}]
+   ;; a tag inside an effect row is two words, not a page — the compact form of the same control
+   [:.tag
+    [:.select-menu-btn
+     {:padding "5px 8px"
+      :font-size "12.5px"
+      :border-radius "4px"}]]
+   ;; and the one carrying an actual restriction is picked out
+   [:.bf-enum.set
+    [:.select-menu-btn
+     {:border-color "var(--accent, #f0a100)"
+      :color "var(--accent, #f0a100)"}]]
+
+   ;; A TOGGLE chip answers "is this set?"; an ACTION chip (the add-bar) answers "do you want to add
+   ;; this?". Same shape, opposite question, so an unset toggle must not look like an action — it
+   ;; did, everywhere except :multi-enum, the moment every checkbox became a chip.
+   [:.chip-toggle
+    {:border-color "rgba(255,255,255,0.3)"
+     :color "rgba(255,255,255,0.55)"}]
+   [:.chip-toggle.chip-on
+    {:background-color "rgba(240,161,0,0.15)"
+     :border-style :solid
+     :border-color "var(--accent, #f0a100)"
+     :color "var(--accent, #f0a100)"}]
+
+   [:.row-lead-num
+    {:width "92px"
+     :flex "0 0 92px"}
+    [:input
+     {:text-align :center
+      :font-weight 700}]]
+
+   ;; A short field for a tag or a key: wide enough for six characters and a cursor, so the row
+   ;; stays a line rather than becoming a form.
+   [:.bf-meta-input
+    {:width "150px"}]
+
+   ;; Plumbing an author touches about once: the item's key. Set apart from the form by a hairline
+   ;; and the muted label colour the rest of this block already uses -- NOT a bespoke grey, which
+   ;; is what made an earlier version read as unstyled rather than as quiet.
+   [:.bf-meta
+    {:border-top "1px solid rgba(255,255,255,0.14)"
+     :padding-top "14px"
+     :margin-top "10px"
+     ;; clear of the page footer, which starts immediately below it
+     :margin-bottom "24px"
+     :color "rgba(255,255,255,0.55)"}
+    ;; the value is data, not chrome: readable
+    [:.bf-meta-value
+     {:color "rgba(255,255,255,0.85)"
+      :font-weight 700}]
+    ;; and the control is a link, in the app's link colour like every other link
+    [:.bf-meta-action
+     {:color "var(--accent, #f0a100)"
+      :text-decoration :underline}]]
+   ;; ==== BUILDER-FORM CSS: END ======================================================
 
    [:.w-auto
     {:width :auto}]
@@ -348,11 +664,12 @@
 
     [:a :a:visited
      {:color green}]]
+   ;; Dark theme is the default; .app.light-theme overrides this below.
    [:.red
-    {:color red}
+    {:color red-on-dark}
 
     [:a :a:visited
-     {:color red}]]
+     {:color red-on-dark}]]
    [:.uppercase
     {:text-transform :uppercase}]
    [:.bg-trans
@@ -482,6 +799,127 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; A group heading in the PDF options. Set apart from the field labels under
+   ;; it -- a heading in the same weight as its own first label reads as one more
+   ;; option rather than as the name of the set.
+   [:.option-group-title
+    {:font-size "11px"
+     :font-weight "bold"
+     :letter-spacing "0.08em"
+     :text-transform "uppercase"
+     :opacity "0.6"
+     :padding-top "8px"
+     :margin-bottom "6px"
+     :border-top "1px solid currentColor"}]
+
+   ;; The ? beside a PDF option, and the line it opens. A ring rather than a
+   ;; word, so a column of them reads as one affordance repeated and not as
+   ;; another label to parse.
+   [:.option-help
+    {:display "inline-flex"
+     :align-items "center"
+     :justify-content "center"
+     :width "15px"
+     :height "15px"
+     :border-radius "50%"
+     :border "1px solid currentColor"
+     :font-size "10px"
+     :font-weight "bold"
+     :line-height "1"
+     :opacity "0.55"}]
+   [:.option-help:hover
+    {:opacity "1"}]
+   [:.option-help-text
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 21px"
+     :opacity "0.75"}]
+
+   [:.bf-meta-input
+    {:width "150px"}]
+
+   ;; Plumbing an author touches about once: the item's key. Set apart from the form by a hairline
+   ;; and the muted label colour the rest of this block already uses -- NOT a bespoke grey, which
+   ;; is what made an earlier version read as unstyled rather than as quiet.
+   [:.bf-meta
+    {:border-top "1px solid rgba(255,255,255,0.14)"
+     :padding-top "14px"
+     :margin-top "10px"
+     ;; clear of the page footer, which starts immediately below it
+     :margin-bottom "24px"
+     :color "rgba(255,255,255,0.55)"}
+    ;; the value is data, not chrome: readable
+    [:.bf-meta-value
+     {:color "rgba(255,255,255,0.85)"
+      :font-weight 700}]
+    ;; and the control is a link, in the app's link colour like every other link
+    [:.bf-meta-action
+     {:color "var(--accent, #f0a100)"
+      :text-decoration :underline}]]
+
+   ;; An always-on note under a control, saying what the current setting will do.
+   ;; Set like the ? lines so the two read as one kind of note, but its own class
+   ;; -- it is the state of the build, not a fixed explanation.
+   [:.option-note
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 0"
+     :opacity "0.75"}]
+
+   ;; ONE line under a field: one problem, one sentence, at most one action. Only
+   ;; the most actionable of the things that may be wrong is shown; the rest waits
+   ;; behind the disclosure.
+   [:.field-notice
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "baseline"
+     :gap "8px"
+     :margin "6px 0 0 0"
+     :padding "6px 10px"
+     :border-radius "4px"
+     :border-left "3px solid currentColor"
+     :background-color "rgba(255, 255, 255, 0.06)"
+     :font-size "12px"
+     :line-height "18px"
+     :max-width "560px"}]
+   [:.field-notice-what
+    {:flex "1 1 260px"}]
+   ;; The one action a notice may carry, and only ever one. Set as a link rather
+   ;; than a button: a notice that grows a control panel stops reading as a
+   ;; message. Form controls belong in .field-remedy, never here.
+   [:.field-notice-action
+    {:background "none"
+     :border "none"
+     :padding "0"
+     :font-size "12px"
+     :font-family "inherit"
+     :color orange
+     :cursor "pointer"
+     :text-decoration "underline"
+     :white-space "nowrap"
+     :word-break "break-all"}]
+   [:.field-notice.is-error {:color red-on-dark}]
+   [:.field-notice.is-warning {:color amber-on-dark}]
+   [:.field-notice.is-note {:color muted-on-dark}]
+
+   ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
+   ;; second warning.
+   [:.field-remedy
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "560px"
+     :font-size "12px"}
+    [:button
+     {:white-space "nowrap"}]]
+
    [:.image-thumbnail
     {:max-height "100px"
      :max-width "200px"
@@ -551,12 +989,99 @@
    [:.bg-green
     {:background-color "#70a800"}]
 
+   ;; Transient banner. A row: severity icon, the message body, the dismiss.
+   ;; Tinted rather than filled — a solid saturated slab reads as an alarm even
+   ;; when what it says is "that worked".
    [:.message
-    {:padding "10px"
-     :border-radius "5px"
-     :display :flex
-     :justify-content :space-between
+    ;; Sized to what it says. A five-word confirmation was stretching the width of
+    ;; a desktop, with the dismiss a screen away from the words; then a flat cap
+    ;; squeezed a two-sentence warning into a narrow column. fit-content does both:
+    ;; small messages stay small, longer ones run out to the cap.
+    {:display :flex
+     :align-items :flex-start
+     :gap "12px"
+     :padding "12px 14px"
+     :width :fit-content
+     :max-width "min(100%, 900px)"
+     :border-radius "6px"
+     :border "1px solid transparent"
+     :line-height "1.45"
      :color :white}]
+
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
+
+   [:.message.tone-success
+    {:background-color "rgba(112, 168, 0, 0.16)"
+     :border-color "rgba(112, 168, 0, 0.5)"}]
+   [:.message.tone-warning
+    {:background-color "rgba(240, 161, 0, 0.14)"
+     :border-color "rgba(240, 161, 0, 0.45)"}]
+   [:.message.tone-error
+    {:background-color "rgba(154, 3, 30, 0.18)"
+     :border-color "rgba(255, 107, 107, 0.5)"}]
+
+   ;; The icon carries the severity colour, so the box does not have to shout it.
+   [:.message-icon
+    {:font-size "18px"
+     :line-height "1.3"
+     :flex-shrink 0}]
+   [:.tone-success [:.message-icon {:color "#8cc63f"}]]
+   [:.tone-warning [:.message-icon {:color orange}]]
+   [:.tone-error [:.message-icon {:color red-on-dark}]]
+
+   [:.message-body
+    {:flex "1 1 auto"
+     :min-width 0}]
+
+   [:.message-title
+    {:font-size "15px"
+     :font-weight 600}]
+
+   ;; Detail lines are the count, the conflicts, the hint — supporting text, not a
+   ;; second headline, which is what they looked like when everything was bold.
+   [:.message-detail
+    {:font-size "13px"
+     :font-weight 400
+     :opacity 0.85
+     :margin-top "2px"}]
+
+   ;; A bare glyph is a ~14px target on a phone. Pad it out to something a thumb
+   ;; can actually land on.
+   [:.message-close
+    {:flex-shrink 0
+     :padding "6px 4px"
+     :margin "-6px -4px 0 0"
+     :min-width "32px"
+     :min-height "32px"
+     :text-align :right
+     :opacity 0.75}
+    [:&:hover {:opacity 1}]]
 
    ;; Warning/alert styles
    [:.bg-warning
@@ -565,6 +1090,57 @@
      :border-radius "4px"}]
    [:.bg-warning-item
     {:background-color "rgba(0, 0, 0, 0.2)"
+     :border-radius "4px"}]
+
+   ;; Accent rails for a callout: the .health-rail device, coloured by identity
+   ;; rather than severity, so a notice says whose it is without the warning
+   ;; palette. Named options only -- a caller picks one rather than passing a colour.
+   [:.callout-accent-brand
+    ;; A gradient ring around the whole box, drawn by a pseudo-element masked to its
+    ;; own edge: border-image squares off rounded corners, and a plain border cannot
+    ;; hold a gradient. The mask punches the middle out, so the translucent fill stays.
+    ;; The outer shadow is a low glow, not a selected-field highlight.
+    {:position :relative
+     :border-color :transparent
+     :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
+    [:&:before
+     {:content "''"
+      :position :absolute
+      :inset 0
+      :border-radius "4px"
+      :padding "1px"
+      :pointer-events :none
+      :background (str "linear-gradient(135deg, " orange ", rgba(240, 161, 0, 0.18) 55%, rgba(240, 161, 0, 0.7))")
+      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :-webkit-mask-composite "xor"
+      :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :mask-composite "exclude"}]]
+
+   ;; A small neutral pill for naming things inline -- the items a feature covers,
+   ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
+   ;; colours or its row-specific margin, so it reads as a label rather than as a
+   ;; status. .chip-row lays a set of them out and lets them wrap.
+   [:.chip
+    {:display "inline-flex"
+     :align-items :center
+     :font-size "11px"
+     :font-weight 600
+     :padding "3px 9px"
+     :border-radius "999px"
+     :line-height 1.4
+     :background-color "rgba(255, 255, 255, 0.08)"
+     :border "1px solid rgba(255, 255, 255, 0.14)"}]
+   [:.chip-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "6px"}]
+
+   ;; Neutral counterpart to .bg-warning, for a callout that is telling you
+   ;; something rather than warning you: same box, no severity colour, so an
+   ;; offer or an explanation does not read as a problem to fix.
+   [:.bg-note
+    {:background-color "rgba(255, 255, 255, 0.05)"
+     :border "1px solid rgba(255, 255, 255, 0.15)"
      :border-radius "4px"}]
 
    [:.fade-out
@@ -942,19 +1518,33 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; color-scheme is what makes the browser draw the native option LIST dark.
+    ;; Without it the popup is white while the options inherit the select's white
+    ;; text, so an unclassed dropdown opens as a blank white box with invisible
+    ;; entries. The explicit option colours cover browsers that ignore it.
     [:select
      {:font-family font-family
       :color "white"
+      :color-scheme "dark"
       :background-color :transparent}]
+
+    [:option
+     {:background-color "#1a1e28"
+      :color "rgba(255,255,255,0.9)"}]
 
     [:*:focus
      {:outline 0}]
 
+    ;; The header sticks itself; the chrome goes on only once it has, which is
+    ;; what the .stuck class the page's IntersectionObserver sets says. Sticky
+    ;; rather than a fixed duplicate of the header: see content-page.
     [:.sticky-header
-     {:top 0
-      :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-      :z-index 100
-      :display :none
+     {:position :sticky
+      :top 0
+      :z-index 100}]
+
+    [:.sticky-header.stuck
+     {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
       :background-color "#313A4D"}]
 
     [:.container
@@ -991,14 +1581,22 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
-    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
-    ;; z-index on hover/focus-within prevents adjacent tabs from intercepting the dropdown
+    ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
+    ;; a short screen). The default is a light slab against a dark menu.
+    [:.header-flyout
+     {:scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
+
+    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
+    ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
+    ;; tab is a stacking context, so the flyout's own z-index resolves inside it, and at
+    ;; an equal 100 the row wins on document order and swallows the dropdown's clicks.
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
-     [:&:hover {:z-index 100}
+     [:&:hover {:z-index 200}
       [:.header-flyout {:display :block}]]
-     [:&:focus-within {:z-index 100}
+     [:&:focus-within {:z-index 200}
       [:.header-flyout {:display :block}]]]
 
     #_[:.header-tab:hover
@@ -1152,12 +1750,9 @@
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
     ;; ── Library-header "disabled" badges ─────────────────────────────────────
-    ;; A small pill on a collapsed library row showing how many items are OFF,
-    ;; colored by REASON (not a blanket warning): blue = you turned it off
-    ;; (benign), amber = the app turned it off for compatibility (kept one of a
-    ;; duplicate). The pill's tinted fill carries the contrast, so calm hues stay
-    ;; legible. Light-mode re-tone lives under .app.light-theme below; and
-    ;; prefers-contrast: more swaps to solid high-contrast fills automatically.
+    ;; A pill on a collapsed library row counting items that are OFF, coloured by reason:
+    ;; blue = the user turned it off, amber = the app did (kept one of a duplicate).
+    ;; Light mode re-tones under .app.light-theme; prefers-contrast: more uses solid fills.
     [:.lib-badge
      {:display "inline-flex"
       :align-items :center
@@ -1340,11 +1935,9 @@
     (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
 
     ;; ── Library health status ─────────────────────────────────────────────
-    ;; Passive card that appears only when something needs attention. Warm
-    ;; escalation: warning-yellow for resolvable (conflicts, missing fields),
-    ;; red reserved for broken. One --accent drives the rail, icon and action
-    ;; link so it reads as a single object; a one-time flash fires on appearance
-    ;; and whenever the count changes (the card is re-keyed on count).
+    ;; Shown only when something needs attention: warning-yellow for resolvable
+    ;; (conflicts, missing fields), red for broken; rail, icon and link share one colour.
+    ;; The flash fires on appearance and on every count change (the card is keyed on count).
     (at-keyframes "health-pulse"
                   [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
@@ -1372,6 +1965,43 @@
      [:.health-ico {:color broken-red}]
      [:.health-act {:color broken-red}]]
     (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
+
+    ;; ── save button, carrying an unsaved repair ──────────────────────────────
+    ;; A reconciler fixed a stored key on load, in memory only, so the button glints
+    ;; until the character is saved. Unlike .health-flash it repeats: a standing
+    ;; condition, not an event. Slow and low-contrast: "worth doing", not an error.
+    (at-keyframes "save-healed-glint"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:35% {:box-shadow "0 0 10px 2px rgba(255,210,26,0.45)"}]
+                  [:70% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}])
+    [:.save-healed
+     {:animation "save-healed-glint 2.6s ease-in-out infinite"
+      :position :relative}]
+    ;; The sparkle itself. A pseudo-element rather than markup so the button's
+    ;; hiccup stays a plain button, and pointer-events none so it can never eat
+    ;; the click it is advertising.
+    [:.save-healed:after
+     {:content "'\\2726'"
+      :position :absolute
+      :top "-4px"
+      :right "-3px"
+      :font-size "11px"
+      :line-height 1
+      :color "rgba(255,210,26,0.95)"
+      :pointer-events :none
+      :animation "save-healed-sparkle 2.6s ease-in-out infinite"}]
+    (at-keyframes "save-healed-sparkle"
+                  [:0% {:opacity 0 :transform "scale(0.6)"}]
+                  [:35% {:opacity 1 :transform "scale(1)"}]
+                  [:70% {:opacity 0 :transform "scale(0.6)"}]
+                  [:100% {:opacity 0 :transform "scale(0.6)"}])
+    ;; Motion is the whole mechanism here, so with it suppressed the state still
+    ;; has to be visible -- a steady ring and a steady sparkle, no movement.
+    (at-media {:prefers-reduced-motion "reduce"}
+              [:.save-healed {:animation :none
+                              :box-shadow "0 0 0 2px rgba(255,210,26,0.55)"}]
+              [:.save-healed:after {:animation :none :opacity 1}])
 
     [:.link-button
      {:color button-color
@@ -1498,18 +2128,37 @@
       :justify-content :space-between
       :align-items :center}]
 
-    ;; Prevent horizontal scroll caused by fixed-position elements
-    ;; spanning full viewport width when vertical scrollbar is present.
+    ;; Clip rather than hide. overflow-x: hidden makes .app a scroll container,
+    ;; and a scroll container between the sticky header and the viewport stops it
+    ;; sticking at all; clip trims the same overflow without becoming one.
     [:.app
-     {:overflow-x :hidden}]
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
 
+     ;; A red that carries on near-black washes out on white, and the notice's
+     ;; ground has to darken rather than lighten.
+     [:.red
+      {:color red}
+      [:a :a:visited {:color red}]]
+     [:.field-notice
+      {:background-color "rgba(0, 0, 0, 0.05)"}]
+     [:.field-remedy
+      {:border "1px solid rgba(0, 0, 0, 0.18)"}]
+     [:.field-notice.is-error {:color red}]
+     [:.field-notice.is-warning {:color "#8a5a00"}]
+     [:.field-notice.is-note {:color "#55637a"}]
+
      [:select
       {:font-family font-family
        :color "black";
+       :color-scheme "light"
        :background-color :transparent}]
+
+     [:option
+      {:background-color :white
+       :color "#282828"}]
 
      [:.item-list
       {:border-top "1px solid rgba(0,0,0,0.5)"}]
@@ -1580,7 +2229,7 @@
       {:background-color :white
        :color "#282828"}]
 
-     [:.sticky-header
+     [:.sticky-header.stuck
       {:background-color :white}]
 
      [:table.striped
@@ -1636,22 +2285,32 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
+     ;; Wide enough that a conflict row (two source names and a key) stays on one line.
+     ;; No fixed width, so a short modal still shrinks to its content; the clamp keeps
+     ;; it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
-      :max-width "600px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
+      :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -1661,23 +2320,37 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
-     ;; The modal chrome is always dark (#1a1e28) in both themes, so give the body
-     ;; an explicit light default — otherwise plain text (e.g. the opinionated
-     ;; import summary) inherits the app's dark text color and reads dark-on-dark.
-     ;; The advanced conflict cards set their own colors, so this only lifts text
-     ;; that would otherwise be illegible.
+     ;; The modal chrome is dark (#1a1e28) in both themes, so the body gets a light
+     ;; default; otherwise plain text (the import summary) inherits the app's dark
+     ;; text colour. The conflict cards set their own colours.
      {:padding "16px 20px"
       :overflow-y :auto
       :color "rgba(255,255,255,0.85)"
       :flex 1}]
+
+    ;; On a phone the panel is the screen: less padding, more height. The footer
+    ;; wraps, since four nowrap buttons overflow a 360px viewport and push the modal
+    ;; past the clamp, and the primary action takes the full width when it does.
+    (at-media {:max-width "600px"}
+              [:.conflict-modal
+               {:max-width "calc(100vw - 16px)"
+                :max-height "92vh"}]
+              [:.conflict-modal-header {:padding "12px 14px"}]
+              [:.conflict-modal-body {:padding "12px 14px"}]
+              [:.conflict-modal-footer
+               {:padding "12px 14px"
+                :flex-wrap :wrap
+                :gap "8px"}
+               [:.form-button {:flex "1 1 auto"}]])
 
     ;; Header elements
     [:.conflict-title-icon
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
 
     ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
     ;; the same warning-yellow language as the My Content health card, so the modal
@@ -1862,6 +2535,216 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
+    ;; Developer mode: a named switch in the footer, visible at all times -- the tools
+    ;; behind it get content out when the app misbehaves, so the way in cannot hide.
+    [:.dev-mode-row
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :gap "8px"
+      :margin-top "10px"}]
+
+    [:.dev-mode-switch
+     {:position :relative
+      :display :inline-block
+      :width "34px"
+      :height "18px"
+      :flex-shrink 0
+      :border-radius "9px"
+      :background-color "rgba(255,255,255,0.16)"
+      :cursor :pointer
+      :transition "background-color 0.16s ease"}
+     [:&:after
+      {:content "''"
+       :position :absolute
+       :top "3px"
+       :left "3px"
+       :width "12px"
+       :height "12px"
+       :border-radius "50%"
+       :background-color "#fff"
+       :transition "transform 0.16s ease"}]
+     [:&.on
+      {:background-color orange}
+      [:&:after {:transform "translateX(16px)"}]]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
+
+    [:.dev-mode-label
+     {:font-size "12px"
+      :color "rgba(255,255,255,0.55)"
+      :cursor :pointer}]
+
+    [:.dev-mode-tools
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :flex-wrap :wrap
+      :gap "16px"
+      :margin-top "8px"}]
+
+    [:.dev-mode-tool
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :color orange
+      :cursor :pointer}
+     [:&:hover {:text-decoration :underline}]]
+
+    ;; An expanded source's own row: search, show-disabled, then its actions. The side
+    ;; padding keeps the search off the panel wall; its flex-basis gives it a line of
+    ;; its own on a phone rather than squeezing to nothing.
+    [:.mc-source-toolbar
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :padding "0 6px"
+      :margin-bottom "10px"}]
+
+    [:.mc-source-search
+     {:flex "1 1 240px"
+      :min-width "150px"}]
+
+    [:.mc-source-disabled
+     {:flex "0 0 auto"
+      :white-space :nowrap}]
+
+    ;; Pushed to the end of the row, and still together when the row wraps.
+    [:.mc-source-actions
+     {:flex "0 0 auto"
+      :margin-left :auto}]
+
+    ;;;; WHAT'S NEW PANEL
+
+    ;; Dark chrome in both themes, like the conflict modal: the panel is an overlay
+    ;; on top of the page rather than part of it.
+    [:.whats-new-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :background "rgba(0,0,0,0.7)"
+      :z-index 10002
+      :display :flex
+      :align-items :center
+      :justify-content :center
+      :padding "20px"}]
+
+    [:.whats-new-panel
+     {:background "#1a1e28"
+      :color "rgba(255,255,255,0.85)"
+      :border-radius "6px"
+      :width "100%"
+      :max-width "620px"
+      ;; 100% is the backdrop's content box, which SHRINKS while the cookie notice is up (the
+      ;; backdrop stops above it). 84vh alone would overflow into the notice on a short viewport.
+      :max-height "min(84vh, 100%)"
+      :display :flex
+      :flex-direction :column
+      :overflow :hidden
+      :box-shadow "0 4px 18px 0 rgba(0,0,0,0.6)"}]
+
+    [:.whats-new-header
+     {:padding "18px 22px"
+      :background "#2c3445"
+      :border-bottom "1px solid rgba(255,255,255,0.15)"}]
+
+    [:.whats-new-eyebrow
+     {:color orange
+      :font-size "12px"
+      :font-weight :bold
+      :letter-spacing "1px"
+      :text-transform :uppercase}]
+
+    [:.whats-new-title
+     {:font-size "24px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-subtitle
+     {:font-size "14px"
+      :color muted-on-dark
+      :margin-top "6px"}]
+
+    [:.whats-new-close
+     {:font-size "20px"
+      :color muted-on-dark
+      :cursor :pointer
+      :padding "4px 6px"}
+     [:&:hover
+      {:color :white}]]
+
+    [:.whats-new-body
+     ;; The inset shadow sits on the padding box, so it stays at the bottom edge
+     ;; while the list scrolls under it — the cue that there is more below.
+     {:padding "6px 22px 4px"
+      :overflow-y :auto
+      :flex 1
+      :box-shadow "inset 0 -14px 12px -12px rgba(0,0,0,0.55)"}]
+
+    ;; A group heading separates the sections; inside one, the item borders do it.
+    [:.whats-new-group-title
+     {:color orange
+      :font-size "11px"
+      :font-weight :bold
+      :letter-spacing "1.2px"
+      :text-transform :uppercase
+      :padding "18px 0 2px"
+      :margin-top "6px"
+      :border-top "1px solid rgba(255,255,255,0.12)"}]
+
+    [:.whats-new-group
+     [:&:first-child
+      [:.whats-new-group-title
+       {:border-top :none
+        :margin-top 0
+        :padding-top "12px"}]]]
+
+    [:.whats-new-item
+     {:display :flex
+      :align-items :flex-start
+      :padding "14px 0"
+      :border-bottom "1px solid rgba(255,255,255,0.08)"}
+     [:&:last-child
+      {:border-bottom :none}]]
+
+    [:.whats-new-item-icon
+     {:color orange
+      :font-size "18px"
+      :width "24px"
+      :margin-right "14px"
+      :margin-top "2px"
+      :text-align :center
+      :flex-shrink 0}]
+
+    [:.whats-new-item-headline
+     {:font-size "16px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-item-detail
+     {:font-size "14px"
+      :line-height "1.45"
+      :color muted-on-dark
+      :margin-top "3px"}]
+
+    [:.whats-new-footer
+     {:padding "14px 22px"
+      :border-top "1px solid rgba(255,255,255,0.15)"
+      :display :flex
+      :align-items :center
+      :justify-content :space-between}]
+
+    [:.whats-new-version
+     {:font-size "12px"
+      :color muted-on-dark}]
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled
@@ -1894,7 +2777,252 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ── Export busy page ────────────────────────────────────────────────────
+    ;; Where a sheet export lands when every export slot is busy. Served into the
+    ;; download tab without the builder's markup or scripts, so it restates the #app
+    ;; gradient and #1a1e28 panel instead of reusing layout classes.
+    [:.busy-body
+     {:margin 0
+      :min-height "100vh"
+      :background-color "#080A0D"
+      :background-image "linear-gradient(182deg, #313A4D, #080A0D)"
+      :background-attachment :fixed}]
+
+    [:.busy-wrap
+     {:display :flex
+      :justify-content :center
+      :padding "56px 20px"}]
+
+    [:.busy-card
+     {:max-width "560px"
+      :width "100%"
+      :background-color "#1a1e28"
+      :border-radius "5px"
+      :padding "32px 36px"
+      :box-shadow "0 2px 16px rgba(0,0,0,0.45)"}
+     [:h1
+      (merge text-color
+             {:margin "0 0 14px"
+              :font-size "24px"
+              :font-weight 600})]
+     [:p
+      {:margin "0 0 16px"
+       :font-size "16px"
+       :line-height "1.6"
+       :color "rgba(255,255,255,0.7)"}]
+     ;; The countdown is the one line that changes while the page waits, so it
+     ;; sits at full strength against the muted text around it.
+     [:.busy-countdown
+      (merge text-color
+             {:font-weight 600
+              :font-variant-numeric :tabular-nums})]]
+
+    ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
+    ;; Self-contained: no theme tokens or CSS custom properties. Width-capped but never
+    ;; wider than the viewport; the list scrolls rather than growing the page.
+    [:.inv-picker {:position :relative
+                   :margin "6px 0 10px"}]
+
+    [:.inv-picker-btn
+     {:background "rgba(255,255,255,0.06)"
+      :border "1px solid rgba(255,255,255,0.18)"
+      :border-radius "4px"
+      :color "#f0a100"
+      :cursor :pointer
+      :font-size "14px"
+      :font-weight 600
+      :padding "7px 14px"}]
+
+    [:.inv-picker-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :z-index 40}]
+
+    [:.inv-picker-pop
+     {:position :absolute
+      :z-index 41
+      :top "calc(100% + 4px)"
+      :left 0
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      :background "#1a2430"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "5px"
+      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      :padding "8px"}]
+
+    [:.inv-picker-search
+     {:width "100%"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "3px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "8px 10px"
+      :margin-bottom "6px"}]
+
+    [:.inv-picker-list
+     {:max-height "280px"
+      :overflow-y :auto}]
+
+    [:.inv-picker-row
+     {:padding "8px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"
+      :transition "background-color 90ms ease, box-shadow 90ms ease"}
+     [:&:hover {:background "rgba(240,161,0,0.18)"
+                :color "#fff"}]]
+
+    [:.inv-picker-empty
+     {:padding "10px"
+      :color "rgba(255,255,255,0.5)"
+      :font-size "13px"
+      :font-style :italic}]
+
+    [:.inv-picker-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    ;; ----- native filtering dropdown (character-builder/inventory-datalist) -----
+    ;; Only the INPUT is styleable. The suggestion list is a browser-drawn popup and
+    ;; ignores page CSS -- that is the trade against the custom popover above.
+    [:.inv-datalist {:margin "6px 0 10px"}]
+
+    [:.inv-datalist-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    ;; ----- filter-and-pick combobox on the native Popover API -----
+    ;; The popover element gets the browser's top layer, light dismiss and Escape handling;
+    ;; none of that is implemented here. Anchor positioning pins it under its input, and
+    ;; where unsupported the popover still opens (centred) rather than breaking.
+    [:.inv-combo {:margin "6px 0 10px"}]
+
+    [:.inv-combo-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    [:.inv-combo-pop
+     {:position :absolute
+      ;; content-box here made the dropdown 14px wider than its input (6px padding + 1px
+      ;; border each side), which anchor-size() alone does not correct.
+      :box-sizing :border-box
+      :position-area "bottom span-right"
+      ;; Flip above the input when there is no room below, instead of running off-screen.
+      :position-try-fallbacks "flip-block"
+      :margin "4px 0 0 0"
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      ;; Depth, in the order light would build it: a hairline top highlight so the panel
+      ;; catches light from above, a tight contact shadow, then a wide soft one. A single
+      ;; flat shadow on a flat fill is what made this look pasted on.
+      :background "linear-gradient(180deg, #1f2b39 0%, #151f2a 100%)"
+      :border "1px solid rgba(255,255,255,0.16)"
+      :border-radius "6px"
+      :box-shadow (str "inset 0 1px 0 rgba(255,255,255,0.09), "
+                       "0 2px 6px rgba(0,0,0,0.45), "
+                       "0 14px 34px rgba(0,0,0,0.55)")
+      :padding "6px"
+      :inset :auto}]
+
+    ;; Entry animation. 120 ms is under the threshold where a menu starts to feel slow, and
+    ;; the 4px rise reads as the panel arriving from its input rather than blinking on.
+    [:.inv-combo-pop:popover-open
+     {:animation "inv-combo-in 120ms cubic-bezier(0.2, 0, 0.2, 1)"}]
+
+    ;; Separate rule, not a second :width in the map above -- duplicate keys are illegal in a
+    ;; Clojure map literal. 320px above is the fallback for engines without anchor-size();
+    ;; where this resolves the dropdown matches its input the way a native picker does.
+    [:.inv-combo-pop {:width "anchor-size(width)"}]
+
+    ;; Keep the dropdown short enough to sit below its input in the common case -- at 300px
+    ;; it did not fit and flip-block kept throwing it up over the page header.
+    [:.inv-combo-list
+     {;; The default scrollbar is a wide light slab against a dark panel -- a large part of
+      ;; why this read as cheap. Thin and themed, track left transparent.
+      :scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"
+      :max-height "230px"
+      :overflow-y :auto}]
+
+    [:.inv-combo-row
+     {:padding "9px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"}
+     ;; inset box-shadow rather than a border-left: an accent bar that costs no layout, so
+     ;; the text does not jump sideways on hover.
+     [:&:hover {:background "rgba(240,161,0,0.16)"
+                :color "#fff"
+                :box-shadow "inset 3px 0 0 rgba(240,161,0,0.75)"}]
+     ;; Keyboard highlight. Stronger than :hover so the two are distinguishable when the
+     ;; pointer happens to rest on a different row than the arrow keys are on.
+     [:&.active {:background "rgba(240,161,0,0.28)"
+                 :color "#fff"
+                 :box-shadow "inset 3px 0 0 #f0a100"}]]
+
+    ;; The matched substring. Colour plus weight, so it still reads if the row is highlighted.
+    [:.inv-combo-hit {:color "#f0a100" :font-weight :bold}]
+
+    ;; Count and key hints. The arrow-key navigation is invisible otherwise.
+    [:.inv-combo-hint
+     {:display :flex
+      :justify-content :space-between
+      :align-items :center
+      :gap "10px"
+      :padding "7px 10px 2px"
+      :margin-top "4px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "11px"}]
+
+    [:.inv-combo-keys {:white-space :nowrap :letter-spacing "0.02em"}]
+
+    [:.inv-combo-empty
+     {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]
+
+    [:.inv-combo-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    (at-keyframes
+     "inv-combo-in"
+     [:from {:opacity 0 :transform "translateY(-4px)"}]
+     [:to   {:opacity 1 :transform "translateY(0)"}])
+
+    ;; Motion is decoration here; the control works identically without it.
+    (at-media
+     {:prefers-reduced-motion :reduce}
+     [:.inv-combo-pop:popover-open {:animation :none}]
+     [:.inv-combo-row {:transition :none}])
+
+];concat-bracket
    margin-lefts
    margin-tops
    widths

@@ -3,7 +3,8 @@
             #?(:cljs [cljs.spec.alpha :as spec])
             [clojure.string :as str]
             [orcpub.common :as common]
-            [orcpub.dnd.e5.builder-fields :as bf]))
+            [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.grants :as grants]))
 
 (spec/def ::name (spec/and string? common/starts-with-letter?))
 (spec/def ::key (spec/and keyword? common/keyword-starts-with-letter?))
@@ -11,7 +12,9 @@
 (spec/def ::languages (spec/and set?
                                 (spec/coll-of string?)))
 (spec/def ::homebrew-race (spec/keys :req-un [::name ::key ::option-pack]
-                                     :opt-un [::languages]))
+                                     ;; :grants validates SHAPE only — an unregistered pool is
+                                     ;; deliberately fine, see grants.cljc.
+                                     :opt-un [::languages ::grants/grants]))
 
 (spec/def ::race (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::homebrew-subrace (spec/keys :req-un [::name ::key ::race ::option-pack]))

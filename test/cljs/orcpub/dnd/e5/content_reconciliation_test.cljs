@@ -6,7 +6,9 @@
    but doesn't have Kibbles' Tasty Homebrew loaded. The reconciliation module
    should detect this and suggest similar content."
   (:require [cljs.test :refer-macros [deftest testing is]]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.content-reconciliation :as reconcile]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.entity :as entity]))
 
 ;; ============================================================================
@@ -47,6 +49,26 @@
 ;; Key Extraction
 ;; ============================================================================
 
+(def ^:private built-in
+  "Built-in keys these fixtures assume the builder offers."
+  #{:fighter :elf :high-elf :acolyte :half-elf :human :wizard :sage})
+
+(defn- offered-from
+  "What the builder would offer with `content` loaded: the built-ins plus every loaded item."
+  [content]
+  (into built-in (for [[_ items] content item items] (:key item))))
+
+(defn- check-available [character-keys content]
+  (reconcile/check-content-availability character-keys content (offered-from content)))
+
+(defn- missing-report [character content]
+  (reconcile/generate-missing-content-report character content (offered-from content)))
+
+(defn- index-of
+  "The former-key index once the builder's list is known, with nothing built-in in the way."
+  [plugins]
+  (reconcile/former-key-index plugins #{}))
+
 (deftest test-extract-content-keys
   (testing "Extracts all content keys with correct content types"
     (let [keys (reconcile/extract-content-keys test-character)
@@ -78,7 +100,7 @@
 (deftest test-detects-missing-homebrew
   (testing "Homebrew class not in available content is flagged"
     (let [char-keys (reconcile/extract-content-keys test-character)
-          missing (reconcile/check-content-availability char-keys available-content)
+          missing (check-available char-keys available-content)
           missing-keys (set (map :key missing))]
       (is (contains? missing-keys :artificer-kibbles-tasty))
       (is (not (contains? missing-keys :wizard)))
@@ -92,7 +114,7 @@
                       :background {::entity/key :acolyte}}}
           char-keys (reconcile/extract-content-keys character)
           ;; Empty available content — builtins should still not be flagged
-          missing (reconcile/check-content-availability char-keys {})]
+          missing (check-available char-keys {})]
       (is (empty? missing)))))
 
 (deftest test-custom-inline-content-not-flagged
@@ -108,7 +130,7 @@
           char-keys (reconcile/extract-content-keys character)
           ;; empty available content — a genuinely-missing homebrew key WOULD be
           ;; flagged here, so an empty result proves :custom is treated as inline
-          missing (reconcile/check-content-availability char-keys {})]
+          missing (check-available char-keys {})]
       (is (empty? missing)
           ":custom race + background are inline content, not missing"))))
 
@@ -135,7 +157,7 @@
 
 (deftest test-generate-missing-content-report
   (testing "Report correctly identifies missing vs present content"
-    (let [report (reconcile/generate-missing-content-report test-character available-content)]
+    (let [report (missing-report test-character available-content)]
       (is (:has-missing? report))
       (is (pos? (:missing-count report)))
       (let [missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
@@ -149,14 +171,14 @@
                      {:class [{::entity/key :wizard}]
                       :race {::entity/key :human}
                       :background {::entity/key :sage}}}
-          report (reconcile/generate-missing-content-report character available-content)]
+          report (missing-report character available-content)]
       (is (not (:has-missing? report)))
       (is (= 0 (:missing-count report)))
       (is (empty? (:items report))))))
 
 (deftest test-report-includes-inferred-source
   (testing "Missing items include inferred source from key suffix"
-    (let [report (reconcile/generate-missing-content-report test-character available-content)
+    (let [report (missing-report test-character available-content)
           missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
                                            (:items report)))]
       (is (some? (:inferred-source missing-artificer)))
@@ -211,13 +233,13 @@
                          :feats [{:key :blade-mastery :name "Blade Mastery"}
                                  {:key :brawny :name "Brawny"}
                                  {:key :metabolic-control :name "Metabolic Control"}])
-          report (reconcile/generate-missing-content-report feat-test-character content)]
+          report (missing-report feat-test-character content)]
       (is (not (some #(= :feat (:content-type %)) (:items report)))
           "no feats should be missing when all are in available content"))))
 
 (deftest test-feat-flagged-when-missing
   (testing "Feats absent from available content ARE flagged as missing"
-    (let [report (reconcile/generate-missing-content-report feat-test-character {})
+    (let [report (missing-report feat-test-character {})
           missing-feats (filter #(= :feat (:content-type %)) (:items report))]
       (is (= 3 (count missing-feats))
           "all 3 feats should be flagged as missing")
@@ -369,3 +391,424 @@
       (is (contains? (-> classes first ::entity/options) :artificer-kibbles-tasty-cantrips-known))
       (is (contains? (-> classes second ::entity/options) :wizard-cantrips-known)
           "built-in class entry untouched"))))
+
+;; ── Former keys ─────────────────────────────────────────────────────────────
+
+(def ^:private ct :orcpub.dnd.e5/subraces)
+
+(deftest former-key-index-maps-old-to-new
+  (testing "a renamed item points its old key at its new one"
+    (is (= {:dark-elf-drow- :dark-elf-drow}
+           (index-of
+            {"Pak" {ct {:dark-elf-drow {:key :dark-elf-drow
+                                        :former-key :dark-elf-drow-
+                                        :name "Dark Elf (Drow)"}}}}))))
+
+  (testing "an item that was never renamed contributes nothing"
+    (is (= {} (index-of
+               {"Pak" {ct {:elf {:key :elf :name "Elf"}}}}))))
+
+  (testing "TWO items claiming the same former key are both dropped"
+    ;; Rebinding would pick whichever was walked first, which is a coin flip
+    ;; dressed as a repair.
+    (is (= {} (index-of
+               {"A" {ct {:one {:key :one :former-key :shared}}}
+                "B" {ct {:two {:key :two :former-key :shared}}}}))))
+
+  (testing "a former key that is some item's LIVE key is dropped"
+    ;; :elf still exists and still resolves; rebinding it away would break a
+    ;; character that is working fine.
+    (is (= {} (index-of
+               {"A" {ct {:elf {:key :elf :name "Elf"}
+                         :high-elf {:key :high-elf :former-key :elf}}}})))))
+
+(deftest reconcile-former-keys-rewrites-stored-selections
+  (let [index {:dark-elf-drow- :dark-elf-drow}
+        character {:orcpub.entity/options
+                   {:race {:orcpub.entity/key :elf
+                           :orcpub.entity/options
+                           {:subrace {:orcpub.entity/key :dark-elf-drow-}}}
+                    :feats [{:orcpub.entity/key :keen-mind}]}}]
+
+    (testing "a nested key is translated"
+      (let [{:keys [character rewrote]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
+        (is (= :dark-elf-drow
+               (get-in character [:orcpub.entity/options :race
+                                  :orcpub.entity/options :subrace
+                                  :orcpub.entity/key])))
+        (is (= [{:from :dark-elf-drow- :to :dark-elf-drow}] rewrote))))
+
+    (testing "keys with no entry are left exactly as they were"
+      (let [{:keys [character]} (reconcile/reconcile-former-keys character {:flat index :typed {}})]
+        (is (= :elf (get-in character [:orcpub.entity/options :race :orcpub.entity/key])))
+        (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
+                                             :orcpub.entity/key])))))
+
+    (testing "an empty index is a no-op"
+      (is (= character (:character (reconcile/reconcile-former-keys character {:flat {} :typed {}})))))
+
+    (testing "a character with no options is left alone"
+      (is (= {} (:character (reconcile/reconcile-former-keys {} {:flat index :typed {}})))))))
+
+(deftest reconcile-former-keys-reaches-inside-a-multi-select
+  (testing "a chosen option inside a vector is translated too"
+    ;; :feats and friends store a VECTOR of chosen options, so a walk that only
+    ;; descended maps would miss them.
+    (let [{:keys [character]}
+          (reconcile/reconcile-former-keys
+           {:orcpub.entity/options {:feats [{:orcpub.entity/key :keen-mind-}]}}
+           {:flat {:keen-mind- :keen-mind} :typed {}})]
+      (is (= :keen-mind (get-in character [:orcpub.entity/options :feats 0
+                                           :orcpub.entity/key]))))))
+
+(deftest relink-rewrites-through-the-same-path-as-an-automatic-rebind
+  (testing "a one-entry index is how a manual relink is expressed"
+    ;; ::char5e/relink-content builds exactly this and routes through
+    ;; :set-character, so a person's choice and an automatic rebind rewrite the
+    ;; character by the same code rather than two implementations that can drift.
+    (let [character {:orcpub.entity/options
+                     {:class [{:orcpub.entity/key :artificer-kibbles-tasty}]}}
+          {:keys [character rewrote]}
+          (reconcile/reconcile-former-keys character
+                                           {:flat {:artificer-kibbles-tasty :artificer} :typed {}})]
+      (is (= :artificer (get-in character [:orcpub.entity/options :class 0
+                                           :orcpub.entity/key])))
+      (is (= [{:from :artificer-kibbles-tasty :to :artificer}] rewrote))))
+
+  (testing "an unrelated key in the same character is untouched"
+    (let [{:keys [character]}
+          (reconcile/reconcile-former-keys
+           {:orcpub.entity/options {:race {:orcpub.entity/key :elf}
+                                    :background {:orcpub.entity/key :spy}}}
+           {:flat {:elf :high-elf} :typed {}})]
+      (is (= :high-elf (get-in character [:orcpub.entity/options :race
+                                          :orcpub.entity/key])))
+      (is (= :spy (get-in character [:orcpub.entity/options :background
+                                     :orcpub.entity/key]))))))
+
+;; ============================================================================
+;; SRD options orphaned by a deliberate key-VALUE change
+;;
+;; Closes the [UNVERIFIED] in name-to-kw-audit.md section 6: reconciliation
+;; targets MISSING HOMEBREW, and it was never confirmed what it does when an SRD
+;; option's key changes value instead. That gates bulk key renames, because a
+;; rename orphans the stored ::strict/key in every saved character that used it.
+;;
+;; The answer these tests establish: DETECTED, NOT REPAIRED.
+;; ============================================================================
+
+(deftest srd-key-value-change-is-detected-as-missing
+  ;; A character stores the key that was current when it was saved. Rename that
+  ;; SRD key and the stored value is, by definition, no longer a key the builder
+  ;; offers. So it is flagged.
+  (let [before {::entity/options {:race {::entity/key :half-elf}}}
+        after  {::entity/options {:race {::entity/key :half-elf-phb-2014}}}
+        check  (fn [c] (check-available
+                        (reconcile/extract-content-keys c) {}))]
+    (is (empty? (check before))
+        "the key as it stands today is builtin, so it is not flagged")
+    (is (= 1 (count (check after)))
+        "the same option under a changed key IS flagged — detection works")
+    (is (= :race (:content-type (first (check after)))))))
+
+(deftest srd-key-value-change-is-not-automatically-repaired
+  ;; Detection is not repair. The former-key rung is built from PLUGIN items, and
+  ;; SRD content is not a plugin, so an SRD rename records nothing to rebind
+  ;; against. Rung 3 (canonical-key) only reconciles a trailing separator, which a
+  ;; deliberate value change is not. That leaves rung 4, the relink UI, and it is
+  ;; why bulk renaming SRD keys needs a migration rather than a load-time fix.
+  (let [orphaned {::entity/options {:race {::entity/key :half-elf-phb-2014}}}
+        ;; plugins carrying no :former-key — which is every SRD rename
+        plugins {"Some Source" {:orcpub.dnd.e5/races
+                                {:half-elf {:key :half-elf :name "Half-Elf"}}}}
+        index (index-of plugins)
+        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned {:flat index :typed {}})]
+    (is (empty? index) "an SRD rename records no former key anywhere")
+    (is (= orphaned character) "so the character is returned untouched")
+    (is (empty? rewrote) "and nothing is reported as healed")))
+
+(deftest homebrew-key-change-IS-repaired-because-it-records-a-former-key
+  ;; The contrast that makes the SRD gap concrete: the identical orphan, when the
+  ;; content is homebrew and the rename went through the import path, rebinds on
+  ;; load. This is the difference a recorded former-key makes.
+  (let [orphaned {::entity/options {:race {::entity/key :half-elf-phb-2014}}}
+        plugins {"Some Source" {:orcpub.dnd.e5/races
+                                {:half-elf-ua {:key :half-elf-ua
+                                               :former-key :half-elf-phb-2014
+                                               :name "Half-Elf (UA)"}}}}
+        index (index-of plugins)
+        {:keys [character rewrote]} (reconcile/reconcile-former-keys orphaned {:flat index :typed {}})]
+    (is (= {:half-elf-phb-2014 :half-elf-ua} index))
+    (is (= :half-elf-ua (get-in character [::entity/options :race ::entity/key]))
+        "the stored key is rewritten to the item's current key")
+    (is (= [{:from :half-elf-phb-2014 :to :half-elf-ua}] rewrote)
+        "and the rebind is reported, so it can be shown rather than done silently")))
+
+(deftest non-srd-content-is-flagged-when-its-plugin-is-absent
+  ;; The builder offers SRD ONLY, which is what the site serves itself (Drow, for one, is
+  ;; commented out of spell_subs.cljs). Everything else -- including plenty of PHB content --
+  ;; arrives as a plugin and SHOULD be reported when that plugin is not loaded.
+  ;; :eladrin is the example: real PHB content, not SRD, so being flagged is the
+  ;; design working rather than a false positive.
+  (let [srd     {::entity/options {:race {::entity/key :elf
+                                          ::entity/options
+                                          {:subrace {::entity/key :high-elf}}}}}
+        plugin' {::entity/options {:race {::entity/key :elf
+                                          ::entity/options
+                                          {:subrace {::entity/key :eladrin}}}}}
+        check (fn [c] (check-available
+                       (reconcile/extract-content-keys c) {}))]
+    (is (empty? (check srd))
+        "SRD content is served by the site, so it is never reported missing")
+    (is (= 1 (count (check plugin')))
+        "non-SRD content is reported when the plugin providing it is not loaded")))
+
+(deftest keys-the-trim-changed-still-resolve-for-saved-characters
+  ;; Dropping the trailing separator from name-to-kw changed the key derived for
+  ;; every built-in name ending in punctuation. A saved character still stores the
+  ;; OLD form. A scan of src/ found 15 such names that are live and derive their
+  ;; key rather than declaring one; these are the ones that can appear in a saved
+  ;; character rather than only on screen.
+  ;;
+  ;; They resolve through entity/index-matching-key's canonical pass, which is
+  ;; what it was built for. Asserted here so a future change to canonical-key
+  ;; cannot quietly orphan them.
+  (let [tk :orcpub.template/key
+        resolves? (fn [stored template]
+                    (= 0 (entity/index-matching-key [{tk template}] tk stored)))]
+    (testing "a selection key (options.cljc skill-expertise-selection)"
+      (is (resolves? :skill-expertise-double-proficiency-
+                     :skill-expertise-double-proficiency)))
+    (testing "equipment keys derived from names with a parenthesised suffix"
+      (is (resolves? :ladder-10-foot- :ladder-10-foot))
+      (is (resolves? :pole-10-foot- :pole-10-foot))
+      (is (resolves? :rations-1-day- :rations-1-day)))
+    (testing "a subrace key (template.cljc)"
+      (is (resolves? :gray-dwarf-duerger- :gray-dwarf-duerger)))
+    (testing "but it still refuses to guess between two candidates"
+      (is (nil? (entity/index-matching-key [{tk :foo} {tk :foo-}] tk :foo--))))))
+
+;; ============================================================================
+;; class-binding-report — which class failed, and is the subclass even its own
+;; ============================================================================
+
+(def ^:private binding-plugins
+  {"Pak" {:orcpub.dnd.e5/subclasses
+          {:alchemist {:key :alchemist :class :artificer}
+           :evocation {:key :evocation :class :wizard}}}})
+
+(defn- char-with [class-key sel-key subclass-key]
+  {::entity/options
+   {:class [{::entity/key class-key
+             ::entity/options {sel-key {::entity/key subclass-key}}}]}})
+
+(deftest binding-report-names-the-class-that-failed-to-bind
+  ;; "Something is missing" is useless for a class: the builder resets every
+  ;; choice downstream of one, so the person has to know which.
+  (let [r (reconcile/class-binding-report
+           (char-with :artificer-kt :artificer-specialist :alchemist)
+           #{:wizard :fighter}
+           {})]
+    (is (= [{:class-key :artificer-kt :subclass-key :alchemist}]
+           (:unbound-classes r))
+        "the subclass rides along so both can be offered for relink"))
+  (testing "a loaded class is not reported"
+    (is (empty? (:unbound-classes
+                 (reconcile/class-binding-report
+                  (char-with :wizard :arcane-tradition :evocation)
+                  #{:wizard} {}))))))
+
+(deftest binding-report-catches-a-subclass-filed-under-the-wrong-class
+  ;; This one binds cleanly and grants the wrong features, so nothing LOOKS
+  ;; broken -- which is why it needs detecting rather than waiting for a crash.
+  (let [idx (reconcile/subclass->class-index binding-plugins)
+        r (reconcile/class-binding-report
+           (char-with :wizard :arcane-tradition :alchemist)
+           #{:wizard :artificer}
+           idx)]
+    (is (= [{:class-key :wizard
+             :subclass-key :alchemist
+             :belongs-to :artificer
+             :selection-key :arcane-tradition}]
+           (:subclass-mismatches r)))
+    (is (empty? (:unbound-classes r)) "the class itself is fine"))
+  (testing "a subclass under its own class is not a mismatch"
+    (is (empty? (:subclass-mismatches
+                 (reconcile/class-binding-report
+                  (char-with :artificer :artificer-specialist :alchemist)
+                  #{:artificer}
+                  (reconcile/subclass->class-index binding-plugins)))))))
+
+(deftest binding-report-does-not-accuse-content-it-does-not-know
+  ;; An unloaded subclass is absent from the index. Calling that a mismatch would
+  ;; turn every missing plugin into a second, wrong complaint.
+  (is (empty? (:subclass-mismatches
+               (reconcile/class-binding-report
+                (char-with :wizard :arcane-tradition :some-homebrew-thing)
+                #{:wizard}
+                (reconcile/subclass->class-index binding-plugins))))))
+
+(deftest subclass-index-drops-a-subclass-two-classes-both-claim
+  ;; Same rule as former-key-index: a contested claim is not an answer.
+  (let [contested {"A" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}
+                   "B" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :cleric}}}}]
+    (is (= {} (reconcile/subclass->class-index contested))))
+  (testing "but two sources agreeing is still usable"
+    (let [agreed {"A" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}
+                  "B" {:orcpub.dnd.e5/subclasses {:shared {:key :shared :class :wizard}}}}]
+      (is (= {:shared :wizard} (reconcile/subclass->class-index agreed))))))
+
+(deftest binding-report-is-empty-for-a-character-with-no-classes
+  (is (= {:unbound-classes [] :subclass-mismatches []}
+         (reconcile/class-binding-report {::entity/options {}} #{:wizard} {}))))
+
+
+;; ── What the builder offers ─────────────────────────────────────────────────
+
+(deftest offered-keys-walks-selections-options-and-what-they-nest
+  (let [template {::t/selections
+                  [(t/selection-cfg
+                    {:name "Class" :key :class
+                     :options [(t/option-cfg
+                                {:name "Cleric" :key :cleric
+                                 :selections [(t/selection-cfg
+                                               {:name "Divine Domain" :key :divine-domain
+                                                :options [(t/option-cfg {:name "Life" :key :life})]})]
+                                 :associated-options [(t/option-cfg {:name "Holy Symbol" :key :holy-symbol})]})]})]}]
+    (is (= #{:class :cleric :divine-domain :life :holy-symbol} (reconcile/offered-keys template)))))
+
+(deftest a-former-key-the-builder-still-offers-is-never-redirected
+  ;; Undoing an override: the homebrew class keyed :cleric was re-keyed :cleric-tc. The built-in
+  ;; Cleric still answers to :cleric, so a character that took it must stay on it.
+  (let [plugins {"Pak" {:orcpub.dnd.e5/classes
+                        {:cleric-tc {:key :cleric-tc :former-keys [:cleric] :name "Cleric"}}}}]
+    (is (= {} (reconcile/former-key-index plugins #{:cleric}))
+        "offered by the builder: left alone")
+    (is (= {:cleric :cleric-tc} (reconcile/former-key-index plugins #{}))
+        "not offered anywhere: redirected, which is the heal working")))
+
+(deftest nothing-is-redirected-or-reported-before-the-list-exists
+  (let [plugins {"Pak" {:orcpub.dnd.e5/races
+                        {:half-elf-ua {:key :half-elf-ua :former-key :half-elf-phb}}}}]
+    (is (= {} (reconcile/former-key-index plugins nil)))
+    (is (empty? (reconcile/check-content-availability
+                 (reconcile/extract-content-keys test-character) available-content nil)))))
+
+(deftest relink-to-ask-picks-a-rename-this-character-is-caught-by
+  (let [relinks [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl :asked #{}}]
+        plugins {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
+                 "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}}
+        character {:db/id 7 ::entity/options {:class [{::entity/key :warden}]}}]
+    (is (= 0 (reconcile/relink-to-ask relinks character plugins)))
+    (is (nil? (reconcile/relink-to-ask (assoc-in relinks [0 :asked] #{7}) character plugins))
+        "asked once")
+    (is (nil? (reconcile/relink-to-ask relinks (dissoc character :db/id) plugins))
+        "an unsaved character is not asked")
+    (is (nil? (reconcile/relink-to-ask relinks character (update plugins "Classes" dissoc :orcpub.dnd.e5/classes)))
+        "not while the renamed item is gone: nothing to switch to")))
+
+(deftest a-legacy-trailing-dash-key-is-not-reported-missing
+  ;; Lookup matches :dark-elf-drow- to :dark-elf-drow (common/canonical-key); so must the warning.
+  (let [character {::entity/options {:race {::entity/key :elf
+                                            ::entity/options {:subrace {::entity/key :dark-elf-drow-}}}}}]
+    (is (empty? (reconcile/check-content-availability
+                 (reconcile/extract-content-keys character) {} #{:elf :dark-elf-drow})))))
+
+(deftest a-missing-spell-is-reported-as-a-spell
+  (let [character {::entity/options {:class [{::entity/key :wizard
+                                              ::entity/options {:wizard-spells-known
+                                                                [{::entity/key :tidecall}]}}]}}
+        report (reconcile/generate-missing-content-report
+                character {} #{:wizard :class :wizard-spells-known}
+                {:wizard-spells-known #{:spells}})]
+    (is (= [{:key :tidecall :content-label "Spell"}]
+           (map #(select-keys % [:key :content-label]) (:items report))))))
+
+(deftest relinking-a-race-leaves-a-subrace-with-the-same-key-alone
+  (let [character {:db/id 7
+                   ::entity/options {:race {::entity/key :aarakocra
+                                            ::entity/options {:subrace {::entity/key :aarakocra}}}}}
+        {:keys [character rewrote]} (reconcile/relink-picks character :orcpub.dnd.e5/races :aarakocra :aarakocra-2)]
+    (is (= :aarakocra-2 (get-in character [::entity/options :race ::entity/key])))
+    (is (= :aarakocra (get-in character [::entity/options :race ::entity/options :subrace ::entity/key])))
+    (is (= 1 (count rewrote))))
+  (let [character {::entity/options {:race {::entity/key :bird
+                                             ::entity/options {:subrace {::entity/key :aarakocra}}}}}]
+    (is (= #{:aarakocra} (reconcile/picks-of character :orcpub.dnd.e5/subraces)))
+    (is (= #{:bird} (reconcile/picks-of character :orcpub.dnd.e5/races))
+        "a subrace pick does not make the question about the race")))
+
+(deftest a-background-picked-by-its-name-heals-to-its-stored-key
+  (let [plugins {"Pak" {:orcpub.dnd.e5/backgrounds {:folk-hero-pk {:name "Folk Hero" :key :folk-hero-pk}}}}]
+    (is (= :folk-hero-pk (get (reconcile/former-key-index plugins #{}) :folk-hero)))
+    (is (nil? (get (reconcile/former-key-index plugins #{:folk-hero}) :folk-hero))
+        "a built-in background with that key still answers")))
+
+;; A key names nothing without its type: a heal or a lookup that ignores the type reads one kind
+;; of content as another (docs/kb/typed-keys.md).
+
+(def ^:private blue-background
+  {"Pak" {:orcpub.dnd.e5/backgrounds {:noble {:name "Blue" :key :noble :option-pack "Pak"}}}})
+
+(def ^:private dragonborn-with-blue
+  "Picked the background under its name's key, and the Blue draconic ancestry."
+  {::entity/options {:race {::entity/key :dragonborn
+                            ::entity/options {:draconic-ancestry {::entity/key :blue}}}
+                     :background {::entity/key :blue}}})
+
+(defn- heal [character offered offered-by-type]
+  (reconcile/reconcile-former-keys character
+                                   (reconcile/former-key-indexes blue-background offered offered-by-type)))
+
+(deftest a-background-heals-past-another-types-key
+  (let [{:keys [character rewrote]} (heal dragonborn-with-blue #{:dragonborn :blue :noble}
+                                          {:orcpub.dnd.e5/backgrounds #{:noble}
+                                           :orcpub.dnd.e5/races #{:dragonborn}})]
+    (is (= :noble (get-in character [::entity/options :background ::entity/key]))
+        "a dragon colour offered under :blue does not stop the background's heal")
+    (is (= :blue (get-in character [::entity/options :race ::entity/options :draconic-ancestry ::entity/key]))
+        "and the dragon colour is not rewritten into the background")
+    (is (= [{:from :blue :to :noble}] rewrote))))
+
+(deftest a-type-with-no-offered-list-keeps-the-flat-rule
+  (let [{:keys [character rewrote]} (heal dragonborn-with-blue #{:dragonborn :blue :noble}
+                                          {:orcpub.dnd.e5/races #{:dragonborn}})]
+    (is (= :blue (get-in character [::entity/options :background ::entity/key]))
+        "no list for backgrounds is not an empty list: :blue is offered somewhere, so it stays")
+    (is (empty? rewrote))))
+
+(deftest a-choice-reusing-a-homes-name-is-not-that-home
+  (let [character {::entity/options {:class [{::entity/key :herald
+                                              ::entity/options {:background {::entity/key :blue}}}]
+                                     :background {::entity/key :blue}}}
+        {:keys [character]} (heal character #{:herald :blue :noble}
+                                  {:orcpub.dnd.e5/backgrounds #{:noble}
+                                   :orcpub.dnd.e5/classes #{:herald}})]
+    (is (= :noble (get-in character [::entity/options :background ::entity/key])))
+    (is (= :blue (get-in character [::entity/options :class 0 ::entity/options :background ::entity/key]))
+        "a class's own choice named :background is healed by the flat rule, which :blue blocks")))
+
+(deftest a-pick-is-missing-only-if-its-own-type-lacks-it
+  (let [missing (fn [offered-by-type]
+                  (map :key (:items (reconcile/generate-missing-content-report
+                                     {::entity/options {:background {::entity/key :blue}}}
+                                     {} #{:blue :noble} nil offered-by-type))))]
+    (is (= [:blue] (missing {:orcpub.dnd.e5/backgrounds #{:noble}}))
+        "a background under a dragon colour's key is missing, not found")
+    (is (empty? (missing nil)) "no typed list: the flat rule")))
+
+(deftest every-extracted-pick-has-a-home-but-the-subclass
+  (let [character {::entity/options {:race {::entity/key :elf ::entity/options {:subrace {::entity/key :high-elf}}}
+                                     :background {::entity/key :sage}
+                                     :class [{::entity/key :fighter
+                                              ::entity/options {:martial-archetype {::entity/key :champion}}}]
+                                     :feats [{::entity/key :alert}]}}
+        entries (reconcile/extract-content-keys character)]
+    (is (= #{:race :subrace :background :class :subclass :feat} (set (map :content-type entries))))
+    (doseq [{:keys [content-type path]} entries]
+      (is (= (not= :subclass content-type) (contains? library/pick-homes path))
+          (str content-type " at " path)))))
+
+(deftest a-heal-without-the-typed-index-is-refused
+  (is (thrown? js/Error (reconcile/reconcile-former-keys dragonborn-with-blue {:flat {:blue :noble}}))
+      "a flat index alone would read one type's key as another's"))

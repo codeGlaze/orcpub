@@ -51,6 +51,7 @@
                              :breath-weapon {:damage-type :fire :area-type :line
                                              :save :orcpub.dnd.e5.character/dex}}
    ::e5/subclasses  {:option-pack "Pack" :class :wizard}
+   ::e5/fighting-styles {:option-pack "Pack"}
    ::e5/classes     {:option-pack "Pack"}})
 
 (defn- named [base]

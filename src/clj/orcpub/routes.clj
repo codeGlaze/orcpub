@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
@@ -36,6 +37,7 @@
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
@@ -46,18 +48,14 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [hiccup.page :as page]
+            [hiccup2.core :as h]
             [environ.core :as environ]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
-  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
-  ;; OLD (2.x): (PDDocument/load input-stream)
-  ;; NEW (3.x): (Loader/loadPDF byte-array)  — does NOT accept InputStream
-  ;; 
-  ;; Import syntax notes for Clojure newcomers:
-  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
-  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
+  ;; PDFBox 3.x loads documents through Loader/loadPDF, which takes a byte array, not an
+  ;; InputStream.
   (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
@@ -71,7 +69,17 @@
   (environ/env :signature))
 
 (when-not jwt-secret
-  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+  (println (str "WARNING: " config/signature-missing-message)))
+
+(defn- signature-or-throw
+  "The JWT secret, or an error that says how to fix it.
+
+   The token-minting paths used to read the env var straight into jwt/sign, which fails deep
+   inside the library with nothing an operator can act on. check-auth already answered a
+   clear 500; these did not."
+  []
+  (or jwt-secret
+      (throw (ex-info config/signature-missing-message {:error :signature-not-set}))))
 
 (def backend (backends/jws {:secret jwt-secret}))
 
@@ -152,8 +160,10 @@
    {:name :check-auth
     :enter (fn [context]
              (if-not jwt-secret
+               ;; The full remedy, not just the symptom: whoever sees this 500 in a log is
+               ;; the person who can fix it.
                (terminate-request context 500
-                                  "Server misconfigured: SIGNATURE env var not set")
+                                  (str "Server misconfigured. " config/signature-missing-message))
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
@@ -231,7 +241,7 @@
 (defn create-token [username exp]
   (jwt/sign {:user username
              :exp exp}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn following-usernames [db ids]
   (map :orcpub.user/username
@@ -458,7 +468,7 @@
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
   (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+            (signature-or-throw)))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -469,7 +479,7 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token (signature-or-throw))]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
             (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
@@ -582,10 +592,72 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]  (try
+(defn- bound-collection
+  "At most `n` entries, whether `v` is a list or a map of lists.
+
+   A map is capped across ALL its values, not per key: spells-known is keyed by
+   class, so a per-key cap would let thirteen classes carry the limit each."
+  [n v]
+  (cond
+    (map? v) (first (reduce (fn [[m left] [k xs]]
+                              (if (sequential? xs)
+                                [(assoc m k (take left xs)) (max 0 (- left (count xs)))]
+                                [(assoc m k xs) left]))
+                            [{} n] v))
+    (sequential? v) (take n v)
+    :else v))
+
+(defn bound-request
+  "Returns `fields` with everything caller-supplied capped, before any part of the export
+   sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
+   without being wired up: a `spellcasting-class-N` field past the section ceiling is
+   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
+   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
+  [fields]
+  (let [max-sections (config/get-pdf-max-caster-sections)
+        max-cards (config/get-pdf-max-cards)
+        past-ceiling? (fn [k]
+                        (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
+                          (> (or (parse-long n) 0) max-sections)))
+        dropped (count (filter past-ceiling? (keys fields)))]
+    (when (pos? dropped)
+      (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"
+                       dropped max-sections)))
+    (reduce-kv (fn [m k v]
+                 (if (past-ceiling? k)
+                   m
+                   (assoc m k (bound-collection max-cards v))))
+               {} fields)))
+
+(defn- bound-cards
+  "At most ORCPUB_PDF_MAX_CARDS of `cards`, reporting when it truncates.
+
+   Nine cards to a page and the caller decides how many, so an export is otherwise
+   only as bounded as the request body: 2 MB of spell keys is some 13,000 pages
+   and a quarter of an hour with an export slot held the whole time. The queue
+   timeout bounds how long a request WAITS for a slot, not how long it keeps one."
+  [kind cards]
+  (let [limit (config/get-pdf-max-cards)
+        n (count cards)]
+    (when (> n limit)
+      (println (format "pdf: %d %s cards requested, printing the first %d"
+                       n kind limit)))
+    (take limit cards)))
+
+(defn add-spell-cards!
+  "Appends spell card pages, nine to a sheet, each with its back.
+
+   `fonts` and `img` belong to the caller because they are per-DOCUMENT: each
+   load-fonts embeds its own subset of every face used, so building a set here and
+   another in add-magic-item-cards! puts two complete copies of Vollkorn in a
+   character sheet that prints both kinds of card."
+  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]
+  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
-          flat-spells (-> spells-known vals flatten)
+          ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
+          ;; capping it would keep the first few classes whole and drop the rest.
+          flat-spells (bound-cards "spell" (-> spells-known vals flatten))
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
                            [(if (keyword? class)
@@ -593,12 +665,7 @@
                               class)
                             key])
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))
-          ;; Load the embedded fonts + build the memoized image embedder ONCE per
-          ;; document, not once per page (print-spells/print-backs used to re-parse
-          ;; 4 TTFs per call, and each card icon was re-decoded+embedded per spell).
-          fonts (pdf/load-fonts doc)
-          img (pdf/make-image-loader doc)]
+          parts (vec (partition-all 9 flat-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -608,11 +675,15 @@
                           (comp
                            (filter (fn [spell] (spells-map (:key spell))))
                            (map
+                            ;; The DC and attack maps come from the request and may
+                            ;; be absent. Calling nil threw an NPE that the catch
+                            ;; below swallowed, so every card vanished and the
+                            ;; export looked like it had simply ignored the option.
                             (fn [{:keys [key class]}]
                               {:spell (spells-map key)
                                :class-nm class
-                               :dc (spell-save-dcs class)
-                               :attack-bonus (spell-attack-mods class)})))
+                               :dc (get spell-save-dcs class)
+                               :attack-bonus (get spell-attack-mods class)})))
                           part)
                   remaining-desc-lines (vec
                                         (pdf/print-spells
@@ -632,17 +703,273 @@
                 (.addPage doc back-page)
                 (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
                                  logo-img)))))))
-    (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
+    (catch Exception e
+      (println "pdf: failed adding spell cards -" (.getMessage e)))))
 
-(defn character-pdf-2 [req]
+(defn add-magic-item-cards!
+  "Appends card pages for `magic-items`, nine to a sheet, each with its back; the same layout
+   as the spell cards. A card page that throws is logged, not propagated, so it cannot cost
+   the character their sheet. `fonts` and `img` are the caller's, for the reason given on
+   add-spell-cards!."
+  [doc fonts img magic-items logo-img bw? bw-faded?]
+  (try
+    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))]
+      (doseq [i (range (count parts))
+              :let [part (parts i)]]
+        (let [page (PDPage.)]
+          (.addPage doc page)
+          (with-open [cs (PDPageContentStream. doc page)]
+            (let [remaining-desc-lines (vec (pdf/print-items cs doc fonts img 2.5 3.5
+                                                             part i bw? bw-faded?))
+                  back-page (PDPage.)]
+              (with-open [back-page-cs (PDPageContentStream. doc back-page)]
+                (.addPage doc back-page)
+                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                 logo-img)))))))
+    (catch Exception e (println "pdf: failed adding magic item cards" e))))
+
+(def valid-sheet-styles
+  "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
+  #{1 2 3 4})
+
+(def default-sheet-style 1)
+
+(def ^:private pdf-option-keys
+  "Keys the client sends alongside the field values to steer the export. They name
+   no field, so they are removed before write-fields!, which reports whatever it
+   cannot place and would otherwise flag every one of these on every request."
+  #{:image-url :image-url-failed :image-data
+    :faction-image-url :faction-image-url-failed :faction-image-data
+    :spells-known :custom-spells :spell-save-dcs :spell-attack-mods
+    :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
+    :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
+    :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
+    :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
+    :magic-items-known :print-magic-item-cards?
+    :flatten?})
+
+(def ^:private image-url-shape
+  "Cheap shape check before any lookup: refuses file:// and ftp:// without
+   touching DNS. pdf/safe-image-bytes does the real address validation."
+  #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]")
+
+(defn- well-formed-image-url? [url]
+  (boolean (and (string? url) (re-matches image-url-shape url))))
+
+(def ^:private probe-ttl-ms
+  "How long a probe's answer stands. Long enough that the export following a
+   probe reuses it, short enough that a host having a bad minute is not written
+   off for the afternoon."
+  (* 10 60 1000))
+
+(def ^:private probe-max-entries
+  "Entries kept. These hold image bytes and the endpoint that fills them needs no
+   login, so the cache is bounded in count as well as in age: 64 x 128 KB."
+  64)
+
+(def ^:private probed-images
+  "url -> {:at ms :image {:data :jpg?} or nil}.
+
+   A nil :image is an answer too, and worth keeping: a host that would not serve
+   this server a moment ago will not serve the export either, and remembering it
+   is what stops the export repeating the fetch."
+  (atom {}))
+
+(defn- prune-probes [m now]
+  (let [fresh (into {} (remove (fn [[_ v]] (> (- now (:at v)) probe-ttl-ms)) m))]
+    (if (<= (count fresh) probe-max-entries)
+      fresh
+      (into {} (take-last probe-max-entries (sort-by (comp :at val) fresh))))))
+
+(defn- probed-outcome
+  "Fetches `url` once and remembers the outcome -- the picture, or why not -- so a
+   probe and the export that follows it cost the host one request rather than two."
+  [url]
+  (let [now (System/currentTimeMillis)]
+    (if-let [hit (get @probed-images url)]
+      (:outcome hit)
+      (let [outcome (pdf/fetch-image-outcome url)]
+        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
+        outcome))))
+
+(defn image-probe
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before
+   it exports a picture the browser could not read. Answers 200 with a reason name: ok,
+   blocked-address, the fetch's failure reason, or unknown. The fetched bytes are kept for the
+   export that follows.
+   GOTCHA: it needs no login, so it must never return the picture; that would make it an
+   open proxy."
+  [{:keys [transit-params]}]
+  (let [url (:url transit-params)
+        reason (if-not (well-formed-image-url? url)
+                 :blocked-address
+                 (let [{:keys [image reason]} (probed-outcome url)]
+                   (if image :ok (or reason :unknown))))]
+    ;; The HOST only, never the URL: an image address can carry a signed query
+    ;; string. This is how the genuinely unreachable set gets measured rather than
+    ;; guessed at.
+    (when (and (not= :ok reason) (well-formed-image-url? url))
+      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)
+               "-" (name reason)))
+    {:status 200 :body (name reason)}))
+
+(def ^:private export-slots
+  "Permits for sheet generation, one per concurrent export.
+
+   Held for the PDF work only, not for the whole request, so parsing and the
+   response write stay outside it. Fair ordering: without it a thread can be
+   starved indefinitely under sustained load, which is exactly the traffic this
+   exists for. Sized by ORCPUB_PDF_CONCURRENCY; see orcpub.config."
+  (delay (java.util.concurrent.Semaphore. (config/get-pdf-concurrency) true)))
+
+(def ^:private exports-waiting
+  "Requests currently queued for a slot, for the Retry-After estimate and for
+   anything that wants to report load."
+  (java.util.concurrent.atomic.AtomicInteger. 0))
+
+(def ^:private export-millis
+  "Exponentially weighted mean duration of a completed export, for the
+   Retry-After estimate. Seeded at a plausible 250 ms and converges on the real
+   figure within a few exports, so the estimate tracks the host and the shape of
+   sheet people are actually asking for rather than a number guessed here."
+  (java.util.concurrent.atomic.AtomicLong. 250))
+
+(defn export-queue-depth
+  "How many export requests are waiting for a slot right now."
+  []
+  (.get exports-waiting))
+
+(defn- record-export-millis!
+  [ms]
+  (.set export-millis (long (+ (* 0.8 (.get export-millis)) (* 0.2 ms)))))
+
+(defn- retry-after-seconds
+  "Whole seconds to tell a turned-away client to wait: the queue ahead of it
+   divided by how fast the slots are draining it. Never zero -- Retry-After takes
+   no fraction and a zero sends the client straight back into the same queue --
+   and capped so a spike cannot tell someone to come back in an hour."
+  [waiting]
+  (-> (/ (* waiting (.get export-millis))
+         (* 1000.0 (config/get-pdf-concurrency)))
+      Math/ceil int (max 1) (min 30)))
+
+(def ^:private busy-page-js
+  "(function(){
+     var el = document.getElementById('countdown');
+     var form = document.getElementById('retry-form');
+     if (!el || !form) { return; }
+     var base = parseInt(el.getAttribute('data-seconds'), 10);
+     if (!base || base < 1) { base = 3; }
+     /* Jitter so a crowd turned away together does not come back together. */
+     var left = Math.max(1, Math.round(base * (0.75 + Math.random() * 0.5)));
+     (function tick(){
+       if (left <= 0) { el.textContent = 'Starting your sheet now.'; form.submit(); return; }
+       el.textContent = left === 1 ? 'Trying again in 1 second.'
+                                   : 'Trying again in ' + left + ' seconds.';
+       left -= 1;
+       setTimeout(tick, 1000);
+     })();
+   })();")
+
+(defn- busy-page
+  "The page a turned-away export lands on. The export is a form POST into a new tab, so this
+   response IS what the person sees: it retries by resubmitting the original body from a
+   hidden field, and past `max-retries` (`attempt` counts retries spent) waits to be clicked.
+   GOTCHA: that body is caller-supplied and reflected into the field, so render only through
+   hiccup2, which escapes it. Builder markup and scripts are absent in this tab, so it uses
+   plain card classes; its own rules live in orcpub.styles.core."
+  [{:keys [body attempt max-retries retry-seconds nonce action]}]
+  (let [auto? (< attempt max-retries)]
+    (str
+     "<!DOCTYPE html>"
+     (h/html
+      [:html {:lang "en"}
+       [:head
+        [:meta {:charset "utf-8"}]
+        [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+        [:title (str "Busy right now - " branding/app-name)]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/style.css"}]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]]
+       [:body.sans.busy-body
+        [:div.app-header-bar.container {:style "background-color:#2c3445"}
+         [:div.content
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20
+           [:a {:href "/"} [:img.h-72.pointer {:src branding/logo-path :alt branding/app-name}]]]]]
+        [:div.busy-wrap
+         [:div.busy-card
+          [:h1 "Lots of sheets are being made right now"]
+          (if auto?
+            [:p "Your character sheet is queued. This page will keep trying on its own."]
+            [:p "We tried " (str max-retries) " times and could not get through. "
+             "The rush should pass shortly."])
+          (when auto?
+            [:p#countdown.busy-countdown {:data-seconds (str retry-seconds)}
+             "Trying again in " (str retry-seconds) " seconds."])
+          [:form#retry-form {:method "POST" :action action}
+           [:input {:type "hidden" :name "body" :value body}]
+           [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
+           [:button.form-button {:type "submit"} (if auto? "Try now" "Try again")]]]]
+        (when auto? [:script {:nonce nonce} (h/raw busy-page-js)])]]))))
+
+(defn- attempt-count
+  "Retries already spent, from the hidden field the busy page posts back. Anything
+   that is not a non-negative number counts as a first try, so a hand-edited value
+   cannot buy extra attempts."
+  [req]
+  (let [raw (get-in req [:form-params :retry])
+        n (try (Integer/parseInt (str raw)) (catch Exception _ 0))]
+    (if (and (nat-int? n) (<= n 1000)) n 0)))
+
+(defn- with-export-slot
+  "Runs `f` holding one export slot, or answers 503 with a Retry-After and the busy page if
+   none frees up within the configured wait. Bounding the work rather than the request keeps
+   memory predictable; sizing is in docs/PDF-EXPORT-CAPACITY.md."
+  [req f]
+  (let [waiting (.incrementAndGet exports-waiting)]
+    (try
+      (if (.tryAcquire ^java.util.concurrent.Semaphore @export-slots
+                       (config/get-pdf-queue-timeout-ms)
+                       java.util.concurrent.TimeUnit/MILLISECONDS)
+        (let [start (System/nanoTime)]
+          (try
+            (f)
+            (finally
+              (record-export-millis! (/ (- (System/nanoTime) start) 1e6))
+              (.release ^java.util.concurrent.Semaphore @export-slots))))
+        (let [retry (retry-after-seconds waiting)
+              attempt (attempt-count req)]
+          (println (format "pdf: no export slot within %d ms, %d waiting, attempt %d"
+                           (config/get-pdf-queue-timeout-ms) waiting attempt))
+          {:status 503
+           :headers {"Retry-After" (str retry)
+                     "Content-Type" "text/html; charset=utf-8"}
+           :body (busy-page {:body (get-in req [:form-params :body])
+                             :attempt attempt
+                             :max-retries (config/get-pdf-max-retries)
+                             :retry-seconds retry
+                             :nonce (:csp-nonce req)
+                             :action (or (:uri req) "/character.pdf")})}))
+      (finally (.decrementAndGet exports-waiting)))))
+
+(defn- spell-annotation
+  "The marks for the spell printed under `nm`, or nil.
+
+   By NAME, because that is all the row carries: the server is handed a flat map
+   of field names to values. A homebrew spell, or one whose name does not match
+   the data, gets no marks rather than a wrong one."
+  [nm]
+  (some-> (get spells/spell-map (common/name-to-kw nm))
+          spell-annotations/annotation))
+
+(defn- generate-character-pdf [req]
   (let [fields (try
-                 (-> req :form-params :body edn/read-string)
+                 (-> req :form-params :body edn/read-string bound-request)
                  (catch Exception e
                    (throw (ex-info "Invalid character data format. Unable to parse PDF request."
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -658,21 +985,29 @@
                                "public/image/dmv-mark-faded-orange.png"
                                "public/image/dmv-mark-black.png"))
 
-        sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
-        sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
-        sheet4 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-4-spells.pdf")
-        sheet3 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-3-spells.pdf")
-        sheet2 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-2-spells.pdf")
-        sheet1 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-1-spells.pdf")
-        sheet0 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-0-spells.pdf")
-        input (.openStream (io/resource (cond
-                                          (find fields :spellcasting-class-6) sheet6
-                                          (find fields :spellcasting-class-5) sheet5
-                                          (find fields :spellcasting-class-4) sheet4
-                                          (find fields :spellcasting-class-3) sheet3
-                                          (find fields :spellcasting-class-2) sheet2
-                                          (find fields :spellcasting-class-1) sheet1
-                                          :else sheet0)))
+        ;; The id is interpolated into a resource name, so an unrecognised value
+        ;; resolves to a missing resource and throws. Restrict it to ids with a
+        ;; template on disk; see valid-sheet-styles.
+        print-character-sheet-style? (if (contains? valid-sheet-styles
+                                                    print-character-sheet-style?)
+                                       print-character-sheet-style?
+                                       default-sheet-style)
+        ;; One master per style, grown to the character's shape; pdf/sheet-masters has the
+        ;; reasoning. Clamped: the count comes from the field NAMES the caller sent, so
+        ;; "spellcasting-class-9999" would otherwise ask for 9,998 cloned pages.
+        requested-casters (->> (keys fields)
+                               (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
+                               (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
+                               (reduce max 0))
+        casters (min requested-casters (config/get-pdf-max-caster-sections))
+        {:keys [file marks without-casters site-line prints-site-line?]}
+        (get pdf/sheet-masters print-character-sheet-style?)
+        ;; A character who casts nothing opens the variant that has no spell page
+        ;; rather than one with its spell page taken out: removing a page leaves
+        ;; the resources it referenced behind, and for style 4 it would take the
+        ;; licence line with it.
+        no-casters? (and (zero? casters) (some? without-casters))
+        input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
         filename (cond
                    (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
@@ -682,35 +1017,99 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      ;; Fillable in every browser by default. The old non-Chrome flattening was a
-      ;; workaround for Firefox ignoring NeedAppearances; write-fields! now bakes
-      ;; real appearance streams, so values render everywhere AND the form stays
-      ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
-      (pdf/write-fields! doc fields (true? flatten?) font-sizes)
-      (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
+      ;; Fillable in every browser by default: write-fields! bakes real appearance streams, so
+      ;; values render everywhere and the form stays editable. `:flatten? true` gives a static PDF.
+      (let [fields (apply dissoc fields pdf-option-keys)]
+        ;; No prune: the masters are pruned by dev/prepare_templates.clj and growing only adds
+        ;; pages. add-missing-spell-pages! still prunes where it generates pages.
+        ;; Both run before write-fields!, so the fields they create or trim exist by then.
+        (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
+        (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
+        ;; Merge before spilling, so a style's shared box is measured as the one
+        ;; value it prints rather than as its parts.
+        (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
+          ;; Narrow the rows before the values are written: the rows auto-size, so this is what
+          ;; makes a long name shrink to clear the annotation columns. The builder decides the
+          ;; packing and sends this instruction list; it arrives from the client, so it is
+          ;; bounds-checked against the sections this document actually grew.
+          (when (seq spell-relabels)
+            (let [[applied refused]
+                  (pdf/apply-relabel-instructions! doc spell-relabels casters
+                                                   print-character-sheet-style?)]
+              (when (pos? refused)
+                (println (format "pdf: refused %d of %d relabel instruction(s)"
+                                 refused (+ applied refused))))))
+          (when print-spell-annotations?
+            (pdf/reserve-annotation-columns! doc))
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)
+          (when print-spell-annotations?
+            (pdf/annotate-spell-rows! doc spell-annotation))
+          ;; After the values, so a heading is drawn over a finished bar. Names
+          ;; each packed column with the class holding it; caller-supplied, so the
+          ;; box and section are checked the way the relabels are.
+          (doseq [{:keys [box section class] :as heading} spell-headings
+                  :when (and (integer? box) (<= 0 box 9)
+                             (integer? section) (<= 1 section casters)
+                             (string? class) (<= 1 (count class) 60))]
+            (pdf/draw-column-heading! doc print-character-sheet-style?
+                                      box section class heading))))
+      ;; After the pages exist, so clones are stamped too, and before the card
+      ;; pages are appended -- those carry the line on their backs already.
+      (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
+      ;; One set of fonts and one image embedder for the whole document. Both are
+      ;; per-document: a second load-fonts embeds a second subset of every face,
+      ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
+      ;; a card page is actually coming, since a plain sheet needs neither.
+      (let [spell-cards? (and print-spell-cards? (seq spells-known))
+            item-cards? (and print-magic-item-cards? (seq magic-items-known))
+            fonts (when (or spell-cards? item-cards?) (pdf/load-fonts doc))
+            img (when (or spell-cards? item-cards?) (pdf/make-image-loader doc))]
+        (when spell-cards?
+          (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
+                            custom-spells print-spell-card-dc-mod? card-back-logo-img
+                            bw? bw-faded?))
+        (when item-cards?
+          (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
+                                 bw? bw-faded?)))
 
-      (when (and image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
-                 (not image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (when (and faction-image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
-                 (not faction-image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.0 1.905 1.52)
-          4 nil))
+      ;; Both images are resolved BEFORE either is drawn, fetched concurrently: a fetch holds an
+      ;; export slot, so in sequence two slow images would cost two worst cases.
+      ;; No pdf/safe-image-url? here: pdf/fetch-image validates through safe-image-bytes, pinned to
+      ;; the addresses it resolved. The regex stays; it refuses file:// and ftp:// without a lookup.
+      (let [wanted (fn [url failed?]
+                     (and url (not failed?) (well-formed-image-url? url) url))
+            ;; Bytes the browser read beat the URL and skip the fetch entirely.
+            ;; Both arms deref, so nothing below has to know which it got.
+            image (fn [supplied url failed?]
+                    (if-let [bytes (pdf/decode-image-bytes supplied)]
+                      (delay bytes)
+                      ;; probed-outcome, not fetch-image: the builder usually
+                      ;; asked about this URL a moment ago, and that answer is
+                      ;; cached.
+                      (some-> (wanted url failed?)
+                              (as-> u (future (:image (probed-outcome u)))))))
+            portrait (image image-data image-url image-url-failed)
+            faction (image faction-image-data faction-image-url faction-image-url-failed)]
+        (when-let [{:keys [data jpg?]} (some-> portrait deref)]
+          (case print-character-sheet-style?
+            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15)))
+        (when-let [{:keys [data jpg?]} (some-> faction deref)]
+          (case print-character-sheet-style?
+            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
+            4 nil)))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
        :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
        :body (ByteArrayInputStream. a)})))
+
+(defn character-pdf-2 [req]
+  (with-export-slot req #(generate-character-pdf req)))
 
 (defn html-response
   [html & [response]]
@@ -930,18 +1329,8 @@
                       {:error :not-user-character})))))
 
 (defn create-new-character
-  "Creates a new D&D 5e character.
-
-  Args:
-    conn - Database connection
-    character - Character data map
-    username - Owner username
-
-  Returns:
-    Created character entity
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Creates a D&D 5e character owned by `username` and returns the pulled entity.
+  Throws ExceptionInfo :character-creation-failed on database failure."
   [conn character username]
   (errors/with-db-error-handling :character-creation-failed
     {:username username}
@@ -1008,16 +1397,9 @@
       {:status 404})))
 
 (defn delete-item
-  "Deletes a magic item owned by the user.
-
-  Args:
-    request - HTTP request with item ID
-
-  Returns:
-    HTTP 200 on success, 401 if not owned
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Deletes the magic item at path-param :id if the requesting user owns it.
+  Returns 200, or 401 if not owned. Throws ExceptionInfo :item-deletion-failed on database
+  failure."
   [{:keys [db conn username] {:keys [:id]} :path-params}]
   (let [{:keys [::mi5e/owner]} (d/pull db '[::mi5e/owner] id)]
     (if (= username owner)
@@ -1079,16 +1461,8 @@
     {:status 200 :body characters}))
 
 (defn follow-user
-  "Adds a user to the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to follow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Adds path-param :user to the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :follow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1101,16 +1475,8 @@
       {:status 200})))
 
 (defn unfollow-user
-  "Removes a user from the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to unfollow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Removes path-param :user from the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :unfollow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1122,16 +1488,9 @@
       {:status 200})))
 
 (defn delete-character
-  "Deletes a character owned by the authenticated user.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP 200 on success, 400 for problems, 401 if not owned
-
-  Throws:
-    ExceptionInfo on invalid ID or database failure"
+  "Deletes the character at path-param :id if the authenticated user owns it.
+  Returns 200, 400 with the problems found, or 401 if not owned. Throws ExceptionInfo on an
+  invalid ID or database failure."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1163,16 +1522,8 @@
     summary))
 
 (defn get-character
-  "Retrieves a character by ID.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP response with character data
-
-  Throws:
-    ExceptionInfo on invalid ID format"
+  "Retrieves the character at path-param :id via `get-character-for-id`: 200 with the
+  character, or 400 if it has no owner. Throws ExceptionInfo on an invalid ID format."
   [{:keys [db] {:keys [:id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1201,16 +1552,8 @@
     {:status 200 :body (user-body db user)}))
 
 (defn delete-user
-  "Deletes the authenticated user's account.
-
-  Args:
-    request - HTTP request with authenticated user identity
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Deletes the authenticated user's account. Returns 200.
+  Throws ExceptionInfo :user-deletion-failed on database failure."
   [{:keys [db conn identity]}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
@@ -1241,12 +1584,9 @@
         (int (Math/ceil (/ remaining-ms 1000.0)))))))
 
 (defn email-change-rate-limited? [verification-sent pending-email new-email]
-  ;; Only rate-limit if the last key was generated for a pending email change
-  ;; (not for initial registration verification).
-  ;; Three zones from verification-sent:
-  ;;   0–1 min  → too soon, email is in transit (always blocked)
-  ;;   1–5 min  → free resend allowed for same email, otherwise blocked
-  ;;   5+ min   → open for any request
+  ;; Only rate-limits a pending email change, not registration verification.
+  ;; From verification-sent: 0–1 min always blocked (email in transit); 1–5 min only a
+  ;; resend to the same email is allowed; 5+ min open.
   (and pending-email
        verification-sent
        (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
@@ -1526,6 +1866,8 @@
         {:post `login}]
        [(route-map/path-for route-map/character-pdf-route)
         {:post `character-pdf-2}]
+       [(route-map/path-for route-map/image-probe-route)
+        {:post `image-probe}]
        [(route-map/path-for route-map/verify-route)
         {:get `verify}]
        [(route-map/path-for route-map/re-verify-route)

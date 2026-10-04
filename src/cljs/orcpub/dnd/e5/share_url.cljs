@@ -1,27 +1,10 @@
 (ns orcpub.dnd.e5.share-url
-  "Browser-side codec that turns a homebrew bundle (from share-bundle) into a
-   compact, URL-safe fragment payload and back — the wire format for the
-   \"embed the content in the shared link\" feature.
-
-   Everything is Promise-based because gzip goes through the native
-   CompressionStream API, which is async.
-
-   SECURITY: a shared payload is fully untrusted (the attacker controls the URL;
-   a hash would only prove it didn't corrupt in transit, not that it's safe — and
-   with no server secret there is nothing to sign with). `decode-shared` therefore
-   applies, fail-closed at every step:
-     1. input cap        — reject an oversized fragment before any work
-     3. bomb-capped gunzip — abort if the decompressed stream exceeds a hard cap
-                             (a tiny gzip can inflate to gigabytes)
-     4. safe EDN read    — cljs.reader/read-string (no #= eval); unknown reader
-                           tags throw rather than construct
-     5. structural whitelist — share-bundle/whitelist-bundle keeps only the exact
-                               {source {known-type {letter-kw def}}} shape
-   Layer 6 (content sanitize + per-type spec) is applied by the .orcbrew import
-   path when the caller actually loads the returned bundle — sharing cannot bypass
-   the gate a file upload goes through.
-
-   The payload is version-prefixed (\"1\") so the format can evolve."
+  "Browser codec between a homebrew bundle (share-bundle) and a URL-safe, version-prefixed (\"1\")
+   link-fragment payload. Promise-based: gzip goes through the async CompressionStream API.
+   SECURITY: a payload is fully untrusted. `decode-shared` fails closed at each layer: input cap
+   (1), bomb-capped gunzip (3), safe EDN read (4; no #= eval, unknown tags throw), structural
+   whitelist (5; share-bundle/whitelist-shared). Layer 6, content sanitize and per-type spec, runs
+   on the .orcbrew import path when the caller loads the bundle. See share-links.md."
   (:require [clojure.string :as str]
             [cljs.reader :as reader]
             [goog.crypt.base64 :as b64]
@@ -92,12 +75,12 @@
                   (.then (fn [res]
                            (if (.-done res)
                              (concat-chunks chunks @total)
-                             (let [chunk (.-value res)]
-                               (swap! total + (.-length chunk))
+                             (let [piece (.-value res)]
+                               (swap! total + (.-length piece))
                                (if (> @total cap)
                                  (do (.cancel rdr)
                                      (throw (ex-info "decompressed payload too large" {})))
-                                 (do (.push chunks chunk) (pump)))))))))]
+                                 (do (.push chunks piece) (pump)))))))))]
       (pump))))
 
 (defn- gunzip-capped [u8 cap]
@@ -119,13 +102,10 @@
       (.then (fn [gz] (str version (b64url-encode gz))))))
 
 (defn build-share-payload
-  "bundle -> Promise of {:tier :full|:long|:file :payload s|nil}.
-   We NEVER drop the character's content to fit — a link that carries names but no
-   descriptions is useless (a feat/trait IS its description). So: ship the full
-   payload when it's a comfortable length (:full); still ship the full payload but
-   flag that very long links can be truncated by some apps (:long); and only when
-   it's too large for any link fall back to a downloadable file (:file). Resolves
-   :file immediately when compression is unsupported."
+  "bundle -> Promise of {:tier :full|:long|:file :payload s|nil}. Never drops content to fit:
+   :full ships the payload at a comfortable length, :long ships it but flags that some apps
+   truncate very long links, and :file (no payload) means too large for any link. Resolves :file
+   immediately when compression is unsupported."
   [bundle]
   (if-not (supported?)
     (js/Promise.resolve {:tier :file :payload nil})

@@ -1,16 +1,9 @@
 (ns orcpub.dnd.e5.content-specs
-  "Single source of truth tying SAVE and LOAD validation together: each homebrew
-   content-type keyword → its STRICT per-type save spec, plus the LOOSE floor
-   every saved item must still satisfy on load.
-
-   Save and load used to name their specs independently, so they could DRIFT: if
-   load ever grew stricter than save, already-saved content would be quarantined
-   on the next boot. One generative test (`content_specs_test`) proves the
-   invariant `save ⊆ load` — anything a save spec accepts, the load floor accepts.
-
-   LOAD stays deliberately loose (`:option-pack` string + letter-leading key, see
-   `::e5/homebrew-item`) for backward compat: never reject real saved content just
-   because a builder's save spec later tightened."
+  "Ties SAVE and LOAD validation together: each homebrew content-type keyword → its
+   STRICT save spec, plus the LOOSE floor (`::e5/homebrew-item`: `:option-pack` string
+   + letter-leading key) every saved item must satisfy on load.
+   GOTCHA: keep `save ⊆ load` (`content_specs_test`): a load floor stricter than a save
+   spec quarantines already-saved content on the next boot. See data-safety-layers.md."
   (:require #?(:clj [clojure.spec.alpha :as spec]
                :cljs [cljs.spec.alpha :as spec])
             [orcpub.common :as common]
@@ -44,6 +37,7 @@
    ;; draconic-ancestry: our branch's field-schema builder (not on develop); spec from races.cljc
    ::e5/draconic-ancestries ::races/homebrew-draconic-ancestry
    ::e5/subclasses   ::classes/homebrew-subclass
+   ::e5/fighting-styles ::classes/homebrew-fighting-style
    ::e5/classes      ::classes/homebrew-class})
 
 (def load-item-spec

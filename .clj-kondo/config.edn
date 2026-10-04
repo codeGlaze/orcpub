@@ -98,6 +98,7 @@
              (orcpub.dnd.e5.modifiers/skill-expertise)
              (orcpub.dnd.e5.modifiers/tool-expertise)
              (orcpub.dnd.e5.modifiers/ac-bonus-fn)
+             (orcpub.dnd.e5.modifiers/ac-formula)
              (orcpub.dnd.e5.modifiers/attack)
              (orcpub.dnd.e5.modifiers/action)
              (orcpub.dnd.e5.modifiers/bonus-action)

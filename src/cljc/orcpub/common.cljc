@@ -6,21 +6,19 @@
 (def dot-char "•")
 
 (def ^:private bare-colon-re
-  ;; Matches EITHER a full "string literal" OR a bare-colon token (the printed
-  ;; form of the empty keyword `:`). Scanning left-to-right, a string literal is
-  ;; consumed whole, so a `:` inside a string is never seen as a bare colon.
-  ;; The lookahead requires the colon to be followed by a delimiter or end, so
-  ;; `:foo`, `::x`, `:ns/foo`, and `#:ns{...}` are all left untouched.
+  ;; Matches EITHER a full "string literal" OR a bare-colon token (the printed empty
+  ;; keyword `:`). A string literal is consumed whole, so a `:` inside one never matches.
+  ;; The lookahead requires a delimiter or end after the colon, so `:foo`, `::x`,
+  ;; `:ns/foo` and `#:ns{...}` are left untouched.
   #"\"(?:[^\"\\]|\\.)*\"|:(?=[\s,{}\[\]()\";]|$)")
 
 (defn sanitize-edn-colons
-  "SELF-HEAL: return `edn-str` with every bare-colon token (unreadable empty
-   keyword) replaced by a unique placeholder `:unnamed-N`, so an already-corrupt
-   EDN blob (a saved character or localStorage plugins carrying a `:` key) can
-   be read instead of crashing the load with \"A single colon is not a valid
-   keyword.\" String-aware: colons inside \"...\" and all valid keywords are
-   preserved. Returns {:text <sanitized> :count <replacements>}; :count 0 means
-   the input was already clean (do not rewrite it)."
+  "SELF-HEAL: return `edn-str` with every bare-colon token (unreadable empty keyword)
+   replaced by a unique placeholder `:unnamed-N`, so a corrupt EDN blob (a saved character
+   or localStorage plugins carrying a `:` key) reads instead of crashing with \"A single
+   colon is not a valid keyword.\" Colons inside \"...\" and valid keywords are preserved.
+   Returns {:text <sanitized> :count <replacements>}; :count 0 means the input was already
+   clean (do not rewrite it). A non-string is returned as {:text edn-str :count 0}."
   [edn-str]
   (if (string? edn-str)
     (let [cnt (atom 0)
@@ -38,12 +36,15 @@
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
-        ;; Never emit the empty keyword `:` — a name that reduced to "" (blank,
-        ;; or apostrophe-only like "'") would build (keyword "") = a bare `:`,
-        ;; an unreadable EDN token that crashes read-string on load. Substitute a
-        ;; stable placeholder keyed off the ORIGINAL name so distinct empties
-        ;; ("" vs "'" vs "''") stay distinct. Only the empty case is touched, so
-        ;; no existing (non-blank) key changes.
+        ;; Drop a TRAILING separator ("Eladrin (Cha)" -> :eladrin-cha). Keep a LEADING one: a
+        ;; non-letter lead is how keyword-starts-with-letter? catches junk names. An all-separator
+        ;; name ("@@@" -> "-") is kept, or it would become :unnamed-<hash> and pass that check.
+        ;; Stored trailing-dash keys resolve via canonical-key (homebrew-key-map.md).
+        (if (re-matches #"-+" $) $ (s/replace $ #"-+$" ""))
+        ;; Never emit the empty keyword `:`, an unreadable EDN token that crashes read-string.
+        ;; A name that reduced to "" (blank, or apostrophe-only like "'") gets a placeholder
+        ;; keyed off the ORIGINAL name, so "" vs "'" vs "''" stay distinct. Only the empty
+        ;; case is touched.
         (if (s/blank? $) (str "unnamed-" (hash name)) $)
         (keyword ns $))))
 
@@ -51,6 +52,168 @@
 
 (defn name-to-kw [name & [ns]]
   (memoized-name-to-kw name ns))
+
+(defn canonical-key
+  "Keyword `k` with its trailing separator removed and nothing else, for matching a stored key
+   against the form `name-to-kw` produces; nil for a non-keyword. Stripping more would bind
+   characters to content they never named (`:fire-bolt` vs `:firebolt`).
+   GOTCHA: a leading dash is kept, so a trapped key cannot match a legitimate one, and an
+   all-separator key is returned unchanged rather than reduced to the empty keyword."
+  [k]
+  (when (keyword? k)
+    (let [n (name k)
+          trimmed (s/replace n #"-+$" "")]
+      (if (s/blank? trimmed) k (keyword (namespace k) trimmed)))))
+
+(def ^:private word-separator-re
+  "Splits a source name into words. Anything not a letter or digit separates; Latin-1
+   Supplement and Latin Extended-A/B are spelled out as word characters so accented names
+   keep their shape.
+   GOTCHA: the ranges are literal because \\p{L} and \\p{N} are Java-only; in a JS RegExp
+   without the `u` flag \\p is an escaped `p`, which would split on the letter p."
+  #"[^a-zA-Z0-9\u00C0-\u024F]+")
+
+(def source-abbreviation-overrides
+  "Sources whose real-world abbreviation is not what `source-abbreviation` derives (nobody
+   writes Unearthed Arcana as UdAa). Keys are the source name reduced by
+   `abbreviation-lookup-key` (lowercased, apostrophes dropped, other non-alphanumeric runs
+   collapsed to one space), so \"unearthed-arcana\" and \"Unearthed Arcana:\" hit one entry.
+   Only sources the derivation gets WRONG belong here (source-tagged-keys.md)."
+  {;; The source an item lands in when its author never named one. The derivation reads it as
+   ;; three words and produces DtOnSe; "dflt" is the tag people recognise. It matters more than
+   ;; any other entry here: most first-time homebrew lands in this source.
+   "default option source" "dflt"
+   "unearthed arcana" "UA"
+   ;; The initialisms themselves, so someone who types the short form lowercase
+   ;; gets the same tag as someone who spells the source out. The all-caps
+   ;; passthrough below only catches them when they are already capitalised.
+   "ua" "UA"
+   "srd" "SRD"
+   "phb" "PHB"
+   "dmg" "DMG"
+   "mm" "MM"
+   "monster manual" "MM"
+   "players handbook" "PHB"
+   "dungeon masters guide" "DMG"
+   "eberron" "EB"
+   "eberron rising from the last war" "ERLW"
+   "mordenkainen presents monsters of the multiverse" "MPMM"})
+
+(defn- abbreviation-lookup-key
+  "A source name reduced to its comparable form for the override table."
+  [source-name]
+  (-> (str source-name)
+      (s/replace #"['’]" "")
+      (s/lower-case)
+      (s/replace #"[^a-z0-9À-ɏ]+" " ")
+      (s/trim)))
+
+(def ^:private initialism-re
+  "A word that is ALREADY an abbreviation: two to six characters, all caps or digits, starting
+   with a letter.
+
+   GOTCHA: the leading-letter requirement is what keeps a year out. \"Unearthed Arcana 2022:
+   Heroes of Krynn\" must read UA2HoK, not UA2022HoK."
+  #"[A-Z][A-Z0-9]{1,5}")
+
+(defn source-abbreviation
+  "A short tag for a content source, for disambiguating items that share a name; nil when the
+   name has no letters or digits (callers must handle it). An override or a lone initialism
+   passes through; initialisms among words stay whole with initials of the rest; up to three
+   words give first+last letter each, `Xx`-cased (\"Kibbles Tasty\" -> \"KsTy\"); more words
+   give initials in each word's own case (\"TCoE\"). Why two shapes: source-tagged-keys.md.
+   GOTCHA: apostrophes are removed, not split on, so \"Tasha's\" stays one word."
+  [source-name]
+  (let [words (->> (-> (str source-name)
+                       (s/replace #"['’]" "")
+                       (s/split word-separator-re))
+                   (remove s/blank?))]
+    (when (seq words)
+      (if-let [override (get source-abbreviation-overrides
+                             (abbreviation-lookup-key source-name))]
+        override
+        ;; A source that is ALREADY an abbreviation is passed through rather than
+        ;; abbreviated again: "UA" would otherwise come back "Ua", which is the
+        ;; same name with its meaning filed off. One all-caps word, short enough
+        ;; to read as a tag.
+        (cond
+          (and (= 1 (count words)) (re-matches initialism-re (first words)))
+          (first words)
+
+          ;; An initialism with a description after it ("UA - Giant Options", "MM Extra
+          ;; Monsters") keeps the initialism whole and takes initials of the rest; the
+          ;; two-shape rule would mangle the part that carries the meaning.
+          (some #(re-matches initialism-re %) words)
+          (s/join (map (fn [w] (if (re-matches initialism-re w) w (subs w 0 1))) words))
+
+          (<= (count words) 3)
+          (s/join (map (fn [w]
+                         (if (= 1 (count w))
+                           (s/upper-case w)
+                           (str (s/upper-case (subs w 0 1))
+                                (s/lower-case (subs w (dec (count w)))))))
+                       words))
+
+          :else
+          (s/join (map #(subs % 0 1) words)))))))
+
+(defn- abbreviation-suffix-re
+  "Matches a trailing \" (Abbr)\" or \" (Abbr 2)\" for one specific abbreviation, so
+   re-applying the same tag replaces it instead of stacking another copy.
+   GOTCHA: `abbr` is interpolated raw, safe only because source-abbreviation emits letters
+   and digits alone; a JS RegExp has no \\Q...\\E quoting to fall back on."
+  [abbr]
+  (re-pattern (str "\\s*\\(" abbr "(?:\\s+\\d+)?\\)\\s*$")))
+
+(defn disambiguated
+  "{:name :key} for `item-name` tagged with `source-name`'s abbreviation: \"Artificer\" +
+   \"Kibbles Tasty\" -> \"Artificer (KsTy)\" / :artificer-ksty. The key is DERIVED from the
+   tagged name, so the editor re-deriving it on save is a no-op. `taken?` (optional key
+   predicate) puts a counter inside the parens, \"Artificer (KsTy 2)\", up to 99. An existing
+   tag is replaced, not stacked. With no abbreviation, returns the trimmed name and its key.
+   (source-tagged-keys.md)"
+  ([item-name source-name] (disambiguated item-name source-name (constantly false)))
+  ([item-name source-name taken?]
+   (let [base (s/trim (str item-name))
+         abbr (source-abbreviation source-name)]
+     (if-not abbr
+       {:name base :key (name-to-kw base)}
+       (let [stem (s/replace base (abbreviation-suffix-re abbr) "")
+             stem (if (s/blank? stem) base stem)
+             candidate (fn [n] (let [nm (if n
+                                          (str stem " (" abbr " " n ")")
+                                          (str stem " (" abbr ")"))]
+                                 {:name nm :key (name-to-kw nm)}))]
+         (loop [c (candidate nil) n 2]
+           (if (or (not (taken? (:key c))) (> n 99))
+             c
+             (recur (candidate n) (inc n)))))))))
+
+(defn normalize-abbreviation
+  "A source's own abbreviation, reduced to the shape the derivation would have produced: letters and
+   digits only, upper-cased, at most six, and a letter first. nil when nothing usable is left.
+
+   GOTCHA: upper-casing is not cosmetic. It is what makes the value pass `source-abbreviation`'s
+   already-an-abbreviation branch, so an author-set tag and a derived one travel the same path. The
+   key lower-cases either way, so case only shows in a name tagged by an import conflict."
+  [abbr]
+  (let [cleaned (-> (str abbr)
+                    (s/replace #"[^A-Za-z0-9]" "")
+                    (s/upper-case))]
+    (when (re-matches #"[A-Z][A-Z0-9]{1,5}" (subs cleaned 0 (min 6 (count cleaned))))
+      (subs cleaned 0 (min 6 (count cleaned))))))
+
+(defn source-tagged-key
+  "The key an item mints in `source-name`: its name's keyword with the source's abbreviation
+   appended — `(\"Stone Elf\" \"Tidewater Curios\")` => `:stone-elf-trcs`. A usable `abbr` replaces
+   the derived abbreviation; a source with none mints the plain key. The NAME is not tagged.
+   GOTCHA: routed through `disambiguated`, so minted and import-tagged keys cannot drift. No
+   `taken?`: one name twice in one source is reported, not uniquified (source-tagged-keys.md)."
+  ([item-name source-name] (source-tagged-key item-name source-name nil))
+  ([item-name source-name abbr]
+   ;; An author-set abbreviation is handed in AS the source name: normalized, it is already in the
+   ;; shape `source-abbreviation` passes through, so the explicit and derived paths stay one path.
+   (:key (disambiguated item-name (or (normalize-abbreviation abbr) source-name)))))
 
 (defn kw-to-name [kw & [capitalize?]]
   (when (keyword? kw)
@@ -194,17 +357,10 @@
   (and (keyword? kw)
        (-> kw name starts-with-letter?)))
 
-;; ── Number-word translation, for repairing keyword-trap names ────────────────
-;; A homebrew NAME derives its KEY, and a key must start with a letter
-;; (keyword-starts-with-letter?). Names that LEAD with a number ("9 Lives",
-;; "2nd Wind") are the most common trap. Instead of discarding the name, we
-;; translate the leading number to its word form so the user's intent survives:
-;;   "9 Lives"  -> "Nine Lives"      "2nd Wind" -> "Second Wind"
-;;   "20 Sided" -> "Twenty Sided"    "13th Warrior" -> "Thirteenth Warrior"
-;; This is BOUNDED on purpose (see max-number-word): above the cap a leading
-;; number reads as data — a year/stat/code ("2020 Vision") — not a word, so the
-;; translator declines and the caller falls back (strip symbols, else placeholder).
-;; Depth is cheap to extend; the cap is a quality knob, not an effort limit.
+;; ── Number-word translation, for repairing keyword-trap names (keyword-trap-name-repair.md) ──
+;; A name's derived key must start with a letter, so a leading number ("9 Lives", "2nd Wind")
+;; is translated to words ("Nine Lives", "Second Wind"). Bounded by max-number-word: above it
+;; a number reads as data ("2020 Vision"), the translator declines and the caller falls back.
 
 (def ^:const max-number-word
   "Inclusive cap for number->word name repair. 0..this translate to words; a
@@ -299,26 +455,24 @@
                   :else nil)))))))))
 
 (defn repair-name-lead
-  "Best-effort coerce `name` to a valid, letter-leading name by translating a
-   leading NUMBER to its word form (\"9 Lives\" -> \"Nine Lives\"). Returns the
-   repaired name, an already-valid name unchanged, or nil when it can't be
-   salvaged this way (symbol-leading or out-of-range) — the caller then falls
-   back to a placeholder like \"Unnamed <Type>\". Deliberately conservative:
-   symbol-led junk (\"@@@\", \"1@-asdml;\") is left for the placeholder rather
-   than salvaged into more junk. Purely a SUGGESTION; the caller still checks the
-   derived key for collisions."
+  "Best-effort coerce `name` to a letter-leading name by translating a leading NUMBER to
+   words (\"9 Lives\" -> \"Nine Lives\"). Returns the trimmed name if it already leads with a
+   letter, else the repaired name, else nil (symbol-led junk like \"@@@\" or \"1@-asdml;\", or
+   out of range) — the caller then uses a placeholder like \"Unnamed <Type>\". A SUGGESTION
+   only: the caller still checks the derived key for collisions."
   [name]
   (when (string? name)
     (let [t (s/trim name)]
       (if (starts-with-letter? t) t (lead-number->words t)))))
 
 (defn toggle-flag
-  "Flip a boolean flag, but leave a collection untouched instead of collapsing it.
-   Use in place of bare `not` for builder toggles whose path could land on a MAP:
-   `(not {…})` is `false`, which DESTROYS the map so every child read returns nil
-   (the 'true/false/nil from clicking a lot' corruption)."
+  "Flip a boolean flag, but return a collection untouched. Use in place of bare `not` for
+   builder toggles whose path could land on a MAP: `(not {…})` is `false`, which destroys the
+   map so every child read returns nil. Only an actual `true` reads as ON: nil, absent and
+   non-boolean garbage (a string \"false\") read as OFF, so the first click turns them ON.
+   Both halves are needed; see the convergence note in builder_fields.cljc."
   [v]
-  (if (coll? v) v (not v)))
+  (if (coll? v) v (not (true? v))))
 
 (defn toggle-in
   "Toggle a boolean flag at path `ks` in `m` (like `update-in` with `not`), with
@@ -387,11 +541,9 @@
 (defn aloof-sort-by [sorter coll]
   (sort-by (comp lower-case sorter) coll))
 
-;; Display name with an obvious placeholder, not a blank: any unusable name ->
-;; "[Unnamed feature]" (shown and sorted by), never a blank or a plausible-looking
-;; coercion. Here a string IS expected, so a wrong-typed name is a real bug — dev
-;; throws to surface it; prod also shows the placeholder rather than hiding it as
-;; e.g. "42". (The generic lower-case fold can't tell, so it never throws.)
+;; Display name with an obvious placeholder: any unusable name -> "[Unnamed feature]"
+;; (shown and sorted by), never a blank or a plausible coercion like "42". A string IS
+;; expected here, so a wrong-typed name throws in cljs dev builds; prod shows the placeholder.
 (defn feature-name [{:keys [name]}]
   (cond
     (and (string? name) (not (s/blank? name))) name

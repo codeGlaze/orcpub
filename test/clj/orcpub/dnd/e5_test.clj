@@ -275,6 +275,8 @@
     :ns "orcpub.dnd.e5.encounters" :base {:option-pack "Pack"}}
    {:label "selection"  :spec ::selections5e/homebrew-selection
     :ns "orcpub.dnd.e5.selections" :base {:option-pack "Pack"}}
+   {:label "fighting-style" :spec ::classes5e/homebrew-fighting-style
+    :ns "orcpub.dnd.e5.classes" :base {:option-pack "Pack"}}
    {:label "spell"      :spec ::spells5e/homebrew-spell
     :ns "orcpub.dnd.e5.spells" :base {:option-pack "Pack" :school "evocation"
                                       :level 1 :spell-lists {:wizard true}}}])
@@ -501,10 +503,10 @@
 (deftest test-reconcile-rejected-items
   (testing "merges old + new set-aside entries, prunes any now live in kept"
     (let [old {"S" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}
-          new {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
+          incoming {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
           kept {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}] ; :a now live
       (is (= {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
-             (e5/reconcile-rejected-items old new kept))
+             (e5/reconcile-rejected-items old incoming kept))
           ":a pruned (now live), :b stays set aside")))
   (testing "a source whose entries are all pruned disappears"
     (is (= {} (e5/reconcile-rejected-items
@@ -513,3 +515,18 @@
                {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
   (testing "nil inputs never throw"
     (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
+
+(deftest test-rekey-plugin-records-the-old-key-and-repoints-links
+  (let [plugin {:orcpub.dnd.e5/subclasses {:oath {:name "Oath" :class :9-lives}}
+                :orcpub.dnd.e5/classes {:9-lives {:name "Nine Lives" :option-pack "P"}}}
+        out (e5/rekey-plugin plugin)]
+    (is (= [:9-lives] (get-in out [:orcpub.dnd.e5/classes :nine-lives :former-keys]))
+        "a character that chose the old key can follow it")
+    (is (= :nine-lives (get-in out [:orcpub.dnd.e5/subclasses :oath :class]))
+        "a subclass in a content type re-keyed after it still follows")))
+
+(deftest rekey-plugin-never-moves-an-item-onto-a-key-the-live-source-holds
+  (let [trapped {::e5/races {:9-lives {:name "Nine Lives"}}}
+        live {::e5/races {:nine-lives {:name "Nine Lives" :description "the live one"}}}]
+    (is (= #{:nine-lives-2} (set (keys (::e5/races (e5/rekey-plugin trapped live))))))
+    (is (= #{:nine-lives} (set (keys (::e5/races (e5/rekey-plugin trapped))))) "without it, the key is free")))

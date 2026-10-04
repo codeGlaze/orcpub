@@ -107,3 +107,28 @@
     (let [result (pdf/trait-string "Darkvision" 42)]
       (is (string? result))
       (is (.contains result "Darkvision")))))
+
+;; -- captured-bytes --
+
+(def ^:private captured
+  "The private helper that turns what the browser managed to read into what the
+   export actually carries."
+  #'pdf/captured-bytes)
+
+(deftest bytes-the-browser-read-are-carried
+  (is (= "AAAA"
+         (captured {"http://host/portrait.png" {:mime "image/png" :data "AAAA"}}
+                   "http://host/portrait.png"))))
+
+(deftest a-capture-that-produced-no-bytes-carries-nothing
+  (testing "still running"
+    (is (nil? (captured {"u" :pending} "u"))))
+  (testing "refused by the host"
+    ;; Both are states rather than payloads, and both have to read as nil so the
+    ;; server falls back to fetching the address itself.
+    (is (nil? (captured {"u" :unavailable} "u")))))
+
+(deftest a-url-nobody-read-carries-nothing
+  (is (nil? (captured {} "u")))
+  (is (nil? (captured nil "u")))
+  (is (nil? (captured {"other" {:data "AAAA"}} "u"))))

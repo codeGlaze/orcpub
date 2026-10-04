@@ -29,8 +29,9 @@
    :equipment {:explorers-pack 1}
    :weapon-choices [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]})
 
-(defn- equip-quantities [built]
+(defn- equip-quantities
   "item-key -> quantity, for every class-starting-equipment entry in a built option."
+  [built]
   (into {}
         (map (juxt :orcpub.entity/key
                    #(get-in % [:orcpub.entity/value

@@ -3,9 +3,7 @@
             [orcpub.dnd.e5.character :as char5e]))
 
 (defn char-matches?
-  "Returns true if `char` satisfies all active filter criteria.
-
-   Filters:
+  "Returns true if `char` satisfies all active filter criteria:
      name-filter      - string; blank = no filter, otherwise case-insensitive substring
      level-filters    - set of ints; empty = no filter, any class level must be in set
      class-filters    - set of strings; empty = no filter, any class name must be in set

@@ -525,6 +525,21 @@
 (defn pact-magic? [built-char]
   (get-prop built-char :pact-magic?))
 
+(defn shared-spell-slots
+  "The slot table every non-pact caster draws on.
+
+   5e gives a multiclass ONE table from combined caster levels, so this is shared
+   rather than per class. spell-slots is this plus pact-spell-slots, added -- and
+   the addition is lossy, since a Warlock beside another caster has two pools and
+   one number."
+  [built-char]
+  (get-prop built-char :shared-spell-slots))
+
+(defn pact-spell-slots
+  "A Warlock's Pact Magic slots, which are a separate pool at their own level."
+  [built-char]
+  (get-prop built-char :pact-spell-slots))
+
 (defn spell-slot-factors [built-char]
   (get-prop built-char :spell-slot-factors))
 
@@ -735,8 +750,11 @@
 (defn al-illegal-reasons [built-char]
   (get-prop built-char :al-illegal-reasons))
 
-(defn dual-wield-weapon-fn [built-char]
-  (get-prop built-char :dual-wield-weapon?))
+(defn dual-wield-weapon-specs
+  "Every tag spec that qualifies a weapon for the off hand. Data, not a predicate — so it can be
+   authored, printed, and added to by more than one source."
+  [built-char]
+  (get-prop built-char :dual-wield-weapon-specs))
 
 ;; dead — zero callers (pdf_spec.cljc computes armor class inline)
 #_(defn max-armor-class [unarmored-armor-class

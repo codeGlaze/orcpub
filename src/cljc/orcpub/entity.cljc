@@ -226,16 +226,6 @@
 
 ;;============== topo sort ===============
 
-(defn without
-  "Returns set s with x removed."
-  [s x] (difference s #{x}))
-
-(defn take-1
-  "Returns the pair [element, s'] where s' is set s with element removed."
-  [s] {:pre [(seq s)]}
-  (let [item (first s)]
-    [item (without s item)]))
-
 (defn no-incoming
   "Returns the set of nodes in graph g for which there are no incoming
   edges, where g is a map of nodes to sets of nodes."
@@ -251,19 +241,51 @@
   (let [have-incoming (apply union (vals g))]
     (reduce #(if (get % %2) % (assoc % %2 #{})) g have-incoming)))
 
+(defn- in-degrees
+  "node -> how many edges point AT it, for every node of normalized graph g."
+  [g]
+  (persistent!
+   (reduce-kv (fn [m _ outs]
+                (reduce (fn [m2 x] (assoc! m2 x (inc (get m2 x 0)))) m outs))
+              (transient (zipmap (keys g) (repeat 0)))
+              g)))
+
 (defn kahn-sort
-  "Proposes a topological sort for directed graph g using Kahn's
-   algorithm, where g is a map of nodes to sets of nodes. If g is
-   cyclic, returns nil."
-  ([g]
-     (kahn-sort (normalize g) [] (no-incoming g)))
-  ([g l s]
-     (if (empty? s)
-       (when (every? empty? (vals g)) l)
-       (let [[n s'] (take-1 s)
-             m (g n)
-             g' (reduce #(update-in % [n] without %2) g m)]
-         (recur g' (conj l n) (union s' (intersection (no-incoming g') m)))))))
+  "Proposes a topological sort for directed graph g (a map of nodes to sets of nodes) using
+   Kahn's algorithm in O(V+E); returns nil if g is cyclic.
+   GOTCHA: the ORDER is load-bearing (order-modifiers makes it modifier order, so another valid
+   order can change a computed AC; pinned in entity_build_perf_test). The frontier set is built
+   with clojure.set/intersection's own two branches, because (first s) picks the next node and
+   a small CLJS set iterates in INSERTION order."
+  [g0]
+  (let [g     (normalize g0)
+        nodes (set (keys g))
+        indeg (in-degrees g)]
+    (loop [l          []
+           s          (no-incoming g0)
+           indeg      indeg
+           ;; (count no-incoming): every node whose in-degree is 0, INCLUDING ones already
+           ;; emitted — no-incoming never excluded those either. Only grows.
+           zero-count (count (filter zero? (vals indeg)))
+           edges      (reduce + (map count (vals g)))]
+      (if (empty? s)
+        ;; the old guard was (every? empty? (vals g)) on the residual graph: no edges left.
+        ;; A node's out-edges are dropped only when it is popped, so "no edges left" and
+        ;; "every node emitted" are the same statement.
+        (when (zero? edges) l)
+        (let [n       (first s)
+              s'      (disj s n)                      ; == (difference s #{n})
+              m       (g n)                           ; residual (g' n) == (g n): see above
+              indeg'  (reduce (fn [d x] (assoc d x (dec (d x)))) indeg m)
+              freed   (count (filter #(zero? (indeg' %)) m))
+              zeroes  (+ zero-count freed)
+              added   (if (< (count m) zeroes)
+                        ;; intersection swapped its args: result is derived from m
+                        (reduce (fn [r x] (if (zero? (indeg' x)) r (disj r x))) m m)
+                        ;; result is derived from the no-incoming set
+                        (let [no-inc (reduce disj nodes (remove #(zero? (indeg' %)) nodes))]
+                          (reduce (fn [r x] (if (contains? m x) r (disj r x))) no-inc no-inc)))]
+          (recur (conj l n) (union s' added) indeg' zeroes (- edges (count m))))))))
 
 ;;==========================================
 
@@ -301,25 +323,33 @@
 
 (declare get-template-selection-path)
 
+(defn index-matching-key
+  "Index of the first item in `items` whose `key-fn` is `k`, or nil. An exact match anywhere
+   wins; only when there is none does it retry on `common/canonical-key`s, and then only if
+   exactly ONE item matches, so an ambiguous fallback stays unresolved. It can only resolve
+   what would otherwise be nil, such as a stored trailing-dash key (`:dark-elf-drow-`)."
+  [items key-fn k]
+  (or (first (keep-indexed (fn [i x] (when (= (key-fn x) k) i)) items))
+      (let [ck (common/canonical-key k)]
+        (when ck
+          (let [hits (keep-indexed
+                      (fn [i x] (when (= (common/canonical-key (key-fn x)) ck) i))
+                      items)]
+            (when (= 1 (count hits)) (first hits)))))))
+
 (defn get-template-option-path [selection [f & r] current-path]
-  (let [[option option-i]
-        (first (keep-indexed
-                (fn [i s]
-                  (when (= (::t/key s) f)
-                    [s i]))
-                (selection-options selection)))
+  (let [opts (vec (selection-options selection))
+        option-i (index-matching-key opts ::t/key f)
+        option (when option-i (nth opts option-i))
         next-path (vec (concat current-path [::t/options option-i]))]
     (if (seq r)
       (get-template-selection-path option r next-path)
       next-path)))
 
 (defn get-template-selection-path [template [f & r] current-path]
-  (let [[selection selection-i]
-        (first (keep-indexed
-                (fn [i s]
-                  (when (= (::t/key s) f)
-                    [s i]))
-                (::t/selections template)))
+  (let [sels (vec (::t/selections template))
+        selection-i (index-matching-key sels ::t/key f)
+        selection (when selection-i (nth sels selection-i))
         next-path (vec (concat current-path [::t/selections selection-i]))]
     (if (seq r)
       (get-template-option-path selection r next-path)
@@ -351,29 +381,18 @@
    modifiers))
 
 (defn index-of-option [selection option-key]
-  (first
-   (keep-indexed
-    (fn [i v]
-      (when (= option-key (::key v))
-        i))
-    selection)))
+  (index-matching-key (vec selection) ::key option-key))
 
 (defn template-item-with-key [items item-key]
-  (first
-   (keep-indexed
-    (fn [i s]
-      (when (= (::t/key s) item-key)
-        [i s]))
-    items)))
+  (let [items (vec items)]
+    (when-let [i (index-matching-key items ::t/key item-key)]
+      [i (nth items i)])))
 
 (defn entity-item-with-key [items item-key]
-  (first
-   (keep-indexed
-    (fn [i s]
-      (when (and item-key
-               (= (::key s) item-key))
-        [i s]))
-    items)))
+  (when item-key
+    (let [items (vec items)]
+      (when-let [i (index-matching-key items ::key item-key)]
+        [i (nth items i)]))))
 
 (defn get-entity-path
   ([template entity option-path]
@@ -533,11 +552,9 @@
         option-key (last path)
         ref-selection (ref-selection-map selection-path)
         option (if ref-selection
-                 (first
-                  (filter
-                   (fn [{:keys [::t/key] :as option}]
-                     (= option-key key))
-                   (vec (selection-options ref-selection))))
+                 (let [opts (vec (selection-options ref-selection))]
+                   (when-let [i (index-matching-key opts ::t/key option-key)]
+                     (nth opts i)))
                  (let [template-path (get-template-selection-path template path [])]
                    (get-in-lazy template template-path)))]
     (::t/modifiers option)))
@@ -583,7 +600,15 @@
      (fn [{path ::t/path
            option-value ::value
            :as option}]
-       (let [template-option (template-option-map path)
+       (let [;; Exact path first. On a miss, retry with the STORED last key canonicalised,
+             ;; so a path saved with a trailing separator (":foo-") finds the template's
+             ;; ":foo". Miss-only, so a path that resolves exactly is unaffected.
+             template-option (or (template-option-map path)
+                                 (when (seq path)
+                                   (let [ck (common/canonical-key (last path))]
+                                     (when (and ck (not= ck (last path)))
+                                       (template-option-map
+                                        (conj (vec (butlast path)) ck))))))
              modifiers (::t/modifiers template-option)]
          (flatten
           (map

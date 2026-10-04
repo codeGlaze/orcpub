@@ -26,13 +26,21 @@
 
 ;; -- Auth --
 
+(defn get-auth-token
+  "Returns the JWT at `[:user-data :token]` in app-db, or nil when not logged in.
+   The one access to that path: use it for the token (Authorization header, `:http` fx
+   `:auth-token`) and, since nil is falsy, as the logged-in guard everywhere.
+   GOTCHA: if 'logged in' ever needs more conditions, add a `logged-in?` predicate;
+   never inline compound logic at call sites."
+  [db]
+  (-> db :user-data :token))
+
 (defn auth-headers
   "Returns Authorization header map from db. Handles nil token gracefully."
   [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
+  (if-let [token (get-auth-token db)]
+    {"Authorization" (str "Token " token)}
+    {}))
 
 ;; -- Error helpers --
 

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Feat builder — proposed (grant-rows + effect-rows)</title>
+<style>
+:root{--bg:#080a0d;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.14);--muted:#98a2b3;--text:#e6e9ee;--accent:#f0a100;--ok:#7bd88f;--warn:#e5637a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Open Sans",system-ui,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 20px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 22px;font-size:13px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:22px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.card h2 .note{font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--muted);opacity:.8}
+.f{margin-bottom:12px}.lbl{font-weight:700;font-size:12px;margin-bottom:5px;display:block}
+input,textarea,.sel{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:7px 9px;font:inherit;width:100%}
+textarea{min-height:64px;resize:vertical}
+.sel{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;width:auto;min-width:150px;cursor:default}.sel::after{content:"⌄";color:var(--muted)}
+.num{width:76px !important;text-align:center;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid .full{grid-column:1/-1}
+.row{border:1px solid var(--line);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.row header{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);padding:7px 11px;border-bottom:1px solid var(--line)}
+.row header b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.row header .hint{color:var(--muted);font-size:11px;font-weight:400;margin-left:10px}
+.row .x{color:var(--muted);cursor:default}.row .body{padding:11px}
+.inline{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.inline .lbl{margin:0;font-weight:600;color:var(--muted)}
+.addbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
+.addbar .cue{color:var(--muted);font-size:12px;margin-right:4px}
+.chip{background:transparent;border:1px dashed var(--line);color:var(--text);border-radius:999px;padding:4px 11px;font-size:12px;white-space:nowrap}
+.chip.dim{opacity:.4;border-style:dotted}.chip.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
+.mode{display:flex;gap:14px;font-size:13px}.mode label{display:flex;gap:6px;align-items:center}
+.radio{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--muted);display:inline-block}.radio.on{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--bg),inset 0 0 0 8px var(--accent)}
+.fixed{display:flex;align-items:center;gap:10px}.fixed .val{font-weight:700}.fixed .tag{color:var(--muted);font-size:12px}
+.legend{color:var(--muted);font-size:12px;margin-top:6px}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:14px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow:auto;color:#d7dde6;position:sticky;top:20px;margin:0}
+pre .k{color:#9ecbff}pre .s{color:#c3e88d}pre .c{color:#6b7684;font-style:italic}pre .n{color:#f0a100}
+.callout{border-left:3px solid var(--accent);padding:8px 12px;margin:0 0 14px;color:var(--muted);font-size:13px;background:rgba(240,161,0,.05)}
+.side h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.side ul{margin:0;padding-left:16px;font-size:12.5px;color:var(--muted)}.side li{margin-bottom:6px}.side b{color:var(--text)}
+</style></head><body><div class="wrap">
+<h1>Feat builder — proposed</h1>
+<p class="sub">Header + ASI spread (shared) + Effects (<code>effect-rows</code>, exists) + Grants (<code>grant-rows</code>, E4) + Prerequisites (bespoke). The form is <code>(content-builder :feat)</code>; everything below comes from <code>feat-fields</code>. Left: what the author sees. Right: what it writes.</p>
+
+<div class="cols"><div>
+
+<div class="card"><h2>Feat <span class="note">simple-content-builder — unchanged</span></h2>
+ <div class="grid">
+  <div class="f"><label class="lbl">Name</label><input value="Wyrmblooded"></div>
+  <div class="f"><label class="lbl">Option Source</label><span class="sel" style="width:100%">Example Pack</span></div>
+  <div class="f full"><label class="lbl">Description</label><textarea>Dragon blood runs in you.</textarea></div>
+ </div></div>
+
+<div class="card"><h2>Prerequisites <span class="note">bespoke — unchanged until :gate</span></h2>
+ <div class="inline"><span class="chip on">Dexterity 13+</span><span class="chip">+ Add a prerequisite</span></div></div>
+
+<div class="card"><h2>Ability Score Increase <span class="note">shared spread widget — as race/background</span></h2>
+ <div class="row"><div class="body inline"><span class="lbl">Amount</span><input class="num" value="1"><span class="lbl">To</span><span class="sel">Any</span><label class="mode"><span class="radio"></span>+ save prof</label><span class="x">✕</span></div></div>
+ <div class="addbar"><span class="chip">+ Add an increase</span></div></div>
+
+<div class="card"><h2>Effects <span class="note">effect-rows — exists; two kinds added</span></h2>
+ <div class="row"><header><b>Natural Armor</b><span class="hint">competes with worn armor — the higher wins</span><span class="x">✕</span></header>
+  <div class="body inline"><span class="lbl">AC</span><input class="num" value="13"><span class="lbl">+ ability</span><span class="sel">Constitution</span></div></div>
+ <div class="row"><header><b>Armor Dex Cap</b><span class="hint">raises the Dex bonus cap for one armor type</span><span class="x">✕</span></header>
+  <div class="body inline"><span class="sel">Heavy</span><span class="lbl">armor allows up to</span><input class="num" value="2"><span class="lbl">Dexterity</span></div></div>
+ <div class="addbar"><span class="cue">Add an effect</span><span class="chip">AC Bonus</span><span class="chip">Attack Bonus</span><span class="chip">Damage Bonus</span><span class="chip">Speed</span><span class="chip">Initiative</span><span class="chip">Hit Points</span><span class="chip">Save Advantage</span></div>
+ <div class="legend">Kinds are the shared <code>:props</code> fragments. <code>:speed</code>, <code>:initiative</code>, <code>:max-hp-bonus</code> replace feat's hardcoded checkbox ranges with a number.</div></div>
+
+<div class="card"><h2>Grants <span class="note">grant-rows — E4; names no pool, reads the registry</span></h2>
+ <div class="row"><header><b>Language</b><span class="x">✕</span></header>
+  <div class="body inline"><div class="mode"><label><span class="radio"></span>a specific one</label><label><span class="radio on"></span>let the player choose</label></div><input class="num" value="2"><span class="lbl">from</span><span class="sel">any</span></div></div>
+ <div class="row"><header><b>Skill</b><span class="hint">fixed — the creator chose</span><span class="x">✕</span></header>
+  <div class="body inline"><div class="mode"><label><span class="radio on"></span>a specific one</label><label><span class="radio"></span>let the player choose</label></div><span class="sel">Athletics</span></div></div>
+ <div class="row"><header><b>Skill or Tool</b><span class="x">✕</span></header>
+  <div class="body inline"><div class="mode"><label><span class="radio"></span>a specific one</label><label><span class="radio on"></span>let the player choose</label></div><input class="num" value="3"><span class="lbl">from</span><span class="sel">any</span></div></div>
+ <div class="row"><header><b>Draconic Ancestry</b><span class="hint">the chosen colour's breath weapon and resistance</span><span class="x">✕</span></header>
+  <div class="body inline"><div class="mode"><label><span class="radio"></span>a specific one</label><label><span class="radio on"></span>let the player choose</label></div><input class="num" value="1"><span class="lbl">from</span><span class="sel">any</span></div></div>
+ <div class="addbar"><span class="cue">Add a grant</span><span class="chip">Skill Expertise</span><span class="chip">Tool</span><span class="chip">Weapon</span><span class="chip">Armor</span><span class="chip">Damage Resistance</span><span class="chip">Damage Immunity</span><span class="chip">Fighting Style</span><span class="chip dim" title="not registered yet">Spell</span></div>
+ <div class="legend">The bar lists every pool whose <code>:offerable-by</code> includes <code>:feat</code>. Register <code>:spells</code> and it lights up here with no change to this form. A fixed row (Athletics) emits the entry's modifiers — no pick, no dropdown-of-one.</div></div>
+
+<div class="card"><h2>Spellcasting <span class="note">bespoke passthrough — waits for the :spells pool</span></h2>
+ <div class="inline"><span class="chip">Magic Initiate-style</span><span class="chip">Ritual Caster-style</span><span class="chip">Spell Sniper-style</span></div>
+ <div class="legend">Three saved templates. They become grant rows over <code>:spells</code> with nested grants once the pool exists — the same escape hatch <code>spell-lists-field</code> used.</div></div>
+
+</div><div class="side">
+<pre><span class="c">;; what this form writes — the .orcbrew entry</span>
+{<span class="k">:name</span>        <span class="s">"Wyrmblooded"</span>
+ <span class="k">:option-pack</span> <span class="s">"Example Pack"</span>
+ <span class="k">:description</span> <span class="s">"Dragon blood runs in you."</span>
+ <span class="k">:prereqs</span>     [{<span class="k">:ability</span> <span class="k">:dex</span> <span class="k">:min</span> <span class="n">13</span>}]      <span class="c">; bespoke today</span>
+
+ <span class="c">;; the shared spread: [amount pool]</span>
+ <span class="k">:ability-increases</span> [[<span class="n">1</span> <span class="k">:any</span>]]
+
+ <span class="c">;; effects — the shared :props vocabulary</span>
+ <span class="k">:props</span> {<span class="k">:ac</span>            {<span class="k">:ac</span> <span class="n">13</span> <span class="k">:abilities</span> [<span class="k">:con</span>]}
+         <span class="k">:armor-dex-cap</span> {<span class="k">:heavy</span> <span class="n">2</span>}}
+
+ <span class="c">;; grants — one key, always a vector</span>
+ <span class="k">:grants</span> [{<span class="k">:pool</span> <span class="k">:languages</span>           <span class="k">:count</span> <span class="n">2</span>}
+          {<span class="k">:pool</span> <span class="k">:skills</span>              <span class="k">:key</span> <span class="k">:athletics</span>}  <span class="c">; fixed → modifiers</span>
+          {<span class="k">:pool</span> <span class="k">:skills-or-tools</span>     <span class="k">:count</span> <span class="n">3</span>}
+          {<span class="k">:pool</span> <span class="k">:draconic-ancestries</span> <span class="k">:count</span> <span class="n">1</span>}]
+
+ <span class="c">;; spellcasting templates — unchanged until :spells is a pool</span>
+ <span class="k">:props</span> {<span class="k">:magic-novice</span> <span class="n">true</span>}}
+
+<span class="c">;; NOT in this file: :language-choice, :skill-tool-choice,
+;; :weapon-prof-choice, :armor-prof, :medium-armor-max-dex-3.
+;; A legacy pack carrying them is normalized to the shape
+;; above at import (legacy_shims.cljc); the form never sees them.</span></pre>
+
+<h3>What changed for the author</h3>
+<ul>
+ <li><b>Ten hardcoded widgets → one Grants card.</b> Languages, skill/tool, weapon, armor, resistance, ancestry — every "gain X" is the same row shape.</li>
+ <li><b>Fixed vs choice is one toggle</b>, not two different widgets living in two silos.</li>
+ <li><b>Numbers are numbers.</b> +1…+5 initiative and 5/10/15 speed were checkbox rows; now an Effects kind with a number field. The compiler never had the range.</li>
+ <li><b>AC vocabulary reaches feat.</b> Natural Armor and Armor Dex Cap were authorable only in fighting styles; the compiler accepted them all along.</li>
+ <li><b>Nothing to relearn</b> between feat and race: race is the same cards minus Prerequisites and Spellcasting.</li>
+</ul>
+<h3>What did not change</h3>
+<ul>
+ <li>Header, prerequisites, spellcasting templates — bespoke or shared as before.</li>
+ <li>Every legacy key still compiles. A pack from today imports, normalizes, and renders here as grant rows.</li>
+</ul>
+</div></div></div></body></html>

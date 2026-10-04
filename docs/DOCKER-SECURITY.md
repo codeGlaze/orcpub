@@ -111,6 +111,44 @@ app-builder stage doesn't copy secrets into the Docker layer cache. The final
 `app` image only contains the jar, but intermediate builder layers are cached
 and can be inspected with `docker history` or extracted from shared CI daemons.
 
+## Credentials in Logs
+
+A `datomic:sql` URI carries the database password in a query parameter:
+
+```
+datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
+```
+
+The boot log used to print it verbatim, and it was also embedded in three `ex-info` maps,
+which reach logs and error reporters just as readily. Anywhere boot output is kept had the
+production password in it: terminal scrollback, container logs, a log aggregator, a
+screenshot pasted into chat.
+
+`orcpub.config/redact-secrets` blanks credentials before anything logs them, in both shapes
+they arrive in:
+
+| Shape | Becomes |
+|---|---|
+| `?password=` / `passwd` / `pwd` / `secret` / `token` / `api-key` | `password=****` |
+| `scheme://user:pass@host` | `scheme://user:****@host` |
+
+Everything else is untouched, so host, port, database and user still show and the line stays
+useful for diagnosing a connection.
+
+**Two rules when adding to the boot output:**
+
+1. Anything that might carry a credential goes through `redact-secrets` first. The startup
+   banner is the most likely place for the next leak, because it is where connection details
+   naturally get added.
+2. Redacting is not a licence to log more. Redact what must be shown; do not print a secret
+   just because it will be masked.
+
+Pinned by `test/clj/orcpub/config_redaction_test.clj`, including the exact URI shape from the
+production log, alternate parameter names, upper case, and a password containing `=` or `&`.
+
+**If a URI was ever logged unredacted, rotate the credential.** The fix stops new exposure;
+it does nothing about logs already written.
+
 ## Log Directory: `/log` Not `/logs`
 
 Datomic's stock config sample uses `log-dir=log` (no trailing s). Our template

@@ -1,13 +1,8 @@
 (ns orcpub.dnd.e5.demo-content
-  "The demo/example content pack, as a declarative recipe built in code so it's
-   proofed by the compiler and the build — never hand-typed EDN. The build-time
-   emitter (orcpub.build.demo-emit) serializes this to the bundled .orcbrew the app
-   loads at boot.
-
-   Grow this pack as content features land: each addition doubles as a built-in
-   test that the feature exports, imports, and builds. Every item must carry
-   :option-pack (the load floor) and satisfy its content type's save spec. See
-   docs/kb/demo-content-tier.md."
+  "The demo content pack as a declarative recipe in code, checked by the compiler and the build,
+   never hand-typed EDN. orcpub.build.demo-emit serializes it to the bundled .orcbrew the app
+   loads at boot. Every item must carry :option-pack (the load floor) and satisfy its content
+   type's save spec. See docs/kb/demo-content-tier.md."
   (:require [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spells :as spells]))
 
@@ -47,9 +42,10 @@
       :name "Demo: Versatile"
       :option-pack source-name
       :description "You adopt a fighting style of your choice."
-      ;; Exercises the generic :grant primitive — a choice from a named pool. On
-      ;; the app path a feat grants from the built-in fighting styles.
-      :grant {:from :fighting-styles :choose 1}}}
+      ;; Exercises the generic :grants primitive from the fighting-style pool —
+      ;; built-in ++ homebrew, so it offers the demo style below alongside the SRD
+      ;; ones.
+      :grants [{:pool :fighting-styles :count 1}]}}
     ::e5/backgrounds
     {:demo-traveler
      {:key :demo-traveler
@@ -88,6 +84,18 @@
                       :line-width 5
                       :line-length 30
                       :save :orcpub.dnd.e5.character/dex}}}
+    ::e5/fighting-styles
+    {:demo-tidewarden
+     {:key :demo-tidewarden
+      :name "Demo: Tidewarden"
+      :option-pack source-name
+      :description (str "While you are not wearing heavy armor, you have a swimming "
+                        "speed of 30 feet.")
+      ;; Exercises homebrew fighting-style AUTHORING: a pack adds a style under
+      ;; ::e5/fighting-styles, it folds into the fighting-style pool, and the
+      ;; Demo: Versatile feat's :grants offers it. Its mechanic rides the shared
+      ;; :props vocabulary.
+      :props {:swimming-speed 30}}}
     ::e5/spells
     {:demo-spark
      {:key :demo-spark

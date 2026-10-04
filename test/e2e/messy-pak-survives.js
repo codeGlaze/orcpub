@@ -6,6 +6,8 @@
 //
 // Run: REPO=/abs/path/to/orcpub node test/e2e/messy-pak-survives.js   (exit 0 = pass)
 const { chromium } = require('playwright');
+// Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
+const { findChrome, dismissWhatsNew } = require('./lib');
 const http=require('http'),fs=require('fs'),path=require('path');
 const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8886);
@@ -19,9 +21,10 @@ const PLUGINS=`{"Default Option Source" {} "Messy Pak" {:orcpub.dnd.e5/races {`
 const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${x?'  '+x:''}`);};
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
-  const b=await chromium.launch();const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
+  const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load'}); await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);
+  await dismissWhatsNew(pg);   // the release panel opens at launch and eats clicks
 
   // the messy pack must appear in My Content (one bad entry didn't poison the whole pack read).
   // (My Content lists packs collapsed; the individual races load + work is proven in the builder below.)

@@ -2,6 +2,7 @@
   (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
             [orcpub.common :as common]
             [orcpub.template :as t]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spell-subs]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -19,6 +20,7 @@
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
                                                                     handle-api-response]]
+            [orcpub.dnd.e5.api-subs :as api-subs]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [orcpub.dnd.e5.http-safe :as http]
@@ -30,25 +32,26 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
+;; Browser vs test/CLJ compile-time split: the browser gets the real
+;; HTTP-backed reg-sub-raw via reg-api-sub; the test/CLJ path gets a
+;; plain reg-sub returning [] so the sub key is always registered but
+;; doesn't try to hit the network during tests.
 (if js/window.location
-  (reg-sub-raw
-   ::mi5e/custom-items
-   (fn [app-db [_ user-data]]
-     (when (and (:user-data @app-db) (:token (:user-data @app-db)))
-       (go (dispatch [:set-loading true])
-           (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
-                                        {:headers (auth-headers @app-db)}))]
-             (dispatch [:set-loading false])
-             (handle-api-response response
-               #(dispatch [::mi5e/set-custom-items (:body response)])
-               :on-401 (fn [])
-               :context "fetch custom items"))))
-     (ra/make-reaction
-      (fn [] (get @app-db ::mi5e/custom-items [])))))
+  (api-subs/reg-api-sub
+   {:sub-key    ::mi5e/custom-items
+    :route      routes/dnd-e5-items-route
+    :db-key     ::mi5e/custom-items
+    :set-event  ::mi5e/set-custom-items
+    ;; Silent 401 on purpose: the default (:route-to-login) can login-loop, since this sub fires
+    ;; on first subscribe and can race :verify-user-session. The warn is diagnostic only (#669);
+    ;; grep the console for "custom-items fetch rejected".
+    :on-401     (fn [_]
+                  (js/console.warn
+                   "custom-items fetch rejected (401); session may be stale"))
+    :context    "fetch custom items"})
   (reg-sub
    ::mi5e/custom-items
-   (fn [_ _] []))
-  )
+   (fn [_ _] [])))
 
 ;; Ephemeral overlay of custom items that arrived embedded in a share link
 ;; (view-once). Held raw in db :shared-custom-items — never persisted, never in
@@ -261,35 +264,44 @@
           mi5e/all-magic-items-map
           maps)))
 
-(reg-sub
- ::mi5e/remote-items
- (fn [db _]
-   (::mi5e/remote-items db)))
+;; ============================================================================
+;; ORPHANED, commented out: the client side of `GET /api/dnd/e5/items/:id` (another user's item by
+;; db-id). Nothing subscribes; views/item-page reads ::mi/custom-item. To restore, also uncomment
+;; ::mi/add-remote-item in events.cljs ("ORPHANED: see equipment_subs"). Chain, guard trap and
+;; open questions: plan-669-merge-verification.md (agents/develop).
+;; ============================================================================
 
-(reg-sub-raw
- ::mi5e/remote-item
- (fn [app-db [_ id]]
-   (when (and (:user @app-db) (:token (:user @app-db)))
-    (go (dispatch [:set-loading true])
-       (let [response (<! (http/get (url-for-route
-                                      routes/dnd-e5-item-route
-                                      :id id)
-                                    {:headers (auth-headers @app-db)}))]
-         (dispatch [:set-loading false])
-         (handle-api-response response
-           #(dispatch [::mi5e/add-remote-item (:body response)])
-           :context "fetch item"))))
-   (ra/make-reaction
-    (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
+#_(reg-sub
+    ::mi5e/remote-items
+    (fn [db _]
+      (::mi5e/remote-items db)))
 
-;; Unused — item detail lookup with remote HTTP fetch for int keys.
-;; Groundwork for a magic item detail page. Restore when needed.
 #_(reg-sub-raw
-   ::mi5e/item
-   (fn [_app-db [_ key]]
-     (if (int? key)
-       (subscribe [::mi5e/remote-item key])
-       (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
+    ::mi5e/remote-item
+    (fn [app-db [_ id]]
+      ;; Guard uses event-utils/get-auth-token (canonical path). Original
+      ;; was `(and (:user @app-db) (:token (:user @app-db)))` which was
+      ;; wrong — db[:user] has never contained :token. Fixed here so the
+      ;; next restorer doesn't re-hit 45ef969's typo.
+      (when (event-utils/get-auth-token @app-db)
+        (go (dispatch [:set-loading true])
+            (let [response (<! (http/get (url-for-route
+                                           routes/dnd-e5-item-route
+                                           :id id)
+                                         {:headers (auth-headers @app-db)}))]
+              (dispatch [:set-loading false])
+              (handle-api-response response
+                #(dispatch [::mi5e/add-remote-item (:body response)])
+                :context "fetch item"))))
+      (ra/make-reaction
+       (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
+
+#_(reg-sub-raw
+    ::mi5e/item
+    (fn [_app-db [_ key]]
+      (if (int? key)
+        (subscribe [::mi5e/remote-item key])
+        (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
 (reg-sub
  ::equipment5e/armor-map
@@ -319,6 +331,7 @@
  :<- [::classes5e/classes]
  :<- [::feats5e/feats]
  :<- [::langs5e/language-map]
+ :<- [::e5/grantable-pools]
  (fn [[magic-weapon-options
        magic-armor-options
        other-magic-item-options
@@ -330,7 +343,8 @@
        races
        classes
        feats
-       language-map] _]
+       language-map
+       grantable-pools] _]
    (t5e/template-selections magic-weapon-options
                             magic-armor-options
                             other-magic-item-options
@@ -342,7 +356,8 @@
                             races
                             classes
                             feats
-                            language-map)))
+                            language-map
+                            grantable-pools)))
 
 (reg-sub
  ::char5e/template

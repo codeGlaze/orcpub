@@ -22,23 +22,18 @@
     (.encodeToString (Base64/getEncoder) bytes)))
 
 (defn build-csp-header
-  "Build a Content-Security-Policy header string with strict-dynamic and nonce.
-
-   Options:
-     :dev-mode?         - When true, adds ws://localhost:3449 to connect-src
-     :extra-connect-src - Seq of additional connect-src origins (from integrations)
-     :extra-frame-src   - Seq of additional frame-src origins (from integrations)
-
-   The resulting CSP:
-     - Uses 'strict-dynamic' for script-src (only nonced scripts execute)
-     - Allows Google Fonts for styles and fonts
-     - Restricts all other sources to 'self'
-     - Blocks object embeds, restricts base-uri, frame-ancestors, and form-action"
+  "Build a strict Content-Security-Policy header string for `nonce`.
+   Options: :dev-mode? adds ws://localhost:3449 to connect-src; :extra-connect-src and
+   :extra-frame-src are seqs of extra origins (from integrations).
+   script-src is 'strict-dynamic' plus the nonce, so only nonced scripts execute. Styles and
+   fonts also allow Google Fonts, images data: and https:; object-src is 'none'; everything
+   else, including base-uri, frame-ancestors and form-action, is 'self'."
   [nonce & {:keys [dev-mode? extra-connect-src extra-frame-src]}]
   (str "default-src 'self'; "
        "script-src 'strict-dynamic' 'nonce-" nonce "'; "
-       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' https://fonts.gstatic.com; "
+       ;; Fonts are self-hosted (docs/kb/fonts.md) — no CDN hosts needed here.
+       "style-src 'self' 'unsafe-inline'; "
+       "font-src 'self'; "
        "img-src 'self' data: https:; "
        "connect-src 'self'"
        (when (seq extra-connect-src) (str " " (str/join " " extra-connect-src)))

@@ -11,6 +11,79 @@ content-extensibility work. It surfaced while verifying that work; it is not cau
 
 ---
 
+## 0. Current measured state — 2026-09-12, `feature/grant-rows` (after the `integration` merge)
+
+| suite | how | result |
+|---|---|---|
+| JVM — the CI gate | `lein test` | **701 tests / 5343 assertions, 0 failures, 0 errors** |
+| CSS | `lein garden once` | exit 0 |
+| browser e2e | `lein e2e-server` + `node test/e2e/<name>.js` | `homebrew-grand-tour` 69/69, `spell-builder` 39/39, `fighting-style-builder` 29/29, `feat-grants` 27/27, `unknown-tag-warning` 15/15, `language-builder` 12/12, `imported-style-usable` 10/10, `builder-gallery` no drift |
+
+**12 of the 26 e2e scripts cannot launch a browser in this container** — they predate `lib.js` and
+call `chromium.launch()` with no `executablePath`, so Playwright looks for a bundled browser that is
+not installed. Pre-existing, unrelated to the merge, and the reason a "run everything" sweep looks
+emptier than it is. They adopt `lib.js/findChrome` when touched.
+
+The merge brought in two things that broke e2e across the board. Both are fixed; neither was a
+test-only problem.
+
+**The What's New backdrop.** `.whats-new-backdrop` is fixed over the viewport and swallows every
+click behind it. It used to be held back while the cookie notice was up and then opened ~450ms after
+the first click on the document — a popup that arrives seconds later, which is both bad for a reader
+and untestable by dismissing it on arrival. The hold is gone: the panel opens at launch and the
+backdrop STOPS ABOVE the cookie notice (measured, `views/whats_new.cljs`), so both are on screen and
+both are usable, and the panel grows into the space when the notice goes. For tests,
+`lib.js/dismissWhatsNew` stamps the seen-key (read at boot, from `whats_new.cljc` so it does not rot
+on the next release) and reloads once if the page booted unstamped.
+
+**Saving the same item twice was refused.** `save-collision` tells an edit returning to its own slot
+from a name landing on somebody else's by comparing `:key` on the item in the builder — and save
+never stamped that key back onto it. So: author an item, save, fix a typo, save again → *"already
+uses the name … Saving would replace it"*, with no way forward but renaming. A live bug, not a test
+artifact; `reg-save-homebrew` now returns the stamped item in `:db` and persists it to the builder's
+WIP slot (`::persist-builder-wip`).
+
+**And what that stamp exposed.** Reagent reads a component's React key from `(:key props)` when the
+first argument is a map — and `simple-content-builder` passes the item being edited. With `:key` on
+it, every field in a section rendered under the same React key (`Encountered two children with the
+same key, :frost-wyrm`, caught by the grand tour's no-JS-errors check). Latent, not new: opening any
+saved item for editing does the same thing. The field lists now carry explicit `^{:key …}`.
+
+---
+
+## 0.1 Earlier measured state — 2026-09-05, `feature/fighting-style-authoring`
+
+Both suites run in this container. The numbers below are from one run each on that date; the
+sections after this one are the older investigation and are kept for the diagnosis they carry.
+
+| suite | how | result |
+|---|---|---|
+| JVM (`clj` + `cljc`) — the CI gate | `lein test` | **463 tests / 2631 assertions, 0 failures, 0 errors** |
+| ClojureScript — not in CI | `lein fig:test` then `node test/e2e/cljs-harness.js` | **350 tests / 1726 assertions, 4 failures, 2 errors** |
+
+**The 4 cljs failures are one cluster**, all in `format-import-result-*` (`import_validation_test`):
+`re-find` of a leading **emoji** (⚠️ / ✅) against the formatted message. Same shape in each, none of
+them touched by this branch. Suspect the harness's unicode handling rather than the assertion — the
+captured log renders ⚠️ as mojibake — but that is untested; do not close it as "environment" without
+checking the string in a browser REPL.
+
+**The 2 errors** include `test-character-spec` (`character_test.cljc`), pre-existing and long-standing.
+
+**Two errors were fixed here, and both were self-inflicted:** `bucketing-analysis` and
+`bucketing-is-wrong-if-a-calculation-is-misgrouped` came from `ac_outer_loop_analysis_test`, a JVM
+timing benchmark written as `.cljc` — `System/nanoTime` does not exist in cljs. Moved to
+`test/clj/…/ac_outer_loop_analysis_test.clj`; still 3 tests / 12 assertions green on the JVM.
+**The lesson generalizes: a benchmark or anything using JVM interop must be `.clj`, not `.cljc`.**
+Nothing in the build catches it, because the cljs suite is not in CI — which is section 1's point.
+
+**Harness caveat.** The mode-B DOM reporter prints `4 failures / 2 errors / 350 Tests /
+1726 Assertions` as separate lines, not the `Ran N tests containing N assertions.` line the driver
+waits for, so `cljs-harness.js` reports `SUMMARY: (none)` and falls through its 240s timeout before
+dumping the body. The results are correct and the full body lands in `target/test/cljs-run.log`;
+the driver's regex is simply written for mode A. Fix it when it next annoys someone.
+
+---
+
 ## 1. What runs where (the gate reality)
 
 - **CI** (`.github/workflows/continuous-integration.yml`) runs **only `lein lint` + `lein test`** — JVM, `clj` + `cljc`. ✅ verified (workflow has no cljs/figwheel step).

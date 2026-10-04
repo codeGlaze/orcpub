@@ -1,4 +1,10 @@
 (ns orcpub.template
+  "The template vocabulary, content-neutral. `option-cfg` is ONE choosable thing (`::modifiers`,
+   `::selections`, `::prereqs`); `selection-cfg` is a PICK among options (`::options`, `::min`,
+   `::max`, `::prereq-fn`). Both take unqualified keys and return `::t/`-qualified ones, defaulting
+   `::key` from the name, `::source :phb`, `::min 1`, and `::max` 1 unless `multiselect?`.
+   `make-modifier-map` builds the path-keyed index `entity/build` reads; `::ref` selections are
+   hoisted to their ref path. docs/kb/content-to-character-pipeline.md"
   (:require [clojure.spec.alpha :as spec]
             [clojure.spec.test.alpha :as stest]
             [orcpub.modifiers :as modifiers]

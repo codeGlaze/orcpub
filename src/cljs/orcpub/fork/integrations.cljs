@@ -1,14 +1,9 @@
 (ns orcpub.fork.integrations
-  "Client-side integration hooks with minimal defaults.
-   Fork overrides: replace with full implementations.
-
-   Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops.
-   UI hooks provide basic defaults (e.g. supporter-link shows a Patreon
-   button when configured, share-links provides a single email link).
-
-   Companion to integrations.clj (server-side head tags).
-   Server-side loads third-party scripts in <head>;
-   this namespace provides the in-app component hooks."
+  "Client-side integration hooks with minimal defaults; forks replace them with full
+   implementations. Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops; UI
+   hooks have basic defaults (supporter-link shows a Patreon button when configured,
+   share-links gives Copy link + native Share). Companion to integrations.clj, which loads
+   third-party scripts in <head>; this namespace provides the in-app component hooks."
   (:require [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.dnd.e5.character :as char5e]
@@ -88,7 +83,9 @@
 
 (defn sheet-styles
   "Available character sheet styles. Returns the default sheet only.
-   Fork overrides: return additional styles gated by user tier."
+   Fork overrides: give extra styles only to a tier you positively recognise (\"is this a
+   paying tier\", not \"is this not :free\" -- nil or a string tier must fail closed), and
+   gate `pdf-options-slot` on the same predicate."
   [_user-tier]
   [{:title "Original 5e Character sheet" :value 1}])
 
@@ -97,17 +94,16 @@
 ;; Fork overrides: return hiccup for premium feature promos, etc.
 
 (defn pdf-options-slot
-  "Additional content below PDF options. Returns nil by default."
+  "Additional content below PDF options. Returns nil by default.
+
+   Fork overrides: key this on the same predicate that gates `sheet-styles`, so
+   the pitch appears exactly when the extra styles are locked."
   [_user-tier]
   nil)
 
 ;; ─── Sharing ─────────────────────────────────────────────────
-;; People share a character by sending its link (WhatsApp, Discord,
-;; a DM), so the primary action is "copy the link" — not "open my
-;; mail client". On browsers that expose the native share sheet
-;; (navigator.share — mobile and most modern desktop browsers), we
-;; also offer "Share", which hands the URL to the OS so the user can
-;; pick WhatsApp/Messages/Mail/etc. directly.
+;; The primary action is "copy the link"; where navigator.share exists, "Share" also
+;; hands the URL to the OS share sheet.
 ;; Fork overrides: add frame support, per-network buttons, etc.
 
 (defn- char-url
@@ -149,22 +145,12 @@
   (boolean (some-> js/navigator .-share)))
 
 (defn share-controls
-  "Reactive share cluster for a character: Copy link (+ native Share where the
-   browser supports it), both carrying a link with the character's homebrew
-   embedded in the URL fragment (share-bundle -> share-url). The embedded URL is
-   recomputed only when the character or plugins actually change (identical?
-   guard, so it is not rebuilt on every render), which keeps it ready
-   synchronously when a button is clicked — gesture-safe for the native share
-   sheet and the async clipboard alike. Falls back to the plain character URL for
-   a vanilla character, while a payload is still encoding, or when the homebrew is
-   too big to fit in a link (:file tier — the recipient then needs the .orcbrew).
-
-   `variant` styles the buttons to sit flush with their siblings in each context —
-   the app renders header and list buttons differently:
-     :header — tall header buttons (.h-40, icon at .f-s-18, label hidden at xs
-               via .header-button-text) matching the page-header action row.
-     :list   — compact card-row buttons (.m-r-5, small inline icon) matching the
-               character-list sibling buttons."
+  "Reactive share cluster for a character: Copy link, plus native Share where supported,
+   both carrying the character's homebrew in the URL fragment (share-bundle -> share-url).
+   The URL is rebuilt only when the character, plugins or custom items change, so it is ready
+   synchronously on click. Falls back to the plain URL for a vanilla character, while encoding,
+   or when the homebrew is too big for a link (:file tier). `variant` is :header (tall header
+   buttons, label hidden at xs) or :list (compact card-row buttons)."
   [id variant]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]

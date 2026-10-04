@@ -31,6 +31,93 @@
       (into [:script attrs] body)
       [:script attrs])))
 
+(def ^:private rescue-filename "orcpub-homebrew-rescue.orcbrew")
+
+(defn boot-rescue
+  "The rescue control plus the inline script that arms it. Separate <script>
+   tags are independent, so a throw inside the app bundle cannot stop this one
+   from having run. `window.orcpubBootOk` is what the app calls to take it away."
+  [nonce]
+  (list
+   [:div#boot-rescue
+    {:style (str "position:fixed;left:0;right:0;bottom:0;z-index:2147483000;"
+                 "display:none;gap:12px;align-items:center;justify-content:center;"
+                 "flex-wrap:wrap;padding:10px 14px;background:#2c3445;"
+                 "border-top:1px solid rgba(255,255,255,0.15);"
+                 "font-family:Open Sans,system-ui,sans-serif;font-size:13px;"
+                 "color:#e8ebf0;line-height:1.5")}
+    [:span#boot-rescue-note]
+    [:button#boot-rescue-btn
+     {:type "button"
+      :style (str "font:inherit;font-weight:600;letter-spacing:0.04em;"
+                  "text-transform:uppercase;color:#080A0D;background:#f0a100;"
+                  "border:0;border-radius:3px;padding:8px 16px;cursor:pointer")}
+     "Download my homebrew"]]
+   (script-tag
+    {:nonce nonce}
+    (str "
+     (function () {
+       var el = document.getElementById('boot-rescue');
+       var btn = document.getElementById('boot-rescue-btn');
+       var note = document.getElementById('boot-rescue-note');
+       if (!el || !btn || !note) { return; }
+
+       // Read at every decision point, never once at load. A snapshot taken when
+       // the page opened is how a rescue hands someone an empty or hours-old
+       // file: they had nothing when it loaded, or they built for an hour after,
+       // and the copy it kept never moved.
+       function readPlugins() {
+         try {
+           var v = localStorage.getItem('plugins');
+           return (!v || v === '{}') ? null : v;
+         } catch (e) { return null; }
+       }
+
+       function sizeOf(s) {
+         var kb = s.length / 1024;
+         return kb < 1 ? s.length + ' bytes'
+              : kb < 10 ? kb.toFixed(1) + ' KB'
+              : Math.round(kb) + ' KB';
+       }
+
+       // Shown only when there is something to save, and labelled with what is
+       // there RIGHT NOW — the size is the only evidence the user has that the
+       // file about to download is really their content.
+       function show() {
+         var raw = readPlugins();
+         if (!raw) { el.style.display = 'none'; return; }
+         note.textContent = 'Your homebrew is saved in this browser ('
+           + sizeOf(raw) + '). Download a copy:';
+         el.style.display = 'flex';
+       }
+
+       // Hidden, not removed: the app can crash AFTER a clean first render, and
+       // then the error screen asks for it back — re-checked at that moment, so
+       // work done during the session counts even if the page opened empty.
+       window.orcpubBootOk = function () { el.style.display = 'none'; };
+       window.orcpubBootRescue = show;
+
+       btn.addEventListener('click', function () {
+         var raw = readPlugins();
+         if (!raw) {
+           note.textContent = 'Nothing is saved in this browser to download.';
+           return;
+         }
+         var url = URL.createObjectURL(
+           new Blob([raw], { type: 'text/plain;charset=utf-8' }));
+         var a = document.createElement('a');
+         a.href = url;
+         a.download = '" rescue-filename "';
+         document.body.appendChild(a);
+         a.click();
+         document.body.removeChild(a);
+         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+       });
+
+       show();
+     })();
+    "))))
+
 (defn index-page [{:keys [url
                           title
                           description
@@ -152,19 +239,30 @@ html {
        [:div.h-full {:style "display:flex;justify-content:space-around"}
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
+    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
+    ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
+    ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
+    ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
+    (boot-rescue nonce)
     (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
+    ;; Under CSP_POLICY=strict outside dev mode, the CSP is enforcing and every script needs
+    ;; this nonce (orcpub.pedestal/make-nonce-interceptor)
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
+    ;; Self-hosted — see resources/public/css/open-sans.css and docs/kb/fonts.md. Was a
+    ;; fonts.googleapis.com link; that is a third-party dependency, leaks visitor IPs, and fails
+    ;; outright in a sandboxed browser.
+    (include-css "/css/open-sans.css")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
       (script-tag {:nonce nonce}
        (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
+        const noLibrary = () => {
+          const p = localStorage.getItem('plugins');
+          return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
+        };
+        if (noLibrary()) {
           fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
@@ -173,8 +271,10 @@ html {
               return resp.text();
             })
             .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
+              // only into a library that is still empty, and bumped like any write so other tabs reload
+              if (!text.toUpperCase().includes('NOT FOUND') && noLibrary()) {
                 localStorage.setItem('plugins', text);
+                localStorage.setItem('plugins:rev', String(Number(localStorage.getItem('plugins:rev') || 0) + 1));
                 window.location.reload(false);
               }
             })

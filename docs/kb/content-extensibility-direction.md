@@ -166,6 +166,38 @@ offering the `:boon` pool — **no boon↔feat wiring.**
      `:props` map (extra mechanics — speed/flying/saves/skills/languages), compiled by the
      **existing** `opt5e/plugin-modifiers` vocabulary. Built-ins unchanged.
 
+4. ✅ DONE — **the pool REGISTRY, and the maintainability gate met.** `grant_pools.cljc` is the
+   single registry; `::e5/grantable-pools` assembles it from `plugin-vals`; `template-selections`
+   takes that one map and hands it to every assembly fn that compiles a `:grants`.
+   - **The gate, measured.** Registering `:skills` — the third pool — cost **one entry in
+     `grant_pools.cljc` and nothing else**: no change to `template-selections`, no new sub, no
+     arity, no assembly fn. That is the "~1-line registration, shown in a commit" acceptance
+     test this doc sets, and it passes. Before this, registering a pool cost five positionally
+     coupled edits across three files (a `:<-` line, a destructure slot, a call argument, a new
+     arity, a map entry) — transpose two and you get the wrong pool with no error.
+   - **Discipline 1 held.** A pool's entry is `(fn [plugin-vals] -> [option-cfg …])`, not a
+     description. The three registered pools disagree about what a built-in *is* — languages and
+     draconic hold raw data, fighting styles' built-ins are already option-cfgs, skills have no
+     homebrew half — and each absorbs that itself. `assemble` and `grant-selection` contain no
+     branch over pool kind. An earlier draft of this work proposed a `:built-in-compiled?`
+     descriptor key; that is the D14 god-function trap hoisted one level, and it was rejected.
+   - **Open vs closed is data, not a mechanism.** A closed pool ignores `plugin-vals`. That is the
+     whole difference, exactly as "blank-slate parametric grants are just built-in pools" says.
+   - **Vocabulary converged on the decided spelling, with no alias.** `grant-selection` reads
+     `{:pool … :count …}` and nothing else. The bridge prototype's `{:from … :choose …}` was briefly
+     kept readable and then removed: a compatibility shim for a shape introduced on this same branch
+     is tech debt from birth, and D9 protects *released* data, not a week-old prototype spelling.
+     The names are also load-bearing — `:from` and `:choose` are both already taken by the
+     starting-equipment vocabulary (`{:name "Martial Weapon" :from :martial}`; `:choose` holds a
+     vector of sub-choices there and a count in `:profs`), so reusing either would put two unrelated
+     registries behind one keyword.
+   - **Scoping metadata declared.** Each pool carries `:offerable-by` — "which builders may offer
+     me". No builder UI consumes it yet; the grant-authoring UI remains the next lever.
+   - Pools registered: `:languages`, `:fighting-styles`, `:skills`. Silos wired: feat, race.
+   - Tests: `grant_pool_registry_test.clj` (the gate + the two disciplines),
+     `race_grant_pool_test.clj` (both verbs through the hook, on the real registry).
+   - Still open: no builder emits `:grants`. This is the data path only.
+
 ### Validation against official expansion (Fizban's Treasury of Dragons, FTD)
 Checked FTD because it officially expands draconic ancestry — a real stress-test, not theory.
 It expands along **three axes**, and the pool model maps cleanly onto where each lands:
@@ -208,8 +240,8 @@ for ADDING a type (the real answer to "is this easier?"):
 
 The genuinely irreducible core is small: **the field schema (data) + a reusable widget registry
 for complex fields + the field→mechanics mapping** (mostly the existing `:props` vocabulary). NOT
-a bespoke form per type. (Spec-from-field-schema is the next collapse — a field schema would also
-generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
+a bespoke form per type. (Spec-from-field-schema **landed** — `bf/fields->spec`, `8a07531e` —
+so the field schema generates the spec too; the table's spec row is no longer hand-written.)
 
 **Reusable builder-UI widgets (`views.cljs`) — reach for these before hand-rolling:**
 - `render-builder-field` — one declarative field → widget, dispatching `set-prop`. Types: `:enum`
@@ -260,15 +292,19 @@ one-liners." The fix: make each layer **generate** its wiring from the registry.
   `content_types_routes_test` (drift: literals == route_map vars; bidi: every URL resolves;
   set + allowlist membership). `route_map` keeps only the one route-keyword `def` per type
   (D6 — referenced by symbol in views/core); `routes.clj` needs **no** per-type edit.
-- ⚠️ **core page-map** — NOT a clean win, skip: a builder's view *function* can't be derived
-  from data (cljs has no reliable runtime symbol→var resolution), so generating it only *moves*
-  a per-type binding (best co-located in a `views/builder-page-views` map next to the forms).
-  The view-fn binding is irreducible; put it where the form already is.
+- ✅ **core page-map** (2026-09-04) — generated after all, by `orcpub.dnd.e5.page-map/builder-pages`,
+  a **compile-time macro** over the registry emitting `views/<route-seg>-page`. The earlier
+  "irreducible" call conflated runtime symbol resolution (genuinely impossible in cljs) with
+  compile-time emission (routine); all 15 entries already followed the naming convention. A
+  missing view fn is a cljs *warning*, not an error, so the hard guard is a JVM test
+  (`every-registered-type-has-a-builder-page-view`). Recorded as a D22-class reversal in
+  `content-extensibility-framework.md`.
 
-**Net after events+db+routes:** adding a homebrew type no longer touches events.cljs, db.cljs,
-or routes.clj, and route_map only needs its one route-keyword `def`. Remaining per-type files:
-the registry entry (the one you should write), the view form (irreducible custom UI), the spec
-(until spec-from-field-schema), the route-keyword def, and the core/views view binding.
+**Net after events+db+routes+page-map:** adding a homebrew type no longer touches events.cljs,
+db.cljs, routes.clj, or core.cljs, and route_map only needs its one route-keyword `def`.
+Remaining per-type files: the registry entry, the view form (`simple-content-builder` + a field
+schema), the spec (generated from that schema — `bf/fields->spec`, `8a07531e`), and the
+route-keyword def.
 
 ### NEXT levers (pick per value)
 - (a) **author-declarable grants** (the biggest remaining lever). Re-scoped after the D17 audit:
@@ -277,10 +313,30 @@ the registry entry (the one you should write), the view form (irreducible custom
   load-bearing `:ref`/`:tags`. The real work is (i) point those selections' `:options` at an
   **open pool** (built-in ++ homebrew), and (ii) let an author declare a grant as data that
   **compiles to the same `selection-cfg`** (preserving `:ref`/`:tags`) + the authoring UI. The
-  code-side constructors stay. NOTE: `content_pools` has `pool` but NO grant compiler yet —
-  draconic hand-wires its grant; that hand-wire is the thing to generalize (carefully).
-- (b) **spec-from-field-schema** — generate the `s/keys` spec from the field list, removing the
-  one hand-written row left in the cost table;
+  code-side constructors stay. **UPDATE 2026-09:** the grant compiler now exists —
+  `opt5e/grant-selection`, a thin pool-agnostic compiler with four modes (ALL / FILTERED /
+  SPECIFIC / CUSTOM), proven end-to-end on the feat silo (`fighting_style_grant_matrix_test`).
+  (i) the class path — ✅ **threaded 2026-09-02** (`45e29a1b`): `fighting-style-selection`
+  concats `(eligible-homebrew-styles class-kw additional-options)` (`options.cljc:2109`), the
+  `:classes` divvying rule from `fighting-style-authoring.md`. (This line said "not yet threaded"
+  until 2026-09-07; it was stale.) Remaining (a) work is (iii) the authoring UI, still unbuilt —
+  and one D30 gap surfaced 2026-09-07, below.
+
+  **D30 gap — confirmed, then CLOSED (2026-09-07).** Pools now carry `:tags` in their
+  `grant_pools.cljc` entry and `grant-selection` merges them into `#{:grant <pool>}`; a granted
+  language carries `:profs :language-profs` and lands on Proficiencies. Pinned by
+  `pools-carry-their-tags`. `:ref` stays out (verified to break nested addressing). The record of
+  how it was found follows. D30 warned that `grant-selection`
+  as built carries generic `:tags #{:grant <pool>}` and no `:ref`, dropping the metadata the bespoke
+  constructors carry. Wiring race through it confirmed the consequence: `language-selection-aux`
+  tags `#{:profs :language-profs}` and the character builder routes selections to tabs by tag, so
+  a bespoke language choice lands on the Proficiencies tab and a `{:grants [{:pool :languages}]}`
+  choice does not — it renders nested under its owner. Mechanics are identical (both emit
+  `modifiers/language`); placement is not. The fix is discipline 1 applied to metadata: the
+  **pool's own registry entry carries its `:tags`** (`:languages` → `#{:profs :language-profs}`),
+  and `grant-selection` merges them. `:ref` stays out — the prototype verified that a `:ref` on a
+  nested grant breaks its addressing. Not built yet; recorded so it is not rediscovered.
+- (b) ✅ **spec-from-field-schema** — DONE (`8a07531e`); `bf/fields->spec` generates it;
 - (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at
   the *same* ancestry pool, so one pool feeds two silos ("built here, called over there");
 - (d) **breath-area field** + the level-gated/variant pins for full FTD coverage.
@@ -314,6 +370,19 @@ the registry entry (the one you should write), the view form (irreducible custom
   (the `?total-levels` conditional, as breath-weapon damage dice use); the gap is exposing it
   declaratively. Likely needs a new `:props` key added to `make-feat-modifiers`
   (`options.cljc:3287`) for telepathy and similar, too.
+
+## Landed since this doc's last revision (2026-09) — read these, don't re-derive
+- **AC engine refactor** — `armor-class-refactor.md`. `?ac-fns`/`?ac-bonus-fns` given constructors;
+  the universal authored shape `{:ac …}` / `{:ac-bonus …}` / `{:armor-gives-no-ac …}`; 18 → 10
+  attributes; engine extracted to `orcpub.dnd.e5.armor-class`; parity sweep pinned at 0. The
+  roadmap's Track D1 is essentially delivered by this.
+- **Shared `:props` fragments** — `ac-bonus-fields`, `attack-bonus-fields`, `damage-bonus-fields`
+  in `builder_fields.cljc`; the weapon predicate `weapons/matches?`. First cross-type field data;
+  everything before was per-type. `builder-form-schemas.md` §0.
+- **Fighting-style builder** (Phase B of `fighting-style-authoring.md`) — registry entry, page,
+  nav, generated page-map binding. `lein test` at 0 failures.
+- **Two shipped bugs fixed** — Bracers of Defense lost on natural armor (ported to `integration`);
+  every `:number` builder field threw `1 is not ISeqable`.
 
 ## What already stands (don't redo)
 - `register-homebrew-content!` (the wiring sub-layer) + boon swapped through it.

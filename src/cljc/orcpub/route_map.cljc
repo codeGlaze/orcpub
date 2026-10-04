@@ -54,6 +54,7 @@
 (def dnd-e5-boon-builder-page-route :boon-builder-5e-page)
 (def dnd-e5-draconic-ancestry-builder-page-route :draconic-ancestry-builder-5e-page)
 (def dnd-e5-feat-builder-page-route :feat-builder-5e-page)
+(def dnd-e5-fighting-style-builder-page-route :fighting-style-builder-5e-page)
 (def dnd-e5-selection-builder-page-route :selection-builder-5e-page)
 
 (def dnd-e5-spell-page-routes #{dnd-e5-spell-list-page-route
@@ -102,6 +103,7 @@
 (def login-page-route :login-page)
 (def follow-user-route :follow-user)
 (def character-pdf-route :character-pdf)
+(def image-probe-route :image-probe)
 (def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
@@ -133,6 +135,7 @@
                           "/email" user-email-route}
 
                   "character.pdf" character-pdf-route
+                  "image-probe" image-probe-route
                   "check-email" check-email-route
                   "check-username" check-username-route
 

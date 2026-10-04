@@ -1,4 +1,10 @@
 (ns orcpub.dnd.e5.options
+  "Authored content -> template pieces: turns a race, class, background or feat (built-in or
+   homebrew, one path) into the `option-cfg`s and `selection-cfg`s `template.cljc` assembles.
+   Entry points, one per silo, each returning one `option-cfg`: `race-option` `subrace-option`
+   `class-option` `subclass-option` `background-option` `feat-option-from-cfg`.
+   GOTCHA: a selection's `:prereq-fn` gates only whether the builder OFFERS it; `entity/build`
+   still applies a pick saved while it passed (hidden-selection-picks.md)."
   (:require [clojure.string :as s]
             [clojure.set :as sets]
             [orcpub.common :as common]
@@ -11,6 +17,8 @@
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.modifiers :as modifiers]
             [orcpub.dnd.e5.weapons :as weapons]
+            [orcpub.dnd.e5.damage-types :as dt]
+            [orcpub.dnd.e5.requirements :as reqs]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.armor :as armor]
@@ -121,20 +129,9 @@
     :key :unconscious
     :icon "coma"}])
 
-(def damage-types
-  [:acid
-   :bludgeoning
-   :cold
-   :fire
-   :force
-   :lightning
-   :necrotic
-   :piercing
-   :poison
-   :psychic
-   :radiant
-   :slashing
-   :thunder])
+;; The damage-type VOCABULARY lives in damage_types.cljc — one def that weapons, spells, breath
+;; weapons and the resistance/immunity pools all index into. This name is kept for its callers.
+(def damage-types dt/damage-types)
 
 (def conditions-map
   (common/map-by-key (common/add-keys conditions)))
@@ -259,13 +256,10 @@
     :selections [(ability-increase-selection ability-keys num-increases different?)]
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
-;; --- Ability-increase spreads (roadmap A4) ------------------------------------------------------
-;; A race/feat/background's :ability-increases is ONE spread: a terse list of [amount pool] pairs,
-;; e.g. [[2 :cha] [1 :martial]] = "+2 CHA, +1 to any martial stat". The whole list is the unit of
-;; the Tasha's "different abilities" rule — every increment lands on a DISTINCT ability. A pool is
-;;   :any | :martial | :mental (named groups) | #{:wis :con} (explicit set) | :con (single stat = FIXED).
-;; Short ability keywords are namespaced here so authors keep the export compact (rationale +
-;; full format spec: docs/kb/ability-increase-spreads.md).
+;; --- Ability-increase spreads: format in docs/kb/ability-increase-spreads.md -----------------
+;; :ability-increases is ONE spread of [amount pool] pairs, e.g. [[2 :cha] [1 :martial]]; every
+;; increment in it lands on a DISTINCT ability. A pool is :any | :martial | :mental | an explicit
+;; set #{:wis :con} | a single stat such as :con (FIXED). Short ability keys are namespaced here.
 (def ability-groups
   {:any     (set character/ability-keys)
    :martial #{::character/str ::character/dex ::character/con}
@@ -285,39 +279,23 @@
     :else                 #{(ns-ability pool)}))
 
 (defn pool-entry?
-  "Is `e` a well-formed [amount/count pool …] entry — a vector with a NUMERIC first element and a pool
-   that resolve-pool can handle (keyword or collection)? Junk (non-vectors, a missing/non-numeric
-   amount, a nil/number pool) is skipped by the compilers so ONE malformed entry in a homebrew pak
-   can't crash the whole race/background list at the sub's fan-out (resolve-pool on nil would NPE).
-   The entry is un-compilable, not meaningful data — the authoring form is where a creator sees bad
-   input; here the job is fan-out crash-safety.
-   FOLLOW-UP (harden → surface, guardrail 6): runtime skips silently (correct for a sub's fan-out), but
-   the AUTHORING form should report 'N entries ignored as malformed' (save-coverage-notes is the home).
-   Tracked in docs/kb/data-safety-layers.md."
+  "Is `e` a well-formed [amount pool] entry — a vector with a numeric amount and a pool resolve-pool
+   can handle? Junk is skipped so one malformed entry in a homebrew pak cannot crash a whole
+   race/background list at the sub's fan-out.
+
+   GOTCHA: skipping is SILENT at runtime, by design. Surfacing it belongs in the authoring form;
+   see docs/kb/data-safety-layers.md."
   [e]
   (and (vector? e)
        (number? (first e))
        (let [p (second e)] (or (keyword? p) (coll? p)))))
 
 (defn compile-ability-increases
-  "Compile a :ability-increases spread (list of [amount pool] pairs) -> {:modifiers :selections}.
-   Single-stat pools are FIXED (race-ability modifiers, applied always); multi-stat pools are
-   FLOATING — the player assigns each amount to a distinct ability. All floating slots live in ONE
-   :asi selection that carries the full spread on ::t/spread, so the assign-from-bag widget can show
-   the fixed labels, offer each slot its own pool, and enforce one-ability-per-spread. The slot
-   options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
-   empty -> {} (a race without :ability-increases is unchanged).
-
-   SAVE RIDER (opt-in): an increment may carry a trailing :save — [amount pool :save] — meaning 'also
-   grant proficiency in the save for this increment's ability'. Fixed: an unconditional save on that
-   stat; floating: the save rides the CHOSEN option (each slot option also grants its own save). This
-   reuses modifiers/saving-throws; default (no :save) is bump-only. For saves unrelated to a bump (a
-   different stat, or no bump at all), use the standalone :save-proficiencies field instead.
-
-   ATTRIBUTION: a FIXED increment is applied via `:fixed-modifier` (default `race-ability`, the RACE
-   column of the ability breakdown). NON-racial silos MUST pass a neutral modifier (see
-   compile-ability-grants :attribution) so a background/subclass/feat fixed +N doesn't masquerade as a
-   RACIAL increase. See docs/kb/ability-increase-spreads.md."
+  "Compile an :ability-increases spread ([amount pool] pairs) -> {:modifiers :selections}.
+   Single-stat pools are fixed; multi-stat pools are floating slots in ONE :asi selection carrying
+   the spread on ::t/spread. A trailing :save on an increment also grants that ability's save.
+   nil/empty -> {}. GOTCHA: :fixed-modifier decides which ability-breakdown column a fixed
+   increment lands in; non-racial silos MUST pass a neutral one, or their +N shows as racial."
   [spread & [{:keys [fixed-modifier] :or {fixed-modifier modifiers/race-ability}}]]
   (let [;; skip non-pair entries: the races sub maps this over EVERY homebrew race, so one malformed
         ;; entry must not break the whole list. nil/no field -> no increments (additive).
@@ -373,13 +351,9 @@
       [amount pool :save])))
 
 (defn compile-save-proficiencies
-  "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, INDEPENDENT of
-   any ability bump (the separate save tool — for saves on a different stat than a bump, or with no
-   bump at all). Single-stat pool -> a fixed save proficiency; multi-stat pool -> 'choose <count>
-   distinct saves from the pool' (one selection per entry, options keyed save-<idx>-<ability>, each
-   granting modifiers/saving-throws). Same terse [count pool] shape as the ASI spread — here the number
-   is HOW MANY saves, not a bonus. Cross-entry duplicates collapse harmlessly (saving-throws is a set).
-   Additive: nil/empty -> {}. See docs/kb/ability-increase-spreads.md."
+  "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, independent
+   of any ability bump. Single-stat pool -> a fixed save; multi-stat -> choose `count` distinct
+   saves from it. Additive: nil/empty -> {}. Format: docs/kb/ability-increase-spreads.md."
   [save-spread]
   (let [entries   (map-indexed
                    (fn [idx [n pool]]
@@ -415,13 +389,11 @@
   [(modifiers/ability ability-kw amount)])
 
 (defn compile-ability-grants
-  "The single hook a silo calls to turn a content entry's ability/save DATA into mechanics: merges the
-   ASI spread (:ability-increases, incl. the :save rider) and the standalone save tool
-   (:save-proficiencies) -> {:modifiers :selections}. Additive (an entry with neither is unchanged).
-   Used by plugin-races/subraces/backgrounds/subclasses and feat-option-from-cfg.
+  "The single hook a silo calls to turn an entry's ability/save data into mechanics: merges the ASI
+   spread and the standalone :save-proficiencies -> {:modifiers :selections}. Additive.
 
-   :attribution controls where a FIXED increment lands in the ability breakdown — :race (default) |
-   :subrace | :general. NON-racial silos MUST pass :general, or their fixed ASI is shown as racial."
+   GOTCHA: :attribution (:race default | :subrace | :general) decides which breakdown column a
+   fixed increment lands in. Non-racial silos MUST pass :general."
   [{:keys [ability-increases save-proficiencies]} & [{:keys [attribution] :or {attribution :race}}]]
   (let [fixed-modifier (case attribution
                          :subrace modifiers/subrace-ability
@@ -609,8 +581,13 @@
     :options elemental-disciplines}))
 
 (defn language-option [{:keys [name key]}]
+  ;; :key is passed explicitly so a grant can address a language by its key (grant-selection's
+  ;; :key/:filter modes read ::t/key). Without it option-cfg derives the key from the NAME, which
+  ;; is right for all 16 built-ins (verified: name-to-kw == :key for every one, "Deep Speech" ->
+  ;; :deep-speech included) but wrong for a homebrew language whose name and key diverge.
   (t/option-cfg
    {:name name
+    :key key
     :modifiers [(modifiers/language key)]
     :prereqs [(t/option-prereq
                "You already have this language"
@@ -676,7 +653,11 @@
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
-      :help (spell-help spell)
+      ;; A thunk: spell-help renders the whole description, most of an option's build
+      ;; cost, and memoized-spell-option keeps one per (spell x class). Renderers force it
+      ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
+      ;; string or hiccup. See reagent-architecture-tenets.md #1.
+      :help #(spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]
@@ -918,12 +899,10 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
-           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
-           ;; :leomunds-secret-chest) to their current de-named SRD keys
-           ;; (:secret-chest) so imported paks that reference the old names resolve
-           ;; to the real spell. resolve-spell-key is non-destructive: it only
-           ;; remaps a known rename whose target is loaded, so loaded homebrew and
-           ;; genuinely-missing spells are left alone (and still flagged below).
+           ;; Resolve pre-2024 wizard-possessive spell keys (:leomunds-secret-chest) to
+           ;; their de-named SRD keys (:secret-chest). Only a known rename whose target
+           ;; is loaded is remapped; homebrew and missing spells pass through unchanged
+           ;; (and missing ones are flagged below).
            all-spells (reduce-kv
                        (fn [m lvl ks]
                          (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
@@ -964,11 +943,9 @@
    {}
    spells-known))
 
-;; The richest spell path, CLASS-level only. A homebrew class's :spellcasting becomes full/half/
-;; third-caster spellcasting with real spell CHOICES (spells-known-selections) and an optional
-;; custom `:spell-list` (line below assoc's it into spell-lists under class-key). Subclasses/feats/
-;; races cannot reach this — see the "no general parameterized spell-choice" gap in
-;; docs/kb/decision-vocabulary.md.
+;; A homebrew class's :spellcasting -> full/half/third-caster spellcasting with spell CHOICES
+;; (spells-known-selections) and an optional custom `:spell-list`, assoc'd into spell-lists under
+;; class-key. CLASS level only: subclasses, feats and races cannot reach it. decision-vocabulary.md
 (defn spellcasting-template [spell-lists
                              spells-map
                              {:keys [class-key
@@ -1126,7 +1103,13 @@
 (defn proficiency-help [num singular plural]
   (str "Select additional " (if (> num 1) plural singular) " for which you are proficient."))
 
-(defn skill-selection-2 [{:keys [options num min max order key prereq-fn]}]
+(defn skill-selection-2
+  "A skill-proficiency pick. `options` is a seq of skill keywords, `num` sets min and max unless
+   they are given separately, and `prereq-fn` decides whether the builder OFFERS it.
+
+   GOTCHA: `prereq-fn` gates DISPLAY only. `entity/build` never consults it, so a pick saved
+   while it passed keeps applying after it stops — see docs/kb/hidden-selection-picks.md."
+  [{:keys [options num min max order key prereq-fn]}]
   (t/selection-cfg
    {:name "Skill Proficiency"
     :key key
@@ -1434,7 +1417,10 @@
                {:name "Martial"
                 :key :martial}))}))
 
-(def dual-wield-ac-mod
+;; DEPRECATED 2026-09-08 — superseded by {:ac-bonus {:bonus 1 :dual-wielding? true}}; the
+;; :two-weapon-ac-1 prop key stays and compiles to that form. Behaviour pinned by
+;; ac_reconciliation_test SECTION 4. Remove after 2026-12-08. See backfill-ledger.md.
+#_(def dual-wield-ac-mod
   (mods/vec-mod ?ac-bonus-fns
                 (fn [_ _] 1)
                 nil
@@ -1455,10 +1441,13 @@
                             ::weapons/melee?)))]))
 
 (def dual-wield-weapon-mod
-  (mods/modifier ?dual-wield-weapon? weapons/one-handed-weapon?))
+  ;; "even when the one-handed melee weapons you are wielding aren't light" — vec-mod ADDS a way to
+  ;; qualify rather than replacing the rule, so this composes with Crossbow Expert and with homebrew.
+  ;; NOTE :melee? true is the feat's text; without it a hand crossbow qualifies (edition-drift.md).
+  (mods/vec-mod ?dual-wield-weapon-specs {:melee? true :two-handed? false}))
 
 (def medium-armor-master-max-bonus
-  (mods/modifier ?max-medium-armor-bonus 3))
+  (modifiers/armor-dex-cap :medium 3))
 
 (def medium-armor-master-stealth
   (mods/fn-mod ?armor-stealth-disadvantage?
@@ -2069,16 +2058,39 @@
     :max num
     :options options}))
 
-(defn fighting-style-selection [class-kw & [restrictions additional-options]]
+;; fighting-style-option compiles a homebrew style; it is defined further down (it needs
+;; plugin-modifiers), and the class-path selection below needs it here.
+(declare fighting-style-option)
+
+(defn eligible-homebrew-styles
+  "The divvying rule (`fighting-style-authoring.md`): a homebrew style that declares
+   `:classes #{:fighter …}` is offered to exactly those classes; one that declares none is
+   offered to ALL fighting-style classes. Built-in styles are untouched by this — they keep
+   their per-class whitelist, so no existing class's list changes (D29).
+   `entries` are raw orcbrew maps, not option cfgs, because the rule reads authored data."
+  [class-kw entries]
+  (->> entries
+       (filter (fn [{:keys [classes]}]
+                 (or (empty? classes) (contains? (set classes) class-kw))))
+       (map fighting-style-option)))
+
+(defn fighting-style-selection
+  "A class's OWN fighting-style choice. Keeps its top-level `:ref` — that is where the character
+   stores the pick, and a cross-silo grant deliberately has no `:ref` (D30). `additional-options`
+   is the homebrew pool as raw entries; it was declared but unused until the class path was
+   threaded (`fighting-style-authoring.md`)."
+  [class-kw & [restrictions additional-options]]
   (fighting-style-selection-2
    class-kw
    1
-   (if restrictions
-     (filter
-      (fn [o]
-        (restrictions (::t/key o)))
+   (concat
+    (if restrictions
+      (filter
+       (fn [o]
+         (restrictions (::t/key o)))
+       fighting-style-options)
       fighting-style-options)
-     fighting-style-options)))
+    (eligible-homebrew-styles class-kw additional-options))))
 
 (defn feat-selection [spell-lists spells-map num]
   (t/selection-cfg
@@ -2489,15 +2501,24 @@
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
 
-;; Assembly fn for the RACE silo. NOT fixed-only: compiles :abilities (fixed ASI), :profs →
-;; :skill-options/:language-options/:weapon-proficiency-options (proficiency CHOICES via
-;; skill-selection/language-selection), :subraces, :traits, :spells (fixed known), :selections, and
-;; :props (make-feat-modifiers). Comparable richness to feats minus ASI options/prereqs/spell
-;; choice. See docs/kb/decision-vocabulary.md (backward trace: Race).
+;; grant-selection and compile-grants live with the bridge prototype, after plugin-modifiers,
+;; which they need; race-option below calls them.
+(declare grant-selection compile-grants)
+(defn language-key
+  "The key of the language `language-map` ({key language}) holds under the display name `nm`,
+   else the key derived from `nm`."
+  [language-map nm]
+  (or (some (fn [[k l]] (when (= nm (:name l)) k)) language-map)
+      (common/name-to-kw nm)))
+
+;; Assembly fn for the RACE silo: :abilities (fixed ASI), :profs (fixed, plus skill/language/weapon
+;; proficiency CHOICES), :subraces, :traits, :spells (fixed known), :selections, :grants and :props
+;; (make-feat-modifiers). Field trace: decision-vocabulary.md (backward trace: Race).
 (defn race-option [spell-lists
                    spells-map
                    language-map
                    weapon-map
+                   grantable-pools               ; ← registry {pool-key {:name … :options}}; see grant-selection
                    {:keys [name
                            icon
                            key
@@ -2517,9 +2538,11 @@
                            weapon-proficiencies
                            profs
                            plugin?
+                           grants                ; ← [{:pool <p> :count N} …]; see grant-selection
                            edit-event]
                     :as race}]
   (let [key (or key (common/name-to-kw name))
+        {grant-mods :modifiers grant-sels :selections} (compile-grants grants grantable-pools)
         {:keys [armor weapon save skill-options weapon-proficiency-options tool-options tool language-options]} profs
         {skill-num :choose options :options} skill-options
         skill-kws (if (:any options)
@@ -2539,10 +2562,14 @@
                    (when (seq subraces)
                      [(subrace-selection race spell-lists spells-map language-map weapon-map plugin? source subraces [:race key])])
                    (when (seq language-options) [(language-selection language-map language-options)])
+                   ;; :grants — choice entries become selections here; fixed entries become
+                   ;; modifiers below. compile-grants, same shape as compile-ability-grants.
+                   grant-sels
                    (when (seq weapon-proficiency-options)
                      [(weapon-proficiency-selection-2 weapon-map weapon-proficiency-options)])
                    selections)
       :modifiers (concat
+                  grant-mods
                   (when (not plugin?)
                     (remove
                      nil?
@@ -2553,7 +2580,7 @@
                     (darkvision-modifiers darkvision))
                   (map
                    (fn [language]
-                     (modifiers/language (common/name-to-kw language)))
+                     (modifiers/language (language-key language-map language)))
                    languages)
                   (map
                    (fn [[k v]]
@@ -2604,7 +2631,11 @@
     :prereq-fn prereq-fn
     :tags #{:tool-profs :profs}}))
 
-(defn tool-prof-selection [tool-options & [key prereq-fn]]
+(defn tool-prof-selection
+  "A tool-proficiency pick from `tool-options` ({tool-key count}). Collapses to a single nested
+   selection when there is one tool with sub-values (an instrument, a gaming set); otherwise one
+   selection listing them. `prereq-fn` gates DISPLAY only — same caveat as `skill-selection-2`."
+  [tool-options & [key prereq-fn]]
   (let [[first-key first-num] (-> tool-options first)
         first-option (equipment/tools-map first-key)]
     (if (and (= 1 (count tool-options))
@@ -2719,21 +2750,11 @@
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
 
-;; Rich starting-equipment choice groups — the full SRD form as serializable data.
-;; Unlike the shorthand :*-choices (one item per option), an option here can grant a
-;; BUNDLE of items (:grants) and/or offer a nested sub-choice (:choose), e.g. Fighter's
-;; "(a) chain mail, or (b) leather + longbow + 20 arrows" and "a martial weapon + shield".
-;; Shape on the class map:
-;;   :equipment-selections
-;;   [{:name "Armor"
-;;     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail}]}
-;;               {:name "Leather, Longbow, 20 Arrows"
-;;                :grants [{:kind :armor :key :leather} {:kind :weapon :key :longbow}
-;;                         {:kind :equipment :key :arrow :qty 20}]}]}
-;;    {:name "Weapon"
-;;     :options [{:name "A martial weapon and a shield"
-;;                :grants [{:kind :armor :key :shield}]
-;;                :choose [{:name "Martial Weapon" :from :martial}]}]}]
+;; Rich starting-equipment choice groups (:equipment-selections on the class map): unlike
+;; the shorthand :*-choices, an option can grant a bundle ({:grants [{:kind :key :qty}]})
+;; and/or offer nested sub-choices ({:choose [{:name :from}]}). Shape and worked Fighter
+;; example: starting-equipment.md.
+
 ;; One fixed grant ({:kind :key :qty}) -> the matching modifier that drops the item
 ;; onto the character's ?weapons/?armor/?equipment.
 (defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
@@ -2771,11 +2792,10 @@
       :options (mapv #(equipment-selection-option class-kw weapon-map %) options)
       :prereq-fn (first-class? class-kw)})
 
-    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirror the live
-    ;; equipment-option EXACTLY: a plain starting-equipment selection named for the group,
-    ;; WITHOUT the "Starting Equipment: " prefix and WITHOUT a "<none>" opt-out — so a class
-    ;; filled from an SRD class reproduces the SRD's own nested selection verbatim (its name
-    ;; also feeds the selection's minted key, which must stay stable).
+    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirrors the live
+    ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
+    ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
+    ;; name also feeds the selection's minted key, which must stay stable.
     (equipment-group-choosers from)
     (let [chooser (equipment-group-choosers from)]
       (t/selection-cfg
@@ -2817,7 +2837,14 @@
             :options (mapv #(equipment-selection-option class-kw weapon-map %) options)}))
         equipment-selections))
 
-(defn background-skills-cfg [background-nm skill-kws]
+(defn background-skills-cfg
+  "A background's fixed skills plus the SRD replacement rule: grant each skill unless the
+   character already has it; when another source granted it, offer a free pick from the whole
+   skill list instead. Returns {:modifiers :selections}.
+   GOTCHA: the `background-nm` source on the modifier is what lets the pick ask \"did another
+   source grant this\". The only implementation of a general rule: read already-held-grants.md
+   before copying it per silo."
+  [background-nm skill-kws]
   {:modifiers (map
                (fn [skill-kw]
                  (modifiers/skill-proficiency skill-kw
@@ -2841,6 +2868,7 @@
 (defn background-option [language-map
                          weapon-map
                          {:keys [name
+                                 key
                                  help
                                  page
                                  profs
@@ -2859,7 +2887,10 @@
                                  source
                                  edit-event]
                           :as background}]
-  (let [kw (common/name-to-kw name)
+  ;; FIELD NOTE (background-name-key): saved characters hold backgrounds by (common/name-to-kw name)
+  ;; even when the item stores another :key; earlier versions offered them that way. The heal
+  ;; counts the name's key as a former key (content-reconciliation/items-with-formers).
+  (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs
         {skill-num :choose options :options} skill-options
@@ -3153,11 +3184,10 @@
                       (conj selections
                             (custom-subclass-spellcasting-selection cls-key))))})))
 
-;; Builds one class level's options (called per level 1..20 from class-option). NOTE the `plugin?`
-;; guard below gates the standard ASI selection, hit-points selection, and per-level modifier — but
-;; `:plugin? true` marks only the hardcoded UA *overlay* templates (templates/ua_*.cljc), NOT
-;; homebrew builder classes (which never set it), so builder classes DO get ASI/hit-points normally.
-;; See docs/kb/decision-vocabulary.md (backward trace: Class — "(not plugin?) gate is not a gap").
+;; One class level's options (called per level 1..20 from class-option). The `plugin?` guard gates
+;; the standard ASI and hit-points selections and the per-level modifier. Only the UA overlay
+;; templates (templates/ua_*.cljc) set `:plugin? true`; homebrew builder classes never do, so they
+;; get ASI and hit points. decision-vocabulary.md (backward trace: Class).
 (defn level-option [spell-lists
                     spells-map
                     language-map
@@ -3233,7 +3263,14 @@
 
 
 
-(defn class-skill-selection [{skill-num :choose options :options skill-select-order :order} key prereq-fn]
+(defn class-skill-selection
+  "A class's skill pick, from its `:skill-options` or `:multiclass-skill-options`. `key`
+   distinguishes the two arms and `prereq-fn` is the `first-class?` gate (or its complement) that
+   decides which one the builder shows.
+
+   GOTCHA: only the GATE is per-arm; the modifiers the options carry are identical and carry no
+   condition, which is why a stale multiclass pick survives a class reorder."
+  [{skill-num :choose options :options skill-select-order :order} key prereq-fn]
   (let [skill-kws (if (:any options) (map :key skills/skills) (keys options))]
     (skill-selection skill-kws skill-num skill-select-order key prereq-fn)))
 
@@ -3610,8 +3647,15 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-names (map (comp :name race-map) race-keys)]
-         [(race-prereq race-names)])))))
+       ;; A race the library no longer holds can never match; if none of them is held, the feat
+       ;; stays locked and says which race it needs.
+       (let [race-names (keep (comp :name race-map) race-keys)]
+         (if (seq race-names)
+           [(race-prereq race-names)]
+           [(t/option-prereq
+             (str "Needs " (common/list-print (map #(str "\u201c" (common/kw-to-name % true) "\u201d") race-keys) "or")
+                  ", which isn't in your library")
+             (constantly false))]))))))
 
 (def filter-true (filter val))
 
@@ -3650,12 +3694,10 @@
               (spell-sniper-option spells-map :warlock "Warlock" ::character/cha spell-lists)
               (spell-sniper-option spells-map :wizard "Wizard" ::character/int spell-lists)]}))
 
-;; `:props` → CHOICES (proficiency/spell-choice selections). This is the choice side of grant
-;; vocabulary A — but it is FEAT-ONLY (only `feat-option-from-cfg` calls it; the race/subrace/
-;; subclass compile paths do not). The spell-choice arms (:ritual-casting/:magic-novice/
-;; :attack-spell) are the only homebrew spell *choices* outside classes, and only as 3 fixed
-;; templates — there is no general "pick N from list L" decision. Making this reachable from every
-;; silo is the prime cross-silo target. See docs/kb/decision-vocabulary.md.
+;; `:props` → CHOICES (proficiency/spell-choice selections): the choice side of grant vocabulary A.
+;; FEAT-ONLY: only `feat-option-from-cfg` calls it. The spell arms (:ritual-casting/:magic-novice/
+;; :attack-spell) are the only homebrew spell choices outside classes, as 3 fixed templates; there
+;; is no general "pick N from list L". See decision-vocabulary.md.
 (defn make-feat-selections [language-map spells-map spell-lists proficiency-weapons k v]
   (when v
     (case k
@@ -3682,40 +3724,100 @@
        (modifier-fn k))))
    m))
 
-;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
-;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),
-;; so adding a `case` arm here + a form field reaches every silo. The CHOICE counterpart is
-;; `make-feat-selections` (feat-only). Vocabulary B is `level-modifier` (spell_subs.cljs) — they
-;; overlap but diverge. See docs/kb/decision-vocabulary.md ("grant types live in up to FOUR places").
+(def ^:private short-ability
+  "Authors may write the short :dex or the fully-qualified ability keyword; both mean the same."
+  {:str ::character/str :dex ::character/dex :con ::character/con
+   :int ::character/int :wis ::character/wis :cha ::character/cha})
+
+(defn- ac-applies?
+  "Do `spec`'s requirements hold for the equipped armor and shield? Delegates to `requirements`.
+
+   GOTCHA: for a CALCULATION, `:shield? false` disqualifies the whole calculation rather than
+   skipping the shield's bonus — a Monk holding a shield loses Unarmored Defense entirely."
+  [spec armor shield]
+  (reqs/meets-all? spec {:armor armor :shield shield}))
+
+(defn ac-calculation-modifiers
+  "Compile an authored AC calculation — {:ac N :abilities [...] :armor? b :shield? b} — into a
+  formula competing in ?ac-fns. :abilities SUM (Barbarian adds both Dex and Con); 'whichever is
+  better' is written as two separate calculations, which the max reconciles.
+
+  Named abilities are taken literally. Substituting a different ability for Dex app-wide is a
+  separate parameter and is not built yet."
+  [{:keys [ac abilities] :as spec}]
+  [(modifiers/ac-formula
+    (fn [armor shield]
+      (if (ac-applies? spec armor shield)
+        (reduce (fn [total a] (+ total (?ability-bonuses (short-ability a a))))
+                (or ac 0)
+                abilities)
+        0)))])
+
+(defn ac-bonus-modifiers
+  "Compile `{:bonus N <requirements>}` into ?ac-bonus-fns.
+
+   GOTCHA: the value key is `:bonus`, matching :attack-bonus/:damage-bonus. `:ac-bonus` is read as
+   a legacy alias but the form must write `:bonus`."
+  [{:keys [bonus ac-bonus] :as spec}]
+  (let [n (or bonus ac-bonus 0)]
+    ;; ac-bonus-meeting, not ac-bonus-fn: the macro assembles a context carrying the wielded
+    ;; weapons, so a bonus can require :dual-wielding? / :one-handed? as well as armor and shield.
+    [(modifiers/ac-bonus spec n)]))
+
+;; Grant vocabulary A — `:props` → FIXED mechanics, shared across silos despite the "feat" name:
+;; feats, races, subraces, classes, subclasses. A `case` arm here + a form field reaches every silo.
+;; CHOICE counterpart: `make-feat-selections` (feat-only). Vocabulary B, `level-modifier`
+;; (spell_subs.cljs), overlaps but diverges. See decision-vocabulary.md.
 (defn make-feat-modifiers [k v option-key]
   (when v
     (case k
       :initiative [(modifiers/initiative v)]
-      :two-weapon-ac-1 [dual-wield-ac-mod]
+      :ac (ac-calculation-modifiers v)
+      :ac-bonus (ac-bonus-modifiers v)
+      ;; Kept as a prop key (D9); compiles to the general form: +1 AC while dual wielding.
+      :two-weapon-ac-1 (ac-bonus-modifiers {:bonus 1 :dual-wielding? true})
+      ;; One more way for a weapon to qualify for the off hand — the authorable half of what the
+      ;; Dual Wielder feat does in code. {:two-handed? true :melee? true} is the two-greatswords
+      ;; feat; {:light? true :ranged? true} is Crossbow Expert's hand crossbow. Composes: every
+      ;; source's spec is tried and any match qualifies.
+      :dual-wield-weapons [(mods/vec-mod ?dual-wield-weapon-specs v)]
       :two-weapon-any-one-handed [dual-wield-weapon-mod]
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]
       :passive-investigation-5 [(modifiers/passive-investigation 5)]
       :passive-perception-5 [(modifiers/passive-perception 5)]
+      ;; Kept for saved content (D9); it is the general :armor-dex-cap prop underneath.
       :medium-armor-max-dex-3 [medium-armor-master-max-bonus]
+      ;; Conditional weapon bonuses. The tag map is the same three-state vocabulary as :ac-bonus's
+      ;; :armor?/:shield?, read by weapons/matches?:
+      ;;   {:attack-bonus {:bonus 2 :ranged? true}}   — Archery
+      ;;   {:damage-bonus {:bonus 2 :thrown? true}}  — Thrown Weapon Fighting
+      :attack-bonus (when (:bonus v)
+                      [(modifiers/attack-bonus (:bonus v) (dissoc v :bonus))])
+      :damage-bonus (when (:bonus v)
+                      [(modifiers/damage-bonus (:bonus v) (dissoc v :bonus))])
+      ;; General form: {:armor-dex-cap {:medium 3 :heavy 2}} raises whichever types it names.
+      :armor-dex-cap (mapv (fn [[armor-type cap]] (modifiers/armor-dex-cap armor-type cap)) v)
       :medium-armor-stealth [medium-armor-master-stealth]
       :speed [(modifiers/speed v)]
       :flying-speed [(modifiers/flying-speed-override v)]
       :flying-speed-equals-walking-speed [(modifiers/flying-speed-equal-to-walking)]
       :swimming-speed [(modifiers/swimming-speed-override v)]
       :saving-throw-advantage-traps [(modifiers/saving-throw-advantage [:traps])]
-      :lizardfolk-ac (when v
-                       [(mods/modifier ?natural-ac-bonus 3)
-                        (mods/modifier ?armor-class-with-armor
-                                      (fn [armor & [shield]]
-                                        (max (+ ?base-armor-class
-                                                (if shield (?shield-ac-bonus shield) 0))
-                                             (?armor-class-with-armor armor shield))))])
+      ;; Kept for saved content (D9). Compiles to {:ac 13 :abilities [:dex]} with no :armor? tag:
+      ;; 13 + Dex, still competing while armored, so the ?ac-fns max picks it when worn armor is
+      ;; worse. Shield and magic bonuses are summed onto the winner.
+      :lizardfolk-ac (when v (vec (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
+      ;; Kept for saved content (D9): a flat natural-AC calculation (17, no abilities) plus
+      ;; armor-gives-no-ac, so worn armor never beats 17. Each half is also its own prop.
+      ;; NOT the rules restriction: armor can still be equipped and its other effects still apply.
       :tortle-ac (when v
-                   [(mods/modifier ?natural-ac-bonus 7)
-                    (mods/modifier ?armor-class-with-armor
-                                  (fn [armor & [shield]]
-                                    (+ 17
-                                       (if shield (?shield-ac-bonus shield) 0))))])
+                   (conj (vec (ac-calculation-modifiers {:ac 17 :abilities []}))
+                         (modifiers/armor-gives-no-ac)))
+      ;; The AC half on its own, for authors who want it without the flat 17. Named for what it
+      ;; does: worn armor stops counting toward AC. It does not prevent equipping armor, and does
+      ;; not suppress anything else armor causes (stealth disadvantage still applies). A real
+      ;; "you can't wear armor" restriction is roadmapped.
+      :armor-gives-no-ac (when v [(modifiers/armor-gives-no-ac)])
       :language (collect-map-modifiers
                  v
                  #(modifiers/language %))
@@ -3797,11 +3899,9 @@
 
 
 ;; ─── BRIDGE PROTOTYPE: feat-granted fighting style (pool+grant as DATA) ──────────
-;; Additive/reversible. Mirrors the draconic-ancestry pool+grant pattern for a different
-;; bucket (feats), to test whether that pattern generalizes. To revert: delete this block,
-;; the `:grant` hook in feat-option-from-cfg, the grantable-pools arg at its call site
-;; (template.cljc), and any ::e5/fighting-styles pool sub (spell_subs.cljs).
-;; Placed here (after plugin-modifiers) so it can compile homebrew styles' :props.
+;; The draconic-ancestry pool+grant pattern, applied to feats. To revert: delete this block, the
+;; `:grants` hook in feat-option-from-cfg, the grantable-pools arg at its call site (template.cljc)
+;; and any ::e5/fighting-styles pool sub (spell_subs.cljs). After plugin-modifiers, which it needs.
 (defn fighting-style-option
   "Compile a HOMEBREW fighting style (orcbrew data: name + optional :props + :description)
    into a fighting-style option — the same shape draconic-ancestry-option uses. Mechanical
@@ -3819,29 +3919,52 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "GENERIC cross-bucket grant. Given `:grant {:from <pool-key> …}` data and a `grantable-pools`
-   registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
-     {:from p}                 -> ALL entries (choose N, default 1)
-     {:from p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
-     {:from p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
-     (custom entry)            -> the pool already includes homebrew entries, so {:from p} grants them too
-   Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass."
-  [{:keys [from choose key] flt :filter :or {choose 1}} grantable-pools]
-  (when-let [{:keys [name options]} (get grantable-pools from)]
+  "Compiles ONE choice entry of `:grants` — `{:pool p :count n :filter #{…}}` — against a
+   `grantable-pools` registry, into a selection-cfg carrying the pool's `:tags`.
+
+   :key entries are FIXED and compile to modifiers in `compile-grants`, not here.
+   :pool/:count, never :from/:choose — both are taken by the starting-equipment vocabulary."
+  [{:keys [pool count key] flt :filter} grantable-pools]
+  ;; CHOICE only. A :key grant is fixed and compiles to modifiers in compile-grants (D4) — it
+  ;; never becomes a one-option selection here. One mechanism per job (D29).
+  (when-let [{:keys [name tags options]} (when-not key (get grantable-pools pool))]
     (let [opts (cond->> options
-                 flt (filter (fn [o] (contains? flt (::t/key o))))
-                 key (filter (fn [o] (= key (::t/key o)))))
-          n    (if key 1 choose)]
+                 (seq flt) (filter (fn [o] (contains? flt (::t/key o)))))   ; #{} = unfiltered
+          n    (clojure.core/or count 1)]
       ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
       ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
       (t/selection-cfg
        {:name name
-        :tags #{:grant from}
+        ;; The pool's own tags ride along (D30): tags route a selection to its TAB, so a granted
+        ;; language carries :profs like the bespoke one and lands on Proficiencies, not nested
+        ;; under its owner. Pools without tags keep just the generic pair.
+        :tags (into #{:grant pool} tags)
         :multiselect? true
         :min n
         :max n
         :options opts}))))
+
+(defn compile-grants
+  "`:grants` -> `{:modifiers [...] :selections [...]}`, the shape compile-ability-grants returns.
+   `{:pool p :key k}` is fixed and emits the entry's modifiers; `{:pool p :count n}` is a choice.
+   Unregistered pool or unknown key contributes nothing."
+  [grants grantable-pools]
+  (reduce
+   (fn [acc {:keys [pool key] :as g}]
+     (if-let [{:keys [options]} (get grantable-pools pool)]
+       (if key
+         (if-let [e (first (filter #(= key (::t/key %)) options))]
+           (-> acc
+               (update :modifiers  into (::t/modifiers  e))
+               (update :selections into (::t/selections e)))
+           acc)
+         (if-let [sel (grant-selection g grantable-pools)]
+           (update acc :selections conj sel)
+           acc))
+       acc))
+   {:modifiers [] :selections []}
+   grants))
 ;; ─── end bridge prototype (part 1) ──────────────────────────────────────────────
 
 (defn feat-option-from-cfg
@@ -3866,18 +3989,10 @@
            ability-increases
            save-proficiencies
            edit-event
-           grant]}]                       ; ← BRIDGE PROTOTYPE: generic grant {:from <pool> :choose N}
-  ;; ASI dual-format reader (D34 feat-path reconciliation): a feat's :ability-increases is read by
-  ;; SHAPE, so the cross-silo spread reaches feats without breaking the released format.
-  ;;   - vector  → the new terse [amount pool] SPREAD → compile-ability-increases (same path as
-  ;;               races/backgrounds/subclasses). Gives feats amounts/groups/multi-increment.
-  ;;   - set     → the LEGACY feat format (#{:str :con}, +1 to one, optional :saves? marker granting a
-  ;;               save proficiency). Left untouched — saves has no spread model, so this is the only
-  ;;               place it lives. Released feat data keeps working verbatim.
-  ;; When the spread path is used, the set-based ASI is suppressed (pass #{}) but feat-modifiers'/
-  ;; feat-selections' OTHER work (props mechanics, the trait, prop choices) still runs.
-  ;; The standalone :save-proficiencies tool (independent of the bump) is wired here too, via the same
-  ;; compile-save-proficiencies the other silos use — so a feat can grant saves with no ASI at all.
+           grants]}]                      ; ← [{:pool <p> :count N} …]; see grant-selection
+  ;; :ability-increases by SHAPE (D34): a vector is a spread -> compile-ability-increases, with the
+  ;; set ASI suppressed but feat-modifiers/selections' other work kept; a set is the released format
+  ;; (#{:str :con}, +1 to one, optional :saves?). :save-proficiencies needs no ASI.
   (let [spread? (vector? ability-increases)
         legacy-ai (if spread? #{} ability-increases)
         ;; :general attribution — a feat's fixed ASI is NOT racial (shows under 'other', like the legacy
@@ -3899,18 +4014,15 @@
                                                  props
                                                  legacy-ai)
                                 ai-sels sp-sels)
-        ;; BRIDGE PROTOTYPE: a feat's DATA can grant a choice from any pool via the generic
-        ;; :grant key. Same hook every other bucket would use — see grant-selection. The same
-        ;; one line, added to background/race/subclass assembly fns, gives them grants too.
-        feat-selections (cond-> feat-selections
-                          grant
-                          (concat [(grant-selection grant grantable-pools)]))]
+        ;; :grants — fixed entries are modifiers, choice entries are selections.
+        {grant-mods :modifiers grant-sels :selections} (compile-grants grants grantable-pools)
+        feat-selections (concat feat-selections grant-sels)]
     (t/option-cfg
      {:name name
       :key key
       :icon icon
       :edit-event edit-event
-      :modifiers feat-mods
+      :modifiers (concat feat-mods grant-mods)
       :selections feat-selections
       :summary description
       :prereqs (feat-prereqs prereqs path-prereqs race-map)})))

@@ -8,7 +8,9 @@
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
+            [orcpub.dnd.e5.page-map :as page-map]
             [cljs-http.client :as http]
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
@@ -26,6 +28,7 @@
   (set! js/window.location.protocol "https"))
 
 (dispatch-sync [:initialize-db])
+(dispatch [:orcpub.dnd.e5/settle-loaded-library])
 
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
@@ -34,9 +37,15 @@
 ;; Fetch the app-shipped demo/example content pack into its own overlay slot.
 ;; Async: it loads through the real import path and never blocks boot.
 (dispatch [::e5/load-demo-content])
+;; Another tab's library write reloads this tab's copy.
+(events/start-library-watch!)
 
 (def pages
-  {nil views-2/splash-page
+  ;; The homebrew builder pages are GENERATED from the content-types registry — see
+  ;; orcpub.dnd.e5.page-map. A registry entry with no matching view fn fails to compile.
+  (merge
+   (page-map/builder-pages)
+   {nil views-2/splash-page
    routes/default-route views-2/splash-page
    routes/dnd-e5-orcacle-page-route views/orcacle-page
    routes/dnd-e5-char-builder-route ch/character-builder
@@ -44,21 +53,7 @@
    routes/dnd-e5-char-list-page-route views/character-list
    routes/dnd-e5-monster-list-page-route views/monster-list
    routes/dnd-e5-spell-list-page-route views/spell-list
-   routes/dnd-e5-spell-builder-page-route views/spell-builder-page
-   routes/dnd-e5-monster-builder-page-route views/monster-builder-page
-   routes/dnd-e5-encounter-builder-page-route views/encounter-builder-page
    routes/dnd-e5-combat-tracker-page-route views/combat-tracker-page
-   routes/dnd-e5-background-builder-page-route views/background-builder-page
-   routes/dnd-e5-race-builder-page-route views/race-builder-page
-   routes/dnd-e5-subrace-builder-page-route views/subrace-builder-page
-   routes/dnd-e5-subclass-builder-page-route views/subclass-builder-page
-   routes/dnd-e5-class-builder-page-route views/class-builder-page
-   routes/dnd-e5-feat-builder-page-route views/feat-builder-page
-   routes/dnd-e5-language-builder-page-route views/language-builder-page
-   routes/dnd-e5-invocation-builder-page-route views/invocation-builder-page
-   routes/dnd-e5-boon-builder-page-route views/boon-builder-page
-   routes/dnd-e5-draconic-ancestry-builder-page-route views/draconic-ancestry-builder-page
-   routes/dnd-e5-selection-builder-page-route views/selection-builder-page
    routes/dnd-e5-item-list-page-route views/item-list
    routes/dnd-e5-char-page-route views/character-page
    routes/dnd-e5-monster-page-route views/monster-page
@@ -79,7 +74,7 @@
    routes/password-reset-success-route views/password-reset-success
    routes/password-reset-expired-route views/password-reset-expired-page
    routes/password-reset-used-route views/password-reset-used-page
-   routes/unsubscribe-success-route views/unsubscribe-success})
+   routes/unsubscribe-success-route views/unsubscribe-success}))
 
 (defn handle-url-change [_]
   (let [route (when js/window.location
@@ -111,6 +106,18 @@
       [k v])
     (re-seq #"((\w+)=(\w+))+" query-str))))
 
+(defn boot-ok
+  "Tells the boot-shell rescue control that the view rendered. Mounted inside the
+   app-root error boundary rather than called after `rdc/render`, for two reasons:
+   React 18 commits asynchronously, so returning from `render` proves nothing; and
+   a child that throws never mounts, so the control correctly stays put."
+  []
+  (r/create-class
+   {:component-did-mount (fn [_]
+                           (when-let [ok (aget js/window "orcpubBootOk")]
+                             (ok)))
+    :reagent-render (fn [] nil)}))
+
 (defn main-view []
   (let [{:keys [handler route-params] :as route} @(subscribe [:route])
         view (pages (or handler route))
@@ -123,8 +130,15 @@
      ^{:key handler}
      [views/error-boundary
       (fn [error stack retry] [views/app-error-fallback error stack retry])
-      [view (assoc route-params :query query-map)]]
-     [conflict-views/import-log-overlay]]))
+      [:<>
+       [view (assoc route-params :query query-map)]
+       [boot-ok]]]
+     [conflict-views/import-log-overlay]
+     ;; Mounted at the root, not in the page shell: the splash page is the first
+     ;; thing a visitor sees and it has no shell. Skipped for an embedded sheet
+     ;; (?frame=true), which is someone else's page rather than ours.
+     (when-not (= "true" (get query-map "frame"))
+       [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (dispatch-sync [:verify-user-session])
