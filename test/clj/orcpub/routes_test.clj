@@ -605,6 +605,27 @@
                                                                  :key reset-key}))))
                 "a used link worked twice")))))))
 
+(deftest two-submits-of-one-reset-link-set-one-password
+  ;; Both read the link as usable before either wrote. The second must fail, not overwrite the first.
+  (with-conn conn
+    (let [c (dm/fork-conn conn)
+          reset-key "raced-key"]
+      @(d/transact c schema/all-schemas)
+      @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com"
+                       :orcpub.user/password "old-hash"
+                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-sent (java.util.Date.)}])
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)
+                       #'email/send-password-changed-email (fn [& _] nil)}
+        (fn []
+          (let [before (d/db c)
+                submit (fn [pw] (routes/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
+                                                        :db before :conn c :headers {"host" "example.test"}}))
+                first-resp (submit "the first long passphrase")
+                second-resp (submit "the second long passphrase")]
+            (is (= 200 (:status first-resp)))
+            (is (= 400 (:status second-resp)) "the same link set a second password")))))))
+
 (deftest an-expired-reset-link-sets-nothing
   (with-conn conn
     (let [c (dm/fork-conn conn)

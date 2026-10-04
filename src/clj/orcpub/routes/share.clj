@@ -9,6 +9,7 @@
   (:require [clojure.edn :as edn]
             [datomic.api :as d]
             [orcpub.config :as config]
+            [orcpub.datomic :as odb]
             [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.entity.strict :as se])
@@ -264,9 +265,14 @@
                            0)]
               (if (> (+ (- used (or (:orcpub.share/size share) 0)) (alength ^bytes upload)) (max-bytes-per-owner))
                 {:status 413 :body {:error :share-quota}}
-                (do @(d/transact conn [{:db/id               (:db/id share)
-                                        :orcpub.share/used   (now)
-                                        :orcpub.share/bundle upload
-                                        :orcpub.share/digest (digest upload)
-                                        :orcpub.share/size   (alength ^bytes upload)}])
-                    {:status 200 :body {:token token}})))))))))
+                ;; Conditional on the token it was checked against: a New link or Stop sharing that
+                ;; lands first deletes this share, and the write must not land on the deleted record.
+                (try @(d/transact conn [[:db/cas (:db/id share) :orcpub.share/token token token]
+                                        {:db/id               (:db/id share)
+                                         :orcpub.share/used   (now)
+                                         :orcpub.share/bundle upload
+                                         :orcpub.share/digest (digest upload)
+                                         :orcpub.share/size   (alength ^bytes upload)}])
+                     {:status 200 :body {:token token}}
+                     (catch Exception e
+                       (if (odb/cas-failed? e) {:status 404} (throw e))))))))))))

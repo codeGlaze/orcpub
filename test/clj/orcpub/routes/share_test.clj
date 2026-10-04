@@ -370,3 +370,20 @@
       (is (= 404 (:status (put! conn "alice" id token (gz (pr-str (homebrew "First")))))) "the old token stores nothing")
       (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share/character]] (d/db conn))))
       (is (= 204 (:status (share/stop-sharing (request conn "alice" id)))) "stopping again is harmless"))))
+
+(deftest an-upload-that-loses-the-race-to-new-link-writes-nothing
+  ;; The upload checked its token against a database read before New link landed. Its write must not
+  ;; land on the deleted share, where it would be unreachable and outside pruning and the quota.
+  (with-conn conn
+    (setup! conn)
+    (let [id     (create! conn {::se/owner "alice"})
+          old    (:body (share! conn "alice" id))
+          before (d/db conn)]
+      (share/new-token (request conn "alice" id))
+      (let [resp (share/put-share {:db before :conn conn :identity {:user "alice"}
+                                   :path-params {:id id :token old}
+                                   :body (ByteArrayInputStream. (gz (pr-str (homebrew "Late"))))})
+            stranded (d/q '[:find [?e ...] :where [?e :orcpub.share/bundle] (not [?e :orcpub.share/character])]
+                          (d/db conn))]
+        (is (= 404 (:status resp)) "the late upload reported success")
+        (is (empty? stranded) "its bundle was written to the deleted share")))))

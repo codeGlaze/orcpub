@@ -50,6 +50,7 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [orcpub.routes.share :as share]
+            [orcpub.datomic :as odb]
             [hiccup.page :as page]
             [hiccup2.core :as h]
             [orcpub.env :as env]
@@ -833,14 +834,20 @@
                    (.getMessage e)))))
     {:status 200}))
 
+(def reset-link-spent-message
+  "This reset link has expired or has already been used. Request a new one from the login page.")
+
 (defn do-password-reset [conn user-id password & [request user]]
   (try
     @(d/transact
       conn
       (cond-> [{:db/id user-id
                 :orcpub.user/password (hashers/encrypt (s/trim password))
-                :orcpub.user/password-reset (java.util.Date.)
-                :orcpub.user/verified? true}]
+                :orcpub.user/verified? true}
+               ;; Conditional on the reset this request read (nil: none yet), so of two submits of
+               ;; one link racing, the second fails instead of also setting a password.
+               [:db/cas user-id :orcpub.user/password-reset
+                (:orcpub.user/password-reset user) (java.util.Date.)]]
         ;; The link is spent with the password it set, in the same transaction.
         (:orcpub.user/password-reset-key user)
         (conj [:db/retract user-id :orcpub.user/password-reset-key
@@ -864,11 +871,13 @@
           :user-agent (get (:headers request) "user-agent")})))
     {:status 200}
     (catch Exception e
-      (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
-      (throw (ex-info "Unable to reset password. Please try again or contact support."
-                      {:error :password-update-failed
-                       :user-id user-id}
-                      e)))))
+      (if (odb/cas-failed? e)
+        {:status 400 :body {:general [reset-link-spent-message]}}
+        (do (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
+            (throw (ex-info "Unable to reset password. Please try again or contact support."
+                            {:error :password-update-failed
+                             :user-id user-id}
+                            e)))))))
 
 (declare user-by-password-reset-key-query)
 
@@ -908,7 +917,7 @@
       (cond
         ;; Missing, unknown, expired and used are one answer: this link no longer works.
         (not usable?)
-        {:status 400 :body {:general ["This reset link has expired or has already been used. Request a new one from the login page."]}}
+        {:status 400 :body {:general [reset-link-spent-message]}}
 
         (not= password verify-password)
         {:status 400 :body {:verify-password ["Passwords do not match"]}}

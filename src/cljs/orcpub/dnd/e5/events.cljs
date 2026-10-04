@@ -3189,7 +3189,12 @@
      {:db (assoc db :temp-email (:email params))
       :http {:method :post
              :url (backend-url (bidi/path-for routes/routes routes/reset-password-route))
-             :json-params (assoc (select-keys params [:password :verify-password]) :key reset-key)
+             ;; A revealed password has no confirm box; the server still compares the two fields.
+             :json-params {:password (:password params)
+                           :verify-password (if (:password-revealed? params)
+                                              (:password params)
+                                              (:verify-password params))
+                           :key reset-key}
              :on-success [:password-reset-success]
              :on-unauthorized [:password-reset-failure]
              :on-failure [:password-reset-failure]}})))
@@ -6091,9 +6096,17 @@
        (.catch (fn [e] (js/console.warn "Shared content not loaded:" e))))))
 
 (reg-event-fx
+ ::e5/apply-shared-homebrew-if-current
+ ;; The fetch can finish after the reader has moved to another character, whose page would then
+ ;; show this one's homebrew. :share-link names the character and token the open page came with.
+ (fn [{:keys [db]} [_ id token result]]
+   (when (= (:share-link db) {:character (js/parseInt id) :token token})
+     {:dispatch [::e5/apply-shared-content result]})))
+
+(reg-event-fx
  ::e5/load-shared-homebrew
  (fn [_ [_ id token]]
-   {::fetch-shared-homebrew! [id token [::e5/apply-shared-content]
+   {::fetch-shared-homebrew! [id token [::e5/apply-shared-homebrew-if-current id token]
                               "The homebrew this link shared could not be loaded. Ask for a new link."]}))
 
 ;; A party page row whose character was added from a share link loads that character's homebrew. It goes
