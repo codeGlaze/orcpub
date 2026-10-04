@@ -15,10 +15,11 @@
 # batch's parallel tests are done, because a probe sharing the machine with other suites measures
 # the other suites. They are not held until every batch ends: that would boot each server twice.
 #
-# Tests on a shared server run --jobs at a time (default 3: the machine this was sized on has 7GB,
-# and each job is a Chromium beside the server's JVM). The first test of a batch runs alone so it
-# can build the bundle; the rest get E2E_SKIP_BUILD so two of them never build it at once. Each
-# suite writes its PDFs to its own folder, since run.sh inspects every new PDF in that folder.
+# Per batch: the bundle builds (run.sh --build-only) while the shared server boots. Then tests on
+# the shared server run --jobs at a time (default 3: the machine this was sized on has 7GB, and each
+# job is a Chromium beside the server's JVM), all with E2E_SKIP_BUILD so none rebuilds; suites that
+# need their own server run one by one after the batch. Each suite writes its
+# PDFs to its own folder, since run.sh inspects every new PDF in that folder.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -63,14 +64,30 @@ run_one() {  # <file> <bundle> [shared] [skip-build]
   echo "$line" | tee -a "$RESULTS"
 }
 
-run_parallel() {  # <bundle> <file>...
-  local kind="$1"; shift
+run_parallel() {  # <bundle> <file>...   --jobs at a time, counting only these jobs
+  local kind="$1"; shift; local pids=() live p
   for f in "$@"; do
-    while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do wait -n; done
-    run_one "$f" "$kind" 1 1 &
+    while :; do
+      live=(); for p in "${pids[@]}"; do kill -0 "$p" 2>/dev/null && live+=("$p"); done
+      pids=("${live[@]}"); [ ${#pids[@]} -lt "$JOBS" ] && break
+      wait -n "${pids[@]}"
+    done
+    run_one "$f" "$kind" 1 1 & pids+=($!)
   done
-  wait
+  [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
 }
+
+fail_all() {  # <bundle> <reason> <file>...
+  local kind="$1" why="$2"; shift 2
+  for f in "$@"; do
+    echo "E2E RESULT $(basename "$f") FAIL checks=0 failed=0 bundle=$kind ($why)" | tee -a "$RESULTS"
+  done
+}
+
+# Peak memory: parallel tests are bounded by it, and a run that gets close slows or fails for
+# reasons that are not the app.
+( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" &
+MEMPID=$!
 
 # Production and development bundles share one output folder, so switching costs a rebuild (about
 # 1.5 min). Start with the kind already on disk: one rebuild per run instead of two.
@@ -80,30 +97,46 @@ grep -q CLOSURE_UNCOMPILED_DEFINES resources/public/js/compiled/orcpub.js 2>/dev
 for kind in $ORDER; do
   [ "$kind" = prod ] && [ "$WANT_PROD" = 0 ] && continue
   [ "$kind" = dev ] && [ "$WANT_DEV" = 0 ] && continue
-  tests=($(pick "$kind" no test))
-  probes=(); [ "$WANT_PROBES" = 1 ] && probes=($(pick "$kind" no probe))
+  tests=($(pick "$kind" no test)); own=($(pick "$kind" yes test))
+  probes=(); own_probes=()
+  [ "$WANT_PROBES" = 1 ] && { probes=($(pick "$kind" no probe)); own_probes=($(pick "$kind" yes probe)); }
+  all=("${tests[@]}" "${own[@]}" "${probes[@]}" "${own_probes[@]}")
+  [ ${#all[@]} -eq 0 ] && continue
+
+  # The server reads CSP_POLICY at start: off for development bundles, the real policy otherwise.
+  if [ "$kind" = dev ]; then export CSP_POLICY=none; else unset CSP_POLICY; fi
+  # The bundle builds while the shared server boots; neither needs the other (about 1 min saved).
+  ./scripts/e2e/run.sh --build-only "${all[0]}" > "$LOGDIR/build-$kind.log" 2>&1 &
+  BUILDPID=$!
+  SHARED_UP=0
   if [ $(( ${#tests[@]} + ${#probes[@]} )) -gt 0 ]; then
-    # The server reads CSP_POLICY at start: off for development bundles, the real policy otherwise.
-    if [ "$kind" = dev ]; then export CSP_POLICY=none; else unset CSP_POLICY; fi
     if ./scripts/e2e/server.sh start init-db > "$LOGDIR/server-$kind.log" 2>&1; then
-      trap './scripts/e2e/server.sh stop' EXIT
-      if [ ${#tests[@]} -gt 0 ]; then
-        run_one "${tests[0]}" "$kind" 1
-        run_parallel "$kind" "${tests[@]:1}"
-      fi
-      for f in "${probes[@]}"; do run_one "$f" "$kind" 1; done
-      ./scripts/e2e/server.sh stop; trap - EXIT
+      SHARED_UP=1; trap './scripts/e2e/server.sh stop' EXIT
     else
       cat "$LOGDIR/server-$kind.log"
-      for f in "${tests[@]}" "${probes[@]}"; do
-        echo "E2E RESULT $(basename "$f") FAIL checks=0 failed=0 bundle=$kind (the shared server did not start)" | tee -a "$RESULTS"
-      done
     fi
-    unset CSP_POLICY
   fi
-  for f in $(pick "$kind" yes test); do run_one "$f" "$kind"; done
-  [ "$WANT_PROBES" = 1 ] && for f in $(pick "$kind" yes probe); do run_one "$f" "$kind"; done
+  if ! wait "$BUILDPID"; then
+    tail -20 "$LOGDIR/build-$kind.log"
+    fail_all "$kind" "the $kind bundle did not build; see $LOGDIR/build-$kind.log" "${all[@]}"
+    [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; trap - EXIT; }
+    unset CSP_POLICY; continue
+  fi
+
+  if [ "$SHARED_UP" = 1 ]; then
+    run_parallel "$kind" "${tests[@]}"
+  else
+    fail_all "$kind" "the shared server did not start" "${tests[@]}" "${probes[@]}"; probes=()
+  fi
+  # Probes measure, so they run only once nothing else is running.
+  for f in "${probes[@]}"; do run_one "$f" "$kind" 1 1; done
+  [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; trap - EXIT; }
+  # Own-server suites (busy-export) run after, on the same port: the app's PDF form posts to :8890
+  # whenever the page is on localhost (views.cljs download-form), so a second port cannot work.
+  for f in "${own[@]}" "${own_probes[@]}"; do run_one "$f" "$kind" "" 1; done
+  unset CSP_POLICY
 done
+kill "$MEMPID" 2>/dev/null
 
 echo
 printf '%-44s %-6s %-6s %7s %7s  %s\n' SUITE BUNDLE RESULT CHECKS FAILED NOTE
@@ -122,5 +155,6 @@ for kind in prod dev; do
   echo "$label: $p passed, $f failed${r:+, $r probes measured}, of $n" | sed 's/, 0 probes measured//'
 done
 [ "$SKIPPED_PROBES" -gt 0 ] && echo "$SKIPPED_PROBES probes not run (they measure, not test; add --probes)"
+awk 'NR == 1 || $1 > m {m = $1; t = $2} END {if (m) printf "peak memory in use: %d of %d MB\n", m, t}' "$LOGDIR/memory"
 echo "took $(( ($(date +%s) - START) / 60 )) min $(( ($(date +%s) - START) % 60 )) s; logs: $LOGDIR"
 ! grep -q ' FAIL ' "$RESULTS"
