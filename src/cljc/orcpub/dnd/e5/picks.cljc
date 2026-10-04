@@ -98,19 +98,24 @@
       :else {:character character :removed nil})))
 
 (defn put-at
-  "`character` with `removed` (from `remove-at`) stored again at its address, or nil when an entry
-   on the way to it is no longer stored. `:multiselect?` true appends it to the selection's vector
-   (creating one), unless that vector already holds its key; false makes it the selection's entry,
-   replacing any there.
+  "`character` with `removed` (from `remove-at`) stored again at its address: appended to a
+   `:multiselect?` vector (created if absent), else as the selection's entry. Nil when nothing is
+   written: an entry on the way is gone, the vector already holds its key, or the one-pick
+   selection already holds a pick. Never overwrites or duplicates a pick.
    GOTCHA: checks no rule; whether it still fits is the caller's question."
   [character {:keys [address entry multiselect?]}]
   (let [sel (nth address (- (count address) 2))
-        opath (options-path character address)]
-    (when opath
-      (if multiselect?
-        (update-in character (conj opath sel)
-                   (fn [v]
-                     (cond (not (sequential? v)) [entry]
-                           (entry-index v (::entity/key entry)) v
-                           :else (with-meta (conj (vec v) entry) (meta v)))))
-        (assoc-in character (conj opath sel) entry)))))
+        opath (options-path character address)
+        v (when opath (get-in character (conj opath sel)))]
+    (cond
+      (nil? opath) nil
+      multiselect? (cond (not (sequential? v))
+                         (assoc-in character (conj opath sel) [entry])
+
+                         (entry-index v (::entity/key entry)) nil
+
+                         :else
+                         (assoc-in character (conj opath sel)
+                                   (with-meta (conj (vec v) entry) (meta v))))
+      (some? v) nil
+      :else (assoc-in character (conj opath sel) entry))))

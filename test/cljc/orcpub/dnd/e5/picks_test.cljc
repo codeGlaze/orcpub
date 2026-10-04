@@ -93,14 +93,19 @@
       (is (= [{::entity/key :defense}]
              (get-in (picks/put-at character removed)
                      [::entity/options :class 1 ::entity/options :fighting-style])))))
-  (testing "the key re-picked meanwhile: no second copy"
+  (testing "the key re-picked meanwhile: nothing written, nil"
     (let [{:keys [character removed]} (picks/remove-at ranger insight)
           repicked (update-in character
                               [::entity/options :class 0 ::entity/options :skill-proficiency]
-                              conj {::entity/key :insight})
-          v (get-in (picks/put-at repicked removed)
-                    [::entity/options :class 0 ::entity/options :skill-proficiency])]
-      (is (= [:athletics :stealth :insight] (map ::entity/key v)))))
+                              conj {::entity/key :insight})]
+      (is (nil? (picks/put-at repicked removed)))))
+  (testing "a one-pick selection chosen again meanwhile: never overwritten, nil"
+    (let [{:keys [character removed]} (picks/remove-at ranger steel-will)
+          chose-other (assoc-in character
+                                [::entity/options :class 0 ::entity/options :levels 0
+                                 ::entity/options :defensive-tactics]
+                                {::entity/key :escape-the-horde})]
+      (is (nil? (picks/put-at chose-other removed)))))
   (testing "nowhere to go: nil"
     (let [{:keys [removed]} (picks/remove-at ranger steel-will)
           no-ranger (assoc-in ranger [::entity/options :class]
