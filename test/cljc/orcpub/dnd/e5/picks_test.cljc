@@ -49,7 +49,7 @@
 (deftest remove-at-takes-out-exactly-one-pick
   (testing "a single pick: its selection goes"
     (let [{:keys [character removed]} (picks/remove-at ranger steel-will)]
-      (is (= {:address steel-will :entry {::entity/key :steel-will} :multi? false} removed))
+      (is (= {:address steel-will :entry {::entity/key :steel-will} :multiselect? false} removed))
       (is (not (contains? (get-in character [::entity/options :class 0 ::entity/options :levels 0
                                              ::entity/options])
                           :defensive-tactics)))))
@@ -58,7 +58,7 @@
           v (get-in character [::entity/options :class 0 ::entity/options :skill-proficiency])]
       (is (= [:athletics :stealth] (map ::entity/key v)))
       (is (= {:kept true} (meta v)))
-      (is (true? (:multi? removed)))))
+      (is (true? (:multiselect? removed)))))
   (testing "the same key in another class is a different address"
     (let [{:keys [removed]} (picks/remove-at ranger [:class :fighter :fighting-style :defense])]
       (is (= {::entity/key :defense} (:entry removed)))))

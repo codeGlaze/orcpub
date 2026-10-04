@@ -1,6 +1,8 @@
 (ns orcpub.dnd.e5.picks
   "A character's stored picks (the entries under `::entity/options`): walking, reading, rewriting,
-   removing and putting back. Pure data, shared by the browser and the server.
+   removing and putting back. Pure data, shared by the browser and the server. A selection stores
+   its picks as a vector when it is `::t/multiselect?` (kept, empty, after its last pick goes),
+   otherwise as the one entry map; an absent selection was never chosen.
    GOTCHA: never depend on the iteration order of a set or map here; it differs between the JVM
    and the browser (`testing-infrastructure.md`)."
   (:require [orcpub.entity :as entity]
@@ -74,8 +76,9 @@
 
 (defn remove-at
   "`character` without the pick at `address`, as {:character :removed}; `:removed` is
-   {:address :entry :multi?}, what `put-at` takes, or nil when nothing is stored there.
-   A multi-pick keeps its (possibly empty) vector; a single pick's selection is dissoc'd."
+   {:address :entry :multiselect?}, what `put-at` takes, or nil when nothing is stored there.
+   A multiselect keeps its vector, emptied if this was its last pick, as unticking does; a single
+   pick's selection is dissoc'd. `:multiselect?` records which, since neither shows it after."
   [character address]
   {:pre [(even? (count address)) (seq address)]}
   (let [sel (nth address (- (count address) 2))
@@ -86,23 +89,24 @@
       (and (sequential? v) (entry-index v k))
       {:character (assoc-in character (conj opath sel)
                             (with-meta (vec (remove #(= k (::entity/key %)) v)) (meta v)))
-       :removed {:address address :entry (nth v (entry-index v k)) :multi? true}}
+       :removed {:address address :entry (nth v (entry-index v k)) :multiselect? true}}
 
       (and (map? v) (= k (::entity/key v)))
       {:character (update-in character opath dissoc sel)
-       :removed {:address address :entry v :multi? false}}
+       :removed {:address address :entry v :multiselect? false}}
 
       :else {:character character :removed nil})))
 
 (defn put-at
   "`character` with `removed` (from `remove-at`) stored again at its address, or nil when an entry
-   on the way to it is no longer stored. A multi-pick gets it appended; a single pick is replaced.
+   on the way to it is no longer stored. `:multiselect?` true appends it to the selection's vector
+   (creating one); false makes it the selection's entry, replacing any there.
    GOTCHA: checks no rule; whether it still fits is the caller's question."
-  [character {:keys [address entry multi?]}]
+  [character {:keys [address entry multiselect?]}]
   (let [sel (nth address (- (count address) 2))
         opath (options-path character address)]
     (when opath
-      (if multi?
+      (if multiselect?
         (update-in character (conj opath sel)
                    (fn [v] (if (sequential? v) (with-meta (conj (vec v) entry) (meta v)) [entry])))
         (assoc-in character (conj opath sel) entry)))))
