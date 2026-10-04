@@ -3,6 +3,22 @@
 *Live defect class. Measured 2026-09-14, `feature/grant-rows` at `4b7dc0e6`; assertions in
 `test/cljc/orcpub/dnd/e5/conditional_selection_ref_test.clj`.*
 
+## Trapped picks: homebrew that is not loaded (e2e, 2026-10-04)
+
+`test/e2e/orphan-clear.js` (`ab89f88e`). A level-4 wizard with a homebrew race, feat and spell,
+then the pack disabled or deleted (both behave the same; neither warns that a character uses it).
+"Missing Content (3)" lists all three and offers **no action**; none renders as a card.
+
+| pick | stored at | clearable? |
+|---|---|---|
+| race | the race slot | yes: picking another race replaces it |
+| feat | `[:feats]` (top level, not under the level-4 slot) | **no route.** It fills the one Feats place, so other feats are disabled; it survives switching the slot to ASI, lowering the level and changing the class |
+| spell | `:wizard-spells-known` | only by changing the class, which discards every other spell pick. Until then it silently takes one of the 12 places |
+
+Owner's rule (2026-10-03): no choice on a character may be trapped with no way to clear it.
+Clearing a missing pick is an option the player takes, never automatic: the homebrew may load in
+another browser.
+
 ## Two slot facts the design depends on (e2e, 2026-10-03)
 
 `test/e2e/slot-order-and-click.js` (`e7239168`). **A shared slot stores picks in click order**:
