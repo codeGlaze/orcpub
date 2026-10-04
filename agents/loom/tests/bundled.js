@@ -1,0 +1,10 @@
+const { chromium } = require('playwright'); const fs = require('fs');
+const EXE = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'].find(p => fs.existsSync(p));
+(async () => { const b = await chromium.launch({ executablePath: EXE }); const ctx = await b.newContext({ acceptDownloads: true }); const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(String(e)));
+  await p.goto('file://' + process.env.LOOM);
+  await p.setInputFiles('#file', process.env.PACKZIP);
+  await p.waitForFunction(() => !document.getElementById('manifest').disabled, null, { timeout: 120000 });
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#manifest')]);
+  await dl.saveAs(process.env.OUT);
+  console.log('about:', await p.locator('#build-line').textContent(), '| errors:', errs.length ? errs : 'none'); await b.close(); })();

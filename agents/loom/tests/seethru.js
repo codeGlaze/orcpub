@@ -1,0 +1,18 @@
+const { chromium } = require('playwright'); const fs = require('fs');
+const EXE = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'].find(p => fs.existsSync(p));
+let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') + m); if (!ok) fails++; };
+(async () => { const b = await chromium.launch({ executablePath: EXE }); const ctx = await b.newContext({ acceptDownloads: true, viewport: { width: 1300, height: 1000 } }); const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(String(e)));
+  await p.goto('file://' + process.env.LOOM); await p.setInputFiles('#file', process.env.PACKZIP);
+  await p.waitForFunction(() => !document.getElementById('save').disabled, null, { timeout: 120000 });
+  const pill = await p.locator('.summary .pill', { hasText: 'see-through' }).textContent().catch(() => '');
+  check(/see-through/.test(pill), `the summary counts pieces with see-through insides (${pill})`);
+  check(await p.locator('.verdict', { hasText: 'See-through inside' }).count() > 10, 'cards flag them');
+  const getZip = async (name) => { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#save')]); const f = process.env.OUT + '/' + name; await dl.saveAs(f); return f; };
+  const plain = await getZip('plain.zip');
+  await p.check('#fill-insides'); await p.waitForTimeout(300);
+  check(/filled on download/.test(await p.locator('.summary .pill', { hasText: 'see-through' }).textContent()), 'ticking the option says they will be filled');
+  const filled = await getZip('filled.zip');
+  console.log('ZIPS', plain, filled);
+  check(errs.length === 0, 'no page errors ' + errs.join(' | '));
+  await b.close(); process.exit(fails ? 1 : 0); })();

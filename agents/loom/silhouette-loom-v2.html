@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silhouette Loom v2.23</title>
+<style>
+  :root {
+    --bg: #11161f; --panel: #1a2130; --line: rgba(255,255,255,.09);
+    --ink: #e9edf4; --dim: #8b95a5; --amber: #f1a20f; --amber2: #dbab50;
+    --good: #5fb37a; --warn: #e0a33a; --bad: #d9646a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 'Open Sans', system-ui, -apple-system, sans-serif;
+  }
+  header {
+    padding: 12px 16px 10px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--bg); z-index: 5;
+  }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .hrow .btn { padding: 6px 11px; min-height: 0; }
+  #about { margin-top: 10px; }
+  h1 { margin: 0 0 4px; font-size: 19px; letter-spacing: .01em; }
+  /* Four builds went out under one filename, so which one is open has to be
+     readable without opening the source -- in the tab title and on the page. */
+  #ver-badge {
+    font: 600 11px/1 'Open Sans', system-ui, sans-serif; letter-spacing: .08em;
+    vertical-align: middle; margin-left: 7px; padding: 4px 8px; border-radius: 999px;
+    background: rgba(241,162,15,.15); border: 1px solid rgba(241,162,15,.45);
+    color: var(--amber);
+  }
+  .changed { color: var(--dim); font-size: 11.5px; margin: 6px 0 8px; }
+  .changed b { color: #b9c2d0; font-weight: 600; }
+  .sub { color: var(--dim); font-size: 12.5px; max-width: 70ch; }
+  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 14px; margin-bottom: 16px;
+  }
+  label.f { display: flex; flex-direction: column; gap: 5px; font-size: 11px;
+            letter-spacing: .07em; text-transform: uppercase; color: var(--dim); }
+  input[type=number], select, input[type=text] {
+    background: #131a26; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 5px; padding: 8px 10px; font: inherit; min-width: 120px;
+  }
+  input[type=color] {
+    width: 46px; height: 34px; padding: 2px; background: #131a26;
+    border: 1px solid var(--line); border-radius: 5px;
+  }
+  .btn {
+    border: 1px solid transparent; border-radius: 5px; padding: 10px 15px;
+    font: 600 12px/1 inherit; text-transform: uppercase; letter-spacing: .04em;
+    cursor: pointer; background: linear-gradient(to bottom, var(--amber), var(--amber2));
+    color: #15202e;
+  }
+  .fill-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px;
+              padding-top: 10px; border-top: 1px solid var(--line); }
+  .fill-btn { padding: 8px 12px; }
+  .fill-state { font-size: 11.5px; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); }
+  .fill-state.todo { color: var(--warn); border-color: rgba(224,163,58,.5); }
+  .fill-state.ok { color: var(--good); border-color: rgba(95,179,122,.5); }
+  .fill-state.edited { color: var(--amber); border-color: rgba(241,162,15,.55); }
+  .fill-state.off { color: var(--dim); }
+  .pill.tap { cursor: pointer; text-decoration: underline dotted; }
+  .fill-review { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .fill-review > summary { cursor: pointer; font-size: 12.5px; color: var(--amber2); }
+  .fill-editor { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; margin-top: 10px; }
+  .fill-scroll { max-width: 100%; overflow: auto; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; }
+  .fill-canvas { display: block; touch-action: none; cursor: crosshair; }
+  .fill-controls { display: flex; flex-direction: column; gap: 9px; min-width: 220px; flex: 1 1 220px; }
+  .fill-controls input[type=range] { width: 100%; }
+  .fill-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
+  .fill-stats { font-size: 12.5px; }
+  .fill-legend { font-size: 11.5px; color: var(--dim); }
+  label.inline-f span { display: flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--ink); }
+  .btn.ghost { background: transparent; color: var(--dim); border-color: var(--line); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  #drop {
+    border: 2px dashed rgba(241,162,15,.35); border-radius: 10px;
+    padding: 34px 18px; text-align: center; color: var(--dim);
+    background: var(--panel); cursor: pointer; margin-bottom: 18px;
+  }
+  #drop.over { border-color: var(--amber); background: #1e2635; color: var(--ink); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 13px; margin-bottom: 12px;
+  }
+  /* which ones the Download button will actually write out */
+  .card.picked { border-color: rgba(241,162,15,.5); box-shadow: inset 3px 0 0 var(--amber); }
+  .card.notasset { opacity: .55; }
+  .iris-editor { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start;
+                 margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .iris-canvas { background:
+      linear-gradient(45deg,#232b3a 25%,transparent 25%,transparent 75%,#232b3a 75%),
+      linear-gradient(45deg,#232b3a 25%,#1b2230 25%,#1b2230 75%,#232b3a 75%);
+    background-size: 14px 14px; background-position: 0 0, 7px 7px;
+    border: 1px solid var(--line); border-radius: 6px; touch-action: none; cursor: grab; }
+  .iris-controls { display: flex; flex-direction: column; gap: 9px; min-width: 190px; }
+  .iris-controls input[type=range] { width: 100%; }
+  .iris-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .iris-controls label.f.inline { flex-direction: row; align-items: center; gap: 8px; }
+  .iris-btns .btn:disabled { opacity: .4; }
+  .iris-locks { font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; opacity: .9; }
+  .iris-btns .btn { padding: 7px 10px; min-height: 0; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  .shot { text-align: center; }
+  .shot canvas {
+    background:
+      linear-gradient(45deg,#232b3a 25%,transparent 25%,transparent 75%,#232b3a 75%),
+      linear-gradient(45deg,#232b3a 25%,#1b2230 25%,#1b2230 75%,#232b3a 75%);
+    background-size: 14px 14px; background-position: 0 0, 7px 7px;
+    border: 1px solid var(--line); border-radius: 5px; display: block;
+  }
+  .shot b { display: block; font: 600 10px/1.8 inherit; letter-spacing: .12em;
+            text-transform: uppercase; color: var(--dim); }
+  .meta { flex: 1 1 260px; min-width: 240px; }
+  .name { font-weight: 600; word-break: break-all; margin-bottom: 2px; }
+  .path { color: var(--dim); font-size: 11.5px; word-break: break-all; margin-bottom: 8px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 10px; font-size: 12.5px; }
+  dt { color: var(--dim); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  .verdict { border-radius: 5px; padding: 9px 11px; font-size: 12.5px; line-height: 1.45; }
+  .verdict.good { background: rgba(95,179,122,.12); border: 1px solid rgba(95,179,122,.4); }
+  .verdict.warn { background: rgba(224,163,58,.12); border: 1px solid rgba(224,163,58,.45); }
+  .verdict.bad  { background: rgba(217,100,106,.13); border: 1px solid rgba(217,100,106,.45); }
+  .verdict b { display: block; margin-bottom: 3px; }
+
+  .summary { display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+             margin-bottom: 14px; font-size: 13px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; color: var(--dim); }
+  .pill.bad { color: var(--bad); border-color: rgba(217,100,106,.5); }
+  .pill.good { color: var(--good); border-color: rgba(95,179,122,.45); }
+  footer { color: var(--dim); font-size: 12px; padding: 22px 16px 40px; max-width: 1100px; margin: 0 auto; }
+  /* folding panels, so the work is not under a screen of settings */
+  details.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+                  margin-bottom: 14px; }
+  details.panel > summary { cursor: pointer; padding: 10px 14px; font: 600 12px/1.4 inherit;
+                            letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  details.panel > .controls { border: 0; margin: 0; padding-top: 4px; background: transparent; }
+  .vfrom { text-transform: none; letter-spacing: 0; font-size: 10.5px; color: var(--amber2); }
+  /* the view bar: jump straight to the eyes, or what needs attention */
+  #viewbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  #viewbar[hidden] { display: none; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font: 600 11.5px/1.3 inherit;
+          background: transparent; color: var(--dim); cursor: pointer; }
+  .chip.on { background: rgba(241,162,15,.16); border-color: rgba(241,162,15,.55); color: var(--amber); }
+  .chip .n { opacity: .7; margin-left: 4px; font-weight: 400; }
+  #viewbar label { font-size: 12px; color: var(--dim); margin-left: auto; white-space: nowrap; }
+  /* compact cards: one preview, the name and the verdict's headline */
+  body.compact .shot:not(.keep), body.compact .card dl, body.compact .card .path,
+  body.compact .verdict .vbody, body.compact .verdict.size { display: none; }
+  body.compact .shot canvas { max-width: 72px; height: auto; }
+  body.compact .card { padding: 10px; margin-bottom: 8px; }
+  body.compact .meta { min-width: 0; flex: 1 1 160px; }
+  body.compact .verdict { padding: 5px 8px; }
+  body.compact .verdict b { margin: 0; }
+  /* once art is in, the drop zone only needs to be a target */
+  body.loaded #drop { padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; }
+  body.loaded #pickdir { display: none; }
+  body.compact .card.eye .row .shot { display: none; }
+  @media (max-width: 700px) {
+    header { padding: 8px 12px; }
+    h1 { font-size: 16px; }
+    main { padding: 10px; }
+    .controls { gap: 10px 12px; padding: 10px; }
+    .controls label.f { flex: 1 1 42%; }
+    input[type=number], select, input[type=text] { min-width: 0; width: 100%; }
+    .iris-editor { gap: 10px; }
+    .iris-controls { min-width: 0; width: 100%; }
+    .iris-canvas { max-width: 100%; height: auto; }
+    .summary { gap: 8px; font-size: 12px; }
+    /* one swipeable row of chips, not three rows of header */
+    #viewbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+    #viewbar .chip, #viewbar label { flex: 0 0 auto; }
+  }
+  code { background: #131a26; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <h1>Silhouette Loom <span id="ver-badge">v2.23</span></h1>
+    <button class="btn ghost" id="about-toggle" type="button">About</button>
+  </div>
+  <!-- The notes grew with every version and pushed the work off screen.
+       Collapsed by default; the version badge is the part worth always seeing. -->
+  <div id="viewbar" hidden></div>
+  <div id="about" hidden>
+    <div class="sub">
+      Resizes portrait layer art, and shows what the compositor will actually do to it.
+      The app tints by the <b>alpha channel</b> and discards the artwork's own colours,
+      so a normal ink-on-white drawing comes out as one flat blob.
+    </div>
+    <div class="changed">
+      <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.32</b> the fill brush starts Off, so looking at a review never changes it and dragging scrolls the zoomed picture; pick Remove fill or Add fill to paint ·
+      <b>v2.31</b> clearer fill-review wording: "Remove fill" / "Add fill" brushes, "Reset to automatic", sliders named for what they do with their values shown ·
+      <b>v2.30</b> fill reviews are kept: autosaved in this browser as you go, and written into exported manifests so dropping the manifest back restores every mark, setting and review status ·
+      <b>v2.29</b> a See-through filter (the summary count taps through to it, and opens each review); Review fill is a proper button showing each piece's state: not reviewed, reviewed, edited or off; zooming the review no longer reshapes the panel, it zooms inside a fixed box and stays centred ·
+      <b>v2.28</b> fill review: per piece, see what will be filled (overlay / before / after on a dark skin background), tune edge margin and minimum opacity, brush "Keep as drawn" or "Fill here", undo/redo, and switch a piece off; only reviewed fills are exported ·
+      <b>v2.27</b> flags see-through insides (fills drawn at 80–99% opacity, which show as pale specks on dark skin) on each piece; a "Fill see-through insides" option fixes them in the downloaded pack, recorded in the manifest ·
+      <b>v2.26</b> pack version follows the manifest in use (dropped, then bundled, then the zip's), unless typed; a view bar to jump to the eyes or what needs attention; compact cards (default on phones); pack settings fold away once art is in on a phone or when you pick a view, the commission kit starts folded; a slim drop zone; one swipeable row of view chips on a phone ·
+      <b>v2.25</b> eye editor: Lock iris, pupil, upper or lower lid so taps reach the part you mean; Undo and Redo (Ctrl/⌘+Z, Shift+Ctrl/⌘+Z). Fixes: changing Height or Mode keeps your placements; edits no longer leak into the bundled or manifest copies; Clear really clears; the rotate slider follows the selected iris; a newer Height/Mode change cancels an older one, with progress shown and export buttons disabled meanwhile ·
+      <b>v2.24</b> carries the working placements: dropping the art alone brings back every iris, lid and whites placed so far; a manifest dropped loose still wins ·
+      <b>v2.23</b> the title and badge follow the version; each build carries a short hash, shown here and on the badge ·
+      <b>v2.22</b> a pack's <code>scalp</code> folder is recognised ·
+      <b>v2.21</b> Reference images: a zip of just the reduced pieces, a folder per layer ·
+      <b>v2.20</b> reference pieces are only ever reduced (800px by default, never enlarged); the brief gives the canvas to draw on and the size the site shows ·
+      <b>v2.19</b> Commission kit: a brief for artists you might commission, with the reference pieces, a layer overview, an example and a registration guide ·
+      <b>v2.18</b> eye whites: a lower lid curve per eye, for styles drawn without painted whites ·
+      <b>v2.18</b> a manifest dropped with a zip wins over the zip's own, and manifest-v1.5.json is recognised; saves work inside the Claude viewer ·
+      <b>v2.17</b> dropping a piece that is already loaded replaces it instead of adding a second copy ·
+      <b>v2.16</b> the pupil can be dragged off centre ·
+      <b>v2.15</b> the notes collapse ·
+      <b>v2.14</b> both lid curves are drawn and both are grabbable ·
+      <b>v2.13</b> says when a file is already processed, and what resizing it costs ·
+      <b>v2.12</b> a dropped FOLDER restores iris work too, not just a zip ·
+      <b>v2.11</b> the eyelid is a curve you drag, and it masks the iris ·
+      <b>v2.10</b> the middle of an iris always moves ·
+      <b>v2.9</b> reads a pack's own folders and restores its iris work ·
+      <b>v2.8</b> iris handles reshape each axis ·
+      <b>v2.7</b> iris regions ·
+      <b>v2.6</b> packs only what is in a layer folder ·
+      <b>v2.5</b> downloads one zip ·
+      <b>v2.4</b> one per layer ·
+      <b>v2.3</b> multiply preview ·
+      <b>v2.2</b> zips ·
+      <b>v2.1</b> folder drop ·
+      <b>v2.0</b> tint check
+    </div>
+  </div>
+</header>
+
+<main>
+  <details class="panel" id="settings-panel" open><summary>Pack settings</summary>
+  <div class="controls">
+    <label class="f">Height (px)
+      <input type="number" id="height" value="638" min="64" max="4096" step="1">
+    </label>
+    <label class="f">Mode
+      <select id="mode">
+        <option value="production">Production — keep the art, resize it</option>
+        <option value="prototype">Prototype — flatten to a silhouette</option>
+      </select>
+    </label>
+    <label class="f">Tint preview
+      <input type="color" id="tint" value="#e8c69c">
+    </label>
+    <label class="f">Pack version <span class="vfrom" id="ver-from"></span>
+      <input type="text" id="ver" value="v1" size="6">
+    </label>
+    <label class="f">Download
+      <select id="scope">
+        <option value="all">Everything</option>
+        <option value="one">One per layer — a test set</option>
+      </select>
+    </label>
+    <label class="f inline-f"><span><input type="checkbox" id="fill-insides"> Fill see-through insides</span></label>
+    <button class="btn" id="save" disabled>Download zip</button>
+    <button class="btn ghost" id="manifest" disabled>manifest.json</button>
+    <button class="btn ghost" id="clear">Clear</button>
+  </div>
+  </details>
+
+  <details class="panel" id="kit-panel"><summary>Commission kit &amp; reference images</summary>
+  <div class="controls" id="kit-row">
+    <label class="f">Project
+      <input type="text" id="kit-project" value="" size="18" placeholder="e.g. Dungeon Master's Vault portraits">
+    </label>
+    <label class="f">Your name and contact
+      <input type="text" id="kit-owner" value="" size="22" placeholder="name, email or handle">
+    </label>
+    <label class="f">Reference art by
+      <input type="text" id="kit-credit" value="" size="14" placeholder="the original artist">
+    </label>
+    <label class="f">Looking for
+      <input type="text" id="kit-want" value="" size="28" placeholder="e.g. 3 hairstyles, 2 eye styles">
+    </label>
+    <label class="f">Reference height (px)
+      <input type="number" id="kit-height" value="800" min="96" max="4096" step="1">
+    </label>
+    <label class="f">Delivery canvas
+      <input type="text" id="kit-canvas" value="" size="10" placeholder="as loaded">
+    </label>
+    <label class="f">Watermark
+      <input type="text" id="kit-mark" value="" size="14" placeholder="none">
+    </label>
+    <button class="btn" id="kit" disabled title="A commission brief for artists: the reference pieces, how the layers fit, the canvas and what to deliver">Commission kit</button>
+    <button class="btn ghost" id="kit-images" disabled title="Only the reference images, reduced to the reference height">Reference images</button>
+  </div>
+  </details>
+
+  <div id="drop">
+    <!-- Only #dropmsg is ever rewritten. The inputs and the button live outside
+         it, because replacing the whole innerHTML deletes them -- which it did,
+         at startup, leaving nothing to click. -->
+    <div id="dropmsg"></div>
+    <input type="file" id="file" multiple accept="image/*,.zip,application/zip,.json,application/json" hidden>
+    <input type="file" id="dir" webkitdirectory directory multiple hidden>
+    <div style="margin-top:12px">
+      <button class="btn ghost" id="pickdir" type="button">Choose a folder</button>
+    </div>
+  </div>
+
+  <div class="summary" id="summary" hidden></div>
+  <div id="out"></div>
+</main>
+
+<footer>
+  Everything happens in this page — no upload, nothing leaves the machine, works offline.
+  The desktop script <code>scripts/build-portrait-assets.py</code> does the same resize with a
+  proper Lanczos resampler and PNG optimisation; this trades some quality for running anywhere.
+  Both emit the same manifest shape.
+</footer>
+
+<script>
+'use strict';
+
+const LOOM_VERSION = 'v2.32';
+const LOOM_BUILD = 'dev'; // stamped by release-loom.py
+// one version, everywhere it shows: the title and the badge used to be typed
+// in separately and fell behind
+document.title = 'Silhouette Loom ' + LOOM_VERSION;
+{ const b = document.getElementById('ver-badge'); if (b) { b.textContent = LOOM_VERSION; b.title = 'build ' + LOOM_BUILD; } }
+
+
+const LAYER_FOLDER = /^layer\s+(\d+)\s*[-–—]\s*(.+)$/i;
+
+/* Two conventions reach this tool and it has to read both. The illustrator
+   works in `layer 6 - eyes`; a pack this tool has already produced uses the
+   bare key, `eyes/`. Only understanding the first meant that re-dropping an
+   exported pack gave every file no layer -- so nothing was packable, the
+   download said 0, and the eye editor fell back to guessing from filenames. */
+// the site's z-order; the scalp sits between the head and the shirt
+const LAYER_ORDER = ['hair-bits','hair-back','head','scalp','shirt','hair-front',
+                     'ears','eyes','nose','mouth','bangs'];
+const items = [];
+
+const $ = (id) => document.getElementById(id);
+const drop = $('drop'), out = $('out'), summary = $('summary');
+
+/* ---------- layer key, matching build-portrait-assets.py ---------- */
+function layerKey(name) {
+  return String(name).trim().toLowerCase().replace(/[_\s]+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+function layerFromPath(path) {
+  if (!path) return null;
+  const parts = path.split('/');
+  for (const part of parts) {
+    const m = LAYER_FOLDER.exec(part.trim());
+    if (m) return { z: +m[1], key: layerKey(m[2]) };
+  }
+  // a pack's own layout: <layer-key>/<file>.png
+  for (const part of parts.slice(0, -1)) {
+    const k = layerKey(part);
+    const z = LAYER_ORDER.indexOf(k);
+    if (z >= 0) return { z, key: k };
+  }
+  return null;
+}
+
+/* ---------- analysis: what will the tint keep, and what will it throw away ---------- */
+function analyse(img) {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+
+  const alphas = new Set(), opaqueRGB = new Set();
+  let opaque = 0, drawn = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3];
+    alphas.add(a);
+    if (a > 0) drawn++;
+    if (a === 255) {
+      opaque++;
+      // cheap quantise so antialiasing noise doesn't read as "detail"
+      opaqueRGB.add(((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3));
+    }
+  }
+  const px = c.width * c.height;
+  return {
+    w: c.width, h: c.height,
+    alphaLevels: alphas.size,
+    opaqueColours: opaqueRGB.size,
+    drawnPct: (drawn / px) * 100,
+    opaquePct: (opaque / px) * 100,
+    hasTransparency: alphas.has(0) || alphas.size > 1,
+  };
+}
+
+function verdict(a) {
+  if (!a.hasTransparency) {
+    return { cls: 'bad', head: 'No transparency at all',
+      body: 'Every pixel is opaque, so the whole rectangle becomes one block of the '
+          + 'character colour. The art needs a transparent background.' };
+  }
+  if (a.opaqueColours > 1) {
+    return { cls: 'warn', head: `A real drawing — ${a.opaqueColours} shades in the solid areas`,
+      body: 'Masking (what the app does today) throws every one of them away and leaves '
+          + 'one flat tint: compare the two tinted panels. Multiply keeps the drawing AND '
+          + 'takes the colour, which is what this art wants. Nothing to change in the '
+          + 'artwork — the compositor is what has to change.' };
+  }
+  if (a.alphaLevels <= 8) {
+    return { cls: 'warn', head: 'Hard-edged — nothing to shade with',
+      body: 'Alpha is effectively on or off, so this will tint as a flat silhouette. '
+          + 'Fine for prototype pieces; for finished art, partial transparency is what '
+          + 'gives the tint any modelling.' };
+  }
+  return { cls: 'good', head: 'Survives the tint',
+    body: `One colour under ${a.alphaLevels} levels of transparency — the shading is in `
+        + 'alpha, which is the channel that carries through.' };
+}
+
+/* ---------- resampling: stepped halving, then the final step ---------- */
+function resizeTo(img, targetH) {
+  const scale = targetH / img.naturalHeight;
+  let cw = img.naturalWidth, ch = img.naturalHeight;
+  let src = img;
+  // halve repeatedly: one big downscale in a canvas is visibly worse than several
+  while (ch / 2 >= targetH) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(cw / 2));
+    c.height = Math.max(1, Math.round(ch / 2));
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(src, 0, 0, c.width, c.height);
+    src = c; cw = c.width; ch = c.height;
+  }
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  c.height = targetH;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+
+function toSilhouette(canvas) {
+  const g = canvas.getContext('2d', { willReadFrequently: true });
+  const im = g.getImageData(0, 0, canvas.width, canvas.height);
+  const d = im.data;
+  // WHITE, not black. Under multiply a white pixel takes the tint exactly and a
+  // black one stays black -- so a black silhouette would come out black rather
+  // than coloured. White makes prototypes and finished art behave the same way.
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = 255; d[i + 1] = 255; d[i + 2] = 255;
+    d[i + 3] = d[i + 3] > 8 ? 255 : 0;             // the shape is what we keep
+  }
+  g.putImageData(im, 0, 0);
+  return canvas;
+}
+
+/* ---------- the two ways to colour this art ----------
+
+   MASK is what the app does today: keep the alpha, replace every colour with
+   the character's. Correct for a silhouette, destructive for a drawing --
+   outlines, folds and shading all flatten into one tint.
+
+   MULTIPLY is how line art is normally coloured: lay the tint down through the
+   same alpha, then multiply the original drawing over it. White fill leaves the
+   tint alone, black lines stay black, greys darken the tint by however grey
+   they are. The artwork keeps its drawing and still takes the character's
+   colour -- no change to how it is drawn.
+*/
+function tintPreview(canvas, hex, method) {
+  const c = document.createElement('canvas');
+  c.width = canvas.width; c.height = canvas.height;
+  const g = c.getContext('2d');
+
+  g.drawImage(canvas, 0, 0);
+  g.globalCompositeOperation = 'source-in';       // tint through the alpha
+  g.fillStyle = hex;
+  g.fillRect(0, 0, c.width, c.height);
+
+  if (method === 'multiply') {
+    g.globalCompositeOperation = 'multiply';      // put the drawing back on top
+    g.drawImage(canvas, 0, 0);
+  }
+  g.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+function fit(canvas, box) {
+  const c = document.createElement('canvas');
+  const s = Math.min(box / canvas.width, box / canvas.height);
+  c.width = Math.max(1, Math.round(canvas.width * s));
+  c.height = Math.max(1, Math.round(canvas.height * s));
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(canvas, 0, 0, c.width, c.height);
+  return c;
+}
+
+/* ---------- irises ----------
+
+   The compositor tints a whole asset, and an eye is not one thing: sclera,
+   iris, pupil and lashes all want different answers. The iris is the only part
+   that takes the character's colour, so it has to be described as a REGION --
+   and the region is an oval, clipped by the eyelid arc that crosses it.
+
+   Detecting it is easy on a wide-open eye and unreliable on a narrow one,
+   because a lid-clipped iris measures like a lash stroke. So this fits what it
+   can and lets a person correct the rest ONCE, here, storing the result in the
+   manifest. The renderer then reads a shape instead of guessing at one.
+
+   Stored normalised (0..1 of the frame) so it survives a re-render at another
+   size.
+*/
+function detectIrises(cv) {
+  const W = cv.width, H = cv.height;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  const d = g.getImageData(0, 0, W, H).data;
+
+  const dark = new Uint8Array(W * H);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    const a = d[i + 3], lum = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    if (a > 128 && lum < 110) dark[p] = 1;
+  }
+
+  const lab = new Int32Array(W * H);
+  let next = 0;
+  const stack = [];
+  for (let p0 = 0; p0 < dark.length; p0++) {
+    if (!dark[p0] || lab[p0]) continue;
+    next++; lab[p0] = next; stack.length = 0; stack.push(p0);
+    while (stack.length) {
+      const p = stack.pop(), x = p % W, y = (p / W) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const q = ny * W + nx;
+        if (dark[q] && !lab[q]) { lab[q] = next; stack.push(q); }
+      }
+    }
+  }
+
+  // moments per component -> centre, axes, angle
+  const acc = new Map();
+  for (let p = 0; p < lab.length; p++) {
+    const id = lab[p]; if (!id) continue;
+    const x = p % W, y = (p / W) | 0;
+    let a = acc.get(id);
+    if (!a) { a = { n: 0, sx: 0, sy: 0, sxx: 0, syy: 0, sxy: 0 }; acc.set(id, a); }
+    a.n++; a.sx += x; a.sy += y; a.sxx += x * x; a.syy += y * y; a.sxy += x * y;
+  }
+
+  const found = [];
+  for (const a of acc.values()) {
+    if (a.n < Math.max(24, W * H * 0.0004)) continue;
+    const cx = a.sx / a.n, cy = a.sy / a.n;
+    const vxx = a.sxx / a.n - cx * cx, vyy = a.syy / a.n - cy * cy, vxy = a.sxy / a.n - cx * cy;
+    const tr = vxx + vyy, det = vxx * vyy - vxy * vxy;
+    const disc = Math.max(0, tr * tr / 4 - det);
+    const l1 = tr / 2 + Math.sqrt(disc), l2 = Math.max(1e-6, tr / 2 - Math.sqrt(disc));
+    const rx = 2 * Math.sqrt(l1), ry = 2 * Math.sqrt(l2);
+    const rot = Math.atan2(l1 - vxx, vxy) || 0;
+    found.push({ cx, cy, rx, ry, rot, area: a.n, elong: rx / ry });
+  }
+
+  // an iris is round-ish and substantial; a lash stroke is long and thin
+  found.sort((p, q) => (p.elong - q.elong) || (q.area - p.area));
+  const picked = found.filter(f => f.elong < 2.6).slice(0, 2);
+  return picked.map(f => ({
+    cx: f.cx / W, cy: f.cy / H, rx: f.rx / W, ry: f.ry / H, rot: f.rot,
+  }));
+}
+
+function defaultLid(e) {
+  // A lid runs ACROSS the eye on the page, not along the oval's own axes.
+  // These irises are tall ovals rotated about 96 degrees, so building this in
+  // the ellipse's local frame produced a vertical line down the middle of the
+  // eye. Use the oval's axis-aligned extent instead.
+  const c = Math.cos(e.rot), s = Math.sin(e.rot);
+  const halfW = Math.hypot(e.rx * c, e.ry * s);
+  const halfH = Math.hypot(e.rx * s, e.ry * c);
+  return {
+    x0: e.cx - halfW * 1.2, y0: e.cy - halfH * 0.45,
+    x1: e.cx + halfW * 1.2, y1: e.cy - halfH * 0.45,
+    mx: e.cx,               my: e.cy - halfH * 1.25,
+  };
+}
+
+// The lower lid, for an eye style whose whites are not painted: the whites
+// are everything between this curve and the upper lid. Starts as the upper
+// lid mirrored below the iris.
+function defaultLower(e) {
+  const c = Math.cos(e.rot), s = Math.sin(e.rot);
+  const halfW = Math.hypot(e.rx * c, e.ry * s);
+  const halfH = Math.hypot(e.rx * s, e.ry * c);
+  const up = e.lid || defaultLid(e);
+  return {
+    x0: up.x0, y0: up.y0 + halfH * 0.2,
+    x1: up.x1, y1: up.y1 + halfH * 0.2,
+    mx: e.cx,  my: e.cy + halfH * 1.2,
+  };
+}
+
+// The whites: down the upper lid, across, back along the lower lid.
+function whitesPath(ctx, e, W, H) {
+  const u = e.lid, l = e.lower;
+  if (!u || !l) return false;
+  ctx.beginPath();
+  ctx.moveTo(u.x0 * W, u.y0 * H);
+  ctx.quadraticCurveTo(u.mx * W, u.my * H, u.x1 * W, u.y1 * H);
+  ctx.lineTo(l.x1 * W, l.y1 * H);
+  ctx.quadraticCurveTo(l.mx * W, l.my * H, l.x0 * W, l.y0 * H);
+  ctx.closePath();
+  return true;
+}
+
+function irisPath(ctx, e, W, H, scale) {
+  ctx.save();
+  ctx.translate(e.cx * W, e.cy * H);
+  ctx.rotate(e.rot);
+  ctx.scale(e.rx * W * scale, e.ry * H * scale);
+  ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.restore();
+}
+
+/* The preview the renderer will reproduce: colour inside the iris ring, clipped
+   to what the artist actually drew, with the pupil left alone. */
+function withIris(source, irises, pupil, hex, whites) {
+  const W = source.width, H = source.height;
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const g = out.getContext('2d');
+  // the whites go UNDER the drawing, so her lashes and the iris sit on them
+  if (whites && irises) {
+    g.fillStyle = '#ffffff';
+    for (const e of irises) if (whitesPath(g, e, W, H)) g.fill();
+  }
+  g.drawImage(source, 0, 0);
+  if (!irises || !irises.length) return out;
+
+  const ring = document.createElement('canvas'); ring.width = W; ring.height = H;
+  const rg = ring.getContext('2d');
+  rg.fillStyle = hex;
+  for (const e of irises) { irisPath(rg, e, W, H, 1); rg.fill(); }
+  rg.globalCompositeOperation = 'destination-out';
+  for (const e of irises) {
+    // the pupil can sit off-centre, which is what stops a wide eye staring
+    const p = { ...e, cx: e.cx + (e.px || 0) * e.rx, cy: e.cy + (e.py || 0) * e.ry };
+    irisPath(rg, p, W, H, pupil); rg.fill();
+  }
+  // The eyelid crosses the iris, and a straight cut cannot follow it -- on a
+  // half-closed eye the lash runs diagonally. Each iris carries a quadratic
+  // through three points instead, and everything above it is removed.
+  for (const e of irises) {
+    const l = e.lid;
+    if (!l) continue;
+    rg.beginPath();
+    rg.moveTo(l.x0 * W, l.y0 * H);
+    rg.quadraticCurveTo(l.mx * W, l.my * H, l.x1 * W, l.y1 * H);
+    rg.lineTo(l.x1 * W, -H); rg.lineTo(l.x0 * W, -H);
+    rg.closePath(); rg.fill();
+  }
+  // never outside her linework
+  rg.globalCompositeOperation = 'destination-in';
+  rg.drawImage(source, 0, 0);
+
+  // The iris is drawn BLACK, so multiply cannot colour it -- black times
+  // anything stays black. Lightening is what turns it into an iris, and the
+  // pupil stays dark because the ring has a hole where the pupil is.
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = 0.88;
+  g.drawImage(ring, 0, 0);
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  return out;
+}
+
+function drawnBounds(cv, pad = 0.18) {
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  const d = g.getImageData(0, 0, cv.width, cv.height).data;
+  let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0, any = false;
+  for (let p = 0, i = 3; i < d.length; i += 4, p++) {
+    if (d[i] > 8) {
+      const x = p % cv.width, y = (p / cv.width) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+      any = true;
+    }
+  }
+  if (!any) return { x: 0, y: 0, w: cv.width, h: cv.height };
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const px = w * pad, py = h * pad;
+  x0 = Math.max(0, x0 - px); y0 = Math.max(0, y0 - py);
+  return { x: x0, y: y0,
+           w: Math.min(cv.width - x0, w + px * 2),
+           h: Math.min(cv.height - y0, h + py * 2) };
+}
+
+/* ---------- the iris editor ----------
+   Auto-fit is a starting point, not an answer. Drag to move, drag the rim to
+   resize, slider to rotate. Ten seconds per asset, once, forever.
+*/
+/* Which drawn parts can be grabbed. Shared by every eye editor and kept
+   between sessions: lids sit close together and a locked part lets a tap
+   fall through to what is meant. */
+const LOCK_KEY = 'silhouette-loom.locks';
+const locks = (() => {
+  try { return Object.assign({ iris: false, pupil: false, lid: false, lower: false },
+                             JSON.parse(localStorage.getItem(LOCK_KEY) || '{}')); }
+  catch (_) { return { iris: false, pupil: false, lid: false, lower: false }; }
+})();
+function saveLocks() { try { localStorage.setItem(LOCK_KEY, JSON.stringify(locks)); } catch (_) {} }
+
+/* Undo: each eye piece keeps its own history of what it looked like before
+   each change, so a wrong tap is one keypress away from gone. */
+const snapshot = (item) => structuredClone({ irises: item.irises, pupil: item.pupil, whites: !!item.whites });
+function remember(item) {
+  (item.undo = item.undo || []).push(snapshot(item));
+  if (item.undo.length > 200) item.undo.shift();
+  item.redo = [];
+}
+function restore(item, st) { item.irises = st.irises; item.pupil = st.pupil; item.whites = st.whites; }
+let activeEditor = null;   // the editor last touched, for the keyboard shortcuts
+document.addEventListener('keydown', (ev) => {
+  if (!activeEditor || !(ev.ctrlKey || ev.metaKey) || ev.key.toLowerCase() !== 'z') return;
+  if (/^(input|textarea|select)$/i.test(document.activeElement?.tagName || '') &&
+      document.activeElement.type !== 'range' && document.activeElement.type !== 'checkbox') return;
+  ev.preventDefault();
+  if (ev.shiftKey) activeEditor.redo(); else activeEditor.undo();
+});
+
+function irisEditor(item, onChange) {
+  const wrap = document.createElement('div');
+  wrap.className = 'iris-editor';
+
+  const VIEW = 300;
+  const src = item.processed;
+
+  // An eye covers about 1% of the frame, so showing the whole frame puts the
+  // subject at ten pixels across and makes dragging pointless. Zoom to what is
+  // actually drawn; the stored numbers stay normalised to the FULL frame.
+  const box = drawnBounds(src);
+  const zoom = Math.min(VIEW / box.w, VIEW / box.h);
+  const cw = Math.round(box.w * zoom), ch = Math.round(box.h * zoom);
+  const toView = (nx, ny) => ({ x: (nx * src.width - box.x) * zoom,
+                                y: (ny * src.height - box.y) * zoom });
+  const toNorm = (vx, vy) => ({ x: (vx / zoom + box.x) / src.width,
+                                y: (vy / zoom + box.y) / src.height });
+
+  const cv = document.createElement('canvas');
+  cv.width = cw; cv.height = ch; cv.className = 'iris-canvas';
+  const g = cv.getContext('2d');
+
+  let sel = 0;
+  const draw = () => {
+    syncControls();
+    g.clearRect(0, 0, cw, ch);
+    const preview = withIris(src, item.irises, item.pupil, item.irisColour, item.whites);
+    g.drawImage(preview, box.x, box.y, box.w, box.h, 0, 0, cw, ch);
+    item.irises.forEach((e, i) => {
+      const c = toView(e.cx, e.cy);
+      g.save();
+      g.translate(c.x, c.y);
+      g.rotate(e.rot);
+      g.beginPath();
+      g.ellipse(0, 0, e.rx * src.width * zoom, e.ry * src.height * zoom, 0, 0, Math.PI * 2);
+      g.strokeStyle = locks.iris ? 'rgba(241,162,15,.35)' : (i === sel ? '#f1a20f' : 'rgba(241,162,15,.45)');
+      g.lineWidth = i === sel && !locks.iris ? 2 : 1;
+      g.stroke();
+      // the pupil's own centre, which is what this dot drags
+      const pox = (e.px || 0) * e.rx * src.width * zoom;
+      const poy = (e.py || 0) * e.ry * src.height * zoom;
+      g.beginPath(); g.arc(pox, poy, i === sel && !locks.pupil ? 4.5 : 3, 0, Math.PI * 2);
+      g.fillStyle = locks.pupil ? 'rgba(241,162,15,.4)' : '#f1a20f'; g.fill();
+      if (i === sel && !locks.pupil) { g.strokeStyle = '#3a2600'; g.lineWidth = 1; g.stroke(); }
+      if (i === sel && !locks.iris) {
+        // one handle per axis: an iris is rarely a circle, and a single
+        // uniform-scale grab cannot make one fatter or thinner
+        const hx = e.rx * src.width * zoom, hy = e.ry * src.height * zoom;
+        g.fillStyle = '#ffd98a'; g.strokeStyle = '#8a6000'; g.lineWidth = 1;
+        for (const [ax, ay] of [[hx, 0], [-hx, 0], [0, hy], [0, -hy]]) {
+          g.beginPath(); g.rect(ax - 4, ay - 4, 8, 8); g.fill(); g.stroke();
+        }
+      }
+      g.restore();
+
+      // Every eye has its OWN lid, and drawing only the selected one made it
+      // look like there was a single curve for the pair. Both are shown; the
+      // selected one carries the handles.
+      if (e.lid) {
+        const P = (nx, ny) => toView(nx, ny);
+        const a = P(e.lid.x0, e.lid.y0), b = P(e.lid.x1, e.lid.y1), m = P(e.lid.mx, e.lid.my);
+        g.save();
+        g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(m.x, m.y, b.x, b.y);
+        g.strokeStyle = locks.lid ? 'rgba(127,212,255,.35)' : (i === sel ? '#7fd4ff' : 'rgba(127,212,255,.75)');
+        g.lineWidth = locks.lid ? 1 : 2;
+        if (i !== sel || locks.lid) g.setLineDash([5, 4]);
+        g.stroke();
+        g.setLineDash([]);
+        if (i === sel && !locks.lid) {
+          g.fillStyle = '#7fd4ff'; g.strokeStyle = '#124a63'; g.lineWidth = 1;
+          for (const q of [a, b, m]) {
+            g.beginPath(); g.arc(q.x, q.y, 4.5, 0, Math.PI * 2); g.fill(); g.stroke();
+          }
+        }
+        g.restore();
+      }
+      if (item.whites && e.lower) {
+        const P = (nx, ny) => toView(nx, ny);
+        const a = P(e.lower.x0, e.lower.y0), b = P(e.lower.x1, e.lower.y1), m = P(e.lower.mx, e.lower.my);
+        g.save();
+        g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(m.x, m.y, b.x, b.y);
+        g.strokeStyle = locks.lower ? 'rgba(155,227,138,.35)' : (i === sel ? '#9be38a' : 'rgba(155,227,138,.75)');
+        g.lineWidth = locks.lower ? 1 : 2;
+        if (i !== sel || locks.lower) g.setLineDash([5, 4]);
+        g.stroke();
+        g.setLineDash([]);
+        if (i === sel && !locks.lower) {
+          g.fillStyle = '#9be38a'; g.strokeStyle = '#2d5a22'; g.lineWidth = 1;
+          for (const q of [a, b, m]) {
+            g.beginPath(); g.arc(q.x, q.y, 4.5, 0, Math.PI * 2); g.fill(); g.stroke();
+          }
+        }
+        g.restore();
+      }
+    });
+  };
+
+  // pointer: inside an ellipse moves it, near its rim resizes it
+  let mode = null, startPt = null, startEllipse = null;
+  const at = (ev) => {
+    const r = cv.getBoundingClientRect();
+    const n = toNorm(ev.clientX - r.left, ev.clientY - r.top);
+    return { x: n.x, y: n.y };
+  };
+  // pointer position in the selected ellipse's own frame, in view pixels
+  const localOf = (e, pt) => {
+    const c = toView(e.cx, e.cy), v = toView(pt.x, pt.y);
+    const dx = v.x - c.x, dy = v.y - c.y;
+    const cs = Math.cos(-e.rot), sn = Math.sin(-e.rot);
+    return { u: dx * cs - dy * sn, v: dx * sn + dy * cs };
+  };
+
+  const hit = (pt) => {
+    // a lid point first: small, deliberate targets that sit outside the oval
+    // where nothing else competes for the grab. Checked on EVERY iris, so the
+    // other eye's curve is reachable without selecting it first -- selected
+    // ones win a tie so an overlap does not fight you.
+    const p = toView(pt.x, pt.y);
+    const order = [sel, ...item.irises.map((_, i) => i).filter(i => i !== sel)];
+    for (const i of order) {
+      const e = item.irises[i];
+      if (!e) continue;
+      if (e.lid && !locks.lid) for (const key of ['0', '1', 'm']) {
+        const q = toView(key === 'm' ? e.lid.mx : e.lid['x' + key],
+                         key === 'm' ? e.lid.my : e.lid['y' + key]);
+        if (Math.hypot(p.x - q.x, p.y - q.y) < 9) return { i, axis: 'lid' + key };
+      }
+      if (item.whites && e.lower && !locks.lower) {
+        for (const key of ['0', '1', 'm']) {
+          const q = toView(key === 'm' ? e.lower.mx : e.lower['x' + key],
+                           key === 'm' ? e.lower.my : e.lower['y' + key]);
+          if (Math.hypot(p.x - q.x, p.y - q.y) < 9) return { i, axis: 'low' + key };
+        }
+      }
+    }
+    for (let i = item.irises.length - 1; i >= 0; i--) {
+      const e = item.irises[i];
+      const { u, v } = localOf(e, pt);
+      const hx = Math.max(1e-6, e.rx * src.width * zoom);
+      const hy = Math.max(1e-6, e.ry * src.height * zoom);
+      const r = Math.hypot(u / hx, v / hy);
+
+      // the pupil dot first: a small target sitting inside the oval
+      const pu = u - (e.px || 0) * hx, pv = v - (e.py || 0) * hy;
+      if (!locks.pupil && Math.hypot(pu, pv) < 7) return { i, axis: 'pupil' };
+      if (locks.iris) continue;
+
+      // The middle always moves. A fixed handle tolerance is fine on a big
+      // iris and swallows a small one whole -- at a 15px radius a +-7px band
+      // covers most of the shape, so every grab became a resize and the thing
+      // could not be moved at all.
+      if (r < 0.6) return { i, axis: null };
+
+      const near = Math.max(3, Math.min(8, Math.min(hx, hy) * 0.3));
+      if (Math.abs(Math.abs(u) - hx) < near && Math.abs(v) < near * 1.4) return { i, axis: 'x' };
+      if (Math.abs(Math.abs(v) - hy) < near && Math.abs(u) < near * 1.4) return { i, axis: 'y' };
+      if (r < 1.25) return { i, axis: null };
+    }
+    return null;
+  };
+  cv.addEventListener('pointerdown', (ev) => {
+    const pt = at(ev), h = hit(pt);
+    if (!h) return;
+    activeEditor = api;
+    remember(item);
+    sel = h.i; mode = h.axis || 'move';
+    startPt = pt; startEllipse = { ...item.irises[h.i] };
+    cv.__iris.trace = { down: { i: h.i, axis: h.axis, mode }, moves: 0 };
+    cv.setPointerCapture(ev.pointerId); draw();
+  });
+  cv.addEventListener('pointermove', (ev) => {
+    if (!mode) return;
+    if (cv.__iris && cv.__iris.trace) cv.__iris.trace.moves++;
+    const pt = at(ev), e = item.irises[sel];
+    if (mode === 'move') {
+      e.cx = startEllipse.cx + (pt.x - startPt.x);
+      e.cy = startEllipse.cy + (pt.y - startPt.y);
+    } else if (mode === 'pupil') {
+      const { u, v } = localOf(startEllipse, pt);
+      const hx = startEllipse.rx * src.width * zoom;
+      const hy = startEllipse.ry * src.height * zoom;
+      // clamped so the pupil cannot leave its own iris
+      e.px = Math.max(-0.55, Math.min(0.55, u / Math.max(hx, 1e-6)));
+      e.py = Math.max(-0.55, Math.min(0.55, v / Math.max(hy, 1e-6)));
+    } else if (mode.startsWith('low')) {
+      const k = mode.slice(3);
+      if (k === 'm') { e.lower.mx = pt.x; e.lower.my = pt.y; }
+      else { e.lower['x' + k] = pt.x; e.lower['y' + k] = pt.y; }
+    } else if (mode.startsWith('lid')) {
+      const k = mode.slice(3);
+      if (k === 'm') { e.lid.mx = pt.x; e.lid.my = pt.y; }
+      else { e.lid['x' + k] = pt.x; e.lid['y' + k] = pt.y; }
+    } else {
+      // each handle moves ONE axis, so the oval can be made fatter or thinner
+      const { u, v } = localOf(startEllipse, pt);
+      if (mode === 'x') e.rx = Math.max(0.002, Math.abs(u) / (zoom * src.width));
+      else              e.ry = Math.max(0.002, Math.abs(v) / (zoom * src.height));
+    }
+    draw(); onChange();
+  });
+  const end = (ev) => { if (mode) { mode = null; try { cv.releasePointerCapture(ev.pointerId); } catch (_) {} } };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+
+  const controls = document.createElement('div');
+  controls.className = 'iris-controls';
+  const sliders = [];
+  const slider = (label, min, max, step, get, set, lockedBy) => {
+    const l = document.createElement('label'); l.className = 'f';
+    l.textContent = label;
+    const i = document.createElement('input');
+    i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = get();
+    let gesture = false;   // one undo step per drag of the slider, not per tick
+    i.addEventListener('input', () => {
+      if (!gesture) { remember(item); gesture = true; activeEditor = api; }
+      set(+i.value); draw(); onChange();
+    });
+    i.addEventListener('change', () => { gesture = false; });
+    sliders.push({ el: i, get, lockedBy });
+    l.appendChild(i); return l;
+  };
+  controls.appendChild(slider('rotate', -3.15, 3.15, 0.02,
+    () => item.irises[sel] ? item.irises[sel].rot : 0,
+    v => { if (item.irises[sel]) item.irises[sel].rot = v; }, 'iris'));
+  controls.appendChild(slider('pupil', 0.1, 0.9, 0.01,
+    () => item.pupil, v => { item.pupil = v; }, 'pupil'));
+
+
+  const colour = document.createElement('input');
+  colour.type = 'color'; colour.value = item.irisColour;
+  colour.addEventListener('input', () => { item.irisColour = colour.value; draw(); });
+  const cl = document.createElement('label'); cl.className = 'f';
+  cl.textContent = 'preview'; cl.appendChild(colour);
+  controls.appendChild(cl);
+
+  // For a style drawn without painted whites -- the half-lidded eyes are --
+  // so the skin shows through where the white of the eye should be.
+  const wl = document.createElement('label'); wl.className = 'f inline';
+  const wc = document.createElement('input'); wc.type = 'checkbox'; wc.checked = !!item.whites;
+  wc.addEventListener('change', () => {
+    remember(item); activeEditor = api;
+    item.whites = wc.checked;
+    if (item.whites) for (const e of item.irises) e.lower = e.lower || defaultLower(e);
+    draw(); onChange();
+  });
+  wl.appendChild(wc); wl.appendChild(document.createTextNode(' paint whites (drag the green lower lid)'));
+  controls.appendChild(wl);
+
+  const row = document.createElement('div'); row.className = 'iris-btns';
+  const add = document.createElement('button');
+  add.className = 'btn ghost'; add.textContent = 'Add';
+  add.addEventListener('click', () => {
+    remember(item); activeEditor = api;
+    const fresh = { cx: 0.5, cy: 0.35, rx: 0.06, ry: 0.06, rot: 0 };
+    fresh.lid = defaultLid(fresh);
+    if (item.whites) fresh.lower = defaultLower(fresh);
+    item.irises.push(fresh);
+    sel = item.irises.length - 1; draw(); onChange();
+  });
+  const del = document.createElement('button');
+  del.className = 'btn ghost'; del.textContent = 'Remove';
+  del.addEventListener('click', () => {
+    if (item.irises.length) { remember(item); activeEditor = api; item.irises.splice(sel, 1); sel = 0; draw(); onChange(); }
+  });
+  const redo = document.createElement('button');
+  redo.className = 'btn ghost'; redo.textContent = 'Re-fit';
+  redo.addEventListener('click', () => {
+    remember(item); activeEditor = api;
+    item.irises = detectIrises(item.processed)
+      .map(e => ({ ...e, lid: defaultLid(e) }))
+      .map(e => (item.whites ? { ...e, lower: defaultLower(e) } : e));
+    sel = 0; draw(); onChange();
+  });
+  row.appendChild(add); row.appendChild(del); row.appendChild(redo);
+
+  // undo / redo
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'btn ghost'; undoBtn.textContent = '↶ Undo'; undoBtn.title = 'Undo (Ctrl/⌘+Z)';
+  const redoBtn = document.createElement('button');
+  redoBtn.className = 'btn ghost'; redoBtn.textContent = '↷ Redo'; redoBtn.title = 'Redo (Shift+Ctrl/⌘+Z)';
+  const refreshButtons = () => {
+    undoBtn.disabled = !(item.undo && item.undo.length);
+    redoBtn.disabled = !(item.redo && item.redo.length);
+  };
+  const api = {
+    undo() {
+      if (!(item.undo && item.undo.length)) return;
+      (item.redo = item.redo || []).push(snapshot(item));
+      restore(item, item.undo.pop()); sel = Math.min(sel, Math.max(0, item.irises.length - 1));
+      wc.checked = !!item.whites; draw(); onChange();
+    },
+    redo() {
+      if (!(item.redo && item.redo.length)) return;
+      (item.undo = item.undo || []).push(snapshot(item));
+      restore(item, item.redo.pop()); sel = Math.min(sel, Math.max(0, item.irises.length - 1));
+      wc.checked = !!item.whites; draw(); onChange();
+    },
+  };
+  undoBtn.addEventListener('click', () => { activeEditor = api; api.undo(); });
+  redoBtn.addEventListener('click', () => { activeEditor = api; api.redo(); });
+  // undo/redo and the locks first: they are what a hand reaches for mid-drag,
+  // and below the sliders they sat off the bottom of a phone screen
+  const history = document.createElement('div'); history.className = 'iris-btns';
+  history.appendChild(undoBtn); history.appendChild(redoBtn);
+  controls.prepend(history);
+  controls.appendChild(row);
+
+  // locks: a locked part cannot be grabbed, so taps fall through to the rest
+  const lockRow = document.createElement('div'); lockRow.className = 'iris-locks';
+  lockRow.appendChild(document.createTextNode('Lock: '));
+  for (const [key, label] of [['iris', 'Iris'], ['pupil', 'Pupil'], ['lid', 'Upper lid'], ['lower', 'Lower lid']]) {
+    const lb = document.createElement('label');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!locks[key];
+    cb.addEventListener('change', () => {
+      locks[key] = cb.checked; saveLocks();
+      // every editor on the page follows
+      document.querySelectorAll(`input[data-lock="${key}"]`).forEach(o => { o.checked = cb.checked; });
+      document.querySelectorAll('canvas.iris-canvas').forEach(c => c.__redraw && c.__redraw());
+    });
+    cb.dataset.lock = key;
+    lb.appendChild(cb); lb.appendChild(document.createTextNode(' ' + label + ' '));
+    lockRow.appendChild(lb);
+  }
+  history.after(lockRow);
+
+  // A test seam, and a debugging one: where the handles are is a function of
+  // box and zoom, both of which live in this closure. Guessing at their screen
+  // position from outside is how a drag test silently passes while dragging
+  // nothing.
+  cv.__iris = {
+    item,
+    handleAt(i, axis) {
+      const e = item.irises[i]; if (!e) return null;
+      const c = toView(e.cx, e.cy);
+      const hx = e.rx * src.width * zoom, hy = e.ry * src.height * zoom;
+      const u = axis === 'x' ? hx : 0, v = axis === 'x' ? 0 : hy;
+      return { x: c.x + u * Math.cos(e.rot) - v * Math.sin(e.rot),
+               y: c.y + u * Math.sin(e.rot) + v * Math.cos(e.rot) };
+    },
+    centreAt(i) {
+      const e = item.irises[i]; if (!e) return null;
+      return toView(e.cx, e.cy);
+    },
+    select(i) { sel = i; draw(); },
+    // where a lid's handle is in the view: which 'lid' or 'lower', key '0', '1' or 'm'
+    lidPoint(i, which, key) {
+      const e = item.irises[i]; const c = e && e[which]; if (!c) return null;
+      return toView(key === 'm' ? c.mx : c['x' + key], key === 'm' ? c.my : c['y' + key]);
+    },
+  };
+
+  // the sliders show the SELECTED iris (they used to keep the first one's
+  // value, so the next nudge jumped the other iris to it); a locked part's
+  // slider is disabled; undo/redo light up only when there is something
+  function syncControls() {
+    for (const s of sliders) { s.el.value = s.get(); s.el.disabled = !!locks[s.lockedBy]; }
+    refreshButtons();
+  }
+  cv.__redraw = draw;
+
+  wrap.appendChild(cv); wrap.appendChild(controls);
+  draw();
+  return wrap;
+}
+
+/* ---------- see-through insides ----------
+   A fill drawn at 80-99% opacity looks solid on white, but whatever is behind
+   shows through it: pale specks on dark skin. A pixel counts as inside when
+   every pixel within 3px of it is above alpha 200 -- the same rule as the
+   app's developer preview -- so the soft edge is never touched. */
+function insideMask(canvas, r = 3, thr = 200) {
+  const w = canvas.width, h = canvas.height, span = 2 * r + 1;
+  const d = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const solid = new Uint8Array(w * h), rows = new Uint8Array(w * h), out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (d[4 * i + 3] > thr) solid[i] = 1;
+  for (let y = 0; y < h; y++) { let run = 0; for (let x = 0; x < w; x++) {
+    run = solid[y * w + x] ? run + 1 : 0; if (run >= span) rows[y * w + x - r] = 1; } }
+  for (let x = 0; x < w; x++) { let run = 0; for (let y = 0; y < h; y++) {
+    run = rows[y * w + x] ? run + 1 : 0; if (run >= span) out[(y - r) * w + x] = 1; } }
+  let inside = 0, see = 0, lowest = 255;
+  for (let i = 0; i < w * h; i++) if (out[i]) { inside++; const a = d[4 * i + 3]; if (a < 255) { see++; if (a < lowest) lowest = a; } }
+  return { mask: out, inside, see, lowest };
+}
+// a copy with the inside made fully opaque; the soft edge as drawn
+function filledCopy(canvas, mask) {
+  const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
+  const g = c.getContext('2d'); g.drawImage(canvas, 0, 0);
+  const img = g.getImageData(0, 0, c.width, c.height);
+  for (let i = 0; i < mask.length; i++) if (mask[i]) img.data[4 * i + 3] = 255;
+  g.putImageData(img, 0, 0); return c;
+}
+const seeThroughMatters = (it) => it.seeThrough && it.seeThrough.see >= 20;
+
+/* Your say over the fill, per piece: the automatic pick (edge margin r,
+   minimum opacity thr), what you painted in (add) or out (keep), and whether
+   the piece is filled at all. Only pixels that are actually see-through
+   (0 < alpha < 255) are ever changed. */
+/* Keeping reviews: masks as run lengths ("0-run,1-run,0-run,..."), small
+   enough for a manifest and for this browser's storage. */
+function rleEncode(m) {
+  const out = []; let cur = 0, run = 0;
+  for (let i = 0; i < m.length; i++) { const v = m[i] ? 1 : 0; if (v === cur) run++; else { out.push(run); cur = v; run = 1; } }
+  out.push(run); return out.join(',');
+}
+function rleDecode(str, n) {
+  const m = new Uint8Array(n); if (!str) return m;
+  let i = 0, v = 0; for (const r of str.split(',')) { const k = +r; if (v) m.fill(1, i, Math.min(n, i + k)); i += k; v = 1 - v; }
+  return m;
+}
+const zipFill = new Map(), looseFill = new Map();   // from manifests: key "layer/file"
+const fillKey = (it) => itemKey(it.layer, it.name) + '@' + it.processed.width + 'x' + it.processed.height;
+function fillToSaved(f, w, h) {
+  return { w, h, on: f.on, r: f.r, thr: f.thr, reviewed: !!f.reviewed, edited: !!f.edited,
+           keep: rleEncode(f.keep), add: rleEncode(f.add) };
+}
+function saveFill(it) {
+  try { localStorage.setItem('silhouette-loom.fill.' + fillKey(it), JSON.stringify(fillToSaved(it.fill, it.processed.width, it.processed.height))); } catch (_) {}
+}
+function fillState(it) {
+  if (!it.fill) {
+    const w = it.processed.width, h = it.processed.height, n = w * h, k = itemKey(it.layer, it.name);
+    let saved = looseFill.get(k);
+    if (!saved) { try { saved = JSON.parse(localStorage.getItem('silhouette-loom.fill.' + fillKey(it)) || 'null'); } catch (_) {} }
+    if (!saved) saved = zipFill.get(k);
+    if (saved && (saved.w !== w || saved.h !== h)) saved = null;   // marks are per pixel: only at the same size
+    it.fill = saved
+      ? { on: saved.on, r: saved.r, thr: saved.thr, reviewed: saved.reviewed, edited: saved.edited,
+          keep: rleDecode(saved.keep, n), add: rleDecode(saved.add, n), undo: [], redo: [] }
+      : { on: seeThroughMatters(it), r: 3, thr: 200, add: new Uint8Array(n), keep: new Uint8Array(n), undo: [], redo: [] };
+  }
+  return it.fill;
+}
+function effectiveFill(it) {
+  const f = fillState(it), c = it.processed;
+  const auto = (f.r === 3 && f.thr === 200) ? it.seeThrough.mask : insideMask(c, f.r, f.thr).mask;
+  const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data;
+  const m = new Uint8Array(auto.length); let autoN = 0, addN = 0, keepN = 0, n = 0;
+  for (let i = 0; i < m.length; i++) {
+    const a = d[4 * i + 3]; if (a === 0 || a === 255) continue;
+    const isAuto = auto[i] === 1;
+    if (isAuto) autoN++;
+    if (f.keep[i] && isAuto) keepN++;
+    if (f.add[i] && !isAuto) addN++;
+    if ((isAuto && !f.keep[i]) || (f.add[i] && !f.keep[i])) { m[i] = isAuto ? 1 : 2; n++; }
+  }
+  return { mask: m, n, autoN, addN, keepN };
+}
+
+function fillEditor(it) {
+  const f = fillState(it), src = it.processed, W = src.width, H = src.height;
+  const wrap = document.createElement('div'); wrap.className = 'fill-editor';
+  const box = drawnBounds(src, 0.04);
+  const scroller = document.createElement('div'); scroller.className = 'fill-scroll';
+  const cv = document.createElement('canvas'); cv.className = 'fill-canvas';
+  scroller.appendChild(cv);
+  // the editor is rebuilt after each change; its view settings live on the piece
+  const ui = f.ui = f.ui || { view: 'overlay', zoom: 1, brush: 'off', size: 6, bg: '#3d2617' };
+  let eff = effectiveFill(it);
+  const base = Math.min(1, 340 / box.w);
+  // the box stays the size of the unzoomed picture; zooming scrolls inside it
+  scroller.style.width = Math.round(box.w * base) + 2 + 'px';
+  scroller.style.height = Math.round(box.h * base) + 2 + 'px';
+  const draw = () => {
+    const k = base * ui.zoom;
+    cv.width = Math.round(box.w * k); cv.height = Math.round(box.h * k);
+    const t = document.createElement('canvas'); t.width = W; t.height = H;
+    const tg = t.getContext('2d');
+    tg.fillStyle = ui.bg; tg.fillRect(0, 0, W, H);
+    const art = document.createElement('canvas'); art.width = W; art.height = H;
+    const ag = art.getContext('2d'); ag.drawImage(src, 0, 0);
+    const img = ag.getImageData(0, 0, W, H);
+    if (ui.view !== 'before') for (let i = 0; i < eff.mask.length; i++) if (eff.mask[i]) img.data[4 * i + 3] = 255;
+    ag.putImageData(img, 0, 0); tg.drawImage(art, 0, 0);
+    if (ui.view === 'overlay') {
+      const o = tg.getImageData(0, 0, W, H);
+      for (let i = 0; i < eff.mask.length; i++) {
+        if (eff.mask[i] === 1) { o.data[4*i] = 255; o.data[4*i+1] = 40; o.data[4*i+2] = 200; }
+        else if (eff.mask[i] === 2) { o.data[4*i] = 255; o.data[4*i+1] = 220; o.data[4*i+2] = 40; }
+      }
+      tg.putImageData(o, 0, 0);
+    }
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = ui.zoom < 2;
+    g.drawImage(t, box.x, box.y, box.w, box.h, 0, 0, cv.width, cv.height);
+    stats.textContent = `${eff.n} px will be filled · ${eff.autoN} found automatically` +
+      ` · ${eff.keepN} removed by you · ${eff.addN} added by you` +
+      (f.on ? '' : ' · this piece is switched OFF');
+    undoB.disabled = !f.undo.length; redoB.disabled = !f.redo.length;
+  };
+  const snap = () => ({ r: f.r, thr: f.thr, add: f.add.slice(), keep: f.keep.slice(), on: f.on });
+  const remember = () => { f.undo.push(snap()); if (f.undo.length > 60) f.undo.shift(); f.redo = []; f.edited = true; };
+  const persist = () => saveFill(it);
+  const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, on: st.on }); f.add = st.add; f.keep = st.keep;
+                            rS.value = f.r; tS.value = f.thr; onC.checked = f.on; eff = effectiveFill(it); persist(); draw(); render(); };
+  // painting
+  const paintAt = (ev) => {
+    const r = cv.getBoundingClientRect(), k = base * ui.zoom;
+    const x = Math.round(box.x + (ev.clientX - r.left) / k), y = Math.round(box.y + (ev.clientY - r.top) / k);
+    const rad = ui.size / 2, arr = ui.brush === 'keep' ? f.keep : f.add, other = ui.brush === 'keep' ? f.add : f.keep;
+    for (let yy = Math.floor(y - rad); yy <= y + rad; yy++) for (let xx = Math.floor(x - rad); xx <= x + rad; xx++) {
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H || Math.hypot(xx - x, yy - y) > rad) continue;
+      arr[yy * W + xx] = 1; other[yy * W + xx] = 0;
+    }
+  };
+  let painting = false;
+  // brush Off: the picture is only looked at, and a drag scrolls it
+  const armed = () => { cv.style.touchAction = ui.brush === 'off' ? 'auto' : 'none'; cv.style.cursor = ui.brush === 'off' ? 'grab' : 'crosshair'; };
+  armed();
+  let pan = null;
+  cv.addEventListener('pointerdown', (ev) => {
+    if (ui.brush === 'off') {
+      if (ev.pointerType === 'mouse') { pan = [ev.clientX, ev.clientY, scroller.scrollLeft, scroller.scrollTop]; cv.setPointerCapture(ev.pointerId); cv.style.cursor = 'grabbing'; }
+      return;
+    }
+    remember(); painting = true; cv.setPointerCapture(ev.pointerId); paintAt(ev); eff = effectiveFill(it); draw(); });
+  cv.addEventListener('pointermove', (ev) => {
+    if (pan) { scroller.scrollLeft = pan[2] - (ev.clientX - pan[0]); scroller.scrollTop = pan[3] - (ev.clientY - pan[1]); return; }
+    if (!painting) return; paintAt(ev); eff = effectiveFill(it); draw(); });
+  const end = () => { if (pan) { pan = null; armed(); } if (painting) { painting = false; persist(); render(); } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  // controls
+  const ctl = document.createElement('div'); ctl.className = 'fill-controls';
+  const seg = (label, opts, get, set) => {
+    const row = document.createElement('div'); row.className = 'fill-row';
+    const l = document.createElement('span'); l.textContent = label; row.appendChild(l);
+    const bs = opts.map(([v, t]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t;
+      b.addEventListener('click', () => { set(v); bs.forEach((x, j) => x.classList.toggle('on', opts[j][0] === get())); draw(); }); row.appendChild(b); return b; });
+    bs.forEach((x, j) => x.classList.toggle('on', opts[j][0] === get()));
+    return row;
+  };
+  const slider = (label, min, max, step, val, onInput, onDone, show) => {
+    const l = document.createElement('label'); l.className = 'f';
+    const t = document.createElement('span'); l.appendChild(t);
+    const name = (v) => { t.textContent = show ? label.replace('__', show(v)) : label; };
+    const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = val;
+    name(val);
+    i.addEventListener('input', () => { name(+i.value); onInput(+i.value); }); if (onDone) i.addEventListener('change', () => onDone(+i.value));
+    l.appendChild(i); ctl.appendChild(l); return i;
+  };
+  const onL = document.createElement('label'); onL.className = 'f inline-f';
+  const onS = document.createElement('span'); const onC = document.createElement('input'); onC.type = 'checkbox'; onC.checked = f.on;
+  onC.addEventListener('change', () => { remember(); f.on = onC.checked; persist(); draw(); render(); });
+  onS.appendChild(onC); onS.appendChild(document.createTextNode(' Fill this piece')); onL.appendChild(onS); ctl.appendChild(onL);
+  ctl.appendChild(seg('View', [['overlay', 'Overlay'], ['before', 'Before'], ['after', 'After']], () => ui.view, v => { ui.view = v; }));
+  const bgL = document.createElement('label'); bgL.className = 'f inline-f';
+  const bgS = document.createElement('span'); const bgC = document.createElement('input'); bgC.type = 'color'; bgC.value = ui.bg;
+  bgC.addEventListener('input', () => { ui.bg = bgC.value; draw(); });
+  bgS.appendChild(document.createTextNode('Background ')); bgS.appendChild(bgC); bgL.appendChild(bgS); ctl.appendChild(bgL);
+  ctl.appendChild(seg('Brush', [['off', 'Off'], ['keep', 'Remove fill'], ['add', 'Add fill']], () => ui.brush, v => { ui.brush = v; armed(); }));
+  slider('Brush size: __ px', 2, 30, 1, ui.size, v => { ui.size = v; }, null, v => String(v));
+  slider('Zoom: __×', 1, 4, 0.5, ui.zoom, v => {
+    // keep the middle of what you are looking at in the middle
+    const cx = (scroller.scrollLeft + scroller.clientWidth / 2) / Math.max(1, cv.width);
+    const cy = (scroller.scrollTop + scroller.clientHeight / 2) / Math.max(1, cv.height);
+    ui.zoom = v; draw();
+    scroller.scrollLeft = cx * cv.width - scroller.clientWidth / 2;
+    scroller.scrollTop = cy * cv.height - scroller.clientHeight / 2;
+    ui.scroll = [scroller.scrollLeft, scroller.scrollTop];
+  }, null, v => String(v));
+  scroller.addEventListener('scroll', () => { ui.scroll = [scroller.scrollLeft, scroller.scrollTop]; });
+  let pending = false;
+  const rS = slider('Stay __ px from the edge', 1, 8, 1, f.r,
+    v => { if (!pending) { remember(); pending = true; } f.r = v; eff = effectiveFill(it); draw(); }, () => { pending = false; persist(); render(); }, v => String(v));
+  const tS = slider('Fill pixels at least __% opaque', 120, 250, 5, f.thr,
+    v => { if (!pending) { remember(); pending = true; } f.thr = v; eff = effectiveFill(it); draw(); }, () => { pending = false; persist(); render(); }, v => String(Math.round(100 * v / 255)));
+  const btns = document.createElement('div'); btns.className = 'iris-btns';
+  const undoB = document.createElement('button'); undoB.className = 'btn ghost'; undoB.textContent = '↶ Undo';
+  const redoB = document.createElement('button'); redoB.className = 'btn ghost'; redoB.textContent = '↷ Redo';
+  const clr = document.createElement('button'); clr.className = 'btn ghost'; clr.textContent = 'Reset to automatic';
+  undoB.addEventListener('click', () => { if (!f.undo.length) return; f.redo.push(snap()); restore(f.undo.pop()); });
+  redoB.addEventListener('click', () => { if (!f.redo.length) return; f.undo.push(snap()); restore(f.redo.pop()); });
+  clr.addEventListener('click', () => { remember(); f.add.fill(0); f.keep.fill(0); eff = effectiveFill(it); persist(); draw(); render(); });
+  btns.appendChild(undoB); btns.appendChild(redoB); btns.appendChild(clr); ctl.appendChild(btns);
+  const stats = document.createElement('div'); stats.className = 'fill-stats'; ctl.prepend(stats);
+  const legend = document.createElement('div'); legend.className = 'fill-legend';
+  legend.innerHTML = '<span style="color:#ff28c8">■</span> filled automatically · <span style="color:#ffdc28">■</span> fill you added · where you removed fill, the art shows as drawn';
+  ctl.appendChild(legend);
+  wrap.appendChild(scroller); wrap.appendChild(ctl);
+  draw();
+  // after a rebuild, come back to where you were
+  if (ui.scroll) requestAnimationFrame(() => { scroller.scrollLeft = ui.scroll[0]; scroller.scrollTop = ui.scroll[1]; });
+  return wrap;
+}
+
+/* ---------- the view bar ----------
+   A pack is 28 cards; the eyes, where the work is, were a long scroll down.
+   Shown in the sticky header once art is in. */
+const VIEW_KEY = 'silhouette-loom.view';
+let view = (() => { try { return JSON.parse(localStorage.getItem(VIEW_KEY) || '{}'); } catch (_) { return {}; } })();
+view.show = view.show || 'all';
+if (view.compact === undefined) view.compact = window.matchMedia('(max-width: 700px)').matches;
+function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch (_) {} }
+const isEye = (it) => !!((it.layer && it.layer.key.includes('eye')) || it.irises.length);
+// real problems only: art the tint will flatten, or a piece in no layer
+const needsAttention = (it) => it.verdict.cls === 'bad' || !it.layer;
+function inView(it) {
+  if (view.show === 'all') return true;
+  if (view.show === 'eyes') return isEye(it);
+  if (view.show === 'attention') return needsAttention(it);
+  if (view.show === 'seethrough') return seeThroughMatters(it);
+  return !!(it.layer && it.layer.key === view.show);
+}
+function renderViewbar() {
+  const bar = $('viewbar');
+  document.body.classList.toggle('compact', !!view.compact);
+  bar.hidden = items.length === 0;
+  if (bar.hidden) return;
+  bar.innerHTML = '';
+  const layers = [...new Set(items.filter(i => i.layer).sort((a, b) => a.layer.z - b.layer.z).map(i => i.layer.key))];
+  const chips = [['all', 'All', items.length], ['eyes', 'Eyes', items.filter(isEye).length],
+                 ['attention', 'Needs attention', items.filter(needsAttention).length],
+                 ['seethrough', 'See-through', items.filter(seeThroughMatters).length],
+                 ...layers.filter(k => !k.includes('eye')).map(k => [k, k, items.filter(i => i.layer && i.layer.key === k).length])];
+  if (!chips.some(c => c[0] === view.show)) view.show = 'all';
+  for (const [key, label, n] of chips) {
+    if ((key === 'attention' || key === 'seethrough') && !n) continue;
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'chip' + (view.show === key ? ' on' : '');
+    b.innerHTML = `${label}<span class="n">${n}</span>`;
+    b.addEventListener('click', () => {
+      view.show = key; saveView();
+      // looking at a part of the pack: the settings can fold away
+      if (key !== 'all') $('settings-panel').open = false;
+      render(); window.scrollTo({ top: 0 });
+    });
+    bar.appendChild(b);
+  }
+  const lb = document.createElement('label');
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!view.compact;
+  cb.addEventListener('change', () => { view.compact = cb.checked; saveView(); renderViewbar(); });
+  lb.appendChild(cb); lb.appendChild(document.createTextNode(' compact'));
+  bar.appendChild(lb);
+}
+
+/* ---------- rendering ---------- */
+function render0() { /* editor edits mutate the item in place; nothing else to do */ }
+
+function render() {
+  out.innerHTML = '';
+  const tint = $('tint').value;
+  const picked = new Set(inScope());
+  let bad = 0, good = 0;
+
+  for (const it of items) {
+    if (it.verdict.cls === 'bad') bad++;
+    if (it.verdict.cls === 'good') good++;
+
+    const card = document.createElement('div');
+    card.className = 'card' + (picked.has(it) ? ' picked' : '')
+                            + (isAsset(it) ? '' : ' notasset') + (isEye(it) ? ' eye' : '');
+    if (!inView(it)) continue;
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const shot = (label, cv) => {
+      const w = document.createElement('div');
+      w.className = 'shot';
+      const b = document.createElement('b'); b.textContent = label;
+      w.appendChild(b); w.appendChild(fit(cv, 132));
+      return w;
+    };
+    row.appendChild(shot('as drawn', it.original));
+    row.appendChild(shot('processed', it.processed)).classList.add('keep');
+    row.appendChild(shot('tinted — mask (today)', tintPreview(it.processed, tint, 'mask')));
+    row.appendChild(shot('tinted — multiply', tintPreview(it.processed, tint, 'multiply')));
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = it.name;
+    const pt = document.createElement('div'); pt.className = 'path';
+    pt.textContent = (it.layer ? `layer: ${it.layer.key} (z${it.layer.z})`
+                               : 'not in a layer folder — not packed')
+                   + ` · ${it.path || 'pasted'}`;
+    const dl = document.createElement('dl');
+    const add = (k, v) => {
+      const dt = document.createElement('dt'); dt.textContent = k;
+      const dd = document.createElement('dd'); dd.textContent = v;
+      dl.appendChild(dt); dl.appendChild(dd);
+    };
+    add('source', `${it.analysis.w} × ${it.analysis.h}`);
+    add('output', `${it.processed.width} × ${it.processed.height}`);
+    add('alpha levels', it.analysis.alphaLevels);
+    add('colours in solid areas', it.analysis.opaqueColours);
+    add('drawn area', it.analysis.drawnPct.toFixed(1) + '%');
+    add('png out', (it.bytes / 1024).toFixed(1) + ' KB');
+
+    // Re-importing a pack to adjust iris regions is free -- at the same height
+    // the scale is 1.0 and not a byte changes. Asking for a DIFFERENT height
+    // from a pack is not: it resamples an already-resampled file, and upward it
+    // invents detail that no longer exists. Say so where it can be seen.
+    const target = Math.max(8, +$('height').value || 638);
+    if (it.analysis.h <= target) {
+      const w = document.createElement('div');
+      w.className = 'verdict size ' + (it.analysis.h === target ? 'warn' : 'bad');
+      const wb = document.createElement('b');
+      wb.textContent = it.analysis.h === target
+        ? 'Already at this height — nothing is being resampled'
+        : `Source is ${it.analysis.h}px, shorter than the ${target}px target`;
+      w.appendChild(wb);
+      w.appendChild(document.createTextNode(
+        it.analysis.h === target
+          ? 'Re-exporting it is a byte-for-byte copy, which is what you want when '
+            + 'you are only adjusting iris regions.'
+          : 'Enlarging a processed file cannot add detail back. Go to the '
+            + "illustrator's originals for any change of size."));
+      w.style.marginBottom = '8px';
+      meta.appendChild(w);
+    }
+
+    const v = document.createElement('div');
+    v.className = 'verdict ' + it.verdict.cls;
+    const vb = document.createElement('b'); vb.textContent = it.verdict.head;
+    const vbody = document.createElement('span'); vbody.className = 'vbody'; vbody.textContent = it.verdict.body;
+    v.appendChild(vb); v.appendChild(vbody);
+
+    meta.appendChild(nm); meta.appendChild(pt); meta.appendChild(dl); meta.appendChild(v);
+    if (seeThroughMatters(it)) {
+      const st = it.seeThrough, w = document.createElement('div');
+      w.className = 'verdict warn'; w.style.marginTop = '8px';
+      const b = document.createElement('b');
+      b.textContent = `See-through inside: ${st.see} px (${(100 * st.see / Math.max(1, st.inside)).toFixed(1)}% of the fill), down to ${Math.round(100 * st.lowest / 255)}% opaque`;
+      const t = document.createElement('span'); t.className = 'vbody';
+      t.textContent = 'Looks solid on white, but shows as pale specks on dark skin. Fill it in the art, '
+                    + 'or review it here and tick "Fill see-through insides" to fix it in the downloaded pack.';
+      w.appendChild(b); w.appendChild(t); meta.appendChild(w);
+    }
+    row.appendChild(meta);
+    card.appendChild(row);
+
+    // Eyes are the one layer whose colour is a REGION rather than the whole
+    // asset, so they get a region to define. Offered on anything if the
+    // heuristic guessed wrong about which layer that is.
+    // Only the eyes have a region to define. Offering it on every card was
+    // noise on nine layers out of ten.
+    if ((it.layer && it.layer.key.includes('eye')) || it.irises.length) {
+      card.appendChild(irisEditor(it, render0));
+    }
+    if (it.seeThrough && it.seeThrough.see) {
+      const st = fillState(it);
+      // open by default when looking at the see-through pieces
+      const open = it.fillOpen !== undefined ? it.fillOpen : view.show === 'seethrough';
+      const state = !st.on ? ['off', 'Off — left as drawn'] : st.edited ? ['edited', 'Edited'] : st.reviewed ? ['ok', 'Reviewed'] : ['todo', 'Not reviewed'];
+      const bar = document.createElement('div'); bar.className = 'fill-bar';
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn fill-btn ' + (open ? 'ghost' : '');
+      btn.textContent = open ? 'Close review' : `Review fill · ${it.seeThrough.see} see-through px`;
+      const badge = document.createElement('span'); badge.className = 'fill-state ' + state[0]; badge.textContent = state[1];
+      bar.appendChild(btn); bar.appendChild(badge);
+      card.appendChild(bar);
+      const holder = document.createElement('div'); card.appendChild(holder);
+      if (open) { if (!st.reviewed) { st.reviewed = true; saveFill(it); } holder.appendChild(fillEditor(it)); }
+      btn.addEventListener('click', () => { it.fillOpen = !open; render(); });
+    }
+    out.appendChild(card);
+  }
+
+  renderViewbar();
+  summary.hidden = items.length === 0;
+  summary.innerHTML = '';
+  const pill = (txt, cls) => {
+    const s = document.createElement('span');
+    s.className = 'pill' + (cls ? ' ' + cls : ''); s.textContent = txt; return s;
+  };
+  summary.appendChild(pill(`${items.length} image${items.length === 1 ? '' : 's'}`));
+  const skipped = items.filter(i => !isAsset(i)).length;
+  if (skipped) summary.appendChild(pill(`${skipped} not in a layer folder — skipped`));
+  if (good) summary.appendChild(pill(`${good} survive the tint`, 'good'));
+  if (bad) summary.appendChild(pill(`${bad} will flatten`, 'bad'));
+  const seeN = items.filter(seeThroughMatters).length;
+  if (seeN) {
+    const reviewed = items.filter(i => seeThroughMatters(i) && i.fill && i.fill.reviewed).length;
+    const sp = pill(`${seeN} see-through inside · ${reviewed} reviewed${$('fill-insides').checked ? ' · filled on download' : ''} ›`,
+                    $('fill-insides').checked ? 'good' : '');
+    sp.classList.add('tap'); sp.title = 'Show only these, with their reviews open';
+    sp.addEventListener('click', () => { view.show = 'seethrough'; saveView(); render(); window.scrollTo({ top: 0 }); });
+    summary.appendChild(sp);
+  }
+  const total = items.reduce((n, i) => n + i.bytes, 0);
+  if (items.length) summary.appendChild(pill(`${(total / 1024).toFixed(0)} KB total`));
+  const chosen = inScope();
+  if (items.length && chosen.length !== items.length) {
+    summary.appendChild(pill(
+      `downloading ${chosen.length} of ${items.length} — ${(chosen.reduce((n,i)=>n+i.bytes,0)/1024).toFixed(0)} KB`));
+  }
+  $('save').textContent = items.length ? `Download zip (${chosen.length})` : 'Download zip';
+
+  $('save').disabled = !items.some(isAsset);
+  $('manifest').disabled = !items.some(isAsset);
+  $('kit').disabled = !items.some(isAsset);
+  $('kit-images').disabled = !items.some(isAsset);
+}
+
+async function addFile(file, path) {
+  if (!/^image\//.test(file.type)) return;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = rej; i.src = url;
+    });
+    const analysis = analyse(img);
+    const targetH = Math.max(8, +$('height').value || 638);
+    let processed = resizeTo(img, targetH);
+    if ($('mode').value === 'prototype') processed = toSilhouette(processed);
+
+    const blob = await new Promise(r => processed.toBlob(r, 'image/png'));
+    const orig = document.createElement('canvas');
+    orig.width = img.naturalWidth; orig.height = img.naturalHeight;
+    orig.getContext('2d').drawImage(img, 0, 0);
+
+    const layer = layerFromPath(path || file.webkitRelativePath || '');
+    const isEye = !!(layer && layer.key.includes('eye'));
+    const prior = priorFor(file.name);
+    // One entry per piece. Dropping a pack again -- to pick up redrawn art,
+    // or to carry on adjusting -- used to ADD every file a second time; you
+    // edited one copy, the export wrote both, and nothing said which was
+    // which. Now a piece already loaded is replaced where it stands, and the
+    // iris regions you have been editing here are kept over the ones in the
+    // dropped pack, because those are the work in hand.
+    const key = itemKey(layer, file.name);
+    const existing = items.findIndex(i => itemKey(i.layer, i.name) === key);
+    const kept = carryOver.get(key)
+              || (existing >= 0 && items[existing].irises.length ? items[existing] : null);
+    if (existing >= 0) replacedCount++;
+    const entry = {
+      file,
+      // deep copies: a placement shared with its source would let editing it
+      // here quietly change the manifest or bundled copy it came from
+      irises: kept ? structuredClone(kept.irises)
+            : (prior ? structuredClone(prior.iris)
+                     : (isEye ? detectIrises(processed) : []))
+                .map(e => ({ ...e, lid: e.lid || defaultLid(e) })),
+      pupil: kept ? kept.pupil : (prior ? prior.pupil : 0.45),
+      whites: kept ? !!kept.whites : !!(prior && prior.whites),
+      undo: kept && kept.undo ? kept.undo : [], redo: kept && kept.redo ? kept.redo : [],
+      irisColour: '#3b6ea5',
+      name: file.name, path: path || file.webkitRelativePath || '',
+      layer,
+      original: orig, processed, analysis, verdict: verdict(analysis), seeThrough: insideMask(processed),
+      blob, bytes: blob.size,
+    };
+    if (existing >= 0) items[existing] = entry; else items.push(entry);
+  } catch (e) {
+    console.warn('could not read', file.name, e);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/* ---------- writing a zip ----------
+
+   28 files means 28 downloads, which browsers throttle and some block outright.
+   CompressionStream writes deflate, so a zip can be assembled here the same way
+   one is read: local header and data per entry, then a central directory, then
+   the end record. No library.
+*/
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+async function deflateRaw(bytes) {
+  const cs = new CompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(cs);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function makeZip(entries) {
+  const parts = [], central = [];
+  let offset = 0;
+
+  for (const e of entries) {
+    const name = new TextEncoder().encode(e.name);
+    const crc = crc32(e.bytes);
+    // PNGs are already deflated; storing beats re-compressing when it loses
+    const comp = await deflateRaw(e.bytes);
+    const deflated = comp.length < e.bytes.length;
+    const data = deflated ? comp : e.bytes;
+    const method = deflated ? 8 : 0;
+
+    const local = new Uint8Array(30 + name.length);
+    const dv = new DataView(local.buffer);
+    dv.setUint32(0, 0x04034b50, true);
+    dv.setUint16(4, 20, true);
+    dv.setUint16(8, method, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, data.length, true);
+    dv.setUint32(22, e.bytes.length, true);
+    dv.setUint16(26, name.length, true);
+    local.set(name, 30);
+
+    parts.push(local, data);
+    central.push({ name, crc, comp: data.length, raw: e.bytes.length, method, offset });
+    offset += local.length + data.length;
+  }
+
+  let cdSize = 0;
+  const cd = [];
+  for (const c of central) {
+    const h = new Uint8Array(46 + c.name.length);
+    const dv = new DataView(h.buffer);
+    dv.setUint32(0, 0x02014b50, true);
+    dv.setUint16(4, 20, true);
+    dv.setUint16(6, 20, true);
+    dv.setUint16(10, c.method, true);
+    dv.setUint32(16, c.crc, true);
+    dv.setUint32(20, c.comp, true);
+    dv.setUint32(24, c.raw, true);
+    dv.setUint16(28, c.name.length, true);
+    dv.setUint32(42, c.offset, true);
+    h.set(c.name, 46);
+    cd.push(h); cdSize += h.length;
+  }
+
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, central.length, true);
+  ev.setUint16(10, central.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, offset, true);
+
+  return new Blob([...parts, ...cd, eocd], { type: 'application/zip' });
+}
+
+/* ---------- zip, because folder pickers are a platform lottery ----------
+
+   Dragging a parent folder works through the entries API, but the OS picker
+   behind "Choose a folder" makes you descend into a leaf on several platforms
+   and does not exist at all on iOS. A zip is the one shape that travels
+   everywhere, so it is read here directly: the central directory gives the
+   names and offsets, and DecompressionStream inflates the entries. No library.
+*/
+const ZIP_EOCD = 0x06054b50, ZIP_CD = 0x02014b50;
+
+// iris regions recovered from a dropped pack's manifest, by file name
+const priorIris = new Map();   // from a manifest dropped loose: the newest work
+// In-session placements carried through a reprocess (Height or Mode changed),
+// which used to rebuild every piece from scratch and lose them.
+const carryOver = new Map();
+const zipIris = new Map();     // from the manifest inside a dropped zip
+// The working placements, bundled into this copy by release-loom.py from the
+// app's resources/portrait-pack/loom.edn, so dropping the art alone brings
+// back everything placed so far.
+const BUNDLED_MANIFEST = null; // bundled by release-loom.py
+const bundledIris = new Map();
+if (BUNDLED_MANIFEST) {
+  for (const [, pieces] of Object.entries(BUNDLED_MANIFEST.layers || {}))
+    for (const [file, a] of Object.entries(pieces))
+      if (a.iris) bundledIris.set(file.toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites });
+}
+{ const a = document.getElementById('build-line'); if (a) a.textContent = `${LOOM_VERSION} · build ${LOOM_BUILD}`
+    + (BUNDLED_MANIFEST ? ` · placements from ${BUNDLED_MANIFEST.source} (${BUNDLED_MANIFEST.count} pieces)` : ' · no placements bundled'); }
+// The pack version follows the manifest in use, in the same order as the
+// placements; anything typed in the field wins over all of them.
+const verRank = { user: 4, loose: 3, bundled: 2, zip: 1, none: 0 };
+let verFrom = 'none';
+function offerPackVersion(v, from) {
+  if (!v || verRank[from] < verRank[verFrom]) return;
+  $('ver').value = v; verFrom = from;
+  $('ver-from').textContent = { loose: '(from the dropped manifest)', bundled: '(from the bundled placements)',
+                                 zip: "(from the zip's manifest)" }[from] || '';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('ver').addEventListener('input', () => { verFrom = 'user'; $('ver-from').textContent = ''; });
+  if (BUNDLED_MANIFEST) offerPackVersion(BUNDLED_MANIFEST.packVersion, 'bundled');
+});
+// a loose manifest beats the bundled placements, which beat a zip's own
+// (often older) manifest; names are matched without regard to case
+function priorFor(name) {
+  const k = String(name).toLowerCase();
+  return priorIris.get(k) || bundledIris.get(k) || zipIris.get(k) || null;
+}
+
+// Which piece an item is: its layer and its file name, case aside (the pack
+// mixes L4_ and l4_). Two items with the same key are the same piece.
+function itemKey(layer, name) {
+  return (layer ? layer.key : 'unassigned') + '/' + String(name).toLowerCase();
+}
+let replacedCount = 0;
+
+async function inflateRaw(bytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function readZip(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const dv = new DataView(buf.buffer);
+
+  // the end-of-central-directory record is last, after a comment of unknown
+  // length, so it is found by scanning backwards for its signature
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0 && i > buf.length - 66000; i--) {
+    if (dv.getUint32(i, true) === ZIP_EOCD) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('not a zip (no end-of-central-directory record)');
+
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const out = [];
+
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== ZIP_CD) break;
+    const method = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const cmtLen = dv.getUint16(p + 32, true);
+    const localAt = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nameLen));
+    p += 46 + nameLen + extraLen + cmtLen;
+
+    if (name.endsWith('/')) continue;                       // a directory entry
+    if (/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db)/i.test(name)) continue;
+    const isManifest = MANIFEST_NAME.test(name);
+    if (!isManifest && !IMAGE_EXT.test(name)) continue;
+
+    // the local header repeats the name and extra fields, and only it knows
+    // how long its own extra field is
+    const lNameLen = dv.getUint16(localAt + 26, true);
+    const lExtraLen = dv.getUint16(localAt + 28, true);
+    const start = localAt + 30 + lNameLen + lExtraLen;
+    const raw = buf.subarray(start, start + compSize);
+
+    let bytes;
+    if (method === 0) bytes = raw;
+    else if (method === 8) bytes = await inflateRaw(raw);
+    else { console.warn('unsupported compression in', name); continue; }
+
+    const base = name.split('/').pop();
+    if (isManifest) {
+      // A pack made here already carries the iris regions someone placed by
+      // hand. Losing them on a re-drop would mean doing that work again every
+      // time the pack goes round the loop.
+      try {
+        const m = JSON.parse(new TextDecoder().decode(bytes));
+        offerPackVersion(m.packVersion, 'zip');
+        for (const layer of (m.layers || [])) {
+          for (const a of (layer.assets || [])) {
+            if (a.iris) zipIris.set(String(a.file).toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites });
+            if (a.fillReview) zipFill.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.fillReview);
+          }
+        }
+      } catch (e) { console.warn('manifest in zip was not readable', e); }
+      continue;
+    }
+    out.push({
+      file: new File([bytes], base, { type: 'image/' + (base.split('.').pop().toLowerCase()) }),
+      path: name,
+    });
+  }
+  return out;
+}
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp)$/i;
+
+/* A manifest can arrive three ways -- inside a zip, in a dropped folder, or
+   picked as a loose file -- and only the zip reader knew about it. Dropping the
+   unpacked folder therefore threw away iris work that was sitting right there
+   in manifest.json, because addFile discards anything that is not an image. */
+// The Loom saves its manifests as manifest-<version>.json, so a name that only
+// matched manifest.json never recognised its own downloads when they came back.
+const MANIFEST_NAME = /(^|\/)manifest[^/]*\.json$/i;
+
+// Loose manifests are read now but APPLIED after any zips are unpacked: a zip
+// carries the manifest it was exported with, and a manifest dropped alongside
+// it on purpose is the newer work, so it has to be the one that wins.
+let pendingManifests = [];
+
+async function absorbManifests(pairs) {
+  const rest = [];
+  pendingManifests = [];
+  for (const pr of pairs) {
+    if (!MANIFEST_NAME.test(pr.path || pr.file.name)) { rest.push(pr); continue; }
+    try { pendingManifests.push(JSON.parse(await pr.file.text())); }
+    catch (e) { console.warn('manifest was not readable', e); }
+  }
+  return rest;
+}
+
+function applyPendingManifests() {
+  let n = 0;
+  for (const m of pendingManifests) {
+    offerPackVersion(m.packVersion, 'loose');
+    for (const layer of (m.layers || [])) {
+      for (const a of (layer.assets || [])) {
+        if (a.iris) { priorIris.set(String(a.file).toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites }); n++; }
+        if (a.fillReview) { looseFill.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.fillReview);
+                            const ex = items.find(i => itemKey(i.layer, i.name) === (layer.key || 'unassigned') + '/' + String(a.file).toLowerCase());
+                            if (ex) delete ex.fill; }
+      }
+    }
+  }
+  pendingManifests = [];
+  if (n) say(`restored iris regions for ${n} asset${n === 1 ? '' : 's'}`);
+}
+
+async function expand(pairs) {
+  const flat = [];
+  for (const pr of pairs) {
+    if (/\.zip$/i.test(pr.file.name)) {
+      say('unpacking ' + pr.file.name + '…');
+      try {
+        const inner = await readZip(pr.file);
+        if (!inner.length) alert(`No images found inside ${pr.file.name}.`);
+        flat.push(...inner);
+      } catch (e) {
+        console.error(e);
+        alert(`Could not read ${pr.file.name}: ${e.message}`);
+      }
+    } else flat.push(pr);
+  }
+  return flat;
+}
+
+async function addAll(files) {
+  await addPairs([...files].map(f => ({ file: f, path: f.webkitRelativePath || '' })));
+}
+
+async function addPairs(rawPairs) {
+  // manifests first: the iris regions have to be in hand before the images
+  // that need them are processed
+  const pairs = await expand(await absorbManifests(rawPairs));
+  applyPendingManifests();
+  say(`working… (${pairs.length} file${pairs.length === 1 ? '' : 's'})`);
+  replacedCount = 0;
+  for (const { file, path } of pairs) await addFile(file, path);
+  resetDrop();
+  render();
+  if (replacedCount) {
+    say(`${replacedCount} piece${replacedCount === 1 ? ' was' : 's were'} already loaded and `
+        + `${replacedCount === 1 ? 'was' : 'were'} replaced, not added again. Iris regions you had `
+        + `edited here were kept. To use a manifest's placements instead, press Clear and drop `
+        + `the manifest with the art (a manifest dropped loose wins over the bundled placements).`);
+  }
+}
+
+/* A dropped FOLDER arrives in dataTransfer.files as a single entry with no
+   type, which the image filter then discards -- which is why dropping one
+   appeared to do nothing at all. Directories only open through the entries
+   API, and it has two traps: webkitGetAsEntry must be called synchronously
+   inside the drop handler, before any await, or the item list is emptied
+   underneath you; and readEntries hands back at most 100 children per call,
+   so it has to be pumped until it returns none. */
+function entryAsFile(entry) {
+  return new Promise((res, rej) => entry.file(res, rej));
+}
+
+async function walkEntry(entry, prefix, acc) {
+  if (entry.isFile) {
+    try { acc.push({ file: await entryAsFile(entry), path: prefix + entry.name }); }
+    catch (e) { console.warn('could not read', prefix + entry.name, e); }
+    return;
+  }
+  if (!entry.isDirectory) return;
+  const reader = entry.createReader();
+  for (;;) {
+    const batch = await new Promise(res => reader.readEntries(res, () => res([])));
+    if (!batch.length) break;
+    for (const child of batch) await walkEntry(child, prefix + entry.name + '/', acc);
+  }
+}
+let foldedOnce = false;
+function resetDrop() {
+  document.body.classList.toggle('loaded', items.length > 0);
+  // on a phone, fold the settings the first time art arrives: the work is below
+  if (items.length && !foldedOnce && window.matchMedia('(max-width: 700px)').matches) {
+    $('settings-panel').open = false; foldedOnce = true;
+  }
+  if (items.length) {
+    $('dropmsg').innerHTML = '<b>Drop more art or a manifest here</b> · or tap to pick';
+    return;
+  }
+  $('dropmsg').innerHTML =
+    '<b>Drop images, a folder, or a zip here</b><br>…or click to pick, or paste from the clipboard.'
+    + '<br><span style="font-size:12px">A <b>zip</b> works too, and keeps its folder names. '+ 'A folder named <code>layer 2 - head</code> sets the layer automatically.</span>';
+}
+function say(msg) { $('dropmsg').textContent = msg; }
+
+/* ---------- input ---------- */
+drop.addEventListener('click', e => { if (e.target.id !== 'pickdir') $('file').click(); });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', async e => {
+  e.preventDefault(); drop.classList.remove('over');
+  // synchronously, before any await -- see walkEntry
+  const entries = [...(e.dataTransfer.items || [])]
+    .map(it => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null))
+    .filter(Boolean);
+  const plain = [...e.dataTransfer.files];
+  if (plain.some(f => /\.zip$/i.test(f.name))) { await addAll(plain); return; }
+  if (entries.length) {
+    const acc = [];
+    say('reading folder…');
+    for (const en of entries) await walkEntry(en, '', acc);
+    if (acc.length) { await addPairs(acc); return; }
+  }
+  await addAll(plain);            // Safari and anything without the entries API
+});
+$('file').addEventListener('change', e => addAll([...e.target.files]));
+$('pickdir').addEventListener('click', e => { e.stopPropagation(); $('dir').click(); });
+$('dir').addEventListener('change', e => addAll([...e.target.files]));
+window.addEventListener('paste', e => {
+  const fs = [...(e.clipboardData?.files || [])];
+  if (fs.length) addAll(fs);
+});
+
+for (const id of ['tint']) $(id).addEventListener('input', render);
+$('scope').addEventListener('change', render);
+$('fill-insides').addEventListener('change', render);
+// Height and mode reprocess what is already loaded. Trying 638 against 968 is
+// the whole reason to have this open, so it must not mean dropping everything
+// in again.
+// A newer reprocess cancels an older one: two at once (a spinner clicked
+// twice, a field typed in and then left) used to interleave, one emptying the
+// list while the other filled it, so an export mid-way saw half a pack.
+let reprocessRun = 0;
+const EXPORT_BUTTONS = ['save', 'manifest', 'kit', 'kit-images'];
+function setBusy(on) { for (const id of EXPORT_BUTTONS) if ($(id)) $(id).disabled = on || !items.some(isAsset); }
+for (const id of ['height', 'mode']) {
+  $(id).addEventListener('change', async () => {
+    if (!items.length && !carryOver.size) return;
+    const run = ++reprocessRun;
+    // a run cut short leaves its pieces in carryOver; keep those
+    if (items.length) {
+      for (const i of items) carryOver.set(itemKey(i.layer, i.name),
+        { ...structuredClone({ irises: i.irises, pupil: i.pupil, whites: !!i.whites }),
+          undo: i.undo, redo: i.redo, file: i.file, path: i.path });
+    }
+    const files = [...carryOver.values()].map(c => ({ f: c.file, p: c.path }));
+    items.length = 0;
+    setBusy(true);
+    say(`reprocessing… 0 of ${files.length}`);
+    for (const [n, { f, p }] of files.entries()) {
+      if (run !== reprocessRun) return;          // a newer run took over
+      await addFile(f, p);
+      say(`reprocessing… ${n + 1} of ${files.length}`);
+    }
+    if (run !== reprocessRun) return;
+    carryOver.clear();
+    resetDrop();
+    render();
+  });
+}
+
+// Clear forgets everything dropped so far, placements included, so the next
+// drop starts from the bundled working placements (and anything dropped with it)
+$('clear').addEventListener('click', () => {
+  items.length = 0; priorIris.clear(); zipIris.clear(); carryOver.clear(); zipFill.clear(); looseFill.clear(); render();
+});
+
+/* One piece per layer is a whole portrait rather than a whole pack, which is
+   what you want to put through the app the first time. First is decided by
+   filename with numeric collation, so L2_head_02 comes before L2_head_10 and
+   the same set comes out twice running. */
+function isAsset(it) {
+  // A pack folder holds reference sheets, colour keys and notes alongside the
+  // art. Only a file that sits in a `layer N - name` folder is an asset; the
+  // rest are shown, so nothing vanishes silently, but never packed.
+  return !!it.layer;
+}
+
+function inScope() {
+  const assets = items.filter(isAsset);
+  if ($('scope').value === 'all') return assets;
+  const first = new Map();
+  const ordered = assets.slice().sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  for (const it of ordered) {
+    if (!first.has(it.layer.key)) first.set(it.layer.key, it);
+  }
+  // back into z-order, so a downloaded set reads bottom-up like the stack does
+  return [...first.values()].sort((a, b) => a.layer.z - b.layer.z);
+}
+
+/* Saving a file. Opened as a file on this device, a plain download link
+   works. Inside the Claude viewer (the published Artifact) links are inert,
+   and files go through the viewer's own save prompt -- which allows .json
+   but not .zip, so an asset pack has to be made from the downloaded file. */
+let downloadsPromise = null;
+function viewerDownloads() {
+  if (!downloadsPromise) {
+    downloadsPromise = (async () => {
+      try { return typeof window.claude?.use === 'function' ? await window.claude.use('downloads') : null; }
+      catch (_) { return null; }
+    })();
+  }
+  return downloadsPromise;
+}
+
+function linkDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+async function download(blob, name) {
+  const dl = await viewerDownloads();
+  if (!dl) { linkDownload(blob, name); return; }
+  try {
+    await dl.save({ filename: name, data: blob });
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'declined') return;
+    if (code === 'rate_limited') { say('a save is already waiting for an answer -- try again in a moment'); return; }
+    if (code === 'rejected_extension' || code === 'extension_not_enabled') {
+      say(`The Claude viewer doesn't allow ${name.split('.').pop()} downloads. Save this page as a file `
+          + `(or use the downloaded Loom file) and make the pack there; manifests save fine here.`);
+      return;
+    }
+    say('could not save: ' + ((err && err.message) || code || 'unknown error'));
+  }
+}
+
+$('save').addEventListener('click', async () => {
+  const chosen = inScope();
+  if (!chosen.length) { say('Nothing to pack yet: no piece sits in a layer.'); return; }
+  const btn = $('save'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'packing…';
+  try {
+    // laid out the way the asset script expects to find them
+    const entries = [];
+    for (const it of chosen) {
+      const stem = it.name.replace(/\.[^.]+$/, '');
+      const dir = it.layer ? it.layer.key : 'unassigned';
+      const fill = $('fill-insides').checked && it.seeThrough && it.seeThrough.see && fillState(it).on;
+      const blob = fill ? await new Promise(r => filledCopy(it.processed, effectiveFill(it).mask).toBlob(r, 'image/png')) : it.blob;
+      entries.push({ name: `${dir}/${stem}.png`,
+                     bytes: new Uint8Array(await blob.arrayBuffer()) });
+    }
+    entries.push({ name: 'manifest.json',
+                   bytes: new TextEncoder().encode(JSON.stringify(buildManifest(chosen), null, 2) + '\n') });
+    await download(await makeZip(entries), `portrait-pack-${packVersion()}.zip`);
+  } catch (e) {
+    console.error(e);
+    alert('Could not build the zip: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+});
+
+function packVersion() {
+  return ($('ver').value || 'v1').trim().replace(/[^A-Za-z0-9._-]/g, '');
+}
+
+function buildManifest(chosen) {
+  const byLayer = {};
+  // Belt and braces: the list should never hold a piece twice (addFile
+  // replaces), but a manifest must not either -- a consumer reading two
+  // entries for one file has no way to know which is meant.
+  const seen = new Set();
+  for (const it of chosen) {
+    const k = itemKey(it.layer, it.name);
+    if (seen.has(k)) throw new Error('two copies of ' + it.name + ' are loaded; press Clear and drop the pack once');
+    seen.add(k);
+    const key = it.layer ? it.layer.key : 'unassigned';
+    (byLayer[key] = byLayer[key] || { z: it.layer ? it.layer.z : 99, assets: [] })
+      .assets.push({
+        file: it.name.replace(/\.[^.]+$/, '') + '.png',
+        bytes: it.bytes,
+        width: it.processed.width, height: it.processed.height,
+        alphaLevels: it.analysis.alphaLevels,
+        opaqueColours: it.analysis.opaqueColours,
+        tintVerdict: it.verdict.cls,
+        ...(it.seeThrough && it.seeThrough.see
+            ? (() => { const f = fillState(it), e = effectiveFill(it);
+                       return { seeThrough: it.seeThrough.see,
+                                // the review itself, so it can be restored anywhere
+                                fillReview: fillToSaved(f, it.processed.width, it.processed.height),
+                                ...($('fill-insides').checked && f.on
+                                    ? { filledInsides: { filled: e.n, edgeMargin: f.r, minOpacity: f.thr,
+                                                         keptByHand: e.keepN, addedByHand: e.addN } } : {}) }; })()
+            : {}),
+        // normalised 0..1 of the frame, so a re-render at another size still
+        // lands on the same part of the drawing
+        ...(it.irises && it.irises.length
+            ? { iris: it.irises.map(e => ({
+                  cx: +e.cx.toFixed(5), cy: +e.cy.toFixed(5),
+                  rx: +e.rx.toFixed(5), ry: +e.ry.toFixed(5),
+                  rot: +e.rot.toFixed(5),
+                  px: +((e.px || 0).toFixed(4)), py: +((e.py || 0).toFixed(4)),
+                  lid: e.lid ? { x0: +e.lid.x0.toFixed(5), y0: +e.lid.y0.toFixed(5),
+                                 mx: +e.lid.mx.toFixed(5), my: +e.lid.my.toFixed(5),
+                                 x1: +e.lid.x1.toFixed(5), y1: +e.lid.y1.toFixed(5) }
+                              : null,
+                  ...(it.whites && e.lower
+                      ? { lower: { x0: +e.lower.x0.toFixed(5), y0: +e.lower.y0.toFixed(5),
+                                   mx: +e.lower.mx.toFixed(5), my: +e.lower.my.toFixed(5),
+                                   x1: +e.lower.x1.toFixed(5), y1: +e.lower.y1.toFixed(5) } }
+                      : {}) })),
+                pupil: +it.pupil.toFixed(3),
+                ...(it.whites ? { whites: true } : {}) }
+            : {}),
+      });
+  }
+  const first = chosen[0];
+  return {
+    generatedAt: new Date().toISOString(),
+    version: 3,
+    mode: $('mode').value,
+    scope: $('scope').value === 'one' ? 'one-per-layer' : 'all',
+    packVersion: packVersion(),
+    generator: `silhouette-loom ${LOOM_VERSION} (browser)`,
+    target: { width: first.processed.width, height: first.processed.height },
+    source: { width: first.analysis.w, height: first.analysis.h },
+    totalBytes: chosen.reduce((n, i) => n + i.bytes, 0),
+    layers: Object.entries(byLayer)
+      .sort((a, b) => a[1].z - b[1].z)
+      .map(([key, v]) => ({ key, z: v.z, count: v.assets.length, assets: v.assets })),
+  };
+}
+
+$('manifest').addEventListener('click', () => {
+  if (!inScope().length) { say('Nothing to put in a manifest yet: no piece sits in a layer.'); return; }
+  const m = buildManifest(inScope());
+  download(new Blob([JSON.stringify(m, null, 2) + '\n'], { type: 'application/json' }),
+           `manifest-${m.packVersion}.json`);
+});
+
+
+/* ---------- the artist kit ----------
+   For an artist thinking about drawing pieces: enough to see the style, the
+   layers and how they fit, and to start on the same canvas -- never the art
+   at a usable size. Samples are downsampled and watermarked across the art
+   itself; the full-size guide is only the plain silhouette of the head, ears
+   and shirt, with no linework at all. */
+const KIT_LAYER_NOTES = {
+  'hair-bits':  'loose hair behind everything (ponytails, wisps)',
+  'hair-back':  'the hair behind the head',
+  'head':       'the face, neck and shoulders -- the skin',
+  'scalp':      'the hair that sits on the skull, under the front hair',
+  'shirt':      'the clothing',
+  'hair-front': 'the hair in front of the head, framing the face',
+  'ears':       'the ears, over the head',
+  'eyes':       'both eyes, lashes and brows',
+  'nose':       'the nose',
+  'mouth':      'the mouth (a closed line, lips, or teeth)',
+  'bangs':      'the fringe, over everything',
+};
+
+function kitAssets() {
+  return items.filter(isAsset).slice().sort((a, b) =>
+    (a.layer.z - b.layer.z) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function kitCanvas(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
+}
+
+function watermark(g, w, h, text) {
+  // across the art only: drawn onto what is already there
+  g.save();
+  g.globalCompositeOperation = 'source-atop';
+  g.translate(w / 2, h / 2); g.rotate(-Math.PI / 6);
+  const size = Math.max(10, Math.round(h / 16));
+  g.font = `600 ${size}px system-ui, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(40,40,48,0.22)';
+  for (let y = -h; y <= h; y += size * 3)
+    for (let x = -w; x <= w; x += g.measureText(text).width + size * 2)
+      g.fillText(text, x + ((y / (size * 3)) % 2 ? size * 2 : 0), y);
+  g.restore();
+}
+
+function kitSample(it, kh, mark) {
+  const src = it.original;
+  const kw = Math.round(src.width * kh / src.height);
+  const c = kitCanvas(kw, kh), g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, kw, kh);
+  if (mark) watermark(g, kw, kh, mark);
+  return c;
+}
+
+const blobOf = (c) => new Promise(r => c.toBlob(r, 'image/png'));
+const bytesOf = async (c) => new Uint8Array(await (await blobOf(c)).arrayBuffer());
+
+function kitReadme(assets, layers, src, kh, brief) {
+  const { project, owner, credit, want } = brief;
+  // the size the site shows pieces at: the pack height set above, same proportions
+  const appH = Math.max(8, +$('height').value || 638);
+  const appW = Math.round(src.w * appH / src.h);
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const g = gcd(src.w, src.h), ratio = `${src.w / g}:${src.h / g}`;
+  const naming = assets[0] ? assets[0].name : 'L6_eyes_01.png';
+  const by = credit ? ` by ${credit}` : '';
+  const lines = [
+    `COMMISSION BRIEF${project ? ' -- ' + project : ''}`,
+    `${owner ? 'From ' + owner + ' · ' : ''}${new Date().toISOString().slice(0, 10)}`,
+    '',
+    'The project',
+    '-----------',
+    'Character portraits built from interchangeable pieces. Each piece -- a hairstyle, a head,',
+    'a pair of eyes, a mouth -- is drawn on its own transparent layer, all on one shared canvas.',
+    'People pick one piece per layer and choose their own colours for skin, hair, eyes and',
+    'clothes; the art supplies the lines and the shading.',
+    '',
+    'What I am looking for',
+    '---------------------',
+    want ? `  ${want}` : '  (to be discussed)',
+    'New pieces should sit alongside the existing set: the same canvas, the same layers, a',
+    'compatible style.',
+    '',
+    'Reference',
+    '---------',
+    `The existing pieces${by} are in reference/, one folder per layer, reduced to ${kh}px tall`,
+    `(the canvas they were drawn on is ${src.w} x ${src.h}).`,
+    'sheets/layers.png shows every piece of every layer; sheets/example.png one of each, stacked.',
+    credit ? `They are ${credit}'s work and are shared only as reference for this commission.` : 'They are shared only as reference for this commission.',
+    '',
+    'The canvas and the layers',
+    '-------------------------',
+    `Draw on:           ${src.w} x ${src.h} px, transparent background (proportions ${ratio}).`,
+    `Shown on the site: ${appW} x ${appH} px -- pieces are scaled down from what you deliver.`,
+    'Larger at the same proportions is fine; a different shape will not line up.',
+    'Pieces must line up when stacked, so never crop or move the canvas.',
+    'guide/registration-guide.png is that canvas at full size with a pale silhouette of the head,',
+    'ears and shirt, to draw over.',
+    '',
+    'Layers, bottom to top:',
+    ...layers.map(([key, list]) => `  ${String(list[0].layer.z).padStart(2)}  ${key.padEnd(11)} ${KIT_LAYER_NOTES[key] || ''}  (${list.length} existing)`),
+    '',
+    'So people can choose the colours',
+    '--------------------------------',
+    '- Lines in dark ink, fills white or very light grey, shading in greys. The chosen colour is',
+    '  applied over the drawing, so any hue in skin, hair or clothing would fight it.',
+    '- Irises and lips as a grey ramp, dark to light, shaded the way you want them to read.',
+    '- Anything that keeps its own colour -- teeth, eye whites -- drawn as it should look.',
+    '- Closed outlines, and no stray specks outside the piece.',
+    'The reference pieces show all of this in practice.',
+    '',
+    'Delivery',
+    '--------',
+    `- PNG with transparency, ${src.w} x ${src.h} px, one piece per file.`,
+    `- Named like the reference set: layer number, layer, a number -- e.g. ${naming}`,
+    '- Eyes: the iris and lid positions are marked on our side after delivery.',
+    '',
+    'Credit',
+    '------',
+    'Artists are credited by name, with a link, wherever their pieces appear on the site.',
+    'Rights and usage to be agreed.',
+    '',
+    'If you are interested',
+    '---------------------',
+    `Reply${owner ? ' to ' + owner : ''} with a quote, a rough timeline and a link to your portfolio.`,
+  ];
+  return lines.join('\n') + '\n';
+}
+
+/* the reference height: only ever a reduction, never the original size blown up */
+function kitHeight(assets) {
+  return Math.max(96, Math.min(assets[0].original.height, +$('kit-height').value || 800));
+}
+
+$('kit-images').addEventListener('click', async () => {
+  const assets = kitAssets();
+  if (!assets.length) return;
+  const btn = $('kit-images'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'reducing…';
+  try {
+    const kh = kitHeight(assets), mark = ($('kit-mark').value || '').trim();
+    const entries = [];
+    for (const it of assets)
+      entries.push({ name: `${it.layer.key}/${it.name.replace(/\.[^.]+$/, '')}.png`, bytes: await bytesOf(kitSample(it, kh, mark)) });
+    await download(await makeZip(entries), `reference-images-${kh}px-${packVersion()}.zip`);
+    say(`Reference images: ${assets.length} pieces at ${kh}px tall.`);
+  } catch (e) {
+    console.error(e);
+    alert('Could not build the reference images: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+});
+
+$('kit').addEventListener('click', async () => {
+  const assets = kitAssets();
+  if (!assets.length) return;
+  const btn = $('kit'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'making the kit…';
+  try {
+    // the references are only ever shrunk, never sent at full size or blown up
+    const kh = kitHeight(assets);
+    const mark = ($('kit-mark').value || '').trim();
+    const owner = ($('kit-owner').value || '').trim();
+    const brief = { project: ($('kit-project').value || '').trim(), owner,
+                    credit: ($('kit-credit').value || '').trim(), want: ($('kit-want').value || '').trim() };
+    const loaded = { w: assets[0].original.width, h: assets[0].original.height };
+    // the canvas new pieces are delivered on: as loaded, unless set (e.g. the
+    // original artist's full canvas when the kit is made from a smaller pack)
+    const asked = /^\s*(\d+)\s*[x×*]\s*(\d+)\s*$/i.exec($('kit-canvas').value || '');
+    const src = asked ? { w: +asked[1], h: +asked[2] } : loaded;
+    const layers = [];
+    for (const it of assets) {
+      const last = layers[layers.length - 1];
+      if (last && last[0] === it.layer.key) last[1].push(it); else layers.push([it.layer.key, [it]]);
+    }
+    const entries = [];
+    const samples = new Map();
+    for (const it of assets) {
+      const c = kitSample(it, kh, mark);
+      samples.set(it, c);
+      entries.push({ name: `reference/${it.layer.key}/${it.name.replace(/\.[^.]+$/, '')}.png`, bytes: await bytesOf(c) });
+    }
+    // every piece of every layer, a row per layer, on a checkerboard
+    const cw = samples.get(assets[0]).width, labelW = Math.round(kh * 0.45), pad = 8;
+    const cols = Math.max(...layers.map(([, l]) => l.length));
+    const sheet = kitCanvas(labelW + cols * (cw + pad) + pad, layers.length * (kh + pad) + pad);
+    const sg = sheet.getContext('2d');
+    sg.fillStyle = '#ffffff'; sg.fillRect(0, 0, sheet.width, sheet.height);
+    layers.forEach(([key, list], r) => {
+      const y = pad + r * (kh + pad);
+      sg.fillStyle = '#333'; sg.font = `600 ${Math.max(11, Math.round(kh / 14))}px system-ui, sans-serif`;
+      sg.textBaseline = 'middle'; sg.fillText(key, pad, y + kh / 2);
+      list.forEach((it, i) => {
+        const x = labelW + pad + i * (cw + pad);
+        for (let yy = 0; yy < kh; yy += 12) for (let xx = 0; xx < cw; xx += 12) {
+          sg.fillStyle = ((xx + yy) / 12) % 2 ? '#e9e9ee' : '#f6f6f9'; sg.fillRect(x + xx, y + yy, 12, 12);
+        }
+        sg.drawImage(samples.get(it), x, y);
+      });
+    });
+    entries.push({ name: 'sheets/layers.png', bytes: await bytesOf(sheet) });
+    // one of each, stacked
+    const ex = kitCanvas(cw, kh), eg = ex.getContext('2d');
+    eg.fillStyle = '#ffffff'; eg.fillRect(0, 0, cw, kh);
+    for (const [, list] of layers) eg.drawImage(list[0].original, 0, 0, cw, kh);
+    if (mark) { const m = kitCanvas(cw, kh), mg = m.getContext('2d');
+                for (const [, list] of layers) mg.drawImage(list[0].original, 0, 0, cw, kh);
+                watermark(mg, cw, kh, mark); eg.drawImage(m, 0, 0); }
+    entries.push({ name: 'sheets/example.png', bytes: await bytesOf(ex) });
+    // the full-size canvas, with only a pale silhouette of the body to draw over
+    const guide = kitCanvas(src.w, src.h), gg = guide.getContext('2d');
+    const body = kitCanvas(src.w, src.h), bg = body.getContext('2d');
+    // only a flat silhouette, so the delivery size carries no detail of the art
+    for (const [key, list] of layers)
+      if (['head', 'ears', 'shirt'].includes(key)) bg.drawImage(list[0].original, 0, 0, src.w, src.h);
+    bg.globalCompositeOperation = 'source-in';
+    bg.fillStyle = 'rgba(120,130,150,0.22)'; bg.fillRect(0, 0, src.w, src.h);
+    gg.drawImage(body, 0, 0);
+    entries.push({ name: 'guide/registration-guide.png', bytes: await bytesOf(guide) });
+    entries.push({ name: 'README.txt', bytes: new TextEncoder().encode(kitReadme(assets, layers, src, kh, brief)) });
+    await download(await makeZip(entries), `commission-kit-${packVersion()}.zip`);
+    say(`Commission kit: a brief, ${assets.length} reference pieces at ${kh}px, a layer sheet, an example and a registration guide.`);
+  } catch (e) {
+    console.error(e);
+    alert('Could not build the commission kit: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+});
+
+$('about-toggle').addEventListener('click', () => {
+  const a = $('about');
+  a.hidden = !a.hidden;
+  $('about-toggle').textContent = a.hidden ? 'About' : 'Hide';
+});
+
+resetDrop();
+render();
+</script>
+</body>
+</html>
