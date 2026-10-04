@@ -219,7 +219,11 @@
           (swap! colorized-cache #(assoc (if (> (count %) 48) {} %) k c))
           c))))
 
-;; ---------------- solid insides ----------------
+;; ---------------- solid insides (developer tool) ----------------
+;;
+;; Off unless Developer mode is on: production draws the art as delivered.
+;; The fix belongs in the art -- the Loom flags see-through insides and can
+;; fill them when it exports a pack.
 ;;
 ;; Every piece is drawn from a copy with its inside made fully opaque
 ;; (portrait-colorize/solid-mask): a few thousand nearly-opaque pixels inside
@@ -234,6 +238,8 @@
   "Resolves to the solid copy's URL for `url` (or `url` itself if it cannot
    be made, e.g. the image will not decode)."
   [url]
+  (if-not (:dev-mode? @re-frame.db/app-db)
+    (js/Promise.resolve url)
   (or (get @solid-pending url)
       (let [p (js/Promise.
                (fn [resolve _]
@@ -259,13 +265,15 @@
                                (catch :default _ (resolve url)))))
                      (set! (.-src img) url)))))]
         (swap! solid-pending assoc url p)
-        p)))
+        p))))
 
 (defn- solid-src
   "The solid copy's URL for a CSS layer, or the original until it is ready
    (deref'd, so the layer redraws when it is)."
   [url]
-  (or (get @solid-urls url) (do (solid-promise url) url)))
+  (if-not @(subscribe [:orcpub.dnd.e5/dev-mode?])
+    url
+    (or (get @solid-urls url) (do (solid-promise url) url))))
 
 (defonce ^:private loaded-images (atom {}))
 

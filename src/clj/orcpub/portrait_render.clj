@@ -126,6 +126,13 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
+(def ^:private dev-solid?
+  "A developer tool, off in production: draw each piece with its inside made
+   solid, to preview art whose fill is not quite opaque. The fix belongs in
+   the art (the Loom flags it and can fill it on export). On when the server
+   runs with PORTRAIT_DEV_SOLID=1."
+  (delay (= "1" (System/getenv "PORTRAIT_DEV_SOLID"))))
+
 (defn- solid
   "A copy of the art with its inside made fully opaque (portrait-colorize/
    solid-mask); the soft edge is left as drawn. The art itself is untouched."
@@ -145,7 +152,7 @@
   "The asset scaled into the frame the way every renderer places it, its
    inside made solid first."
   ^BufferedImage [^BufferedImage src0 w h]
-  (let [src (solid src0)
+  (let [src (if @dev-solid? (solid src0) src0)
         out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
         g (.createGraphics out)
         [x y dw dh] (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
