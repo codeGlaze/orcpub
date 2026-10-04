@@ -554,3 +554,74 @@
     (is (re-find #"someone-else@example.test" html) "names where it is going")
     (is (re-find #"Nothing has moved yet" html) "and that it has not happened yet")
     (is (re-find #"(?i)change your password now" html) "and what to do if it was not them")))
+
+(deftest a-reset-link-is-a-one-time-permission-not-a-sign-in
+  ;; The key in the link authorises one thing, setting a new password, once. Opening the link
+  ;; used to mint an hour-long session for the account, so anyone holding the mail was signed
+  ;; in without changing the password, and the owner was never told. OWASP Forgot Password.
+  (with-conn conn
+    (let [c (dm/fork-conn conn)
+          reset-key "the-key-in-the-emailed-link"
+          sent (java.util.Date.)
+          request (fn [params] {:json-params params :db (d/db c) :conn c
+                                :headers {"host" "example.test" "user-agent" "test"}
+                                :scheme :https})]
+      @(d/transact c schema/all-schemas)
+      @(d/transact c [{:orcpub.user/username "resetter"
+                       :orcpub.user/email "resetter@test.com"
+                       :orcpub.user/password "old-hash"
+                       :orcpub.user/verified? true
+                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-sent sent}])
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)
+                       #'email/send-password-changed-email (fn [& _] nil)}
+        (fn []
+          (testing "opening the link grants no session"
+            (let [resp (routes/reset-password-page {:query-params {:key reset-key} :db (d/db c)
+                                                    :headers {"host" "example.test"}
+                                                    :uri "/reset-password-page"})]
+              (is (= 200 (:status resp)))
+              (is (not (contains? (:cookies resp) "token")) "the link minted a sign-in session")
+              (is (= "resetter" (get-in resp [:cookies "reset-username" :value])))
+              (is (= "no-referrer" (get-in resp [:headers "Referrer-Policy"]))
+                  "the key in the URL must not leak through the Referer of anything the page loads")))
+          (testing "a submit without the key, or with a wrong one, changes nothing"
+            (doseq [k [nil "" "not-the-key"]]
+              (let [resp (routes/reset-password (request {:password "a fresh long passphrase"
+                                                          :verify-password "a fresh long passphrase"
+                                                          :key k}))]
+                (is (= 400 (:status resp)) (str "key " (pr-str k)))
+                (is (seq (get-in resp [:body :general])))))
+            (is (= "old-hash" (:orcpub.user/password (routes/first-user-by (d/db c) routes/username-query "resetter")))))
+          (testing "the key sets the password once, and is then spent"
+            (is (= 200 (:status (routes/reset-password (request {:password "a fresh long passphrase"
+                                                                 :verify-password "a fresh long passphrase"
+                                                                 :key reset-key})))))
+            (let [user (routes/first-user-by (d/db c) routes/username-query "resetter")]
+              (is (not= "old-hash" (:orcpub.user/password user)))
+              (is (nil? (:orcpub.user/password-reset-key user)) "the key was not retired"))
+            (is (= 400 (:status (routes/reset-password (request {:password "another long passphrase"
+                                                                 :verify-password "another long passphrase"
+                                                                 :key reset-key}))))
+                "a used link worked twice")))))))
+
+(deftest an-expired-reset-link-sets-nothing
+  (with-conn conn
+    (let [c (dm/fork-conn conn)
+          reset-key "an-old-key"]
+      @(d/transact c schema/all-schemas)
+      @(d/transact c [{:orcpub.user/username "late"
+                       :orcpub.user/email "late@test.com"
+                       :orcpub.user/password "old-hash"
+                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-sent (java.util.Date. (- (System/currentTimeMillis)
+                                                                            (* 3 3600 1000)))}])
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
+        (fn []
+          (let [resp (routes/reset-password {:json-params {:password "a fresh long passphrase"
+                                                           :verify-password "a fresh long passphrase"
+                                                           :key reset-key}
+                                             :db (d/db c) :conn c :headers {"host" "example.test"}})]
+            (is (= 400 (:status resp)))
+            (is (= "old-hash" (:orcpub.user/password
+                               (routes/first-user-by (d/db c) routes/username-query "late"))))))))))

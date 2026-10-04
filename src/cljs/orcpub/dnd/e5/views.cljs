@@ -808,23 +808,12 @@
      content]
     legal-links?)))
 
-(defn- token-username
-  "Username decoded from the session token's JWT payload.
-   GOTCHA: read, not trusted -- used only to flag \"password equals username\"
-   client-side; the server re-derives the username by verifying the token
-   itself, so a forged claim here cannot change what gets accepted.
-   See account-flows.md."
+(defn- reset-username
+  "The username of the account a reset link is for, from the plain cookie the reset page sets.
+   Grants nothing; used only to flag \"password equals username\" while typing. The server
+   re-derives it from the link's key on submit. See account-flows.md."
   []
-  (try
-    (when-let [token (get (events/cookies) "token")]
-      (let [payload (second (s/split token #"\."))]
-        (when (seq payload)
-          ;; JWT is base64URL: - and _ stand in for + and /, and the padding is
-          ;; dropped. goog's decoder wants the plain alphabet.
-          (let [b64s (-> payload (s/replace "-" "+") (s/replace "_" "/"))
-                padded (str b64s (case (mod (count b64s) 4) 2 "==" 3 "=" ""))]
-            (some-> (b64/decodeString padded) js/JSON.parse (aget "user"))))))
-    (catch :default _ nil)))
+  (some-> (get (events/cookies) "reset-username") js/decodeURIComponent))
 
 (defn password-fields
   "The password pair plus the strength meter under it, as one unit.
@@ -970,11 +959,9 @@
             ;; one rule only the server can apply -- sits alongside whatever the
             ;; form already found rather than replacing it.
             server-errors @(subscribe [:password-reset-server-errors])
-            ;; GOTCHA: context carries only :user, never email, to avoid a disclosure
-            ;; via cookie; the server checks email separately on submit. The "not
-            ;; your name" chip is a safe oracle: it only fires on the WHOLE
-            ;; username, which this page's cookie already carries. See account-flows.md.
-            context {:username (token-username)}
+            ;; GOTCHA: context carries only the username, never email, to avoid a disclosure
+            ;; via cookie; the server checks email separately on submit. See account-flows.md.
+            context {:username (reset-username)}
             ;; Reading the password back is what the confirm box stands in for,
             ;; so revealing it retires the box -- and the check that decides
             ;; whether this can be submitted has to know that, which is why the

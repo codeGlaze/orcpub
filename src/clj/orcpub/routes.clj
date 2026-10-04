@@ -837,10 +837,14 @@
   (try
     @(d/transact
       conn
-      [{:db/id user-id
-        :orcpub.user/password (hashers/encrypt (s/trim password))
-        :orcpub.user/password-reset (java.util.Date.)
-        :orcpub.user/verified? true}])
+      (cond-> [{:db/id user-id
+                :orcpub.user/password (hashers/encrypt (s/trim password))
+                :orcpub.user/password-reset (java.util.Date.)
+                :orcpub.user/verified? true}]
+        ;; The link is spent with the password it set, in the same transaction.
+        (:orcpub.user/password-reset-key user)
+        (conj [:db/retract user-id :orcpub.user/password-reset-key
+               (:orcpub.user/password-reset-key user)])))
     ;; Before anything else that can fail: every token minted before now is no
     ;; longer good for this account, including the one this very request is
     ;; using. That is the point -- a reset is how somebody takes their account
@@ -866,7 +870,12 @@
                        :user-id user-id}
                       e)))))
 
-(defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
+(declare user-by-password-reset-key-query)
+
+(defn reset-password
+  "Set a new password with the key from a reset link. The key is the only authority: opening
+   the link grants no session, and the key is checked here, at submit, then retired."
+  [{:keys [json-params db conn] :as request}]
   (try
     (let [{:keys [password verify-password]} json-params
           ;; Trimmed before anything judges it, because do-password-reset stores it
@@ -874,8 +883,14 @@
           ;; a different string from the one saved.
           password        (some-> password s/trim)
           verify-password (some-> verify-password s/trim)
-          username (:user identity)
-          {:keys [:db/id :orcpub.user/email] :as user} (first-user-by db username-query username)
+          reset-key (:key json-params)
+          {:keys [:db/id :orcpub.user/username :orcpub.user/email
+                  :orcpub.user/password-reset-sent :orcpub.user/password-reset] :as user}
+          (when-not (s/blank? reset-key)
+            (first-user-by db user-by-password-reset-key-query (hash-reset-key reset-key)))
+          usable? (and id
+                       (not (password-reset-expired? password-reset-sent))
+                       (not (password-already-reset? password-reset password-reset-sent)))
           ;; The username is known here, even though this page never shows it,
           ;; so a password that IS the username can be refused the way
           ;; registration already refuses one. Without the context this was the
@@ -884,13 +899,17 @@
           rule-errors (registration/validate-password password context)
           ;; Asked once. Only reached when the password is otherwise acceptable,
           ;; so a rejected reset never costs a call.
-          breached (when (and (= password verify-password) (empty? rule-errors))
+          breached (when (and usable? (= password verify-password) (empty? rule-errors))
                      (first (:password-common (breach-errors password))))]
       ;; Field-keyed, in :body, the same shape registration answers with.
       ;; :message is not a Pedestal response key: these came back as a 400 with
       ;; an EMPTY body, so the reasons never left the server and the page had
       ;; nothing to show but a generic apology.
       (cond
+        ;; Missing, unknown, expired and used are one answer: this link no longer works.
+        (not usable?)
+        {:status 400 :body {:general ["This reset link has expired or has already been used. Request a new one from the login page."]}}
+
         (not= password verify-password)
         {:status 400 :body {:verify-password ["Passwords do not match"]}}
 
@@ -1492,7 +1511,7 @@
     (merge
      response
      {:status 200
-      :headers {"Content-Type" "text/html" }
+      :headers (merge {"Content-Type" "text/html"} (:headers response))
       :body
       (index-page
        {:url (str "http://" host uri)
@@ -1528,8 +1547,13 @@
       (nil? id) (redirect route-map/password-reset-expired-route)
       expired? (redirect route-map/password-reset-expired-route)
       already-reset? (redirect route-map/password-reset-used-route)
-      :else (let [token (create-token username (-> 1 hours from-now))]
-              (index req {:cookies {"token" token}})))))
+      ;; No session: the key in the URL is what the form submits. The username cookie grants
+      ;; nothing; it lets the meter flag a password equal to it. no-referrer keeps the key out of
+      ;; the Referer of anything this page loads.
+      :else (index req {:headers {"Referrer-Policy" "no-referrer"}
+                        :cookies {"reset-username" {:value username :path "/"
+                                                    :max-age (* password-reset-valid-hours 3600)
+                                                    :same-site :strict}}}))))
 
 (defn check-field [query value db]
   {:status 200
@@ -2298,7 +2322,7 @@
         {:get `re-verify}]
        [(route-map/path-for route-map/unsubscribe-route)
         {:get `unsubscribe}]
-       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies check-auth]
+       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies]
         {:post `reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
         {:get `reset-password-page}]

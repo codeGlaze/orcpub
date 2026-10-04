@@ -3165,8 +3165,12 @@
  ;; same password again. The server's reasons are field-keyed; keep them.
  (fn [{:keys [db]} [_ response]]
    (let [errors (when (map? (:body response)) (:body response))]
-     (if (seq errors)
+     (cond
+       ;; An expired or used link: nothing in the form can fix it.
+       (:general errors) (dispatch-login-failure (first (:general errors)))
+       (seq errors)
        {:db (assoc db :password-reset-server-errors errors)}
+       :else
        ;; A failure with nothing to say -- a network drop, a 500 -- still needs
        ;; to say something.
        (dispatch-login-failure "There was an error resetting your password.")))))
@@ -3179,14 +3183,13 @@
 
 (reg-event-fx
  :password-reset
+ ;; The link's key is the only authority the server takes for a reset; there is no session.
  (fn [{:keys [db]} [_ params]]
-   (let [c (cookies)
-         token (c "token")]
+   (let [reset-key (.get (js/URLSearchParams. (.. js/window -location -search)) "key")]
      {:db (assoc db :temp-email (:email params))
       :http {:method :post
-             :auth-token token
              :url (backend-url (bidi/path-for routes/routes routes/reset-password-route))
-             :json-params params
+             :json-params (assoc (select-keys params [:password :verify-password]) :key reset-key)
              :on-success [:password-reset-success]
              :on-unauthorized [:password-reset-failure]
              :on-failure [:password-reset-failure]}})))
