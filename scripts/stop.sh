@@ -40,7 +40,7 @@ show_status() {
         # Quiet mode: just exit codes
         local running=0
         for port in "$DATOMIC_PORT" "$SERVER_PORT" "$NREPL_PORT"; do
-            port_in_use "$port" && ((running++))
+            port_in_use "$port" && running=$((running + 1))
         done
         echo "$running"
         return
@@ -133,7 +133,7 @@ kill_pids() {
 
     [[ "$quiet" != "true" ]] && log_info "Sending SIGTERM to PIDs: $pids"
     for pid in $pids; do
-        kill -TERM "$pid" 2>/dev/null || true
+        signal_pid "$pid" TERM || true
     done
 
     sleep "$wait_time"
@@ -141,7 +141,7 @@ kill_pids() {
     # Check for survivors
     local remaining=""
     for pid in $pids; do
-        kill -0 "$pid" 2>/dev/null && remaining="$remaining $pid"
+        pid_alive "$pid" && remaining="$remaining $pid"
     done
     remaining=$(echo "$remaining" | xargs)
 
@@ -149,7 +149,7 @@ kill_pids() {
         if [[ "$use_force" == "true" ]]; then
             [[ "$quiet" != "true" ]] && log_warn "Processes still running, sending SIGKILL: $remaining"
             for pid in $remaining; do
-                kill -KILL "$pid" 2>/dev/null || true
+                signal_pid "$pid" KILL || true
             done
             sleep 1
         else

@@ -3,7 +3,25 @@
  :exclude-files "resources/public/js/compiled"
  :output {:exclude-files [".*resources/public/js/compiled.*"
                           ".*docker/scripts/.*"]}
- :linters {;; Enabled at :warning so NEW accidental shadows are caught.
+ :linters {;; A BLANK ENVIRONMENT VALUE IS AN ABSENT ONE, and (or (env :k) default)
+           ;; does not implement that: environ returns "" for an exported-but-empty
+           ;; variable and "" is truthy, so the default never applies. That shape
+           ;; was written independently at five sites and cost, among others, JWTs
+           ;; signed and verified against the empty string.
+           ;;
+           ;; orcpub.config already had a correct accessor and routes.clj read
+           ;; (environ/env :signature) raw anyway, four times -- which is why this
+           ;; is a lint rule and not just a helper. Read through orcpub.env/value.
+           ;; :error, not :warning -- `lein lint` runs with --fail-level error, so
+           ;; this is the difference between a rule and a suggestion. The helper
+           ;; it points at already existed once and was bypassed.
+           :discouraged-var
+           {:level :error
+            environ.core/env
+            {:message "Use orcpub.env/value -- (or (env :k) d) treats an empty value as set. See orcpub.env."}
+            java.lang.System/getenv
+            {:message "Use orcpub.env/value -- environ already reads env vars, and this skips the blank check."}}
+           ;; Enabled at :warning so NEW accidental shadows are caught.
            ;; :exclude covers established patterns: core vars used as param names
            ;; (name, key, type, etc.) and domain terms used as both defs and params
            ;; (level, ability, armor, etc.) across modifier/option/character code.
@@ -107,10 +125,21 @@
              (orcpub.routes-test/with-conn)
              (orcpub.routes.folder-test/with-conn)
              (orcpub.email-change-test/with-conn)
+             (orcpub.registration-rollback-test/with-conn)
              (user/with-db)]}}
  ;; native/cljs and web/cljs are separate source roots; kondo doesn't know
  ;; about them so ns names appear to mismatch their file paths.
- :config-in-ns {orcpub.core {:linters {:namespace-name-mismatch {:level :off}}}
+ ;; orcpub.env is the one place allowed to read the environment; the whole
+ ;; point of the namespace is to be the single exception.
+ :config-in-ns {orcpub.env {:linters {:discouraged-var {:level :off}}}
+                ;; These two STUB environ.core/env with with-redefs, which is how
+                ;; you test the accessor and the locale behaviour at all -- kondo
+                ;; counts the var reference as a use. Exempted by namespace rather
+                ;; than for all of test/, so an ordinary bare read in a test is
+                ;; still an error (routes_test.clj had one).
+                orcpub.env-test {:linters {:discouraged-var {:level :off}}}
+                orcpub.config-test {:linters {:discouraged-var {:level :off}}}
+                orcpub.core {:linters {:namespace-name-mismatch {:level :off}}}
                 orcpub.views {:linters {:namespace-name-mismatch {:level :off}}}
                 orcpub.dnd.e5.native-views {:linters {:namespace-name-mismatch {:level :off}}}}
  ;; with-conn macros use bare symbol bindings — handled via
