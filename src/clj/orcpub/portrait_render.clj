@@ -242,7 +242,8 @@
     (dotimes [i (* (.getWidth img) (.getHeight img))]
       (let [argb (aget ^ints dst i)
             a (bit-and (unsigned-bit-shift-right argb 24) 0xff)
-            k (if cov (/ (aget ^doubles cov i) 255.0) 1.0)]
+            ;; irises by their placed region; lips by how solid the stroke is
+            k (if cov (/ (aget ^doubles cov i) 255.0) (colorize/lip-weight a))]
         (when (and (pos? a) (pos? k))
           (let [[r g b] (colorize/colorize-rgb (bit-and (unsigned-bit-shift-right argb 16) 0xff)
                                                (bit-and (unsigned-bit-shift-right argb 8) 0xff)

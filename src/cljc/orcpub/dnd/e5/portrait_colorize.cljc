@@ -199,6 +199,16 @@
 ;; opaque; the soft, antialiased edge is left exactly as drawn.
 ;; ---------------------------------------------------------------------------
 
+(defn lip-weight
+  "How much of the lip colour a pixel of lip art takes, by how opaque it is:
+   all of it on the solid lip, fading to none on thin, partly transparent
+   strokes. The mouth's corner strokes are black ink at about half opacity;
+   coloured through the floor they came out as pale pink scribbles on dark
+   skin. Left as drawn they stay the soft dark line she drew."
+  ^double [alpha]
+  (let [t (min 1.0 (max 0.0 (/ (- (double alpha) 140.0) 90.0)))]
+    (* t t (- 3.0 (* 2.0 t)))))
+
 (def solid-threshold
   "Alpha above which a pixel counts as part of the drawn shape."
   200)

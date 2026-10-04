@@ -136,3 +136,8 @@
     (is (zero? (at 3 9)) "pixels near the edge are left as drawn")
     (is (zero? (at 2 9)) "and so is the soft edge itself")
     (is (zero? (at 0 0)))))
+
+(deftest lip-colour-follows-how-solid-the-stroke-is
+  (is (= 1.0 (c/lip-weight 255)) "the lip itself takes all of it")
+  (is (zero? (c/lip-weight 113)) "a half-opaque corner stroke stays as drawn")
+  (is (< 0.0 (c/lip-weight 185) 1.0) "and the edge between fades"))
