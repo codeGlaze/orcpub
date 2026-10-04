@@ -184,3 +184,27 @@ locales and then confirmed by the reporter on their own machine before being com
 
 See also: [icon-font-failure.md](icon-font-failure.md) for why the symptom was so hard to read, and
 [pedestal-csp-history.md](pedestal-csp-history.md) for the CSP machinery touched in §2.
+
+## On integration (2026-10-04)
+
+Merged into integration as `4f3e648d` (PR #46): the same commits as Orcpub/orcpub#695, so Summer
+Patch carries them upstream without duplicates. #35 (the review mirror) stays open for an
+upstream-only release. What the merge itself had to do, beyond the 10 conflicted files:
+
+- Integration code written after this branch began still read the environment through
+  `environ` directly, and lower/upper-cased with the machine locale. Converted to `orcpub.env`
+  and pinned: `sanitize-abbreviation` (a Turkish JVM upper-cases "i" to "İ", which fails
+  `[A-Z]`, so an author's source tag was silently dropped), `abbreviation-lookup-key`,
+  spell-card annotations, image-host matching, the boot banner, and `comment_discipline_test`
+  (which failed only under tr_TR). New `common/ascii-upper-case`; `common/lower-case` now
+  delegates to `ascii-lower-case`.
+- Dev mode sends NO CSP header under strict: strict sets `:content-security-policy-settings nil`
+  and the nonce interceptor is a no-op in dev. Integration's comments claiming Pedestal's default
+  CSP stayed active were wrong and were replaced.
+- Review on #46 found two registration bugs, fixed on this branch (`55c949da`) so #695 has them:
+  `re-verify` for an unknown address created a key-only record and emailed a link; a failed
+  resend restored the key it read before writing instead of the one its own write replaced
+  (now read from `:db-before`). The locale and Windows workflows now also run on integration.
+- The CLJS tests are never run by CI or `lein fig:test` (that only builds). Run them by loading
+  `target/test/js/test.js` in Chromium and calling `orcpub.test_runner._main()`; serve the JS
+  as UTF-8, or the `À-ɏ` range in `common.cljc` breaks and every namespace after it cascades.

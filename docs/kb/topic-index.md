@@ -600,7 +600,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, curl, host, hosts, image, picture, pinterest, proxy, serve, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, curl, host, hosts, https, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1520,7 +1520,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 52s, cancel, measuring, nine, pdf, playwright, probe, probes, run, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, measuring, nine, pdf, playwright, probe, probes, runner, sheets, sleeps, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1837,7 +1837,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** address, auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, read-stamp, readers, rename, restore, salvage, save-anyway
+**topics:** auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -1974,7 +1974,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 50-200ms, 500ms, cleared, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
 
 - Current Design (post-refactor)
 - Data flow
@@ -1989,7 +1989,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, author, coexist, consent, copy, item, key, library, move, origin, pak, record, refusal, rename, round, save, source
+**topics:** address, answers, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2049,7 +2049,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, problems, same-key, source, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, problems, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2067,7 +2067,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _locale-safety · locale safety_
 
-**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, formatter, linguistic, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, spanish, turkish, webjar
+**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, formatter, linguistic, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2076,6 +2076,7 @@ _locale-safety · locale safety_
 - 3. The rule
 - 4. How this was found, and how long it took
 - Provenance
+- On integration (2026-10-04)
 
 ## memoize-antipattern-scan.md
 
