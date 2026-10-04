@@ -64,10 +64,12 @@
 (defn filter-by-name-xform
   "Returns a transducer that filters items by name matching filter-text."
   [filter-text name-key]
-  (let [pattern (re-pattern (str ".*" (s/lower-case filter-text) ".*"))]
+  ;; ascii-lower-case: on a Turkish JVM "FIRE" folds to "fıre" and matches
+  ;; neither Fireball nor Fire Bolt.
+  (let [pattern (re-pattern (str ".*" (common/ascii-lower-case filter-text) ".*"))]
     (filter
      (fn [x]
-       (re-matches pattern (s/lower-case (name-key x)))))))
+       (re-matches pattern (common/ascii-lower-case (name-key x)))))))
 
 (defn filter-spells
   "Filters and sorts spells whose :name matches filter-text."

@@ -47,10 +47,10 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
-| `DEV_MODE` | `"true"` (in :dev profile) | Enables dev-mode CSP (Report-Only instead of enforcing). Must be the string `"true"` (case-insensitive) -- any other value (including `"1"`, `"yes"`, or empty) is treated as false. |
+| `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
 
 CSP modes:
-- **strict** — nonce-based CSP with `strict-dynamic`. Dev mode uses `Report-Only` header (logs violations but doesn't block). Prod uses enforcing header.
+- **strict** — nonce-based CSP with `strict-dynamic`, always as an enforcing `Content-Security-Policy` header. **There is no Report-Only mode**; no code has ever emitted `Content-Security-Policy-Report-Only`. Dev mode does not soften the policy, it skips it.
 - **permissive** — allows `unsafe-inline` and `unsafe-eval`. Legacy fallback.
 - **none** — disables CSP entirely. Not recommended for production.
 
@@ -69,10 +69,11 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EMAIL_SERVER_URL` | — | SMTP server hostname. Leave empty to disable email. |
+| `EMAIL_SERVER_URL` | — | Your SMTP server. If it's empty, nobody can sign up — the site can't send a confirmation email, so it turns registration off instead of letting people in unchecked. |
 | `EMAIL_ACCESS_KEY` | — | SMTP username |
 | `EMAIL_SECRET_KEY` | — | SMTP password |
 | `EMAIL_SERVER_PORT` | `587` | SMTP port |
+| `ALLOW_UNVERIFIED_REGISTRATION` | `false` | Set to `true`, with `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. For private sites only. Does nothing if SMTP is set up. You have to ask for this on purpose, so that losing your SMTP settings by accident can't quietly stop the site checking addresses. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
 | `EMAIL_ERRORS_TO` | — | Error notification recipient |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |

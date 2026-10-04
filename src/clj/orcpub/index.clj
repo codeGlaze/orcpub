@@ -6,13 +6,13 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
-            [environ.core :refer [env]]))
+            [orcpub.env :as env]))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
    Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
    When unset, no fetch is attempted — plugins come only from local imports."
-  (env :load-homebrew-url))
+  (env/value :load-homebrew-url))
 
 (defn meta-tag [property content]
   (when content
@@ -153,8 +153,8 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
+    ;; Every script tag carries the per-request nonce. It is nil in dev mode,
+    ;; where no CSP header is set at all; enforcing otherwise.
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")

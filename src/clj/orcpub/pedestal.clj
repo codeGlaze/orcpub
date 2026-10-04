@@ -11,7 +11,8 @@
             [orcpub.config :as config]
             [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           [java.util Locale]))
 
 (defn test?
   [service-map]
@@ -37,7 +38,11 @@
   nil)
 
 (def rfc822-formatter
-  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z"))
+  ;; Locale/ENGLISH is load-bearing. HTTP dates are always English (RFC 7231),
+  ;; but ofPattern without a locale parses using the JVM default, which follows
+  ;; the OS regional settings. On a non-English machine "Mon" is not a day name
+  ;; and parse-date throws, which used to blank the response entirely.
+  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z" Locale/ENGLISH))
 
 (defn parse-date [date content-length]
   (when date
@@ -50,14 +55,19 @@
 (defn make-nonce-interceptor
   "Creates an interceptor that generates per-request CSP nonces.
 
-   In prod (dev-mode?=false) with CSP_POLICY=strict:
+   When dev-mode? is false -- which is the DEFAULT, not just production --
+   and CSP_POLICY=strict:
    - :enter phase generates a nonce and stores it in [:request :csp-nonce]
    - :leave phase adds enforcing Content-Security-Policy header with the nonce
 
-   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
-   active, but the nonce interceptor becomes a no-op. This avoids flooding the
-   browser console with Report-Only violations (inline Figwheel scripts, etc.)
-   that obscure real issues during development."
+   In dev mode: no nonce is generated, so the :leave branch never fires and
+   this interceptor sets no CSP header. Pedestal's own CSP is disabled in the
+   strict branch of get-secure-headers-config, so dev runs with no CSP from
+   this application -- which is what lets Figwheel's scripts and its websocket
+   work.
+
+   There is no Report-Only mode anywhere in this codebase, despite what earlier
+   comments here claimed."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor
@@ -69,6 +79,9 @@
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
                          (csp/build-csp-header nonce
+                           ;; Always false here, and not a mistake: :enter only
+                           ;; makes a nonce when dev-mode? is false, so this
+                           ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
                            :extra-frame-src (:frame-src integrations/csp-domains)))
@@ -100,7 +113,12 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+              ;; Return the context. Without it the catch yields log/error's
+              ;; value, discarding the response: the client gets 200 with an
+              ;; empty body and no headers, and nothing reports a problem.
+              (catch Throwable t
+                (log/error :msg "ETag interceptor error" :exception t)
+                context)))}))
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 

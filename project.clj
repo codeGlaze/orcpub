@@ -73,12 +73,17 @@
                  ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
                  ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
                  [org.clojars.favila/datomock "0.2.2-favila1"]
-                 ;; Datomic Pro: Free under Apache 2.0, supports Java 11/17/21, actively maintained.
+                 ;; The peer library, free under Apache 2.0, Java 11/17/21.
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
-                 ;; Installed to lib/com/datomic/datomic-pro/1.0.7482/ during Docker build/postCreateCommand
-                 ;; Uses existing file:lib repository pattern (same as pdfbox)
+                 ;; Resolves from MAVEN CENTRAL -- not from file:lib, and no local
+                 ;; install is needed to build or test. The commented-out
+                 ;; com.datomic/datomic-pro coordinate that used to sit here did need
+                 ;; one, and its comment kept implying this dependency still does.
+                 ;; lib/com/datomic/datomic-pro/<version>/ is still populated, but by
+                 ;; .devcontainer/post-create.sh and docker/Dockerfile, and for the
+                 ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
+                 ;; not for this jar.
                  ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 ;[com.datomic/datomic-pro "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
                  [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
@@ -272,7 +277,6 @@
                                                                     :optimizations :none}}]}
                             :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}
              ;; NOTE: :prod was for React Native builds (legacy, may be unused)
-             ;; datomic-pro dependency removed - peer is already in main deps
              :prod         {:cljsbuild    {:builds [{:id           "main"
                                                      :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/prod"]
                                                      :compiler     {:output-to          "main.js"

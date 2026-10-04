@@ -1,7 +1,8 @@
 (ns orcpub.config
-  (:require [environ.core :refer [env]]
+  (:require [orcpub.env :as env]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import [java.util Locale]))
 
 (def default-datomic-uri "datomic:dev://localhost:4334/orcpub")
 
@@ -14,23 +15,20 @@
       (not-empty (str/trim (slurp f))))))
 
 (defn datomic-env
-  "Return the raw DATOMIC_URL environment value or nil if unset." []
-  (or (env :datomic-url)
-      (some-> (System/getenv "DATOMIC_URL") not-empty)))
+  "Return the raw DATOMIC_URL environment value or nil if unset or blank." []
+  (env/value :datomic-url))
 
 (defn datomic-password
   "Return DATOMIC_PASSWORD from Docker secret, env var, or nil.
   Resolution order: /run/secrets/datomic_password > DATOMIC_PASSWORD env var." []
   (or (read-secret "datomic_password")
-      (env :datomic-password)
-      (some-> (System/getenv "DATOMIC_PASSWORD") not-empty)))
+      (env/value :datomic-password)))
 
 (defn signature
   "Return SIGNATURE from Docker secret, env var, or nil.
   Resolution order: /run/secrets/signature > SIGNATURE env var." []
   (or (read-secret "signature")
-      (env :signature)
-      (some-> (System/getenv "SIGNATURE") not-empty)))
+      (env/value :signature)))
 
 (defn get-datomic-uri
   "Return the Datomic URI from the environment or the default.
@@ -68,28 +66,44 @@
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
   []
-  (let [policy (or (env :csp-policy)
-                   (System/getenv "CSP_POLICY")
-                   "strict")]
-    (str/lower-case policy)))
+  ;; env-value, so an EMPTY CSP_POLICY means unset and therefore "strict".
+  ;; It used to mean "": not strict, not none, so get-secure-headers-config
+  ;; fell through to the static permissive policy. An empty setting silently
+  ;; selecting a DIFFERENT and less strict policy than the documented default
+  ;; is the opposite of what the blank was meant to express.
+  (let [policy (env/value :csp-policy "strict")]
+    ;; Locale/ROOT, not str/lower-case: this is an ASCII config token, not
+    ;; prose. str/lower-case folds using the default locale, so on a Turkish
+    ;; machine "STRICT" becomes "strıct" (dotless i), misses every comparison
+    ;; below, and silently falls through to the permissive policy.
+    (.toLowerCase ^String policy Locale/ROOT)))
 
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
    must compare against the string \"true\" explicitly."
   []
-  (= "true" (str/lower-case (or (env :dev-mode) ""))))
+  ;; equalsIgnoreCase compares per character rather than by locale casing
+  ;; rules, so it is immune to the Turkish-I problem described above. Note the
+  ;; receiver order: the literal is first so a nil env var returns false
+  ;; instead of throwing.
+  (env/flag? :dev-mode))
 
 (defn strict-csp?
   "Returns true when CSP_POLICY=strict (regardless of dev mode).
 
-   When true, nonce-interceptor generates per-request nonces and adds them
-   to script tags. The header type depends on mode:
-   - Dev mode: Content-Security-Policy-Report-Only (violations logged, not blocked)
-   - Prod mode: Content-Security-Policy (violations blocked)
+   When true AND dev-mode? is false, nonce-interceptor generates a per-request
+   nonce and sets an ENFORCING Content-Security-Policy header.
 
-   This allows catching CSP issues during development while still allowing
-   Figwheel's document.write() scripts to execute."
+   In dev mode it generates no nonce and sets no header at all, so there is no
+   CSP from this application -- which is what lets Figwheel's scripts and its
+   websocket work. Note the consequence: DEV_MODE defaults to FALSE, so a
+   checkout with no .env runs enforcing CSP, and ws://localhost:3449 is absent
+   from connect-src. Figwheel's hot reload is then blocked with no obvious
+   cause. .env.example sets DEV_MODE=true for exactly this reason.
+
+   There is no Report-Only mode. Earlier revisions of this docstring described
+   one; no code has ever emitted Content-Security-Policy-Report-Only."
   []
   (= "strict" (get-csp-policy)))
 
@@ -102,7 +116,7 @@
   []
   (cond
     ;; Strict mode - nonce-interceptor handles CSP dynamically
-    ;; (uses Report-Only in dev, enforcing in prod)
+    ;; (enforcing when DEV_MODE is not true; no header at all in dev mode)
     (= "strict" (get-csp-policy))
     {:content-security-policy-settings nil}
 

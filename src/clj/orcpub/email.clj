@@ -6,7 +6,7 @@
   handling to prevent silent failures when the SMTP server is unavailable."
   (:require [hiccup2.core :as hiccup]
             [postal.core :as postal]
-            [environ.core :as environ]
+            [orcpub.env :as env]
             [clojure.pprint :as pprint]
             [clojure.string :as s]
             [orcpub.route-map :as routes]
@@ -75,18 +75,64 @@
   [{:type "text/html"
     :content (str (hiccup/html (email-change-verification-html username verification-url)))}])
 
+(defn configured?
+  "True when an SMTP host is set, i.e. when this deployment can send mail.
+
+   .env.example says \"Leave EMAIL_SERVER_URL empty to disable email
+   functionality\". Nothing implemented that: the variable was read in exactly one
+   place, as postal's :host, so leaving it blank did not disable email -- it made
+   every send FAIL. Since registration sends a verification mail, the documented
+   way to turn email off also turned registration off. This is the predicate that
+   makes the promise true."
+  []
+  (some? (env/value :email-server-url)))
+
+(defn unverified-registration-allowed?
+  "True when this deployment has DELIBERATELY opted out of email verification.
+
+   Keying auto-verification on \"no SMTP configured\" alone fails OPEN: a typo in
+   the variable name, a value dropped by a deploy, a failed secrets mount, or a
+   stray space all read as \"no email\", and the site silently stops requiring
+   verification. Measured -- EMAIL_SERVER_URL as \" \", as empty, and absent
+   entirely all produced auto-verify, with no signal beyond a println nobody
+   reads on a running server.
+
+   An attacker cannot flip this: environ.core/env is a static map built once at
+   namespace load, so no request can change it. The risk is an operator slip
+   downgrading the site from verified to open registration, which is exactly the
+   kind of mistake that gets found by someone scanning for it.
+
+   So the weaker mode has to be ASKED FOR. Losing your SMTP config now breaks
+   registration loudly instead of quietly accepting unverified accounts."
+  []
+  (env/flag? :allow-unverified-registration))
+
 (defn email-cfg []
   (try
-    {:user (environ/env :email-access-key)
-     :pass (environ/env :email-secret-key)
-     :host (environ/env :email-server-url)
-     :port (Integer/parseInt (or (environ/env :email-server-port) "587"))
-     :ssl (or (str/to-bool (environ/env :email-ssl)) nil)
-     :tls (or (str/to-bool (environ/env :email-tls)) nil)}
+    ;; "" defaults on purpose, NOT nil. docker-compose.yaml passes all three as
+    ;; ${VAR:-} -- explicitly empty -- whenever email is unconfigured, which is
+    ;; the default deployment. Handing postal nil there changes the failure from
+    ;; MailConnectException ("Couldn't connect to host, port: localhost, 587")
+    ;; to a bare NullPointerException, measured. Both fail, but one says why.
+    ;;
+    ;; Keeping "" also preserves whatever postal does with an empty :user/:pass
+    ;; versus nil, which differs for SMTP AUTH. This is deliberately byte-identical
+    ;; to the pre-orcpub.env behaviour; the blank rule is right everywhere else,
+    ;; and here the old value was load-bearing for a third-party library.
+    ;;
+    ;; The real gap is that nothing checks whether email is configured at all --
+    ;; .env.example says "Leave EMAIL_SERVER_URL empty to disable email
+    ;; functionality" and no code implements that. Worth doing, not here.
+    {:user (env/value :email-access-key "")
+     :pass (env/value :email-secret-key "")
+     :host (env/value :email-server-url "")
+     :port (Integer/parseInt (env/value :email-server-port "587"))
+     :ssl (or (str/to-bool (env/value :email-ssl)) nil)
+     :tls (or (str/to-bool (env/value :email-tls)) nil)}
     (catch NumberFormatException e
       (throw (ex-info "Invalid email server port configuration. Expected a number."
                       {:error :invalid-port
-                       :port (environ/env :email-server-port)}
+                       :port (env/value :email-server-port)}
                       e)))))
 
 (defn emailfrom
@@ -363,7 +409,7 @@
   - Throttles: one email per unique error fingerprint per 5 minutes
   - Extracts Pedestal interceptor metadata as a separate section"
   [context exception]
-  (when (not-empty (environ/env :email-errors-to))
+  (when (env/value :email-errors-to)
     (let [data-map      (ex-data exception)
           pedestal?     (pedestal-wrapper? data-map)
           real-ex       (if pedestal? (:exception data-map) exception)
@@ -378,7 +424,7 @@
             (let [result (postal/send-message
                           (email-cfg)
                           {:from    (str branding/app-name " Errors <" (emailfrom) ">")
-                           :to      (str (environ/env :email-errors-to))
+                           :to      (str (env/value :email-errors-to))
                            :subject (email-subject real-ex request)
                            :body    [{:type    "text/plain"
                                       :content (build-body request real-ex pedestal-meta)}]})]
