@@ -210,3 +210,57 @@
                 "a failed resend overwrote the link a newer resend had already emailed")
             (is (= newer-sent (:orcpub.user/verification-sent after))
                 "and reset that link's expiry clock to the stale one")))))))
+
+(deftest a-failed-resend-restores-the-key-it-replaced-not-an-older-one
+  ;; B writes and emails its key AFTER A read the user but BEFORE A writes. A's send then
+  ;; fails. What A replaced is B's key, so B's is what must come back -- not the one A saw
+  ;; when it started, which would kill the link B just emailed.
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      (seed-schema mocked-conn)
+      (with-redefs [email/configured? (constantly true)
+                    routes/send-verification-email (fn [& _] nil)]
+        (routes/register (register-request mocked-conn)))
+      (let [uid (:db/id (find-user (d/db mocked-conn) "newcomer"))
+            b-key "key-b-emailed-between-a-read-and-a-write"
+            b-sent (java.util.Date.)
+            transact d/transact
+            b-landed (atom false)]
+        (with-redefs [email/configured? (constantly true)
+                      routes/send-verification-email (fn [& _] (throw (Exception. "SMTP down")))
+                      d/transact (fn [c tx]
+                                   (when (compare-and-set! b-landed false true)
+                                     @(transact c [{:db/id uid
+                                                    :orcpub.user/verification-key b-key
+                                                    :orcpub.user/verification-sent b-sent}]))
+                                   (transact c tx))]
+          (try (routes/re-verify {:conn mocked-conn
+                                  :db (d/db mocked-conn)
+                                  :scheme :https
+                                  :headers {"host" "example.test"}
+                                  :query-params {:email "newcomer@test.com"}})
+               (catch Throwable _ nil)))
+        (let [after (find-user (d/db mocked-conn) "newcomer")]
+          (is (= b-key (:orcpub.user/verification-key after))
+              "the rollback restored a key older than the one it replaced")
+          (is (= b-sent (:orcpub.user/verification-sent after))))))))
+
+(deftest a-resend-to-an-unknown-address-creates-nothing
+  ;; re-verify is unauthenticated. With no account for the address it used to pass
+  ;; {:db/id nil} on, registering a key-only record and emailing a link to whatever
+  ;; address was typed. It answers like a resend instead, so it reveals nothing either.
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)
+          sent (atom 0)
+          users #(d/q '[:find (count ?e) . :where [?e :orcpub.user/verification-key]] (d/db mocked-conn))]
+      (seed-schema mocked-conn)
+      (with-redefs [email/configured? (constantly true)
+                    routes/send-verification-email (fn [& _] (swap! sent inc) nil)]
+        (let [response (routes/re-verify {:conn mocked-conn
+                                          :db (d/db mocked-conn)
+                                          :scheme :https
+                                          :headers {"host" "example.test"}
+                                          :query-params {:email "nobody@test.com"}})]
+          (is (= 200 (:status response)) "answers like any resend")
+          (is (nil? (users)) "no record was created for an unknown address")
+          (is (zero? @sent) "and no email was sent to it"))))))
