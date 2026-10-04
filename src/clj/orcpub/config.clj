@@ -262,16 +262,17 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{:keys [var get secret? redact? critical? note group fix]} settings]
-    (let [raw      (env-raw var)
-          integer? (some? (some #(= var (:var %)) tunables))
-          parsed   (when (and raw integer?)
-                     (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
-          ignored? (boolean (and raw integer? (not (and parsed (pos? parsed)))))
-          value    (cond secret? nil
-                         get     (get)
-                         :else   raw)]
-      {:var var :group group :note note :critical? critical? :fix fix
+  (for [{env-var :var lookup :get :keys [secret? redact? critical? note group fix]} settings]
+    (let [raw              (env-raw env-var)
+          integer-setting? (some? (some #(= env-var (:var %)) tunables))
+          parsed           (when (and raw integer-setting?)
+                             (try (Integer/parseInt (str/trim raw))
+                                  (catch NumberFormatException _ nil)))
+          ignored?         (boolean (and raw integer-setting? (not (and parsed (pos? parsed)))))
+          value            (cond secret? nil
+                                 lookup  (lookup)
+                                 :else   raw)]
+      {:var env-var :group group :note note :critical? critical? :fix fix
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -289,10 +290,10 @@
   ([rows actual]
    (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
          ;; no number at all, so the VALUE column never argues with SOURCE beside it.
-         val    (fn [{:keys [var value secret? set?]}]
+         val    (fn [{env-var :var :keys [value secret? set?]}]
                   (cond secret?          (if set? "set" "NOT SET")
                         value            (str value)
-                        (get actual var) (str (get actual var))
+                        (get actual env-var) (str (get actual env-var))
                         :else            "-"))
          ;; A secret's VALUE column already says set / NOT SET; repeating DEFAULT beside it
          ;; says nothing, and "DEFAULT" next to "NOT SET" reads as though there is a
@@ -316,19 +317,19 @@
                 (cons (str "  [" (str/upper-case (or (:group (first gr)) "other")) "]")
                       (map #(trim (format fmt (:var %) (val %) (source %) (or (:note %) ""))) gr)))
               (partition-by :group rows))
-      [(str "  [BRANDING]")
+      ["  [BRANDING]"
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
-              (for [{:keys [var raw]} bad]
+              (for [{env-var :var :keys [raw]} bad]
                 (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
-                        var raw))))
+                        env-var raw))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.
       (when-let [miss (seq (filter #(and (:critical? %) (not (:set? %))) rows))]
-        (mapcat (fn [{:keys [var note fix]}]
-                  (let [body (str/split-lines (or fix (str var " is NOT SET -- " (or note "required"))))]
+        (mapcat (fn [{env-var :var :keys [note fix]}]
+                  (let [body (str/split-lines (or fix (str env-var " is NOT SET -- " (or note "required"))))]
                     (cons rule
                           ;; Continuations line up under the first line's text, not under the
                           ;; marker, so the block reads as one paragraph.

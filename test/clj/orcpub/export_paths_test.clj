@@ -7,7 +7,7 @@
    ClojureScript source: they fail when a NEW way to write a file appears, or
    when an existing writer stops going through the shared entry points, so the
    next divergence surfaces on the file instead of in someone's .orcbrew."
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [clojure.string :as s]))
 

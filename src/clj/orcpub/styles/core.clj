@@ -804,7 +804,7 @@
     ;; The outer shadow is a low glow, not a selected-field highlight.
     {:position :relative
      :border-color :transparent
-     :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
+     :box-shadow "0 0 14px rgba(240, 161, 0, 0.13)"}
     [:&:before
      {:content "''"
       :position :absolute
