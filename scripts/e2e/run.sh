@@ -2,6 +2,8 @@
 # Browser end-to-end checks against a real server and a real database.
 #
 #   ./scripts/e2e/run.sh --describe <suite>  prints: <bundle> <profiles> <own-server yes|no> <kind>
+#   ./scripts/e2e/run.sh --build-only <suite> builds the bundle and stylesheet the suite needs, and
+#                                            stops; run-all.sh does this while a server boots
 #   ./scripts/e2e/run.sh [suite] [args...]   a file in scripts/e2e/ (default run.js), or a path
 #                                            such as test/browser/boot_rescue_e2e.js; any args
 #                                            are passed to the suite
@@ -31,13 +33,13 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 PORT="${E2E_PORT:-8890}"
-LOG="${E2E_LOG:-/tmp/e2e-server.log}"
 BASE="http://localhost:${PORT}"
 BUNDLE=resources/public/js/compiled/orcpub.js
 SHEET=resources/public/css/compiled/styles.css
 
-DESCRIBE=""
+DESCRIBE=""; BUILD_ONLY=""
 [ "${1:-}" = --describe ] && { DESCRIBE=1; shift; }
+[ "${1:-}" = --build-only ] && { BUILD_ONLY=1; shift; }
 SUITE_ARG="${1:-run.js}"
 [ $# -gt 0 ] && shift
 SUITE_ARGS=("$@")
@@ -144,6 +146,7 @@ fi
 if [ ! -f "$SHEET" ] || [ -n "$(newer_sources "$SHEET" src/clj/orcpub/styles)" ]; then
   echo "Compiling the stylesheet..."; lein garden once || fail "the stylesheet did not compile"
 fi
+[ -n "$BUILD_ONLY" ] && { echo "The $NEED bundle and the stylesheet are ready."; exit 0; }
 
 # A development bundle loads its code as separate scripts, which the strict Content Security
 # Policy blocks, so it is off for dev-bundle suites only. Production runs keep the real policy.
