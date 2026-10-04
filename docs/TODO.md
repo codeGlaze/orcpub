@@ -352,6 +352,25 @@ Beyond refuse both and are upload-or-nothing.
 
 ---
 
+## Declare which settings expect a whole number (`config.clj` startup report)
+
+**Status:** not started. Small, own commit. Found 2026-10-04 while clearing lint warnings.
+
+The boot report (`config/report`) parses a setting as an integer, and reports a typo such as
+`ORCPUB_PDF_MAX_CARDS=two hundred` as "ignored: not a positive integer", only for settings it
+believes expect a whole number. It decides that by membership in `tunables`, which is "every
+row in the `capacity` group" (`c2754d28`). The rule "capacity means a whole number" exists only
+in `tunables`' docstring.
+
+**Why change it:** the rule is implicit, so it fails quietly in two directions. A text setting
+added to `capacity` (a mode name) would be wrongly reported as ignored; a numeric setting added
+to another group would never have its typos caught.
+
+**The fix:** declare it on each row of `settings` (`:integer-setting? true` on the six capacity
+rows), read that in `report`, and delete `tunables`. Report output unchanged;
+`config_report_test` covers it. (The local was renamed `integer-setting?` from `integer?`, which
+shadowed `clojure.core/integer?`, on `refactor/picks-namespace`; this fix makes the local go away.)
+
 ## Layout is chosen by user agent, not by viewport width
 
 **Status:** Fixed on `feature/style-guide`, in PR #40 against `integration` (2026-10-02). At
