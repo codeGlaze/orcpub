@@ -29,10 +29,29 @@
       {:text text :count @cnt})
     {:text edn-str :count 0}))
 
+(defn ascii-lower-case
+  "Lowercase without the machine's locale. On a Turkish or Azerbaijani JVM
+   clojure.string/lower-case folds \"I\" to the dotless \"ı\", so the server derived different
+   keys from the same content. Names, keys and search terms are machine tokens, not prose. JS
+   toLowerCase is already locale-invariant. docs/kb/locale-safety.md."
+  [x]
+  (let [t (str x)]
+    #?(:clj  (.toLowerCase ^String t java.util.Locale/ROOT)
+       :cljs (.toLowerCase t))))
+
+(defn ascii-upper-case
+  "Uppercase without the machine's locale; the upper-case twin of ascii-lower-case. On a
+   Turkish JVM clojure.string/upper-case turns \"i\" into the dotted \"İ\", which no [A-Z]
+   pattern matches."
+  [x]
+  (let [t (str x)]
+    #?(:clj  (.toUpperCase ^String t java.util.Locale/ROOT)
+       :cljs (.toUpperCase t))))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $
-        (s/lower-case $)
+        (ascii-lower-case $)
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
@@ -104,7 +123,7 @@
   [source-name]
   (-> (str source-name)
       (s/replace #"['’]" "")
-      (s/lower-case)
+      (ascii-lower-case)
       (s/replace #"[^a-z0-9À-ɏ]+" " ")
       (s/trim)))
 
@@ -199,7 +218,7 @@
   [abbr]
   (let [cleaned (-> (str abbr)
                     (s/replace #"[^A-Za-z0-9]" "")
-                    (s/upper-case))]
+                    (ascii-upper-case))]
     (when (re-matches #"[A-Z][A-Z0-9]{1,5}" (subs cleaned 0 (min 6 (count cleaned))))
       (subs cleaned 0 (min 6 (count cleaned))))))
 
@@ -529,12 +548,12 @@
            (fn [[k v]] (str (safe-capitalize-kw k) " " (bonus-str v)))
            m)))
 
-;; Crash-safe case fold for sort/compare keys: coerces a nil/non-string to "" so
-;; core s/lower-case can't crash on it. Never throws — it folds arbitrary keys
+;; Crash-safe, locale-pinned case fold for sort/compare keys (ascii-lower-case): coerces a
+;; nil/non-string to "" so it can't crash on it. Never throws — it folds arbitrary keys
 ;; (e.g. :level), so a non-string isn't a bug here; that judgment is the caller's
 ;; (see feature-name, where the dev-throw lives).
 (defn lower-case [x]
-  (s/lower-case (str x)))
+  (ascii-lower-case x))
 
 ;; Case-insensitive `sort-by`, built on the safe fold above so a nil/non-string key
 ;; sorts as "" rather than throwing.

@@ -55,6 +55,16 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 **Re-verify:** `GET /re-verify?email=...` (`routes/re-verify`) re-sends the verification email for unverified accounts.
 
+**No SMTP configured:** `do-verification` checks `email/configured?` first. With no SMTP host and
+`ALLOW_UNVERIFIED_REGISTRATION=true`, the account is transacted `verified? true`, no mail is sent,
+and the response carries `{:verified? true}` so the client shows "you can log in" rather than
+"check your email". With no SMTP host and **no** opt-in, registration is refused with
+`:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
+registration. Startup warns in all three abnormal combinations; a correct config is silent.
+
+**Send failure:** the account is rolled back. `register` retracts the new entity; `re-verify`
+retracts only the attributes that attempt set, never the existing user.
+
 **Login gate:** Unverified users cannot log in. If the verification has expired, the login error tells them to re-register.
 
 **Files:** `routes.clj:register`, `routes.clj:do-verification`, `routes.clj:verify`, `email.clj:send-verification-email`

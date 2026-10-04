@@ -2,7 +2,6 @@
   "Fork-specific privacy policy content.
    Public/community edition: standard privacy policy."
   (:require [clojure.string :as s]
-            [environ.core :as environ]
             [orcpub.fork.branding :as branding]))
 
 (def privacy-policy-section
@@ -59,8 +58,8 @@
                {:title     "What choices do you have about your information?"
                 :font-size 32
                 :paragraphs
-                           (if (not (s/blank? (environ/env :email-access-key)))
-                             ["You may close your account at any time by emailing " (environ/env :email-access-key) (str "We will then inactivate your account and remove your content from " branding/app-name ". We may retain archived copies of you information as required by law or for legitimate business purposes (including to help address fraud and spam). ")]
+                           (if (not (s/blank? branding/support-email))
+                             ["You may close your account at any time by emailing " branding/support-email (str "We will then inactivate your account and remove your content from " branding/app-name ". We may retain archived copies of you information as required by law or for legitimate business purposes (including to help address fraud and spam). ")]
                              [(str "You may remove any content you create from " branding/app-name " at any time, although we may retain archived copies of the information. You may also disable sharing of content you create at any time, whether publicly shared or privately shared with specific users.")
                               "Also, we support the Do Not Track browser setting."])}
                {:title     "Our policy on children's information"
@@ -71,8 +70,8 @@
                 :font-size 32
                 :paragraphs
                            [(str "We may change this policy from time to time, and if we do we'll post any changes on this page. If you continue to use " branding/app-name " after those changes are in effect, you agree to the revised policy. If the changes are significant, we may provide more prominent notice or get your consent as required by law.")]}
-               (when (not (s/blank? (environ/env :email-access-key)))
+               (when (not (s/blank? branding/support-email))
                {:title     "How can you contact us?"
                 :font-size 32
                 :paragraphs
-                           ["You can contact us by emailing " (environ/env :email-access-key) ]})]})
+                           ["You can contact us by emailing " branding/support-email ]})]})

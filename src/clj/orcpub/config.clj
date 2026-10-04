@@ -1,7 +1,8 @@
 (ns orcpub.config
-  (:require [environ.core :refer [env]]
+  (:require [orcpub.env :as env]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import [java.util Locale]))
 
 (def default-datomic-uri "datomic:dev://localhost:4334/orcpub")
 
@@ -26,23 +27,20 @@
         (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
 
 (defn datomic-env
-  "Return the raw DATOMIC_URL environment value or nil if unset." []
-  (or (env :datomic-url)
-      (some-> (System/getenv "DATOMIC_URL") not-empty)))
+  "Return the raw DATOMIC_URL environment value or nil if unset or blank." []
+  (env/value :datomic-url))
 
 (defn datomic-password
   "Return DATOMIC_PASSWORD from Docker secret, env var, or nil.
   Resolution order: /run/secrets/datomic_password > DATOMIC_PASSWORD env var." []
   (or (read-secret "datomic_password")
-      (env :datomic-password)
-      (some-> (System/getenv "DATOMIC_PASSWORD") not-empty)))
+      (env/value :datomic-password)))
 
 (defn signature
   "Return SIGNATURE from Docker secret, env var, or nil.
   Resolution order: /run/secrets/signature > SIGNATURE env var." []
   (or (read-secret "signature")
-      (env :signature)
-      (some-> (System/getenv "SIGNATURE") not-empty)))
+      (env/value :signature)))
 
 (defn get-datomic-uri
   "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
@@ -75,17 +73,21 @@
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
   []
-  (let [policy (or (env :csp-policy)
-                   (System/getenv "CSP_POLICY")
-                   "strict")]
-    (str/lower-case policy)))
+  ;; Blank means unset, so an empty CSP_POLICY is "strict", not the permissive fallback.
+  (let [policy (env/value :csp-policy "strict")]
+    ;; Locale/ROOT, not str/lower-case: this is an ASCII config token, not
+    ;; prose. str/lower-case folds using the default locale, so on a Turkish
+    ;; machine "STRICT" becomes "strıct" (dotless i), misses every comparison
+    ;; below, and silently falls through to the permissive policy.
+    (.toLowerCase ^String policy Locale/ROOT)))
 
 (defn- env-raw
-  "The raw string for an env var name, from environ or the process environment, or nil.
-   One implementation so \"is it set?\" and \"what is it?\" can never disagree."
+  "The string for an env var name, from environ or the process environment; nil when unset or
+   blank (orcpub.env/value). One implementation so \"is it set?\" and \"what is it?\" can never
+   disagree."
   [n]
-  (not-empty (or (env (keyword (str/lower-case (str/replace n "_" "-"))))
-                 (System/getenv n))))
+  (or (env/value (keyword (.toLowerCase (str/replace n "_" "-") Locale/ROOT)))
+      (some-> (System/getenv n) str/trim not-empty)))
 
 (defn- positive-int-env
   "Reads `names` in order and returns the first that parses as a positive
@@ -173,12 +175,19 @@
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
    must compare against the string \"true\" explicitly."
   []
-  (= "true" (str/lower-case (or (env :dev-mode) ""))))
+  ;; equalsIgnoreCase compares per character rather than by locale casing
+  ;; rules, so it is immune to the Turkish-I problem described above. Note the
+  ;; receiver order: the literal is first so a nil env var returns false
+  ;; instead of throwing.
+  (env/flag? :dev-mode))
 
 (defn strict-csp?
   "Returns true when CSP_POLICY=strict, regardless of dev mode.
    `orcpub.pedestal/make-nonce-interceptor` acts on it only outside dev mode, where it adds
-   per-request nonces and an enforcing Content-Security-Policy header."
+   per-request nonces and an enforcing Content-Security-Policy header. In dev mode this
+   application sends no CSP at all, which is what lets Figwheel's scripts and websocket work.
+   DEV_MODE defaults to false, so a checkout with no .env enforces CSP and Figwheel's hot reload
+   (ws://localhost:3449) is blocked with no obvious cause; .env.example sets DEV_MODE=true."
   []
   (= "strict" (get-csp-policy)))
 
@@ -313,7 +322,7 @@
       ;; partition-by yields GROUPS OF ROWS, not key/value pairs -- destructuring it as
       ;; [g gr] bound the first row map as the heading and printed the whole record.
       (mapcat (fn [gr]
-                (cons (str "  [" (str/upper-case (or (:group (first gr)) "other")) "]")
+                (cons (str "  [" (.toUpperCase ^String (or (:group (first gr)) "other") Locale/ROOT) "]")
                       (map #(trim (format fmt (:var %) (val %) (source %) (or (:note %) ""))) gr)))
               (partition-by :group rows))
       [(str "  [BRANDING]")
@@ -372,8 +381,8 @@
    - none: Disables CSP entirely"
   []
   (cond
-    ;; Strict mode - nonce-interceptor sets an enforcing CSP outside dev mode; in dev mode
-    ;; it is a no-op and Pedestal's default CSP stays active
+    ;; Strict mode - nonce-interceptor handles CSP dynamically
+    ;; (enforcing when DEV_MODE is not true; no header at all in dev mode)
     (= "strict" (get-csp-policy))
     {:content-security-policy-settings nil}
 
