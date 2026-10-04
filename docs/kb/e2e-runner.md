@@ -72,10 +72,10 @@ Every run ends with one line:
 only: …"), so an inside-the-app pass cannot be mistaken for the site working. A suite with no
 result line counts as `FAIL`.
 
-Landed on integration 2026-10-03 as PR #42 (`a3f23939`); shared servers and the header fixes in PR #43. The standing checkout for integration
+Landed on integration 2026-10-03 as PR #42 (`a3f23939`); shared servers and the header fixes in PR #43; parallel tests and opt-in probes in PR #44. The standing checkout for integration
 runs is the `orcpub-int` worktree, detached at `origin/integration`; builds there are incremental.
 
-## Servers: one per batch
+## Servers, parallel tests, and what a run costs
 
 `scripts/e2e/server.sh start [profiles] | stop` owns the server: in-memory Datomic, seeded user, a
 pidfile per port, and the whole process group killed on stop (lein forks a JVM that otherwise keeps
@@ -83,11 +83,27 @@ the port). It refuses to start when something already answers on the port, so a 
 never be tested by mistake. `stop` signals the recorded group only while it still runs `e2e-boot`,
 so a pidfile left by a killed run cannot hit a reused group id.
 
-`run.sh` alone starts and stops its own. `run-all.sh` starts one for the production batch and one
-for the development batch (`CSP_POLICY=none`), and runs those suites with `E2E_SHARED_SERVER=1`;
-a suite on another profile (`busy-export`) or tagged `fresh server` gets its own. That is 3 boots
-instead of 39: the full run took **20 minutes** on 2026-10-03. Each suite still gets a fresh
-browser, so client state (localStorage) never leaks between suites; only the database is shared.
+`run.sh` alone starts and stops its own. `run-all.sh [--prod] [--dev] [--probes] [--jobs N] [filter]`:
+
+- One server per bundle batch (`CSP_POLICY=none` for dev), suites run with `E2E_SHARED_SERVER=1`.
+  A suite on another profile (`busy-export`) or tagged `fresh server` gets its own.
+- **Tests run `--jobs` at a time (default 3)** on the shared server; the machine has 7GB and each
+  job is a Chromium beside the server JVM. The first test of a batch runs alone so it can build the
+  bundle; the rest get `E2E_SKIP_BUILD` so two never build at once. Each suite gets its own
+  `E2E_OUT`, because `run.sh` inspects every PDF newer than its start in that folder.
+- **Probes are opt-in (`--probes`)**, run one at a time after the tests: they judge nothing, took 8
+  of 21 minutes, and a probe sharing the CPU measures its neighbours.
+- **The batch whose bundle is on disk goes first** (production and development share one output
+  folder), so a run rebuilds once.
+
+Measured 2026-10-03 (PR #44): 21 tests in **8.5 min** (was 21 min with probes, serial). Of that,
+about 3.5 min is tests; the rest is the production build (about 1.5 min, advanced compilation)
+and three server boots (about 1 min each). Next levers if needed: boot the server while the bundle
+builds (needs a build-only mode in run.sh), and run the busy-export suite on a second port beside
+the production batch (memory is the limit).
+
+Running 3 at a time surfaced no shared-state collisions across two full runs. If a test ever
+fails only in parallel, give it `// Needs: fresh server` rather than lowering `--jobs` for all.
 
 A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and reported `FAIL`.
 

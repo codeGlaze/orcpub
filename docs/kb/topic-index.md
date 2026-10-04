@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, disk, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username, veto
+**topics:** account, composition, corpus, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, times, username, veto
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -271,7 +271,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, machine, points, prescribes, setup, stripper, trailer
+**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, points, prescribes, refreshed, setup, stripper, trailer
 
 - The rule
 - The entry point follows the same rule
@@ -1335,12 +1335,12 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, bundle, busy, dev-only, inside-the-app, killed, pidfile, prints, production, profile, run, runner, server, stops, suite, suites
+**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, busy, dev-only, inside-the-app, min, prints, probes, production, profile, rebuilds, run, server, suite, suites
 
 - The rule
 - Production is the default
 - Reading a result
-- Servers: one per batch
+- Servers, parallel tests, and what a run costs
 - Known failures
 - Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
 - Still open
@@ -2027,7 +2027,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _lein-uberjar-hang · lein uberjar hang_
 
-**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, hangs, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
+**topics:** attempts, bare-metal, classpath, cljsbuild, hangs, hooks, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
 
 - Summary
 - Final Working Solution: Three-Step Docker Build
@@ -2913,7 +2913,7 @@ _source-tagged-keys · source tagged keys_
 
 _spa-routing-architecture · spa routing architecture_
 
-**topics:** 1289-1326, 1828-1838, 302, 33-75, component, entity-id, handler, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
+**topics:** 1289-1326, 1828-1838, 302, 33-75, client, component, entity-id, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
 
 - Route Registration (3 places)
 - 1. Route Map — src/cljc/orcpub/routemap.cljc
