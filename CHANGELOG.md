@@ -1154,6 +1154,17 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **The full browser test run takes 5.5 minutes instead of 8.5** — the bundle builds while the test server starts, so every test can start in parallel; the summary shows peak memory, the limit on running more at once (`7da2e4e8`).
 
+### refactor/picks-namespace
+
+**Added**
+
+- **Remove and put back one stored pick by its address** — `picks/remove-at` and `picks/put-at`, the base for repairing a character and for setting picks aside (`439593dd`, `b33c765a`).
+
+**Changed**
+
+- **Lint is clean** — the 50 warnings and 3 infos on `integration` are fixed, not suppressed: shadowing locals renamed for what they hold, unused requires removed, nested lets merged; no behaviour change (`ad3c612b`).
+- **The pick walker moved into shared code** — `walk-entries`, `walk-picks`, `picks-of` and `relink-picks` now live in `orcpub.dnd.e5.picks` (as `walk`, `walk-typed`, `keys-of`, `relink`), unchanged, so the server can use them and their tests run in CI (`439593dd`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
