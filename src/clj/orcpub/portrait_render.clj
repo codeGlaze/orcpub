@@ -126,10 +126,27 @@
       (.setStroke g (BasicStroke. 2.0 BasicStroke/CAP_ROUND BasicStroke/JOIN_ROUND))
       (.draw g path))))
 
+(defn- solid
+  "A copy of the art with its inside made fully opaque (portrait-colorize/
+   solid-mask); the soft edge is left as drawn. The art itself is untouched."
+  ^BufferedImage [^BufferedImage src]
+  (let [w (.getWidth src) h (.getHeight src)
+        out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics out)
+        _ (do (.drawImage g src 0 0 nil) (.dispose g))
+        ^ints d (.. out getRaster getDataBuffer getData)
+        ^bytes m (colorize/solid-mask (fn [i] (bit-and (unsigned-bit-shift-right (aget d (int i)) 24) 0xff)) w h)]
+    (dotimes [i (* w h)]
+      (when (pos? (aget m i))
+        (aset d i (unchecked-int (bit-or (bit-and (aget d i) 0xffffff) (unchecked-int 0xff000000))))))
+    out))
+
 (defn- placed
-  "The asset scaled into the frame the way every renderer places it."
-  ^BufferedImage [^BufferedImage src w h]
-  (let [out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
+  "The asset scaled into the frame the way every renderer places it, its
+   inside made solid first."
+  ^BufferedImage [^BufferedImage src0 w h]
+  (let [src (solid src0)
+        out (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
         g (.createGraphics out)
         [x y dw dh] (layout/contain-rect (.getWidth src) (.getHeight src) w h)]
     (try

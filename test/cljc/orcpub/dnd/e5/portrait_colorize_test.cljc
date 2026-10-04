@@ -120,3 +120,19 @@
       (is (not (some #{:whites} (pa/active-color-slots p))) "and not for one with painted whites"))
     (is (not (some #{:whites} (pa/active-color-slots {:layers {:eyes {:asset/id (:asset/id (first (pa/assets-for-layer :eyes)))}}})))
         "none of today's styles have filled-in whites, so nothing changes until one is placed")))
+
+(deftest the-inside-of-a-piece-is-made-solid
+  (let [w 20 h 20
+        ;; a 14x14 block, alpha 240 inside with one 230 pixel, a soft 120 edge ring
+        alpha (fn [i] (let [x (mod i w) y (quot i w)]
+                        (cond (or (< x 2) (> x 17) (< y 2) (> y 17)) 0
+                              (or (= x 2) (= x 17) (= y 2) (= y 17)) 120
+                              (and (= x 9) (= y 9)) 230
+                              :else 240)))
+        m (c/solid-mask alpha w h)
+        at (fn [x y] (aget m (+ x (* y w))))]
+    (is (= 1 (at 9 9)) "the see-through pixel in the middle becomes solid")
+    (is (= 1 (at 6 6)))
+    (is (zero? (at 3 9)) "pixels near the edge are left as drawn")
+    (is (zero? (at 2 9)) "and so is the soft edge itself")
+    (is (zero? (at 0 0)))))
