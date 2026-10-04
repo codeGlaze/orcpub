@@ -13,7 +13,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 PORT="${E2E_PORT:-8890}"
-LOG="${E2E_LOG:-/tmp/e2e-server.log}"
+LOG="${E2E_LOG:-/tmp/e2e-server-${PORT}.log}"
 PIDFILE="/tmp/e2e-server-${PORT}.pid"
 BASE="http://localhost:${PORT}"
 

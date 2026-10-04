@@ -1148,6 +1148,12 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **The full browser test run takes 8.5 minutes instead of 21** — tests on a shared server run three at a time, the measuring probes run only with `--probes`, and the bundle already built goes first so a run rebuilds once. Same 21 verdicts (`36ce7ca6`).
 
+### fix/e2e-overlap
+
+**Changed**
+
+- **The full browser test run takes 5.5 minutes instead of 8.5** — the bundle builds while the test server starts, so every test can start in parallel; the summary shows peak memory, the limit on running more at once (`7da2e4e8`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
