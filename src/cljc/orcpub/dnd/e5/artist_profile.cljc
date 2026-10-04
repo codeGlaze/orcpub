@@ -62,6 +62,24 @@
 (defn index-path []
   (route-map/path-for route-map/artists-page-route))
 
+(defn example-path
+  "The address of `artist`'s example image `n`, counted from 1."
+  [artist n]
+  (route-map/path-for route-map/artist-example-route :slug (slug artist) :n (str n)))
+
+(defn link-host
+  "The host of `url` without scheme, www. or trailing path: \"fusspot.rip\". nil if none."
+  [url]
+  (some->> url (re-find #"(?i)^https?://(?:www\.)?([^/?#]+)") second not-empty))
+
+(defn watermark-text
+  "What is tiled across `artist`'s example images: the host of their own link (else their
+   name), then `site` when given, joined by a middle dot."
+  [artist site]
+  (s/join " \u00b7 " (remove s/blank? [(or (link-host (:artist/link artist))
+                                            (:artist/name artist))
+                                        site])))
+
 (defn profile-link
   "Where the credit's secondary link goes, for the named artists on a
    portrait: the one artist's profile, or the list when there are several.

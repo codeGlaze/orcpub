@@ -1258,6 +1258,8 @@
                         portrait-panel " 60%, " portrait-frame-edge ")")
        :border (str "1px solid " orange-hairline)}]
      [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [:.ap-example-img
+      {:display :block :width "100%" :height "100%" :object-fit :cover}]
      [".ap-example figcaption"
       {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
      [:.ap-foot

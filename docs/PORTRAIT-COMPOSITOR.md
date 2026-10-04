@@ -39,6 +39,10 @@ raster assets are read off the classpath and tinted by `multiply!`.
   `java.awt.Font/SANS_SERIF`. That is a logical family resolved through the host's
   fontconfig, so a slim container renders whatever it has, or boxes.
 
+- **The artist pages' examples are rendered here once and kept**, small, flattened and
+  watermarked, so those pages never send layer files to the browser. See
+  `docs/design/artist-profiles/PLAN.md`, "the examples are rendered once".
+
 ## The baked credit and the site mark
 
 The page and the sheet can each carry a credit beside the portrait, but the composed image

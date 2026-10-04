@@ -87,6 +87,10 @@ async function dismissCookies(page) {
 }
 
 async function checkProfile(page, themeLabel) {
+  page.layerRequests = [];
+  page.on('request', r => {
+    if (r.url().includes('/image/portraits/')) page.layerRequests.push(r.url());
+  });
   await page.goto(`${BASE}/artists/fusspot`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.ap-card', { timeout: 30000 });
   await dismissCookies(page);
@@ -112,16 +116,20 @@ async function checkProfile(page, themeLabel) {
   const examples = page.locator('.ap-example');
   check(`[${themeLabel}] three example portraits`, await examples.count() === 3,
         `saw ${await examples.count()}`);
-  const layered = await examples.evaluateAll(fs =>
-    fs.map(f => f.querySelectorAll('.portrait-layer').length));
-  check(`[${themeLabel}] every example is composed`, layered.every(n => n > 0), JSON.stringify(layered));
+  const sizes = await examples.evaluateAll(fs =>
+    fs.map(f => {
+      const i = f.querySelector('img');
+      return i ? `${i.naturalWidth}x${i.naturalHeight}` : 'none';
+    }));
+  check(`[${themeLabel}] every example is a small image the server made`,
+        sizes.every(s => s === '240x300'), JSON.stringify(sizes));
   check(`[${themeLabel}] a single-artist example credits nobody else`,
         await page.locator('.ap-example figcaption').count() === 0);
 
-  // The page is easy to scrape, so it never lists the art piece by piece: the only
-  // pictures are the composed examples, drawn as CSS layers rather than <img> files.
-  const pieceImgs = await page.locator('.ap-root img[src*="/image/portraits/"]').count();
-  check(`[${themeLabel}] no piece of art is listed on its own`, pieceImgs === 0, `img=${pieceImgs}`);
+  // The page is easy to scrape, so it never hands out the layer art: the examples are
+  // flattened on the server, and no layer file is fetched.
+  check(`[${themeLabel}] no layer art is downloaded`, page.layerRequests.length === 0,
+        page.layerRequests.slice(0, 3).join(' | '));
   const lede = (await page.locator('.ap-lede').textContent()).trim();
   check(`[${themeLabel}] the lede still says how many pieces she drew`,
         /^\d+ hand-drawn pieces? in the portrait maker\.$/.test(lede), lede);
@@ -148,12 +156,12 @@ async function checkProfile(page, themeLabel) {
     const req = ctx.request;
     const html = await (await req.get(`${BASE}/artists/fusspot`)).text();
     check('share card is titled for the artist', html.includes('Fusspot — portrait artist'));
-    check('og:image is the page\'s lead portrait',
-          /<meta(?=[^>]*property="og:image")(?=[^>]*content="[^"]*\/artists\/fusspot\/portrait\.png")[^>]*>/.test(html));
-    const png = await req.get(`${BASE}/artists/fusspot/portrait.png`);
-    check('the og image is served as a PNG',
-          png.status() === 200 && png.headers()['content-type'] === 'image/png',
-          `${png.status()} ${png.headers()['content-type']}`);
+    check('og:image is the page\'s first example',
+          /<meta(?=[^>]*property="og:image")(?=[^>]*content="[^"]*\/artists\/fusspot\/examples\/1")[^>]*>/.test(html));
+    const jpg = await req.get(`${BASE}/artists/fusspot/examples/1`);
+    check('the examples are served as JPEGs',
+          jpg.status() === 200 && jpg.headers()['content-type'] === 'image/jpeg',
+          `${jpg.status()} ${jpg.headers()['content-type']}`);
     const missing = await req.get(`${BASE}/artists/nobody`);
     check('a slug nobody has is a 404', missing.status() === 404, `${missing.status()}`);
     await ctx.close();
@@ -194,12 +202,16 @@ async function checkProfile(page, themeLabel) {
   check('an unknown slug says so and points at the list',
         await lp.locator('.ap-missing a[href="/artists"]').count() === 1);
 
+  const listLayers = [];
+  dp.on('request', r => { if (r.url().includes('/image/portraits/')) listLayers.push(r.url()); });
   await dp.goto(`${BASE}/artists`, { waitUntil: 'networkidle' });
   await dp.waitForSelector('.ap-index', { timeout: 30000 });
   await dp.waitForTimeout(400);
   const cards = await dp.locator('.ap-index-card').evaluateAll(as => as.map(a => a.getAttribute('href')));
   check('the list links each artist to their profile',
         JSON.stringify(cards) === JSON.stringify(['/artists/fusspot']), JSON.stringify(cards));
+  check('the list downloads no layer art either', listLayers.length === 0,
+        listLayers.slice(0, 3).join(' | '));
   await shot(dp, 'index-dark.png', { fullPage: true });
 
   // --- the drawer credit -----------------------------------------------

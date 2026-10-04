@@ -52,3 +52,28 @@
   "An [r g b a] alpha, as a canvas wants it."
   [[_ _ _ a]]
   (/ (double a) 255))
+
+;; ---------- example images on the artist pages ----------
+
+(def example-size
+  "[w h] of an artist page's example image: about the size the page shows it, so the file
+   is no better to scrape than what is on screen."
+  [240 300])
+
+(def example-ground
+  "The opaque ground an example is flattened onto, as [r g b] stops of a radial gradient
+   centred at 50% 35%: the portrait frame's own colours, so the image meets its frame."
+  {:centre [32 41 57] :mid [19 25 36] :edge [15 20 28]})
+
+(defn example-watermark-layout
+  "Metrics for the watermark tiled across a `w`x`h` example: {:size :angle :step-x
+   :step-y :fill :outline}. :angle is in radians, rows rise to the right; colours are
+   [r g b a] with a out of 255. Faint, but repeated over the whole image."
+  [w h]
+  (let [size (max 9 (Math/round (* h 0.04)))]
+    {:size size
+     :angle (- (/ Math/PI 6))
+     :step-x (Math/round (* size 1.5))
+     :step-y (Math/round (* size 3.2))
+     :fill [255 255 255 46]
+     :outline [0 0 0 40]}))

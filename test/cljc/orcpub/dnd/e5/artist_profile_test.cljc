@@ -39,8 +39,8 @@
   (is (= {:handler route-map/artist-page-route :route-params {:slug "fusspot"}}
          (route-map/match-route "/artists/fusspot")))
   (is (= route-map/artists-page-route (:handler (route-map/match-route "/artists"))))
-  (is (= route-map/artist-portrait-route
-         (:handler (route-map/match-route "/artists/fusspot/portrait.png")))))
+  (is (= {:handler route-map/artist-example-route :route-params {:slug "fusspot" :n "1"}}
+         (route-map/match-route "/artists/fusspot/examples/1"))))
 
 (deftest every-slug-is-a-clean-path-segment
   (doseq [a pa/registry]
@@ -147,6 +147,14 @@
 
 ;; ---------- examples ----------
 
+(deftest the-seeded-randomness-is-the-same-on-both-platforms
+  (testing "the examples are drawn on the server and captioned in the browser, so the
+            hash and the generator must agree; values from the reference JavaScript"
+    (is (= 440920331 (pa/seed->int "abc")))
+    (is (= 993024918 (pa/seed->int "artist-fusspot/0")))
+    (let [r (pa/mulberry32 12345)]
+      (is (= [0.9797282677609473 0.3067522644996643 0.484205421525985] [(r) (r) (r)])))))
+
 (deftest examples-are-stable
   (is (= (ap/example-portraits :house-pack) (ap/example-portraits :house-pack))
       "the page, the og image and every reload show the same pictures")
@@ -186,6 +194,28 @@
                             (ap/example-portraits :placeholder-a))))
           "the other way round too, and an artist is never listed as borrowing
            from themself"))))
+
+(deftest between-them-the-examples-use-every-piece
+  (let [drawn (for [{ps :pieces} (ap/pieces-by-layer (ap/artist-by-slug "fusspot"))
+                    p ps]
+                (:asset/id p))
+        used (set (for [x (ap/example-portraits :house-pack)
+                        [_ sel] (:layers x)]
+                    (:asset/id sel)))]
+    (is (= 28 (count drawn)))
+    (is (every? used drawn) "every piece she drew is in at least one example")))
+
+(deftest the-examples-are-watermarked-with-her-site-and-ours
+  (let [artist (ap/artist-by-slug "fusspot")]
+    (is (= "fusspot.rip \u00b7 dungeonmastersvault.com"
+           (ap/watermark-text artist "dungeonmastersvault.com")))
+    (is (= "fusspot.rip" (ap/watermark-text artist nil)) "no site configured, her host alone")
+    (is (= "Someone" (ap/watermark-text {:artist/name "Someone"} "")) "no link, her name")
+    (is (= "example.org" (ap/link-host "https://www.example.org/shop?x=1")))
+    (is (nil? (ap/link-host "mailto:someone@example.org")))))
+
+(deftest examples-have-their-own-addresses
+  (is (= "/artists/fusspot/examples/2" (ap/example-path (ap/artist-by-slug "fusspot") 2))))
 
 (deftest no-examples-for-nobody
   (is (nil? (ap/example-portraits :not-registered))))

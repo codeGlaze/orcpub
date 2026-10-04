@@ -38,11 +38,15 @@
        (cond (zero? i) nil (= i (dec n)) " and " :else ", ")
        (:artist/name a)])))
 
-(defn- example [artist-id i p]
-  (let [others (ap/others-in p artist-id)]
+(defn- example-img
+  "Example `n` of `artist` (from 1), the small watermarked image the server renders once."
+  [artist n alt]
+  [:img.ap-example-img {:src (ap/example-path artist n) :alt alt :width 240 :height 300}])
+
+(defn- example [artist i p]
+  (let [others (ap/others-in p (:artist/id artist))]
     [:figure.ap-example
-     [:div.ap-frame {:role "img" :aria-label (str "Example portrait " (inc i))}
-      [portrait/composite p]]
+     [:div.ap-frame [example-img artist (inc i) (str "Example portrait " (inc i))]]
      (when (seq others)
        [:figcaption "with pieces by " (names others)])]))
 
@@ -64,7 +68,7 @@
      [:section.ap-section
       [:h2.lk-cap "Portraits from these pieces"]
       [:div.ap-examples
-       (map-indexed (fn [i p] ^{:key i} [example id i p])
+       (map-indexed (fn [i p] ^{:key i} [example artist i p])
                     (ap/example-portraits id))]]
      [:p.ap-foot
       "Every portrait made with these pieces credits " name
@@ -94,6 +98,6 @@
            :let [n (ap/piece-count a)]]
        ^{:key id}
        [:a.ap-index-card {:href (ap/profile-path a)}
-        [:div.ap-frame [portrait/composite (first (ap/example-portraits id 1))]]
+        [:div.ap-frame [example-img a 1 (str "A portrait from " name "'s pieces")]]
         [:span.lk-name name]
         [:span.ap-index-count n (if (= 1 n) " piece" " pieces")]])]]])
