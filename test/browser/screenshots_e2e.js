@@ -1,4 +1,3 @@
-// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
 // Screenshot the builder for review. A UI change reviewed only through timing numbers is
 // half-reviewed -- take these before asking anyone to look at a visual change.

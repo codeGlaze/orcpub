@@ -99,8 +99,11 @@ const check = (name, ok, detail='') => { results.push({ok}); console.log(`${ok?'
                                 window.__d('[:orcpub.dnd.e5.classes/set-class-prop :option-pack "Browser Test Source"]');
                                 window.__d('[:orcpub.dnd.e5.classes/save-class]'); });
     await page.waitForTimeout(300);
-    const savedWeapons = await dbAt(page, '[:plugins "Browser Test Source" :orcpub.dnd.e5/classes :browser-test-class :weapons]');
-    check('save-class persists the class + equipment into :plugins', savedWeapons && savedWeapons !== 'nil', `saved :weapons = ${savedWeapons}`);
+    // A new item's key is minted from its name AND tagged with its source (D10b, `address-for` in
+    // events.cljs), e.g. :browser-test-class-brttse, and written back onto the open builder item.
+    const savedKey = await dbAt(page, '[:orcpub.dnd.e5.classes/builder-item :key]');
+    const savedWeapons = await dbAt(page, `[:plugins "Browser Test Source" :orcpub.dnd.e5/classes ${savedKey} :weapons]`);
+    check('save-class persists the class + equipment into :plugins', savedWeapons && savedWeapons !== 'nil', `saved under ${savedKey}, :weapons = ${savedWeapons}`);
 
     const [ download ] = await Promise.all([
       page.waitForEvent('download', { timeout: 10000 }).catch(() => null),

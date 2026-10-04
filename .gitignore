@@ -56,6 +56,7 @@ dev/test-accounts.edn
 
 # E2E test artifacts
 /e2e/node_modules/
+/scripts/e2e/node_modules
 /e2e/playwright-report/
 /e2e/test-results/
 

@@ -1,3 +1,4 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Do the class handlers still WORK after being unmemoized?
 //

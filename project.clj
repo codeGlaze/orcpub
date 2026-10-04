@@ -227,8 +227,11 @@
              :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
              ;; An export queue small enough to reach on one machine, for seeing
              ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
+             ;; The wait is 1ms because the slot queue is fair: with 250ms an export
+             ;; arriving under load reached the front and got its PDF 5 times in 12,
+             ;; failing export_busy_retry for no app reason; at 1ms it was 0 in 12.
              :busy-export {:env {:orcpub-pdf-concurrency "1"
-                                 :orcpub-pdf-queue-timeout-ms "250"
+                                 :orcpub-pdf-queue-timeout-ms "1"
                                  :orcpub-pdf-max-retries "2"}}
              ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;

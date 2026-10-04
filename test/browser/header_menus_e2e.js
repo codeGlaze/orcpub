@@ -64,11 +64,6 @@ const check = (name, ok, detail = '') => {
   });
   const ctx = await browser.newContext({ viewport: VIEWPORTS[0] });
   await suppressCookieBanner(ctx);
-  // The release panel is a full-screen overlay; stamp it seen so it isn't what
-  // covers the menus in this run.
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
-  });
   const page = await ctx.newPage();
 
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
@@ -155,9 +150,6 @@ const check = (name, ok, detail = '') => {
   for (const vp of VIEWPORTS.slice(1)) {
     const short = await browser.newContext({ viewport: vp });
     await suppressCookieBanner(short);
-    await short.addInitScript(() => {
-      try { localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
-    });
     const shortPage = await short.newPage();
     await shortPage.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
     await shortPage.waitForSelector('#app-main', { timeout: 30000 });
