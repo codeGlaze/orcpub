@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
             [bidi.bidi :as bidi]
@@ -35,9 +36,11 @@
             [orcpub.privacy :as privacy]
             [orcpub.config :as config]
             [orcpub.email :as email]
+            [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.registration :as registration]
+            [orcpub.pwned :as pwned]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -46,6 +49,7 @@
             [orcpub.fork.user-data :as user-data]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
+            [orcpub.routes.share :as share]
             [hiccup.page :as page]
             [hiccup2.core :as h]
             [orcpub.env :as env]
@@ -202,15 +206,78 @@
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
-                       username (get-in updated-request [:identity :user])]
-                   (if (and (:identity updated-request)
-                            username)
-                     (assoc context :request (assoc updated-request :username username))
-                     (terminate-request context 401 "Unauthorized")))
+                       username (get-in updated-request [:identity :user])
+                       minted (get-in updated-request [:identity :minted])]
+                   (cond
+                     (not (and (:identity updated-request) username))
+                     (terminate-request context 401 "Unauthorized")
+
+                     ;; Changing a password takes back the sessions that existed
+                     ;; before it. The same 401 as any other refusal: which of
+                     ;; the two reasons it was is not the caller's business.
+                     (security/token-withdrawn? username minted)
+                     (terminate-request context 401 "Unauthorized")
+
+                     :else
+                     (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
+
+(defn withdraw-sessions
+  "Signs every session for this account out, including the one asking.
+
+   Deliberately does NOT require the password: somebody who thinks their account
+   is open somewhere they cannot reach should be able to close it from the
+   session they already hold, and they have already proved they hold it. It
+   grants an attacker with a session nothing -- they can sign themselves out."
+  [{:keys [conn db identity] :as _request}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (when username (first-user-by db username-query username))]
+    (if-not id
+      {:status 400 :body {:error :user-not-found}}
+      (let [now (java.util.Date.)]
+        @(d/transact conn [{:db/id id :orcpub.user/sessions-withdrawn now}])
+        (security/note-password-changed! username (.getTime now))
+        {:status 200 :body {:withdrawn true}}))))
+
+(def ^:private recent-password-changes-query
+  ;; Either reason a token is withdrawn. The caller keeps the LATER per account,
+  ;; so signing out everywhere and then resetting -- or the reverse -- does not
+  ;; let the earlier of the two reinstate anything.
+  '[:find ?username ?changed
+    :in $ ?since
+    :where
+    (or [?e :orcpub.user/password-reset ?changed]
+        [?e :orcpub.user/sessions-withdrawn ?changed])
+    [(> ?changed ?since)]
+    [?e :orcpub.user/username ?username]])
+
+(defn refresh-token-withdrawals!
+  "Rebuilds the in-memory register of passwords that moved recently, from the
+   database, where the durable record lives.
+   GOTCHA: memory-only, so a restart silently reinstates every token it was
+   holding, looking exactly like working; only changes inside the token
+   lifetime matter, since older ones already expired. See account-flows.md."
+  [db]
+  (let [since (java.util.Date. (- (System/currentTimeMillis)
+                                  (* auth/token-lifetime-hours 60 60 1000)))
+        rows (d/q recent-password-changes-query db since)]
+    (security/absorb-password-changes!
+     (reduce (fn [m [username ^java.util.Date changed]]
+               (update m username (fnil max 0) (.getTime changed)))
+             {}
+             rows)
+     (.getTime since))
+    (count rows)))
+
+(defn withdrawal-refresh-job
+  "Heartbeat job: re-read the register from the database. Also repairs it if a
+   note was ever lost, since the database is the record and this is the cache."
+  [conn]
+  (refresh-token-withdrawals! (d/db conn))
+  nil)
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -274,7 +341,11 @@
                       {:error error-key})})
 
 (defn create-token [username exp]
+  ;; :minted, not :iat. buddy validates the registered claims it recognises, and
+  ;; a standard iat is seconds where this is millis -- naming it apart keeps the
+  ;; library out of it entirely.
   (jwt/sign {:user username
+             :minted (System/currentTimeMillis)
              :exp exp}
             (signature-or-throw)))
 
@@ -298,14 +369,32 @@
     (some? (:orcpub.user/dark-button-text? user))
     (assoc :dark-button-text? (:orcpub.user/dark-button-text? user))))
 
-(defn bad-credentials-response [db username ip]
+(defn base-url [{:keys [scheme headers]}]
+  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
+
+(defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
   (if (security/too-many-attempts-for-username? username)
-    (login-error errors/too-many-attempts)
+    (do (security/note-refusal! :login-username)
+        (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
-      (login-error (if (:db/id user-for-username)
-                     errors/bad-credentials
-                     errors/no-account)))))
+      ;; Several addresses failing against ONE account inside a minute is also what
+      ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
+      ;; the owner rather than locking them out. Runs on another thread, and its
+      ;; outcome never reaches the response: failing logins must not learn a thing.
+      (when (and (:db/id user-for-username)
+                 (security/multiple-ip-attempts-to-same-account? username)
+                 (security/claim-sign-in-notice! username))
+        (future
+          (email/send-sign-in-attempts-email
+           (base-url request)
+           {:email (:orcpub.user/email user-for-username)
+            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+            :user-agent (get (:headers request) "user-agent")})))
+      ;; One answer for both. Telling somebody the username does not exist made
+      ;; the login form the same membership test the reset endpoint was, and a
+      ;; cheaper one, since it needs no mail to be sent.
+      (login-error errors/bad-credentials))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -325,6 +414,15 @@
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
+
+      ;; Checked before the credentials, not on the failure path: stuffing ends on
+      ;; the one account it guesses right, so a check that only runs after a failed
+      ;; lookup would never see that attempt. Trips on five DISTINCT usernames
+      ;; failing from this address inside a minute -- one person on several devices can't, a spray across accounts can.
+      (security/multiple-account-access? remote-addr)
+      (do (security/note-refusal! :login-spray)
+          (login-error errors/too-many-attempts))
+
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
                   {:keys [:orcpub.user/verified?
@@ -334,17 +432,14 @@
                   unverified? (not verified?)
                   expired? (and verification-sent (verification-expired? verification-sent))]
               (cond
-                (nil? id) (bad-credentials-response db username remote-addr)
+                (nil? id) (bad-credentials-response db username remote-addr request)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
                 (create-login-response db conn user id))))))
 
-(defn login [{:keys [json-params db] :as request}]
-  (try
-    (let [resp (login-response request)]
-      resp)
-    (catch Throwable e (prn "E" e) (throw e))))
+(defn login [request]
+  (login-response request))
 
 
 (defn user-for-email [db email]
@@ -356,9 +451,6 @@
                                        ?email]]}
                             (s/lower-case email))]
     user))
-
-(defn base-url [{:keys [scheme headers]}]
-  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -470,7 +562,43 @@
                         {:error :verification-email-failed}
                         e)))))))
 
-(defn register [{:keys [json-params db conn] :as request}]
+
+(defn- breach-message
+  "Why this reads as a strength verdict, not a security warning: the corpus
+   measures commonness, not a breach or an attacker targeting this person.
+   GOTCHA: speaks like the strength meter under the \"Too common\" badge, so it
+   must not repeat what the badge already said. See account-flows.md."
+  [_n]
+  "A few words strung together are harder to guess and easier to remember.")
+
+(def ^:private breach-refusal-threshold
+  "How many corpus appearances make a password common enough to refuse.
+   GOTCHA: below this line it's advisory only, surfaced by the strength meter
+   while typing; at or above, refusal at submit is reserved for the egregious
+   case -- one appearance is an old leak, four figures ships in every cracking
+   wordlist. See account-flows.md."
+  1000)
+
+(defn- breach-errors
+  "A validation map for an egregiously common password, or nil.
+
+   Only a positive answer counts, and only one at or above the threshold: an
+   unreachable service must read as no objection, and nor must a handful of
+   appearances."
+  [password]
+  (let [result (pwned/check password)]
+    (when (and (number? result) (>= result breach-refusal-threshold))
+      ;; Its OWN key, not :password: a strength verdict, not a rule fault, so it
+      ;; belongs to the meter -- the only thing on the page judging password quality.
+      ;; Keyed with the rule faults instead, it would render as a red field error
+      ;; sitting right above a meter reporting UNCOMMON in green: two disagreeing verdicts.
+      {:password-common [(breach-message result)]})))
+
+(def ^:private registration-throttled-message
+  (str "Too many accounts have been created from this connection in the last hour. "
+       "Try again a little later, or email us if you are stuck."))
+
+(defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
         email (when email (s/lower-case (s/trim email)))
@@ -479,25 +607,35 @@
                     json-params
                     (seq (d/q email-query db email))
                     (seq (d/q username-query db username)))
-        now (java.util.Date.)]
-    (try
-      (if (seq validation)
-        {:status 400
-         :body validation}
-        (do-verification
-         request
-         json-params
-         conn
-         (merge
-          {:orcpub.user/email email
-           :orcpub.user/username username
-           :orcpub.user/password (hashers/encrypt password)
-           :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created now}
-          (when auth/record-last-login-at-registration?
-            {:orcpub.user/last-login now})
-          (user-data/registration-defaults))))
-      (catch Throwable e (prn e) (throw e)))))
+        now (java.util.Date.)
+        ;; Checked only once the form is otherwise valid: no reason to ask a third
+        ;; party about a password attached to a malformed signup.
+        validation (if (seq validation)
+                     validation
+                     (or (breach-errors password) validation))
+        ;; Checked last, so a form that was going to be rejected anyway is not
+        ;; counted against the host. :general rather than a field key: nobody
+        ;; can edit their way past a rate limit, so it must not sit in the map
+        ;; that disables the button.
+        validation (if (or (seq validation) (security/registration-allowed? remote-addr))
+                     validation
+                     (assoc validation :general [registration-throttled-message]))]
+    (if (seq validation)
+      {:status 400
+       :body validation}
+      (do-verification
+       request
+       json-params
+       conn
+       (merge
+        {:orcpub.user/email email
+         :orcpub.user/username username
+         :orcpub.user/password (hashers/encrypt password)
+         :orcpub.user/send-updates? send-updates?
+         :orcpub.user/created now}
+        (when auth/record-last-login-at-registration?
+          {:orcpub.user/last-login now})
+        (user-data/registration-defaults))))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -633,13 +771,29 @@
                      (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))
       {:status 400 :body {:error "User not found"}})))
 
+(defn hash-reset-key
+  "What goes in the database. The emailed key is the secret; storing it verbatim
+   made anyone who can read the user table able to complete a reset on any
+   account with one outstanding. Only the digest is kept, so a stolen table
+   yields nothing that can be mailed back in."
+  [key]
+  (->> (.getBytes ^String key "UTF-8")
+       (.digest (java.security.MessageDigest/getInstance "SHA-256"))
+       (map #(format "%02x" %))
+       (apply str)))
+
+;; Two hours. One is the usual choice and is a one-line change here; two leaves
+;; room for mail that takes a while to arrive and for somebody who reads it on
+;; the way home, on a site whose worst case is a character sheet.
+(def password-reset-valid-hours 2)
+
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
       @(d/transact
         conn
         [{:db/id user-id
-          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-key (hash-reset-key key)
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
@@ -655,25 +809,31 @@
                         e))))))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent
+       (before? (instant password-reset-sent) (-> password-reset-valid-hours hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
-(defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
-  (try
-    (let [email (:email query-params)
-          {:keys [:orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset
-                  :db/id] :as user} (user-for-email db email)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (if id
+(defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
+  (let [email (:email query-params)
+        {:keys [:db/id]} (user-for-email db email)]
+    ;; The answer is identical whether or not that address has an account:
+    ;; confirmed-valid addresses are precisely what a stuffing run needs.
+    ;; The per-address limit is checked AFTER the lookup but never changes the
+    ;; response -- a limit that visibly altered it would itself be a membership oracle, which the uniform 200 closes.
+    (when (and id (security/reset-email-allowed? email remote-addr))
+      (try
         (do-send-password-reset id email conn request)
-        {:status 400 :body {:error :no-account}}))
-    (catch Throwable e (prn e) (throw e))))
+        (catch Exception e
+          ;; Swallowed on purpose. Letting this escape would restore the oracle
+          ;; in a subtler form -- only a real account can fail to be emailed,
+          ;; so an error response would mark the address as registered.
+          (println "ERROR: password reset for a known address could not be sent:"
+                   (.getMessage e)))))
+    {:status 200}))
 
-(defn do-password-reset [conn user-id password]
+(defn do-password-reset [conn user-id password & [request user]]
   (try
     @(d/transact
       conn
@@ -681,6 +841,23 @@
         :orcpub.user/password (hashers/encrypt (s/trim password))
         :orcpub.user/password-reset (java.util.Date.)
         :orcpub.user/verified? true}])
+    ;; Before anything else that can fail: every token minted before now is no
+    ;; longer good for this account, including the one this very request is
+    ;; using. That is the point -- a reset is how somebody takes their account
+    ;; back, and leaving the intruder's session alive would defeat it.
+    (when-let [username (:orcpub.user/username user)]
+      (security/note-password-changed! username))
+    ;; After the transact, on another thread, and its outcome never reaches the
+    ;; response: the password HAS changed by now, and a mail failure must not
+    ;; report an error for something that already happened -- somebody would
+    ;; simply do it again.
+    (when (and request (:orcpub.user/email user))
+      (future
+        (email/send-password-changed-email
+         (base-url request)
+         {:email (:orcpub.user/email user)
+          :first-and-last-name (:orcpub.user/first-and-last-name user)
+          :user-agent (get (:headers request) "user-agent")})))
     {:status 200}
     (catch Exception e
       (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
@@ -692,12 +869,34 @@
 (defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
   (try
     (let [{:keys [password verify-password]} json-params
+          ;; Trimmed before anything judges it, because do-password-reset stores it
+          ;; trimmed and the corpus lookup hashes it: an untrimmed check asks about
+          ;; a different string from the one saved.
+          password        (some-> password s/trim)
+          verify-password (some-> verify-password s/trim)
           username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)]
+          {:keys [:db/id :orcpub.user/email] :as user} (first-user-by db username-query username)
+          ;; The username is known here, even though this page never shows it,
+          ;; so a password that IS the username can be refused the way
+          ;; registration already refuses one. Without the context this was the
+          ;; one rule the two paths did not share.
+          context {:username username :email email}
+          rule-errors (registration/validate-password password context)
+          ;; Asked once. Only reached when the password is otherwise acceptable,
+          ;; so a rejected reset never costs a call.
+          breached (when (and (= password verify-password) (empty? rule-errors))
+                     (first (:password-common (breach-errors password))))]
+      ;; Field-keyed, in :body, the same shape registration answers with.
+      ;; :message is not a Pedestal response key: these came back as a 400 with
+      ;; an EMPTY body, so the reasons never left the server and the page had
+      ;; nothing to show but a generic apology.
       (cond
-        (not= password verify-password) {:status 400 :message "Passwords do not match"}
-        (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
-        :else (do-password-reset conn id password)))
+        (not= password verify-password)
+        {:status 400 :body {:verify-password ["Passwords do not match"]}}
+
+        (seq rule-errors) {:status 400 :body rule-errors}
+        breached {:status 400 :body {:password-common [breached]}}
+        :else (do-password-reset conn id password request user)))
     (catch Throwable t (prn t) (throw t))))
 
 (def font-sizes
@@ -918,19 +1117,45 @@
         (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
         outcome))))
 
+(def ^:private probe-max-concurrency
+  "Outbound fetches the probe endpoint may have running at once. This endpoint
+   needs no login and answers one URL per request, so without a bound a caller
+   can hand it many distinct not-yet-cached addresses and park a Jetty worker
+   on someone else's slow host per request. Small on purpose: this is one
+   request's worth of curiosity about one picture, not sheet generation."
+  8)
+
+(def ^:private probe-slots
+  (delay (java.util.concurrent.Semaphore. probe-max-concurrency true)))
+
 (defn image-probe
-  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before
-   it exports a picture the browser could not read. Answers 200 with a reason name: ok,
-   blocked-address, the fetch's failure reason, or unknown. The fetched bytes are kept for the
-   export that follows.
-   GOTCHA: it needs no login, so it must never return the picture; that would make it an
-   open proxy."
-  [{:keys [transit-params]}]
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before it exports one the browser couldn't read.
+   Answers 200 with a reason: ok, blocked-address, the fetch's failure reason, unknown, or rate-limited; fetched bytes are kept for the export that follows.
+   A cache hit always answers; a miss is gated by a per-host hourly limit and the concurrency bound, since misses are what let an unauthenticated caller park Jetty workers on hosts of their choosing -- both refusals surface as rate-limited.
+
+   GOTCHA: no login is required, so this must never return the picture itself; that would make it an open proxy."
+  [{:keys [transit-params remote-addr]}]
   (let [url (:url transit-params)
-        reason (if-not (well-formed-image-url? url)
+        cached (get @probed-images url)
+        reason (cond
+                 (not (well-formed-image-url? url))
                  :blocked-address
-                 (let [{:keys [image reason]} (probed-outcome url)]
-                   (if image :ok (or reason :unknown))))]
+
+                 cached
+                 (let [{:keys [image reason]} (:outcome cached)]
+                   (if image :ok (or reason :unknown)))
+
+                 (not (security/image-probe-allowed? remote-addr))
+                 :rate-limited
+
+                 (not (.tryAcquire ^java.util.concurrent.Semaphore @probe-slots))
+                 :rate-limited
+
+                 :else
+                 (try
+                   (let [{:keys [image reason]} (probed-outcome url)]
+                     (if image :ok (or reason :unknown)))
+                   (finally (.release ^java.util.concurrent.Semaphore @probe-slots))))]
     ;; The HOST only, never the URL: an image address can carry a signed query
     ;; string. This is how the genuinely unreachable set gets measured rather than
     ;; guessed at.
@@ -1274,7 +1499,8 @@
         :title (or title default-title)
         :description (or description default-description)
         :image (or image-url (default-image-url host))
-        :nonce csp-nonce}
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]
@@ -1283,23 +1509,27 @@
 (defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
   (default-index-page request response))
 
-(defn reset-password-page [{:keys [query-params db conn] :as req}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:db/id
-                  :orcpub.user/username
-                  :orcpub.user/password-reset-key
-                  :orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset] :as user}
-          (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (cond
-        expired? (redirect route-map/password-reset-expired-route)
-        already-reset? (redirect route-map/password-reset-used-route)
-        :else (let [token (create-token username (-> 1 hours from-now))]
-                (index req {:cookies {"token" token}}))))
-    {:status 400
-     :body "Key is required"}))
+(defn reset-password-page [{:keys [query-params db] :as req}]
+  (let [key (:key query-params)
+        {:keys [:db/id
+                :orcpub.user/username
+                :orcpub.user/password-reset-sent
+                :orcpub.user/password-reset]}
+        ;; The link carries the key; the table holds only its digest.
+        (when-not (s/blank? key)
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key)))
+        expired? (password-reset-expired? password-reset-sent)
+        already-reset? (password-already-reset? password-reset password-reset-sent)]
+    (cond
+      ;; Covers both no key at all and a key matching nobody, so neither bare-strings
+      ;; a "Key is required" error nor falls through to :else and signs a token for
+      ;; a nil username. A mangled link and an expired one are the same event to the
+      ;; reader -- it doesn't work -- so both land on the page offering to send a new one.
+      (nil? id) (redirect route-map/password-reset-expired-route)
+      expired? (redirect route-map/password-reset-expired-route)
+      already-reset? (redirect route-map/password-reset-used-route)
+      :else (let [token (create-token username (-> 1 hours from-now))]
+              (index req {:cookies {"token" token}})))))
 
 (defn check-field [query value db]
   {:status 200
@@ -1515,9 +1745,12 @@
       {:status 200
        :body result})))
 
-(defn get-item [{:keys [db] {:keys [:id]} :path-params}]
+(defn get-item
+  "A custom item, for its owner only. Anyone else gets the 404 a missing item gets, so an id
+   says nothing about whether it exists."
+  [{:keys [db username] {:keys [:id]} :path-params}]
   (let [item (d/pull db '[*] id)]
-    (if (::mi5e/owner item)
+    (if (and (::mi5e/owner item) (= username (::mi5e/owner item)))
       {:status 200
        :body item}
       {:status 404})))
@@ -1630,17 +1863,46 @@
         (errors/with-db-error-handling :character-deletion-failed
           {:character-id parsed-id}
           "Unable to delete character. Please try again or contact support."
-          @(d/transact conn [[:db/retractEntity parsed-id]])
+          @(d/transact conn (cons [:db/retractEntity parsed-id]
+                                  (share/retractions-for-character db parsed-id)))
           {:status 200})
         {:status 400 :body problems})
       {:status 401 :body "You do not own this character"})))
+
+(defn- public-owner
+  "The owner as a character read shows it: the username, or nil. For nine days in May 2017 the
+   login token carried whatever the user typed (e3cdf5f to cf170fc), so characters saved then name
+   their owner by email address; this read needs no login, so the address must not go out."
+  [db owner]
+  (if-let [user (find-user-by-username-or-email db owner)]
+    (:orcpub.user/username user)
+    (when-not (s/includes? owner "@") owner)))
+
+(defn- equipped-custom-items
+  "The owner's custom items this character has equipped, without database ids or owner. Whoever may
+   read the character sees these, because the sheet is drawn from them; the owner's other items stay
+   out. Any failure sends none rather than failing the character read."
+  [db username character]
+  (try
+    (sb/used-custom-items (entity/from-strict character)
+                          (d/q '[:find [(pull ?e [*]) ...] :in $ ?owner :where [?e ::mi5e/owner ?owner]]
+                               db username)
+                          #(mi5e/expand-magic-items [%]))
+    (catch Exception e
+      (println "WARNING: custom items not attached to character" (:db/id character) ":" (.getMessage e))
+      nil)))
 
 (defn get-character-for-id [db id]
   (let [{:keys [::se/owner] :as character} (d/pull db '[*] id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (or (not owner) (seq problems))
       {:status 400 :body problems}
-      {:status 200 :body character})))
+      (let [shown (public-owner db owner)
+            items (when shown (equipped-custom-items db shown character))]
+        {:status 200 :body (cond-> (if shown
+                                     (assoc character ::se/owner shown)
+                                     (dissoc character ::se/owner))
+                             (seq items) (assoc ::char5e/custom-items items))}))))
 
 (defn character-summary-for-id [db id]
   ;; Fixed: bare destructuring outside let silently returned nil
@@ -1727,6 +1989,7 @@
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
     (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+          current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
         {:status 400 :body {:error :user-not-found}}
@@ -1737,6 +2000,13 @@
           (cond
             (nil? id)
             {:status 400 :body {:error :user-not-found}}
+
+            ;; Re-authentication: moving an account to another address takes it away
+            ;; from whoever holds this one, requiring more than just a session -- a
+            ;; borrowed or forgotten session alone must not be enough to walk off with
+            ;; the account. The password is compared, never read: lookup-user does the hash check.
+            (nil? (:db/id (lookup-user db username (str current-password))))
+            {:status 400 :body {:error :bad-credentials}}
 
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
@@ -1780,6 +2050,16 @@
                 (send-email-change-verification request
                                                 {:email new-email :username username}
                                                 verification-key)
+                ;; Tells the address that currently owns the account. Verification goes to
+                ;; the NEW address, unreachable by the owner if this wasn't them, so without
+                ;; this notice the losing party is never told. Runs on another thread: the
+                ;; change is already accepted, so a failure here must not report an error.
+                (future
+                  (email/send-email-change-notice
+                   (base-url request)
+                   {:email email
+                    :first-and-last-name (:orcpub.user/first-and-last-name user)
+                    :new-email new-email}))
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e
                   (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
@@ -1838,6 +2118,11 @@
    [route-map/login-page-route]
    [route-map/verify-sent-route]
    [route-map/password-reset-sent-route]
+   ;; Was the only one of these missing. The client routes here after a reset,
+   ;; so it renders inside a session -- but a refresh, a back button or a
+   ;; bookmark asked the server for it and got "Not Found", on the one page
+   ;; whose whole job is to confirm the password was changed.
+   [route-map/password-reset-success-route]
    [route-map/password-reset-expired-route]
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
@@ -1941,6 +2226,8 @@
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
+       [(route-map/path-for route-map/user-sessions-route) ^:interceptors [check-auth]
+        {:delete `withdraw-sessions}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]
@@ -1950,9 +2237,8 @@
         {:post `save-item
          :get `item-list}]
        [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:delete `delete-item}]
-       [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [parse-id]
-        {:get `get-item}]
+        {:get `get-item
+         :delete `delete-item}]
 
        ;; Characters
        [(route-map/path-for route-map/dnd-e5-char-list-route) ^:interceptors [check-auth]
@@ -1966,6 +2252,15 @@
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
         {:get `get-character}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [parse-id]
+        {:get `share/get-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [check-auth parse-id]
+        {:put `share/put-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
+        {:get `share/get-token
+         :put `share/create-token
+         :post `share/new-token
+         :delete `share/stop-sharing}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]

@@ -40,13 +40,17 @@
    [orcpub.email :as email]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
+   [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
 (use-fixtures :each
+  ;; registration-allowed? counts sign-ups per address in memory for the whole JVM, and these
+  ;; tests all register from a nil address; this file tests rollback, not the throttle.
   (fn [f]
-    (binding [errors/*error-prefix* "TEST_ERROR:"]
-      (f))))
+    (with-redefs [security/registration-allowed? (constantly true)]
+      (binding [errors/*error-prefix* "TEST_ERROR:"]
+        (f)))))
 
 (defmacro with-conn [conn-binding & body]
   `(let [uri# (str "datomic:mem:registration-rollback-test-" (UUID/randomUUID))

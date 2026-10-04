@@ -6,6 +6,7 @@
    whitelist (5; share-bundle/whitelist-shared). Layer 6, content sanitize and per-type spec, runs
    on the .orcbrew import path when the caller loads the bundle. See share-links.md."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [cljs.reader :as reader]
             [goog.crypt.base64 :as b64]
             [orcpub.dnd.e5.share-bundle :as sb]))
@@ -119,6 +120,14 @@
 
 ;; ── public: decode (untrusted) ───────────────────────────────────────────────
 
+(defn- read-shared-edn
+  "The last layers every incoming share passes: safe EDN read, then the structural whitelist."
+  [edn-str]
+  (let [data (safe-read-edn edn-str)]
+    (if (= data ::read-error)
+      {:error :parse}
+      (sb/whitelist-shared data))))
+
 (defn decode-shared
   "Decode + structurally validate an untrusted fragment payload. Returns a Promise
    resolving to {:plugins m :custom-items [...] :dropped n} on success, or
@@ -144,9 +153,73 @@
         (.then (fn [b64] (b64url-decode b64)))
         (.then (fn [bytes] (gunzip-capped bytes max-decompressed-bytes)))
         (.then (fn [out] (bytes->str out)))
-        (.then (fn [edn-str]
-                 (let [data (safe-read-edn edn-str)]
-                   (if (= data ::read-error)
-                     {:error :parse}
-                     (sb/whitelist-shared data)))))
+        (.then read-shared-edn)
         (.catch (fn [_] {:error :decode})))))
+
+;; ── shared homebrew: short links ─────────────────────────────────────────────
+;; A character's owner can share its homebrew by link, "/characters/<id>#s=<token>". The server keeps
+;; the homebrew (orcpub.routes.share) and the link carries only the token. These write the homebrew out
+;; for the upload and read back what a link loads.
+
+(def default-share-caps
+  "What a share may hold when the server has not said, matching the defaults of
+   ORCPUB_SHARE_MAX_UPLOAD_KB and ORCPUB_SHARE_MAX_TEXT_KB."
+  {:upload (* 64 1024) :text (* 256 1024)})
+
+(defn share-caps-from
+  "The caps a response from the share routes reports in its X-Share-Max-* headers, over the defaults."
+  [resp]
+  (let [header #(js/parseInt (.get (.-headers resp) %))]
+    (cond-> default-share-caps
+      (pos? (header "X-Share-Max-Upload-Bytes")) (assoc :upload (header "X-Share-Max-Upload-Bytes"))
+      (pos? (header "X-Share-Max-Text-Bytes"))   (assoc :text (header "X-Share-Max-Text-Bytes")))))
+
+(defn- sorted-by-print
+  "x with every map and set rebuilt in the order its members print, so the same homebrew writes out the
+   same bytes however its fields were added, and an unchanged share uploads nothing new; a small map otherwise keeps the order its fields arrived in."
+  [x]
+  (let [by-print (fn [a b] (compare (pr-str a) (pr-str b)))]
+    (walk/postwalk (fn [v]
+                     (cond (map? v) (into (sorted-map-by by-print) v)
+                           (set? v) (into (sorted-set-by by-print) v)
+                           :else v))
+                   x)))
+
+(defn encode-share
+  "bundle and caps -> Promise of {:bytes compressed-homebrew} for the upload, or {:error :unsupported|
+   :empty|:too-large}. The bundle goes through the same whitelist the server requires first, so an
+   upload is never refused for holding something the whitelist would change."
+  [bundle caps]
+  (let [{:keys [upload text]} (merge default-share-caps caps)
+        kept (:plugins (sb/whitelist-shared bundle))
+        edn  (str->bytes (sb/bundle->edn (sorted-by-print kept)))]
+    (cond
+      (not (supported?)) (js/Promise.resolve {:error :unsupported})
+      (empty? kept)      (js/Promise.resolve {:error :empty})
+      (> (.-length edn) text) (js/Promise.resolve {:error :too-large})
+      :else (-> (gzip edn)
+                (.then (fn [gz]
+                         (if (> (.-length gz) upload)
+                           {:error :too-large}
+                           {:bytes gz})))))))
+
+(defn decode-share
+  "The compressed homebrew a share link loaded, and the caps its response reported -> Promise of
+   {:plugins m :custom-items [...] :dropped n} or {:error kw}, through decode-shared's last layers."
+  [bytes caps]
+  (let [{:keys [upload text]} (merge default-share-caps caps)]
+    (cond
+      (not (and (instance? js/Uint8Array bytes) (pos? (.-length bytes))))
+      (js/Promise.resolve {:error :empty})
+
+      (> (.-length bytes) upload)
+      (js/Promise.resolve {:error :too-large})
+
+      (not (supported?))
+      (js/Promise.resolve {:error :unsupported})
+
+      :else
+      (-> (gunzip-capped bytes text)
+          (.then bytes->str)
+          (.then read-shared-edn)
+          (.catch (fn [_] {:error :decode}))))))

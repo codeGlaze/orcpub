@@ -6,6 +6,8 @@
 (def dnd-e5-newb-char-builder-route :newb-char-builder-5e)
 (def dnd-e5-char-list-route :char-list-5e)
 (def dnd-e5-char-route :char-5e)
+(def dnd-e5-char-share-route :char-share-5e)
+(def dnd-e5-char-share-token-route :char-share-token-5e)
 (def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
@@ -106,6 +108,7 @@
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
+(def user-sessions-route :user-sessions)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
 (def send-password-reset-route :send-password-reset)
@@ -130,7 +133,8 @@
                   "register" register-route
                   "login" login-route
                   "user" {"" user-route
-                          "/email" user-email-route}
+                          "/email" user-email-route
+                          "/sessions" user-sessions-route}
 
                   "character.pdf" character-pdf-route
                   "image-probe" image-probe-route
@@ -154,7 +158,9 @@
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
-                                        ["/" :id] dnd-e5-char-route}
+                                        ["/" :id] dnd-e5-char-route
+                                        ["/" :id "/shares/" :token] dnd-e5-char-share-route
+                                        ["/" :id "/share-token"] dnd-e5-char-share-token-route}
                           "character-load-reports" dnd-e5-char-report-route
                           "my-content" dnd-e5-my-content-route
                           "items" {"" dnd-e5-items-route

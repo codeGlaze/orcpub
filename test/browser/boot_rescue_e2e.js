@@ -9,6 +9,7 @@
 // and a visitor with no homebrew must never see it. Without those, a control
 // that is simply always on would pass everything above.
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
@@ -59,7 +60,7 @@ async function rescues(page, label, expected = PLUGINS) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ executablePath: findChrome() });
 
   // ---- 1. bundle never arrives (bad deploy / CDN failure) -----------------
   {
@@ -225,6 +226,29 @@ async function rescues(page, label, expected = PLUGINS) {
     check('unreadable blob -> app still boots, control stays hidden',
           v.display === 'none', JSON.stringify(v));
     await page.screenshot({ path: path.join(OUT, '4-unreadable-blob.png') });
+    await ctx.close();
+  }
+
+  // ---- 4b. stored homebrew the app cannot sort: the app must still start -------
+  //  A race whose :key is text threw in a startup step, outside every error
+  //  boundary, so every page stayed on the loading spinner with only this control.
+  {
+    const ctx = await browser.newContext();
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('plugins', '{"Bad Key Pak" {:orcpub.dnd.e5/races {:x {:key "text" :option-pack "Bad Key Pak" :name "X" :speed 30}}}}');
+        localStorage.setItem('orcpub:no-cookie-banner', '1');
+        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      } catch (e) {}
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE + '/pages/dnd/5e/character-builder', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(14000);
+    const v = await visible(page);
+    const drawn = await page.evaluate(() => !!document.querySelector('.app-header-bar'));
+    check('race with a text key stored -> the app still starts, control stays hidden',
+          drawn && v.display === 'none', JSON.stringify({ drawn, control: v.display }));
+    await page.screenshot({ path: path.join(OUT, '4b-bad-key.png') });
     await ctx.close();
   }
 

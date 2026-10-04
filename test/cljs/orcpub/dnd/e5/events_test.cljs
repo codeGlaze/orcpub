@@ -35,6 +35,7 @@
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.route-map :as routes]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
             [orcpub.template :as t]
@@ -147,17 +148,33 @@
 ;; handler doesn't crash and doesn't produce unwanted side effects.
 ;; ---------------------------------------------------------------------------
 
-(deftest save-character-skips-when-no-cached-template
-  (testing "without cached template, handler is a no-op (returns {})"
-    ;; Set up db with a character but no cached template
+(defn- effects-of
+  "The effects a handler returns under `fx-keys`, captured instead of run."
+  [event fx-keys]
+  (let [captured (atom {})
+        originals (into {} (map (fn [k] [k (registrar/get-handler :fx k)]) fx-keys))]
+    (doseq [k fx-keys] (rf/reg-fx k #(swap! captured assoc k %)))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (doseq [[k f] originals] (when f (rf/reg-fx k f)))))))
+
+(deftest save-character-starts-the-template-cache-and-retries-when-it-is-empty
+  (testing "without a cached template the save asks for the cache and tries again"
     (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
-    ;; This should NOT throw or dispatch error — it should silently skip
-    ;; We verify by checking no error dispatch happened
-    (rf/dispatch-sync [::char5e/save-character "42"])
-    ;; If we got here without exception, the nil guard works.
-    ;; The db should not have :loading set to true (no save attempted)
-    (is (nil? (:loading @app-db))
-        "No save should be attempted without cached template")))
+    (let [fx (effects-of [::char5e/save-character "42"]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (true? (::autosave-fx/ensure-template-cache fx)))
+      (is (= [::char5e/save-character "42" 1] (:dispatch (first (:dispatch-later fx)))))
+      (is (nil? (:http fx)) "nothing is sent")
+      (is (nil? (:loading @app-db)))))
+  (testing "when the retries run out it says so; it used to skip silently"
+    (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
+    (let [fx (effects-of [::char5e/save-character "42" events/save-template-retries]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (= :show-warning-message (first (:dispatch fx))))
+      (is (nil? (:dispatch-later fx)))
+      (is (nil? (:http fx))))))
 
 (deftest save-character-rejects-missing-abilities
   (testing "with cached template but no ability scores → error dispatch"
@@ -170,7 +187,8 @@
           character {:orcpub.entity/options {}}]
       (reset! app-db {::char5e/character-map {42 character}
                       ::autosave-fx/cached-template template})
-      (rf/dispatch-sync [::char5e/save-character "42"])
+      (effects-of [::char5e/save-character "42"]
+                  [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])
       ;; no crash, and nothing was sent (no :loading set) — autosave skipped
       (is (nil? (:loading @app-db))
           "empty template → autosave safely skips this cycle"))))
@@ -233,6 +251,14 @@
                 :selections {:specialism
                              {:name "Specialism"
                               :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
+
+(deftest export-works-from-the-stored-source-not-a-copy-handed-in
+  (let [stored {:orcpub.dnd.e5/spells {:a {:name "A"} :added-later {:name "Added Later"}} :disabled? true}
+        stale {:orcpub.dnd.e5/spells {:a {:name "A"}}}]
+    (is (= stored (events/export-source {"P" stored} "P" stale))
+        "a copy from before a change never wins over the library")
+    (testing "a source the library does not hold falls back to the copy handed in"
+      (is (= stale (events/export-source {} "P" stale))))))
 
 (deftest single-source-export-fills-blank-option-pack
   (testing "a blank :option-pack is given the default source, as on import"
@@ -1141,9 +1167,10 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [:set-character character] (:dispatch fx)) "the waiting heal runs once the list exists")
-    (is (nil? (:dispatch (autosave-fx/cache-template {:db (:db fx)}
-                                                     [::autosave-fx/cache-template small-template])))
+    (is (= [[:set-character character] [::e5/announce-heal]] (:dispatch-n fx))
+        "the waiting heal runs once the list exists, and announces itself: no route follows it")
+    (is (nil? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
+                                                       [::autosave-fx/cache-template small-template])))
         "and only on the first list")))
 
 (deftest a-character-with-nothing-to-heal-is-not-reloaded
@@ -1216,6 +1243,193 @@
                (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
 
 ;; ---------------------------------------------------------------------------
+;; A heal waits for the template, and is announced once
+;;
+;; The heal reads the template's offered keys (homebrew-keys-design.md), and the template is
+;; built when a character is opened or its page reached, never at startup
+;; (homebrew-safety-net.md). So a reloaded draft heals when the template arrives, after the
+;; route to the builder, and announces itself then. Watched in a browser by
+;; test/browser/character_heal_e2e.js and scripts/e2e/template-on-open.js.
+;; ---------------------------------------------------------------------------
+
+(def ^:private stored-plugins
+  ;; :option-pack is required here, unlike renamed-plugins above: this one goes
+  ;; through the ::e5/plugins cofx, which quarantines a race that fails the spec.
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"
+                         :option-pack "Pak"}}}})
+
+(def ^:private race-key [:character :orcpub.entity/options :race :orcpub.entity/key])
+
+(defn- template-arrives!
+  "Runs ::autosave-fx/cache-template with `template`, then each event it queues, in order."
+  [template]
+  (let [fx (autosave-fx/cache-template {:db @app-db} [::autosave-fx/cache-template template])]
+    (reset! app-db (:db fx))
+    (doseq [e (:dispatch-n fx)] (rf/dispatch-sync e))))
+
+(deftest a-reloaded-draft-heals-when-the-template-arrives
+  (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    (.setItem js/localStorage "plugins" (pr-str stored-plugins))
+    (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
+    (try
+      (reset! app-db {})
+      (rf/dispatch-sync [:initialize-db])
+      (is (= :half-elf-phb (get-in @app-db race-key)) "startup restores the draft as stored")
+      (is (true? (::autosave-fx/ensure-template-cache
+                  (effects-of [:route routes/dnd-e5-char-builder-route {:skip-path? true}]
+                              [::autosave-fx/ensure-template-cache]))))
+      (template-arrives! small-template)
+      (testing "the template's arrival heals it, records it and announces it"
+        (is (= :half-elf-ua (get-in @app-db race-key)))
+        (is (= [{:from :half-elf-phb :to :half-elf-ua}] (get-in @app-db [:character-healed :rewrote])))
+        (is (true? (get-in @app-db [:character-healed :announced?]))))
+      (testing "and the healed draft is stored, so the next load restores it healed"
+        (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))))
+      (finally
+        (.removeItem js/localStorage "character")
+        (.removeItem js/localStorage "plugins")))))
+
+(deftest a-character-is-opened-and-its-pages-reached-with-the-template-requested
+  (reset! app-db {:plugins renamed-plugins})
+  (is (true? (::autosave-fx/ensure-template-cache
+              (effects-of [:set-character {:orcpub.entity/options {}}]
+                          [::autosave-fx/ensure-template-cache]))))
+  (doseq [r [routes/dnd-e5-char-builder-route
+             {:handler routes/dnd-e5-char-page-route :route-params {:id 7}}]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (pr-str r)))
+  (is (nil? (::autosave-fx/ensure-template-cache
+             (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
+                         [::autosave-fx/ensure-template-cache])))
+      "a page with no character builds nothing"))
+
+(deftest routing-to-the-builder-announces-a-heal-once
+  ;; The offered keys are known, so :set-character heals at once.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (not (get-in @app-db [:character-healed :announced?]))
+      ":set-character records the heal without announcing it")
+  (rf/dispatch-sync [:route routes/dnd-e5-char-builder-route {:skip-path? true}])
+  (is (true? (get-in @app-db [:character-healed :announced?]))
+      "reaching the builder announces it")
+  (testing "the repair itself is untouched by announcing it"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest routing-elsewhere-does-not-announce-a-heal
+  ;; "Save the character to keep the fix" is meaningless off the builder.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (rf/dispatch-sync [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}])
+  (is (not (get-in @app-db [:character-healed :announced?]))))
+
+;; ---------------------------------------------------------------------------
+;; An unreadable section is set aside on import, and the notice counts it
+;; ---------------------------------------------------------------------------
+
+(deftest importing-a-damaged-section-sets-it-aside-and-says-so
+  (try
+    (let [{:keys [merged quarantine message]}
+          (events/store-imported-sources
+           {}
+           {"P" {:orcpub.dnd.e5/spells "corrupted"
+                 :orcpub.dnd.e5/feats {:tough {:option-pack "P" :key :tough :name "Tough"}}}})]
+      (is (contains? (get-in merged ["P" :orcpub.dnd.e5/feats]) :tough) "the rest imports")
+      (is (not (contains? (get merged "P") :orcpub.dnd.e5/spells)) "the damaged section stays out of the library")
+      (is (= "corrupted" (get-in quarantine ["P" :orcpub.dnd.e5/spells])) "and is set aside")
+      (is (re-find #"1 damaged section couldn't be loaded and was set aside" (str message))
+          "the notice used to say 0 entries"))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))
+
+;; ---------------------------------------------------------------------------
+;; Fixes that must reach storage: what these handlers hand to the store
+;; ---------------------------------------------------------------------------
+
+(defn- dispatched-by
+  "What a handler hands to :dispatch-n, captured instead of queued."
+  [event]
+  (let [original (registrar/get-handler :fx :dispatch-n)
+        captured (atom nil)]
+    (rf/reg-fx :dispatch-n #(reset! captured %))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (rf/reg-fx :dispatch-n original)))))
+
+(defn- stored-by [events]
+  (some (fn [[id plugins]] (when (#{::e5/set-plugins ::e5/store-plugins} id) plugins)) events))
+
+(deftest selection-save-anyway-stores-a-key-the-next-load-keeps
+  (reset! app-db {:plugins {}
+                  ::selections5e/builder-item {:name "9 Lives" :option-pack ""
+                                               :options [{:name "First"}]}})
+  (let [stored (stored-by (dispatched-by [::selections5e/save-selection-anyway]))
+        [[k item]] (seq (get-in stored ["Default Option Source" ::e5/selections]))]
+    (is (re-matches #"[a-z][a-z0-9-]*" (name k))
+        "it was saved as :9-lives, which the next load sets aside")
+    (is (= k (:key item)))))
+
+(deftest a-rename-chosen-for-an-existing-item-is-stored-even-when-nothing-imports
+  ;; The incoming copy has no source, so the store sets it aside and merges nothing;
+  ;; the rename chosen for the existing copy used to go with it.
+  (try
+    (reset! app-db
+            {:plugins {"Pack A" {::e5/spells {:bolt {:key :bolt :option-pack "Pack A" :name "Bolt"
+                                                     :level 1 :school "evocation"}}}}
+             :conflict-resolution
+             {:active? true :mode :import :import-name "Pack B"
+              :import-data {"Pack B" {::e5/spells {:bolt {:key :bolt :name "Bolt" :level 1 :school "evocation"}}}}
+              :conflicts [{:id "external-0" :type :external :key :bolt :content-type ::e5/spells
+                           :import-source "Pack B" :import-name "Bolt"
+                           :existing-source "Pack A" :existing-name "Bolt"}]
+              :decisions {"external-0" {:action :rename-existing :new-key :bolt-a :new-name "Bolt A"}}}})
+    (let [stored (stored-by (dispatched-by [:apply-conflict-resolutions]))]
+      (is (contains? (get-in stored ["Pack A" ::e5/spells]) :bolt-a)))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))
+
+
+;; ---------------------------------------------------------------------------
+;; A homebrew entry that breaks the character options is set aside, once
+;; ---------------------------------------------------------------------------
+
+(deftest a-homebrew-entry-that-breaks-the-options-is-set-aside-and-reported
+  (try
+    (let [bad {:key :bad :option-pack "P" :name "Bad Race"}
+          report {:content-type ::e5/races :key :bad :option-pack "P" :name "Bad Race"}]
+      (reset! app-db {:plugins {"P" {::e5/races {:bad bad :good {:key :good :option-pack "P" :name "Good"}}}}})
+      (is (= [::e5/set-aside-broken-homebrew]
+             (:dispatch (first (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later]))))))
+      (testing "the same entry reported again is not queued again"
+        (is (nil? (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later])))))
+      (let [fx (effects-of [::e5/set-aside-broken-homebrew] [:dispatch])]
+        (is (not (contains? (get-in @app-db [:plugins "P" ::e5/races]) :bad)))
+        (is (contains? (get-in @app-db [:plugins "P" ::e5/races]) :good) "the rest of the source stays")
+        (is (= bad (get-in @app-db [:quarantined-plugins "P" ::e5/races :bad])))
+        (is (.includes (.getItem js/localStorage "plugins:rejected") ":bad")
+            "saved, so it stays set aside after a reload")
+        (is (= :show-warning-message (first (:dispatch fx))))))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected")
+      (.removeItem js/localStorage "plugins"))))
+
+(deftest a-report-for-content-not-in-the-library-moves-nothing
+  (is (= [] (:moved (events/set-aside-broken-entries {"P" {::e5/races {}}} nil
+                                                     [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
+
+(deftest reporting-a-character-problem-sends-the-auth-token
+  (reset! app-db {:user-data {:token "t0ken"}})
+  (let [fx (effects-of [:report-character-problem 42 "boom" "{:raw 1}"] [:http])]
+    (is (= "t0ken" (get-in fx [:http :auth-token]))
+        "get-auth-token had moved to event-utils, so this handler threw and the report never sent")))
+
 ;; :report-character-problem — the auth token reaches the request
 ;; ---------------------------------------------------------------------------
 

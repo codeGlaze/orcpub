@@ -220,6 +220,176 @@
                        :username username}
                       e)))))
 
+(defn describe-browser
+  "A user agent in the words a person would use. Deliberately coarse: this goes
+   in front of somebody deciding whether an attempt was their own, and \"Chrome on
+   Windows\" answers that where the raw header does not. Order matters -- Edge and
+   Opera both claim to be Chrome, and Chrome claims to be Safari."
+  [ua]
+  (if (s/blank? ua)
+    "an unrecognised browser"
+    (let [browser (cond
+                    (re-find #"(?i)edg/" ua) "Edge"
+                    (re-find #"(?i)opr/|opera" ua) "Opera"
+                    (re-find #"(?i)firefox/" ua) "Firefox"
+                    (re-find #"(?i)chrome/|crios/" ua) "Chrome"
+                    (re-find #"(?i)safari/" ua) "Safari"
+                    :else nil)
+          platform (cond
+                     (re-find #"(?i)iphone|ipad|ipod" ua) "iOS"
+                     (re-find #"(?i)android" ua) "Android"
+                     (re-find #"(?i)windows" ua) "Windows"
+                     (re-find #"(?i)mac os x|macintosh" ua) "a Mac"
+                     (re-find #"(?i)linux" ua) "Linux"
+                     :else nil)]
+      (cond
+        (and browser platform) (str browser " on " platform)
+        browser browser
+        platform (str "a browser on " platform)
+        :else "an unrecognised browser"))))
+
+(defn- attempt-time []
+  (.format (java.time.format.DateTimeFormatter/ofPattern "d MMMM yyyy 'at' HH:mm 'UTC'")
+           (java.time.ZonedDateTime/now java.time.ZoneOffset/UTC)))
+
+(defn sign-in-attempts-email-html [first-and-last-name reset-url browser when-str]
+  (into
+   [:div
+    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
+    [:br]
+    [:br]
+    "Someone tried to sign in to your account several times just now, from more than one place at once."
+    [:br]
+    [:br]
+    (str "The last of those attempts was on " when-str ", from " browser ".")
+    [:br]
+    [:br]
+    "Usually this is nothing. A phone and a laptop both signed out at the same time will do it, as will a password you half remember. Nobody got in, nothing has changed, and your account is not locked."
+    [:br]
+    [:br]
+    "If none of it was you, pick a new password when you get a moment. You can start that here:"
+    [:br]
+    [:br]
+    [:a {:href reset-url} reset-url]
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
+
+(defn sign-in-attempts-email [first-and-last-name reset-url browser when-str]
+  [{:type "text/html"
+    :content (str (hiccup/html (sign-in-attempts-email-html
+                                first-and-last-name reset-url browser when-str)))}])
+
+(defn send-sign-in-attempts-email
+  "Tells an account holder that failed sign-ins arrived from several places at once.
+   GOTCHA: never throws and leaks nothing (success, failure, timing) to the
+   response -- sent on behalf of someone not signed in, possibly an attacker.
+   Links to the reset PAGE, never a token, to avoid training people to click
+   mailed credentials. See account-flows.md."
+  [base-url {:keys [email first-and-last-name user-agent]}]
+  (try
+    (postal/send-message (email-cfg)
+                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
+                          :to email
+                          :subject (str branding/app-name " sign-in attempts")
+                          :body (sign-in-attempts-email
+                                 first-and-last-name
+                                 (str base-url (routes/path-for routes/send-password-reset-page-route))
+                                 (describe-browser user-agent)
+                                 (attempt-time))})
+    (catch Exception e
+      (println "ERROR: could not send a sign-in attempts notice:" (.getMessage e)))))
+
+(defn password-changed-email-html [first-and-last-name reset-url browser when-str]
+  (into
+   [:div
+    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
+    [:br] [:br]
+    "The password on your account was just changed."
+    [:br] [:br]
+    (str "That was on " when-str ", from " browser ".")
+    [:br] [:br]
+    "If it was you, there is nothing to do."
+    [:br] [:br]
+    "If it was not, somebody else can sign in as you right now. Change the password back straight away -- you will need access to this mailbox, which is how the change was made in the first place:"
+    [:br] [:br]
+    [:a {:href reset-url} reset-url]
+    [:br] [:br]
+    "Sincerely,"
+    [:br] [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
+
+(defn password-changed-email [first-and-last-name reset-url browser when-str]
+  [{:type "text/html"
+    :content (str (hiccup/html (password-changed-email-html
+                                first-and-last-name reset-url browser when-str)))}])
+
+(defn send-password-changed-email
+  "Tells an account holder their password has just been changed.
+   GOTCHA: the only signal that makes an unauthorised reset visible; never
+   throws since the reset is already committed. Same no-token reset-page link
+   as the sign-in notice. See account-flows.md."
+  [base-url {:keys [email first-and-last-name user-agent]}]
+  (try
+    (postal/send-message (email-cfg)
+                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
+                          :to email
+                          :subject (str branding/app-name " password changed")
+                          :body (password-changed-email
+                                 first-and-last-name
+                                 (str base-url (routes/path-for routes/send-password-reset-page-route))
+                                 (describe-browser user-agent)
+                                 (attempt-time))})
+    (catch Exception e
+      (println "ERROR: could not send a password-changed notice:" (.getMessage e)))))
+
+(defn email-change-notice-html [first-and-last-name new-email when-str]
+  (into
+   [:div
+    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
+    [:br] [:br]
+    (str "Somebody asked us to move your account to " new-email ".")
+    [:br] [:br]
+    (str "That was on " when-str ". Nothing has moved yet -- the new address has to confirm first.")
+    [:br] [:br]
+    "If it was you, carry on: the confirmation is waiting in that other mailbox."
+    [:br] [:br]
+    "If it was not, somebody is signed in to your account. Change your password now, from this address, while it still reaches you:"
+    [:br] [:br]
+    "Sincerely,"
+    [:br] [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
+
+(defn email-change-notice [first-and-last-name new-email when-str]
+  [{:type "text/html"
+    :content (str (hiccup/html (email-change-notice-html
+                                first-and-last-name new-email when-str)))}])
+
+(defn send-email-change-notice
+  "Tells the address that currently OWNS the account that somebody is moving it.
+   GOTCHA: goes to the new address, unreachable by the current owner if this
+   wasn't them -- the only notice the losing address gets. Never throws: the
+   change is already accepted, so a failure here must not report an error for it.
+   See account-flows.md."
+  [base-url {:keys [email first-and-last-name new-email]}]
+  (try
+    (postal/send-message (email-cfg)
+                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
+                          :to email
+                          :subject (str branding/app-name " email change requested")
+                          :body (email-change-notice
+                                 first-and-last-name
+                                 new-email
+                                 (attempt-time))})
+    (catch Exception e
+      (println "ERROR: could not send an email-change notice:" (.getMessage e)))))
+
 (defn unsubscribe-url
   "Build a full unsubscribe URL from a base-url and a pre-signed JWT token.
    Token is generated by routes/unsubscribe-token to avoid circular deps."

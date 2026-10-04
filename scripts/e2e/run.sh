@@ -4,7 +4,7 @@
 #   ./scripts/e2e/run.sh --describe <suite>  prints: <bundle> <profiles> <own-server yes|no> <kind>
 #   ./scripts/e2e/run.sh --build-only <suite> builds the bundle and stylesheet the suite needs, and
 #                                            stops; run-all.sh does this while a server boots
-#   ./scripts/e2e/run.sh [suite] [args...]   a file in scripts/e2e/ (default run.js), or a path
+#   ./scripts/e2e/run.sh <suite> [args...]   a file in scripts/e2e/, or a path
 #                                            such as test/browser/boot_rescue_e2e.js; any args
 #                                            are passed to the suite
 #
@@ -40,7 +40,15 @@ SHEET=resources/public/css/compiled/styles.css
 DESCRIBE=""; BUILD_ONLY=""
 [ "${1:-}" = --describe ] && { DESCRIBE=1; shift; }
 [ "${1:-}" = --build-only ] && { BUILD_ONLY=1; shift; }
-SUITE_ARG="${1:-run.js}"
+# No default suite: with none named, list them. Checked before anything builds or boots.
+if [ $# -eq 0 ]; then
+  echo "usage: ./scripts/e2e/run.sh <suite> [args...]"; echo "suites:"
+  for f in scripts/e2e/*.js test/browser/*_e2e.js; do
+    case "$f" in */lib.js|*/boot-check.js) ;; *) echo "  $f" ;; esac
+  done
+  exit 2
+fi
+SUITE_ARG="$1"
 [ $# -gt 0 ] && shift
 SUITE_ARGS=("$@")
 case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG" ;; esac
@@ -167,6 +175,14 @@ else
   ./scripts/e2e/server.sh start "$PROFILES" || fail "the server did not start (reason above)"
   trap './scripts/e2e/server.sh stop' EXIT
 fi
+
+# The seeded characters some suites open, from the server's log (dev/e2e_boot.clj prints them).
+SERVER_LOG="${E2E_LOG:-/tmp/e2e-server-${PORT}.log}"
+seeded() { grep -o "$1 200 [0-9]*" "$SERVER_LOG" 2>/dev/null | awk '{print $3}' | tail -1; }
+export E2E_CHARACTER_ID="$(seeded E2E-CHARACTER)"
+export E2E_HOMEBREW_CHARACTER_ID="$(seeded E2E-HOMEBREW-CHARACTER)"
+export E2E_EXPIRED_CHARACTER_ID="$(seeded E2E-EXPIRED-CHARACTER)"
+export E2E_MAIL_PORT="${E2E_MAIL_PORT:-2525}"
 
 # --- the app must start before anything is judged ------------------------------------------
 node scripts/e2e/boot-check.js "$BASE" || fail "the app did not start in a browser (reason above)"

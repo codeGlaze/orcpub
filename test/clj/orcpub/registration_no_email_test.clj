@@ -22,13 +22,17 @@
    [orcpub.email :as email]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
+   [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
 (use-fixtures :each
+  ;; registration-allowed? counts sign-ups per address in memory for the whole JVM, and these
+  ;; tests all register from a nil address; this file tests mail-less registration, not the throttle.
   (fn [f]
-    (binding [errors/*error-prefix* "TEST_ERROR:"]
-      (f))))
+    (with-redefs [security/registration-allowed? (constantly true)]
+      (binding [errors/*error-prefix* "TEST_ERROR:"]
+        (f)))))
 
 (defn- fresh-conn []
   (let [uri (str "datomic:mem:rne-" (UUID/randomUUID))]

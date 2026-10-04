@@ -173,7 +173,7 @@
 (defn- moved-through
   "An item carried through a chain of deliberate key changes, oldest first."
   [ks]
-  (reduce (fn [item k] (reconcile/record-former-key (assoc item :key k) (:key item)))
+  (reduce (fn [item next-key] (reconcile/record-former-key (assoc item :key next-key) (:key item)))
           {:key (first ks) :option-pack SRC}
           (rest ks)))
 
