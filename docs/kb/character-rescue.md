@@ -53,7 +53,12 @@ the last pick leaves (`event_handlers.cljc` `update-multi-select`), so it is not
 saving strips empty collections (`entity/remove-empty-fields`), so it never reaches storage. A single
 pick's selection is dissoc'd, as if never chosen. Neither shows its shape afterwards, so the removed
 record carries `:multiselect?` (the template's own word, `::t/multiselect?`) for `put-at`: true appends
-to the vector, false makes it the selection's entry. JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
+to the vector, false makes it the selection's entry.
+
+**`put-at` writes only into an empty place** (`453aff1d`). A multiselect already holding the key, or a
+one-pick selection already holding any pick, is left alone and `put-at` returns nil, as when the path is
+gone. That is the decided rule (`decision-gate-hidden-picks.md`): a new pick in that slot retires the held
+one, so the player's later choice is never overwritten or duplicated. Nil means "retire the held copy". JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
 
 **It is a consolidation, not new code.** Three walkers over stored picks already exist; a fourth
 would be the duplication to avoid:
