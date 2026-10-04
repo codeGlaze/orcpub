@@ -1157,7 +1157,11 @@ SRD classes so it does not depend on a test namespace that exists only on that b
 
 ## Track 1 spike: is chunked parsing worth a storage migration?
 
-Spike: `test/browser/chunked_parse_spike_e2e.js` (dev copy: `dev-scratch/chunked_parse_spike.js`).
+Spike: `test/browser/spikes/chunked_parse_spike.js` on integration (archived there 2026-10-04,
+`b72e4c3e`; it was `test/browser/chunked_parse_spike_e2e.js`). Not in any test run. Its packs
+(`dev-scratch/paks/mega-64.orcbrew`, `mega-raw.orcbrew`) were local scratch files and are gone;
+pass a pack: `scripts/e2e/run.sh test/browser/spikes/chunked_parse_spike.js <pack> [cpu]`.
+Decision tracked in [../TODO.md](../TODO.md), pinned "load the homebrew library without one long freeze".
 No code under `src/` touched; no migration implemented. Question: does parsing the
 homebrew library **per source, yielding between sources**, actually shrink the longest
 single blocking task — the thing a freeze is made of — enough to justify the localStorage

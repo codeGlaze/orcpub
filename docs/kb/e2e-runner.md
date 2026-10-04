@@ -114,8 +114,8 @@ A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and report
 
 ## Known failures
 
-- `chunked_parse_spike`: defaults to `dev-scratch/paks/mega-64.orcbrew`, a local scratch file
-  that no longer exists. Pass a large pack as its argument, or regenerate the fixture.
+None as of 2026-10-04. `chunked_parse_spike` was archived to `test/browser/spikes/` (`b72e4c3e`):
+it was a one-off measurement, not a test, and its scratch pack no longer exists.
 
 ## Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
 

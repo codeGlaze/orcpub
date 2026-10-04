@@ -195,8 +195,8 @@ Parsing per source (one book or pack at a time) with a yield between them keeps 
 time and the same data, but the longest freeze drops 5-6x on a realistic library (350 ms to
 about 60 ms) and about 2.3x when one source holds half the bytes. Full numbers, method, and the
 `##NaN` equivalence trap: [kb/perf-homebrew-builder-loop.md](kb/perf-homebrew-builder-loop.md),
-"Track 1 spike". The script is `chunked_parse_spike_e2e.js` (see that section for where it
-lives); it is not part of any test run.
+"Track 1 spike". The script is archived at `test/browser/spikes/chunked_parse_spike.js` on integration; it is
+in no test run and needs a pack passed to it.
 
 ### The decision, and why it waits
 
