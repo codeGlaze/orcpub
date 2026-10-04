@@ -1134,6 +1134,8 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **Browser suites no longer click into the What's New panel** — every suite starts with it and the cookie banner already seen unless it tests them, and the busy-export test waits for the Export button the panel used to cover (`a94af091`).
 - **A browser suite that hangs is stopped** after 20 minutes and reported as failed, instead of holding the run open (`f374a758`).
+- **The busy-export browser test is reliable** — the test-only busy profile now waits 1ms for an export slot instead of 250ms. The slot queue is fair, so with 250ms an export arriving under load often reached the front and got its PDF, and the test failed about 4 runs in 10 with nothing wrong in the app. It now also stops with one clear reason when the server is not busy (`147eac8a`).
+- **The starting-equipment browser test follows source-tagged keys** — a saved class lives under a key tagged with its source (`:browser-test-class-brttse`), and the test read the untagged one, so it reported lost weapons that had saved correctly (`35ff99d5`).
 
 **Changed**
 
