@@ -35,6 +35,43 @@ above it is broken.
 cannot reach them. They take time to make, so they get rescue too: the same layer-1 engine behind
 a client-side page in the boot-rescue style, which depends on nothing the app owns.
 
+## Layer 1 spec: the shared `picks` namespace (decided 2026-10-04)
+
+One engine over a character's stored picks, used by this rescue work AND the hidden-pick work
+(`decision-gate-hidden-picks.md`). Built ONCE, as its own small PR from `integration`, first.
+
+**It is a consolidation, not new code.** Three walkers over stored picks already exist; a fourth
+would be the duplication to avoid:
+
+| existing | where | this PR |
+|---|---|---|
+| `walk-entries`, `walk-picks`, `picks-of`, `relink-picks` | `content_reconciliation.cljs` (the heals) | **move** into `src/cljc/orcpub/dnd/e5/picks.cljc`, bodies unchanged; callers updated, no aliases left behind |
+| `flatten-options`, `build-option-paths` | `entity.cljc` (the build, hot path) | **not touched** |
+| `extract-content-keys` | `content_reconciliation.cljs` (Missing Content) | **not touched** |
+
+**New, and only this:** `remove-at` and `put-at`. A pick is addressed by its selection path plus
+its own key, never by its index in a vector (indices shift when another pick is removed). Planned
+later on top, by the hidden-pick work: `disqualified`, `overflow`, `to-planned`, `from-planned`,
+and `::picks/planned` (the in-memory hold).
+
+**Why `.cljc`:** the rescue server path (layers 2–3) must walk and remove picks without the app;
+the server's stored format converts with `entity/from-strict` / `to-strict`, both already shared.
+Bonus: the heal-walker tests then also run in the JVM suite, which CI gates on.
+
+**The `.cljc` traps, and the rules that keep this PR safe** (`testing-infrastructure.md` on
+`agents/develop`; `clojurescript-type-tolerance.md`):
+- JVM and browser can disagree: `(into #{} …)` once diverged on 159 of 808 graphs in the browser
+  only. The namespace builds no sets and relies on no iteration order; its docstring says so.
+- CI runs only the JVM suite, so this PR also runs the browser suite by hand
+  (`lein fig:test` + `node test/e2e/cljs-harness.js`).
+- No browser calls; one broken `.cljc` blocks the whole browser test build.
+- **Proof of a pure move:** the moved bodies tokenize identically to the originals (comments
+  stripped, strings masked); the heal tests pass unchanged on both platforms.
+
+**Not built, on purpose:** a general tree library, history, or an undo framework. Undo for an
+automatic change is keeping the previous character value (immutable, free to keep) until the notice
+is dismissed; Redo keeps the undone one.
+
 ## Layer 0: the hatch finds the player
 
 A hatch nobody can find is not one. Entry points, most robust first:
