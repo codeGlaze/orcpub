@@ -1,0 +1,61 @@
+# Runs the JVM suite under non-English locales.
+#
+# Everything the locale-safety work fixed was invisible to an English-locale CI:
+# an unlocalised date formatter that blanked every webjar asset, CSP_POLICY
+# folding to "strıct", name-to-kw producing :ıllusory-script, and two name
+# searches returning nothing for an uppercase query. None of them fail under
+# en_US, so en_US alone can never catch the next one.
+#
+# tr_TR is the high-value entry: Turkish and Azerbaijani are the only locales
+# whose ASCII case folding differs, so they catch that whole class. es_ES
+# catches date parsing, which tr_TR also catches -- one non-English entry would
+# do, but es_ES is where the original bug report came from, so it stays as a
+# named regression guard.
+
+name: Locale
+
+on:
+  push:
+    branches: [hotfix/locale-safety, develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jvm-suite:
+    name: JVM suite under ${{ matrix.locale }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - locale: tr_TR
+            java_opts: -Duser.language=tr -Duser.country=TR
+          - locale: es_ES
+            java_opts: -Duser.language=es -Duser.country=ES
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Pinned to the version continuous-integration.yml uses. `stable` is a
+      # moving ref, so an upstream release could change or break this check.
+      - name: Install Leiningen
+        run: |
+          curl -fsSL -o "$HOME/lein" \
+            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
+          chmod +x "$HOME/lein"
+          echo "$HOME" >> "$GITHUB_PATH"
+          "$HOME/lein" version
+
+      - name: lein test
+        env:
+          JAVA_TOOL_OPTIONS: ${{ matrix.java_opts }}
+        run: lein test
