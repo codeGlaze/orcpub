@@ -100,7 +100,8 @@
 (defn put-at
   "`character` with `removed` (from `remove-at`) stored again at its address, or nil when an entry
    on the way to it is no longer stored. `:multiselect?` true appends it to the selection's vector
-   (creating one); false makes it the selection's entry, replacing any there.
+   (creating one), unless that vector already holds its key; false makes it the selection's entry,
+   replacing any there.
    GOTCHA: checks no rule; whether it still fits is the caller's question."
   [character {:keys [address entry multiselect?]}]
   (let [sel (nth address (- (count address) 2))
@@ -108,5 +109,8 @@
     (when opath
       (if multiselect?
         (update-in character (conj opath sel)
-                   (fn [v] (if (sequential? v) (with-meta (conj (vec v) entry) (meta v)) [entry])))
+                   (fn [v]
+                     (cond (not (sequential? v)) [entry]
+                           (entry-index v (::entity/key entry)) v
+                           :else (with-meta (conj (vec v) entry) (meta v)))))
         (assoc-in character (conj opath sel) entry)))))

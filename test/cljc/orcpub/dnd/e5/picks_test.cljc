@@ -26,12 +26,15 @@
   (let [character {:db/id 7
                    ::entity/options {:race {::entity/key :aarakocra
                                             ::entity/options {:subrace {::entity/key :aarakocra}}}}}
-        {:keys [character rewrote]} (picks/relink character :orcpub.dnd.e5/races :aarakocra :aarakocra-2)]
+        {:keys [character rewrote]}
+        (picks/relink character :orcpub.dnd.e5/races :aarakocra :aarakocra-2)]
     (is (= :aarakocra-2 (get-in character [::entity/options :race ::entity/key])))
-    (is (= :aarakocra (get-in character [::entity/options :race ::entity/options :subrace ::entity/key])))
+    (is (= :aarakocra
+           (get-in character [::entity/options :race ::entity/options :subrace ::entity/key])))
     (is (= 1 (count rewrote))))
-  (let [character {::entity/options {:race {::entity/key :bird
-                                             ::entity/options {:subrace {::entity/key :aarakocra}}}}}]
+  (let [character {::entity/options
+                   {:race {::entity/key :bird
+                           ::entity/options {:subrace {::entity/key :aarakocra}}}}}]
     (is (= #{:aarakocra} (picks/keys-of character :orcpub.dnd.e5/subraces)))
     (is (= #{:bird} (picks/keys-of character :orcpub.dnd.e5/races))
         "a subrace pick does not make the question about the race")))
@@ -84,12 +87,22 @@
       (is (= [:athletics :stealth :insight] (map ::entity/key v)))
       (is (= {:kept true} (meta v)))))
   (testing "into an emptied multi-pick"
-    (let [{:keys [character removed]} (picks/remove-at ranger [:class :fighter :fighting-style :defense])]
+    (let [{:keys [character removed]}
+          (picks/remove-at ranger [:class :fighter :fighting-style :defense])]
       (is (= [] (get-in character [::entity/options :class 1 ::entity/options :fighting-style])))
       (is (= [{::entity/key :defense}]
              (get-in (picks/put-at character removed)
                      [::entity/options :class 1 ::entity/options :fighting-style])))))
+  (testing "the key re-picked meanwhile: no second copy"
+    (let [{:keys [character removed]} (picks/remove-at ranger insight)
+          repicked (update-in character
+                              [::entity/options :class 0 ::entity/options :skill-proficiency]
+                              conj {::entity/key :insight})
+          v (get-in (picks/put-at repicked removed)
+                    [::entity/options :class 0 ::entity/options :skill-proficiency])]
+      (is (= [:athletics :stealth :insight] (map ::entity/key v)))))
   (testing "nowhere to go: nil"
     (let [{:keys [removed]} (picks/remove-at ranger steel-will)
-          no-ranger (assoc-in ranger [::entity/options :class] [(get-in ranger [::entity/options :class 1])])]
+          no-ranger (assoc-in ranger [::entity/options :class]
+                              [(get-in ranger [::entity/options :class 1])])]
       (is (nil? (picks/put-at no-ranger removed))))))
