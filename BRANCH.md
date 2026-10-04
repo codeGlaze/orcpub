@@ -167,6 +167,7 @@ or closes, or a branch changes role, update this section in the same commit.
 | `integration` | the active trunk; carries the homebrew-keys fix and #39; comment baseline empty |
 | `fix/comment-debt` | merged into `integration` as `1aa80ec3` (#39, 2026-09-30): comment debt to zero, party-route fix. Owner to delete the branch |
 | `fix/hidden-multiclass-skill-pick` | the hidden-pick fix (Part A), from `integration`: skills done, equipment and tools next; no PR yet |
+| `feature/character-rescue` | from `integration`: fixing a character without the app (`character-rescue.md`); its own session |
 
 | PR | from → to | note |
 |---|---|---|

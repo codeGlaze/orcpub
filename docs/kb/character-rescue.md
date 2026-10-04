@@ -1,6 +1,6 @@
 # Character rescue: a way to fix a character that works without the app
 
-*DESIGN, owner-approved direction 2026-10-04. Nothing built. Code branches from `integration`.*
+*DESIGN, owner-approved direction 2026-10-04. Nothing built. Code on `feature/character-rescue`, from `integration`.*
 
 ## Why
 
@@ -34,6 +34,24 @@ above it is broken.
 **Browser-only characters** (made logged out, never saved) are not on the server, so layers 2–3
 cannot reach them. They take time to make, so they get rescue too: the same layer-1 engine behind
 a client-side page in the boot-rescue style, which depends on nothing the app owns.
+
+## Layer 0: the hatch finds the player
+
+A hatch nobody can find is not one. Entry points, most robust first:
+
+1. **A rescue bar on every character page, boot-rescue style.** The server already renders each
+   character's page (`routes.clj` `character-page`, which knows the id before any app code runs).
+   It writes a hidden one-line bar with that character's repair link, shown unless the app reports
+   the character rendered within a few seconds. A white screen or an endless spinner still shows
+   "This character didn't load. Repair it." Check whether the builder's own address knows the
+   character id server-side; if not, it needs the same.
+2. **The "won't load" recovery panel** links to the repair page.
+3. **The character list:** a "Repair" item per character (the list reads summaries, so it usually
+   survives one broken character).
+4. **Support:** the "report a character that won't load" email carries the repair address.
+5. **The plain address** (`/characters/<id>/repair`), last resort.
+
+Browser-only characters: the same bar and repair page, run from the browser's own storage.
 
 ## Precedents to build on, not beside (D29)
 
