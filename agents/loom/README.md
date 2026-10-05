@@ -62,4 +62,34 @@ LOOM=agents/loom/release/silhouette-loom-v2.html PACKZIP=/path/to/portrait-pack.
 | `persist.js` | reviews survive reload and travel in the manifest | `OUT` dir |
 | `lines.js` | lines are left out of the automatic fill, and the option to include them | `OUT` dir |
 | `leakview.js` | Show leaks: bright green, see-through amplified | `OUT` dir |
-| `smooth.js` | Smooth small holes: off by default, grain drops, Remove fill protects, export, reload | `OUT` dir |
+
+## The see-through fill: scope
+
+The fill exists for one job: the speckled insides that show once a piece is
+coloured or tinted (fills drawn at 80-99% opacity, which show the skin or
+background through). It fills the solid inside of each piece, staying 3px
+back from the outline, and leaves lines alone. Anything else -- a real hole
+the fill does not reach -- is fixed by hand with Add fill, and only if it
+shows in a portrait.
+
+**Judge it on portraits**, not on single pieces: export a pack from the Loom,
+render whole portraits through the app's renderer on light to dark skin, at
+the size the builder shows them. Show leaks (green, see-through x4) finds
+spots; it is not a pass mark -- nearly all hand-drawn art fails it.
+
+### Parked: further healing
+
+Worth revisiting later, with a lot of scrutiny. What was learned (October 2026):
+
+- Smoothing (closing every opacity dip up to ~4px, v2.35) cleared grain on
+  single pieces but in portraits changed 30-100x more pixels than the fill:
+  it closed the gaps between bang strands (filling them brown from the
+  neighbouring lines) and smeared eye whites. Removed in v2.36.
+- The artist draws some marks with transparency rather than tone: a part in
+  hair front 02, a dash on shirt 03, strand shading on bangs 02/03. Any rule
+  that closes holes automatically must not touch these; neither size nor
+  shape separated them from real holes.
+- Leaving lines alone (v2.33) is right but invisible in portraits.
+- The hair back 02 gap is covered by the face in every portrait.
+- Any candidate goes on the portrait grid beside the approved fill before it
+  ships.

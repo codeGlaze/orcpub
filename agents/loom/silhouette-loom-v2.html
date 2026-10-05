@@ -200,6 +200,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.36</b> removes "Smooth small holes": in real portraits it filled the gaps between strands and smeared eye whites. The fill is back to filling the speckled insides that colouring shows, nothing more ·
       <b>v2.35</b> "Smooth small holes" in the fill review, off by default: after the fill, closes grain and pinholes up to about 4px wide at any opacity, including in the soft outline, keeping the outline's falloff; shown orange in the overlay; Remove fill keeps a spot as drawn ·
       <b>v2.34</b> "Show leaks" in the fill review: the piece over bright green with its see-through amplified 4×, so a pixel 95% opaque shows plainly; works with Overlay, Before and After ·
       <b>v2.33</b> the automatic fill leaves lines alone: pixels clearly darker than the fill around them are skipped (shown cyan in the overlay), so soft pencil strokes keep their edge; "Leave lines alone" turns it off, and Add fill still works anywhere ·
@@ -326,7 +327,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.35';
+const LOOM_VERSION = 'v2.36';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1121,50 +1122,6 @@ function filledCopy(canvas, eff) {
   const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
   c.getContext('2d').putImageData(new ImageData(eff.px, c.width, c.height), 0, 0); return c;
 }
-/* Smoothing: close every dip in opacity up to about 2r px wide -- grain and
-   pinholes, at any opacity, the soft outline included -- by taking the
-   larger of the opacity and its closing (the most within r, then the least
-   within r). The outline's falloff is wider than that and stays. A raised
-   pixel takes its colour from the solid pixels around it, in proportion to
-   how much it was raised, since a nearly empty pixel's own colour means
-   nothing. */
-function windowed(src, w, h, r, pick) {
-  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let m = src[y * w + x]; for (let k = Math.max(0, x - r); k <= Math.min(w - 1, x + r); k++) m = pick(m, src[y * w + k]); tmp[y * w + x] = m; }
-  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
-    let m = tmp[y * w + x]; for (let k = Math.max(0, y - r); k <= Math.min(h - 1, y + r); k++) m = pick(m, tmp[k * w + x]); out[y * w + x] = m; }
-  return out;
-}
-function boxSum(src, w, h, r) {
-  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x < w; x++) {
-    if (x + r < w) s += src[y * w + x + r]; if (x - r - 1 >= 0) s -= src[y * w + x - r - 1]; if (x >= 0) tmp[y * w + x] = s; } }
-  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y < h; y++) {
-    if (y + r < h) s += tmp[(y + r) * w + x]; if (y - r - 1 >= 0) s -= tmp[(y - r - 1) * w + x]; if (y >= 0) out[y * w + x] = s; } }
-  return out;
-}
-function smoothHoles(px, w, h, keep, r = 2) {
-  const n = w * h, a = new Float32Array(n);
-  for (let i = 0; i < n; i++) a[i] = px[4 * i + 3];
-  const closed = windowed(windowed(a, w, h, r, Math.max), w, h, r, Math.min);
-  const solid = new Float32Array(n), cr = new Float32Array(n), cg = new Float32Array(n), cb = new Float32Array(n);
-  for (let i = 0; i < n; i++) if (a[i] > 200) { solid[i] = 1; cr[i] = px[4 * i]; cg[i] = px[4 * i + 1]; cb[i] = px[4 * i + 2]; }
-  const R = r + 1, sn = boxSum(solid, w, h, R), sr = boxSum(cr, w, h, R), sg = boxSum(cg, w, h, R), sb = boxSum(cb, w, h, R);
-  const raised = new Uint8Array(n); let count = 0;
-  for (let i = 0; i < n; i++) {
-    if (keep[i]) continue;
-    const a2 = Math.max(a[i], closed[i]); if (a2 - a[i] < 3) continue;
-    if (sn[i] > 0) {
-      const t = (a2 - a[i]) / a2;
-      px[4 * i] = px[4 * i] * (1 - t) + (sr[i] / sn[i]) * t;
-      px[4 * i + 1] = px[4 * i + 1] * (1 - t) + (sg[i] / sn[i]) * t;
-      px[4 * i + 2] = px[4 * i + 2] * (1 - t) + (sb[i] / sn[i]) * t;
-    }
-    px[4 * i + 3] = a2; raised[i] = 1; count++;
-  }
-  return { raised, count };
-}
 /* Lines: a pixel clearly darker (by 40 levels) than the brightest drawn pixel
    within 6px is linework, not fill. A slightly see-through line still reads
    as a line; filling it only hardens a soft pencil edge. */
@@ -1209,7 +1166,7 @@ function rleDecode(str, n) {
 const zipFill = new Map(), looseFill = new Map();   // from manifests: key "layer/file"
 const fillKey = (it) => itemKey(it.layer, it.name) + '@' + it.processed.width + 'x' + it.processed.height;
 function fillToSaved(f, w, h) {
-  return { w, h, on: f.on, r: f.r, thr: f.thr, lines: f.lines !== false, smooth: !!f.smooth, reviewed: !!f.reviewed, edited: !!f.edited,
+  return { w, h, on: f.on, r: f.r, thr: f.thr, lines: f.lines !== false, reviewed: !!f.reviewed, edited: !!f.edited,
            keep: rleEncode(f.keep), add: rleEncode(f.add) };
 }
 function saveFill(it) {
@@ -1223,7 +1180,7 @@ function fillState(it) {
     if (!saved) saved = zipFill.get(k);
     if (saved && (saved.w !== w || saved.h !== h)) saved = null;   // marks are per pixel: only at the same size
     it.fill = saved
-      ? { on: saved.on, r: saved.r, thr: saved.thr, lines: saved.lines !== false, smooth: !!saved.smooth, reviewed: saved.reviewed, edited: saved.edited,
+      ? { on: saved.on, r: saved.r, thr: saved.thr, lines: saved.lines !== false, reviewed: saved.reviewed, edited: saved.edited,
           keep: rleDecode(saved.keep, n), add: rleDecode(saved.add, n), undo: [], redo: [] }
       : { on: seeThroughMatters(it), r: 3, thr: 200, lines: true, add: new Uint8Array(n), keep: new Uint8Array(n), undo: [], redo: [] };
   }
@@ -1245,11 +1202,10 @@ function effectiveFill(it) {
     if (f.add[i] && !isAuto) addN++;
     if ((isAuto && !f.keep[i]) || (f.add[i] && !f.keep[i])) { m[i] = isAuto ? 1 : 2; n++; }
   }
-  // the result: the fill, then (if chosen) smoothing over it
+  // the result: the art with the fill made solid
   const px = new Uint8ClampedArray(d);
   for (let i = 0; i < m.length; i++) if (m[i]) px[4 * i + 3] = 255;
-  const sm = f.smooth ? smoothHoles(px, c.width, c.height, f.keep) : { raised: null, count: 0 };
-  return { mask: m, skipped, n, autoN, addN, keepN, lineN, px, smoothed: sm.raised, smoothN: sm.count };
+  return { mask: m, skipped, n, autoN, addN, keepN, lineN, px };
 }
 
 function fillEditor(it) {
@@ -1284,7 +1240,6 @@ function fillEditor(it) {
       for (let i = 0; i < eff.mask.length; i++) {
         if (eff.mask[i] === 1) { o.data[4*i] = 255; o.data[4*i+1] = 40; o.data[4*i+2] = 200; }
         else if (eff.mask[i] === 2) { o.data[4*i] = 255; o.data[4*i+1] = 220; o.data[4*i+2] = 40; }
-        else if (eff.smoothed && eff.smoothed[i]) { o.data[4*i] = 255; o.data[4*i+1] = 140; o.data[4*i+2] = 0; }
         else if (eff.skipped[i]) { o.data[4*i] = 40; o.data[4*i+1] = 220; o.data[4*i+2] = 255; }
       }
       tg.putImageData(o, 0, 0);
@@ -1294,15 +1249,14 @@ function fillEditor(it) {
     stats.textContent = `${eff.n} px will be filled · ${eff.autoN} found automatically` +
       ` · ${eff.keepN} removed by you · ${eff.addN} added by you` +
       (f.lines !== false ? ` · ${eff.lineN} on lines left alone` : '') +
-      (f.smooth ? ` · ${eff.smoothN} smoothed` : '') +
       (f.on ? '' : ' · this piece is switched OFF');
     undoB.disabled = !f.undo.length; redoB.disabled = !f.redo.length;
   };
-  const snap = () => ({ r: f.r, thr: f.thr, lines: f.lines, smooth: f.smooth, add: f.add.slice(), keep: f.keep.slice(), on: f.on });
+  const snap = () => ({ r: f.r, thr: f.thr, lines: f.lines, add: f.add.slice(), keep: f.keep.slice(), on: f.on });
   const remember = () => { f.undo.push(snap()); if (f.undo.length > 60) f.undo.shift(); f.redo = []; f.edited = true; };
   const persist = () => saveFill(it);
-  const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, lines: st.lines, smooth: st.smooth, on: st.on }); f.add = st.add; f.keep = st.keep;
-                            rS.value = f.r; tS.value = f.thr; onC.checked = f.on; lnC.checked = f.lines !== false; smC.checked = !!f.smooth; eff = effectiveFill(it); persist(); draw(); render(); };
+  const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, lines: st.lines, on: st.on }); f.add = st.add; f.keep = st.keep;
+                            rS.value = f.r; tS.value = f.thr; onC.checked = f.on; lnC.checked = f.lines !== false; eff = effectiveFill(it); persist(); draw(); render(); };
   // painting
   const paintAt = (ev) => {
     const r = cv.getBoundingClientRect(), k = base * ui.zoom;
@@ -1356,10 +1310,6 @@ function fillEditor(it) {
   const lnS = document.createElement('span'); const lnC = document.createElement('input'); lnC.type = 'checkbox'; lnC.checked = f.lines !== false;
   lnC.addEventListener('change', () => { remember(); f.lines = lnC.checked; eff = effectiveFill(it); persist(); draw(); render(); });
   lnS.appendChild(lnC); lnS.appendChild(document.createTextNode(' Leave lines alone')); lnL.appendChild(lnS); ctl.appendChild(lnL);
-  const smL = document.createElement('label'); smL.className = 'f inline-f';
-  const smS = document.createElement('span'); const smC = document.createElement('input'); smC.type = 'checkbox'; smC.checked = !!f.smooth;
-  smC.addEventListener('change', () => { remember(); f.smooth = smC.checked; eff = effectiveFill(it); persist(); draw(); render(); });
-  smS.appendChild(smC); smS.appendChild(document.createTextNode(' Smooth small holes (grain and pinholes, outline too)')); smL.appendChild(smS); ctl.appendChild(smL);
   ctl.appendChild(seg('View', [['overlay', 'Overlay'], ['before', 'Before'], ['after', 'After']], () => ui.view, v => { ui.view = v; }));
   const bgL = document.createElement('label'); bgL.className = 'f inline-f';
   const bgS = document.createElement('span'); const bgC = document.createElement('input'); bgC.type = 'color'; bgC.value = ui.bg;
@@ -1397,7 +1347,7 @@ function fillEditor(it) {
   btns.appendChild(undoB); btns.appendChild(redoB); btns.appendChild(clr); ctl.appendChild(btns);
   const stats = document.createElement('div'); stats.className = 'fill-stats'; ctl.prepend(stats);
   const legend = document.createElement('div'); legend.className = 'fill-legend';
-  legend.innerHTML = '<span style="color:#ff28c8">■</span> filled automatically · <span style="color:#ffdc28">■</span> fill you added · <span style="color:#28dcff">■</span> line, left alone · <span style="color:#ff8c00">■</span> smoothed · where you removed fill, the art shows as drawn';
+  legend.innerHTML = '<span style="color:#ff28c8">■</span> filled automatically · <span style="color:#ffdc28">■</span> fill you added · <span style="color:#28dcff">■</span> line, left alone · where you removed fill, the art shows as drawn';
   ctl.appendChild(legend);
   wrap.appendChild(scroller); wrap.appendChild(ctl);
   draw();
@@ -2207,7 +2157,7 @@ function buildManifest(chosen) {
                                 fillReview: fillToSaved(f, it.processed.width, it.processed.height),
                                 ...($('fill-insides').checked && f.on
                                     ? { filledInsides: { filled: e.n, edgeMargin: f.r, minOpacity: f.thr,
-                                                         keptByHand: e.keepN, addedByHand: e.addN, smoothed: e.smoothN } } : {}) }; })()
+                                                         keptByHand: e.keepN, addedByHand: e.addN } } : {}) }; })()
             : {}),
         // normalised 0..1 of the frame, so a re-render at another size still
         // lands on the same part of the drawing
