@@ -1,0 +1,60 @@
+# Reports the app's Clojure and Java libraries to GitHub's dependency graph, so Dependabot alerts
+# cover them.
+#
+# Dependabot cannot read project.clj, so without this it watches only the workflows and the npm
+# test tools, never the libraries the server runs on. `lein pom` writes the same dependencies as a
+# Maven pom.xml, and the submission action resolves it (transitive dependencies included) and
+# uploads the result. Alerts then appear under Security > Dependabot like any other ecosystem.
+# No API key: this uses GitHub's own advisory database, not NVD.
+#
+# On pull requests it submits the PR's graph too, which is what a dependency-review check would
+# compare against.
+
+name: Dependency graph
+
+on:
+  push:
+    branches: [integration, develop, main]
+  pull_request:
+    branches: [integration, develop, main]
+  schedule:
+    # Mondays: new advisories arrive without any commit here.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  submit:
+    name: Submit Clojure dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Pinned to the version continuous-integration.yml uses.
+      - name: Install Leiningen
+        run: |
+          curl -fsSL -o "$HOME/lein" \
+            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
+          chmod +x "$HOME/lein"
+          echo "$HOME" >> "$GITHUB_PATH"
+          "$HOME/lein" version
+
+      # project.clj declares the Apache snapshots repository over http and mirrors it to https;
+      # lein pom writes the declared http URL, which Maven 3.8+ refuses outright.
+      - name: Write pom.xml from project.clj
+        run: |
+          lein pom
+          sed -i 's#http://repository.apache.org#https://repository.apache.org#' pom.xml
+
+      - name: Submit the dependency snapshot
+        uses: advanced-security/maven-dependency-submission-action@v4
+        with:
+          directory: .
