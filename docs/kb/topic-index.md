@@ -282,7 +282,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, gain, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -428,7 +428,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -585,7 +585,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, picks, renamed, report, saved, spell-selection
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -690,7 +690,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, dice, feature, features, fighter, indomitable, pools, registry, rogue, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
+**topics:** attack, cfg, data-addressable, dice, feature, features, fighter, indomitable, pools, registry, rogue, roller, rolls, scaling, sneak, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -1316,7 +1316,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suites, testing-infrastructure
+**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1569,7 +1569,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, fighting, great, interception, pool, predicate, prop, property, protection, style, styles, thrown, two-weapon, weapon
+**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, property, protection, style, styles, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1667,7 +1667,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
+**topics:** 648, branch, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, row, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -1688,7 +1688,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, cards, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -1745,7 +1745,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 374, 3816, 493, became, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
+**topics:** 1743, 1744, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2523,7 +2523,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, skill, skills, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2968,6 +2968,19 @@ _spell-slot-progression · spell slot progression_
 - Agreed design — DESIGN (this thread, not built)
 - Relation to other docs
 
+## srd-2024-implementation-notes.md
+
+_srd-2024-implementation-notes · srd 2024 implementation notes_
+
+**topics:** 2014, 2024, 339, calligrapher, dataset, editions, elven, feat, fighting, ftd, gnomish, goblin, idea, lineage, lineages, open5e, species, styles
+
+- The structural shifts, measured
+- 1. Subraces became lineages
+- 2. Backgrounds grant ability scores and an origin feat
+- 3. Fighting styles became feats
+- 4. Monster stat blocks changed format
+- 5. Telling two editions of the same item apart (UX)
+
 ## srd-2024-integration.md
 
 _srd-2024-integration · srd 2024 integration_
@@ -3008,7 +3021,7 @@ _srd-pdf-as-source-of-record · srd pdf as source of record_
 
 _srd-vs-plugin-content · srd vs plugin content_
 
-**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, half-orc, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugins, races, srd
+**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugins, races, srd
 
 - The Distinction
 - What's Hardcoded (SRD)
@@ -3051,7 +3064,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3123,7 +3136,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, db-side, effects, extracting, handlers, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3198,7 +3211,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** 30-line, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
+**topics:** builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, move, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture
