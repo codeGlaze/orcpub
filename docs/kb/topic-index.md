@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1945,7 +1945,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, immediately, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2992,7 +2992,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 1959, 321, carriage, demon, dnld, git, gitea, newline, open5e, pdf, pdfs, repository, resources, srd, srd-2024-intergration, srd-5, text, validating
+**topics:** 1959, 321, carriage, conjuration, demon, dnld, gitea, name-level, newline, open5e, pdf, pdfs, resources, schools, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological

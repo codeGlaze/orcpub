@@ -54,9 +54,24 @@ Comparing every item name in `dnd/e521` against the extracted SRD 5.2.1 text:
 | equipment | 276 | 259 | 17 |
 | magic items | 1959 | 1515 | 444 |
 
-**The hand-rewritten categories are sound.** Spells, feats, backgrounds, races, weapons and
-armor — the ones carrying "Rewrite … in orcpub schema" commits — validate at essentially
-100%, and that work is reusable as it stands.
+**The hand-rewritten categories have correct NAMES.** Spells, feats, backgrounds, races,
+weapons and armor — the ones carrying "Rewrite … in orcpub schema" commits — validate at
+essentially 100% *by name*.
+
+**That is not the same as being correct, and an earlier revision of this page wrongly said
+it was.** Checking field VALUES on the spells immediately found errors: of the 13 spells
+cross-checkable against a parsed SRD entry, 5 carry the wrong school — Ice Knife is
+Conjuration in the SRD and `:school evocation` in the import, Befuddlement is Enchantment,
+Ray of Sickness is Necromancy, Tsunami is Conjuration, Aura of Life is Abjuration. Levels
+agreed in every case; only schools were wrong.
+
+The cause is visible in the distribution: `evocation` appears on 13 of 28 spells, about half,
+which is not a plausible spread across eight schools. It is the import's fallback when it
+could not determine one. So the error is systematic, not scattered, and a name-level check
+cannot see it.
+
+**Validate fields, not just names.** A missing item is obvious; an item with the right name
+and a wrong field is not, and nothing downstream flags it.
 
 **The bulk-imported magic items are not.** Of 1959 names, 764 are legitimate expansions of a
 real SRD item (SRD "Demon Armor" becomes "Demon Breastplate", "Demon Chain Mail" and so on),
