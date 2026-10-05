@@ -1561,6 +1561,12 @@ one 10px gutter, and the header's tab menus open on screen again.
 - **Lint is clean** — the 50 warnings and 3 infos on `integration` are fixed, not suppressed: shadowing locals renamed for what they hold, unused requires removed, nested lets merged; no behaviour change (`ad3c612b`).
 - **The pick walker moved into shared code** — `walk-entries`, `walk-picks`, `picks-of` and `relink-picks` now live in `orcpub.dnd.e5.picks` (as `walk`, `walk-typed`, `keys-of`, `relink`), unchanged, so the server can use them and their tests run in CI (`439593dd`).
 
+### ci/clojure-cve-scan
+
+**Added**
+
+- **Security alerts cover the server's Clojure libraries** — a CI job reports them to GitHub's dependency graph each week and on every push and pull request, so Dependabot warns about a vulnerable one; it could not read `project.clj` before (`233b7b80`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
