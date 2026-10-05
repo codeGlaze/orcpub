@@ -45,7 +45,12 @@ async function open(browser, link, who) {
   const noticed = page.waitForFunction(() => document.body && document.body.innerText.includes('could not be loaded'),
     null, { timeout: 15000 }).then(() => 1, () => 0);
   await page.waitForLoadState('networkidle', { timeout: 120000 });
-  await page.waitForTimeout(5000);
+  // Every link ends one of two ways, the banner or the failure notice; waits for whichever
+  // comes, rather than a fixed five seconds either way.
+  await Promise.race([
+    page.locator('text=Shared with 1 homebrew piece').first().waitFor({ timeout: 15000 }).catch(() => {}),
+    noticed,
+  ]);
   const loaded = await sharedHomebrew(page);
   const banner = await page.locator('text=Shared with 1 homebrew piece').count();
   const failedNotice = await noticed;
