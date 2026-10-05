@@ -357,7 +357,7 @@ _auth-state-in-app-db · auth state in app db_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -2430,7 +2430,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 669, chain, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 401, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2972,7 +2972,7 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 109-entry, 1780, 2024, 230kb, 32-entry, 506, 620kb, app-side, checked, column, counted, counterpart, delta, designed, option-source, origin-feat, parsers, started
+**topics:** 109-entry, 2024, 230kb, 32-entry, 620kb, app-side, checked, column, counted, counterpart, delta, designed, option-source, origin-feat, parsers, started, surprise, wards
 
 - Content
 - Rules and reference (no e5 data namespace)
@@ -2983,7 +2983,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, condition, d20, dial, disadvantage, edition, editions, exhaustion, goblin, grappled, idea, lineage, lineages, open5e, records, rules, species
+**topics:** 2014, 2024, 339, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, lineages, mechanical, open5e, rules, species, spell, srd
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -2995,6 +2995,8 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 - A measurement caution, learned the hard way
 - Idea
 - 7. Rule interlinking and indexing (owner ask, 2026-10-05)
+- 8. The app is already a 2014 SRD. The gap is surfacing, not content.
+- 9. Mechanical enrichment — the axis this track kept dropping
 
 ## srd-2024-integration.md
 

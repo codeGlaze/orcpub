@@ -204,3 +204,66 @@ probably match.
 differently in 2014, and conditions were rewritten in every case. A cross-reference therefore
 belongs to an edition, not to the item — which the `document` field on every open5e record
 already assumes.
+
+## 8. The app is already a 2014 SRD. The gap is surfacing, not content.
+
+**Stated by the owner 2026-10-05, and worth writing down because this work kept treating `e5`
+as a base to diff against rather than as what it is.** The app already ships most of the 2014
+SRD: 319 spells, 1780 monsters, 283 magic items, 506 class entries, equipment, weapons, armor.
+That is an SRD reference. Unlike comparable projects it does not surface it well, and most
+users do not know it is there.
+
+**Consequences for this track.** The 2024 work is not "add an SRD"; it is "add the second
+edition of an SRD we already have". Two things follow:
+
+- Anything built for presenting 2024 content — indexing, interlinking, search, a browsable
+  rules tier — should serve 2014 equally. There is no reason to build it edition-specific.
+- The rules we hold must be **our own copies in our own syntax, verbatim in content**, so the
+  project owns what it serves. Not vendored third-party files. `e55/spells.cljc` is already
+  this shape; the question of vendoring open5e's JSON was the wrong question.
+
+## 9. Mechanical enrichment — the axis this track kept dropping
+
+**The ask.** Every entry should carry as much mechanical capability as can be derived: a spell
+with a clickable damage roll, Sneak Attack with a button that rolls damage scaled to the
+character, and so on. Not required now, but the plan has to carry it, and **both editions need
+it** — a 2024-only capability would be worse than none.
+
+**What this means in practice.** When content is imported or re-imported, note what still
+needs processing to become mechanical rather than textual. A description that says "8d6 fire
+damage" is prose; `{:damage-roll "8d6" :damage-types [:fire]}` is a button.
+
+**What is already available and currently being thrown away.** open5e's `Spell.json` carries
+structured mechanical fields, populated as follows over 339 spells:
+
+| field | populated |
+|---|---|
+| `target_count`, `target_type` | 339 |
+| `concentration` | 133 |
+| `saving_throw_ability` | 128 |
+| `higher_level` | 122 |
+| `damage_roll` | 119 |
+| `damage_types` | 107 |
+| `shape_type`, `shape_size` | 52 |
+| `attack_roll` | 42 |
+| `ritual` | 29 |
+
+Fireball comes through as `damage_roll 8d6`, `damage_types [fire]`,
+`saving_throw_ability dexterity`, `shape sphere/20`, and a `higher_level` string describing the
+upcast. That is a clickable damage roll, a save prompt and an area template, without parsing a
+word of prose.
+
+**Known debt, recorded rather than fixed.** `e55/spells.cljc` as committed captures only name,
+level, school, casting time, range, duration, components and description. **Every mechanical
+field above was discarded.** It needs re-emitting to carry them. The same question applies to
+every content type not yet done: ask what mechanical fields the source offers before writing
+the emitter, not after.
+
+**Idea.** Treat mechanical fields as a separate, additive pass rather than a blocker. The
+textual entry is useful immediately; the mechanical fields enrich it later without changing
+its identity or key. That keeps "mechanical oomph" off the critical path while making sure the
+data is not thrown away on the way in — which is what has been happening.
+
+**Open question.** 2014's `Spell.json` should be checked for the same fields. If open5e
+populated them for 2014 too, the existing `e5` content could be enriched from the same source,
+which is the clearest case of 2024 work paying for a 2014 improvement.
