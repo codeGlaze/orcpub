@@ -200,6 +200,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.38</b> brushes paint continuous strokes: the gaps between pointer positions are filled in (they left a trail of dots on a quick stroke), every position the browser reports is used, and the picture redraws once a frame; the patch view no longer re-tints its reference pieces on every move ·
       <b>v2.37</b> "Patch gaps" on every piece: paint behind the art to close a gap between pieces (it can never change a drawn pixel), with the pieces under and over it shown in skin and hair colour; Paint / Erase / Off, eyedropper, undo/redo; kept in this browser and in the manifest, and written into the downloaded pack ·
       <b>v2.36</b> removes "Smooth small holes": in real portraits it filled the gaps between strands and smeared eye whites. The fill is back to filling the speckled insides that colouring shows, nothing more ·
       <b>v2.35</b> "Smooth small holes" in the fill review, off by default: after the fill, closes grain and pinholes up to about 4px wide at any opacity, including in the soft outline, keeping the outline's falloff; shown orange in the overlay; Remove fill keeps a spot as drawn ·
@@ -328,7 +329,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.37';
+const LOOM_VERSION = 'v2.38';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1100,6 +1101,31 @@ function irisEditor(item, onChange) {
   return wrap;
 }
 
+/* A brush stroke: dab at every position the pointer passed through, joined
+   up so a quick stroke is a line rather than a trail of dots. `toArt` turns
+   a pointer event into art pixels; `dab` paints one round dab there. */
+function strokeHandler(toArt, dab, size) {
+  let last = null;
+  return {
+    start(ev) { last = toArt(ev); dab(last[0], last[1]); },
+    move(ev) {
+      const evs = (ev.getCoalescedEvents && ev.getCoalescedEvents().length) ? ev.getCoalescedEvents() : [ev];
+      for (const e of evs) {
+        const [x, y] = toArt(e), step = Math.max(0.5, size() / 4);
+        const n = Math.max(1, Math.ceil(Math.hypot(x - last[0], y - last[1]) / step));
+        for (let k = 1; k <= n; k++) dab(last[0] + (x - last[0]) * k / n, last[1] + (y - last[1]) * k / n);
+        last = [x, y];
+      }
+    },
+    end() { last = null; },
+  };
+}
+// one redraw per frame, however many pointer events arrive
+function frameQueue(fn) {
+  let queued = false;
+  return () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fn(); }); };
+}
+
 /* ---------- see-through insides ----------
    A fill drawn at 80-99% opacity looks solid on white, but whatever is behind
    shows through it: pale specks on dark skin. A pixel counts as inside when
@@ -1259,15 +1285,17 @@ function fillEditor(it) {
   const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, lines: st.lines, on: st.on }); f.add = st.add; f.keep = st.keep;
                             rS.value = f.r; tS.value = f.thr; onC.checked = f.on; lnC.checked = f.lines !== false; eff = effectiveFill(it); persist(); draw(); render(); };
   // painting
-  const paintAt = (ev) => {
-    const r = cv.getBoundingClientRect(), k = base * ui.zoom;
-    const x = Math.round(box.x + (ev.clientX - r.left) / k), y = Math.round(box.y + (ev.clientY - r.top) / k);
+  const toArt = (ev) => { const r = cv.getBoundingClientRect(), k = base * ui.zoom;
+    return [box.x + (ev.clientX - r.left) / k, box.y + (ev.clientY - r.top) / k]; };
+  const dab = (x, y) => {
     const rad = ui.size / 2, arr = ui.brush === 'keep' ? f.keep : f.add, other = ui.brush === 'keep' ? f.add : f.keep;
     for (let yy = Math.floor(y - rad); yy <= y + rad; yy++) for (let xx = Math.floor(x - rad); xx <= x + rad; xx++) {
       if (xx < 0 || yy < 0 || xx >= W || yy >= H || Math.hypot(xx - x, yy - y) > rad) continue;
       arr[yy * W + xx] = 1; other[yy * W + xx] = 0;
     }
   };
+  const stroke = strokeHandler(toArt, dab, () => ui.size);
+  const redraw = frameQueue(() => { eff = effectiveFill(it); draw(); });
   let painting = false;
   // brush Off: the picture is only looked at, and a drag scrolls it
   const armed = () => { cv.style.touchAction = ui.brush === 'off' ? 'auto' : 'none'; cv.style.cursor = ui.brush === 'off' ? 'grab' : 'crosshair'; };
@@ -1278,11 +1306,11 @@ function fillEditor(it) {
       if (ev.pointerType === 'mouse') { pan = [ev.clientX, ev.clientY, scroller.scrollLeft, scroller.scrollTop]; cv.setPointerCapture(ev.pointerId); cv.style.cursor = 'grabbing'; }
       return;
     }
-    remember(); painting = true; cv.setPointerCapture(ev.pointerId); paintAt(ev); eff = effectiveFill(it); draw(); });
+    remember(); painting = true; cv.setPointerCapture(ev.pointerId); stroke.start(ev); redraw(); });
   cv.addEventListener('pointermove', (ev) => {
     if (pan) { scroller.scrollLeft = pan[2] - (ev.clientX - pan[0]); scroller.scrollTop = pan[3] - (ev.clientY - pan[1]); return; }
-    if (!painting) return; paintAt(ev); eff = effectiveFill(it); draw(); });
-  const end = () => { if (pan) { pan = null; armed(); } if (painting) { painting = false; persist(); render(); } };
+    if (!painting) return; stroke.move(ev); redraw(); });
+  const end = () => { if (pan) { pan = null; armed(); } if (painting) { painting = false; stroke.end(); eff = effectiveFill(it); persist(); render(); } };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   // controls
   const ctl = document.createElement('div'); ctl.className = 'fill-controls';
@@ -1456,17 +1484,20 @@ function patchEditor(it) {
     for (let i = 0; i < px.length; i += 4) { d[i] = px[i] * r / 255; d[i + 1] = px[i + 1] * g / 255; d[i + 2] = px[i + 2] * b / 255; d[i + 3] = px[i + 3]; } return o; };
   const colourFor = (o) => skinLayer(o) ? ui.skin : ui.hair;
   let art = artPx(it);
+  const refCache = new Map();
   const stats = document.createElement('div'); stats.className = 'fill-stats';
   const draw = () => {
     const k = base * ui.zoom;
     cv.width = Math.round(box.w * k); cv.height = Math.round(box.h * k);
     const t = document.createElement('canvas'); t.width = W; t.height = H; const tg = t.getContext('2d');
     tg.fillStyle = '#ececec'; tg.fillRect(0, 0, W, H);
-    const layerOn = (px, hex) => { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(tinted(px, hex), 0, 0); tg.drawImage(c, 0, 0); };
+    const canvasOf = (px, hex) => { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(tinted(px, hex), 0, 0); return c; };
+    // the reference pieces only change when a picker does: tint them once
+    const ref = (o) => { const key = o.name + '|' + colourFor(o); if (!refCache.has(key)) refCache.set(key, canvasOf(pxOf(o), colourFor(o))); return refCache.get(key); };
     const under = unders.find(o => o.name === ui.under), over = overs.find(o => o.name === ui.over);
-    if (under) layerOn(pxOf(under), colourFor(under));
-    layerOn(withPatch(new Uint8ClampedArray(art), pt), colourFor(it));
-    if (over && ui.showOver) layerOn(pxOf(over), colourFor(over));
+    if (under) tg.drawImage(ref(under), 0, 0);
+    tg.drawImage(canvasOf(withPatch(new Uint8ClampedArray(art), pt), colourFor(it)), 0, 0);
+    if (over && ui.showOver) tg.drawImage(ref(over), 0, 0);
     if (ui.mark) { const o = tg.getImageData(0, 0, W, H);
       for (let i = 0; i < pt.alpha.length; i++) if (pt.alpha[i]) { const f = 0.55 * pt.alpha[i] / 255;
         o.data[4 * i] = o.data[4 * i] * (1 - f) + 255 * f; o.data[4 * i + 1] = o.data[4 * i + 1] * (1 - f) + 40 * f; o.data[4 * i + 2] = o.data[4 * i + 2] * (1 - f) + 200 * f; }
@@ -1481,8 +1512,8 @@ function patchEditor(it) {
   const restore = (st) => { pt.alpha = st.alpha; pt.colour = st.colour; colC.value = pt.colour; savePatch(it); draw(); render(); };
   const at = (ev) => { const r = cv.getBoundingClientRect(), k = base * ui.zoom;
     return [box.x + (ev.clientX - r.left) / k, box.y + (ev.clientY - r.top) / k]; };
-  const paintAt = (ev) => {
-    const [x, y] = at(ev), rad = ui.size / 2;
+  const dab = (x, y) => {
+    const rad = ui.size / 2;
     for (let yy = Math.floor(y - rad - 1); yy <= y + rad + 1; yy++) for (let xx = Math.floor(x - rad - 1); xx <= x + rad + 1; xx++) {
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const cov = Math.max(0, Math.min(1, rad + 0.5 - Math.hypot(xx + 0.5 - x, yy + 0.5 - y))); if (!cov) continue;
@@ -1490,6 +1521,8 @@ function patchEditor(it) {
       pt.alpha[i] = ui.brush === 'paint' ? Math.max(pt.alpha[i], Math.round(cov * 255)) : Math.min(pt.alpha[i], Math.round((1 - cov) * 255));
     }
   };
+  const stroke = strokeHandler(at, dab, () => ui.size);
+  const redraw = frameQueue(() => draw());
   let painting = false, pan = null, picking = false;
   const armed = () => { cv.style.touchAction = ui.brush === 'off' && !picking ? 'auto' : 'none'; cv.style.cursor = picking ? 'copy' : ui.brush === 'off' ? 'grab' : 'crosshair'; };
   armed();
@@ -1498,11 +1531,11 @@ function patchEditor(it) {
       if (d[3] > 0) { remember(); pt.colour = '#' + ((d[0] << 16) | (d[1] << 8) | d[2]).toString(16).padStart(6, '0'); colC.value = pt.colour; savePatch(it); }
       picking = false; pickB.classList.remove('on'); armed(); draw(); return; }
     if (ui.brush === 'off') { if (ev.pointerType === 'mouse') { pan = [ev.clientX, ev.clientY, scroller.scrollLeft, scroller.scrollTop]; cv.setPointerCapture(ev.pointerId); } return; }
-    remember(); painting = true; cv.setPointerCapture(ev.pointerId); paintAt(ev); draw(); });
+    remember(); painting = true; cv.setPointerCapture(ev.pointerId); stroke.start(ev); redraw(); });
   cv.addEventListener('pointermove', (ev) => {
     if (pan) { scroller.scrollLeft = pan[2] - (ev.clientX - pan[0]); scroller.scrollTop = pan[3] - (ev.clientY - pan[1]); return; }
-    if (painting) { paintAt(ev); draw(); } });
-  const end = () => { pan = null; if (painting) { painting = false; savePatch(it); render(); } };
+    if (painting) { stroke.move(ev); redraw(); } });
+  const end = () => { pan = null; if (painting) { painting = false; stroke.end(); savePatch(it); render(); } };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   // controls
   const ctl = document.createElement('div'); ctl.className = 'fill-controls'; ctl.appendChild(stats);
