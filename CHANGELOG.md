@@ -1567,6 +1567,29 @@ one 10px gutter, and the header's tab menus open on screen again.
 
 - **Security alerts cover the server's Clojure libraries** — a CI job reports them to GitHub's dependency graph each week and on every push and pull request, so Dependabot warns about a vulnerable one; it could not read `project.clj` before (`233b7b80`).
 
+### feature/spellbook-print
+
+**Highlights**
+
+Characters can now print a spellbook: every spell they know or have prepared, set out by
+class with its save DC and attack on every page, as a full-text book, a one-line ledger or
+a prep sheet to tick off. Each class is headed by an emblem the player can choose.
+
+**Added**
+
+- Spellbook pages in PDF Options, after the sheet and before the cards: Spellbook (full text, two columns), Ledger (one row a spell) or Prep sheet (a box to tick per spell, slot pips once at the top). (`647fec9e`, `1262c0cc`)
+- Page breaks that keep a level heading with its first spells, never split a spell unless it is taller than a column, and let a second class run straight on or start a fresh page. (`647fec9e`, `21c78c1b`)
+- Each class's save DC and spell attack on a shield-and-arrow crest at its heading, and in the running head of every page it appears on. (`647fec9e`)
+- Level tabs in the running head, or down the side a quarter inch in from the edge, where a home printer still reaches. (`647fec9e`)
+- A class emblem per class, chosen from 10 to 15 game-icons.net icons, drawn inside a ring with one tick per class level and a mark for the class. (`d8ece17a`, `1262c0cc`)
+- A spell order option, by level then name or by name alone, for the spellbook and the cards. (`c4a627ca`, `1262c0cc`)
+
+**Fixed**
+
+- Spell cards print in class-list order, by level then name, instead of the order the spells were picked (#520). (`c4a627ca`)
+- A multiclass caster on the packed sheet layout gets their spell cards; the packed layout sent no spell list, so none printed. (`c4a627ca`, `a7d77b54`)
+- Spell cards print a reaction's casting time as "1 React." instead of "1 reAct.". (`0db3724a`)
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure

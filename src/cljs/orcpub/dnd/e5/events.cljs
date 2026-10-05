@@ -7526,6 +7526,24 @@
      (dissoc db ::char5e/spell-layout))))
 
 (reg-event-db
+ ::char5e/toggle-spellbook-print
+ (fn [db _]
+   (update db ::char5e/print-spellbook? not)))
+
+(reg-event-db
+ ::char5e/set-spellbook-option
+ ;; k is one of the :spellbook-* keys or :spell-order; nil goes back to the default.
+ (fn [db [_ k v]]
+   (if v
+     (assoc-in db [::char5e/spellbook-options k] v)
+     (update db ::char5e/spellbook-options dissoc k))))
+
+(reg-event-db
+ ::char5e/set-spellbook-emblem
+ (fn [db [_ class-kw icon]]
+   (assoc-in db [::char5e/spellbook-options :spellbook-emblems class-kw] icon)))
+
+(reg-event-db
  ::char5e/toggle-known-spells-print
  (fn [db _]
    (update db ::char5e/print-prepared-spells? not)))
