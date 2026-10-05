@@ -2972,7 +2972,7 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 109-entry, 2024, 230kb, 317, 805, checked, column, counted, counterpart, counting, delta, designed, dnd, magic, monsters, open5e, started, vars
+**topics:** 2024, 317, 805, checked, column, counted, counterpart, counting, delta, designed, dnd, magic, monsters, namespace, open5e, srd, started, vars
 
 - Content
 - Rules and reference (no e5 data namespace)

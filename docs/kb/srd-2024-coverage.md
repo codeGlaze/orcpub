@@ -18,7 +18,7 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 | backgrounds | 1, in `spell_subs.cljs` | `Background` (4), `BackgroundBenefit` (20) | **SHAPE ONLY** | needs ASI + origin-feat grants; no data namespace exists |
 | feats | — | `Feat` (17), `FeatBenefit` (35) | **COUNTED** | 1 -> 17; four are fighting styles. Not extracted |
 | monsters | **317** | `Creature`, `CreatureAction`, `CreatureTrait`, `CreatureActionAttack` | **NOT STARTED** | stat-block format differs; editions need separate parsers |
-| classes | **38 vars** | `CharacterClass`, `ClassFeature`, `ClassFeatureItem` | **NOT STARTED** | largest unknown, ~620KB of 2024 features |
+| classes | **12** | `CharacterClass`, `ClassFeature`, `ClassFeatureItem` | **NOT STARTED** | largest unknown, ~620KB of 2024 features |
 | equipment | 162 | `Item.json` | **NOT STARTED** | |
 | weapons | 40 | `Weapon`, `WeaponProperty`, `WeaponPropertyAssignment` | **NOT STARTED** | the "Light property" question lives here |
 | armor | 14 | `Armor.json` | **NOT STARTED** | |
@@ -66,7 +66,12 @@ Parsing the file as EDN is not the fix either. These files carry many `def` form
 items has 24, equipment 23, spells 29 — so reading the first vector counts one category and
 reports it as the file.
 
-**Count by loading the namespace and counting the var.** It is the only method that cannot be
+Counting the namespace's public vars is no better: `orcpub.dnd.e5.classes` exports 38, of
+which 12 are classes and the rest are helpers and sub-features. The SRD has 12 classes, and so
+does the app.
+
+**Count by loading the namespace and counting the var** — the specific var that holds the
+content, not the namespace's exports. It is the only method that cannot be
 fooled by nesting or by a file's internal conventions:
 
     (require '[orcpub.dnd.e5.monsters :as mon])
