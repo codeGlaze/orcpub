@@ -264,7 +264,7 @@
        (with-open [in (io/input-stream (io/resource resource-path))]
          (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
 
-(defn- normalize-text
+(defn normalize-text
   "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
    (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
    stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
