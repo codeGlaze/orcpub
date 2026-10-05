@@ -63,6 +63,58 @@
       (let [pages (sb/paginate [(chap 0) (lvh 0) (sp 0 900 "huge") (sp 0 50 "after")] opts)]
         (is (= ["huge" "after"] (mapcat :names pages)))))))
 
+(defn- page-heights
+  "How tall each page's content stands: full-width units plus the taller column of each
+   column block."
+  [pages]
+  (for [p pages]
+    (reduce + (for [b (:blocks p)]
+                (if (:full b)
+                  (:h (:full b))
+                  (apply max 0 (map #(reduce + (map :h %)) (:cols b))))))))
+
+(deftest nothing-runs-past-the-foot
+  (testing "Greptile #50: a level heading over a column-tall piece is not balanced into one too-tall column"
+    (let [opts {:two-col? true :cap 600 :cont-units cont}
+          ;; Page two opens with a continued head; the heading goes down alone, the tall
+          ;; piece into the next column, and the closing rebalance must not stack them.
+          us [(chap 0) (lvh 0) (sp 0 500 "a") (sp 0 500 "b") (lvh 0) (sp 0 560 "tall")]]
+      (is (every? #(<= % 600) (page-heights (sb/paginate us opts)))))))
+
+(deftest pact-slots-serve-every-level
+  (with-open [doc (PDDocument.)]
+    (let [us (sb/units (pdf/load-fonts doc) (pdf/make-image-loader doc)
+                       {:classes [{:class "Warlock" :class-kw :warlock :level 5 :pact? true :icon "warlock-eye"}]
+                        :slots {} :pact-slots {3 2} :layout :book :order :level :tabs :head}
+                       {:all [{:key (common/name-to-kw "Charm Person") :class "Warlock"}
+                              {:key (common/name-to-kw "Misty Step") :class "Warlock"}
+                              {:key (common/name-to-kw "Counterspell") :class "Warlock"}]}
+                       spells/spell-map)
+          heads (filter #(= :lvh (:kind %)) us)]
+      (testing "Greptile #50: a Warlock's 1st and 2nd level headings show its pact slots, not none"
+        (is (= [1 2 3] (map :level heads)))
+        (is (every? #(= 2 (:slots %)) heads))
+        (is (every? #(= 3 (:pact-level %)) heads))))))
+
+(deftest the-slot-pool-wraps
+  (with-open [doc (PDDocument.)]
+    (let [pool #(first (sb/units (pdf/load-fonts doc) (pdf/make-image-loader doc)
+                                 {:classes [{:class "Wizard" :class-kw :wizard :level 20 :icon "spell-book"}]
+                                  :slots % :pact-slots {} :layout :prep :order :level :tabs :head}
+                                 {:all [{:key (common/name-to-kw "Shield") :class "Wizard"}]}
+                                 spells/spell-map))]
+      (testing "Greptile #50: a pool too wide for one line takes more lines, inside its box"
+        (is (= :pool (:kind (pool {1 4}))))
+        (is (< (:h (pool {1 4})) (:h (pool (into {} (for [l (range 1 10)] [l 20]))))))))))
+
+(deftest abbreviations-and-summaries
+  (testing "reaction is not read as re- plus action, on the cards or here"
+    (is (= "1 React." (pdf/abbreviate-casting-time "1 reaction")))
+    (is (= "1 B.A." (pdf/abbreviate-casting-time "1 bonus action")))
+    (is (= "1 Act." (pdf/abbreviate-casting-time "1 action"))))
+  (testing "a summary never opens on a list bullet"
+    (is (not (str/starts-with? (sb/summary (spell "Wish")) "\u00B7")))))
+
 (deftest request-sanitising
   (let [opts (routes/spellbook-options
               {:layout "nonsense" :order :alpha :class-break "page" :tabs :sideways

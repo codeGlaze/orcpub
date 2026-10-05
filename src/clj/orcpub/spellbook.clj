@@ -394,7 +394,8 @@
    sentence with numbers or a game term wins; failing that, the first sentence."
   [spell]
   (let [sentences (->> (s/split (clean (:description spell)) #"(?<=[.!?])\s+")
-                       (map s/trim)
+                       ;; List items open with a bullet, which reads as a stray dot alone.
+                       (map #(s/trim (s/replace % #"^[\s\u00B7]+" "")))
                        (remove s/blank?)
                        (remove #(re-find #"(?i)^at higher levels" %)))]
     (or (first (filter #(re-find telling %) sentences))
@@ -545,14 +546,18 @@
              (line! cs x (+ ty h) (+ x w) (+ ty h) 0.3))}))
 
 (defn- lvh-unit
-  "A level heading: the slot circle, the level in spaced capitals and how many slots."
-  [fonts level slots]
-  {:kind :lvh :keep 2 :h 22
+  "A level heading: the slot circle, the level in spaced capitals and how many slots.
+   `pact-level` is set for a pact caster, whose few slots are all cast at that level and
+   serve every spell below it."
+  [fonts level slots pact-level]
+  {:kind :lvh :keep 2 :h 22 :level level :slots slots :pact-level pact-level
    :draw (fn [cs fonts x ty w]
            (let [label (if (zero? level) "CANTRIPS" (s/upper-case (str (common/ordinal level) " level")))
+                 n-slots (str slots (when pact-level " pact") (if (= 1 slots) " slot" " slots"))
                  sub (cond (zero? level) "at will"
-                           (pos? (or slots 0)) (str slots (if (= 1 slots) " slot" " slots"))
-                           :else "no slots yet")
+                           (not (pos? (or slots 0))) "no slots yet"
+                           (and pact-level (not= pact-level level)) (str n-slots ", cast at " (common/ordinal pact-level))
+                           :else n-slots)
                  lw (max (lining-width (:bold fonts) 6.8 label 1.2) (lining-width (:italic fonts) 5.8 sub 0))
                  block (+ 17 3 lw)
                  x0 (+ x (/ (- w block) 2))
@@ -589,27 +594,36 @@
              (line! cs x rule-y (+ x w) rule-y 1.2)))})
 
 (defn- pool-unit
-  "The prep sheet's slot pool, printed once at the top: one pip per slot to mark off."
-  [fonts slots pact-slots shared?]
-  {:kind :pool :full? true :h 24
-   :draw (fn [cs fonts x ty w]
-           (gray! cs ink)
-           (.setLineWidth cs (float 0.5))
-           (.addRect cs (float x) (py (+ ty 18)) (float w) (float 16))
-           (.stroke cs)
-           (let [label (if shared? "SPELL SLOTS, SHARED" "SPELL SLOTS")
-                 x1 (+ x 6 (lining-width (:bold fonts) 6.2 label 1) 10)]
+  "The prep sheet's slot pool, printed once at the top: one pip per slot to mark off,
+   wrapping onto further lines inside the box when one is not wide enough."
+  [fonts slots pact-slots shared? w]
+  (let [label (if shared? "SPELL SLOTS, SHARED" "SPELL SLOTS")
+        x1 (+ 6 (lining-width (:bold fonts) 6.2 label 1) 10)
+        groups (for [[lvl n prefix] (concat (for [[l n] (sort slots) :when (pos? n)] [l n ""])
+                                            (for [[l n] (sort pact-slots) :when (pos? n)] [l n "pact "]))
+                     :let [t (str prefix (common/ordinal lvl))
+                           tw (lining-width (:plain fonts) 7 t 0)]]
+                 {:t t :tw tw :n n :gw (+ tw 5 (* n 7))})
+        ;; [line dx group] for each group, measured from the box's left edge.
+        placed (first (reduce (fn [[out line dx] g]
+                                (if (and (> dx x1) (> (+ dx (:gw g)) (- w 6)))
+                                  [(conj out [(inc line) x1 g]) (inc line) (+ x1 (:gw g) 9)]
+                                  [(conj out [line dx g]) line (+ dx (:gw g) 9)]))
+                              [[] 0 x1] groups))
+        lines (inc (reduce max 0 (map first placed)))
+        box-h (+ 16 (* 11 (dec lines)))]
+    {:kind :pool :full? true :h (+ box-h 8)
+     :draw (fn [cs fonts x ty w]
+             (gray! cs ink)
+             (.setLineWidth cs (float 0.5))
+             (.addRect cs (float x) (py (+ ty 2 box-h)) (float w) (float box-h))
+             (.stroke cs)
              (text! cs (:bold fonts) 6.2 (+ x 6) (+ ty 12.4) label {:spacing 1 :lining true})
-             (reduce (fn [px [lvl n prefix]]
-                       (let [t (str prefix (common/ordinal lvl))
-                             tw (lining-width (:plain fonts) 7 t 0)]
-                         (text! cs (:plain fonts) 7 px (+ ty 12.6) t {:lining true})
-                         (doseq [i (range n)]
-                           (circle! cs (+ px tw 5 (* i 7)) (+ ty 10) 2.4 0.5))
-                         (+ px tw 5 (* n 7) 9)))
-                     x1
-                     (concat (for [[l n] (sort slots) :when (pos? n)] [l n ""])
-                             (for [[l n] (sort pact-slots) :when (pos? n)] [l n "pact "])))))})
+             (doseq [[line dx {:keys [t tw n]}] placed
+                     :let [lty (+ ty (* 11 line))]]
+               (text! cs (:plain fonts) 7 (+ x dx) (+ lty 12.6) t {:lining true})
+               (doseq [i (range n)]
+                 (circle! cs (+ x dx tw 5 (* i 7)) (+ lty 10) 2.4 0.5))))}))
 
 ;; ─── Which spells, in what order ─────────────────────────────────────────────
 
@@ -647,11 +661,14 @@
     (vec
      (concat
       (when (= :prep layout)
-        [(pool-unit fonts slots pact-slots (> (count (remove :pact? classes)) 1))])
+        [(pool-unit fonts slots pact-slots (> (count (remove :pact? classes)) 1) w)])
       (mapcat
        (fn [ci {:keys [class pact?] :as k}]
          (let [spells (class-spells spells-known spells-map class order)
-               slot-of (fn [lvl] (get (if pact? pact-slots slots) lvl 0))]
+               pact-level (when (and pact? (seq pact-slots)) (apply max (keys pact-slots)))
+               ;; Pact slots exist only at the pact level, so a pact caster's lower levels
+               ;; draw on those rather than reading "no slots yet".
+               slot-of (fn [lvl] (if pact-level (get pact-slots pact-level 0) (get slots lvl 0)))]
            (when (seq spells)
              (concat
               [(assoc (chap-unit fonts img k false) :cls ci :keep keep-n)]
@@ -661,14 +678,14 @@
                   out
                   (let [lvl (or (:level sp) 0)
                         out (if (and (= :level order) (not= lvl last-level))
-                              (conj out (assoc (lvh-unit fonts lvl (slot-of lvl)) :cls ci :keep keep-n))
+                              (conj out (assoc (lvh-unit fonts lvl (slot-of lvl) pact-level) :cls ci :keep keep-n))
                               out)
                         made (case layout
                                :ledger [(ledger-unit fonts sp w)]
                                :prep [(prep-unit fonts sp order w)]
-                               ;; A continued page opens with a 30pt head, so a piece cut
-                               ;; to the full page height would run past the foot.
-                               (split-book-unit (book-unit fonts img sp order col-w) (- (capacity) 30)))]
+                               ;; Cut short enough that a continued page's 30pt head and a
+                               ;; 22pt level heading still fit above the first piece.
+                               (split-book-unit (book-unit fonts img sp order col-w) (- (capacity) 30 22 5)))]
                     (recur more lvl (into out (map #(assoc % :cls ci) made))))))))))
        (range) classes)))))
 
@@ -690,17 +707,18 @@
 
 (defn- balance
   "Splits a block's items between two columns as evenly as their order allows, never
-   leaving a level heading at the foot of the first."
-  [items]
-  (if (< (count items) 2)
-    [(vec items) []]
-    (let [hs (mapv :h items) total (reduce + hs)
-          options (for [k (range 1 (inc (count items)))
-                        :when (not= :lvh (:kind (nth items (dec k))))
-                        :let [a (reduce + (subvec hs 0 k))]]
-                    [(max a (- total a)) k])
-          k (second (first (sort options)))]
-      [(vec (take k items)) (vec (drop k items))])))
+   leaving a level heading at the foot of the first nor making a column taller than
+   `limit`. With no such split, the columns as they were filled, `as-filled`, stand."
+  [items limit as-filled]
+  (let [hs (mapv :h items) total (reduce + hs)
+        options (for [k (range 1 (inc (count items)))
+                      :when (not= :lvh (:kind (nth items (dec k))))
+                      :let [a (reduce + (subvec hs 0 k))]
+                      :when (<= (max a (- total a)) limit)]
+                  [(max a (- total a)) k])]
+    (if-let [k (second (first (sort options)))]
+      [(vec (take k items)) (vec (drop k items))]
+      as-filled)))
 
 (defn paginate
   "Places `us` on pages. Returns [{:blocks [...] :classes #{} :levels #{} :names [...]}],
@@ -722,7 +740,8 @@
                            ;; that spilled into its second column is still uneven, and the
                            ;; next class can only run on below the taller of the two.
                            (let [[a b] (if two-col?
-                                         (balance (concat (first (:cols cols)) (second (:cols cols))))
+                                         (balance (concat (first (:cols cols)) (second (:cols cols)))
+                                                  (- cap (:top cols)) (:cols cols))
                                          [(first (:cols cols)) []])]
                              (-> page
                                  (update :blocks conj {:cols [a b]})
@@ -782,20 +801,24 @@
         guide (cond (empty? names) ""
                     (= (first names) (peek names)) (first names)
                     :else (str (first names) " to " (peek names)))]
-    (reduce (fn [px t] (text! cs (:plain fonts) 6.4 px ty t {:spacing 0.6 :lining true})
-              (+ px (lining-width (:plain fonts) 6.4 t 0.6) 14))
-            x stats)
-    (when (= :head tabs)
-      (let [n (inc max-level) bw 10 gap 2 total (- (* n (+ bw gap)) gap) x0 (- (+ x (/ w 2)) (/ total 2))]
-        (doseq [l (range n) :let [bx (+ x0 (* l (+ bw gap))) on? (contains? (:levels page) l)]]
-          (gray! cs ink)
-          (.setLineWidth cs (float 0.5))
-          (.addRect cs (float bx) (py (+ ty 2)) (float bw) (float bw))
-          (if on? (.fill cs) (.stroke cs))
-          (centred! cs (:bold fonts) 6.2 (+ bx (/ bw 2)) (- ty 0.6) (if (zero? l) "c" (str l))
-                    {:color (if on? 1.0 ink)}))))
-    (let [gw (width (:italic fonts) 7.2 guide)]
-      (text! cs (:italic fonts) 7.2 (- (+ x w) gw) ty guide))
+    (let [stats-end (reduce (fn [px t] (text! cs (:plain fonts) 6.4 px ty t {:spacing 0.6 :lining true})
+                              (+ px (lining-width (:plain fonts) 6.4 t 0.6) 14))
+                            x stats)
+          n (inc max-level) bw 10 gap 2 total (- (* n (+ bw gap)) gap)
+          ;; Centred unless the classes' numbers reach that far; then just past them.
+          x0 (max (- (+ x (/ w 2)) (/ total 2)) stats-end)
+          free-from (if (= :head tabs) (+ x0 total 10) stats-end)
+          room (- (+ x w) free-from)
+          guide (if (< room 40) "" (clip (:italic fonts) 7.2 guide room))]
+      (when (= :head tabs)
+         (doseq [l (range n) :let [bx (+ x0 (* l (+ bw gap))) on? (contains? (:levels page) l)]]
+           (gray! cs ink)
+           (.setLineWidth cs (float 0.5))
+           (.addRect cs (float bx) (py (+ ty 2)) (float bw) (float bw))
+           (if on? (.fill cs) (.stroke cs))
+           (centred! cs (:bold fonts) 6.2 (+ bx (/ bw 2)) (- ty 0.6) (if (zero? l) "c" (str l))
+                     {:color (if on? 1.0 ink)})))
+      (text! cs (:italic fonts) 7.2 (- (+ x w) (width (:italic fonts) 7.2 guide)) ty guide))
     (gray! cs ink)
     (line! cs x (+ ty 4) (+ x w) (+ ty 4) 0.5)))
 
