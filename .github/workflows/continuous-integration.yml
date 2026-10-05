@@ -57,86 +57,18 @@ jobs:
     name: Test & Lint (${{ needs.detect-stack.outputs.stack-label }})
     runs-on: ubuntu-latest
     needs: detect-stack
-    # contents: write is for the dependency-graph submission below.
-    permissions:
-      contents: write
-      checks: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK ${{ needs.detect-stack.outputs.java-version }}
-        uses: actions/setup-java@v4
+      - name: Set up Leiningen and dependencies
+        uses: ./.github/actions/setup-lein
         with:
-          distribution: ${{ needs.detect-stack.outputs.java-distribution }}
           java-version: ${{ needs.detect-stack.outputs.java-version }}
-
-      - name: Set up Leiningen
-        uses: DeLaGuardo/setup-clojure@12.5
-        with:
-          lein: ${{ needs.detect-stack.outputs.lein-version }}
-
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-${{ hashFiles('project.clj') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-
-
-      - name: Load local libs (pdfbox)
-        run: |
-          mkdir -p ~/.m2/repository/org/
-          cp -rv ./lib/org/* ~/.m2/repository/org/
-
-      # Datomic Pro jars are not committed to git. Download and maven-install
-      # them the same way .devcontainer/post-create.sh does.
-      - name: Install Datomic Pro
-        if: needs.detect-stack.outputs.needs-datomic-pro == 'true'
-        run: |
-          DATOMIC_VERSION=1.0.7482
-          TARGET_DIR="lib/com/datomic/datomic-pro/${DATOMIC_VERSION}"
-          ZIP_PATH="/tmp/datomic-pro-${DATOMIC_VERSION}.zip"
-          DOWNLOAD_URL="https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip"
-
-          echo "Downloading Datomic Pro ${DATOMIC_VERSION}..."
-          curl --fail --location --silent --show-error -o "$ZIP_PATH" "$DOWNLOAD_URL"
-
-          mkdir -p "${TARGET_DIR}"
-          unzip -q "$ZIP_PATH" -d "${TARGET_DIR}"
-
-          # Flatten nested directory if present (zip contains datomic-pro-VERSION/ subdir)
-          TOP_SUBDIR=$(find "${TARGET_DIR}" -mindepth 1 -maxdepth 1 -type d -print -quit || true)
-          if [ -n "${TOP_SUBDIR}" ] && [ -z "$(find "${TARGET_DIR}" -maxdepth 1 -type f -print -quit)" ]; then
-            mv "${TOP_SUBDIR}"/* "${TARGET_DIR}/"
-            rmdir "${TOP_SUBDIR}"
-          fi
-
-          # Populate ~/.m2 with Datomic Pro artifacts
-          (cd "${TARGET_DIR}" && bash bin/maven-install)
-          echo "Datomic Pro ${DATOMIC_VERSION} installed to local Maven repo"
-
-      - name: Install dependencies
-        run: lein deps
-
-      # Dependabot cannot read project.clj, so it never saw the server's libraries. lein pom writes
-      # them as a Maven pom (resolved from the ~/.m2 filled above) and the action uploads the full
-      # graph; GitHub then re-checks it against every new advisory without another run. Not on
-      # pull requests: alerts read the default branch, and a fork's PR gets a read-only token.
-      # The pom keeps project.clj's declared http Apache URL, which Maven 3.8+ refuses; lein
-      # itself uses the https mirror.
-      - name: Write pom.xml for the dependency graph
-        if: github.event_name != 'pull_request'
-        run: |
-          lein pom
-          sed -i 's#http://repository.apache.org#https://repository.apache.org#' pom.xml
-
-      - name: Submit dependencies to the dependency graph
-        if: github.event_name != 'pull_request'
-        uses: advanced-security/maven-dependency-submission-action@v4
-        with:
-          directory: .
+          java-distribution: ${{ needs.detect-stack.outputs.java-distribution }}
+          lein-version: ${{ needs.detect-stack.outputs.lein-version }}
+          needs-datomic-pro: ${{ needs.detect-stack.outputs.needs-datomic-pro }}
 
       - name: Run linter
         id: lint
@@ -193,3 +125,39 @@ jobs:
             test-output.txt
             cljs-output.txt
           retention-days: 7
+
+  # Dependabot cannot read project.clj, so it never saw the server's libraries. lein pom writes them
+  # as a Maven pom and the action uploads the resolved graph; GitHub then re-checks it against new
+  # advisories by itself. Its own job, so contents: write never reaches a job that runs pull-request
+  # code; push and manual runs only, since alerts read the default branch.
+  dependency-graph:
+    name: Submit Clojure dependencies
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Leiningen and dependencies
+        uses: ./.github/actions/setup-lein
+        with:
+          java-version: ${{ needs.detect-stack.outputs.java-version }}
+          java-distribution: ${{ needs.detect-stack.outputs.java-distribution }}
+          lein-version: ${{ needs.detect-stack.outputs.lein-version }}
+          needs-datomic-pro: ${{ needs.detect-stack.outputs.needs-datomic-pro }}
+
+      # The pom keeps project.clj's declared http Apache URL, which Maven 3.8+ refuses; lein itself
+      # uses the https mirror.
+      - name: Write pom.xml
+        run: |
+          lein pom
+          sed -i 's#http://repository.apache.org#https://repository.apache.org#' pom.xml
+
+      # Pinned to a commit: this third-party action holds write access.
+      - name: Submit the dependency graph
+        uses: advanced-security/maven-dependency-submission-action@fe8d4d650a4b66508612d0683ce4726d51dfe6ac # v4
+        with:
+          directory: .
