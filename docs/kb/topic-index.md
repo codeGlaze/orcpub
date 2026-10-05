@@ -812,7 +812,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -2882,7 +2882,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** caps, character, compressed, copy, deletes, homebrew, kaylee, link, links, opening, owner, page, party, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, copy, deletes, homebrew, kaylee, link, opening, owner, page, party, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -2983,7 +2983,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, d20, dial, disadvantage, editions, exhaustion, fighting, goblin, grappled, grappler, idea, lineage, lineages, open5e, reduced, rules, species
+**topics:** 2014, 2024, condition, d20, dial, disadvantage, edition, editions, exhaustion, goblin, grappled, idea, lineage, lineages, open5e, records, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -2994,6 +2994,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 - 6. The rules tier — smaller than feared, but only readable by hand
 - A measurement caution, learned the hard way
 - Idea
+- 7. Rule interlinking and indexing (owner ask, 2026-10-05)
 
 ## srd-2024-integration.md
 

@@ -166,3 +166,41 @@ clause is probably a constraint.
 **Data note.** open5e's 2014 text carries soft-hyphen artifacts from the 5.1 PDF
 (`long-­‐term`), which their 2024 text does not. Normalize before comparing or they register
 as differences.
+
+## 7. Rule interlinking and indexing (owner ask, 2026-10-05)
+
+**What is wanted.** The app is an SRD reference as much as a builder, and the rules side
+should interlink and index properly — a reader on a spell or a weapon property should be able
+to follow the rule it depends on.
+
+**What already exists upstream.** open5e's `CrossReference.json` is a typed link graph:
+`source_content_type` + `source_object_key` -> `reference_content_type` +
+`reference_object_key`, with an `anchor` for the display text. Seven source types
+(creatureaction, speciestrait, spell, magicitem, weaponproperty…) and six reference types
+(spell, creature, feat, conditiondescription, rule…). It is how the **Light** weapon property
+points at **Making an Attack** — which is the 2024 "the rule moved onto the property" case,
+already modelled as a link rather than as duplicated text.
+
+**The catch: 45 records.** That is a seed, not coverage. Every condition referenced from a
+spell, every spell referenced from a monster action, every rule referenced from a class
+feature — mostly absent. So the *shape* is reusable; the data is not.
+
+**What already exists in-app.** `homebrew-reference-web.md` maps thirteen kinds of link
+between homebrew items, by key and by name, with `reference_web_test` pinning them under a
+rename. That is the same problem solved for user content, and it is the obvious place to look
+before designing anything: a rules index is a reference web over built-in content rather than
+homebrew.
+
+**Idea.** Derive the links rather than hand-maintaining them. Condition names, spell names and
+rule headings are a closed, known vocabulary in each edition, so a pass over rule and content
+bodies can mint cross-references wherever one appears in another's text — the same way the
+reference web finds links between homebrew items. open5e's 45 records then become a
+correctness sample to check the derivation against, not the source. Worth deciding early
+whether a link is stored (an edge in the data) or computed at render, since that is the same
+stored-versus-rendered question the edition name qualifier raised, and the answer should
+probably match.
+
+**Open question.** Links are edition-scoped: 2024's Light property points at a rule that reads
+differently in 2014, and conditions were rewritten in every case. A cross-reference therefore
+belongs to an edition, not to the item — which the `document` field on every open5e record
+already assumes.
