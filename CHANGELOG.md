@@ -1594,8 +1594,8 @@ a prep sheet to tick off. Each class is headed by an emblem the player can choos
 
 **Changed**
 
-- **The full browser test run takes 11.7 minutes instead of 15** — suites that need a fresh server of their own run two at a time on ports of their own, instead of one by one on :8890 after everything else; three at once came within a few megabytes of 7 GB, so two is the default (`c4d3de69`).
-- **Two account and sharing suites wait for what each step is for** instead of fixed pauses, so a slow step cannot pass or fail by timing (`e518ffeb`, `8422a444`).
+- **The full browser test run takes 10.5 minutes instead of 15** — suites that need a fresh server of their own run two at a time on ports of their own, instead of one by one on :8890 after everything else; three at once came within a few megabytes of 7 GB, so two is the default (`c4d3de69`).
+- **Two account and sharing suites wait for what each step is for** instead of fixed pauses, so a slow step cannot pass or fail by timing (`e518ffeb`, `8422a444`, `e9ba9fdf`).
 
 ## [breaking/2026-stack-modernization]
 
