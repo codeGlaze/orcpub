@@ -18,11 +18,10 @@
 # Per batch: the bundle builds (run.sh --build-only) while the shared server boots. Then tests on
 # the shared server run --jobs at a time (default 3: the machine this was sized on has 7GB, and each
 # job is a Chromium beside the server's JVM), all with E2E_SKIP_BUILD so none rebuilds. Suites that
-# need a fresh server of their own then run --own-jobs at a time (default 2), each on its own port
-# and mail port, once the shared server has stopped; three at once peaked at 6993 of 7759 MB on
-# 2026-10-05, against 6702 for the batch, since each brings a JVM as well as a Chromium; only those that need a busy server stay on :8890, one
-# by one, because they export PDFs. Each suite writes its PDFs to its own folder, since run.sh
-# inspects every new PDF in that folder.
+# need a fresh server of their own then run --own-jobs at a time (default 2; each is a JVM and a
+# Chromium, so memory sets the limit, see e2e-runner.md), each on its own port and mail port, once
+# the shared server has stopped. Those that need a busy server run one by one on :8890. Each suite
+# writes its PDFs to its own folder; run.sh inspects every new PDF in that folder.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -63,9 +62,8 @@ pick() {  # <bundle> <own-server yes|no> <kind test|probe>
   awk -v k="$1" -v o="$2" -v t="$3" '$1 == k && $3 == o && $4 == t {print $5}' "$LOGDIR/plan"
 }
 
-# Own-server suites, split: the app's PDF form posts to :8890 whenever the page is on localhost
-# (views.cljs download-form), so a suite that exports from a busy server must have that port; any
-# other can take a port of its own and run beside the rest.
+# Own-server suites of `bundle` and `kind`: with "yes", those on :8890 (busy-export profile),
+# else the rest. GOTCHA: the PDF form posts to :8890 on localhost (views.cljs download-form).
 pick_own() {  # <bundle> <kind test|probe> <on-8890 yes|no>
   awk -v k="$1" -v t="$2" -v p="$3" '$1 == k && $3 == "yes" && $4 == t &&
     ((p == "yes") == ($2 ~ /busy-export/)) {print $5}' "$LOGDIR/plan"
@@ -97,8 +95,8 @@ run_parallel() {  # <bundle> <file>...   --jobs at a time, counting only these j
 }
 
 run_own_parallel() {  # <bundle> <file>...   --own-jobs at a time, each with a server of its own
-  # Slot k owns port BASE+1+k and mail port 2526+k; a slot is reused only once its job has
-  # ended, so two servers never share a port however the jobs finish.
+  # Slot k owns port BASE+1+k and mail port 2526+k. GOTCHA: a slot is reused only after its job
+  # has ended, or two servers would share a port.
   local kind="$1"; shift; local base="${E2E_PORT:-8890}" slots=() k
   for f in "$@"; do
     while :; do
@@ -124,12 +122,10 @@ fail_all() {  # <bundle> <reason> <file>...
 ( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" 9>&- &
 MEMPID=$!
 SHARED_UP=0
-# One exit path for an interrupted run: the sampler, any suite still running and the shared server
-# all go. Fresh servers are started with setsid, out of reach of a signal to this run, and stop only
-# through their own run.sh's exit trap; so each job and everything under it is signalled, deepest
-# first, and waited for while those traps stop their servers. Nothing this run did not start is
-# touched: a server someone else runs on a nearby port keeps running.
-kill_tree() {  # <pid>
+# Stops the sampler, every suite still running (each job and its descendants, deepest first, then
+# waits while their run.sh exit traps stop their servers) and the shared server. GOTCHA: fresh
+# servers are setsid, so only their own run.sh can stop them; never stop servers by port here.
+kill_tree() {  # <pid>   signals it and every descendant, deepest first
   local c; for c in $(pgrep -P "$1"); do kill_tree "$c"; done
   kill "$1" 2>/dev/null
 }
@@ -187,8 +183,7 @@ for kind in $ORDER; do
   # Probes measure, so they run only once nothing else is running.
   for f in "${probes[@]}"; do run_one "$f" "$kind" 1 1; done
   [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; SHARED_UP=0; }
-  # Own-server suites after the shared server has gone, so memory holds the same number of JVMs
-  # and browsers as the batch did. Probes stay one at a time on :8890, for the reason above.
+  # Own-server suites, once the shared server has stopped; probes one at a time on :8890.
   [ ${#own_free[@]} -gt 0 ] && run_own_parallel "$kind" "${own_free[@]}"
   for f in "${own_8890[@]}" "${own_probes[@]}"; do run_one "$f" "$kind" "" 1; done
   unset CSP_POLICY

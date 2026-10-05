@@ -578,8 +578,7 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
-   ;; The spellbook's class emblems in PDF Options. The icons are black line art for
-   ;; paper, so on the dark panel they are inverted rather than shipped twice.
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
    [:.emblem-icon
     {:width "22px"
      :height "22px"

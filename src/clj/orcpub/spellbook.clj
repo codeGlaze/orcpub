@@ -27,9 +27,14 @@
 (def ^:private ink-2 0.3)
 (def ^:private hair 0.78)
 
-(defn- py [ty] (float (- page-h ty)))
+(defn- py
+  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom."
+  [ty] (float (- page-h ty)))
 
-(defn body-width [tabs] (- page-w (* 2 margin) (if (= :inset tabs) tab-room 0)))
+(defn body-width
+  "The width spells are laid into, in points: the page less its margins, and less the tab
+   column when `tabs` is :inset."
+  [tabs] (- page-w (* 2 margin) (if (= :inset tabs) tab-room 0)))
 
 (defn capacity
   "The height spells are laid into on one page."
@@ -39,13 +44,14 @@
 ;; ─── Text ────────────────────────────────────────────────────────────────────
 
 (defn- clean
-  "Text the embedded fonts can show: pdf's WinAnsi coercion, which also turns curly quotes
-   straight and drops what Vollkorn has no glyph for. SRD lists bullet their items, and a
-   bullet is outside that set, so it becomes a middle dot rather than a question mark."
+  "`v` as a string the embedded fonts can show (pdf/normalize-text), with list bullets turned
+   into middle dots; \"\" for nil."
   [v]
   (or (pdf/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
 
-(defn- width [font size text] (* 72.0 (pdf/string-width (clean text) font size)))
+(defn- width
+  "Width of `text` in points at `size` in `font`, after `clean`."
+  [font size text] (* 72.0 (pdf/string-width (clean text) font size)))
 
 (defn- wrap
   "`text` broken into lines of at most `w` points, hard breaks kept."
@@ -66,10 +72,8 @@
             c
             (recur (butlast words))))))))
 
-;; Vollkorn's default figures are old-style, so "15" reads "I5" and "1st" reads "Ist" in a
-;; heading. Its lining figures are alternates (`one.lf`) that a PDF content stream cannot
-;; select, so headings and numbers are drawn from the glyph outlines instead. Running text
-;; keeps the old-style figures, which suit it, and stays selectable.
+;; GOTCHA: Vollkorn's default digits are old-style ("15" reads "I5"). Headings and numbers are
+;; drawn from the lining glyph outlines (`one.lf`), which showText cannot select; see spellbook-print.md.
 
 (def ^:private ttf
   (memoize (fn [font] (.getTrueTypeFont (.getDescendantFont font)))))
@@ -77,12 +81,18 @@
 (def ^:private digit-names
   {\0 "zero" \1 "one" \2 "two" \3 "three" \4 "four" \5 "five" \6 "six" \7 "seven" \8 "eight" \9 "nine"})
 
-(defn- gid [tt ch]
+(defn- gid
+  "The glyph id `ch` maps to in `tt`, using the lining form (`one.lf`) for a digit when the font
+   has one."
+  [tt ch]
   (if-let [n (digit-names ch)]
     (let [g (.nameToGID tt (str n ".lf"))] (if (pos? g) g (.getGlyphId (.getUnicodeCmapLookup tt) (int ch))))
     (.getGlyphId (.getUnicodeCmapLookup tt) (int ch))))
 
-(defn- lining-width [font size t spacing]
+(defn- lining-width
+  "Width of `t` in points when drawn by `outline-text!` at `size`, with `spacing` points
+   between letters."
+  [font size t spacing]
   (let [tt (ttf font) sc (/ size (.getUnitsPerEm tt)) t (clean t)]
     (+ (reduce + (map #(* sc (.getAdvanceWidth tt (gid tt %))) t))
        (* spacing (max 0 (dec (count t)))))))
@@ -117,7 +127,9 @@
      (double x)
      (clean t))))
 
-(defn- gray! [cs g]
+(defn- gray!
+  "Sets both the fill and the stroke colour to the grey level `g` (0 black, 1 white)."
+  [cs g]
   (.setNonStrokingColor cs (float g) (float g) (float g))
   (.setStrokingColor cs (float g) (float g) (float g)))
 
@@ -139,7 +151,9 @@
       (when spacing (.setCharacterSpacing cs (float 0)))
       (.endText cs))))
 
-(defn- spaced-width [font size t spacing]
+(defn- spaced-width
+  "Width of `t` in points at `size`, with `spacing` extra points between letters."
+  [font size t spacing]
   (+ (width font size t) (* spacing (max 0 (dec (count (clean t)))))))
 
 (defn- centred!
@@ -151,7 +165,9 @@
 
 (def ^:private bezier-k 0.5522847)
 
-(defn- circle-path! [cs cx cy r]
+(defn- circle-path!
+  "Adds a circle of radius `r` about (cx, cy) to the current path, as four cubic curves."
+  [cs cx cy r]
   (let [k (* r bezier-k) x (float cx) y (py cy)]
     (.moveTo cs (float (+ cx r)) y)
     (.curveTo cs (float (+ cx r)) (py (- cy k)) (float (+ cx k)) (py (- cy r)) x (py (- cy r)))
@@ -160,12 +176,17 @@
     (.curveTo cs (float (+ cx k)) (py (+ cy r)) (float (+ cx r)) (py (+ cy k)) (float (+ cx r)) y)
     (.closePath cs)))
 
-(defn- circle! [cs cx cy r lw & [fill?]]
+(defn- circle!
+  "Strokes a circle of radius `r` about (cx, cy) at line width `lw`, or fills it when `fill?`."
+  [cs cx cy r lw & [fill?]]
   (.setLineWidth cs (float lw))
   (circle-path! cs cx cy r)
   (if fill? (.fill cs) (.stroke cs)))
 
-(defn- polyline! [cs pts lw & [{:keys [close? fill?]}]]
+(defn- polyline!
+  "Strokes the path through `pts`, each [x ty], at line width `lw`; closes it with `:close?`,
+   fills it with `:fill?`."
+  [cs pts lw & [{:keys [close? fill?]}]]
   (let [[[x y] & more] pts]
     (.setLineWidth cs (float lw))
     (.moveTo cs (float x) (py y))
@@ -174,7 +195,9 @@
           close? (.closeAndStroke cs)
           :else (.stroke cs))))
 
-(defn- line! [cs x1 y1 x2 y2 lw]
+(defn- line!
+  "Strokes a straight line from (x1, y1) to (x2, y2) at line width `lw`."
+  [cs x1 y1 x2 y2 lw]
   (polyline! cs [[x1 y1] [x2 y2]] lw))
 
 (defn- svg-d!
@@ -194,11 +217,15 @@
       nil))
   (if fill? (.fill cs) (.stroke cs)))
 
-(defn- polar [cx cy r a] [(+ cx (* r (Math/cos a))) (+ cy (* r (Math/sin a)))])
+(defn- polar
+  "The point at radius `r` and angle `a` (radians, clockwise from east) about (cx, cy), as [x ty]."
+  [cx cy r a] [(+ cx (* r (Math/cos a))) (+ cy (* r (Math/sin a)))])
 
 (def ^:private up (- (/ Math/PI 2)))
 
-(defn- ring-pts [cx cy f n]
+(defn- ring-pts
+  "`n` + 1 points round (cx, cy) from the top, clockwise, at the radius `f` gives for each angle."
+  [cx cy f n]
   (for [i (range (inc n)) :let [a (+ up (* 2 Math/PI (/ i (double n))))]]
     (polar cx cy (f a) a)))
 
@@ -218,8 +245,8 @@
     (.fill cs)))
 
 (defn- ring-theme!
-  "The class's mark on the emblem's ring, drawn about (cx, cy) at `s` points per mock unit
-   (the emblem is 30 units across). Returns the radius the level ticks reach to."
+  "Draws `class-kw`'s ring about (cx, cy), `s` points per unit of a 30-unit emblem: two plain
+   circles, or the class's own mark. Returns the radius the level ticks reach to."
   [cs class-kw cx cy s level]
   (let [outer (* 13.6 s) inner (* 11.2 s)
         plain-outer #(circle! cs cx cy outer (* 0.55 s))
@@ -344,7 +371,9 @@
     (centred! cs (:bold fonts) (* 10.5 u) (at 51) (+ ty (* u 19.8)) (str attack))
     (centred! cs (:plain fonts) (* 3.2 u) (at 51) (+ ty (* u 24.4)) "ATTACK" {:spacing (* 0.4 u)})))
 
-(defn- folio! [cs fonts cx cy n]
+(defn- folio!
+  "Draws page number `n` in a double ring centred on (cx, cy)."
+  [cs fonts cx cy n]
   (gray! cs ink)
   (circle! cs cx cy 8.6 0.5)
   (.setLineDashPattern cs (float-array [0.8 0.9]) (float 0))
@@ -354,15 +383,21 @@
 
 ;; ─── Spell text ──────────────────────────────────────────────────────────────
 
-(defn- level-word [level] (if (zero? level) "Cantrip" (str (common/ordinal level))))
+(defn- level-word
+  "\"Cantrip\" for level 0, else the ordinal: \"1st\", \"2nd\" ..."
+  [level] (if (zero? level) "Cantrip" (str (common/ordinal level))))
 
-(defn- school-line [{:keys [level school]}]
+(defn- school-line
+  "The line under a spell's name: \"Evocation cantrip\" or \"3rd-level evocation\"."
+  [{:keys [level school]}]
   (let [school (s/capitalize (str (or school "")))]
     (if (zero? (or level 0))
       (str school " cantrip")
       (str (common/ordinal level) "-level " (common/ascii-lower-case school)))))
 
-(defn- components-str [{:keys [verbal somatic material]}]
+(defn- components-str
+  "The spell's components as \"V S M\", leaving out any it does not need."
+  [{:keys [verbal somatic material]}]
   (s/join " " (cond-> [] verbal (conj "V") somatic (conj "S") material (conj "M"))))
 
 (defn- short-time
@@ -371,9 +406,13 @@
   [t]
   (pdf/abbreviate-casting-time (first (s/split (str t) #","))))
 
-(defn- short-duration [d] (pdf/abbreviate-duration (str d)))
+(defn- short-duration
+  "The cards' abbreviation of a duration: \"Conc, 1 min\", \"Inst\"."
+  [d] (pdf/abbreviate-duration (str d)))
 
-(defn- short-range [r] (pdf/abbreviate-range (str r)))
+(defn- short-range
+  "The cards' abbreviation of a range: \"60 ft\", \"Self\"."
+  [r] (pdf/abbreviate-range (str r)))
 
 (defn marks
   "The small italic notes after a spell's name: concentration, ritual, a costly material."
@@ -389,9 +428,8 @@
   #"(?i)\d+d\d+|saving throw|hit points?|damage|advantage|disadvantage|speed|resistance|restrain|frighten|charm|paraly|invisible|teleport|heal|regain")
 
 (defn summary
-  "One sentence on what `spell` does, for the ledger and the prep sheet, which have no room
-   for the full text. SRD descriptions often open with how the spell looks, so the first
-   sentence with numbers or a game term wins; failing that, the first sentence."
+  "One sentence on what `spell` does, for the ledger and the prep sheet: the first sentence of
+   its description matching `telling`, else the first sentence. Skips \"At Higher Levels\"."
   [spell]
   (let [sentences (->> (s/split (clean (:description spell)) #"(?<=[.!?])\s+")
                        ;; List items open with a bullet, which reads as a stray dot alone.
@@ -410,7 +448,10 @@
   {:name 10.0 :school 7.2 :stat 7.2 :desc 8.4 :desc-lead 10.2 :stat-lead 8.8
    :ledger 7.4 :ledger-lead 8.8})
 
-(defn- name-line! [cs fonts img spell order x ty w size]
+(defn- name-line!
+  "Draws a spell's name in bold with its `marks` in small italics after it, baseline `ty`.
+   With `order` :alpha a small ringed level number leads, since no level heading is printed."
+  [cs fonts img spell order x ty w size]
   (let [x (if (= :alpha order)
             (do (gray! cs ink)
                 (circle! cs (+ x 3.8) (- ty 3.3) 3.6 0.4)
@@ -426,9 +467,11 @@
 
 (def ^:private higher-levels #"^At Higher Levels[.:]")
 
-(defn- book-unit [fonts img spell order w]
-  (let [;; The lead is set in bold italic, which runs wider than the roman it was
-        ;; measured in, so its paragraph wraps a little short.
+(defn- book-unit
+  "A spell measured for the two-column book in a column `w` points wide: name, school, the
+   stat line and the full description. Returns the parts `finish-book-unit` turns into a unit."
+  [fonts img spell order w]
+  (let [;; The bold-italic lead is wider than the roman it is measured in; its paragraph wraps short.
         lead-w (- (width (:bold-italic fonts) (:desc sizes) "At Higher Levels.")
                   (width (:plain fonts) (:desc sizes) "At Higher Levels."))
         desc-lines (into [] (mapcat #(wrap (:plain fonts) (:desc sizes) %
@@ -485,7 +528,10 @@
    What it does."
   [0 0.085 0.31 0.405 0.5 0.565 0.655])
 
-(defn- ledger-unit [fonts spell w]
+(defn- ledger-unit
+  "A spell as one ledger row across `w` points: level, name, time, range, components, duration
+   and a two-line `summary`."
+  [fonts spell w]
   (let [xs (mapv #(* w %) ledger-cols)
         what-w (- w (peek xs))
         f (:plain fonts) sz (:ledger sizes) lead (:ledger-lead sizes)
@@ -514,7 +560,9 @@
                (gray! cs hair)
                (line! cs x (+ ty h) (+ x _w) (+ ty h) 0.3)))}))
 
-(defn- ledger-head-unit [fonts w]
+(defn- ledger-head-unit
+  "The ledger's column headings, full width, repeated at the top of each continued page."
+  [fonts w]
   (let [xs (mapv #(* w %) ledger-cols)]
     {:kind :colhead :full? true :h 13
      :draw (fn [cs fonts x ty w]
@@ -523,7 +571,10 @@
              (gray! cs ink)
              (line! cs x (+ ty 11.5) (+ x w) (+ ty 11.5) 0.5))}))
 
-(defn- prep-unit [fonts spell order w]
+(defn- prep-unit
+  "A spell as one prep-sheet row `w` points wide: a box to tick (none for cantrips), the name
+   with its school mark, a one-line `summary`, and the stat line at the right."
+  [fonts spell order w]
   (let [f (:plain fonts) sz 7.6
         stat (s/join " · " (remove s/blank? [(short-time (:casting-time spell)) (short-range (:range spell))
                                                    (components-str (:components spell)) (short-duration (:duration spell))]))
@@ -628,8 +679,8 @@
 ;; ─── Which spells, in what order ─────────────────────────────────────────────
 
 (defn spell-sort-key
-  "Level then name, or name alone for :alpha. #520: cards came out in the order the spells
-   were picked."
+  "The sort key for `spell` in `order`: [level name], or [name] for :alpha. Names compare
+   case-insensitively."
   [order spell]
   (let [nm (common/ascii-lower-case (str (:name spell)))]
     (if (= :alpha order) [nm] [(or (:level spell) 0) nm])))
@@ -654,9 +705,8 @@
   [fonts img {:keys [classes slots pact-slots layout order tabs]} spells-known spells-map]
   (let [w (body-width tabs)
         col-w (if (= :book layout) (/ (- w gutter) 2) w)
-        ;; A heading never ends a column alone. In two columns one spell under it is
-        ;; enough, since the next sits beside it rather than over the page; and a chapter
-        ;; head keeps the same, so what it promises the heading below can keep.
+        ;; Spells a heading keeps with it: one in two columns, two in one. Chapter and level
+        ;; heads use the same count.
         keep-n (if (= :book layout) 1 2)]
     (vec
      (concat
@@ -666,8 +716,7 @@
        (fn [ci {:keys [class pact?] :as k}]
          (let [spells (class-spells spells-known spells-map class order)
                pact-level (when (and pact? (seq pact-slots)) (apply max (keys pact-slots)))
-               ;; Pact slots exist only at the pact level, so a pact caster's lower levels
-               ;; draw on those rather than reading "no slots yet".
+               ;; A pact caster's every level heading shows its pact slots, cast at the pact level.
                slot-of (fn [lvl] (if pact-level (get pact-slots pact-level 0) (get slots lvl 0)))]
            (when (seq spells)
              (concat
@@ -692,8 +741,8 @@
 ;; ─── Pagination ──────────────────────────────────────────────────────────────
 
 (defn- need
-  "Height unit `i` needs free before it goes down: itself and what it keeps with it. In two
-   columns a full-width head's followers sit in a column, so the first row is what counts."
+  "The height unit `i` of `us` needs free before it is placed: its own, plus the units it
+   keeps with it (`:keep` spells and any headings between)."
   [us i]
   (let [u (us i)]
     (if-not (:keep u)
@@ -736,9 +785,7 @@
       (let [close-cols (fn [page cols]
                          (if-not cols
                            page
-                           ;; Re-split the whole block, not just the first column: a block
-                           ;; that spilled into its second column is still uneven, and the
-                           ;; next class can only run on below the taller of the two.
+                           ;; Re-splits the whole block, both columns, before the next full-width unit.
                            (let [[a b] (if two-col?
                                          (balance (concat (first (:cols cols)) (second (:cols cols)))
                                                   (- cap (:top cols)) (:cols cols))
@@ -777,8 +824,7 @@
                     room (- cap (:top cols) (col-total (get-in cols [:cols (:col cols)])))
                     in-col (fn [cols] (update-in cols [:cols (:col cols)] conj u))]
                 (cond
-                  ;; Nothing placed can do better than a fresh page, so an oversize piece
-                  ;; goes down there rather than breaking page after page.
+                  ;; A unit too tall for a fresh page is placed there anyway.
                   (or (<= n room) (and (empty? (get-in cols [:cols (:col cols)])) (empty? (:names page))))
                   (recur (inc i) pages (note page) (in-col cols) current-cls)
 
@@ -793,7 +839,10 @@
 
 ;; ─── Drawing ─────────────────────────────────────────────────────────────────
 
-(defn- running-head! [cs fonts page {:keys [classes tabs]} max-level w]
+(defn- running-head!
+  "Draws the line at the top of `page`: each class on the page with its DC and attack, the
+   level tabs when `tabs` is :head, and the first and last spell on the page at the right."
+  [cs fonts page {:keys [classes tabs]} max-level w]
   (let [x margin ty 30
         stats (for [ci (sort (:classes page)) :let [k (get classes ci)] :when (:dc k)]
                 (str (s/upper-case (:class k)) " DC " (:dc k) "  ATTACK " (:attack k)))
@@ -822,7 +871,10 @@
     (gray! cs ink)
     (line! cs x (+ ty 4) (+ x w) (+ ty 4) 0.5)))
 
-(defn- thumb-tabs! [cs fonts page max-level]
+(defn- thumb-tabs!
+  "Draws the inset level tabs down the right edge of `page`, one per level up to `max-level`,
+   filled for the levels on the page."
+  [cs fonts page max-level]
   (let [n (inc max-level) x (- page-w 18 15) top (+ body-top 4) bottom (- body-bottom 4)
         th (min 36 (/ (- bottom top (* 3 (dec n))) n))]
     (doseq [l (range n) :let [ty (+ top (* l (+ th 3))) on? (contains? (:levels page) l)]]
@@ -834,8 +886,8 @@
                 {:color (if on? 1.0 ink)}))))
 
 (defn- credit!
-  "CC BY asks for credit where the icons appear: the authors of the emblems on these
-   pages, once, under the last page's footer."
+  "Draws the credit line for the authors of `classes`' emblem icons under the footer.
+   Required by the icons' CC BY licence; see spellbook-print.md."
   [cs fonts classes w]
   (let [names (->> classes (keep #(emblems/authors (:icon %))) distinct)]
     (when (seq names)
@@ -843,14 +895,19 @@
         (text! cs (:italic fonts) 5.4 (- (+ margin (/ w 2)) (/ (width (:italic fonts) 5.4 t) 2)) (- page-h 8) t
                {:color ink-2})))))
 
-(defn- footer! [cs fonts character-name n w]
+(defn- footer!
+  "Draws the foot of page `n`: whose spellbook it is, the page number and the site stamp."
+  [cs fonts character-name n w]
   (let [ty (- page-h 22)]
     (text! cs (:plain fonts) 6.6 margin ty (str "Spellbook of " (if (s/blank? character-name) "an adventurer" character-name)) {:color ink-2})
     (folio! cs fonts (+ margin (/ w 2)) (- ty 2.4) n)
     (let [sw (spaced-width (:plain fonts) 6.6 pdf/site-stamp 0.4)]
       (text! cs (:plain fonts) 6.6 (- (+ margin w) sw) ty pdf/site-stamp {:color ink-2 :spacing 0.4}))))
 
-(defn- draw-page! [cs fonts page opts max-level n last?]
+(defn- draw-page!
+  "Draws `page`: running head, inset tabs when asked for, every block of units, the footer,
+   and on the `last?` page the emblem credit."
+  [cs fonts page opts max-level n last?]
   (let [w (body-width (:tabs opts))
         col-w (/ (- w gutter) 2)]
     (running-head! cs fonts page opts max-level w)
@@ -872,8 +929,7 @@
     (when last? (credit! cs fonts (:classes opts) w))))
 
 (defn layout-pages
-  "The measured, paginated pages for `opts` -- everything but the drawing, so a test can
-   check where the breaks fall."
+  "The measured and paginated pages for `opts`, as `paginate` returns them, without drawing."
   [fonts img opts spells-known spells-map]
   (let [us (units fonts img opts spells-known spells-map)
         w (body-width (:tabs opts))]

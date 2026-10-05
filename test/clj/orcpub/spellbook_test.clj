@@ -74,7 +74,7 @@
                   (apply max 0 (map #(reduce + (map :h %)) (:cols b))))))))
 
 (deftest nothing-runs-past-the-foot
-  (testing "Greptile #50: a level heading over a column-tall piece is not balanced into one too-tall column"
+  (testing "a level heading over a column-tall piece is not balanced into one too-tall column"
     (let [opts {:two-col? true :cap 600 :cont-units cont}
           ;; Page two opens with a continued head; the heading goes down alone, the tall
           ;; piece into the next column, and the closing rebalance must not stack them.
@@ -91,7 +91,7 @@
                               {:key (common/name-to-kw "Counterspell") :class "Warlock"}]}
                        spells/spell-map)
           heads (filter #(= :lvh (:kind %)) us)]
-      (testing "Greptile #50: a Warlock's 1st and 2nd level headings show its pact slots, not none"
+      (testing "a Warlock's 1st and 2nd level headings show its pact slots, not none"
         (is (= [1 2 3] (map :level heads)))
         (is (every? #(= 2 (:slots %)) heads))
         (is (every? #(= 3 (:pact-level %)) heads))))))
@@ -103,7 +103,7 @@
                                   :slots % :pact-slots {} :layout :prep :order :level :tabs :head}
                                  {:all [{:key (common/name-to-kw "Shield") :class "Wizard"}]}
                                  spells/spell-map))]
-      (testing "Greptile #50: a pool too wide for one line takes more lines, inside its box"
+      (testing "a pool too wide for one line takes more lines, inside its box"
         (is (= :pool (:kind (pool {1 4}))))
         (is (< (:h (pool {1 4})) (:h (pool (into {} (for [l (range 1 10)] [l 20]))))))))))
 

@@ -22,7 +22,10 @@ const ID = process.env.E2E_HOMEBREW_CHARACTER_ID;
 const FIRST = 'Spoken only by test suites.';
 const SECOND = 'Spoken only by test suites, and now with verbs.';
 
-// kaylee, signed in, on her character's page, with the language described as `description`.
+/**
+ * kaylee, signed in, on her character's page, with the homebrew language described as
+ * `description` in her library. Returns {ctx, page, requests}.
+ */
 async function ownerSession(browser, description) {
   const ctx = await newContext(browser, HOMEBREW.library(description));
   const page = await ctx.newPage();
@@ -33,6 +36,10 @@ async function ownerSession(browser, description) {
   return { ctx, page, requests };
 }
 
+/**
+ * Opens share `link` in a fresh context, signed in as `who` ({user, pass}) or logged out, and
+ * reports what loaded: {sources, description, banner, failedNotice, requests, errors}.
+ */
 async function open(browser, link, who) {
   const ctx = await newContext(browser, null);
   const page = await ctx.newPage();
@@ -45,8 +52,8 @@ async function open(browser, link, who) {
   const noticed = page.waitForFunction(() => document.body && document.body.innerText.includes('could not be loaded'),
     null, { timeout: 15000 }).then(() => 1, () => 0);
   await page.waitForLoadState('networkidle', { timeout: 120000 });
-  // Every link ends one of two ways, the banner or the failure notice: settled by whichever
-  // shows first, and only when neither does by the time both have given up.
+  // 'banner' or 'notice', whichever is seen first; 'none' once both waits have ended without
+  // one (timed out or failed). The notice is watched from page load, the banner from network idle.
   const shown = page.locator('text=Shared with 1 homebrew piece').first()
     .waitFor({ timeout: 15000 }).then(() => 'banner', () => 'none');
   const outcome = await new Promise(resolve => {

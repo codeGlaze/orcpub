@@ -1013,9 +1013,7 @@
           ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
           ;; capping it would keep the first few classes whole and drop the rest.
           flat-spells (bound-cards "spell" (-> spells-known vals flatten))
-          ;; By class, then level and name (or name alone), so a sheet of cards reads
-          ;; like the class's spell list (#520). The sort was computed here before and
-          ;; never used: cards came out in the order the spells were picked.
+          ;; By class, then spellbook/spell-sort-key: level and name, or name alone.
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
                            (into [(if (keyword? class)
@@ -1086,17 +1084,26 @@
                                  logo-img)))))))
     (catch Exception e (println "pdf: failed adding magic item cards" e))))
 
-(defn- one-of [allowed v default]
+(defn- one-of
+  "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
+  [allowed v default]
   (let [k (cond (keyword? v) v (string? v) (keyword v))]
     (if (contains? allowed k) k default)))
 
-(defn- small-int [v lo hi]
+(defn- small-int
+  "`v` when it is an integer from `lo` to `hi`, else nil."
+  [v lo hi]
   (when (and (integer? v) (<= lo v hi)) v))
 
-(defn- short-str [v n]
+(defn- short-str
+  "`v` cut to at most `n` characters when it is a string, else nil."
+  [v n]
   (when (string? v) (subs v 0 (min n (count v)))))
 
-(defn- slot-table [m]
+(defn- slot-table
+  "A slot table {level count} from request map `m`, keeping levels 1-9 with counts 0-20; level
+   keys may arrive as keywords."
+  [m]
   (into {}
         (for [[l n] (when (map? m) m)
               :let [l (small-int (if (keyword? l) (parse-long (name l)) l) 1 9)
@@ -1142,8 +1149,7 @@
   [doc fonts img opts spells-known custom-spells]
   (try
     (let [spells-map (merge spells/spell-map (common/map-by-key custom-spells))
-          ;; The card ceiling bounds the spellbook too: the same list, a page apiece at worst.
-          ;; The pages read only the flat list, so it goes in under one key.
+          ;; Bounded by the card ceiling; the pages read only the flat list, under one key.
           spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
       (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
     (catch Exception e
@@ -1514,7 +1520,7 @@
             spell-order (one-of #{:level :alpha} spell-order :level)
             fonts (when (or spell-cards? item-cards? book) (pdf/load-fonts doc))
             img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
-        ;; The spellbook follows the sheet and comes before the cards, which are cut up.
+        ;; Order: sheet, spellbook, then cards.
         (when book
           (add-spellbook! doc fonts img book spells-known custom-spells))
         (when spell-cards?
