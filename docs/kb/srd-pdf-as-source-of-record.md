@@ -73,11 +73,28 @@ cannot see it.
 **Validate fields, not just names.** A missing item is obvious; an item with the right name
 and a wrong field is not, and nothing downstream flags it.
 
-**The bulk-imported magic items are not.** Of 1959 names, 764 are legitimate expansions of a
-real SRD item (SRD "Demon Armor" becomes "Demon Breastplate", "Demon Chain Mail" and so on),
-48 are SRD 5.1 items sitting in a file labelled 5.2.1, and **396 appear in no SRD at all** —
-`Bloodprice Breastplate`, `Blood-Soaked Hide` and similar. open5e aggregates third-party OGL
-content beyond the SRD, and the magic-items query evidently pulled the wider set. Equipment is
+**The bulk-imported magic items are not.** Count them at the right level first: the import
+expands generic items into one entry per base weapon or armor, so "Giant Slayer" appears 45
+times and "Holy Avenger" 43. That inflates a name count and hides the real picture.
+
+Measured by BASE item, after stripping the expansion suffix:
+
+| | |
+|---|---|
+| magic items in SRD 5.2.1 | **237** |
+| distinct base items in the import | **1218** |
+| bases absent from SRD 5.2.1 | **906** |
+
+So roughly three quarters of a file whose header reads "2319 items; includes all SRD 5.2.1
+items" is third-party content: `Akaasit Blade`, `Alabaster Salt Shaker`, `Alembic of Unmaking`,
+`Almanac of Common Wisdom`, `Accursed Idol`. open5e aggregates well beyond the SRD and the
+magic-items query pulled the wider catalogue. A handful of the 906 may be naming variants of
+real SRD entries, so treat it as a floor rather than an exact count — the order of magnitude
+is what matters.
+
+An earlier revision of this page put the figure at 396 of 1959 NAMES, about a fifth. That was
+measured at the expanded level, where legitimate variants of real SRD items padded the
+denominator. The base-level number is the honest one. Equipment is
 in much better shape, with 1 non-SRD item and 2 malformed names (`Holy Symbol, Amulet)` has an
 unmatched parenthesis, so some names are broken rather than merely different).
 

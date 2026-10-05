@@ -2430,7 +2430,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 401, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 669, chain, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2992,7 +2992,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 1959, 321, 339, carriage, conjuration, delta, demon, dnld, editions, gitea, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
+**topics:** 1959, 321, 339, 906, conjuration, delta, dnld, editions, gitea, import, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
