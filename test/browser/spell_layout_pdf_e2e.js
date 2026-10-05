@@ -268,10 +268,8 @@ async function postSpec(page, spec, style, name) {
     check(`style ${uiStyle} per-class export is a PDF`, pc > 0, `${pc} pages`);
     check('the packed export really packs', /:spell-relabels \[/.test(packedSpec));
 
-    // Sheets are compared WITHOUT cards. This used to compare whole exports, and the packed
-    // one was shorter only because it carried no cards (its spell list was missing). A
-    // Warlock and a Sorcerer both cast with Charisma, which the per-class layout already
-    // puts on one page, so for this character packing must simply cost nothing.
+    // Sheets compared without cards, which add the same pages to both. This Warlock and
+    // Sorcerer share Charisma, so per-class is one page too: packing must add none.
     const noCards = (spec) => spec.replace(':print-spell-cards? true', ':print-spell-cards? false');
     for (const style of [1, 2, 3, 4]) {
       const a = await postSpec(page, noCards(packedSpec), style, `style-${style}-packed`);
@@ -283,8 +281,7 @@ async function postSpec(page, spec, style, name) {
       check(`style ${style} packing adds no page`, ap <= bp, `${ap} <= ${bp}`);
     }
 
-    // The packed layout once returned only its own fields, so the spell list the cards and
-    // the spellbook read was missing and a multiclass caster on a packed sheet got no cards.
+    // A packed sheet must still send the spell list the cards and the spellbook read.
     check('a packed sheet still sends the spell list',
           /:spells-known \{/.test(packedSpec) && /:class "Warlock"/.test(packedSpec));
 
@@ -297,9 +294,7 @@ async function postSpec(page, spec, style, name) {
     check('the spellbook is off until asked for',
           !(await page.innerText('body')).includes('Class emblems'));
     await page.getByText('Print Spellbook', { exact: true }).first().click();
-    // Waits on what it needs rather than a fixed pause: the options panel is mounted twice
-    // with one copy hidden, so only :visible matches count, and a 600ms sleep here once
-    // counted the pickers before they rendered.
+    // GOTCHA: the options panel is mounted twice with one copy hidden; count :visible only.
     const changers = page.locator('span:visible', { hasText: /^Change$/ });
     await changers.first().waitFor({ timeout: 5000 }).catch(() => {});
     const pickers = await changers.count();
