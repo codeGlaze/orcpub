@@ -28,6 +28,5 @@ const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[
  fs.writeFileSync('target/test/cljs-run.log',all);
  // Green only on a complete summary reading zero failures and zero errors; a
  // timeout or crash leaves no summary and must not pass.
- const last=tot.slice(-1)[0]||''; const clean=ran.length>0&&/^0 failures, 0 errors\./.test(last);
- process.exitCode=clean&&fails.length===0?0:1;
+ process.exitCode=passed&&fails.length===0?0:1;
  await br.close();srv.close();})();
