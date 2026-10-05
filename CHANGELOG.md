@@ -59,7 +59,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a save that runs out of browser storage warns and offers a backup. (#678)
 - **Homebrew:** homebrew names with non-English letters are recognised. (#681)
 - **Homebrew:** import and export no longer duplicate a source or lose renamed items, and their messages are readable. (#682, #672)
-- **Homebrew:** two open tabs no longer overwrite each other's library, and renamed items keep their links and the characters using them.
+- **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered.
+- **Homebrew:** renamed items keep their links, and the characters using them.
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
