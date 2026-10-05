@@ -8,6 +8,7 @@
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -1902,7 +1903,7 @@
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
@@ -4462,11 +4463,14 @@
                      print-bw?
                      bw-faded?
                      print-magic-item-cards?
-                     spell-layout]
+                     spell-layout
+                     spellbook-options]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
-                               {:print-character-sheet? print-character-sheet?
+                               (merge
+                                spellbook-options
+                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
@@ -4477,7 +4481,7 @@
                                 :print-bw? print-bw?
                                 :bw-faded? bw-faded?
                                 :print-magic-item-cards? print-magic-item-cards?
-                                :spell-layout spell-layout})]
+                                :spell-layout spell-layout}))]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4516,6 +4520,48 @@
      {:component-did-mount ask
       :reagent-render (fn [_] nil)})))
 
+(defn emblem-picker
+  "One casting class's emblem, with the icons it can be swapped for behind a toggle. The
+   choice lasts the session, like the rest of the PDF options."
+  [_class-kw _class-name _chosen]
+  (let [open? (r/atom false)]
+    (fn [class-kw class-name chosen]
+      (let [icon (emblems/icon-for class-kw chosen)]
+        [:div.m-b-5
+         [:div.flex.align-items-c
+          [:img.emblem-icon {:src (str "/image/emblems/" icon ".svg") :alt ""}]
+          [:span.m-l-5 class-name]
+          [:span.orange.underline.pointer.f-s-12.m-l-10
+           {:on-click #(swap! open? not)}
+           (if @open? "Done" "Change")]]
+         (when @open?
+           (into [:div.emblem-choices]
+                 (for [[nm author] (emblems/options class-kw)]
+                   [:button.emblem-choice
+                    {:key nm
+                     :type "button"
+                     :class (when (= nm icon) "selected")
+                     :title (str (s/replace nm "-" " ") " by " (s/replace author "-" " "))
+                     :on-click #(dispatch [::char/set-spellbook-emblem class-kw nm])}
+                    [:img.emblem-icon {:src (str "/image/emblems/" nm ".svg") :alt (s/replace nm "-" " ")}]])))]))))
+
+(def spellbook-layouts
+  [{:title "Spellbook: full text, two columns" :value "book"}
+   {:title "Ledger: one row a spell" :value "ledger"}
+   {:title "Prep sheet: a box to tick per spell" :value "prep"}])
+
+(def spellbook-option-handler
+  (memoize
+   (fn [k]
+     #(dispatch [::char/set-spellbook-option k (when-not (s/blank? %) (keyword %))]))))
+
+(defn spellbook-dropdown [label k items value]
+  [:div.m-b-10.w-250
+   [labeled-dropdown label
+    {:items items
+     :value (name value)
+     :on-change (spellbook-option-handler k)}]])
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
@@ -4529,6 +4575,8 @@
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
         spell-layout @(subscribe [::char/spell-layout])
+        spellbook-options @(subscribe [::char/spellbook-options])
+        print-spellbook? (:print-spellbook? spellbook-options)
         ;; Read off built-char, not [::char/image-url id]: a character still being
         ;; built has no id yet, and the id-keyed subscription answers nil for it.
         ;; This is the same accessor pdf-spec uses to put the URL in the export.
@@ -4646,6 +4694,49 @@
         (str "The same cards for the magic items the character carries, "
              "attunement and charges included.")]]
 
+      (when has-spells?
+        (let [opt (fn [k] (or (get spellbook-options k)
+                              (get pdf-spec/spellbook-defaults
+                                   (keyword (s/replace (name k) #"^spellbook-" "")))))]
+          [option-group "Spellbook"
+           [option-checkbox
+            "Print Spellbook"
+            print-spellbook?
+            (make-event-handler ::char/toggle-spellbook-print)
+            (str "Adds pages listing every printed spell by class, with its save DC and "
+                 "attack on every page. Fewer pages than cards and nothing to cut out.")]
+           (when print-spellbook?
+             [:div.m-l-20
+              [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
+              (when (> (count casting-classes) 1)
+                [spellbook-dropdown "New class starts" :spellbook-class-break
+                 [{:title "Straight after the last" :value "runon"}
+                  {:title "On a new page" :value "page"}]
+                 (opt :spellbook-class-break)])
+              [spellbook-dropdown "Level tabs" :spellbook-tabs
+               [{:title "In the page header" :value "head"}
+                {:title "Down the side (narrows the page)" :value "inset"}
+                {:title "Off" :value "off"}]
+               (opt :spellbook-tabs)]
+              [:div.f-w-b.m-b-5 "Class emblems"]
+              (for [{:keys [class]} casting-classes
+                    :let [class-kw (common/name-to-kw (str class))]]
+                ^{:key class}
+                [emblem-picker class-kw (str class)
+                 (get-in spellbook-options [:spellbook-emblems class-kw])])])
+           (when (or print-spellbook? print-spell-cards?)
+             [spellbook-dropdown "Spell order" :spell-order
+              [{:title "By level, then name" :value "level"}
+               {:title "By name" :value "alpha"}]
+              (or (:spell-order spellbook-options) :level)])
+           (when (or print-spellbook? print-spell-cards?)
+             [:div.option-note
+              (str "Orders the "
+                   (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
+                         print-spellbook? "spellbook"
+                         :else "cards")
+                   " within each class.")])]))
+
       ;; Both card kinds are inked the same way, so this group follows either --
       ;; gating it on spell cards alone hid it from anyone printing only items.
       (when (or print-spell-cards? print-magic-item-cards?)
@@ -4700,7 +4791,8 @@
                                       print-bw?
                                       bw-faded?
                                       print-magic-item-cards?
-                                      spell-layout)}
+                                      spell-layout
+                                      spellbook-options)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]

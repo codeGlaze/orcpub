@@ -578,6 +578,33 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
+   ;; The spellbook's class emblems in PDF Options. The icons are black line art for
+   ;; paper, so on the dark panel they are inverted rather than shipped twice.
+   [:.emblem-icon
+    {:width "22px"
+     :height "22px"
+     :filter "invert(1)"
+     :opacity "0.85"}]
+   [:.emblem-choices
+    {:display "grid"
+     :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
+     :gap "4px"
+     :max-width "320px"
+     :margin "6px 0 8px 0"}]
+   [:.emblem-choice
+    {:display "flex"
+     :align-items "center"
+     :justify-content "center"
+     :height "34px"
+     :background "transparent"
+     :border "1px solid transparent"
+     :border-radius "4px"
+     :cursor "pointer"}]
+   [:.emblem-choice:hover
+    {:border-color "rgba(255,255,255,0.3)"}]
+   [:.emblem-choice.selected
+    {:border-color "var(--accent, #f0a100)"}]
+
    ;; An always-on note under a control, saying what the current setting will do.
    ;; Set like the ? lines so the two read as one kind of note, but its own class
    ;; -- it is the state of the build, not a fixed explanation.

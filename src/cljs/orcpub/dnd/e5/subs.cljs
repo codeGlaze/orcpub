@@ -1549,6 +1549,14 @@
    (get db ::char5e/print-character-sheet-style?)))
 
 (reg-sub
+ ::char5e/spellbook-options
+ ;; Everything the spellbook export reads, defaults filled in by pdf-spec. Off unless
+ ;; asked for: it adds pages to an export that did not have them.
+ (fn [db _]
+   (assoc (get db ::char5e/spellbook-options)
+          :print-spellbook? (boolean (::char5e/print-spellbook? db)))))
+
+(reg-sub
  ::char5e/spell-layout
  (fn [db _]
    (get db ::char5e/spell-layout)))
