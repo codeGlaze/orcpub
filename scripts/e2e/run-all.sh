@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every browser test, then one table.
 #
-#   ./scripts/e2e/run-all.sh [--prod] [--dev] [--probes] [--jobs N] [name-filter]
+#   ./scripts/e2e/run-all.sh [--prod] [--dev] [--probes] [--jobs N] [--own-jobs N] [name-filter]
 #
 # --prod runs only the suites that work on a production bundle (the build the public site
 # serves); --dev only those that read the app's internals. The batch whose bundle is already on
@@ -17,23 +17,28 @@
 #
 # Per batch: the bundle builds (run.sh --build-only) while the shared server boots. Then tests on
 # the shared server run --jobs at a time (default 3: the machine this was sized on has 7GB, and each
-# job is a Chromium beside the server's JVM), all with E2E_SKIP_BUILD so none rebuilds; suites that
-# need their own server run one by one after the batch. Each suite writes its
-# PDFs to its own folder, since run.sh inspects every new PDF in that folder.
+# job is a Chromium beside the server's JVM), all with E2E_SKIP_BUILD so none rebuilds. Suites that
+# need a fresh server of their own then run --own-jobs at a time (default 2), each on its own port
+# and mail port, once the shared server has stopped; three at once peaked at 6993 of 7759 MB on
+# 2026-10-05, against 6702 for the batch, since each brings a JVM as well as a Chromium; only those that need a busy server stay on :8890, one
+# by one, because they export PDFs. Each suite writes its PDFs to its own folder, since run.sh
+# inspects every new PDF in that folder.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
-WANT_PROD=1; WANT_DEV=1; WANT_PROBES=0; JOBS=3; FILTER=""
+WANT_PROD=1; WANT_DEV=1; WANT_PROBES=0; JOBS=3; OWN_JOBS=2; FILTER=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --prod) WANT_DEV=0 ;; --dev) WANT_PROD=0 ;; --probes) WANT_PROBES=1 ;;
     --jobs) JOBS="${2:?--jobs needs a number}"; shift ;;
+    --own-jobs) OWN_JOBS="${2:?--own-jobs needs a number}"; shift ;;
     *) FILTER="$1" ;;
   esac
   shift
 done
 # 0 or a negative count would leave the scheduler waiting for a job slot no job will ever free.
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "run-all.sh: --jobs needs a whole number of 1 or more, got '$JOBS'"; exit 2; }
+[[ "$OWN_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "run-all.sh: --own-jobs needs a whole number of 1 or more, got '$OWN_JOBS'"; exit 2; }
 
 # One run at a time: a second one shares the first's server and database, and both report results
 # that are neither's. The lock is released when this shell exits, however it exits.
@@ -58,11 +63,20 @@ pick() {  # <bundle> <own-server yes|no> <kind test|probe>
   awk -v k="$1" -v o="$2" -v t="$3" '$1 == k && $3 == o && $4 == t {print $5}' "$LOGDIR/plan"
 }
 
-run_one() {  # <file> <bundle> [shared] [skip-build]
+# Own-server suites, split: the app's PDF form posts to :8890 whenever the page is on localhost
+# (views.cljs download-form), so a suite that exports from a busy server must have that port; any
+# other can take a port of its own and run beside the rest.
+pick_own() {  # <bundle> <kind test|probe> <on-8890 yes|no>
+  awk -v k="$1" -v t="$2" -v p="$3" '$1 == k && $3 == "yes" && $4 == t &&
+    ((p == "yes") == ($2 ~ /busy-export/)) {print $5}' "$LOGDIR/plan"
+}
+
+run_one() {  # <file> <bundle> [shared] [skip-build] [port mail-port]
   local f="$1" kind="$2" name; name="$(basename "$1")"
-  echo "=== $name ($kind${3:+, shared server})"
+  echo "=== $name ($kind${3:+, shared server}${5:+, own server on :$5})"
   mkdir -p "$LOGDIR/out-$name"
   E2E_SHARED_SERVER="${3:-}" E2E_SKIP_BUILD="${4:-}" E2E_OUT="$LOGDIR/out-$name" \
+    E2E_PORT="${5:-${E2E_PORT:-8890}}" E2E_MAIL_PORT="${6:-${E2E_MAIL_PORT:-2525}}" \
     ./scripts/e2e/run.sh "$f" > "$LOGDIR/$name.log" 2>&1
   local line; line="$(grep '^E2E RESULT ' "$LOGDIR/$name.log" | tail -1)"
   [ -n "$line" ] || line="E2E RESULT $name FAIL checks=0 failed=0 bundle=$kind (no result line; see $LOGDIR/$name.log)"
@@ -80,6 +94,22 @@ run_parallel() {  # <bundle> <file>...   --jobs at a time, counting only these j
     run_one "$f" "$kind" 1 1 & pids+=($!)
   done
   [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
+}
+
+run_own_parallel() {  # <bundle> <file>...   --own-jobs at a time, each with a server of its own
+  # Slot k owns port BASE+1+k and mail port 2526+k; a slot is reused only once its job has
+  # ended, so two servers never share a port however the jobs finish.
+  local kind="$1"; shift; local base="${E2E_PORT:-8890}" slots=() k
+  for f in "$@"; do
+    while :; do
+      for ((k = 0; k < OWN_JOBS; k++)); do
+        if [ -z "${slots[$k]:-}" ] || ! kill -0 "${slots[$k]}" 2>/dev/null; then break 2; fi
+      done
+      wait -n "${slots[@]}" 2>/dev/null
+    done
+    run_one "$f" "$kind" "" 1 "$((base + 1 + k))" "$((2526 + k))" & slots[$k]=$!
+  done
+  for p in "${slots[@]}"; do wait "$p"; done
 }
 
 fail_all() {  # <bundle> <reason> <file>...
@@ -106,10 +136,11 @@ grep -q CLOSURE_UNCOMPILED_DEFINES resources/public/js/compiled/orcpub.js 2>/dev
 for kind in $ORDER; do
   [ "$kind" = prod ] && [ "$WANT_PROD" = 0 ] && continue
   [ "$kind" = dev ] && [ "$WANT_DEV" = 0 ] && continue
-  tests=($(pick "$kind" no test)); own=($(pick "$kind" yes test))
+  tests=($(pick "$kind" no test))
+  own_free=($(pick_own "$kind" test no)); own_8890=($(pick_own "$kind" test yes))
   probes=(); own_probes=()
   [ "$WANT_PROBES" = 1 ] && { probes=($(pick "$kind" no probe)); own_probes=($(pick "$kind" yes probe)); }
-  all=("${tests[@]}" "${own[@]}" "${probes[@]}" "${own_probes[@]}")
+  all=("${tests[@]}" "${own_free[@]}" "${own_8890[@]}" "${probes[@]}" "${own_probes[@]}")
   [ ${#all[@]} -eq 0 ] && continue
 
   # The server reads CSP_POLICY at start: off for development bundles, the real policy otherwise.
@@ -141,9 +172,10 @@ for kind in $ORDER; do
   # Probes measure, so they run only once nothing else is running.
   for f in "${probes[@]}"; do run_one "$f" "$kind" 1 1; done
   [ "$SHARED_UP" = 1 ] && { ./scripts/e2e/server.sh stop; SHARED_UP=0; }
-  # Own-server suites (busy-export) run after, on the same port: the app's PDF form posts to :8890
-  # whenever the page is on localhost (views.cljs download-form), so a second port cannot work.
-  for f in "${own[@]}" "${own_probes[@]}"; do run_one "$f" "$kind" "" 1; done
+  # Own-server suites after the shared server has gone, so memory holds the same number of JVMs
+  # and browsers as the batch did. Probes stay one at a time on :8890, for the reason above.
+  [ ${#own_free[@]} -gt 0 ] && run_own_parallel "$kind" "${own_free[@]}"
+  for f in "${own_8890[@]}" "${own_probes[@]}"; do run_one "$f" "$kind" "" 1; done
   unset CSP_POLICY
 done
 kill "$MEMPID" 2>/dev/null
