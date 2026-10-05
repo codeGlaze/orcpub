@@ -124,9 +124,24 @@ fail_all() {  # <bundle> <reason> <file>...
 ( while :; do free -m | awk '/^Mem:/ {print $3, $2}'; sleep 2; done ) > "$LOGDIR/memory" 9>&- &
 MEMPID=$!
 SHARED_UP=0
-# One exit path for an interrupted run: the sampler and a shared server both go.
-cleanup() { kill "$MEMPID" 2>/dev/null; [ "$SHARED_UP" = 1 ] && ./scripts/e2e/server.sh stop; }
+# One exit path for an interrupted run: the sampler, any suite still running and the shared server
+# all go. Fresh servers are started with setsid, out of reach of a signal to this run, and stop only
+# through their own run.sh's exit trap; so each job and everything under it is signalled, deepest
+# first, and waited for while those traps stop their servers. Nothing this run did not start is
+# touched: a server someone else runs on a nearby port keeps running.
+kill_tree() {  # <pid>
+  local c; for c in $(pgrep -P "$1"); do kill_tree "$c"; done
+  kill "$1" 2>/dev/null
+}
+cleanup() {
+  local p; for p in $(jobs -p); do kill_tree "$p"; done
+  wait 2>/dev/null
+  [ "$SHARED_UP" = 1 ] && ./scripts/e2e/server.sh stop
+}
 trap cleanup EXIT
+# INT and TERM end the script through EXIT, so cleanup runs however the run is stopped.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Production and development bundles share one output folder, so switching costs a rebuild (about
 # 1.5 min). Start with the kind already on disk: one rebuild per run instead of two.
