@@ -123,9 +123,12 @@ async function resetLinkFor(page, sink, email) {
   let b = authInputs(page);
   await b.nth(0).fill(user); await b.nth(1).fill(email); await b.nth(2).fill(email);
   await b.nth(3).fill(GOOD); await b.nth(4).fill(GOOD);
-  await submit(page, () => press(page, 'JOIN'), /taken|already/);
+  // The server's own words: the page always says "Already have an account?", so a bare
+  // /already/ was true before JOIN was pressed and proved nothing.
+  await submit(page, () => press(page, 'JOIN'), /already taken by another user/);
   const taken = await cardText(page);
-  check(/taken|already/i.test(taken), 'a username and email already in use are refused',
+  check(/already taken by another user/i.test(taken) && /already associated with another account/i.test(taken),
+        'a username and email already in use are refused',
         taken.replace(/\n/g, ' | ').slice(0, 120));
 
   // Short password: the rules must say what is wrong, not just refuse.
