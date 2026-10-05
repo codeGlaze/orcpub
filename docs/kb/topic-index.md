@@ -2992,7 +2992,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 1959, 321, carriage, conjuration, demon, dnld, gitea, name-level, newline, open5e, pdf, pdfs, resources, schools, spells, srd, srd-2024-intergration, srd-5
+**topics:** 1959, 321, 339, carriage, conjuration, delta, demon, dnld, editions, gitea, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -3000,6 +3000,9 @@ _srd-pdf-as-source-of-record · srd pdf as source of record_
 - What validating the SRD 5.2 import found
 - Why no existing guard catches this
 - How to reuse this
+- Deriving the edition delta from the SRDs alone
+- What the delta says
+- Against the import's hand-made delta
 
 ## srd-vs-plugin-content.md
 
@@ -3173,7 +3176,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, comparison, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, comparison, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
