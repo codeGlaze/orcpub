@@ -62,6 +62,7 @@ LOOM=agents/loom/release/silhouette-loom-v2.html PACKZIP=/path/to/portrait-pack.
 | `persist.js` | reviews survive reload and travel in the manifest | `OUT` dir |
 | `lines.js` | lines are left out of the automatic fill, and the option to include them | `OUT` dir |
 | `leakview.js` | Show leaks: bright green, see-through amplified | `OUT` dir |
+| `patch.js` | Patch gaps: paint behind the art, undo, reload, export, manifest | `OUT` dir |
 
 ## The see-through fill: scope
 
@@ -76,6 +77,15 @@ shows in a portrait.
 render whole portraits through the app's renderer on light to dark skin, at
 the size the builder shows them. Show leaks (green, see-through x4) finds
 spots; it is not a pass mark -- nearly all hand-drawn art fails it.
+
+### Patch gaps
+
+For a gap *between* pieces -- bare skin where two pieces do not meet --
+which no fill can close, because neither piece has pixels there. Paint it in
+the Loom on the piece that should own it, with the neighbouring pieces shown
+under and over it. The patch sits behind the art, so drawn pixels never
+change. First use: hair front 02 with bangs 03, to retire the placeholder
+scalp piece.
 
 ### Parked: further healing
 

@@ -59,7 +59,7 @@
   }
   .fill-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px;
               padding-top: 10px; border-top: 1px solid var(--line); }
-  .fill-btn { padding: 8px 12px; }
+  .fill-btn, .patch-btn { padding: 8px 12px; }
   .fill-state { font-size: 11.5px; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); }
   .fill-state.todo { color: var(--warn); border-color: rgba(224,163,58,.5); }
   .fill-state.ok { color: var(--good); border-color: rgba(95,179,122,.5); }
@@ -200,6 +200,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.37</b> "Patch gaps" on every piece: paint behind the art to close a gap between pieces (it can never change a drawn pixel), with the pieces under and over it shown in skin and hair colour; Paint / Erase / Off, eyedropper, undo/redo; kept in this browser and in the manifest, and written into the downloaded pack ·
       <b>v2.36</b> removes "Smooth small holes": in real portraits it filled the gaps between strands and smeared eye whites. The fill is back to filling the speckled insides that colouring shows, nothing more ·
       <b>v2.35</b> "Smooth small holes" in the fill review, off by default: after the fill, closes grain and pinholes up to about 4px wide at any opacity, including in the soft outline, keeping the outline's falloff; shown orange in the overlay; Remove fill keeps a spot as drawn ·
       <b>v2.34</b> "Show leaks" in the fill review: the piece over bright green with its see-through amplified 4×, so a pixel 95% opaque shows plainly; works with Overlay, Before and After ·
@@ -327,7 +328,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.36';
+const LOOM_VERSION = 'v2.37';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1364,6 +1365,208 @@ let view = (() => { try { return JSON.parse(localStorage.getItem(VIEW_KEY) || '{
 view.show = view.show || 'all';
 if (view.compact === undefined) view.compact = window.matchMedia('(max-width: 700px)').matches;
 function saveView() { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch (_) {} }
+/* ---------- patch gaps ----------
+   Paint BEHIND a piece to close a gap between pieces -- say where a hair
+   front and a bangs piece do not meet. The patch sits under the art, so a
+   drawn pixel stays exactly as drawn; only empty or see-through pixels take
+   the patch's colour. Kept per piece as an opacity map and one colour. */
+const zipPatch = new Map(), loosePatch = new Map();   // from manifests: key "layer/file"
+function rleBytes(a) {
+  const out = []; let cur = a[0] || 0, run = 0;
+  for (let i = 0; i < a.length; i++) { if (a[i] === cur) run++; else { out.push(cur + ':' + run); cur = a[i]; run = 1; } }
+  out.push(cur + ':' + run); return out.join(',');
+}
+function unrleBytes(str, n) {
+  const a = new Uint8Array(n); if (!str) return a; let i = 0;
+  for (const part of str.split(',')) { const [v, k] = part.split(':').map(Number); a.fill(v, i, Math.min(n, i + k)); i += k; }
+  return a;
+}
+function typicalFill(it) {
+  // the piece's own fill colour: the commonest light opaque colour
+  const c = it.processed, d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data;
+  const counts = new Map(); let best = null, bestN = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 255) continue;
+    const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; if (l < 150) continue;
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2], n = (counts.get(k) || 0) + 1; counts.set(k, n);
+    if (n > bestN) { bestN = n; best = k; }
+  }
+  return best === null ? '#ffffff' : '#' + best.toString(16).padStart(6, '0');
+}
+const patchKey = (it) => 'silhouette-loom.patch.' + fillKey(it);
+function patchToSaved(pt, w, h) {
+  let n = 0; for (let i = 0; i < pt.alpha.length; i++) if (pt.alpha[i]) n++;
+  return { w, h, colour: pt.colour, px: n, alpha: rleBytes(pt.alpha) };
+}
+function savePatch(it) {
+  try { localStorage.setItem(patchKey(it), JSON.stringify(patchToSaved(it.patch, it.processed.width, it.processed.height))); } catch (_) {}
+}
+function patchState(it) {
+  if (!it.patch) {
+    const w = it.processed.width, h = it.processed.height, k = itemKey(it.layer, it.name);
+    let saved = loosePatch.get(k);
+    if (!saved) { try { saved = JSON.parse(localStorage.getItem(patchKey(it)) || 'null'); } catch (_) {} }
+    if (!saved) saved = zipPatch.get(k);
+    if (saved && (saved.w !== w || saved.h !== h)) saved = null;
+    it.patch = { colour: saved ? saved.colour : typicalFill(it), alpha: saved ? unrleBytes(saved.alpha, w * h) : new Uint8Array(w * h), undo: [], redo: [] };
+  }
+  return it.patch;
+}
+const patchedPx = (it) => { if (!it.patch && !loosePatch.has(itemKey(it.layer, it.name)) && !zipPatch.has(itemKey(it.layer, it.name))) {
+    try { if (!localStorage.getItem(patchKey(it))) return 0; } catch (_) { return 0; } }
+  const a = patchState(it).alpha; let n = 0; for (let i = 0; i < a.length; i++) if (a[i]) n++; return n; };
+// the art as it will be exported (the fill, if it applies), then the patch behind it
+function artPx(it) {
+  const fill = $('fill-insides').checked && it.seeThrough && it.seeThrough.see && fillState(it).on;
+  if (fill) return effectiveFill(it).px;
+  const c = it.processed; return new Uint8ClampedArray(c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data);
+}
+function withPatch(px, pt) {
+  const [cr, cg, cb] = hexRgb(pt.colour), a = pt.alpha;
+  for (let i = 0; i < a.length; i++) {
+    if (!a[i]) continue;
+    const fa = px[4 * i + 3] / 255, pa = a[i] / 255, oa = fa + pa * (1 - fa); if (oa <= 0) continue;
+    px[4 * i] = (px[4 * i] * fa + cr * pa * (1 - fa)) / oa;
+    px[4 * i + 1] = (px[4 * i + 1] * fa + cg * pa * (1 - fa)) / oa;
+    px[4 * i + 2] = (px[4 * i + 2] * fa + cb * pa * (1 - fa)) / oa;
+    px[4 * i + 3] = oa * 255;
+  }
+  return px;
+}
+function hexRgb(h) { const v = parseInt(String(h).replace('#', ''), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
+const skinLayer = (it) => !!(it && it.layer && /head|ear|nose/.test(it.layer.key));
+function patchEditor(it) {
+  const pt = patchState(it), src = it.processed, W = src.width, H = src.height;
+  const wrap = document.createElement('div'); wrap.className = 'fill-editor patch-editor';
+  const box = drawnBounds(src, 0.04);
+  const scroller = document.createElement('div'); scroller.className = 'fill-scroll';
+  const cv = document.createElement('canvas'); cv.className = 'fill-canvas'; scroller.appendChild(cv);
+  const others = items.filter(o => o !== it && o.layer && o.processed);
+  const z = it.layer ? it.layer.z : 50;
+  const unders = others.filter(o => o.layer.z < z).sort((a, b) => a.layer.z - b.layer.z);
+  const overs = others.filter(o => o.layer.z > z).sort((a, b) => a.layer.z - b.layer.z);
+  const ui = pt.ui = pt.ui || { brush: 'off', size: 6, zoom: 1, skin: '#c99871', hair: '#2b1a10', mark: true, showOver: true,
+                               under: (unders.find(o => /head/.test(o.layer.key)) || {}).name || '', over: '' };
+  const base = Math.min(1, 340 / box.w);
+  scroller.style.width = Math.round(box.w * base) + 2 + 'px';
+  scroller.style.height = Math.round(box.h * base) + 2 + 'px';
+  const pxOf = (o) => { const c = o.processed, t = document.createElement('canvas'); t.width = W; t.height = H;
+    const g = t.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0, W, H); return g.getImageData(0, 0, W, H).data; };
+  const tinted = (px, hex) => { const [r, g, b] = hexRgb(hex), o = new ImageData(W, H), d = o.data;
+    for (let i = 0; i < px.length; i += 4) { d[i] = px[i] * r / 255; d[i + 1] = px[i + 1] * g / 255; d[i + 2] = px[i + 2] * b / 255; d[i + 3] = px[i + 3]; } return o; };
+  const colourFor = (o) => skinLayer(o) ? ui.skin : ui.hair;
+  let art = artPx(it);
+  const stats = document.createElement('div'); stats.className = 'fill-stats';
+  const draw = () => {
+    const k = base * ui.zoom;
+    cv.width = Math.round(box.w * k); cv.height = Math.round(box.h * k);
+    const t = document.createElement('canvas'); t.width = W; t.height = H; const tg = t.getContext('2d');
+    tg.fillStyle = '#ececec'; tg.fillRect(0, 0, W, H);
+    const layerOn = (px, hex) => { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(tinted(px, hex), 0, 0); tg.drawImage(c, 0, 0); };
+    const under = unders.find(o => o.name === ui.under), over = overs.find(o => o.name === ui.over);
+    if (under) layerOn(pxOf(under), colourFor(under));
+    layerOn(withPatch(new Uint8ClampedArray(art), pt), colourFor(it));
+    if (over && ui.showOver) layerOn(pxOf(over), colourFor(over));
+    if (ui.mark) { const o = tg.getImageData(0, 0, W, H);
+      for (let i = 0; i < pt.alpha.length; i++) if (pt.alpha[i]) { const f = 0.55 * pt.alpha[i] / 255;
+        o.data[4 * i] = o.data[4 * i] * (1 - f) + 255 * f; o.data[4 * i + 1] = o.data[4 * i + 1] * (1 - f) + 40 * f; o.data[4 * i + 2] = o.data[4 * i + 2] * (1 - f) + 200 * f; }
+      tg.putImageData(o, 0, 0); }
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = ui.zoom < 2;
+    g.drawImage(t, box.x, box.y, box.w, box.h, 0, 0, cv.width, cv.height);
+    let n = 0; for (let i = 0; i < pt.alpha.length; i++) if (pt.alpha[i]) n++;
+    stats.textContent = `${n} px patched` + (n ? ` · colour ${pt.colour}` : '');
+    undoB.disabled = !pt.undo.length; redoB.disabled = !pt.redo.length;
+  };
+  const remember = () => { pt.undo.push({ alpha: pt.alpha.slice(), colour: pt.colour }); if (pt.undo.length > 60) pt.undo.shift(); pt.redo = []; };
+  const restore = (st) => { pt.alpha = st.alpha; pt.colour = st.colour; colC.value = pt.colour; savePatch(it); draw(); render(); };
+  const at = (ev) => { const r = cv.getBoundingClientRect(), k = base * ui.zoom;
+    return [box.x + (ev.clientX - r.left) / k, box.y + (ev.clientY - r.top) / k]; };
+  const paintAt = (ev) => {
+    const [x, y] = at(ev), rad = ui.size / 2;
+    for (let yy = Math.floor(y - rad - 1); yy <= y + rad + 1; yy++) for (let xx = Math.floor(x - rad - 1); xx <= x + rad + 1; xx++) {
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const cov = Math.max(0, Math.min(1, rad + 0.5 - Math.hypot(xx + 0.5 - x, yy + 0.5 - y))); if (!cov) continue;
+      const i = yy * W + xx;
+      pt.alpha[i] = ui.brush === 'paint' ? Math.max(pt.alpha[i], Math.round(cov * 255)) : Math.min(pt.alpha[i], Math.round((1 - cov) * 255));
+    }
+  };
+  let painting = false, pan = null, picking = false;
+  const armed = () => { cv.style.touchAction = ui.brush === 'off' && !picking ? 'auto' : 'none'; cv.style.cursor = picking ? 'copy' : ui.brush === 'off' ? 'grab' : 'crosshair'; };
+  armed();
+  cv.addEventListener('pointerdown', (ev) => {
+    if (picking) { const [x, y] = at(ev), i = Math.floor(y) * W + Math.floor(x), d = src.getContext('2d', { willReadFrequently: true }).getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+      if (d[3] > 0) { remember(); pt.colour = '#' + ((d[0] << 16) | (d[1] << 8) | d[2]).toString(16).padStart(6, '0'); colC.value = pt.colour; savePatch(it); }
+      picking = false; pickB.classList.remove('on'); armed(); draw(); return; }
+    if (ui.brush === 'off') { if (ev.pointerType === 'mouse') { pan = [ev.clientX, ev.clientY, scroller.scrollLeft, scroller.scrollTop]; cv.setPointerCapture(ev.pointerId); } return; }
+    remember(); painting = true; cv.setPointerCapture(ev.pointerId); paintAt(ev); draw(); });
+  cv.addEventListener('pointermove', (ev) => {
+    if (pan) { scroller.scrollLeft = pan[2] - (ev.clientX - pan[0]); scroller.scrollTop = pan[3] - (ev.clientY - pan[1]); return; }
+    if (painting) { paintAt(ev); draw(); } });
+  const end = () => { pan = null; if (painting) { painting = false; savePatch(it); render(); } };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  // controls
+  const ctl = document.createElement('div'); ctl.className = 'fill-controls'; ctl.appendChild(stats);
+  const seg = (label, opts, get, set) => {
+    const row = document.createElement('div'); row.className = 'fill-row';
+    const l = document.createElement('span'); l.textContent = label; row.appendChild(l);
+    const bs = opts.map(([v, t]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t;
+      b.addEventListener('click', () => { set(v); bs.forEach((x, j) => x.classList.toggle('on', opts[j][0] === get())); draw(); }); row.appendChild(b); return b; });
+    bs.forEach((x, j) => x.classList.toggle('on', opts[j][0] === get())); ctl.appendChild(row); return row;
+  };
+  const pickRow = (label, list, get, set) => {
+    const l = document.createElement('label'); l.className = 'f inline-f'; const sp = document.createElement('span'); sp.textContent = label + ' ';
+    const sel = document.createElement('select'); const none = document.createElement('option'); none.value = ''; none.textContent = '(nothing)'; sel.appendChild(none);
+    for (const o of list) { const op = document.createElement('option'); op.value = o.name; op.textContent = o.layer.key + ' · ' + o.name; sel.appendChild(op); }
+    sel.value = get(); sel.addEventListener('change', () => { set(sel.value); draw(); });
+    sp.appendChild(sel); l.appendChild(sp); ctl.appendChild(l); return sel;
+  };
+  pickRow('Show under it', unders, () => ui.under, v => { ui.under = v; });
+  pickRow('Show over it', overs, () => ui.over, v => { ui.over = v; });
+  const colourRow = document.createElement('div'); colourRow.className = 'fill-row';
+  const mk = (label, val, on) => { const s = document.createElement('label'); s.textContent = label + ' '; const c = document.createElement('input'); c.type = 'color'; c.value = val;
+    c.addEventListener('input', () => on(c.value)); s.appendChild(c); colourRow.appendChild(s); return c; };
+  mk('Skin', ui.skin, v => { ui.skin = v; draw(); }); mk('Hair', ui.hair, v => { ui.hair = v; draw(); });
+  ctl.appendChild(colourRow);
+  const ov = document.createElement('label'); ov.className = 'f inline-f'; const ovS = document.createElement('span'); const ovC = document.createElement('input'); ovC.type = 'checkbox'; ovC.checked = ui.showOver;
+  ovC.addEventListener('change', () => { ui.showOver = ovC.checked; draw(); }); ovS.appendChild(ovC); ovS.appendChild(document.createTextNode(' Show the piece over it')); ov.appendChild(ovS); ctl.appendChild(ov);
+  const mkL = document.createElement('label'); mkL.className = 'f inline-f'; const mkS = document.createElement('span'); const mkC = document.createElement('input'); mkC.type = 'checkbox'; mkC.checked = ui.mark;
+  mkC.addEventListener('change', () => { ui.mark = mkC.checked; draw(); }); mkS.appendChild(mkC); mkS.appendChild(document.createTextNode(' Highlight the patch')); mkL.appendChild(mkS); ctl.appendChild(mkL);
+  seg('Brush', [['off', 'Off'], ['paint', 'Paint'], ['erase', 'Erase']], () => ui.brush, v => { ui.brush = v; armed(); });
+  const pcRow = document.createElement('div'); pcRow.className = 'fill-row';
+  const pcL = document.createElement('span'); pcL.textContent = 'Patch colour'; pcRow.appendChild(pcL);
+  const colC = document.createElement('input'); colC.type = 'color'; colC.value = pt.colour;
+  colC.addEventListener('change', () => { remember(); pt.colour = colC.value; savePatch(it); draw(); }); pcRow.appendChild(colC);
+  const pickB = document.createElement('button'); pickB.type = 'button'; pickB.className = 'chip'; pickB.textContent = 'Pick from the art';
+  pickB.addEventListener('click', () => { picking = !picking; pickB.classList.toggle('on', picking); armed(); }); pcRow.appendChild(pickB);
+  ctl.appendChild(pcRow);
+  const slider = (label, min, max, step, val, onInput) => {
+    const l = document.createElement('label'); l.className = 'f'; const t = document.createElement('span'); l.appendChild(t);
+    const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = val;
+    const name = (v) => { t.textContent = label.replace('__', String(v)); }; name(val);
+    i.addEventListener('input', () => { name(+i.value); onInput(+i.value); }); l.appendChild(i); ctl.appendChild(l); return i; };
+  slider('Brush size: __ px', 1, 30, 1, ui.size, v => { ui.size = v; });
+  slider('Zoom: __×', 1, 4, 0.5, ui.zoom, v => {
+    const cx = (scroller.scrollLeft + scroller.clientWidth / 2) / Math.max(1, cv.width), cy = (scroller.scrollTop + scroller.clientHeight / 2) / Math.max(1, cv.height);
+    ui.zoom = v; draw(); scroller.scrollLeft = cx * cv.width - scroller.clientWidth / 2; scroller.scrollTop = cy * cv.height - scroller.clientHeight / 2;
+    ui.scroll = [scroller.scrollLeft, scroller.scrollTop]; });
+  scroller.addEventListener('scroll', () => { ui.scroll = [scroller.scrollLeft, scroller.scrollTop]; });
+  const btns = document.createElement('div'); btns.className = 'iris-btns';
+  const undoB = document.createElement('button'); undoB.className = 'btn ghost'; undoB.textContent = '↶ Undo';
+  const redoB = document.createElement('button'); redoB.className = 'btn ghost'; redoB.textContent = '↷ Redo';
+  const clr = document.createElement('button'); clr.className = 'btn ghost'; clr.textContent = 'Clear patch';
+  undoB.addEventListener('click', () => { if (!pt.undo.length) return; pt.redo.push({ alpha: pt.alpha.slice(), colour: pt.colour }); restore(pt.undo.pop()); });
+  redoB.addEventListener('click', () => { if (!pt.redo.length) return; pt.undo.push({ alpha: pt.alpha.slice(), colour: pt.colour }); restore(pt.redo.pop()); });
+  clr.addEventListener('click', () => { remember(); pt.alpha = new Uint8Array(W * H); savePatch(it); draw(); render(); });
+  btns.appendChild(undoB); btns.appendChild(redoB); btns.appendChild(clr); ctl.appendChild(btns);
+  const legend = document.createElement('div'); legend.className = 'fill-legend';
+  legend.textContent = 'The patch goes behind the art: it fills only empty or see-through pixels, and a drawn pixel stays as drawn. Highlighted in pink while you work; the downloaded pack has it in the patch colour.';
+  ctl.appendChild(legend);
+  wrap.appendChild(scroller); wrap.appendChild(ctl);
+  draw();
+  if (ui.scroll) requestAnimationFrame(() => { scroller.scrollLeft = ui.scroll[0]; scroller.scrollTop = ui.scroll[1]; });
+  return wrap;
+}
+
 const isEye = (it) => !!((it.layer && it.layer.key.includes('eye')) || it.irises.length);
 // real problems only: art the tint will flatten, or a piece in no layer
 const needsAttention = (it) => it.verdict.cls === 'bad' || !it.layer;
@@ -1524,6 +1727,17 @@ function render() {
       const holder = document.createElement('div'); card.appendChild(holder);
       if (open) { if (!st.reviewed) { st.reviewed = true; saveFill(it); } holder.appendChild(fillEditor(it)); }
       btn.addEventListener('click', () => { it.fillOpen = !open; render(); });
+    }
+    if (it.layer) {
+      const open = !!it.patchOpen, n = patchedPx(it);
+      const bar = document.createElement('div'); bar.className = 'fill-bar';
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn patch-btn ' + (open ? 'ghost' : '');
+      btn.textContent = open ? 'Close patch' : 'Patch gaps';
+      bar.appendChild(btn);
+      if (n) { const badge = document.createElement('span'); badge.className = 'fill-state edited'; badge.textContent = `Patched · ${n} px`; bar.appendChild(badge); }
+      card.appendChild(bar);
+      if (open) card.appendChild(patchEditor(it));
+      btn.addEventListener('click', () => { it.patchOpen = !open; render(); });
     }
     out.appendChild(card);
   }
@@ -1826,6 +2040,7 @@ async function readZip(file) {
           for (const a of (layer.assets || [])) {
             if (a.iris) zipIris.set(String(a.file).toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites });
             if (a.fillReview) zipFill.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.fillReview);
+            if (a.patch) zipPatch.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.patch);
           }
         }
       } catch (e) { console.warn('manifest in zip was not readable', e); }
@@ -1875,6 +2090,9 @@ function applyPendingManifests() {
         if (a.fillReview) { looseFill.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.fillReview);
                             const ex = items.find(i => itemKey(i.layer, i.name) === (layer.key || 'unassigned') + '/' + String(a.file).toLowerCase());
                             if (ex) delete ex.fill; }
+        if (a.patch) { loosePatch.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.patch);
+                       const ex = items.find(i => itemKey(i.layer, i.name) === (layer.key || 'unassigned') + '/' + String(a.file).toLowerCase());
+                       if (ex) delete ex.patch; }
       }
     }
   }
@@ -2033,7 +2251,7 @@ for (const id of ['height', 'mode']) {
 // Clear forgets everything dropped so far, placements included, so the next
 // drop starts from the bundled working placements (and anything dropped with it)
 $('clear').addEventListener('click', () => {
-  items.length = 0; priorIris.clear(); zipIris.clear(); carryOver.clear(); zipFill.clear(); looseFill.clear(); render();
+  items.length = 0; priorIris.clear(); zipIris.clear(); carryOver.clear(); zipFill.clear(); looseFill.clear(); zipPatch.clear(); loosePatch.clear(); render();
 });
 
 /* One piece per layer is a whole portrait rather than a whole pack, which is
@@ -2112,7 +2330,12 @@ $('save').addEventListener('click', async () => {
       const stem = it.name.replace(/\.[^.]+$/, '');
       const dir = it.layer ? it.layer.key : 'unassigned';
       const fill = $('fill-insides').checked && it.seeThrough && it.seeThrough.see && fillState(it).on;
-      const blob = fill ? await new Promise(r => filledCopy(it.processed, effectiveFill(it)).toBlob(r, 'image/png')) : it.blob;
+      const patched = patchedPx(it) > 0;
+      const blob = (fill || patched)
+        ? await new Promise(r => { const e = fill ? effectiveFill(it) : { px: artPx(it) };
+                                   if (patched) e.px = withPatch(new Uint8ClampedArray(e.px), patchState(it));
+                                   filledCopy(it.processed, e).toBlob(r, 'image/png'); })
+        : it.blob;
       entries.push({ name: `${dir}/${stem}.png`,
                      bytes: new Uint8Array(await blob.arrayBuffer()) });
     }
@@ -2150,6 +2373,7 @@ function buildManifest(chosen) {
         alphaLevels: it.analysis.alphaLevels,
         opaqueColours: it.analysis.opaqueColours,
         tintVerdict: it.verdict.cls,
+        ...(patchedPx(it) ? { patch: patchToSaved(patchState(it), it.processed.width, it.processed.height) } : {}),
         ...(it.seeThrough && it.seeThrough.see
             ? (() => { const f = fillState(it), e = effectiveFill(it);
                        return { seeThrough: it.seeThrough.see,
