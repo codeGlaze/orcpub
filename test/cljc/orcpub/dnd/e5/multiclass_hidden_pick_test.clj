@@ -131,7 +131,6 @@
     (doseq [[nm path] (offered classes)]
       (println (format "   offered: %-34s at %s" nm (pr-str path))))))
 
-(defn- offered-names [classes] (set (map first (offered classes))))
 (defn- offered-paths [classes] (set (map second (offered classes))))
 
 (deftest a-multiclass-skill-pick-stops-applying-when-it-becomes-the-first-class
