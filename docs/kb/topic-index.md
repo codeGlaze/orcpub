@@ -282,7 +282,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, rule, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -428,7 +428,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -455,7 +455,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, bespoke, builder-comparison, casting, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -775,7 +775,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -788,7 +788,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -812,7 +812,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1026,7 +1026,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, progression, select, spell, spells, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1770,7 +1770,7 @@ _heartbeat · heartbeat_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2362,7 +2362,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, spell, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, switch, task
 
 - Method
 - The fixtures
@@ -2523,7 +2523,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, skill, skills, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2674,7 +2674,7 @@ _registry-before-after · registry before after_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, visibility, websocket
+**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
@@ -2930,7 +2930,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2968,6 +2968,17 @@ _spell-slot-progression · spell slot progression_
 - Agreed design — DESIGN (this thread, not built)
 - Relation to other docs
 
+## srd-2024-coverage.md
+
+_srd-2024-coverage · srd 2024 coverage_
+
+**topics:** 109-entry, 1780, 2024, 230kb, 32-entry, 506, 620kb, app-side, checked, column, counted, counterpart, delta, designed, grapple, option-source, origin-feat, started
+
+- Content
+- Rules and reference (no e5 data namespace)
+- App-side work, no SRD counterpart
+- Known gaps in what IS done
+
 ## srd-2024-implementation-notes.md
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
@@ -2985,7 +2996,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, editions, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3005,7 +3016,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 1959, 321, 339, 906, conjuration, delta, dnld, editions, gitea, import, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
+**topics:** 1959, 321, 339, 906, carriage, conjuration, delta, dnld, gitea, import, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
