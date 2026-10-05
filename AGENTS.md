@@ -299,8 +299,10 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 
 ### Comments and Docstrings — MUST FOLLOW
 
-- **Docstrings are spec:** what it does, its args, what it returns, and at most a one-or-two-line
-  GOTCHA where a reader would otherwise write a bug.
+- **Every function gets a docstring, and docstrings are spec:** what it does, its args, what it
+  returns. A new dev should know what any function does without reading its body.
+- **A GOTCHA line is the rare exception, never a required part:** one or two lines, only for a
+  tricky function or code that is easy to break by accident. Most docstrings have none.
 - **Comments say what the code does and why it is surprising.** No history ("used to", "was
   once"), no rationale or decision narrative, no worked examples. Those go in `docs/kb/`, and the
   comment links the page by name (`key-collision-behavior.md`).

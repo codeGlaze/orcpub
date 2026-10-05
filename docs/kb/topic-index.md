@@ -455,7 +455,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, bespoke, builder-comparison, casting, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, errors, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -742,7 +742,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -775,7 +775,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -853,7 +853,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, registry, revert, snapshots, stop, warlock
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, preconditions, registry, revert, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -1231,7 +1231,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, ledger, linked, narrative, operator, person, plan, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, linked, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1316,7 +1316,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1335,7 +1335,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, busy, dev-only, inside-the-app, pidfile, prints, probes, production, profile, rebuilds, run, server, suite, suites
+**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, prints, probes, production, profile, rebuilds, run, server, servers, stops, suite, suites
 
 - The rule
 - Production is the default
@@ -1343,6 +1343,7 @@ _e2e-runner · e2e runner_
 - Servers, parallel tests, and what a run costs
 - Known failures
 - Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
+- Fresh-server suites run beside each other (2026-10-05, PR #51)
 - Still open
 
 ## edition-drift.md
@@ -1520,7 +1521,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, measuring, nine, pdf, playwright, probe, probes, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, homebrew-fixes-persist, measuring, nine, pdf, playwright, probe, probes, runner, sheets, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1688,7 +1689,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, cards, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -1915,7 +1916,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -1974,7 +1975,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 50-200ms, 500ms, cleared, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
 
 - Current Design (post-refactor)
 - Data flow
@@ -1989,7 +1990,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source
+**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, record, refusal, rename, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2049,7 +2050,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, problems, same-key, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2900,7 +2901,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, srd, stone, tag, tidewater, words
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater, words
 
 - What exists today
 - The proposal
@@ -2914,7 +2915,7 @@ _source-tagged-keys · source tagged keys_
 
 _spa-routing-architecture · spa routing architecture_
 
-**topics:** 1289-1326, 1828-1838, 302, 33-75, client, component, entity-id, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
+**topics:** 1289-1326, 1828-1838, 302, 33-75, component, entity-id, handler, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
 
 - Route Registration (3 places)
 - 1. Route Map — src/cljc/orcpub/routemap.cljc
@@ -2930,7 +2931,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2968,6 +2969,19 @@ _spell-slot-progression · spell slot progression_
 - Agreed design — DESIGN (this thread, not built)
 - Relation to other docs
 
+## spellbook-print.md
+
+_spellbook-print · spellbook print_
+
+**topics:** cards, chapter, column, columns, credit, crest, figures, head, heading, headings, level, packed, pact, prep, spell, spellbook, tabs, taller
+
+- What it prints
+- Why the layout works the way it does
+- Lining figures
+- Emblems
+- Fixed on the way
+- Review history
+
 ## srd-2024-integration.md
 
 _srd-2024-integration · srd 2024 integration_
@@ -3004,7 +3018,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _starting-equipment-override-ledger · starting equipment override ledger_
 
-**topics:** addressing, base, bases, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, srd, stable, sub-choice
+**topics:** addressing, base, bases, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, recompiler, srd, stable, sub-choice
 
 - The shape (what a ledger addresses)
 - The missing shape: groups/options have no stable id

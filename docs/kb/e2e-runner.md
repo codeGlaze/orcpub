@@ -132,6 +132,33 @@ it was a one-off measurement, not a test, and its scratch pack no longer exists.
 Lesson: before calling a failure an app bug or a flake, measure it directly (the burst and
 12-trial scripts took minutes) and dump the state the check reads.
 
+## Fresh-server suites run beside each other (2026-10-05, PR #51)
+
+A full run had grown from 5.5 to 15 minutes. 5.5 of the 15 were a serial tail: three suites that
+need a fresh server of their own (auth-flows, share-from-character-list,
+share-link-carries-homebrew, the share pair isolated on 2026-10-04 in `78bfa404`) ran one by one
+on :8890 after everything else. Only suites that export PDFs need :8890 (the app's PDF form posts
+there on localhost); the rest now take a port each (8891+, mail 2526+) and run `--own-jobs` at a
+time once the shared server has stopped.
+
+Measured: three at once took 10 min 31 s but peaked at 6993 of 7759 MB (the batch peaks near
+6700), since each brings a server JVM as well as a Chromium; two at once took 11 min 42 s at
+6133 MB, and 10 min 33 s at 6248 MB once the fixed pauses were gone. Default 2.
+
+The fixed pauses: auth-flows had 28 sleeps (about 71 s), now waits on the outcome the page shows.
+Waiting on the request instead failed twice over: two animation frames after a response did not
+mean the page had drawn it, and the password-reset form submits by GET, which a non-GET match
+skipped, so those steps sat out their full timeout. share-link-carries settles each opened link on
+the banner or the failure notice, whichever shows first. The duplicate-registration check had
+matched `/taken|already/`, which "Already have an account?" satisfies before JOIN is pressed; it
+now needs the server's two messages.
+
+Interrupting: fresh servers are started with `setsid`, outside a signal to the run, and only their
+own `run.sh` exit trap stops them. `run-all.sh`'s cleanup signals each of its jobs and their
+descendants, deepest first, and waits while those traps run; it never stops servers by port, which
+would hit a server someone else started nearby. Verified by killing a run mid-suite: it exited in 2
+seconds and its server on 8891 was gone.
+
 ## Still open
 
 - Rewrite the suites that read internals to check what a visitor sees, wherever possible, so more

@@ -184,6 +184,7 @@ sides had been written blind to the other's findings.
 | [fork-customization.md](fork-customization.md) | Fork override files: 6-file pattern, branding/integrations/user_tier, merge strategy, cherry-pick between branches |
 | [dmv-production-changes.md](dmv-production-changes.md) | DMV production analysis: backport-worthy fixes, security issues, hotfix history, git workflow gotchas |
 | [pdf-generation-architecture.md](pdf-generation-architecture.md) | PDF export end-to-end: template selection, spell card lifecycle, silent catch pattern, PDFBox 3.x migration, testing methodology |
+| [spellbook-print.md](spellbook-print.md) | The spellbook pages (#169) and card order (#520): layouts, keep rules and why, lining figures drawn from glyph outlines, the game-icons emblems and their credits, the packed-sheet and "reAct." fixes |
 | [reframe-subscription-patterns.md](reframe-subscription-patterns.md) | reg-sub-raw HTTP pattern, loading counter (int not bool), auth guard placement, subscribe context rules, debugging |
 | [docker-setup-flow.md](docker-setup-flow.md) | run mode flow: block order, flag combos, helpers, generate_env(), error recovery, test infrastructure |
 | [docker-swarm-compat.md](docker-swarm-compat.md) | Compose Spec → Swarm v3 incompatibilities: depends_on, null fields, ports, jq pipeline |
