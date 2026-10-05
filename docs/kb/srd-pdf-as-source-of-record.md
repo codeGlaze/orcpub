@@ -59,14 +59,14 @@ weapons and armor — the ones carrying "Rewrite … in orcpub schema" commits �
 essentially 100% *by name*.
 
 **That is not the same as being correct, and an earlier revision of this page wrongly said
-it was.** Checking field VALUES on the spells immediately found errors: of the 13 spells
-cross-checkable against a parsed SRD entry, 5 carry the wrong school — Ice Knife is
+it was.** Checking field VALUES on the spells immediately found errors: of the 25 spells
+cross-checkable against a parsed SRD entry, **8 carry the wrong school — 32%** — Ice Knife is
 Conjuration in the SRD and `:school evocation` in the import, Befuddlement is Enchantment,
 Ray of Sickness is Necromancy, Tsunami is Conjuration, Aura of Life is Abjuration. Levels
 agreed in every case; only schools were wrong.
 
 The cause is visible in the distribution: `evocation` appears on 13 of 28 spells, about half,
-which is not a plausible spread across eight schools. It is the import's fallback when it
+which is not a plausible spread across eight schools, and six of the eight wrong entries claim it. It is the import's fallback when it
 could not determine one. So the error is systematic, not scattered, and a name-level check
 cannot see it.
 
