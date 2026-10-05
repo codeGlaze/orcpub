@@ -271,10 +271,12 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, points, prescribes, refreshed, setup, stripper, trailer
+**topics:** agent, armed, arming, authorship, clone, docstring, git, gitignore, hook, hooks, installer, session, sessionstart, setup, stripper, trailer, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
+- The trap this closes (2026-10-05)
+- The docstring gate
 - Why it is built this way
 - Limits
 
@@ -742,7 +744,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -1771,7 +1773,7 @@ _heartbeat · heartbeat_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken

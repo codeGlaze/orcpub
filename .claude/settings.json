@@ -6,10 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(git push*)",
-            "command": ".claude/hooks/kb-doc-reminder.sh",
-            "timeout": 15,
-            "statusMessage": "Checking KB docs for this push"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/kb-doc-reminder.sh",
+            "timeout": 15
           }
         ]
       }

@@ -1,7 +1,9 @@
 # START HERE
 
-You are on a code branch. It carries no `CLAUDE.md` and gitignores `.claude/`, so you
-have loaded no project instructions, no skills and no armed git hooks. Fix that first.
+If you started without project instructions (no `CLAUDE.md` loaded: you are on a code branch,
+or on `develop`, or in a worktree nobody set up), you have no MUST FOLLOW rules, no skills and no
+armed git hooks. Fix that first. The SessionStart hook does it for you where `.claude/` exists,
+and says so; read the `CLAUDE.md` it names before doing anything else.
 
 ## 0. Find out where you already are
 
