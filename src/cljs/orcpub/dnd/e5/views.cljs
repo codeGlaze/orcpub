@@ -4725,6 +4725,8 @@
                 [emblem-picker class-kw (str class)
                  (get-in spellbook-options [:spellbook-emblems class-kw])])])
            (when (or print-spellbook? print-spell-cards?)
+             [:div.m-t-10]) ;; clear of the last emblem row above
+           (when (or print-spellbook? print-spell-cards?)
              [spellbook-dropdown "Spell order" :spell-order
               [{:title "By level, then name" :value "level"}
                {:title "By name" :value "alpha"}]
