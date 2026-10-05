@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, upgraded, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -557,7 +557,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, capability, cfg, cited, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, pool, profs, scaling, tool
+**topics:** artificer, builders, capability, cfg, cited, companion, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, errors, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, errors, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -742,7 +742,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -775,7 +775,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1974,7 +1974,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 50-200ms, 500ms, cleared, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
 
 - Current Design (post-refactor)
 - Data flow
@@ -2430,7 +2430,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 669, chain, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 401, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2816,7 +2816,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, feats, granted, layer, ledger, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -2900,7 +2900,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, srd, stone, tag, tidewater, words
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater, words
 
 - What exists today
 - The proposal
@@ -2930,7 +2930,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, differ, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2987,6 +2987,19 @@ _srd-2024-integration · srd 2024 integration_
 - Consequence to decide deliberately
 - What would validate or kill this
 - Related Files
+
+## srd-pdf-as-source-of-record.md
+
+_srd-pdf-as-source-of-record · srd pdf as source of record_
+
+**topics:** 1959, 321, carriage, demon, dnld, git, gitea, newline, open5e, pdf, pdfs, repository, resources, srd, srd-2024-intergration, srd-5, text, validating
+
+- Extracting
+- Trap 1: the 5.1 text layer is pathological
+- Trap 2: Python's newline translation silently defeats the fix
+- What validating the SRD 5.2 import found
+- Why no existing guard catches this
+- How to reuse this
 
 ## srd-vs-plugin-content.md
 
