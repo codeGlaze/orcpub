@@ -33,10 +33,12 @@ const press = (page, label) => page.locator('.auth-tail button', { hasText: labe
 
 // Waits for the state each step produces. Each swallows its own timeout, so a step that never
 // happens fails at its check rather than throwing.
-// Resolves after two animation frames, by which Reagent has drawn the last change.
+/** Resolves after two animation frames, by which Reagent has drawn the last change. */
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-// Runs `act`, then waits up to 20s for the registration card (or the body) to match `expect`.
-// GOTCHA: waits on the page, not the request; the reset form submits by GET.
+/**
+ * Runs `act`, then waits up to 20s for the registration card (or the body) to match `expect`.
+ * GOTCHA: waits on the page, not the request; the reset form submits by GET.
+ */
 async function submit(page, act, expect) {
   await act();
   await page.waitForFunction(src => {
@@ -44,12 +46,12 @@ async function submit(page, act, expect) {
     return new RegExp(src, 'i').test(el.innerText);
   }, expect.source, { timeout: 20000 }).catch(() => {});
 }
-// Waits up to 10s for the registration card to match `re`: for rules checked in the browser.
+/** Waits up to 10s for the registration card to match `re`: for rules checked in the browser. */
 const cardSays = (page, re) => page.waitForFunction(src => {
   const el = document.querySelector('.registration-content');
   return Boolean(el) && new RegExp(src, 'i').test(el.innerText);
 }, re.source, { timeout: 10000 }).catch(() => {});
-// Waits up to 15s for the URL to leave the login page.
+/** Waits up to 15s for the URL to leave the login page. */
 const leftLogin = page => page.waitForURL(u => !String(u).includes('login-page'), { timeout: 15000 }).catch(() => {});
 
 // The link in a captured mail, with quoted-printable soft breaks undone.
@@ -381,7 +383,7 @@ async function resetLinkFor(page, sink, email) {
   // Driven through the form a person uses, not a hand-rolled request: the
   // endpoint takes transit over PUT and getting either wrong looks like a pass.
   const moveTo = uniq() + '@example.com';
-  // Saves an email change with password `pw`; waits for `expect` on the page unless it is null.
+  /** Saves an email change with password `pw`; waits for `expect` on the page unless it is null. */
   const attempt = async (pw, expect) => {
     await page.goto(`${BASE}/pages/my-account`, { waitUntil: 'networkidle' });
     const change = page.locator('button', { hasText: /^Change$|Change email|Change again/ }).first();
