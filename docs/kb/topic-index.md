@@ -557,7 +557,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, capability, cfg, cited, companion, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, pool, profs, scaling, tool
+**topics:** artificer, builders, capability, cfg, cited, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -2972,12 +2972,13 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 109-entry, 2024, 230kb, 32-entry, 620kb, app-side, checked, column, counted, counterpart, delta, designed, option-source, origin-feat, parsers, started, surprise, wards
+**topics:** 109-entry, 2024, 230kb, 317, 805, checked, column, counted, counterpart, counting, delta, designed, dnd, magic, monsters, open5e, started, vars
 
 - Content
 - Rules and reference (no e5 data namespace)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
+- Counting these files correctly
 
 ## srd-2024-implementation-notes.md
 
@@ -3023,7 +3024,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 1959, 321, 339, 906, carriage, conjuration, delta, dnld, gitea, import, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
+**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -3065,7 +3066,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map

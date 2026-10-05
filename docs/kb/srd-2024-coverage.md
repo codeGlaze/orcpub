@@ -13,14 +13,14 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 | type | e5 ships | 2024 source | status | note |
 |---|---|---|---|---|
 | spells | 319 | `Spell.json` (339) | **DONE** | `e55/spells.cljc`, 109-entry delta, verified by loading and against the rendered page |
-| magic items | 283 | `MagicItem.json` | **DONE** | `e55/magic_items.cljc`, 32-entry delta, verified |
+| magic items | **805** | `MagicItem.json` | **DONE** | `e55/magic_items.cljc`, 32-entry delta, verified |
 | species / races | in `template.cljc` | `Species` (9), `SpeciesTrait` (51) | **SHAPE ONLY** | lineages need level-gated grants |
 | backgrounds | 1, in `spell_subs.cljs` | `Background` (4), `BackgroundBenefit` (20) | **SHAPE ONLY** | needs ASI + origin-feat grants; no data namespace exists |
 | feats | — | `Feat` (17), `FeatBenefit` (35) | **COUNTED** | 1 -> 17; four are fighting styles. Not extracted |
-| monsters | 1780 | `Creature`, `CreatureAction`, `CreatureTrait`, `CreatureActionAttack` | **NOT STARTED** | stat-block format differs; editions need separate parsers |
-| classes | 506 | `CharacterClass`, `ClassFeature`, `ClassFeatureItem` | **NOT STARTED** | largest unknown, ~620KB of 2024 features |
-| equipment | 179 | `Item.json` | **NOT STARTED** | |
-| weapons | 45 | `Weapon`, `WeaponProperty`, `WeaponPropertyAssignment` | **NOT STARTED** | the "Light property" question lives here |
+| monsters | **317** | `Creature`, `CreatureAction`, `CreatureTrait`, `CreatureActionAttack` | **NOT STARTED** | stat-block format differs; editions need separate parsers |
+| classes | **38 vars** | `CharacterClass`, `ClassFeature`, `ClassFeatureItem` | **NOT STARTED** | largest unknown, ~620KB of 2024 features |
+| equipment | 162 | `Item.json` | **NOT STARTED** | |
+| weapons | 40 | `Weapon`, `WeaponProperty`, `WeaponPropertyAssignment` | **NOT STARTED** | the "Light property" question lives here |
 | armor | 14 | `Armor.json` | **NOT STARTED** | |
 | languages | 16 | — | **NOT CHECKED** | no obvious 2024 counterpart file |
 | skills | 18 | `SkillDescription.json` | **NOT CHECKED** | |
@@ -51,3 +51,27 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
   casting time, range and duration did not is currently counted as identical. The text diff that
   would catch those was attempted and retracted as unreliable, so **109 is a floor**.
 - Magic items were never checked against a rendered page, only against extracted text.
+
+
+## Counting these files correctly
+
+The e5 counts above were wrong four times before they were right, always the same way: a
+`grep -c ':name "'` counts **nested** names — a monster's actions and traits, a class's
+features — and the result looks plausible. Monsters were reported as 1780 when there are 317;
+classes as 506 "entries" when the namespace has 38 public vars; magic items as 283 when there
+are 805, because that file keys items with the symbol `name-key` rather than a literal
+`:name`, so a grep for one convention misses the other.
+
+Parsing the file as EDN is not the fix either. These files carry many `def` forms — magic
+items has 24, equipment 23, spells 29 — so reading the first vector counts one category and
+reports it as the file.
+
+**Count by loading the namespace and counting the var.** It is the only method that cannot be
+fooled by nesting or by a file's internal conventions:
+
+    (require '[orcpub.dnd.e5.monsters :as mon])
+    (count @(resolve 'orcpub.dnd.e5.monsters/monsters))   ;; => 317
+
+The same caution applies to imported data. The open5e magic-item contamination figure was
+first measured at the expanded level (396 of 1959 names) and only made sense at base-item
+level (906 of 1218), where it is nearly four times worse.
