@@ -11,6 +11,8 @@
 
    Requires a real localStorage — runs in the headless chromium cljs suite."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+            [re-frame.registrar :as registrar]
+            [cljs.reader :as reader]
             [orcpub.dnd.e5.db :as db]))
 
 (defn- clear-storage! []
@@ -79,3 +81,126 @@
         (is (nil? (.getItem js/window.localStorage
                             (db/corrupt-slot-key db/local-storage-plugins-key)))
             "no :corrupt slot created on a clean read")))))
+
+;; ---------------------------------------------------------------------------
+;; Entries set aside on load leave the library copy
+;; ---------------------------------------------------------------------------
+
+(def ^:private mixed-library
+  (str "{\"Mixed Pak\" {:orcpub.dnd.e5/spells {"
+       ":good {:option-pack \"Mixed Pak\" :key :good :name \"Good\" :level 1 :school \"evocation\"} "
+       ":bad \"not an entry\"}}}}"))
+
+(defn- load-plugins! []
+  (:orcpub.dnd.e5/plugins ((registrar/get-handler :cofx :orcpub.dnd.e5/plugins) {} nil)))
+
+(deftest set-aside-entries-leave-the-library-copy
+  ;; Found in a browser: an entry set aside on load stayed in the library copy as
+  ;; well, so every load set it aside again until some unrelated homebrew save
+  ;; happened to rewrite the library.
+  (.setItem js/window.localStorage db/local-storage-plugins-key mixed-library)
+  (let [spells (get-in (load-plugins!) ["Mixed Pak" :orcpub.dnd.e5/spells])]
+    (is (contains? spells :good))
+    (is (not (contains? spells :bad))))
+  (testing "the set-aside copy holds the entry"
+    (is (.includes (.getItem js/window.localStorage db/local-storage-plugins-rejected-key) ":bad")))
+  (testing "the library copy no longer does"
+    (is (not (.includes (.getItem js/window.localStorage db/local-storage-plugins-key) ":bad"))))
+  (testing "so a second load has nothing to set aside, and keeps what was set aside"
+    (is (contains? (get-in (load-plugins!) ["Mixed Pak" :orcpub.dnd.e5/spells]) :good))
+    (is (.includes (.getItem js/window.localStorage db/local-storage-plugins-rejected-key) ":bad"))))
+
+(deftest the-library-copy-is-rewritten-only-after-the-set-aside-copy-is-saved
+  (let [kept {"P" {:orcpub.dnd.e5/spells {:good {:name "Good"}}}}
+        rejected {"P" {:orcpub.dnd.e5/spells {:bad {:name "Bad"}}}}
+        run (fn [set-aside-write-works?]
+              (let [writes (atom [])]
+                (db/persist-set-aside!
+                 (fn [k v] (swap! writes conj k)
+                   (or set-aside-write-works? (not= k db/local-storage-plugins-rejected-key)))
+                 (fn [_]) kept rejected rejected)
+                @writes))]
+    (testing "set-aside copy first, then the library copy"
+      (is (= [db/local-storage-plugins-rejected-key db/local-storage-plugins-key] (run true))))
+    (testing "storage refusing the set-aside copy leaves the library copy untouched"
+      ;; a repeat on the next load, not a loss
+      (is (= [db/local-storage-plugins-rejected-key] (run false))))))
+
+;; ---------------------------------------------------------------------------
+;; Loading mends a damaged section once, and writes the repair back
+;; ---------------------------------------------------------------------------
+
+(deftest loading-repairs-a-damaged-section-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            (str "{\"Text Pak\" {:orcpub.dnd.e5/spells "
+                 (pr-str "{:fire-bolt {:option-pack \"Text Pak\" :key :fire-bolt :name \"Fire Bolt\" :level 0 :school \"evocation\"}}")
+                 "}}"))
+  (is (contains? (get-in (load-plugins!) ["Text Pak" :orcpub.dnd.e5/spells]) :fire-bolt)
+      "the spell loads")
+  (testing "the repaired section is written back, no longer stored as text"
+    (is (not (.includes (.getItem js/window.localStorage db/local-storage-plugins-key) "\\\""))))
+  (testing "so a second load has nothing left to repair and writes nothing"
+    (let [before (.getItem js/window.localStorage db/local-storage-plugins-key)]
+      (load-plugins!)
+      (is (= before (.getItem js/window.localStorage db/local-storage-plugins-key))))))
+
+;; ---------------------------------------------------------------------------
+;; A stored library that reads but is not one is handled once, not every load
+;; ---------------------------------------------------------------------------
+
+(deftest a-stored-value-that-is-not-a-library-is-set-aside-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key "[:not :a :library]")
+  (is (nil? (load-plugins!)) "loads no homebrew")
+  (is (= "[:not :a :library]"
+         (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))
+      "a copy is kept for recovery")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-key))
+      "and the active slot is cleared; it used to be copied again on every load"))
+
+(deftest a-library-stored-as-text-loads-and-is-written-back
+  (let [lib {"Text Pak" {:orcpub.dnd.e5/feats {:tough {:option-pack "Text Pak" :key :tough :name "Tough"}}}}]
+    (.setItem js/window.localStorage db/local-storage-plugins-key (pr-str (pr-str lib)))
+    (is (= lib (load-plugins!)) "it used to load nothing")
+    (is (= lib (reader/read-string (.getItem js/window.localStorage db/local-storage-plugins-key)))
+        "stored as the library itself from now on")
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key))))))
+
+(deftest loading-gives-an-entry-with-no-source-its-source-name-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            "{\"Named Pak\" {:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}}")
+  (is (= "Named Pak" (get-in (load-plugins!) ["Named Pak" :orcpub.dnd.e5/feats :tough :option-pack]))
+      "it used to be set aside")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-rejected-key)))
+  (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
+    (is (.includes stored ":option-pack \"Named Pak\"") "written back")
+    (load-plugins!)
+    (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
+        "so a second load changes nothing")))
+
+(deftest loading-repairs-a-damaged-entry-once
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            "{\"Bad Pak\" {:orcpub.dnd.e5/races {:x {:key \"text\" :option-pack \"Bad Pak\" :name \"X\" :traits 42}}}}")
+  (let [race (get-in (load-plugins!) ["Bad Pak" :orcpub.dnd.e5/races :x])]
+    (is (= :x (:key race)) "a text key stopped the app from starting")
+    (is (not (contains? race :traits))))
+  (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
+    (is (not (.includes stored "\"text\"")) "written back")
+    (load-plugins!)
+    (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
+        "so a second load changes nothing")))
+
+(deftest a-library-that-stops-startup-is-set-aside-intact
+  (.setItem js/window.localStorage db/local-storage-plugins-key "{\"P\" {}}")
+  (is (= "{\"P\" {}}" (db/set-aside-unloadable-library!)))
+  (is (= "{\"P\" {}}" (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))
+      "kept, byte for byte")
+  (is (nil? (.getItem js/window.localStorage db/local-storage-plugins-key)))
+  (testing "put back when homebrew was not the cause"
+    (db/restore-set-aside-library! "{\"P\" {}}")
+    (is (= "{\"P\" {}}" (.getItem js/window.localStorage db/local-storage-plugins-key)))
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key db/local-storage-plugins-key)))))
+  (testing "a copy that cannot be saved leaves the library where it was"
+    (.setItem js/window.localStorage db/local-storage-plugins-key "{\"Q\" {}}")
+    (is (nil? (db/set-aside-unloadable-library! (constantly false) #(.removeItem js/window.localStorage %))))
+    (is (= "{\"Q\" {}}" (.getItem js/window.localStorage db/local-storage-plugins-key)))))
+

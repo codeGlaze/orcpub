@@ -224,6 +224,50 @@
    "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
    "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
+(defn get-share-max-upload-kb
+  "Largest compressed homebrew one short share link keeps, in KB, from ORCPUB_SHARE_MAX_UPLOAD_KB.
+
+   Measured 2026-09-13 on the MegaPak: a packed level 20 character's homebrew compresses to 12 to 25 KB,
+   and a wizard holding every subclass and spell in it to 40 KB. Over the cap, the owner's link carries
+   the homebrew itself instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_UPLOAD_KB"] 64))
+
+(defn get-share-max-text-kb
+  "Largest that homebrew may be unpacked, in KB, from ORCPUB_SHARE_MAX_TEXT_KB. The same measurement:
+   34 to 112 KB for a packed level 20 character, 175 KB for the everything wizard. It also bounds what a
+   viewer's browser will unpack."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_TEXT_KB"] 256))
+
+(defn get-share-max-account-kb
+  "Shared homebrew one account keeps across all its characters, in KB, from ORCPUB_SHARE_MAX_ACCOUNT_KB.
+   1024 is about 40 wizard-sized shares; a share over it carries the homebrew in its link instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_ACCOUNT_KB"] 1024))
+
+(defn get-share-prune-days
+  "Days a character's share link may go unused while the server runs before the link and its share data
+   are deleted, from ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. The character itself is never deleted. 180
+   leaves room for a campaign that pauses for a season. 1 to 29 count as 30, so a typo cannot delete
+   links a day old."
+  []
+  (let [n (some-> (env-raw "ORCPUB_SHARE_PRUNE_DAYS") str/trim parse-long)]
+    (cond
+      (or (nil? n) (neg? n)) 180
+      (zero? n)              0
+      :else                  (max n 30))))
+
+(defn pwned-check-enabled?
+  "Whether a new password is screened against Have I Been Pwned, from
+   ORCPUB_PWNED_CHECK; on by default.
+   GOTCHA: fails open on a timeout, so a slow or down HIBP service never blocks
+   signup. Set the env var to off/false/0/no to disable the check entirely.
+   See account-flows.md."
+  []
+  (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
+    (not (contains? #{"off" "false" "0" "no"} raw))))
+
 (def settings
   "Everything the boot banner reports, in print order.
    `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
@@ -258,11 +302,28 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
      :note "spellcasting sections one sheet may grow to"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}]))
+     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
+     :note "compressed share data one share link keeps"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
+     :note "that share data unpacked"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
+     :note "share data one account keeps in all"}
+    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :get #(if (pwned-check-enabled?) "on" "off")
+     :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
+     :expects "on or off"
+     :note "screens a new password against known breaches; fails open, off disables the call"}
+    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
+     :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
+     :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
+
+(defn- positive-int-text? [raw]
+  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+    (boolean (and n (pos? n)))))
 
 (defn report
   "What each setting resolved to, and whether that came from the environment.
@@ -271,17 +332,16 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var lookup :get :keys [secret? redact? critical? note group fix]} settings]
-    (let [raw              (env-raw env-var)
-          integer-setting? (some? (some #(= env-var (:var %)) tunables))
-          parsed           (when (and raw integer-setting?)
-                             (try (Integer/parseInt (str/trim raw))
-                                  (catch NumberFormatException _ nil)))
-          ignored?         (boolean (and raw integer-setting? (not (and parsed (pos? parsed)))))
-          value            (cond secret? nil
-                                 lookup  (lookup)
-                                 :else   raw)]
-      {:var env-var :group group :note note :critical? critical? :fix fix
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects]} settings]
+    (let [raw      (env-raw env-var)
+          tunable? (some? (some #(= env-var (:var %)) tunables))
+          ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
+          accepts  (or accepts (when tunable? positive-int-text?))
+          ignored? (boolean (and raw accepts (not (accepts raw))))
+          value    (cond secret? nil
+                         getter  (getter)
+                         :else   raw)]
+      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -330,9 +390,9 @@
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
-              (for [{env-var :var :keys [raw]} bad]
-                (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
-                        env-var raw))))
+              (for [{env-var :var raw :raw expects :expects} bad]
+                (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
+                        env-var raw (or expects "a positive integer")))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.

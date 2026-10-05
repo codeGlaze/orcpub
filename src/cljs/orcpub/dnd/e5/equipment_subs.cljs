@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.equipment-subs
-  (:require [re-frame.core :refer [reg-sub #_subscribe]]
+  (:require [re-frame.core :refer [reg-sub]]
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.spell-subs]
@@ -28,10 +28,8 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
-;; Browser vs test/CLJ compile-time split: the browser gets the real
-;; HTTP-backed reg-sub-raw via reg-api-sub; the test/CLJ path gets a
-;; plain reg-sub returning [] so the sub key is always registered but
-;; doesn't try to hit the network during tests.
+;; With no window (the test runner) this is a plain sub returning [], so tests never reach the
+;; network.
 (if js/window.location
   (api-subs/reg-api-sub
    {:sub-key    ::mi5e/custom-items
@@ -49,13 +47,13 @@
    ::mi5e/custom-items
    (fn [_ _] [])))
 
-;; Ephemeral overlay of custom items that arrived embedded in a share link
-;; (view-once). Held raw in db :shared-custom-items — never persisted, never in
-;; the item editor — and folded into resolution below. See share_bundle/share-url.
+;; Custom items on the sheet in view that are not the viewer's own: from a share link, or sent by
+;; the server with the character on the page. Never persisted, never in the item editor, and folded
+;; into resolution below.
 (reg-sub
  ::mi5e/shared-custom-items
  (fn [db _]
-   (get db :shared-custom-items)))
+   (mi5e/shared-custom-items db)))
 
 (defn- safe-expand-items
   "expand-magic-items per item, dropping any that throw. Used for the SHARED
@@ -261,10 +259,10 @@
           maps)))
 
 ;; ============================================================================
-;; ORPHANED, commented out: the client side of `GET /api/dnd/e5/items/:id` (another user's item by
-;; db-id). Nothing subscribes; views/item-page reads ::mi/custom-item. To restore, also uncomment
-;; ::mi/add-remote-item in events.cljs ("ORPHANED: see equipment_subs"). Chain, guard trap and
-;; open questions: plan-669-merge-verification.md (agents/develop).
+;; ORPHANED: client side of `GET /api/dnd/e5/items/:id` (another user's item by db-id).
+;; Nothing subscribes; views/item-page reads ::mi/custom-item instead. To restore, also
+;; uncomment ::mi/add-remote-item in events.cljs; see plan-669-merge-verification.md
+;; (agents/develop). GET /dnd/5e/items/:id currently answers the owner only (404 otherwise) -- decide cross-user access before wiring this back up.
 ;; ============================================================================
 
 #_(reg-sub
@@ -275,10 +273,7 @@
 #_(reg-sub-raw
     ::mi5e/remote-item
     (fn [app-db [_ id]]
-      ;; Guard uses event-utils/get-auth-token (canonical path). Original
-      ;; was `(and (:user @app-db) (:token (:user @app-db)))` which was
-      ;; wrong — db[:user] has never contained :token. Fixed here so the
-      ;; next restorer doesn't re-hit 45ef969's typo.
+      
       (when (event-utils/get-auth-token @app-db)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route

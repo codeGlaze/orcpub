@@ -1,6 +1,5 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
-            [re-frame.db]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -73,12 +72,50 @@
    (get db :srd-message-closed? false)))
 
 (reg-sub
+ :registration-server-errors
+ (fn [db [_]]
+   (get db :registration-server-errors)))
+
+(reg-sub
+ :password-reset-server-errors
+ (fn [db [_]]
+   (get db :password-reset-server-errors)))
+
+(reg-sub
  :registration-validation
  :<- [:registration-form]
  :<- [:email-taken?]
  :<- [:username-taken?]
- (fn [args [_]]
-   (apply registration/validate-registration args)))
+ :<- [:registration-server-errors]
+ (fn [[form email-taken? username-taken? server] [_]]
+   ;; Merged per field, so a server objection sits alongside anything the form
+   ;; found rather than replacing it.
+   (merge-with (comp vec distinct concat)
+               (registration/validate-registration form email-taken? username-taken?)
+               ;; :general is excluded: the submit button disables while this map has
+               ;; anything in it, and a rate limit here would leave it stuck forever.
+               ;; :password-common is excluded too -- it's the meter's verdict already,
+               ;; not a field fault. See account-flows.md.
+               (dissoc (or server {}) :general :password-common))))
+
+(reg-sub
+ :registration-attempted?
+ (fn [db [_]]
+   (get db :registration-attempted? false)))
+
+(reg-sub
+ :registration-notice
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (:general server)))
+
+;; The corpus verdict, for the meter. Only the server can reach the corpus, so
+;; this is the one thing the meter cannot work out for itself.
+(reg-sub
+ :registration-password-common
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (first (:password-common server))))
 
 (reg-sub
  :temp-email
@@ -301,6 +338,11 @@
    (:email-change-sent? db)))
 
 (reg-sub
+ :sessions-withdraw-error
+ (fn [db [_]]
+   (:sessions-withdraw-error db)))
+
+(reg-sub
  :email-change-error
  (fn [db _]
    (:email-change-error db)))
@@ -441,10 +483,7 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-;; API-backed subscriptions — use reg-api-sub for consistent guard, loading
-;; counter, auth headers, and handle-api-response wrapping. See
-;; orcpub.dnd.e5.api-subs for the HOF definition and the anti-pattern
-;; it replaces.
+;; Subscriptions that load from the server; see orcpub.dnd.e5.api-subs.
 
 (reg-api-sub
  {:sub-key    ::char5e/characters
@@ -458,37 +497,20 @@
 (reg-api-sub
  {:sub-key    ::party5e/parties
   :route      routes/dnd-e5-char-parties-route
-  ;; NB: db-key is ::char5e/parties (historical naming, set by
-  ;; ::party5e/set-parties event handler). Do not "fix" to ::party5e/parties
-  ;; without also updating set-parties and its callers.
+  ;; The list lives under ::char5e/parties, where ::party5e/set-parties writes it; rename both
+  ;; together.
   :db-key     ::char5e/parties
   :set-event  ::party5e/set-parties
   :on-401     (fn [[_ login-optional?]]
                 (when-not login-optional? (dispatch [:route-to-login])))
   :context    "fetch parties"})
 
-;; :user sub helpers — extracted as named fns so the compound on-401
-;; logic (clear login state + conditionally bounce to login) is unit-
-;; testable. See subs-test.cljs for the regression tests that pin this
-;; behavior in place across the P5 reg-api-sub migration.
-
-(defn user-sub-on-401-actions
-  "Pure: the dispatch vectors the :user sub's 401 handler produces, given the current `:user-data`
-   map and the query-v. Always clears the login credentials (`:set-user-data` with `:user-data`
-   and `:token` dissoced, keeping `:theme` and other fields); adds `[:route-to-login]` when the
-   query-v's `required?` is true. `user-sub-on-401` dispatches them."
-  [user-data-map [_ required?]]
-  (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
-    required? (conj [:route-to-login])))
 
 (defn user-sub-on-401
-  "Side-effecting: dispatches the actions produced by
-   `user-sub-on-401-actions` against the current re-frame.db/app-db."
-  [query-v]
-  (doseq [action (user-sub-on-401-actions
-                  (:user-data @re-frame.db/app-db)
-                  query-v)]
-    (dispatch action)))
+  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
+   when the caller flagged the request as required."
+  [[_ required?]]
+  (when required? (dispatch [:route-to-login])))
 
 (defn user-sub-on-500
   "Conditional 500 handler for the :user sub: bounces to the generic
@@ -500,8 +522,8 @@
  {:sub-key    :user
   :route      routes/user-route
   :db-key     :user
-  ;; No :set-event / :on-success: the :user sub is fire-and-forget and a 200 response is
-  ;; discarded, deliberately for now (see the db[:user] dead-storage cleanup follow-up).
+  ;; The response is not stored. db :user holds only the :following list that :follow-user and
+  ;; :unfollow-user build locally.
   :on-401     user-sub-on-401
   :on-500     user-sub-on-500
   :context    "fetch user"})
@@ -602,6 +624,9 @@
                      ;; would silently build a blank default character.
                      (dispatch [::char5e/set-character-load-error int-id body])
                      (do (dispatch [::char5e/set-character-load-error int-id nil])
+                         ;; Before the character, so its first build already has them.
+                         (dispatch [::mi5e/set-character-custom-items int-id
+                                    (::char5e/custom-items body) (::se/owner body)])
                          (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction

@@ -11,12 +11,13 @@
 
 #?(:cljs
    (defn backend-url
-     "Rewrites a path to the backend URL in local dev (port 8890)."
+     "A path on the server that served the page.
+
+      Assumes frontend and backend share an origin: dev.cljs.edn opens the app on the server itself, so
+      logins and API calls follow whatever port served the page. Running the frontend from any other
+      localhost port breaks this -- there is no prefix here to redirect it to the backend's port."
      [path]
-     (if (and js/window.location
-              (s/starts-with? js/window.location.href "http://localhost"))
-       (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
-       path)))
+     (if (s/starts-with? path "/") path (str "/" path))))
 
 #?(:cljs
    (defn url-for-route

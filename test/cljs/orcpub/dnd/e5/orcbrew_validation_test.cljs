@@ -61,6 +61,15 @@
      :another-valid {:option-pack \"Test\"
                      :name \"Another Valid\"}}}")
 
+(def plugin-with-an-unreadable-entry
+  "An entry that is text, not a map: nothing to mend, so a progressive import skips it."
+  "{:orcpub.dnd.e5/spells
+    {:valid-spell {:option-pack \"Test\"
+                   :name \"Valid Spell\"}
+     :invalid-spell \"not an entry\"
+     :another-valid {:option-pack \"Test\"
+                     :name \"Another Valid\"}}}")
+
 ;; ============================================================================
 ;; Parse Tests
 ;; ============================================================================
@@ -236,18 +245,19 @@
 
 (deftest test-full-import-workflow-progressive
   (testing "Complete import workflow with progressive strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
       (is (:had-errors result))
-      ;; Should have imported 2 valid items and skipped 1 invalid
+      ;; Should have imported 2 valid items and skipped 1 invalid. The invalid one
+      ;; used to crash the import instead.
       (is (= 2 (:imported-count result)))
       (is (= 1 (:skipped-count result))))))
 
 (deftest test-full-import-workflow-strict
   (testing "Complete import workflow with strict strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :strict
                                               :auto-clean true})]
       ;; Strict mode should fail because not all items are valid
@@ -283,13 +293,21 @@
 
 (deftest test-format-import-result-with-warnings
   (testing "Formatting import result with warnings"
-    (let [{:keys [title details]}
-          (orcbrew-val/format-import-result {:success true
-                                             :had-errors true
-                                             :imported-count 2
-                                             :skipped-count 1})]
+    (let [result {:success true :had-errors true :imported-count 2 :skipped-count 1}
+          {:keys [title details]} (orcbrew-val/format-import-result result)]
       (is (re-find #"warning" title))
-      (is (some #(re-find #"Skipped 1" %) details)))))
+      (is (= :warning (orcbrew-val/import-notice-type result))
+          "a partial import used to show the green success card")
+      (is (= [:done :skipped] (map :mark details)))
+      (is (= "Imported 2 items" (:text (first details))))
+      (is (re-find #"^Skipped 1 item that" (:text (second details)))
+          "it said \"1 invalid items\""))))
+
+(deftest a-clean-import-keeps-the-success-tone
+  (is (= :success (orcbrew-val/import-notice-type {:success true :imported-count 2})))
+  (is (= :warning (orcbrew-val/import-notice-type
+                   {:success true :imported-count 2
+                    :key-warnings [{:type :external-duplicate :message "x"}]}))))
 
 (deftest test-format-import-result-parse-error
   (testing "Formatting parse error result"
@@ -1511,6 +1529,78 @@
         idx (orcbrew-val/collision-twin-index plugins)]
     (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
         "both enabled → :conflict, not nil")))
+
+;; ============================================================================
+;; Import mends damaged sections instead of calling them imported
+;; ============================================================================
+
+(def ^:private one-spell
+  "{:option-pack \"P\" :key :fire-bolt :name \"Fire Bolt\" :level 0 :school \"evocation\"}")
+
+(defn- import-text [text]
+  (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true}))
+
+(deftest import-reads-a-section-stored-as-text-back
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells " (pr-str (str "{:fire-bolt " one-spell "}")) "}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (map? (get-in result [:data :orcpub.dnd.e5/spells])))
+    (is (some #(= :repaired-section (:type %)) (:changes result)))))
+
+(deftest import-turns-a-list-section-back-into-entries
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (contains? (get-in result [:data :orcpub.dnd.e5/spells]) :fire-bolt))))
+
+(deftest import-of-a-whole-file-stored-as-text-no-longer-crashes
+  ;; used to throw "No protocol method IMapEntry.-key defined for type string"
+  (let [result (import-text (pr-str (str "{:orcpub.dnd.e5/spells {:fire-bolt " one-spell "}}")))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))))
+
+(deftest import-drops-an-empty-section-without-counting-it
+  (let [result (import-text "{:orcpub.dnd.e5/spells nil :orcpub.dnd.e5/feats {:tough {:option-pack \"P\" :key :tough :name \"Tough\"}}}")]
+    (is (:success result))
+    (is (= 1 (:imported-count result)) "the feat, not the empty section")
+    (is (not (contains? (:data result) :orcpub.dnd.e5/spells)))))
+
+(deftest import-does-not-count-an-unreadable-section-as-imported
+  (is (= 0 (:imported-count (import-text "{:orcpub.dnd.e5/spells \"corrupted\"}")))
+      "it used to say Imported 1 items"))
+
+(deftest the-import-notice-names-the-repair
+  (let [{:keys [details]} (orcbrew-val/format-import-result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}")))]
+    (is (some #(re-find #"Repaired 1 damaged section" %) details))))
+
+(deftest import-gives-an-entry-with-no-source-the-source-it-sits-in
+  (let [import! #(orcbrew-val/validate-import % {:strategy :progressive :auto-clean true})]
+    (testing "single-source file: the source its other entries name"
+      (let [result (import! plugin-with-mixed-validity)]
+        (is (= 3 (:imported-count result)) "the entry with no source used to be skipped")
+        (is (= "Test" (get-in result [:data :orcpub.dnd.e5/spells :invalid-spell :option-pack])))))
+    (testing "multi-source file: the source it is filed under"
+      (is (= "Filed Pak"
+             (get-in (import! "{\"Filed Pak\" {:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}}")
+                     [:data "Filed Pak" :orcpub.dnd.e5/feats :tough :option-pack]))))
+    (testing "no source name anywhere: the default"
+      (is (= "Default Option Source"
+             (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
+                     [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
+
+(deftest import-mends-card-lists-and-keys-instead-of-crashing
+  (let [result (orcbrew-val/validate-import
+                "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
+                {:strategy :progressive :auto-clean true})]
+    (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
+    (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
+    (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
+    (is (some #(re-find #"Repaired 1 damaged entry" %)
+              (map #(if (map? %) (:text %) %) (:details (orcbrew-val/format-import-result result)))))))
+
+(deftest import-of-a-source-that-is-not-a-map-does-not-crash
+  (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]
+    (is (:success (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true})) text)))
 
 ;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
 

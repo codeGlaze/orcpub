@@ -57,3 +57,9 @@
 (defn new-datomic [uri]
   ;; The real uri, not a redacted one -- this is what d/connect is given.
   (map->DatomicComponent {:uri uri}))
+
+(defn cas-failed?
+  "Whether a transaction failed because a :db/cas found a value other than the one it expected."
+  [e]
+  (boolean (some #(= :db.error/cas-failed (:db/error (ex-data %)))
+                 (take-while some? (iterate #(.getCause ^Throwable %) e)))))

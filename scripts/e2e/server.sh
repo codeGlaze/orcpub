@@ -11,6 +11,8 @@
 # dev/e2e_boot.clj starts the server AND seeds the user in one process.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
+# run-all.sh's lock is fd 9; the JVM below outlives this script and must not keep it held.
+exec 9>&-
 
 PORT="${E2E_PORT:-8890}"
 LOG="${E2E_LOG:-/tmp/e2e-server-${PORT}.log}"
@@ -38,6 +40,11 @@ case "${1:-}" in
       exit 1
     fi
     echo "Starting server on :${PORT} (profiles: $PROFILES)..."
+    # Mail goes to scripts/e2e/lib/mail-sink.js, which auth-flows.js runs on E2E_MAIL_PORT: without
+    # a mail server registration fails outright, and the verify and reset keys exist only in mail.
+    EMAIL_SERVER_URL=127.0.0.1 \
+    EMAIL_SERVER_PORT="${E2E_MAIL_PORT:-2525}" \
+    EMAIL_FROM_ADDRESS="${EMAIL_FROM_ADDRESS:-e2e@orcpub.invalid}" \
     DATOMIC_URL="datomic:mem://orcpub-e2e" \
     ORCPUB_ENV=dev \
     SIGNATURE="${SIGNATURE:-e2e-test-signature}" \
@@ -51,6 +58,9 @@ case "${1:-}" in
     if ! curl -sf -o /dev/null "$BASE/"; then
       tail -30 "$LOG"; stop; echo "server.sh: the server never came up (log above)"; exit 1
     fi
+    # It answers before e2e-boot has finished seeding the users and characters.
+    for _ in $(seq 1 60); do grep -q E2E-READY "$LOG" && break; sleep 1; done
+    grep -q E2E-READY "$LOG" || { stop; echo "server.sh: the server never finished seeding (no E2E-READY in $LOG)"; exit 1; }
     if grep -q BindException "$LOG" 2>/dev/null; then
       stop; echo "server.sh: port ${PORT} was already in use, so this would have tested a stale server"; exit 1
     fi

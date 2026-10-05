@@ -52,6 +52,21 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
 
+### Share links
+
+A character's owner can share it with a short link. The server keeps one copy of that character's share
+data, checked when it is uploaded.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ORCPUB_SHARE_MAX_UPLOAD_KB` | `64` | Largest compressed share data one character's link keeps. Over it, the owner's link carries the data itself instead. A packed level 20 character measured 12 to 25 KB. |
+| `ORCPUB_SHARE_MAX_TEXT_KB` | `256` | Largest that share data may be once unpacked. This also bounds what a viewer's browser unpacks. |
+| `ORCPUB_SHARE_MAX_ACCOUNT_KB` | `1024` | Share data one account keeps across all its characters. |
+| `ORCPUB_SHARE_PRUNE_DAYS` | `180` | Days a share link may go unused, counting only time the server is running, before the link and its share data are deleted. The character is never deleted, and its owner's page says the link expired. `0` keeps links forever; `1` to `29` count as `30`, so a typo cannot delete links a day old. |
+
+The size limits reach the browser in response headers, so changing one needs no rebuild. Pruning runs
+hourly, after the server's heartbeat, which records when the server was off so that time never counts.
+
 ### What the server prints at boot
 
 Every start prints what it resolved, so you never have to guess whether a change was
@@ -140,6 +155,19 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 |----------|---------|-------------|
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
 | `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
+| `ORCPUB_PWNED_CHECK` | `on` | Screen new passwords against the Have I Been Pwned corpus. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
+
+**About the breach check.** Signup and password reset send the first five characters of
+the password's SHA-1 to `api.pwnedpasswords.com` and score the reply locally, so the
+password itself never leaves the server and the size of the reply is padded. A password
+is refused only at **1000 or more** appearances: the corpus measures how common a
+password is, not whether this person was breached, and refusing on a single appearance
+turns that measure into a veto. Below the line the strength meter says so while somebody
+is still typing.
+
+Set `ORCPUB_PWNED_CHECK=off` as the kill switch. The check already fails open on a
+timeout, so this is for the case where the service is not down but slow enough to be felt
+on every signup. Turning it off changes nothing else.
 
 CSP modes:
 - **strict** — nonce-based CSP with `strict-dynamic`, always as an enforcing `Content-Security-Policy` header. **There is no Report-Only mode**; no code has ever emitted `Content-Security-Policy-Report-Only`. Dev mode does not soften the policy, it skips it.
@@ -185,6 +213,15 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `ORCPUB_ENV` | — | Set to `dev` to enable `add-test-user` in user.clj |
 | `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot-reload. Read by `scripts/common.sh`. |
 | `FIGWHEEL_CONNECT_URL` | *(auto-detected)* | Figwheel WebSocket URL override for remote environments (Gitpod, tunnels). Auto-detected for GitHub Codespaces. Example: `wss://my-remote-host:3449/figwheel-connect` |
+| `E2E_MAIL_PORT` | `2525` | Port for the browser suites' throwaway SMTP server. `scripts/e2e/run.sh` starts it and points `EMAIL_SERVER_URL`/`EMAIL_SERVER_PORT` at it. |
+
+**Why the suites need a mail server.** The verification key and the password-reset key
+exist only inside an email, and registration fails outright when no mail can be sent --
+the verification mail goes out inside the same try as the transaction. So signup,
+verification and reset could not be driven end to end at all, and every suite worked
+around it by starting from a user seeded straight into Datomic. `scripts/e2e/lib/mail-sink.js`
+is a dependency-free SMTP server that accepts anything and hands the message back, which
+is what lets `auth-flows.js` follow the link a real person would click.
 
 ### Branding, Social Links & Integrations
 
