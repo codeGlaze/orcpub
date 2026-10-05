@@ -113,3 +113,56 @@ qualifier never needs hand-maintaining.
 **Constraint that rules out a badge.** `pdf.clj` renders the spell name as a bare string and
 measures it for layout. A chip in the spell list leaves the printed sheet with two identical
 cards.
+
+## 6. The rules tier — smaller than feared, but only readable by hand
+
+**What is there.** `Rule.json` drops from **227 records (2014) to 56 (2024)**; `RuleSet` from
+41 to 11 (Combat, D20 Tests, Damage and Healing, Exploration, Proficiency, Multiclassing and
+so on). Conditions are **15 in both editions**, same names. So the whole rules tier is roughly
+**71 prose records**, not an open-ended sprawl — a readable amount.
+
+**Where the dial candidates actually live.** Not where you would look. 2024's `Rule.json` has
+no record mentioning grapple, shove or exhaustion, where 2014 has dedicated rules for each
+("Grappling", "Grapple Rules for Monsters", "Shoving a Creature"). They moved into
+**conditions**: in 2024 grappling is an Unarmed Strike option that imposes the Grappled
+condition, rather than a contest rule of its own.
+
+**Exhaustion is the cleanest rules-dial case found so far.** 2014 is a six-row table, each
+level a different effect (1 disadvantage on ability checks, 2 speed halved, 3 disadvantage on
+attacks and saves…). 2024 is one formula applied uniformly:
+
+> *D20 Tests Affected.* When you make a D20 Test, the roll is reduced by 2 times your
+> Exhaustion level. *Speed Reduced.* Your Speed is reduced by 5 times your Exhaustion level.
+
+A table lookup becomes arithmetic over a counter. No content changes; the engine computes
+differently. Nothing in the content dial can express this.
+
+**Grappled gained real mechanics**: 2024 adds Disadvantage on attack rolls against anyone but
+the grappler, and makes the grappled creature Movable (the grappler can drag or carry them).
+Neither exists in 2014.
+
+### A measurement caution, learned the hard way
+
+Diffing condition bodies reports all 15 as changed and 12 as "rewritten" (similarity < 0.5).
+**That number overstates mechanical change.** 2024 restyled every condition into one template
+— "While you have the X condition, you experience the following effects", with named bullet
+sub-effects — and shifted from third person to second. Deafened scores 0.69 and is the *same
+rule* reworded; Grappled scores 0.02 and is genuinely different. The score cannot tell them
+apart, exactly as raw string comparison could not tell `1 action` from `Action` for spells.
+
+**Consequence for planning.** Which conditions and rules changed *mechanically* cannot be
+settled by diffing. It needs 71 prose records read by a person. That is a bounded, estimable
+task — and it is the only reliable way to enumerate the rules dial.
+
+### Idea
+
+Read the 71 records once and produce a table: rule, mechanically changed yes/no, and if yes
+whether it is expressible as data, as a constraint, or only as a computation. The last
+distinction is the one that matters, and `rules-override-layer.md` already states why: a
+permission expressed as a selection constraint can be granted or waived; one expressed as a
+computation cannot be overridden at all. Exhaustion is a computation. Grappled's Movable
+clause is probably a constraint.
+
+**Data note.** open5e's 2014 text carries soft-hyphen artifacts from the 5.1 PDF
+(`long-­‐term`), which their 2024 text does not. Normalize before comparing or they register
+as differences.

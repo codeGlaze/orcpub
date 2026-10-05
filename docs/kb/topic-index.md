@@ -282,7 +282,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, rule, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -569,7 +569,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -prefixed, -ref, accessor, body, character-validation, computed, deferred, entity, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, person, readme, rediscovering, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, readme, rediscovering, reminder, standing, tenets, tradeoff, tried, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1451,7 +1451,7 @@ _env-and-auth · env and auth_
 
 _equipment-option-picker · equipment option picker_
 
-**topics:** 12-row, 306, arrow, cap, combobox, control, desktop, dismiss, dom, highlight, light, mobile, mounted, native, nodes, popover, rows, task
+**topics:** 12-row, 1541, 306, arrow, cap, combobox, control, desktop, dismiss, dom, highlight, light, mobile, mounted, native, nodes, popover, rows
 
 - Measured
 - Why the Popover API and not the hand-rolled popover
@@ -1520,7 +1520,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, measuring, nine, pdf, playwright, probe, probes, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, runner, sheets, sleeps, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -2816,7 +2816,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, feat, granted, layer, ledger, party, permission, permissions, prop, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -2972,7 +2972,7 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 109-entry, 1780, 2024, 230kb, 32-entry, 506, 620kb, app-side, checked, column, counted, counterpart, delta, designed, grapple, option-source, origin-feat, started
+**topics:** 109-entry, 1780, 2024, 230kb, 32-entry, 506, 620kb, app-side, checked, column, counted, counterpart, delta, designed, option-source, origin-feat, parsers, started
 
 - Content
 - Rules and reference (no e5 data namespace)
@@ -2983,7 +2983,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, calligrapher, dataset, editions, elven, feat, fighting, ftd, gnomish, goblin, idea, lineage, lineages, open5e, species, styles
+**topics:** 2014, 2024, d20, dial, disadvantage, editions, exhaustion, fighting, goblin, grappled, grappler, idea, lineage, lineages, open5e, reduced, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -2991,12 +2991,15 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 - 3. Fighting styles became feats
 - 4. Monster stat blocks changed format
 - 5. Telling two editions of the same item apart (UX)
+- 6. The rules tier — smaller than feared, but only readable by hand
+- A measurement caution, learned the hard way
+- Idea
 
 ## srd-2024-integration.md
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3200,7 +3203,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, comparison, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
