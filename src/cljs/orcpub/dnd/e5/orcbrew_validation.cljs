@@ -225,7 +225,7 @@
   [item]
   (if-let [traits (:traits item)]
     (if (vector? traits)
-      (let [results (map fill-missing-trait-fields traits)
+      (let [results (map #(if (map? %) (fill-missing-trait-fields %) [% []]) traits)
             updated-traits (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :traits updated-traits) total-changes])
@@ -263,7 +263,7 @@
   [item]
   (if-let [options (:options item)]
     (if (vector? options)
-      (let [results (map-indexed fill-missing-option-fields options)
+      (let [results (map-indexed (fn [i o] (if (map? o) (fill-missing-option-fields i o) [o []])) options)
             updated-options (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :options updated-options) total-changes])
@@ -313,12 +313,16 @@
   [content-type items]
   (reduce-kv
    (fn [acc item-key item]
-     (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
-       (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
-         {:items (assoc (:items acc) item-key item)
-          :changes (conj (:changes acc) {:key item-key :changes changes})}
-         {:items (assoc (:items acc) item-key item)
-          :changes (:changes acc)})))
+     (if-not (map? item)
+       ;; Not an entry, so no fields to fill. Validation skips it and the import log
+       ;; lists it; assoc'ing into it crashed the whole import.
+       (assoc-in acc [:items item-key] item)
+       (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
+         (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
+           {:items (assoc (:items acc) item-key item)
+            :changes (conj (:changes acc) {:key item-key :changes changes})}
+           {:items (assoc (:items acc) item-key item)
+            :changes (:changes acc)}))))
    {:items {} :changes []}
    items))
 
@@ -350,7 +354,9 @@
       ;; Multi-plugin: fill each plugin separately
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin all-changes]} (fill-missing-in-plugin plugin)]
+                       (let [{:keys [plugin all-changes]} (if (map? plugin)
+                                                          (fill-missing-in-plugin plugin)
+                                                          {:plugin plugin :all-changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :all-changes (into (:all-changes acc)
                                              (map #(assoc % :plugin plugin-name) all-changes))}))
@@ -495,7 +501,9 @@
     (if is-multi
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin changes]} (dedup-options-in-plugin plugin)]
+                       (let [{:keys [plugin changes]} (if (map? plugin)
+                                                      (dedup-options-in-plugin plugin)
+                                                      {:plugin plugin :changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :changes (into (:changes acc)
                                          (map #(assoc % :plugin plugin-name) changes))}))
@@ -527,10 +535,10 @@
             :traits-needing-names [{:index N}...]}"
   [item content-type]
   (let [missing-fields (find-missing-fields item content-type)
-        trait-details (when-let [traits (:traits item)]
+        trait-details (when-let [traits (when (sequential? (:traits item)) (:traits item))]
                         (keep-indexed
                          (fn [idx trait]
-                           (when (seq (find-missing-trait-fields trait))
+                           (when (and (map? trait) (seq (find-missing-trait-fields trait)))
                              {:index idx :current-name (:name trait)}))
                          traits))
         traits-missing (count trait-details)]
@@ -886,7 +894,10 @@
                      (fn [[k v]]
                        (if (map? v)
                          (validate-content-group k v)
-                         {:content-type k :valid-count 1 :invalid-count 0 :invalid-items []}))
+                         ;; not a group of entries (a true/false, or a damaged section that
+                         ;; mend could not read) -- counted as imported, it said "Imported 1
+                         ;; items" for a section that held nothing usable
+                         {:content-type k :valid-count 0 :invalid-count 0 :invalid-items []}))
                      content-groups)
         total-valid (reduce + 0 (map :valid-count validations))
         total-invalid (reduce + 0 (map :invalid-count validations))]
@@ -1073,7 +1084,7 @@
       ;; Multi-plugin: aggregate counts from all inner plugins
       (let [total-items (reduce
                          (fn [total [_plugin-name inner-plugin]]
-                           (+ total (count-items-in-plugin inner-plugin)))
+                           (+ total (if (map? inner-plugin) (count-items-in-plugin inner-plugin) 0)))
                          0
                          plugin)]
         {:success true
@@ -1107,7 +1118,7 @@
 ;; Fields where nil should be replaced with a default value. A source-less item
 ;; lands in the real built-in "Default Option Source" plugin (db.cljs) rather than
 ;; a phantom "Unnamed Content" one, so it's manageable content, not an orphan.
-(def default-option-source "Default Option Source")
+(def default-option-source e5/default-option-source)
 
 (def nil-replace-defaults
   {:disabled? false
@@ -1442,7 +1453,7 @@
   [plugins]
   (reduce
    (fn [acc [source-name plugin]]
-     (let [plugin-keys (collect-all-keys-from-plugin plugin source-name)]
+     (let [plugin-keys (when (map? plugin) (collect-all-keys-from-plugin plugin source-name))]
        (merge-with into acc plugin-keys)))
    {}
    plugins))
@@ -1793,6 +1804,55 @@
 ;; Main Validation Entry Point
 ;; ============================================================================
 
+(defn repair-description
+  "Import-log wording for one e5/mend-import-data repair."
+  [{:keys [source section key field repair named dropped]}]
+  (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
+        in (when source (str " in \"" source "\""))
+        entry (when (some? key)
+                (str (get content-type-singular section "Entry") " " (if (keyword? key) key (pr-str key))))
+        field-name (when field (name field))
+        plural (fn [n one many] (if (= 1 n) one many))]
+    (case repair
+      :file-from-text     "The file's content was stored as text; read it back"
+      :source-from-text   (str "Source \"" source "\" was stored as text; read it back")
+      :section-from-text  (str "Read " what in " back from text")
+      :section-from-list  (str "Turned " what in " from a list back into entries")
+      :empty-section      (str "Dropped " what in ", which was empty")
+      :key-restored       (str entry in ": its :key was not a keyword, so it now matches the key it is filed under")
+      :cards-mended       (str "Fixed the " field-name " of " entry in
+                               (let [parts (cond-> []
+                                             (pos? named) (conj (str named (plural named " text item kept as a named card"
+                                                                                   " text items kept as named cards")))
+                                             (pos? dropped) (conj (str "dropped " dropped (plural dropped " item that was not a card"
+                                                                                                     " items that were not cards"))))]
+                                 (when (seq parts) (str ": " (str/join ", " parts)))))
+      :cards-not-a-list   (str "Removed the " field-name " of " entry in ", which were not a list")
+      :spell-lists-not-a-map (str "Removed the class lists of " entry in
+                                  ", which were not a map of classes; add it to classes in the spell builder")
+      (str "Repaired " (or what "a section") in))))
+
+(defn fill-import-sources
+  "Give each entry with no source one (e5/source-for) in freshly read import data, a
+   single source or a {source-name source} library. The July rule filled a blank or
+   nil :option-pack with the default but skipped an entry that left the field out.
+   Returns {:data d :changes [...]}, a :fixed-option-pack change per entry."
+  [data]
+  (let [{:keys [filled] :as result}
+        (if (is-multi-plugin? data)
+          (let [{l :library f :filled} (e5/fill-library-sources data)]
+            {:data l :filled f})
+          (let [to (e5/source-for nil data)
+                {p :plugin f :filled} (e5/fill-missing-sources data to)]
+            {:data p :filled (map #(assoc % :to to) f)}))]
+    {:data (:data result)
+     :changes (mapv (fn [{:keys [source section key to]}]
+                      {:type :fixed-option-pack
+                       :path (cond-> [] source (conj source) true (conj section key))
+                       :from nil
+                       :to to})
+                    filled)}))
+
 (defn validate-import
   "Validates and cleans orcbrew `edn-text` for import. Opts: :strategy :strict (all-or-nothing) or
    :progressive (default; imports valid items), :auto-clean (default true) applies cleaning fixes,
@@ -1842,8 +1902,26 @@
 
     (if (:success parse-result)
 
+        ;; Step 2.25: put damaged sections back in shape before anything walks them.
+        ;; A section stored as text or as a list still holds its data; left alone it
+        ;; imported as "successful" and failed later at export, and a whole file
+        ;; stored as text crashed the steps below.
+        (let [{mended :data repairs :repairs} (e5/mend-import-data (:data parse-result))
+              repair-changes (mapv (fn [r] {:type :repaired-section
+                                            :description (repair-description r)
+                                            :entry (when (:key r) [(:source r) (:section r) (:key r)])})
+                                   repairs)]
+          (if-not (map? mended)
+            {:success false
+             :errors ["This file doesn't contain homebrew content that can be read."]
+             :changes (into @string-changes repair-changes)}
+
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
-        (let [parsed-data (:data parse-result)
+        (let [;; Step 2.4: an entry with no source takes the name of the source it is
+              ;; filed under, or the one its sibling entries share, else the default.
+              {parsed-data :data source-changes :changes} (if auto-clean
+                                                            (fill-import-sources mended)
+                                                            {:data mended :changes []})
               normalized-data (if auto-clean
                                 (normalize-text-in-data parsed-data)
                                 parsed-data)
@@ -1866,6 +1944,8 @@
                              {:data (:data fill-result) :changes []})
 
               all-changes (vec (concat @string-changes
+                                       repair-changes
+                                       source-changes
                                        (when text-normalized?
                                          [{:type :text-normalization
                                            :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
@@ -1888,7 +1968,7 @@
           (assoc validation-result
                  :changes all-changes
                  :key-conflicts key-conflicts
-                 :key-warnings key-warnings))
+                 :key-warnings key-warnings))))
 
         ;; Parse failed - return detailed error
         {:success false
@@ -2071,13 +2151,34 @@
                (map #(str "• " (:message %)) external)))
        ["Duplicate keys can cause unexpected behavior. Consider renaming one of the conflicting items."]))))
 
+(defn- repair-lines
+  "One line for the import notice when mend repaired anything; the log has each repair."
+  [result]
+  (let [rs (filter #(= :repaired-section (:type %)) (:changes result))
+        n-entries (count (distinct (keep :entry rs)))
+        n-sections (count (remove :entry rs))
+        parts (cond-> []
+                (pos? n-sections) (conj (str n-sections " damaged section" (when (not= 1 n-sections) "s")))
+                (pos? n-entries) (conj (str n-entries " damaged entr" (if (= 1 n-entries) "y" "ies"))))]
+    (when (seq parts)
+      [(str "Repaired " (str/join " and " parts) " (details in the import log)")])))
+
+(defn import-notice-type
+  "Tone for an import that went through: :warning when something was skipped or a
+   key clashed, so a partial import no longer arrives dressed as a clean one."
+  [result]
+  (if (or (:had-errors result) (seq (:key-warnings result))) :warning :success))
+
+(defn- counted [n noun]
+  (str n " " noun (when (not= 1 n) "s")))
+
 (defn format-import-result
   "What an import result should say, as {:title :details} — a headline and its
-   supporting lines. The caller decides tone and whether to offer an action; this
-   only decides the words.
-
-   Structured rather than one string with blank lines in it: the banner renders
-   HTML, where newlines collapse to spaces and run the sentences together."
+   supporting lines. The caller decides tone and whether to offer an action.
+   A partial import marks lines {:mark :text}, colour on the icon not the text.
+   GOTCHA: :details must stay a seq of strings, not one string with embedded
+   newlines — the banner renders HTML, where newlines collapse to spaces.
+   See homebrew-safety-net.md."
   [result]
   (let [conflicts (format-key-conflict-details result)]
     (cond
@@ -2101,9 +2202,12 @@
       ;; Progressive import with some items skipped
       (:had-errors result)
       {:title "Import completed with warnings"
-       :details (concat [(str "Imported " (:imported-count result) " valid items")
-                         (str "Skipped " (:skipped-count result) " invalid items")
-                         "Invalid items were skipped. Check the browser console for details."]
+       :details (concat [{:mark :done
+                          :text (str "Imported " (counted (:imported-count result) "item"))}
+                         {:mark :skipped
+                          :text (str "Skipped " (counted (:skipped-count result) "item")
+                                     " that couldn't be imported (the import log says why)")}]
+                        (map (fn [line] {:mark :repaired :text line}) (repair-lines result))
                         conflicts)}
 
       ;; Successful import (but may have key conflicts)
@@ -2113,6 +2217,7 @@
                 "Import successful")
        :details (concat (when (:imported-count result)
                           [(str "Imported " (:imported-count result) " items")])
+                        (repair-lines result)
                         conflicts)}
 
       ;; Unknown result

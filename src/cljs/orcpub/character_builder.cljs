@@ -1650,7 +1650,7 @@
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
-  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.white
+  [:div.bg-light.b-rad-5.p-10.m-l-5.m-r-5.m-b-5.white
    text])
 
 (defn known-mode-info []
@@ -1703,7 +1703,7 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a " type-name " here that you want to use? ")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route event])}
                  (str "CLICK HERE TO ADD A " (s/upper-case type-name))]]]))
 
@@ -1717,11 +1717,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a race or subrace here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-race-builder-page-route])}
                  "CLICK HERE TO ADD A RACE"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subrace-builder-page-route])}
                  "CLICK HERE TO ADD A SUBRACE"]]]))
 
@@ -1732,11 +1732,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a class or subclass here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-class-builder-page-route])}
                  "CLICK HERE TO ADD A CLASS"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subclass-builder-page-route])}
                  "CLICK HERE TO ADD A SUBCLASS"]]]))
 
@@ -2300,13 +2300,17 @@
 
 
 (defn desktop-or-tablet-columns [device-type]
-  (let [current-tab (or @(subscribe [::char5e/builder-tab]) :options)]
+  ;; The phone's Details tab is the right column here, so a window widened while
+  ;; on it lands on Description; narrowing keeps Description too.
+  (let [current-tab (if (= :options (or @(subscribe [::char5e/builder-tab]) :options))
+                      :options
+                      :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
+        [builder-tab "Description" :description current-tab]]
        (if (= current-tab :options)
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
@@ -2334,12 +2338,12 @@
   "Asks, once, which item a character meant after an import renamed the library's copy of it.
    Stays until the author answers."
   []
-  (when-let [{:keys [from to-name from-name import]} @(subscribe [:orcpub.dnd.e5/relink-question])]
+  (when-let [{imported-pack :import :keys [from to-name from-name]} @(subscribe [:orcpub.dnd.e5/relink-question])]
     (let [item (or from-name (name from))]
       [:div.decision-callout
        [:div.message-title (str "Which \u201c" item "\u201d did this character mean?")]
        [:div.message-detail
-        (str "Importing " (if import (str "\u201c" import "\u201d") "a pack") " added a different \u201c"
+        (str "Importing " (if imported-pack (str "\u201c" imported-pack "\u201d") "a pack") " added a different \u201c"
              item "\u201d. Yours is now called \u201c" to-name "\u201d.")]
        [:div.decision-actions
         [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])} "Use yours"]
@@ -2497,10 +2501,24 @@
 
 (defn theme-toggle []
   (let [theme @(subscribe [:theme])]
-    [:div.pointer
-     {:on-click toggle-theme}
+    [:div.pointer.setting-toggle
+     (merge {:on-click toggle-theme}
+            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
      [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
+
+(defn button-text-toggle
+  "Dark text on the amber buttons. Dark theme only: the light theme's buttons
+   are slate blue and already read well in white."
+  []
+  (let [theme @(subscribe [:theme])
+        on? @(subscribe [:dark-button-text?])]
+    (when (not= "light-theme" theme)
+      (let [toggle #(dispatch [:toggle-dark-button-text])]
+        [:div.pointer.setting-toggle.m-l-20
+         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
@@ -2548,10 +2566,7 @@
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
-     (into
-      (if character-id
-        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
-        [])
+     (vec
       (remove nil?
        [{:title "Random"
          :icon "random"
@@ -2599,8 +2614,10 @@
          [:div
           [missing-content-warning]
           [relink-question-banner]]
-         [:div.flex
+         ;; .content has no side padding of its own; keep the toggles off the edge
+         [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
+          [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
@@ -2608,4 +2625,5 @@
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
         [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+         [builder-columns]]]]]
+     :subheader (when character-id [integrations/share-line character-id])]))

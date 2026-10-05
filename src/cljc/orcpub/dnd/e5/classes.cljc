@@ -2345,7 +2345,7 @@
                 (let [{:keys [name] :as spell} (spells5e/spell-map spell-kw)]
                   (t/option-cfg
                    {:name name
-                    :help (opt5e/spell-help spell)
+                    :help #(opt5e/spell-help spell)
                     :modifiers [(mod/set-mod ?spell-mastery name)]
                     :prereqs [(t/option-prereq
                                nil
@@ -2366,7 +2366,7 @@
                 (let [{:keys [name] :as spell} (spells5e/spell-map spell-kw)]
                   (t/option-cfg
                    {:name name
-                    :help (opt5e/spell-help spell)
+                    :help #(opt5e/spell-help spell)
                     :modifiers [(mod/set-mod ?signature-spells name)]
                     :prereqs [(t/option-prereq
                                nil

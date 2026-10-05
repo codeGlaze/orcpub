@@ -3,14 +3,14 @@
    Configure via environment variables; disabled when unset.
    Fork overrides: uncomment examples and add real service config."
   ;; `env` is unused here on purpose: every integration below ships commented out,
-  ;; and a fork uncommenting one reads its config through it. Dropping the refer
+  ;; and a fork uncommenting one reads its config through it. Dropping the require
   ;; would make the first thing a forker does a compile error.
-  #_{:clj-kondo/ignore [:unused-referred-var]}
-  (:require [environ.core :refer [env]]))
+  #_{:clj-kondo/ignore [:unused-namespace]}
+  (:require [orcpub.env :as env]))
 
 ;; ─── How to add an integration ───────────────────────────────────────
 ;;
-;; 1. Gate its config on an env var:  (def my-service-id (env :my-service-id))
+;; 1. Gate its config on an env var:  (def my-service-id (env/value :my-service-id))
 ;; 2. Write a tag fn of `nonce` returning hiccup, or nil when disabled; give each <script> :nonce.
 ;; 3. Call it from head-tags below, returning a flat seq of the enabled tags.
 

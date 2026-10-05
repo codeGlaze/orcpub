@@ -1,3 +1,6 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // How finely the library can be split: per source, and within a source.
 //
 // A source is {qualified-keyword content-type {item-key item}} plus non-content scalars
@@ -12,10 +15,11 @@
 // Run: lein e2e-server, then
 //   node test/browser/library_chunk_granularity_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
   await suppressOverlays(ctx);
   const page = await ctx.newPage();

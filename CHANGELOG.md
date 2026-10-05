@@ -11,7 +11,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-You can now move and copy homebrew between sources, turn content off without deleting it, and see in one place what needs fixing, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
+You can now move and copy homebrew between sources, turn content off without deleting it, and see in one place what needs fixing, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white. Signing up, signing in and recovering an account have been rebuilt, with breach-screened passwords, a live strength meter, and reset links that can only set a new password.
 
 ### Fixed
 
@@ -1062,6 +1062,510 @@ before touching another pack, and characters keep their homebrew through renames
 
 - **Comments and docstrings trimmed to spec** across 47 source files, clearing the comment check's recorded debt; history and measurements moved to the knowledge base (`ac0dc950`).
 - **The linter's config is tracked** — `.gitignore` now ignores the linter's cache, not `.clj-kondo/config.edn` (`ac0dc950`).
+
+### feature/style-guide
+
+Parent: `integration` at `614c17ff`, merged up to `1aa80ec3`.
+
+**Highlights**
+
+The page now lays itself out by window width: a desktop browser narrowed to phone size gets the
+phone layout, and switches back when widened. On phones the header, buttons and builder share
+one 10px gutter, and the header's tab menus open on screen again.
+
+**Added**
+
+- A "Dark Button Text" option beside "Light Theme" puts dark text on the yellow buttons for anyone who finds white hard to read. Off by default; remembered in the browser and on the account. (`97639a41`)
+- A style guide for the site: palette and roles, type, spacing, radius, focus, buttons, and rules for new work (`docs/design/style-guide.md`). (`4ef09256`)
+
+**Fixed**
+
+- The Light Theme and Dark Button Text settings work from the keyboard: Tab reaches them, Space or Enter switches them, they show a focus ring, and screen readers hear them as on/off switches. (`8568786f`)
+- A desktop browser narrowed to phone width gets the phone layout, and the desktop one back when widened; it used to keep the desktop page squeezed into the narrow window. A phone keeps the phone layout at any width. (`77fcb2e6`)
+- The builder stays on Description when the window crosses phone width; it used to jump to the character sheet. (`77fcb2e6`)
+- On phones the header tab menus open on screen; the header clipped them out of view. (`66ccbcb6`)
+- On phones the first tab's menu no longer hangs off the left edge: the three left-hand tabs open their menus to the right. (`66ccbcb6`)
+- On phones the header tabs share the row evenly, instead of spreading out with wide gaps. (`b58d2af3`)
+- On phones the top bar fits the screen; the login button ran off the right edge. (`3b652700`, `b58d2af3`)
+- On phones the search button is a square with its magnifier centred, and LOGIN is centred in its button. (`942c177d`)
+- On phones the logo, tabs, title, buttons and builder all start 10px from the edge; they started at 20, 12, 10 and 15px. (`bea36ada`)
+- On phones all six ability buttons fit on the row; the sixth was cut off at the right edge. (`6ce56c00`)
+- The Light Theme and Dark Button Text toggles no longer touch the right edge of the screen. (`6ce56c00`)
+- "MY CONTENT" fits on one line in the header. (`844c15ca`)
+- Text marked bold renders bold: Open Sans is loaded at 400, 600 and 700, not 400 alone. (`4159164c`)
+- Buttons use the site font instead of the browser's default Arial. (`4159164c`)
+
+**Changed**
+
+- Text on the yellow buttons has a faint edge in the opposite tone, so the letters stand out from the amber. (`bf7861a7`)
+- The header tabs get the same faint dark edge. (`844c15ca`)
+- With Dark Button Text on, the ability buttons get a stronger glow and a thin yellow outline, because their short labels read weaker than the other buttons. (`844c15ca`, `d579d94b`)
+- The character sheet's roll buttons have 16px labels instead of 14px, at the same height. (`1e677a3f`)
+- The yellow buttons are 700, restoring the stroke weight they had in Arial Bold. (`a891db35`, `844c15ca`)
+- Bold text at 18px and up renders at 600, not 700: page titles, headings, spell and monster names. (`a891db35`)
+- The builder's info boxes are regular weight, not bold; their CLICK HERE links stay bold. (`a891db35`)
+- Page titles are 28px on phones, so "Character Builder" fits a 320px screen. (`b58d2af3`)
+
+### fix/integration-browser-tests
+
+**Fixed**
+
+- **Building the character template no longer builds 86 spell help panels** — the wizard's Spell Mastery and Signature Spells options built every spell's help up front, which the template's offered-keys walk now triggers on every build; they wait until a panel is opened (`6f5375f1`).
+
+**Changed**
+
+- **Two browser tests follow the app again** — the export test selects the footer's developer switch, not the first on/off switch on the page, and the rescue test compares with the library as stored when the view fails, not the seed (`cf6ceec5`).
+
+### fix/test-runner-fails-loudly
+
+**Fixed**
+
+- **A browser run that tests nothing now fails, and says why** — no browser found, a stale or wrong-kind bundle, an app that never starts (scripts blocked by the security policy, a missing bundle, a startup error), a suite that reports no checks, or a failed check behind a clean exit. Each was a silent false result before (`586140e1`).
+- **The Changelog guard runs on pull requests**, where an un-folded branch changelog can still be folded; it only ran after the merge before (`51946ed0`).
+
+**Changed**
+
+- **Browser suites run on the production build unless they declare otherwise** — 27 read the app's internals and say `Needs: dev bundle`, 18 measure rather than check and say `Kind: probe`, and the other 12 run on what the site serves (`8acf1093`).
+- **One command runs every browser suite** and prints a table that keeps production and development-only results apart (`edd5c14f`).
+
+### fix/e2e-step-2
+
+**Fixed**
+
+- **Browser suites no longer click into the What's New panel** — every suite starts with it and the cookie banner already seen unless it tests them, and the busy-export test waits for the Export button the panel used to cover (`a94af091`).
+- **A browser suite that hangs is stopped** after 20 minutes and reported as failed, instead of holding the run open (`f374a758`).
+- **The busy-export browser test is reliable** — the test-only busy profile now waits 1ms for an export slot instead of 250ms. The slot queue is fair, so with 250ms an export arriving under load often reached the front and got its PDF, and the test failed about 4 runs in 10 with nothing wrong in the app. It now also stops with one clear reason when the server is not busy (`147eac8a`).
+- **The starting-equipment browser test follows source-tagged keys** — a saved class lives under a key tagged with its source (`:browser-test-class-brttse`), and the test read the untagged one, so it reported lost weapons that had saved correctly (`35ff99d5`).
+
+**Changed**
+
+- **The full browser run boots three servers instead of 39** — one per bundle batch, plus one for the busy-export test; all 39 suites take 20 minutes (`d84337f7`, `e310fd32`).
+- **Five more suites run on the production build**; importing homebrew through the visible import flow works there. Suites that take a homebrew pack use the test fixture pack when given none (`4c3fbba6`).
+
+### fix/e2e-faster
+
+**Changed**
+
+- **The full browser test run takes 8.5 minutes instead of 21** — tests on a shared server run three at a time, the measuring probes run only with `--probes`, and the bundle already built goes first so a run rebuilds once. Same 21 verdicts (`36ce7ca6`).
+
+### fix/e2e-overlap
+
+**Changed**
+
+- **The full browser test run takes 5.5 minutes instead of 8.5** — the bundle builds while the test server starts, so every test can start in parallel; the summary shows peak memory, the limit on running more at once (`7da2e4e8`).
+
+### hotfix/locale-safety
+
+**Fixed**
+
+- **The server gives the same content the same keys on any machine** — on a Turkish or Azerbaijani system, lowercasing turned "I" into a dotless "ı", so names, keys, sorting and HTTP dates depended on the operating system's language (`b86d3d12`, `5d2bbd14`).
+- **A blank setting counts as unset** — an empty `SIGNATURE=` signed login tokens with a publicly known empty key; every setting is now read through one place that treats blank as missing, and lint rejects the old pattern (`db2f7ee7`).
+- **Docker secrets work for the login key** — the server read `SIGNATURE` from the environment only, so a deployment that mounted the secret as documented failed every login (`969cf644`).
+- **`PORT` works in development**, where the server always took 8890 and the start scripts disagreed with it (`b6df8098`).
+- **A failed verification email no longer strands an account** — a new account is rolled back, a failed resend keeps the link already sent, and a sign-up failure now shows a message (`e4a69649`, `b29d89ef`, `94a71ea0`, `55c949da`).
+- **Resending a verification link to an address with no account does nothing** — it used to create a record and email a link to any address typed (`55c949da`).
+- **Without email configured, registration fails closed** — accounts are auto-verified only when `ALLOW_UNVERIFIED_REGISTRATION` is set, and the server says at startup what registration will do (`fcaf894e`, `896d186f`).
+- **The Windows start scripts find ports and processes correctly**, and say so when they cannot (`c27cbd32`, `6636369a`).
+- **Source abbreviations, spell-card annotations and image hosts are locale-safe too**, as is the comment-rule test; code written after this fix began, pinned in the merge (`af0dd8a1`).
+
+**Changed**
+
+- **The security-policy docs match the server** — there is no report-only mode; development sends no policy, everything else enforces it (`4e972cf7`, `c9fd5a5b`).
+
+### integration-local (accounts and the September hotfixes)
+
+**Added**
+
+- **New homebrew keys carry their source's tag** — two authors' "Stone Elf" become
+  `:stone-elf-trcs` and `:stone-elf-kbtx` instead of colliding, and a source can set its own
+  tag from My Content. The builder also gains a key row to change a key on purpose
+  (`ed4f5a4c`, merged in `01180480`). The duplicate-save gating that came with it was reverted
+  (`65502f3d`) because it could let a save overwrite another library's item.
+- **A check for homebrew no repair knows about** — a browser probe breaks one race on
+  conversion and one only when drawn, and checks the app, the notice, the set-aside,
+  Restore and import (`986c25a4`).
+
+- **A check that every fix is saved** — a browser probe applies each repair through
+  the app, reloads and exports, so a fix that only lives on screen fails a test
+  instead of reverting on refresh (`c275c101`).
+
+- **A character brings its custom items from the server** — whoever can open a character now sees the
+  custom items it has equipped, as they are now. Share links no longer carry items, so they are
+  shorter; homebrew still travels in the link, and older links still open (`397aea6a`).
+
+- **Short share links** — a character's owner gets a link of about 85 characters that stays the
+  same and always shows the character's current homebrew, which the server keeps and checks; New link
+  revokes every earlier link, nothing is stored until the owner presses Share link, the limits are
+  config settings, and anyone else's link still carries the homebrew itself (`5ef7939b`, `56723035`,
+  `79b79f9d`, `0eda1015`).
+
+- **A party keeps a shared character's homebrew** — a character added to a party from its share link
+  shows its homebrew on the party page, until its owner makes a new link (`f328ca60`).
+- **Unused share links expire** — a share link nobody opens for 180 days of the server running is
+  deleted with its share data; the character stays, the owner can share again, and
+  `ORCPUB_SHARE_PRUNE_DAYS` sets the window, 30 days at least. A request without the link's token does
+  not count as use, and time the server was off does not count against a link (`c5532564`, `4b17550d`,
+  `8b7e011a`).
+- **Stop sharing** — a character's owner can stop sharing it at any time: every link made before stops
+  showing its custom content, and nothing is stored again until Share link is pressed (`124c1c62`).
+- **The owner is told when a share link expired** — the character page and list show the date beside
+  Share link on every visit, until the owner shares again or dismisses the note; the note keeps only the
+  character and the date (`124c1c62`).
+- **The server records when it was running** — an hourly heartbeat kept in the database notes when the
+  server was off, and scheduled jobs run after it; share link pruning is the first (`124c1c62`).
+
+- **The password rules judge length and shape, not character classes** — a minimum of 12
+  characters, with repeats, runs and too few distinct characters refused, and no rule about
+  symbols or capitals. NIST has told everyone to stop imposing composition rules, which push
+  people to Password1! and no further. The validator is shared between the browser and the
+  server so neither can disagree with the other (`e8496511`, `696a962e`, `29783af5`).
+
+- **A strength meter that asks the validator instead of guessing beside it** — four rungs at
+  12, 16, 22 and 28 characters, and it refuses to show a verdict the server would contradict.
+  The username and email go into the judgement, so a password made of them does not score
+  (`29783af5`).
+
+- **Breach screening against the Pwned Passwords corpus** — only the first five characters of
+  the password's SHA-1 leave the server, so the password itself is never sent. A password is
+  refused only when it appears 1000 or more times in the corpus, and a service that cannot
+  answer never blocks anyone (`09ac513c`, `729458ec`, `1cf25582`).
+
+- **A notice when one account is signed into from several places** — with the time, the
+  browser and where from, held to one message per account per cooldown so a person with a
+  phone and a laptop is not mailed all day (`073d542c`, `18d1deb2`, `416a3dce`).
+
+- **A browser suite for signing up, verifying, signing in and recovering an account** —
+  `scripts/e2e/auth-flows.js` runs twenty-two checks on flows that had no coverage.
+  `scripts/e2e/lib/mail-sink.js` is a small SMTP server that catches the emails, and `run.sh`
+  starts it, so the suite follows the same links a person would click. It confirms that wrong
+  guesses give identical answers and that a reset link works only once (`991e5ff9`,
+  `b50602f1`).
+
+**Fixed**
+
+- **A password reset link no longer signs you in** — opening it used to start an hour-long session without changing the password, and the owner was never told; now it only lets you set a new password, once, and is checked when you submit (`f8f270dd`).
+- **Signing out everywhere cannot be undone by the hourly refresh** — a refresh that read the
+  database just before a reset or sign-out-everywhere committed replaced the register with that
+  older read, and the withdrawn sessions worked again for up to an hour (`530837f4`).
+- **A password is judged as it is saved** — signup and reset checked it as typed but stored it
+  trimmed, so `" pomegranate "` passed the 12-character minimum and was saved at 11 (`91806337`).
+- **Moving a class or race keeps its subclasses and subraces** — a move into a source that already
+  had that key renamed the item but left its dependents on the old key, where they joined the
+  other source's item. They now follow it, in a bulk move too, and the old key is recorded
+  (`aab74709`, `8f481078`).
+- **Blank icons show again** — the Edit button on character and item pages, New link and three
+  import-log lines used Font Awesome 4 names the app does not serve, so on a phone they were empty
+  buttons (`f6354d71`).
+- **A mistyped `ORCPUB_SHARE_PRUNE_DAYS` is called out at boot** — it showed as set while the default
+  was in use (`d108cd46`).
+- **Broken keys and card lists in homebrew are repaired** — an entry whose key was not
+  a keyword, or whose traits or options held something other than cards, crashed the
+  import or later the export; it now imports with what can be kept (`d1c234eb`).
+- **Startup only reads homebrew** — the character options autosave needs are built on
+  the first save instead of on every page load, and a library that cannot be loaded is
+  set aside intact with a download, so the app still starts (`986c25a4`).
+- **Homebrew that still breaks is set aside, not left to break the page** — an entry
+  that fails to build is set aside with a notice that names it and links to My Content,
+  and a page that fails on homebrew checks it and loads again on its own (`986c25a4`).
+
+- **Bad stored homebrew no longer stops the app from starting** — a race whose key
+  was text left every page on the loading spinner. A failed startup step no longer
+  stops the app mounting, and sorting keys no longer breaks on mixed types
+  (`ae80c93f`).
+
+- **A character is repaired on refresh too, and stays repaired** — the repair is
+  saved back to the builder's draft, so it happens once instead of on every load,
+  and its notice shows after the page navigates instead of being cleared by it
+  (`d17ea6b3`, `f0e267dc`).
+- **Entries set aside on load leave the stored library** — they were set aside in
+  memory only and came back on the next refresh (`47f6e886`).
+- **The save banner's export link exports the source as it is now** — it exported
+  the copy it remembered from when the banner appeared, dropping later edits
+  (`0db360ed`).
+- **Damaged homebrew is repaired on import and on load** — a section stored as
+  text or as a list comes back with everything in it, and a file whose whole
+  content was stored as text imports instead of crashing. What nothing can read is
+  set aside with Export raw and Discard (`117af073`, `71e37588`).
+- **A partial import shows as a warning** — it arrived in the green success card.
+  Each line is now marked imported, repaired or skipped, and counts read "1 item"
+  (`246d3ef2`).
+- **A nameless item reads "Unnamed Spell" in the missing-fields dialog** — with its
+  key beneath, instead of a bare ":no-name" (`5ae5bbbf`).
+- **The import-log button no longer covers header menus** — it stays off the page
+  while the log is empty and draws under an open menu (`74d8b241`).
+- **The save sparkle stays on the save button** — it drifted into the gap beside
+  it (`7ad28714`).
+- **A library stored as text loads again** — it loaded nothing (`4ac618e2`).
+- **A stored value that isn't a library is handled once** — it was copied aside
+  again on every load (`4ac618e2`).
+- **Save anyway in the selection builder keeps the selection** — a name like
+  "9 Lives" was saved under a key the next load set aside (`155abb4c`).
+- **Renames chosen for existing items are kept when nothing incoming imports** —
+  they were dropped along with the incoming entries (`544cd342`).
+- **An entry with no source takes the name of the source it sits in** — unless its
+  source field was there but blank, it was skipped on import or set aside on load.
+  Only an entry with no name to take goes to Default Option Source (`34472aeb`).
+- **An import with an entry that isn't a map no longer crashes** — the entry is
+  skipped and listed in the import log (`c79a28e7`).
+
+- **The email-support button on a character that will not load sends the report again** — clicking
+  it threw after the login change, so no report went out (`a53520ed`).
+- **A login the server has stopped accepting now logs you out** — the app kept showing you signed in
+  while every request failed, until you logged in again or reloaded (`ffa050ea`).
+- **Share links no longer carry item ids or your username** — each custom item went into the link as
+  stored, with its database ids and its owner; links made before this drop both when opened
+  (`852bc8f7`).
+- **Only its owner can read a custom item by its id** — anyone with the id could fetch the item and its
+  owner's username; everyone else now gets "not found" (`904f7be2`).
+- **A character page never shows an email address** — characters saved during nine days in May 2017
+  named their owner by the email used to log in (`904f7be2`).
+- **Logins, API calls and PDF downloads go to the server that served the page** — every
+  http://localhost page sent them to port 8890, which broke the Docker setup opened at
+  http://localhost and a server on any other local port (`f9f50e55`).
+
+- **Copy link shares the character it sits beside** — on the character page and in the character list
+  it carried the homebrew of whatever character was open in the builder (`3ece5ac9`).
+- **Pasted images and video are left out of shared homebrew** — a data: URI in any text field is
+  emptied before sharing and again when a link is opened (`806d1a23`).
+
+- **Only characters can be added to a party** — adding checked nothing, so any id could be added
+  (`f328ca60`).
+
+- **The mobile header no longer crowds itself** — on a phone the logo is capped, a
+  full-width child no longer measures wider than the bar it sits in, the import log
+  panel cannot exceed the screen, and a child that still outruns the bar is clipped
+  rather than scrolling the whole page sideways (`c3988d92`).
+
+- **Login no longer says whether a username exists** — every failure answers the same way, and
+  the per-address throttle is consulted BEFORE the credentials rather than computed and thrown
+  away, so a spray is turned back without first being told whether it guessed a real account
+  (`360709a8`, `80121fce`).
+
+- **Password reset no longer says whether an address is registered** — it answers 200 either
+  way, including once throttled, because an endpoint that changes its answer under a limit has
+  simply moved the oracle (`1d8d7be8`).
+
+- **Reset keys are stored as a digest and expire** — the table holds a SHA-256 of the key
+  rather than the key itself, and it is good for two hours. An unknown key used to fall through
+  to signing a token for username nil (`072786ca`).
+
+- **Registration is capped per host** — ten an hour, counted only once a form was otherwise
+  going to succeed, so a signup that was failing anyway is not held against the address. What
+  the limits turn away is counted and summarised hourly, so the numbers can be tuned against
+  something (`8788b764`, `3134d972`, `49b37009`).
+
+- **A margin utility no longer makes 194 places bold** — `.m-b-10` sat in a Garden selector
+  group that read as a descendant chain and was not one, so a margin class carried
+  `font-weight: bold` across the app. Measured rather than guessed: 194 uses in source, 11
+  rendering on the logged-out pages, 7 computing a different weight, 5 actually looking
+  different (`4ed59b1f`).
+
+- **The legal links printed twice on the register page** — the consent line links both
+  documents and the footer printed the same pair under it. The footer keeps the copyright there
+  and drops its copies (`d5feb650`).
+
+- **The gryphon panel tiled** — no `background-repeat` and no `background-size`, so once the
+  form column outgrew the image a second half-cropped gryphon drew below the first. It is a
+  Garden class now instead of an inline style map (`d5feb650`).
+
+- **The email help link was one word in the middle of a sentence** — "whitelist" as the whole
+  clickable target, which is a small target and names no destination when a screen reader reads
+  it alone. Both instances link a phrase now, and the login copy no longer reads "Didn't receive
+  validation the email?" or advise resetting a password to fix a missing validation email
+  (`d5feb650`).
+
+- **Sign out everywhere** — an account can shut every session from My Account, including the
+  current one. It does not ask for the password, so someone who fears their account is open on
+  a device they cannot reach can close it from the session they hold. Signing out never
+  requires changing the password (`3c4b147d`).
+
+- **Resetting a password takes back the sessions that existed before it** — every session from
+  before a reset used to keep working. Tokens now record when they were minted, and one minted
+  before the password changed is refused. Signing in again works normally on any number of
+  devices. The list of withdrawals is rebuilt from the database at boot, so a restart does not
+  bring old sessions back (`c9de41dd`).
+
+- **A changed password now tells the account it happened** — nothing was sent. Six
+  outbound mails existed and none of them fired on a credential change, so a takeover was
+  silent until the owner tried to log in, and then all they learned was that they could
+  not. The notice says when and from what browser, and links the reset PAGE rather than
+  carrying a working credential (`5142b5b5`).
+
+- **An email change tells the address that currently owns the account** — the verification
+  goes to the NEW address, which is the one place the owner cannot read if it was not
+  them, so the party losing the account was the only one never told (`5142b5b5`).
+
+- **Moving an account to another address takes the password, not just a session** — it
+  asked for nothing but a session, so a borrowed laptop or a reset link followed and left
+  open was enough to walk off with an account. Checked before the address is even looked
+  at, so an unauthenticated caller cannot use it to learn which addresses are taken
+  (`5142b5b5`).
+
+- **scripts/e2e/run.sh rebuilds a stale bundle instead of testing it** — the server compiles
+  from source at every boot, but the bundle and stylesheet on disk were never rebuilt, so a
+  suite could pass or fail against old code. `run.sh` now names what is newer and rebuilds the
+  kind of bundle already there. `E2E_SKIP_BUILD=1` keeps the existing files and says so loudly
+  (`5142b5b5`).
+
+- **Both places a password is made share the area, not just its parts** — the registration and
+  reset pages each assembled their own password pair, meter and checks. The reset form had no
+  meter and judged a password against no username, so a password could look fine and then be
+  refused by the server for matching the username. `password-fields` and
+  `registration/password-pair-faults` now serve both pages, and the reset page reads the
+  username from a cookie it sets (`5334fc70`, `f8f270dd`).
+
+- **What the reset page's "not your name" check does and does not know** — it judges a
+  password against the username only, read from a cookie the reset page sets. The server also
+  checks the email's local part. Matching that on the page would mean putting the address in a
+  readable cookie, so the server's refusal explains itself on submit. The chip fires only on the
+  whole username, never a prefix (`d0719721`, `f8f270dd`).
+
+- **All nine auth pages share a body, not just a shell** — four pages hand-assembled the same
+  container, one nested it wrongly and got a double gutter, and the login fields were 350px
+  wide where every other page's fill the column. `auth-form-page` takes a heading, a lede,
+  fields and a tail, so the nine pages now come in two shapes and fixes land once instead of
+  per page (`55cb4d4e`).
+
+- **The pages that only announce an outcome get a layout of their own** — registration
+  complete, password changed, unsubscribed and check-your-email had the heading centred and
+  everything under it flush left with no gutter. They now centre in the space the card has,
+  and the one thing to do looks like a button rather than a stray link (`42756378`).
+
+- **The login page's other ways in are one group with one rhythm** — the three separate
+  blocks, with `<br>` gaps pushing each answer away from its question, are now one group where
+  a question and its answer share a line. The help line sits below a rule because it is not
+  another way in, and the LOGIN button is full width and aligned to the fields (`42756378`).
+
+- **The last three auth pages join the shared heading** — `verify-failed`,
+  `send-password-reset-page` and `password-reset-page` still drew their own heading with no
+  amber rule and no form gutter, and they are the pages someone locked out actually sees. The
+  two reset pages are now titled "Reset your password" (the one that mails a link) and "Choose
+  a new password" (the one that takes it).
+
+- **Password reset told nobody why it would not go** — an ordinary password left SUBMIT
+  dimmed and the page silent. The rules gated the form while their reasons were suppressed:
+  `:messages password-messages` had been commented out since the dual-build era, which was
+  survivable at a minimum of eight and is not at twelve. The messages show, and the button
+  is never dimmed (`0dd4545c`).
+
+- **The server's reason never left the server** — the reset endpoint answered
+  `{:status 400 :message "..."}`, but `:message` is not a Pedestal response key, so the
+  reply was a 400 with an empty body and the page showed a generic apology. Field-keyed
+  messages in `:body` now, the shape registration already used (`991e5ff9`).
+
+- **Two verdicts that disagreed** — a password the breach corpus refused was drawn as a red
+  field error directly above a meter reporting UNCOMMON, in green, about the same string.
+  The corpus verdict is the meter's: its own key, the fail colours, a Too common badge and
+  the reasoning on a line under the bar (`b50602f1`).
+
+- **The auth card's text was set solid** — the CSS reset sets `body{line-height:1}`, and a
+  unitless line-height is inherited as a NUMBER, so every element that did not set its own
+  rendered at its own font size and descenders ran into the next line. Eleven elements
+  measured under a 1.25 ratio, nine at exactly 1.00 (`b50602f1`).
+
+- **The gryphon panel tiled, and the legal links printed twice** — no `background-repeat`
+  and no `background-size`, so once the form column outgrew the image a second cropped
+  gryphon drew below it; and the consent line and the footer each linked the same two
+  documents (`d5feb650`).
+
+- **The email help link was one word mid-sentence** — "whitelist" as the whole clickable
+  target, in two places, one of which also read "Didn't receive validation the email?" and
+  advised resetting a password to fix a missing validation email (`d5feb650`).
+
+**Changed**
+
+- **A character's sharing is one line under its title** — a status (Not shared, Shared, or Link expired
+  and the date) with its actions as text buttons: Share link until a link exists, then Copy link, New
+  link and Stop sharing. It replaces the share buttons in the page header, which split into extra rows
+  on a phone (`d2e01052`, `38365ce3`).
+- **The character list row shares with one Copy link button** — it copies the link, or makes the share
+  and copies it when the character has none; the status, New link and Stop sharing stay on the
+  character page (`e388e24b`).
+- **Share wording** — the startup log's share settings speak of share data, the Share link button no
+  longer describes server storage, and What's New describes short links, New link and Stop sharing
+  (`124c1c62`, `50ccee78`).
+- **A party forgets a character's link when its share ends** — New link, Stop sharing, expiry and
+  deleting the character delete the token the party saved; the character stays in the party
+  (`d1080896`).
+- **The share settings are documented** in `docs/ENVIRONMENT.md` (`6dbf9161`).
+- **Browser probes share one way to find Chromium** — they find Playwright's
+  current install without setting four variables by hand, and the runner reports
+  a missing browser once as a skip (`47d3ed8f`).
+- **The PDF check is now a named suite, `export-character-pdf.js`** — it hides the What's New
+  panel that had been taking its clicks (`60adac5f`).
+- **run.sh lists the e2e suites and runs them on any machine** — it honours E2E_PORT and finds
+  Chromium the same way the probes do (`60adac5f`).
+- **run.sh says when it turns CSP off for a development bundle** (`60adac5f`).
+- **A browser check that a character shows its owner's items to others** — it opens a seeded character
+  logged out, as another account and as the owner, and checks the item reaches the sheet each time;
+  run.sh now waits for the test accounts to be seeded before a suite starts (`c3f656cb`).
+- **Named Garden classes replace 28 inline style maps on the registration, login and password
+  pages** — 49 class definitions were taken from the stalled `refactor/garden-inline-styles`
+  branch without merging it. Two classes that were generated from value lists emitted no CSS
+  before and are generated here. The password meter keeps an inline width because that width
+  is the measurement. Nothing renders differently (`887293f5`, `a104089a`).
+- **The nine auth pages share one heading** — `registration-page` was always the shared shell,
+  but six pages carried their own copy of the same orange drop-shadowed heading. The shell owns
+  it now, as ink with an amber rule, so it changes in one place (`dab92f84`).
+
+- **The auth fields are notched outlines with a real label** — the label rides the input's
+  border rather than sitting in a placeholder that vanishes the moment somebody types, so the
+  field never stops saying what it is (`5a8d7500`).
+
+- **Errors read in GOV.UK order** — the label lifts out of the notch, the message sits under it
+  and the input follows, with a rail down the group, a 1px border and a soft tint instead of a
+  heavy outline plus a boxed message. A summary above the form counts fields rather than
+  messages, and each line focuses its field (`8ee1dd8a`, `e59bfa6a`).
+
+- **A password can be revealed, and the confirm box retires when it is** — two boxes while it
+  is masked, one while it is not, and `display: none` rather than dimmed so a submit cannot
+  fail pointing at a field nobody can see (`93faf389`).
+
+- **The email is confirmed, not the password, and a mistyped domain is offered a fix** — a
+  mistyped password is recoverable; a mistyped address makes a dead account holding the username
+  its owner wanted and mails a stranger on the way. Within two edits of a known domain, a
+  correction is offered under the field (`0a64172c`).
+- **The last three auth pages join the shared heading** — `verify-failed`,
+  `send-password-reset-page` and `password-reset-page` still drew their own bold heading
+  with no rule and no form gutter, so three of the nine shipped unredesigned, and they are
+  the three somebody locked out of their account sees. The two reset pages would both have
+  read "reset password"; the one that mails a link is "Reset your password" and the one
+  that takes the new password is "Choose a new password" (`82ea472d`).
+
+- **Every password rule is visible as its own chip, and the meter says what to do next** —
+  five chips under the bar, one per rule, each showing whether this password satisfies it
+  before anything is pressed. Below the bar, a line points forward at every rung except the
+  top, so a password that is already good enough is not told off.
+
+- **The reset form gets the meter and the reveal** — it refused by exactly the same rules
+  as registration while showing no meter, offering no reveal and demanding a confirmation
+  it never retired. The meter was a block inside `register-form` reading the registration
+  form directly; it is a component now, used by both (`05bac5ed`).
+
+- **A password is refused for the corpus only when it is egregiously common** — 1000
+  appearances, not one. The count was already returned and both call sites flattened it to
+  a boolean. Reset also judges the password against the username, which registration did
+  and it did not (`1cf25582`, `991e5ff9`).
+
+- **Five dead rules removed** — the four `password-strength-*` from the meter this replaced
+  and `success-header`, all with zero uses outside garden (`b50602f1`).
+
+### refactor/picks-namespace
+
+**Added**
+
+- **Remove and put back one stored pick by its address** — `picks/remove-at` and `picks/put-at`, the base for repairing a character and for setting picks aside (`439593dd`, `b33c765a`).
+
+**Changed**
+
+- **Lint is clean** — the 50 warnings and 3 infos on `integration` are fixed, not suppressed: shadowing locals renamed for what they hold, unused requires removed, nested lets merged; no behaviour change (`ad3c612b`).
+- **The pick walker moved into shared code** — `walk-entries`, `walk-picks`, `picks-of` and `relink-picks` now live in `orcpub.dnd.e5.picks` (as `walk`, `walk-typed`, `keys-of`, `relink`), unchanged, so the server can use them and their tests run in CI (`439593dd`).
+
+### ci/clojure-cve-scan
+
+**Added**
+
+- **Security alerts cover the server's Clojure libraries** — a CI job reports them to GitHub's dependency graph each week and on every push and pull request, so Dependabot warns about a vulnerable one; it could not read `project.clj` before (`233b7b80`).
 
 ## [breaking/2026-stack-modernization]
 

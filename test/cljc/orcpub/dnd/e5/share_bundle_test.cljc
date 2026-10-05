@@ -59,17 +59,17 @@
 
 (deftest a-key-two-content-types-share-is-bundled-as-what-was-picked
   ;; :orc is a homebrew race in one pack and an unrelated homebrew language in another.
-  (let [plugins {"Races" {:orcpub.dnd.e5/races {:orc {:name "Orc"}}}
-                 "Tongues" {:orcpub.dnd.e5/languages {:orc {:name "Orcish"}}}}
+  (let [library-plugins {"Races" {:orcpub.dnd.e5/races {:orc {:name "Orc"}}}
+                         "Tongues" {:orcpub.dnd.e5/languages {:orc {:name "Orcish"}}}}
         race-only {::entity/options {:race {::entity/key :orc}}}
         both {::entity/options {:race {::entity/key :orc
                                        ::entity/options {:languages [{::entity/key :orc}]}}}}]
     (testing "picked as a race: the race, and not the language"
-      (let [bundle (sb/extract-bundle race-only plugins)]
+      (let [bundle (sb/extract-bundle race-only library-plugins)]
         (is (contains? (get-in bundle ["Races" :orcpub.dnd.e5/races]) :orc))
         (is (nil? (get bundle "Tongues")))))
     (testing "picked as a race and, under a language choice, as a language: both"
-      (let [bundle (sb/extract-bundle both plugins)]
+      (let [bundle (sb/extract-bundle both library-plugins)]
         (is (contains? (get-in bundle ["Races" :orcpub.dnd.e5/races]) :orc))
         (is (contains? (get-in bundle ["Tongues" :orcpub.dnd.e5/languages]) :orc))))))
 
@@ -124,6 +124,26 @@
     (is (= [{:orcpub.dnd.e5.magic-items/name "Flametongue"}]
            (sb/used-custom-items char raw expand-one)))))
 
+(deftest a-shared-item-carries-no-database-ids-or-owner
+  (let [char {::entity/options {:magic-items [{::entity/key :cloak-of-x}]}}
+        raw [{:db/id 17592186045418
+              :orcpub.dnd.e5.magic-items/name "Cloak of X"
+              :orcpub.dnd.e5.magic-items/owner "kaylee"
+              :orcpub.dnd.e5.magic-items/modifiers
+              [{:db/id 17592186045419
+                :orcpub.modifiers/key :saving-throw-bonus
+                :orcpub.modifiers/args [{:db/id 17592186045420 :orcpub.modifiers/keyword-arg :dex}
+                                        {:db/id 17592186045421 :orcpub.modifiers/int-arg 1}]}]}]
+        shared [{:orcpub.dnd.e5.magic-items/name "Cloak of X"
+                 :orcpub.dnd.e5.magic-items/modifiers
+                 [{:orcpub.modifiers/key :saving-throw-bonus
+                   :orcpub.modifiers/args [{:orcpub.modifiers/keyword-arg :dex}
+                                           {:orcpub.modifiers/int-arg 1}]}]}]]
+    (testing "a new link leaves them out"
+      (is (= shared (sb/used-custom-items char raw (fn [_] [{:key :cloak-of-x}])))))
+    (testing "a link made before that drops them on arrival"
+      (is (= shared (:custom-items (sb/whitelist-shared {:custom-items raw})))))))
+
 (deftest whitelist-shared-handles-container-and-legacy
   (testing "container: plugins whitelisted, well-formed raw items kept, bad ones dropped"
     (let [r (sb/whitelist-shared
@@ -156,3 +176,11 @@
     (testing "keys only on one side are NOT collisions"
       (is (empty? (sb/collisions {"S" {:orcpub.dnd.e5/spells {:only-shared {:name "X"}}}}
                                  lib))))))
+
+(deftest a-share-carries-no-embedded-media
+  (let [spell (fn [d] {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok" :option-pack "S" :description d}}}})]
+    (testing "a data: URI in any text field is emptied, whatever its case or leading space"
+      (is (= (spell "") (sb/without-embedded-media (spell "data:image/png;base64,iVBORw0KGgo"))))
+      (is (= (spell "") (:plugins (sb/whitelist-shared {:plugins (spell " DATA:video/mp4;base64,AAAA")})))))
+    (testing "text that only mentions data: is kept"
+      (is (= (spell "see data: below") (sb/without-embedded-media (spell "see data: below")))))))

@@ -1,10 +1,11 @@
+// Needs: busy server (an export queue small enough to fill; the busy-export profile).
 // Export busy page, driven through the real builder UI.
 //
 // Clicks Export -> picks a sheet style -> clicks Create PDF while every export
 // slot is held, so the new tab lands on the busy page, then watches that page
 // retry itself and deliver the sheet once the rush passes.
 //
-//   lein e2e-server-busy          # one sheet at a time, 250ms wait, 2 retries
+//   lein e2e-server-busy          # one sheet at a time, 1ms wait, 2 retries
 //   node test/browser/export_busy_retry_e2e.js
 //
 // Set ORCPUB_SHOT=path.png to save a picture of the busy page.
@@ -20,7 +21,7 @@
 //            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
 //            preload, which is why this file also calls suppressOverlays itself.
 const { chromium } = require('playwright');
-
+const { findChrome } = require('./lib/find-chrome');
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is
@@ -80,7 +81,7 @@ function saturate(until) {
 
 (async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium'
+    executablePath: findChrome()
   });
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 1100 } });
   const page = await ctx.newPage();
@@ -96,17 +97,17 @@ function saturate(until) {
   await page.click('text=D&D 5e Character Builder / Sheet');
   await page.waitForTimeout(4000);
 
-  (await visible(page.locator('button:has-text("Export")'))).click();
+  await (await visible(page.locator('button:has-text("Export")'))).click();
   await page.waitForTimeout(1200);
   // Create PDF stays pointer-events:none until a sheet style is chosen.
-  (await visible(page.locator('select'))).selectOption('1');
+  await (await visible(page.locator('select'))).selectOption('1');
   await page.waitForTimeout(600);
 
   const load = saturate(Date.now() + 10000);
   await page.waitForTimeout(500);
 
   const popup = ctx.waitForEvent('page', { timeout: 30000 });
-  (await visible(page.locator('button:has-text("Create PDF")'))).click();
+  await (await visible(page.locator('button:has-text("Create PDF")'))).click();
   const tab = await popup;
   tab.on('pageerror', e => errors.push('busy tab: ' + e));
   await tab.waitForLoadState('domcontentloaded').catch(() => {});
@@ -116,8 +117,15 @@ function saturate(until) {
   tab.on('framenavigated', f => { if (f === tab.mainFrame()) navigations.push(f.url()); });
 
   const heading = await tab.textContent('h1', { timeout: 5000 }).catch(() => null);
-  check('a real Export lands on the busy page',
-        heading && /sheets are being made/i.test(heading), heading);
+  const busy = Boolean(heading && /sheets are being made/i.test(heading));
+  check('a real Export lands on the busy page', busy, heading);
+  // Every later check reads the busy page. Without it they would report six unrelated-looking
+  // failures, and 'the sheet is delivered' would pass vacuously.
+  if (!busy) {
+    console.log('FAILED  the export got through, so the server was not busy; is it on the busy-export profile?');
+    await browser.close();
+    process.exit(1);
+  }
 
   const countdown = await tab.textContent('#countdown', { timeout: 5000 }).catch(() => null);
   check('it says when it will try again',
