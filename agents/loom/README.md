@@ -62,3 +62,4 @@ LOOM=agents/loom/release/silhouette-loom-v2.html PACKZIP=/path/to/portrait-pack.
 | `persist.js` | reviews survive reload and travel in the manifest | `OUT` dir |
 | `lines.js` | lines are left out of the automatic fill, and the option to include them | `OUT` dir |
 | `leakview.js` | Show leaks: bright green, see-through amplified | `OUT` dir |
+| `smooth.js` | Smooth small holes: off by default, grain drops, Remove fill protects, export, reload | `OUT` dir |
