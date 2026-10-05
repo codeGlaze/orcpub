@@ -267,3 +267,47 @@ data is not thrown away on the way in — which is what has been happening.
 **Open question.** 2014's `Spell.json` should be checked for the same fields. If open5e
 populated them for 2014 too, the existing `e5` content could be enriched from the same source,
 which is the clearest case of 2024 work paying for a 2014 improvement.
+
+### 9a. What else is prose that should be data
+
+Damage rolls were one example, not the scope. The general case is **a rule expressed as prose
+that a machine could act on**, and it is everywhere — including inside sources that look
+structured. Fireball arrives with `damage_roll "8d6"` as data and its upcast as the string
+`"The damage increases by 1d6 for each spell slot level above 3."`; the damage is clickable
+and the scaling is not.
+
+A catalogue of candidates, to grow as content types are surveyed:
+
+| content | currently prose | could be |
+|---|---|---|
+| spells | upcast scaling (`higher_level`) | a rule: per slot level above N, add dice |
+| spells | conditions imposed, saves to end, triggers | condition keys + when they apply |
+| backgrounds | `"Intelligence, Wisdom, Charisma"` | three ability keys |
+| backgrounds | `"Insight and Religion"` | two skill keys |
+| backgrounds | `"*Choose A or B:* (A) …, 8 GP; or (B) 50 GP"` | a choice between two equipment bundles |
+| backgrounds | `"Magic Initiate (Cleric)"` | a feat key plus its sub-choice |
+| species traits | speeds, darkvision range, resistances | the `:props` vocabulary that already exists |
+| species traits | lineage options and their level 1/3/5 grants | level-gated grants (see 1) |
+| feats | `"level 4+, Str 13 or Dex 13"` | a prerequisite expression |
+| magic items | charges and recharge ("regains 1d6+4 at dawn") | a resource with a recharge rule |
+| magic items | `+1/+2/+3` bonuses buried in description | a modifier |
+| magic items | `"requires attunement by a cleric"` | an attunement constraint with a predicate |
+| monsters | attack bonuses, damage, save DCs, recharge | the roll layer that already exists |
+| class features | scaling tables (Sneak Attack dice by level) | a level-indexed value |
+| class features | resource counts (rage uses per rest) | a tracked resource |
+
+**Why this is tractable.** Almost all of it parses against a **closed vocabulary**: ability
+names, skill names, damage types, conditions, dice expressions and creature types are finite
+known sets in each edition. That is a very different problem from free text, and it means a
+parser can be strict — anything it cannot resolve to a known term is reported rather than
+guessed, which keeps the failure mode loud.
+
+**Why it is worth the trouble.** The clickable damage roll is the visible payoff, but the same
+data drives search ("spells that deal fire damage"), filtering ("items that need attunement by
+a cleric"), validation ("this feat's prerequisite is not met"), and the rules dial (a rule
+expressed as data can be overridden; one expressed in a sentence cannot). The prose stays —
+it is what a reader wants — but it stops being the only representation.
+
+**Sequencing idea, unchanged.** Additive passes. Land the textual entry, enrich later. A key
+never changes because a mechanical field arrives, so enrichment cannot invalidate a saved
+character.

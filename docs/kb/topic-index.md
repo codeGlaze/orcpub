@@ -1470,7 +1470,7 @@ _equipment-option-picker · equipment option picker_
 
 _error-handling-import-validation · error handling import validation_
 
-**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, prs, re-frame, slide-out, subviews, validation
+**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews
 
 - Context
 - What Was Built
@@ -2241,7 +2241,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, bytes, card, cards, drawn, field, fields, foot, page, pages, pdfbox, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2556,7 +2556,7 @@ _plan-next · plan next_
 
 _plan-npc-statblock-customizer · plan npc statblock customizer_
 
-**topics:** adjust, attack, averaged, bonuses, botched, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
+**topics:** adjust, attack, averaged, botched, build-from-scratch, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
 
 - The cascade
 - What the app has
@@ -2829,7 +2829,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, rage, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -2983,7 +2983,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, lineages, mechanical, open5e, rules, species, spell, srd
+**topics:** 2014, 2024, 339, creature, damage, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -2997,6 +2997,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 - 7. Rule interlinking and indexing (owner ask, 2026-10-05)
 - 8. The app is already a 2014 SRD. The gap is surfacing, not content.
 - 9. Mechanical enrichment — the axis this track kept dropping
+- 9a. What else is prose that should be data
 
 ## srd-2024-integration.md
 
