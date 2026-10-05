@@ -31,6 +31,28 @@ const heading = page => text(page, '.auth-heading');
 const authInputs = page => page.locator('.auth-form input');
 const press = (page, label) => page.locator('.auth-tail button', { hasText: label }).click();
 
+// Waits on what each step is for rather than a fixed pause. Each catches its own timeout, so a
+// step that never happens reaches its check as a FAIL instead of throwing.
+// Reagent redraws on the next animation frame; two frames and the page shows the new state.
+const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+// A form that talks to the server: done once the page shows the outcome `expect` names. Waits on
+// the page, not the request: the answer still has to be decoded, handled and drawn, and some of
+// these forms submit by GET.
+async function submit(page, act, expect) {
+  await act();
+  await page.waitForFunction(src => {
+    const el = document.querySelector('.registration-content') || document.body;
+    return new RegExp(src, 'i').test(el.innerText);
+  }, expect.source, { timeout: 20000 }).catch(() => {});
+}
+// A rule the browser applies itself, with no request to wait for.
+const cardSays = (page, re) => page.waitForFunction(src => {
+  const el = document.querySelector('.registration-content');
+  return Boolean(el) && new RegExp(src, 'i').test(el.innerText);
+}, re.source, { timeout: 10000 }).catch(() => {});
+// A sign-in that worked leaves the login page.
+const leftLogin = page => page.waitForURL(u => !String(u).includes('login-page'), { timeout: 15000 }).catch(() => {});
+
 // The link in a captured mail, with quoted-printable soft breaks undone.
 const linkIn = (mail, re) => (mail.raw.replace(/=\r\n/g, '').match(re) || [])[0];
 
@@ -49,7 +71,7 @@ async function registerAndVerify(page, sink, user, email, password) {
   const mail = await sink.waitFor(new RegExp(email.replace('.', '\\.'), 'i'), 20000);
   const key = (mail.raw.replace(/=\r\n/g, '').match(/verify\?key=([A-Za-z0-9-]+)/) || [])[1];
   await page.goto(`${BASE}/verify?key=${key}`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(800);
+  await page.waitForSelector('.auth-heading', { timeout: 10000 }).catch(() => {});
   return key;
 }
 
@@ -101,10 +123,12 @@ async function resetLinkFor(page, sink, email) {
   let b = authInputs(page);
   await b.nth(0).fill(user); await b.nth(1).fill(email); await b.nth(2).fill(email);
   await b.nth(3).fill(GOOD); await b.nth(4).fill(GOOD);
-  await press(page, 'JOIN');
-  await page.waitForTimeout(2500);
+  // The server's own words: the page always says "Already have an account?", so a bare
+  // /already/ was true before JOIN was pressed and proved nothing.
+  await submit(page, () => press(page, 'JOIN'), /already taken by another user/);
   const taken = await cardText(page);
-  check(/taken|already/i.test(taken), 'a username and email already in use are refused',
+  check(/already taken by another user/i.test(taken) && /already associated with another account/i.test(taken),
+        'a username and email already in use are refused',
         taken.replace(/\n/g, ' | ').slice(0, 120));
 
   // Short password: the rules must say what is wrong, not just refuse.
@@ -115,7 +139,7 @@ async function resetLinkFor(page, sink, email) {
   await b.nth(1).fill(e2); await b.nth(2).fill(e2);
   await b.nth(3).fill(SHORT); await b.nth(4).fill(SHORT);
   await press(page, 'JOIN');
-  await page.waitForTimeout(1200);
+  await cardSays(page, /at least 12 characters/);
   check(/at least 12 characters/i.test(await cardText(page)),
         'a short password is refused WITH its reason');
 
@@ -126,7 +150,7 @@ async function resetLinkFor(page, sink, email) {
   b = authInputs(page);
   await b.nth(0).fill('kaylee');
   const chipState = async () => {
-    await page.waitForTimeout(400);
+    await settle(page);
     return page.locator('.pw-chip').evaluateAll(els => Object.fromEntries(
       els.map(e => [e.textContent.trim(), e.classList.contains('is-ok')])));
   };
@@ -153,16 +177,14 @@ async function resetLinkFor(page, sink, email) {
   await page.waitForSelector('input');
   await page.locator('input').nth(0).fill(user);
   await page.locator('input').nth(1).fill('not the password');
-  await page.locator('button.form-button').click();
-  await page.waitForTimeout(2500);
+  await submit(page, () => page.locator('button.form-button').click(), /do not match/);
   const wrongPass = await cardText(page);
 
   await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('input');
   await page.locator('input').nth(0).fill('nobody' + uniq());
   await page.locator('input').nth(1).fill('not the password');
-  await page.locator('button.form-button').click();
-  await page.waitForTimeout(2500);
+  await submit(page, () => page.locator('button.form-button').click(), /do not match/);
   const noSuchUser = await cardText(page);
 
   // The oracle: a wrong password and a username that does not exist must be
@@ -180,8 +202,7 @@ async function resetLinkFor(page, sink, email) {
   await page.goto(`${BASE}/pages/send-password-reset-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.auth-form input');
   await authInputs(page).first().fill(uniq() + '@example.com');
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(2500);
+  await submit(page, () => press(page, 'SUBMIT'), /check your email/);
   check((await heading(page)).toLowerCase().includes('check your email'),
         'an unknown address is answered the same way');
   check(sink.messages.length === 0, 'and no mail is sent for it',
@@ -198,7 +219,7 @@ async function resetLinkFor(page, sink, email) {
   let r = authInputs(page);
   await r.nth(0).fill(SHORT); await r.nth(1).fill(SHORT);
   await press(page, 'SUBMIT');
-  await page.waitForTimeout(800);
+  await cardSays(page, /at least 12 characters/);
   check(/at least 12 characters/i.test(await cardText(page)),
         'a short new password says what is wrong');
 
@@ -206,8 +227,7 @@ async function resetLinkFor(page, sink, email) {
   // case that was answering 400 with an empty body and a generic apology.
   r = authInputs(page);
   await r.nth(0).fill(COMMON); await r.nth(1).fill(COMMON);
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(3500);
+  await submit(page, () => press(page, 'SUBMIT'), /too common/);
   const common = await cardText(page);
   check(/too common/i.test(common),
         "the server's reason for a common password reaches the page",
@@ -217,15 +237,14 @@ async function resetLinkFor(page, sink, email) {
   r = authInputs(page);
   await r.nth(0).fill(GOOD + ' one'); await r.nth(1).fill(GOOD + ' two');
   await press(page, 'SUBMIT');
-  await page.waitForTimeout(800);
+  await cardSays(page, /do not match/);
   check(/do not match/i.test(await cardText(page)), 'a mismatched confirmation is caught');
 
   // And the whole point: a good password goes through and then LETS YOU IN.
   const fresh = GOOD + ' candle';
   r = authInputs(page);
   await r.nth(0).fill(fresh); await r.nth(1).fill(fresh);
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(3500);
+  await submit(page, () => press(page, 'SUBMIT'), /changed/);
   check(/password/i.test(await heading(page)) === false || /changed|reset/i.test(await cardText(page)),
         'the reset completes', (await heading(page)));
 
@@ -234,12 +253,12 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(user);
   await page.locator('input').nth(1).fill(fresh);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   check(!page.url().includes('login-page'), 'and the new password logs in', page.url().replace(BASE, ''));
 
   // The link is one use only.
   await page.goto(link, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1500);
+  await cardSays(page, /no longer works|already been used|expired/);
   const reused = (await cardText(page)).toLowerCase();
   check(/no longer works|already been used|expired/.test(reused),
         'a reset link cannot be used twice', reused.replace(/\n/g, ' | ').slice(0, 120));
@@ -257,16 +276,14 @@ async function resetLinkFor(page, sink, email) {
     await page.waitForSelector('input');
     await page.locator('input').nth(0).fill(victim);
     await page.locator('input').nth(1).fill('wrong one ' + i);
-    await page.locator('button.form-button').click();
-    await page.waitForTimeout(1200);
+    await submit(page, () => page.locator('button.form-button').click(), /do not match|too many/);
   }
   // A sixth WRONG guess is turned away by the limit rather than by the lookup.
   await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('input');
   await page.locator('input').nth(0).fill(victim);
   await page.locator('input').nth(1).fill('wrong one 5');
-  await page.locator('button.form-button').click();
-  await page.waitForTimeout(2500);
+  await submit(page, () => page.locator('button.form-button').click(), /too many|attempt/);
   const throttled = await cardText(page);
   check(page.url().includes('login-page') && /too many|attempt/i.test(throttled),
         'a sixth wrong guess at one account is turned away by the limit',
@@ -280,7 +297,7 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(victim);
   await page.locator('input').nth(1).fill(GOOD);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   check(!page.url().includes('login-page'),
         'and the real password still gets the owner in, so nobody can lock them out',
         page.url().replace(BASE, ''));
@@ -300,8 +317,7 @@ async function resetLinkFor(page, sink, email) {
   await page.goto(`${BASE}/pages/send-password-reset-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.auth-form input');
   await authInputs(page).first().fill(r2Email);
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(2500);
+  await submit(page, () => press(page, 'SUBMIT'), /check your email/);
   check((await heading(page)).toLowerCase().includes('check your email'),
         'a throttled reset still answers the same way');
   check(sink.messages.length === 0, 'and sends no fourth mail in the hour',
@@ -311,7 +327,7 @@ async function resetLinkFor(page, sink, email) {
   const phone = await ctx.newPage();
   await phone.setViewportSize({ width: 390, height: 844 });
   await phone.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
-  await phone.waitForTimeout(1200);
+  await phone.waitForSelector('.registration-content .auth-form input');
   const docW = await phone.evaluate(() => document.documentElement.scrollWidth);
   check(docW <= 392, 'the register card does not scroll sideways on a phone', `scrollWidth ${docW}`);
   const solid = await phone.evaluate(() => {
@@ -346,8 +362,7 @@ async function resetLinkFor(page, sink, email) {
   const np = GOOD + ' kettle';
   let nb = authInputs(page);
   await nb.nth(0).fill(np); await nb.nth(1).fill(np);
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(3000);
+  await submit(page, () => press(page, 'SUBMIT'), /changed/);
   let notice = await sink.waitFor(/password changed/i, 15000).catch(() => null);
   check(Boolean(notice), 'a completed password reset tells the account it happened',
         notice ? notice.headers.subject : 'no mail arrived');
@@ -363,27 +378,29 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(nUser);
   await page.locator('input').nth(1).fill(np);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
 
   // Driven through the form a person uses, not a hand-rolled request: the
   // endpoint takes transit over PUT and getting either wrong looks like a pass.
   const moveTo = uniq() + '@example.com';
-  const attempt = async (pw) => {
+  // `expect` is what the page says after Save, or null when the caller waits on mail instead.
+  const attempt = async (pw, expect) => {
     await page.goto(`${BASE}/pages/my-account`, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
     const change = page.locator('button', { hasText: /^Change$|Change email|Change again/ }).first();
+    const field = page.locator('input[placeholder="New email address"]');
+    await change.or(field).first().waitFor({ timeout: 10000 }).catch(() => {});
     if (await change.count()) await change.click().catch(() => {});
-    await page.waitForTimeout(500);
+    await field.waitFor({ timeout: 10000 });
     await page.locator('input[placeholder="New email address"]').fill(moveTo);
     await page.locator('input[placeholder="Confirm new email address"]').fill(moveTo);
     await page.locator('input[placeholder="Your current password"]').fill(pw);
-    await page.locator('button.form-button', { hasText: 'Save' }).first().click();
-    await page.waitForTimeout(3000);
+    const save = () => page.locator('button.form-button', { hasText: 'Save' }).first().click();
+    if (expect) await submit(page, save, expect); else await save();
     return page.locator('.registration-content, body').first().innerText();
   };
 
   sink.clear();
-  const wrongText = await attempt('not the password');
+  const wrongText = await attempt('not the password', /password is not right/);
   check(/password is not right/i.test(wrongText),
         'a session alone can no longer move the account to another address',
         wrongText.replace(/\n/g, ' | ').slice(0, 110));
@@ -391,7 +408,7 @@ async function resetLinkFor(page, sink, email) {
         `${sink.messages.length} sent`);
 
   sink.clear();
-  await attempt(np);
+  await attempt(np, null);
   const toOld = await sink.waitFor(new RegExp(nEmail.replace('.', '\\.'), 'i'), 15000).catch(() => null);
   check(Boolean(toOld), 'the real password moves it, and the address LOSING the account is told',
         toOld ? toOld.headers.subject : 'never told');
@@ -410,7 +427,7 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(wUser);
   await page.locator('input').nth(1).fill(GOOD);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   const otherDevice = await page.evaluate(() => {
     const c = window.cljs.core;
     return c.get_in(window.re_frame.db.app_db.state,
@@ -428,8 +445,7 @@ async function resetLinkFor(page, sink, email) {
   const wNew = GOOD + ' lantern';
   const wb = authInputs(page);
   await wb.nth(0).fill(wNew); await wb.nth(1).fill(wNew);
-  await press(page, 'SUBMIT');
-  await page.waitForTimeout(3500);
+  await submit(page, () => press(page, 'SUBMIT'), /changed/);
 
   check(await useToken(otherDevice) === 401,
         'and is refused afterwards, so a reset takes the account back',
@@ -442,7 +458,7 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(wUser);
   await page.locator('input').nth(1).fill(wNew);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   const reissued = await page.evaluate(() => {
     const c = window.cljs.core;
     return c.get_in(window.re_frame.db.app_db.state,
@@ -457,7 +473,7 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(wUser);
   await page.locator('input').nth(1).fill(wNew);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   const deviceA = await page.evaluate(() => {
     const c = window.cljs.core;
     return c.get_in(window.re_frame.db.app_db.state,
@@ -477,7 +493,7 @@ async function resetLinkFor(page, sink, email) {
   await page.locator('input').nth(0).fill(wUser);
   await page.locator('input').nth(1).fill(wNew);
   await page.locator('button.form-button').click();
-  await page.waitForTimeout(3500);
+  await leftLogin(page);
   check(!page.url().includes('login-page'),
         'and the password still works, because signing out is not changing it',
         page.url().replace(BASE, ''));
