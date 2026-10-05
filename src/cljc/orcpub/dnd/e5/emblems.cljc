@@ -6,9 +6,7 @@
   (:require [clojure.string]))
 
 (def pools
-  "Per class, the icons on offer as [file-name author], the default first. The druid pool
-   is the widest on purpose: leaves, beasts, tracks, fungus, fire, water and moon all read
-   as druid."
+  "Per class keyword, the icons on offer as [file-name author], the default first."
   {:bard [["harp" "delapouite"]
           ["lyre" "lorc"]
           ["music-spell" "lorc"]

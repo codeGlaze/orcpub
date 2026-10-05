@@ -1550,8 +1550,8 @@
 
 (reg-sub
  ::char5e/spellbook-options
- ;; Everything the spellbook export reads, defaults filled in by pdf-spec. Off unless
- ;; asked for: it adds pages to an export that did not have them.
+ ;; The spellbook export options; pdf-spec fills in their defaults. :print-spellbook? is
+ ;; false until ticked.
  (fn [db _]
    (assoc (get db ::char5e/spellbook-options)
           :print-spellbook? (boolean (::char5e/print-spellbook? db)))))

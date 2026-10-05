@@ -586,9 +586,7 @@
              ;; Even when asked for outright. A packed page that lost a class is
              ;; worse than the layout the caller did not want.
              (packing/fits? style (packing/packing-shape classes)))
-      ;; The cards and the spellbook read the spell list from here whatever the sheet's
-      ;; layout. The packed branch once returned only its own fields, so a multiclass
-      ;; caster on a packed sheet asked for cards and got none.
+      ;; The spell list for the cards and the spellbook, which every layout must send.
       (merge (make-spell-card-info sorted-spells-known
                                    spell-save-dc-fn
                                    spell-attack-modifier-fn

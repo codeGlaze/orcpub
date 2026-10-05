@@ -4546,16 +4546,20 @@
                     [:img.emblem-icon {:src (str "/image/emblems/" nm ".svg") :alt (s/replace nm "-" " ")}]])))]))))
 
 (def spellbook-layouts
+  "The spellbook layouts PDF Options offers, as dropdown items."
   [{:title "Spellbook: full text, two columns" :value "book"}
    {:title "Ledger: one row a spell" :value "ledger"}
    {:title "Prep sheet: a box to tick per spell" :value "prep"}])
 
 (def spellbook-option-handler
+  "The on-change handler setting spellbook option `k` from a dropdown value; blank clears it."
   (memoize
    (fn [k]
      #(dispatch [::char/set-spellbook-option k (when-not (s/blank? %) (keyword %))]))))
 
-(defn spellbook-dropdown [label k items value]
+(defn spellbook-dropdown
+  "A labelled dropdown for spellbook option `k`, offering `items` with `value` selected."
+  [label k items value]
   [:div.m-b-10.w-250
    [labeled-dropdown label
     {:items items
