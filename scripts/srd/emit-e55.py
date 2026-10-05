@@ -15,10 +15,13 @@ def kw(name):
 def components(raw):
     """'V, S, M (a tiny ball of bat guano and sulfur)' -> the orcpub map."""
     if not raw: return None
-    mat = re.search(r"\bM\b\s*\(([^)]*)\)", raw)
-    parts = {"verbal": bool(re.search(r"\bV\b", raw)),
-             "somatic": bool(re.search(r"\bS\b", raw)),
-             "material": bool(re.search(r"\bM\b", raw))}
+    # Case-INSENSITIVE on purpose: the field value is normalized (lower-cased) upstream,
+    # so an uppercase-only V/S/M match silently produced {} for every spell -- and {} is
+    # truthy, so a "has components?" check passed on all 109 of them.
+    mat = re.search(r"\bm\b\s*\(([^)]*)\)", raw, re.I)
+    parts = {"verbal": bool(re.search(r"\bv\b", raw, re.I)),
+             "somatic": bool(re.search(r"\bs\b", raw, re.I)),
+             "material": bool(re.search(r"\bm\b", raw, re.I))}
     out = " ".join(f":{k} true" for k, v in parts.items() if v)
     if mat: out += ' :material-component "%s"' % mat.group(1).replace('"', "'").strip()
     return "{" + out + "}"

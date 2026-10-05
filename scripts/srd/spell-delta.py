@@ -59,11 +59,17 @@ def parse(path):
         ritual = bool(re.search(r"\britual\b", ct, re.I))
         rec = {"level": lvl, "school": sch.lower(), "ritual": ritual,
                "casting": norm_val(re.sub(r"\s*(or\s+)?ritual\s*$", "", ct, flags=re.I).rstrip(" ,"))}
+        # "Component:" SINGULAR appears on 12 spells in SRD 5.2.1 (Barkskin, Jump,
+        # the Smites...). Matching only the plural dropped their components silently --
+        # found by rendering the page as an image, not by grepping the extracted text,
+        # which shared the blind spot.
+        LABELS = {"Range:": "range", "Components:": "components",
+                  "Component:": "components", "Duration:": "duration"}
         for off in range(1, 6):
             if i + off < len(lines):
-                for f in ("Range:", "Components:", "Duration:"):
+                for f, key in LABELS.items():
                     if lines[i+off].startswith(f):
-                        rec[f.rstrip(":").lower()] = norm_val(lines[i+off].split(":", 1)[1])
+                        rec[key] = norm_val(lines[i+off].split(":", 1)[1])
         out.setdefault(nm.lower(), rec)
     return out
 
