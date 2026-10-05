@@ -200,6 +200,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.34</b> "Show leaks" in the fill review: the piece over bright green with its see-through amplified 4×, so a pixel 95% opaque shows plainly; works with Overlay, Before and After ·
       <b>v2.33</b> the automatic fill leaves lines alone: pixels clearly darker than the fill around them are skipped (shown cyan in the overlay), so soft pencil strokes keep their edge; "Leave lines alone" turns it off, and Add fill still works anywhere ·
       <b>v2.32</b> the fill brush starts Off, so looking at a review never changes it and dragging scrolls the zoomed picture; pick Remove fill or Add fill to paint ·
       <b>v2.31</b> clearer fill-review wording: "Remove fill" / "Add fill" brushes, "Reset to automatic", sliders named for what they do with their values shown ·
@@ -324,7 +325,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.33';
+const LOOM_VERSION = 'v2.34';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1224,11 +1225,13 @@ function fillEditor(it) {
     cv.width = Math.round(box.w * k); cv.height = Math.round(box.h * k);
     const t = document.createElement('canvas'); t.width = W; t.height = H;
     const tg = t.getContext('2d');
-    tg.fillStyle = ui.bg; tg.fillRect(0, 0, W, H);
+    tg.fillStyle = ui.leak ? '#00ff00' : ui.bg; tg.fillRect(0, 0, W, H);
     const art = document.createElement('canvas'); art.width = W; art.height = H;
     const ag = art.getContext('2d'); ag.drawImage(src, 0, 0);
     const img = ag.getImageData(0, 0, W, H);
     if (ui.view !== 'before') for (let i = 0; i < eff.mask.length; i++) if (eff.mask[i]) img.data[4 * i + 3] = 255;
+    // leaks: whatever shows through, four times over, so faint see-through is plain
+    if (ui.leak) for (let i = 0; i < W * H; i++) { const a = img.data[4 * i + 3]; if (a > 0) img.data[4 * i + 3] = Math.max(0, 255 - 4 * (255 - a)); }
     ag.putImageData(img, 0, 0); tg.drawImage(art, 0, 0);
     if (ui.view === 'overlay') {
       const o = tg.getImageData(0, 0, W, H);
@@ -1310,6 +1313,11 @@ function fillEditor(it) {
   const bgS = document.createElement('span'); const bgC = document.createElement('input'); bgC.type = 'color'; bgC.value = ui.bg;
   bgC.addEventListener('input', () => { ui.bg = bgC.value; draw(); });
   bgS.appendChild(document.createTextNode('Background ')); bgS.appendChild(bgC); bgL.appendChild(bgS); ctl.appendChild(bgL);
+  const lkL = document.createElement('label'); lkL.className = 'f inline-f';
+  const lkS = document.createElement('span'); const lkC = document.createElement('input'); lkC.type = 'checkbox'; lkC.checked = !!ui.leak;
+  lkC.addEventListener('change', () => { ui.leak = lkC.checked; bgC.disabled = ui.leak; draw(); });
+  bgC.disabled = !!ui.leak;
+  lkS.appendChild(lkC); lkS.appendChild(document.createTextNode(' Show leaks (bright green, see-through ×4)')); lkL.appendChild(lkS); ctl.appendChild(lkL);
   ctl.appendChild(seg('Brush', [['off', 'Off'], ['keep', 'Remove fill'], ['add', 'Add fill']], () => ui.brush, v => { ui.brush = v; armed(); }));
   slider('Brush size: __ px', 2, 30, 1, ui.size, v => { ui.size = v; }, null, v => String(v));
   slider('Zoom: __×', 1, 4, 0.5, ui.zoom, v => {
