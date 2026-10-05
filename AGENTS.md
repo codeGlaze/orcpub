@@ -317,6 +317,18 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
   `test/comment-baseline.edn` `:allowed` with a written reason. Never approve unread.
 - Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
 
+### Changelogs — MUST FOLLOW
+
+- **A changelog says what the branch DID, not the commits it took.** One line per outcome a user or
+  maintainer would notice: "New sign-up, sign-in and account-recovery pages", not the 85 commits
+  behind them.
+- **Fixed is for bugs that existed before.** A fix to something the same branch or release built is
+  part of building it and gets no line. No internal work (tests, CI, refactors, tooling).
+- Lines go under Added / Changed / Fixed / Security and open with their area in bold
+  (`**Accounts:**`). Cite the upstream issue (#N) when one matches; no commit hashes.
+- The rules and an example are in `docs/branch-changelog.template.md` on integration; fold with
+  `scripts/fold-branch-changelog.sh`, which files each line under its type.
+
 ---
 
 ## Documentation Standards
