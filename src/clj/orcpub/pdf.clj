@@ -2071,12 +2071,15 @@
         (s/replace #"round" "Rnd")
         (max-len 16))))
 
-(defn abbreviate-casting-time [casting-time]
+(defn abbreviate-casting-time
+  "\"1 bonus action\" -> \"1 B.A.\", \"1 reaction\" -> \"1 React.\". Reaction goes before
+   action, which it contains."
+  [casting-time]
   (-> casting-time
       abbreviate-times
       (s/replace #"bonus action" "B.A.")
-      (s/replace #"action" "Act.")
-      (s/replace #"reaction" "React.")))
+      (s/replace #"reaction" "React.")
+      (s/replace #"\baction" "Act.")))
 
 (defn abbreviate-range [range]
   (-> range
