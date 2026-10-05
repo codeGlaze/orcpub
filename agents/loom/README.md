@@ -60,3 +60,4 @@ LOOM=agents/loom/release/silhouette-loom-v2.html PACKZIP=/path/to/portrait-pack.
 | `review.js` | fill review: brushes, undo, edge margin | `OUT` dir |
 | `review2.js` | See-through filter, zoom, brush starts Off | `OUT` dir |
 | `persist.js` | reviews survive reload and travel in the manifest | `OUT` dir |
+| `lines.js` | lines are left out of the automatic fill, and the option to include them | `OUT` dir |

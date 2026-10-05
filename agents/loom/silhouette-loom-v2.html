@@ -200,6 +200,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.33</b> the automatic fill leaves lines alone: pixels clearly darker than the fill around them are skipped (shown cyan in the overlay), so soft pencil strokes keep their edge; "Leave lines alone" turns it off, and Add fill still works anywhere ·
       <b>v2.32</b> the fill brush starts Off, so looking at a review never changes it and dragging scrolls the zoomed picture; pick Remove fill or Add fill to paint ·
       <b>v2.31</b> clearer fill-review wording: "Remove fill" / "Add fill" brushes, "Reset to automatic", sliders named for what they do with their values shown ·
       <b>v2.30</b> fill reviews are kept: autosaved in this browser as you go, and written into exported manifests so dropping the manifest back restores every mark, setting and review status ·
@@ -323,7 +324,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.32';
+const LOOM_VERSION = 'v2.33';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1121,6 +1122,29 @@ function filledCopy(canvas, mask) {
   for (let i = 0; i < mask.length; i++) if (mask[i]) img.data[4 * i + 3] = 255;
   g.putImageData(img, 0, 0); return c;
 }
+/* Lines: a pixel clearly darker (by 40 levels) than the brightest drawn pixel
+   within 6px is linework, not fill. A slightly see-through line still reads
+   as a line; filling it only hardens a soft pencil edge. */
+function lineMask(canvas, r = 6, margin = 40) {
+  const w = canvas.width, h = canvas.height, n = w * h;
+  const d = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(n), ref = new Float32Array(n), tmp = new Float32Array(n), out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) lum[i] = d[4 * i + 3] > 200 ? 0.299 * d[4 * i] + 0.587 * d[4 * i + 1] + 0.114 * d[4 * i + 2] : 0;
+  // the brightest within r, rows then columns (a square window)
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0; for (let k = Math.max(0, x - r); k <= Math.min(w - 1, x + r); k++) { const v = lum[y * w + k]; if (v > m) m = v; }
+    tmp[y * w + x] = m; }
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
+    let m = 0; for (let k = Math.max(0, y - r); k <= Math.min(h - 1, y + r); k++) { const v = tmp[k * w + x]; if (v > m) m = v; }
+    ref[y * w + x] = m; }
+  for (let i = 0; i < n; i++) {
+    const a = d[4 * i + 3]; if (a === 0) continue;
+    const l = 0.299 * d[4 * i] + 0.587 * d[4 * i + 1] + 0.114 * d[4 * i + 2];
+    if (l < ref[i] - margin) out[i] = 1;
+  }
+  return out;
+}
+const linesOf = (it) => it.lines || (it.lines = lineMask(it.processed));
 const seeThroughMatters = (it) => it.seeThrough && it.seeThrough.see >= 20;
 
 /* Your say over the fill, per piece: the automatic pick (edge margin r,
@@ -1142,7 +1166,7 @@ function rleDecode(str, n) {
 const zipFill = new Map(), looseFill = new Map();   // from manifests: key "layer/file"
 const fillKey = (it) => itemKey(it.layer, it.name) + '@' + it.processed.width + 'x' + it.processed.height;
 function fillToSaved(f, w, h) {
-  return { w, h, on: f.on, r: f.r, thr: f.thr, reviewed: !!f.reviewed, edited: !!f.edited,
+  return { w, h, on: f.on, r: f.r, thr: f.thr, lines: f.lines !== false, reviewed: !!f.reviewed, edited: !!f.edited,
            keep: rleEncode(f.keep), add: rleEncode(f.add) };
 }
 function saveFill(it) {
@@ -1156,9 +1180,9 @@ function fillState(it) {
     if (!saved) saved = zipFill.get(k);
     if (saved && (saved.w !== w || saved.h !== h)) saved = null;   // marks are per pixel: only at the same size
     it.fill = saved
-      ? { on: saved.on, r: saved.r, thr: saved.thr, reviewed: saved.reviewed, edited: saved.edited,
+      ? { on: saved.on, r: saved.r, thr: saved.thr, lines: saved.lines !== false, reviewed: saved.reviewed, edited: saved.edited,
           keep: rleDecode(saved.keep, n), add: rleDecode(saved.add, n), undo: [], redo: [] }
-      : { on: seeThroughMatters(it), r: 3, thr: 200, add: new Uint8Array(n), keep: new Uint8Array(n), undo: [], redo: [] };
+      : { on: seeThroughMatters(it), r: 3, thr: 200, lines: true, add: new Uint8Array(n), keep: new Uint8Array(n), undo: [], redo: [] };
   }
   return it.fill;
 }
@@ -1166,16 +1190,19 @@ function effectiveFill(it) {
   const f = fillState(it), c = it.processed;
   const auto = (f.r === 3 && f.thr === 200) ? it.seeThrough.mask : insideMask(c, f.r, f.thr).mask;
   const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data;
-  const m = new Uint8Array(auto.length); let autoN = 0, addN = 0, keepN = 0, n = 0;
+  const lines = f.lines !== false ? linesOf(it) : null;
+  const m = new Uint8Array(auto.length), skipped = new Uint8Array(auto.length); let autoN = 0, addN = 0, keepN = 0, lineN = 0, n = 0;
   for (let i = 0; i < m.length; i++) {
     const a = d[4 * i + 3]; if (a === 0 || a === 255) continue;
-    const isAuto = auto[i] === 1;
+    const onLine = auto[i] === 1 && lines && lines[i] === 1;
+    if (onLine) { lineN++; if (!f.add[i] || f.keep[i]) skipped[i] = 1; }
+    const isAuto = auto[i] === 1 && !onLine;
     if (isAuto) autoN++;
     if (f.keep[i] && isAuto) keepN++;
     if (f.add[i] && !isAuto) addN++;
     if ((isAuto && !f.keep[i]) || (f.add[i] && !f.keep[i])) { m[i] = isAuto ? 1 : 2; n++; }
   }
-  return { mask: m, n, autoN, addN, keepN };
+  return { mask: m, skipped, n, autoN, addN, keepN, lineN };
 }
 
 function fillEditor(it) {
@@ -1208,6 +1235,7 @@ function fillEditor(it) {
       for (let i = 0; i < eff.mask.length; i++) {
         if (eff.mask[i] === 1) { o.data[4*i] = 255; o.data[4*i+1] = 40; o.data[4*i+2] = 200; }
         else if (eff.mask[i] === 2) { o.data[4*i] = 255; o.data[4*i+1] = 220; o.data[4*i+2] = 40; }
+        else if (eff.skipped[i]) { o.data[4*i] = 40; o.data[4*i+1] = 220; o.data[4*i+2] = 255; }
       }
       tg.putImageData(o, 0, 0);
     }
@@ -1215,14 +1243,15 @@ function fillEditor(it) {
     g.drawImage(t, box.x, box.y, box.w, box.h, 0, 0, cv.width, cv.height);
     stats.textContent = `${eff.n} px will be filled · ${eff.autoN} found automatically` +
       ` · ${eff.keepN} removed by you · ${eff.addN} added by you` +
+      (f.lines !== false ? ` · ${eff.lineN} on lines left alone` : '') +
       (f.on ? '' : ' · this piece is switched OFF');
     undoB.disabled = !f.undo.length; redoB.disabled = !f.redo.length;
   };
-  const snap = () => ({ r: f.r, thr: f.thr, add: f.add.slice(), keep: f.keep.slice(), on: f.on });
+  const snap = () => ({ r: f.r, thr: f.thr, lines: f.lines, add: f.add.slice(), keep: f.keep.slice(), on: f.on });
   const remember = () => { f.undo.push(snap()); if (f.undo.length > 60) f.undo.shift(); f.redo = []; f.edited = true; };
   const persist = () => saveFill(it);
-  const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, on: st.on }); f.add = st.add; f.keep = st.keep;
-                            rS.value = f.r; tS.value = f.thr; onC.checked = f.on; eff = effectiveFill(it); persist(); draw(); render(); };
+  const restore = (st) => { Object.assign(f, { r: st.r, thr: st.thr, lines: st.lines, on: st.on }); f.add = st.add; f.keep = st.keep;
+                            rS.value = f.r; tS.value = f.thr; onC.checked = f.on; lnC.checked = f.lines !== false; eff = effectiveFill(it); persist(); draw(); render(); };
   // painting
   const paintAt = (ev) => {
     const r = cv.getBoundingClientRect(), k = base * ui.zoom;
@@ -1272,6 +1301,10 @@ function fillEditor(it) {
   const onS = document.createElement('span'); const onC = document.createElement('input'); onC.type = 'checkbox'; onC.checked = f.on;
   onC.addEventListener('change', () => { remember(); f.on = onC.checked; persist(); draw(); render(); });
   onS.appendChild(onC); onS.appendChild(document.createTextNode(' Fill this piece')); onL.appendChild(onS); ctl.appendChild(onL);
+  const lnL = document.createElement('label'); lnL.className = 'f inline-f';
+  const lnS = document.createElement('span'); const lnC = document.createElement('input'); lnC.type = 'checkbox'; lnC.checked = f.lines !== false;
+  lnC.addEventListener('change', () => { remember(); f.lines = lnC.checked; eff = effectiveFill(it); persist(); draw(); render(); });
+  lnS.appendChild(lnC); lnS.appendChild(document.createTextNode(' Leave lines alone')); lnL.appendChild(lnS); ctl.appendChild(lnL);
   ctl.appendChild(seg('View', [['overlay', 'Overlay'], ['before', 'Before'], ['after', 'After']], () => ui.view, v => { ui.view = v; }));
   const bgL = document.createElement('label'); bgL.className = 'f inline-f';
   const bgS = document.createElement('span'); const bgC = document.createElement('input'); bgC.type = 'color'; bgC.value = ui.bg;
@@ -1304,7 +1337,7 @@ function fillEditor(it) {
   btns.appendChild(undoB); btns.appendChild(redoB); btns.appendChild(clr); ctl.appendChild(btns);
   const stats = document.createElement('div'); stats.className = 'fill-stats'; ctl.prepend(stats);
   const legend = document.createElement('div'); legend.className = 'fill-legend';
-  legend.innerHTML = '<span style="color:#ff28c8">■</span> filled automatically · <span style="color:#ffdc28">■</span> fill you added · where you removed fill, the art shows as drawn';
+  legend.innerHTML = '<span style="color:#ff28c8">■</span> filled automatically · <span style="color:#ffdc28">■</span> fill you added · <span style="color:#28dcff">■</span> line, left alone · where you removed fill, the art shows as drawn';
   ctl.appendChild(legend);
   wrap.appendChild(scroller); wrap.appendChild(ctl);
   draw();

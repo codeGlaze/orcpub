@@ -1,0 +1,24 @@
+const { chromium } = require('playwright'); const fs = require('fs');
+const EXE = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium/chrome-linux/chrome'].find(p => fs.existsSync(p));
+let fails = 0; const check = (ok, m) => { console.log((ok ? 'PASS ' : 'FAIL ') + m); if (!ok) fails++; };
+(async () => { const b = await chromium.launch({ executablePath: EXE }); const p = await (await b.newContext({ viewport: { width: 1300, height: 1000 } })).newPage();
+  const errs = []; p.on('pageerror', e => errs.push(String(e)));
+  await p.goto('file://' + process.env.LOOM); await p.setInputFiles('#file', process.env.PACKZIP);
+  await p.waitForFunction(() => !document.getElementById('save').disabled, null, { timeout: 120000 });
+  const card = () => p.locator('.card', { hasText: 'L3_shirt_03.png' });
+  await card().locator('.fill-btn').click();
+  const stat = async () => (await card().locator('.fill-stats').textContent()).trim();
+  const num = (s, re) => +(s.match(re) || [0, NaN])[1];
+  const s0 = await stat();
+  const lines = num(s0, /(\d+) on lines left alone/), filled0 = num(s0, /^(\d+) px/);
+  check(lines > 100, 'the shirt\'s line pixels are left out of the automatic fill: ' + s0);
+  await card().locator('.fill-editor').screenshot({ path: process.env.OUT + '/lines-on.png' });
+  await card().locator('label', { hasText: 'Leave lines alone' }).locator('input').uncheck();
+  const s1 = await stat();
+  check(num(s1, /^(\d+) px/) === filled0 + lines && !/lines left alone/.test(s1), 'unticking "Leave lines alone" fills them again: ' + s1);
+  await card().locator('button', { hasText: 'Undo' }).click();
+  check(await stat() === s0 && await card().locator('label', { hasText: 'Leave lines alone' }).locator('input').isChecked(), 'Undo puts it back');
+  // the light fill around lines is still filled: most of the pick is untouched
+  check(filled0 > 700, 'and the light fill is still filled (' + filled0 + ' px)');
+  check(errs.length === 0, 'no page errors ' + errs.join(' | '));
+  await b.close(); process.exit(fails ? 1 : 0); })();
