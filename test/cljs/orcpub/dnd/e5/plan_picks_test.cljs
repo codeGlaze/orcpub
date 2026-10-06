@@ -1,10 +1,12 @@
 (ns orcpub.dnd.e5.plan-picks-test
-  "events/plan-picks-db: the builder's character settled against the planned hold; and the class
+  "The builder's settle (events `queue-settle`, `hold-for`, `settle-picks-db`): picks that stop
+   applying go to the planned hold and come back; an edit never fails because of it. And the class
    deletion that relies on it."
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
@@ -56,9 +58,15 @@
                             ::entity/options :ranger-archetype ::entity/options
                             :defensive-tactics])))
 
+(defn- edit
+  "What an edit and the settle it queues leave: `queue-settle`, then `::e5/settle-picks`."
+  [db-before db-after event]
+  (let [d (events/hold-for db-before db-after event)]
+    (if (events/settle-needed? db-before db-after) (events/settle-picks-db d) d)))
+
 (deftest a-level-drop-holds-the-pick-and-raising-it-returns-it
-  (let [at-6 (events/plan-picks-db (db (ranger 7)) (db (ranger 6)) :some-edit)
-        at-7 (events/plan-picks-db at-6 (assoc at-6 :character
+  (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
+        at-7 (edit at-6 (assoc at-6 :character
                                                (update-in (:character at-6)
                                                           [::entity/options :class 0
                                                            ::entity/options :levels]
@@ -80,11 +88,11 @@
              dissoc :defensive-tactics))
 
 (deftest the-hold-does-not-follow-into-another-character
-  (let [at-6 (events/plan-picks-db (db (ranger 7)) (db (ranger 6)) :some-edit)
+  (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
         open-7 (without-tactic (ranger 7))]
     (doseq [[label character event] [["another character" (assoc open-7 :db/id 99) :set-character]
                                      ["a new character" open-7 :reset-character]]]
-      (let [after (events/plan-picks-db at-6 (assoc at-6 :character character) event)]
+      (let [after (edit at-6 (assoc at-6 :character character) event)]
         (is (not (steel-will? (:character after))) label)
         (is (= [] (:orcpub.dnd.e5/planned-picks after)) label)))))
 
@@ -93,16 +101,42 @@
                         (vec (butlast (get-in (ranger 7) [::entity/options :class 0
                                                           ::entity/options :levels]))))
         opened {:character ghost}
-        cached (events/plan-picks-db opened (merge (db ghost) opened) :cache-template)]
+        cached (edit opened (merge (db ghost) opened) :cache-template)]
     (is (steel-will? ghost) "a level-6 draft that still stores Steel Will")
     (is (not (steel-will? (:character cached))) "settled once the template is cached")
     (is (= 1 (count (:orcpub.dnd.e5/planned-picks cached))))))
 
+(deftest a-text-edit-queues-no-settle
+  (let [d (db (ranger 6))]
+    (is (not (events/settle-needed?
+              d (assoc-in d [:character ::entity/values ::char5e/character-name] "Ilse")))
+        "a name or notes edit cannot change which picks apply")
+    (is (events/settle-needed? d (db (ranger 7))) "a level change can")
+    (is (events/settle-needed? (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) d)
+        "so can the template arriving")))
+
+(deftest an-edit-applies-even-when-settling-fails
+  (let [before (db (ranger 7))
+        after (db (ranger 6))
+        context {:coeffects {:db before :event [:some-edit]} :effects {:db after}}
+        calls (atom 0)]
+    (with-redefs [picks/update-planned (fn [& _]
+                                         (swap! calls inc)
+                                         (throw (ex-info "settle failed" {})))]
+      (let [out ((:after events/queue-settle) context)]
+        (is (= (:character after) (get-in out [:effects :db :character])) "the edit is applied")
+        (is (true? (get-in out [:effects :orcpub.dnd.e5.events/settle-picks-soon]))
+            "a settle is queued")
+        (is (zero? @calls) "and not run inside the edit")
+        (is (identical? after (events/settle-picks-db after))
+            "the failed settle leaves the character as edited")
+        (is (= 1 @calls))))))
+
 (deftest nothing-changes-without-a-template-or-a-changed-character
   (let [d (db (ranger 6))]
     (is (= (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template)
-           (events/plan-picks-db d (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) :e)))
-    (is (identical? d (events/plan-picks-db d d :e)))))
+           (edit d (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) :e)))
+    (is (identical? d (edit d d :e)))))
 
 ;; As the builder passes them (character_builder `make-options-map`).
 (defn- class-options [] (zipmap (map ::t/key @classes) @classes))
@@ -117,7 +151,7 @@
   (let [ranger-first (assoc-in (ranger 7) [::entity/options :class 1] rogue-3)
         deleted (events/delete-class ranger-first [:delete-class :ranger 0 (class-options)])
         rogue (get-in deleted [::entity/options :class 0])
-        settled (events/plan-picks-db (db ranger-first) (db deleted) :delete-class)]
+        settled (edit (db ranger-first) (db deleted) :delete-class)]
     (is (= [:rogue] (mapv ::entity/key (get-in deleted [::entity/options :class]))))
     (is (= 3 (count (get-in rogue [::entity/options :levels]))) "the rogue keeps its levels")
     (is (= [:athletics] (mapv ::entity/key (get-in rogue [::entity/options

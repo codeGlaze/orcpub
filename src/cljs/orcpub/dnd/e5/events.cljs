@@ -229,45 +229,88 @@
                   :before (fn [context]
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
-(defn plan-picks-db
-  "`db-after` with its character settled against the planned hold (`picks/update-planned`), when
-   the character or the cached template changed from `db-before`; otherwise `db-after`. The hold
-   restarts on `:reset-character` or when the loaded character's `:db/id` differs.
-   decision-gate-hidden-picks.md, \"Current decision\""
+(defn hold-for
+  "`db-after` with the planned hold emptied when the edit starts on another character:
+   `:reset-character`, or a different `:db/id`."
   [db-before db-after event-id]
-  (let [char-before (:character db-before)
-        char-after (:character db-after)
-        template (get db-after ::autosave-fx/cached-template)]
-    (if (or (not (seq template))
-            (and (= char-before char-after)
-                 (identical? template (get db-before ::autosave-fx/cached-template))))
-      db-after
-      (let [hold (if (or (= :reset-character event-id)
-                         (not= (:db/id char-before) (:db/id char-after)))
-                   []
-                   (get db-after ::e5/planned-picks []))
-            {:keys [character planned set-aside restored retired]}
-            (picks/update-planned template char-after hold)]
-        (assoc db-after
-               :character character
-               ::e5/planned-picks planned
-               ::e5/picks-change {:set-aside set-aside :restored restored :retired retired})))))
+  (if (or (= :reset-character event-id)
+          (not= (get-in db-before [:character :db/id]) (get-in db-after [:character :db/id])))
+    (assoc db-after ::e5/planned-picks [])
+    db-after))
 
-;; Outermost, so its :after sees the whole db last and rewrites the draft when it moves picks.
-(def plan-picks
+(defn settle-needed?
+  "Whether an edit from `db-before` to `db-after` can change which picks apply: the cached
+   template changed, or the character did outside `::entity/values` (name, notes and other text).
+   GOTCHA: a prereq reading `::entity/values` would not settle until the next other edit."
+  [db-before db-after]
+  (or (not (identical? (get db-before ::autosave-fx/cached-template)
+                       (get db-after ::autosave-fx/cached-template)))
+      (not= (dissoc (:character db-before) ::entity/values)
+            (dissoc (:character db-after) ::entity/values))))
+
+(defn settle-picks-db
+  "`db` with its character settled against the planned hold (`picks/update-planned`) and the change
+   in `::e5/picks-change`. Returns `db` unchanged without a cached template, or when settling
+   throws (logged): the character stays as edited. decision-gate-hidden-picks.md"
+  [db]
+  (let [template (get db ::autosave-fx/cached-template)]
+    (if-not (seq template)
+      db
+      (try
+        (let [{:keys [character planned set-aside restored retired]}
+              (picks/update-planned template (:character db) (get db ::e5/planned-picks []))]
+          (assoc db
+                 :character character
+                 ::e5/planned-picks planned
+                 ::e5/picks-change {:set-aside set-aside :restored restored :retired retired}))
+        (catch :default e
+          (js/console.error "Picks were not settled; the character is left as edited." e)
+          db)))))
+
+;; Never settles inside the edit, so it cannot fail or slow one: it resets the hold when needed
+;; and queues ::e5/settle-picks. plan-hidden-pick-fix-and-grant-fields.md, "Step 1 hardening".
+(def queue-settle
   (->interceptor
-   :id :plan-picks
+   :id :queue-settle
    :after (fn [context]
-            (let [db-after (get-in context [:effects :db])]
-              (if (nil? db-after)
-                context
-                (let [db' (plan-picks-db (get-in context [:coeffects :db]) db-after
-                                         (first (get-in context [:coeffects :event])))]
-                  (when-not (identical? (:character db') (:character db-after))
-                    (character->local-store (:character db')))
-                  (assoc-in context [:effects :db] db')))))))
+            (let [db-before (get-in context [:coeffects :db])
+                  db-after (get-in context [:effects :db])]
+              (if (and db-after (settle-needed? db-before db-after))
+                (let [event-id (first (get-in context [:coeffects :event]))]
+                  (-> context
+                      (assoc-in [:effects :db] (hold-for db-before db-after event-id))
+                      (assoc-in [:effects ::settle-picks-soon] true)))
+                context)))))
 
-(def character-interceptors [plan-picks
+(def ^:private settle-debounce-ms
+  "The build's timing (subs `build-debounce-ms`): a single change settles at once, rapid changes
+   once they pause."
+  500)
+
+(defonce ^:private settle-timer (atom {:id nil :last-ms 0}))
+
+(defn- settle-now! []
+  (swap! settle-timer assoc :id nil :last-ms (.now js/Date))
+  (dispatch [::e5/settle-picks]))
+
+(reg-fx
+ ::settle-picks-soon
+ (fn [_]
+   (let [{:keys [id last-ms]} @settle-timer]
+     (when id (js/clearTimeout id))
+     (if (>= (- (.now js/Date) last-ms) settle-debounce-ms)
+       (settle-now!)
+       (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
+
+(reg-event-fx
+ ::e5/settle-picks
+ (fn [{:keys [db]} _]
+   (let [db' (settle-picks-db db)]
+     (cond-> {:db db'}
+       (not (identical? (:character db) (:character db')))
+       (assoc ::persist-healed-character (:character db'))))))
+
+(def character-interceptors [queue-settle
                              check-spec-interceptor
                              set-changed
                              (path :character)
@@ -2223,13 +2266,13 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
-;; Registered here, not in autosave_fx, so the hold can wrap it: the first template a draft is
+;; Registered here, not in autosave_fx, so it queues a settle: the first template a draft is
 ;; opened with settles it, before any edit.
-(reg-event-fx ::autosave-fx/cache-template [plan-picks] autosave-fx/cache-template)
+(reg-event-fx ::autosave-fx/cache-template [queue-settle] autosave-fx/cache-template)
 
 (reg-event-fx
  :set-character
- [plan-picks db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ [queue-settle db-char->local-store (inject-cofx ::e5/pending-relinks)]
  (fn [{:keys [db] :as cofx} event]
    (let [db' (set-character db event)
          relinks (::e5/pending-relinks cofx)
@@ -2377,7 +2420,7 @@
 (defn delete-class
   "Removes class `class-key`. When it was the first class, the class that becomes first keeps its
    levels and picks and brings its starting equipment; picks that stop applying go to the hold
-   (`plan-picks`)."
+   (`queue-settle`)."
   [character [_ class-key i options-map]]
   (let [updated (update-in
                  character
