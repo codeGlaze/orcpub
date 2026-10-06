@@ -20,6 +20,12 @@
   (is (= "site" (al/icon-for-url "https://user@twitch.tv.evil.test/x")))
   (is (= "site" (al/icon-for-url "not a link"))))
 
+(deftest capitals-fold-to-ascii-whatever-the-locale
+  ;; under a Turkish JVM the default lower case turns I into a dotless i, so TWITCH would
+  ;; stop matching twitch; the locale CI run is what makes this one able to fail
+  (is (= "www.twitch.tv" (:host (al/parse "HTTPS://WWW.TWITCH.TV/FUSSPOT"))))
+  (is (= "twitch" (al/icon-for-url "HTTPS://WWW.TWITCH.TV/FUSSPOT"))))
+
 (deftest while-typing
   (testing "nothing while the start of https:// is still being typed"
     (doseq [partial ["" "h" "htt" "https" "https:/" "https://" "HTTPS:"]]

@@ -107,7 +107,7 @@
 (defn username-base
   "A username from a display name: lower case, letters and digits only."
   [s]
-  (let [base (-> (str s) s/lower-case (s/replace #"[^a-z0-9]+" ""))]
+  (let [base (-> (.toLowerCase (str s) java.util.Locale/ROOT) (s/replace #"[^a-z0-9]+" ""))]
     (if (s/blank? base) "artist" (subs base 0 (min 20 (count base))))))
 
 (defn- free-username [db wanted]

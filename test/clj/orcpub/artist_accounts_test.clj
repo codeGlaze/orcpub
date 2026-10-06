@@ -48,8 +48,9 @@
                                 " \"preferred_name\": \"Fuss\", \"welcome_note\": \"We did it!\"},"
                                 " \"gone\": {\"account\": null},"
                                 " \"credit-only\": {\"name\": \"Someone\"}}"))]
-    (is (= {:account "hello@fusspot.rip" :preferred-name "Fuss" :welcome-note "We did it!"}
-           (:house-pack c)) "emails are trimmed and lower-cased")
+    (is (= {:account (clojure.string/lower-case "hello@fusspot.RIP") :preferred-name "Fuss" :welcome-note "We did it!"}
+           (:house-pack c))
+        "emails are trimmed and lower-cased the way registration stores them, so the two always match")
     (is (= :revoke (get-in c [:gone :account])) "an explicit null revokes")
     (is (not (contains? c :credit-only)) "an entry with no account key is credit-only")
     (is (nil? (aa/parse-config "{not json")) "malformed config is ignored, not fatal")))
@@ -219,3 +220,7 @@
           (is (not (routes/reset-link-expired? aged)) "three hours on, past an ordinary link's two, it still works")
           (is (routes/reset-link-expired? (dissoc aged :orcpub.user/password-reset-expires))
               "an ordinary link of the same age has expired"))))))
+
+(deftest a-username-keeps-every-letter-whatever-the-locale
+  ;; a Turkish JVM lower-cases I to a dotless i, which the letters-only filter then drops
+  (is (= "irisfusspot" (aa/username-base "IRIS Fusspot"))))

@@ -69,7 +69,7 @@
   []
   (set (for [k pa/layer-order
              a (pa/assets-for-layer k)]
-         [k (s/lower-case (last (s/split (:asset/url a) #"/")))])))
+         [k (.toLowerCase ^String (last (s/split (:asset/url a) #"/")) java.util.Locale/ROOT)])))
 
 (defn manifest->loom
   "Read a parsed Loom manifest. Returns {:loom {layer {file placement}}
@@ -80,7 +80,7 @@
   (let [entries (for [layer (:layers manifest)
                       a (:assets layer)
                       :let [k (keyword (or (:key layer) (:name layer)))
-                            f (s/lower-case (str (:file a)))
+                            f (.toLowerCase (str (:file a)) java.util.Locale/ROOT)
                             p (placement a)]
                       :when p]
                   [[k f] p])

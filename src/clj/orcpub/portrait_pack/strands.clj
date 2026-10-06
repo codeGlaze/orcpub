@@ -30,7 +30,7 @@
   ^File [dir file-name]
   (let [d (io/file dir)]
     (when (.isDirectory d)
-      (first (filter #(= (s/lower-case (.getName ^File %)) (s/lower-case file-name)) (.listFiles d))))))
+      (first (filter #(= (.toLowerCase (.getName ^File %) java.util.Locale/ROOT) (.toLowerCase (str file-name) java.util.Locale/ROOT)) (.listFiles d))))))
 
 (defn field-of
   "The strand field for a decoded piece of art."
