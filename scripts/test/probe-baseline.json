@@ -75,5 +75,9 @@
   "character_heal_e2e.js": {
     "checks": 13,
     "seconds": 25
+  },
+  "natural_armor_ring_e2e.js": {
+    "checks": 7,
+    "seconds": 15
   }
 }
