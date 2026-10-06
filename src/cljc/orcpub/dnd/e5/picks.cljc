@@ -196,12 +196,33 @@
           {:character character :put-back [] :retired []}
           planned))
 
+(defn- requirements-met?
+  "Whether the option `record` holds meets its own `::t/prereqs` on `built`, the character without
+   it (\"You already have this skill\" and the like). A selection not open in `built` passes here;
+   `put-at` and `to-planned` decide it."
+  [open-by-path built {:keys [address]}]
+  (let [option (some #(when (= (peek address) (::t/key %)) %)
+                     (some-> (open-by-path (pop address)) entity/selection-options))]
+    (every? (fn [{:keys [::t/prereq-fn]}] (or (nil? prereq-fn) (prereq-fn built)))
+            (::t/prereqs option))))
+
+(defn- waiting
+  "The records in `planned` that `put-at` could place but whose option does not meet its own
+   prereqs on `character` yet. A record `put-at` refuses is left to retire."
+  [template character planned]
+  (when (seq planned)
+    (let [built (entity/build character template)
+          open (into {} (map (juxt (comp vec entity/actual-path) identity))
+                     (entity/available-selections character built template))]
+      (filterv #(and (put-at character %) (not (requirements-met? open built %))) planned))))
+
 (def ^:private max-passes 8)
 
 (defn update-planned
   "`character` and its hold `planned` once every held pick that fits is back and every pick that
    no longer applies is held, as {:character :planned :set-aside :restored :retired}; the last
-   three are records, against the `planned` passed in. Throws ex-info if it does not settle."
+   three are records, against the `planned` passed in. A held pick whose own prereqs fail waits.
+   Throws ex-info if it does not settle."
   [template character planned]
   (let [addresses #(set (map :address %))
         initial (vec planned)
@@ -209,8 +230,12 @@
     (loop [character character planned (vec planned) retired [] n 0]
       (when (= n max-passes)
         (throw (ex-info "Picks did not settle" {:passes n :planned (mapv :address planned)})))
-      (let [{c1 :character r :retired} (from-planned character planned)
+      (let [wait (waiting template character planned)
+            waits (addresses wait)
+            trying (remove #(waits (:address %)) planned)
+            {c1 :character r :retired} (from-planned character trying)
             {c2 :character held :set-aside} (to-planned template c1)
+            held (into (vec wait) held)
             retired (into retired r)]
         (if (and (= c2 character) (= (addresses held) (addresses planned)))
           (let [after (addresses held)]

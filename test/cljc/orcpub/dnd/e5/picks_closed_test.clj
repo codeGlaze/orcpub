@@ -14,13 +14,17 @@
 
 (def ^:private language-map (common/map-by-key [{:name "Common" :key :common}]))
 
+;; A background granting Stealth: a second, lasting source of a skill a class can also pick.
+(def ^:private urchin
+  {:name "Urchin" :key :urchin :option-pack "Test" :profs {:skill {:stealth true}}})
+
 (def ^:private template
   (delay
    (t5e/template
     (t5e/template-selections
      nil nil nil weapons5e/weapons-map weapons5e/weapons
      sl5e/spell-lists spells5e/spell-map
-     [] []
+     [urchin] []
      (mapv #(% sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
            [classes5e/fighter-option classes5e/ranger-option classes5e/rogue-option])
      []
@@ -172,3 +176,24 @@
     (is (= {:character ch :planned [] :set-aside [] :restored [] :retired []}
            (update-planned ch [])))))
 
+
+(deftest a-held-pick-whose-own-requirement-fails-waits
+  (let [rogue (class-entry :rogue 1 nil rogue-first-class-skills)
+        stealth [:class :rogue :skill-proficiency :stealth]
+        record (:removed (picks/remove-at (character [rogue]) stealth))
+        without (:character (picks/remove-at (character [rogue]) stealth))
+        urchin-rogue (assoc-in without [::entity/options :background] {::entity/key :urchin})
+        r (update-planned urchin-rogue [record])]
+    (is (contains? (char5e/skill-proficiencies (entity/build urchin-rogue @template)) :stealth)
+        "the background already gives Stealth")
+    (is (= [stealth] (mapv :address (:planned r)))
+        "so the rogue's held Stealth waits instead of coming back twice")
+    (is (= urchin-rogue (:character r)))
+    (testing "and comes back once the other source is gone"
+      (let [r2 (update-planned (update (:character r) ::entity/options dissoc :background)
+                               (:planned r))]
+        (is (= [] (:planned r2)))
+        (is (= #{:stealth :acrobatics :insight :perception}
+               (set (map ::entity/key (get-in (:character r2) [::entity/options :class 0
+                                                               ::entity/options
+                                                               :skill-proficiency])))))))))
