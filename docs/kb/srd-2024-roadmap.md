@@ -84,7 +84,7 @@ capacity and the SPA, scheduled as its own decision. Treat them as one design, n
 |---|---|---|
 | 1. Research | what is in 2024, how it differs, what the app cannot express | **Mostly done, uneven.** Spells, magic items, classes, rules tier and conditions surveyed; species, backgrounds and feats mapped by shape. Monsters, equipment, weapons and armor not surveyed. |
 | 2. Design | the decisions below | **Made, now written down here.** |
-| 3. Plan | order, dependencies, what blocks what | **Started by this page.** |
+| 3. Plan | order, dependencies, what blocks what | **Spells ordered** — see *The plan* below. Other content types not yet ordered; the coverage map lists them. |
 | 4. Framework | the machinery that makes 2024 possible in the app | **Nothing built.** One characterization test exists. |
 | 5. MVP | something a user can touch | **Not started.** |
 | 6. Alpha | an MVP verified against the SRD and safe to hand to testers | **Not started.** |
@@ -95,6 +95,50 @@ Proposed meaning of done for each rung, to be confirmed:
 - **Plan** — every framework item below has an owner trunk and a known blocker list.
 - **Framework** — a source-tagged `e55` entry can reach a character without being silently dropped, and can be filtered by edition.
 - **MVP** — open question; see *Which rung is alpha*.
+
+## The plan: spells first
+
+Spells go first because all three sources are already in hand (`e5`, open5e's 2014 and 2024 data,
+both SRD PDFs) and because the method proved on spells is then repeated for each other content
+type, tracked on [srd-2024-coverage.md](srd-2024-coverage.md).
+
+### Two different comparisons — do not confuse them
+
+| | compares | answers | status |
+|---|---|---|---|
+| **A. Edition difference** | 2014 spell text against 2024 spell text | how each 2024 spell is **stored**: as a diff against its 2014 entry, or in full | run once, on *uncorrected* open5e text; figures are provisional |
+| **B. Three-way check** | `e5` against open5e `srd-2014`, then both against the SRD 5.1 PDF | whether the app's **existing 2014 data is right** | description text done; fields not yet compared |
+
+**B comes before A.** A diffs each 2024 spell against a 2014 base, so the base has to be verified
+first; otherwise the first correction to it breaks or silently changes the diffs built on it.
+
+**The 2014 base is the corrected open5e text, verified against the PDF** — following the pipeline
+decision below — not `e5` directly. `e5`'s departures from the SRD are reviewed separately and its
+good editorial work kept where it fits (some of it reads like the builder summaries we need).
+
+A's current figures (5 of 317 shared spells word-identical, the similarity spread behind the 60%
+threshold) were taken on open5e text that still has three missing upcasts and soft-hyphen
+artifacts. They are recomputed in step 4.
+
+### Steps, in order
+
+1. **Finish check B for spells.** Compare *fields* (level, school, casting time, range,
+   components, duration) between `e5` and open5e `srd-2014`. Confirm the 12 spells whose text
+   departs — 8 in `e5`, 4 in open5e — on rendered PDF pages. *Description text done; the rest not
+   started.*
+2. **Start the corrections list.** Each open5e fix with its record, field, corrected value and PDF
+   page. It doubles as the upstream PR list ([open5e-upstream-notes.md](open5e-upstream-notes.md)).
+3. **Generate canonical spell files for both editions** from the corrected data, normalising
+   *structure* only: all upcasting in one place, encoding artifacts folded, gaps filled from the PDF
+   and flagged. Stored text stays verbatim. Verify against the PDF.
+4. **Re-run comparison A on the canonical files.** Store each 2024 spell as a diff where at least
+   60% of its wording matches (provisional), otherwise in full. Log the five measures per entry and
+   check every diff round-trips to the exact 2024 text.
+5. **Replace `e55/spells.cljc`** with the generated output, carrying the mechanical fields the
+   current 109-entry file throws away.
+
+Alongside, not blocking: **review the 8 `e5` spells** that depart from the SRD — where their text
+came from (only SRD content ships) and whether any should become summaries.
 
 ## Decided
 

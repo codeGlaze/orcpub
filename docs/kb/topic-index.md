@@ -3052,12 +3052,15 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, agreed, compressed, content, edition, editions, goal, open5e, owner, pdf, rung, scheduled, spa, srd, text, trunk, wording
+**topics:** 2014, 2024, compressed, diff, edition, editions, open5e, open5e-upstream-notes, owner, pdf, rung, similarity, spells, srd, srd-2024-coverage, text, trunk, wording
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
 - One loader for the SRD and for homebrew
 - The ladder
+- The plan: spells first
+- Two different comparisons — do not confuse them
+- Steps, in order
 - Decided
 - Wanted, not yet scoped
 - Open decisions
@@ -3110,7 +3113,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
