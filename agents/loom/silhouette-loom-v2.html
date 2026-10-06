@@ -202,6 +202,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.40</b> "Fill see-through insides" remembers whether it was ticked: it started unticked on every visit, so a fresh session exported the art unfilled ·
       <b>v2.39</b> a refresh no longer loses your work: the art you drop is kept in this browser and comes back on reload with your eye placements, fill reviews and patches; Clear forgets it. Pull-to-refresh is off on this page ·
       <b>v2.38</b> brushes paint continuous strokes: the gaps between pointer positions are filled in (they left a trail of dots on a quick stroke), every position the browser reports is used, and the picture redraws once a frame; the patch view no longer re-tints its reference pieces on every move ·
       <b>v2.37</b> "Patch gaps" on every piece: paint behind the art to close a gap between pieces (it can never change a drawn pixel), with the pieces under and over it shown in skin and hair colour; Paint / Erase / Off, eyedropper, undo/redo; kept in this browser and in the manifest, and written into the downloaded pack ·
@@ -332,7 +333,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.39';
+const LOOM_VERSION = 'v2.40';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -2000,6 +2001,9 @@ function offerPackVersion(v, from) {
 document.addEventListener('DOMContentLoaded', () => {
   $('ver').addEventListener('input', () => { verFrom = 'user'; $('ver-from').textContent = ''; });
   if (BUNDLED_MANIFEST) offerPackVersion(BUNDLED_MANIFEST.packVersion, 'bundled');
+  // the fill option is a choice you make once, not on every visit
+  try { if (localStorage.getItem(FILL_ON_KEY) === '1') { $('fill-insides').checked = true; $('fill-insides').dispatchEvent(new Event('change')); } } catch (_) {}
+  $('fill-insides').addEventListener('change', () => { try { localStorage.setItem(FILL_ON_KEY, $('fill-insides').checked ? '1' : '0'); } catch (_) {} });
   restoreDone = restoreSession();
   // an eye edit ends on a release or a control change: keep it then
   document.addEventListener('pointerup', keepSession);
@@ -2246,6 +2250,7 @@ function say(msg) { $('dropmsg').textContent = msg; }
    placements and pack version in a small record; on load they come back.
    Fill reviews and patches were already kept per piece. Clear forgets it. */
 const SESSION_KEY = 'silhouette-loom.session';
+const FILL_ON_KEY = 'silhouette-loom.fill-insides';
 let restoring = false, restoreDone = Promise.resolve(), busyDrops = 0;
 function idbOpen() {
   return new Promise((res, rej) => {

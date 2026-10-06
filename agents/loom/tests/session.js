@@ -27,6 +27,12 @@ const ready = (p) => p.waitForFunction(() => !document.getElementById('save').di
   check(await p.locator('.card').count() === n0, 'dropping it again replaces rather than doubles');
   await p.reload(); await ready(p);
   check(await p.locator('.card').count() === n0, 'and a refresh after that still has one of each');
+  // the fill option is remembered, ticked or not
+  await p.check('#fill-insides'); await p.reload(); await ready(p);
+  check(await p.isChecked('#fill-insides'), '"Fill see-through insides" stays ticked after a refresh');
+  await p.uncheck('#fill-insides'); await p.reload(); await ready(p);
+  check(!(await p.isChecked('#fill-insides')), 'and stays unticked if you untick it');
+  await p.check('#fill-insides');
   // Clear forgets it
   await p.click('#clear'); await p.waitForTimeout(500);
   await p.reload(); await p.waitForTimeout(2500);
