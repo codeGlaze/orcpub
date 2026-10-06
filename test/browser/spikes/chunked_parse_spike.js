@@ -1,3 +1,8 @@
+// ARCHIVED SPIKE, answered 2026-09-05: not a test, and in no test run (run-all.sh reads only
+// test/browser/*_e2e.js). The measurements and the decision are in the agents/develop branch:
+// docs/kb/perf-homebrew-builder-loop.md, "Track 1 spike", and the pinned docs/TODO.md item
+// "load the homebrew library without one long freeze". Its default pack was a local scratch
+// file that no longer exists, so pass one.
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
 // Track 1 spike: is per-source chunked EDN parsing (with a yield between sources) worth
@@ -30,7 +35,7 @@
 // .orcbrew import opens a conflict-resolution modal that needs both to get past
 // reliably (see that file's own comment; three prior probes were lost to it).
 //
-// Run: node test/browser/chunked_parse_spike_e2e.js [pack.orcbrew] [cpu]
+// Run: scripts/e2e/run.sh test/browser/spikes/chunked_parse_spike.js <pack.orcbrew> [cpu]
 //   pack defaults to dev-scratch/paks/mega-64.orcbrew (the 3.9MB primary fixture;
 //     dev-scratch/paks/mega-raw.orcbrew — the same content BEFORE synthetic caster
 //     duplication — is the more realistic per-source distribution, see the KB writeup)
@@ -41,16 +46,8 @@
 
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-    if (d) { const p = path.join(b, d, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined;
-}
+const { findChrome } = require('../lib/find-chrome');
+const { importPack, suppressOverlays } = require('../lib/orcbrew-import');
 
 (async () => {
   const pak = process.argv[2] || 'dev-scratch/paks/mega-64.orcbrew';

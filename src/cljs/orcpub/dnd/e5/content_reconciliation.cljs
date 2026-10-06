@@ -9,6 +9,7 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5.library-links :as links]
             [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
@@ -445,51 +446,6 @@
   {:flat (former-key-index plugins offered)
    :typed (typed-former-key-index plugins offered-by-type)})
 
-(defn- walk-entries
-  "`opts` (::entity/options) with `(f path entry)` applied to every chosen entry, where `path` is
-   the vector of selection keys from the root down to it."
-  [opts f]
-  (letfn [(entry [path e]
-            (if (map? e)
-              (let [e' (f path e)]
-                (cond-> e' (map? (::entity/options e')) (update ::entity/options #(walk path %))))
-              e))
-          (walk [path o]
-            (into {} (map (fn [[sel v]]
-                            (let [p (conj path sel)]
-                              [sel (if (sequential? v) (mapv #(entry p %) v) (entry p v))])))
-                  o))]
-    (if (map? opts) (walk [] opts) opts)))
-
-(defn- walk-picks
-  "`opts` (::entity/options) with `f` applied to every pick that could be of `content-type`
-   (`library/pick-types`); `content-type` nil: every pick."
-  [opts content-type f]
-  (walk-entries opts (fn [path e]
-                       (if (or (nil? content-type) (seq (library/pick-types path [content-type])))
-                         (f e)
-                         e))))
-
-(defn picks-of
-  "Set of `character`'s pick keys that could be of `content-type` (see `walk-picks`)."
-  [character content-type]
-  (let [ks (atom #{})]
-    (walk-picks (::entity/options character) content-type
-                #(do (when-let [k (::entity/key %)] (swap! ks conj k)) %))
-    @ks))
-
-(defn relink-picks
-  "`character` with each pick of `from` that could be of `content-type` rewritten to `to`, as
-   {:character :rewrote} (see `reconcile-former-keys`). `content-type` nil: every pick."
-  [character content-type from to]
-  (let [rewrote (atom [])
-        opts (walk-picks (::entity/options character) content-type
-                         #(if (= from (::entity/key %))
-                            (do (swap! rewrote conj {:from from :to to}) (assoc % ::entity/key to))
-                            %))]
-    {:character (cond-> character (seq @rewrote) (assoc ::entity/options opts))
-     :rewrote @rewrote}))
-
 (defn relink-to-ask
   "The index into `relinks` (db/pending-relinks) of the first rename to ask `character` about, or
    nil: a saved character not yet asked, holding the renamed item's old key as a pick of its type,
@@ -500,7 +456,7 @@
     (when id
       (first (keep-indexed (fn [i {:keys [content-type from to asked]}]
                              (when (and (not (contains? asked id))
-                                        (contains? (picks-of character content-type) from)
+                                        (contains? (picks/keys-of character content-type) from)
                                         (holds? content-type to) (holds? content-type from))
                                i))
                            relinks)))))
@@ -514,7 +470,7 @@
   (if (or (and (empty? flat) (every? empty? (vals typed))) (nil? (::entity/options character)))
     {:character character :rewrote []}
     (let [rewrote (atom [])
-          opts (walk-entries
+          opts (picks/walk
                 (::entity/options character)
                 (fn [path e]
                   (let [t (library/pick-homes path)

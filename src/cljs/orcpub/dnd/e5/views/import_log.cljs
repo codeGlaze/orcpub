@@ -36,7 +36,7 @@
       " at " [:code {:style code-style-sm} (str path)]]
 
      :replaced-nil
-     [:span [:i.fa.fa-exchange.m-r-5 {:style {:color "#47eaf8"}}]
+     [:span [:i.fa.fa-exchange-alt.m-r-5 {:style {:color "#47eaf8"}}]
       "Replaced " [:code {:style code-style} (str (name field) " nil")]
       " \u2192 " [:code {:style code-style} (str to)]]
 
@@ -57,10 +57,14 @@
      [:span [:i.fa.fa-font.m-r-5 {:style {:color "#47eaf8"}}]
       (or description "Normalized Unicode characters to ASCII")]
 
+     ;; e5/mend-import-data: a section stored as text or as a list, read back
+     :repaired-section
+     [:span [:i.fa.fa-wrench.m-r-5] description]
+
      :filled-required-fields
      (let [details (:details change)]
        [:div
-        [:span [:i.fa.fa-pencil.m-r-5 {:style {:color "#f0a100"}}]
+        [:span [:i.fa.fa-pencil-alt.m-r-5 {:style {:color "#f0a100"}}]
          (or description "Filled missing required fields with placeholders")]
         (when (seq details)
           [:div {:style {:margin-top "4px" :padding-left "20px"}}
@@ -131,7 +135,7 @@
              [:div {:style {:padding "2px 0" :font-size "11px"
                             :color "rgba(255,255,255,0.6)"}}
               [:i {:class (str "fa m-r-5 "
-                               (if (= type :dedup-renamed) "fa-pencil" "fa-minus-circle"))
+                               (if (= type :dedup-renamed) "fa-pencil-alt" "fa-minus-circle"))
                    :style {:color "rgba(255,255,255,0.45)"}}]
               d-desc
               (when content-type
@@ -232,7 +236,7 @@
       (let [changes (:changes log)
             user-types #{:key-renamed :filled-required-fields :export-missing-fields
                          :string-fix :text-normalization :renamed-plugin-key
-                         :dedup-selection-options}
+                         :dedup-selection-options :repaired-section}
             sections [{:types #{:key-renamed}
                        :title-fn #(str "Key Renames (" (count %) ")")
                        :icon "fa-tag" :icon-color "#47eaf8"
@@ -243,7 +247,7 @@
                                      (if (pos? detail-count)
                                        (str "Field Fixes (" detail-count " items)")
                                        (str "Field Fixes (" (count items) ")"))))
-                       :icon "fa-pencil" :icon-color "#f0a100"
+                       :icon "fa-pencil-alt" :icon-color "#f0a100"
                        :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
                       {:types #{:export-missing-fields}
                        :title-fn (fn [items]
@@ -253,6 +257,10 @@
                                        (str "Export Issues (" (count items) ")"))))
                        :icon "fa-exclamation-triangle" :icon-color "#f0a100"
                        :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
+                      {:types #{:repaired-section}
+                       :title-fn #(str "Repairs (" (count %) ")")
+                       :icon "fa-wrench" :icon-color "#8cc63f"
+                       :bg-color "rgba(112, 168, 0, 0.1)" :border-color "#8cc63f"}
                       {:types #{:string-fix :text-normalization :renamed-plugin-key
                                 :dedup-selection-options}
                        :title-fn #(str "Data Cleanup (" (count %) ")")
@@ -293,42 +301,23 @@
          [:div.f-s-16 "No issues found"]
          [:div.f-s-12 {:style {:margin-top "5px"}} "Import completed cleanly"]])]]))
 
-(defn import-log-button []
+(defn import-log-button
+  "Opens the import log. Absent while the log is empty, which is most of the time:
+   it had nothing to show, and it sat on every page over whatever was in that
+   corner. Stays while the panel is open, so the panel can be closed from it."
+  []
   (let [has-content? @(subscribe [:import-log-has-content?])
         shown? @(subscribe [:import-log-shown?])
         log @(subscribe [:import-log])
         total-count (+ (count (:changes log))
                        (count (:errors log))
                        (count (:skipped-items log)))]
-    [:div.flex.align-items-c.justify-cont-c.pointer
-     {:style {:position "fixed"
-              :bottom "20px"
-              :right "20px"
-              :width "40px"
-              :height "40px"
-              :border-radius "50%"
-              :background (cond
-                            shown? "#f0a100"
-                            has-content? "#2c3445"
-                            :else "#1a1e28")
-              :color (if has-content? "white" "rgba(255,255,255,0.25)")
-              :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"
-              :z-index 900
-              :opacity (if has-content? 1 0.6)
-              :transition "all 0.2s ease"}
-      :on-click #(dispatch [:toggle-import-log-panel])}
-     [:i.fa.fa-list-alt {:style {:font-size "14px"}}]
-     (when (pos? total-count)
-       [:div.flex.align-items-c.justify-cont-c
-        {:style {:position "absolute"
-                 :top "-4px"
-                 :right "-4px"
-                 :background "#d94b20"
-                 :color "white"
-                 :font-size "10px"
-                 :font-weight "bold"
-                 :min-width "16px"
-                 :height "16px"
-                 :border-radius "8px"
-                 :padding "0 4px"}}
-        total-count])]))
+    (when (or has-content? shown?)
+      [:div.import-log-button.flex.align-items-c.justify-cont-c.pointer
+       {:class (when shown? "open")
+        :title "Import log"
+        :on-click #(dispatch [:toggle-import-log-panel])}
+       [:i.fa.fa-list-alt]
+       (when (pos? total-count)
+         [:div.import-log-badge.flex.align-items-c.justify-cont-c
+          total-count])])))

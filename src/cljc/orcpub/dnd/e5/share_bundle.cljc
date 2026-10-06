@@ -2,8 +2,11 @@
   "The homebrew one character depends on, as a :plugins-shaped map grouped by source, for a share
    link. Pure. The closure is the character's selected keys, then every :follow link to a fixpoint,
    then every item pointing in through a :reverse link, repeated until nothing is added
-   (library-links/links). Custom magic items are server-side, not plugins, so never included."
+   (library-links/links). Custom magic items are server-side, not plugins, so never included; a
+   character's equipped ones travel with the character from the server (used-custom-items).
+   Embedded media is stripped (without-embedded-media)."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.common :as common]
@@ -227,14 +230,21 @@
 
 ;; ── Public entry point ───────────────────────────────────────────────────────
 
+(defn without-embedded-media
+  "The bundle with every data: URI emptied. Homebrew is text; a pasted image, audio clip or video
+   would sit in some text field as a data: URI, and a share must not carry one."
+  [bundle]
+  (walk/postwalk #(if (and (string? %) (re-find #"(?i)^\s*data:" %)) "" %) bundle))
+
 (defn extract-bundle
   "Given a character entity and the full :plugins map, return the plugins-shaped
    sub-map of exactly the homebrew content this character depends on."
   [character plugins]
   (let [idx (plugin-index plugins)]
-    (->> (direct-refs idx character)
-         (close idx)
-         (emit-bundle idx))))
+    (without-embedded-media
+     (->> (direct-refs idx character)
+          (close idx)
+          (emit-bundle idx)))))
 
 ;; The share link always carries the character's FULL content — descriptions and
 ;; all. A feat/trait IS its description, so a "trimmed to fit" link is useless;
@@ -311,20 +321,31 @@
      data)))
 
 ;; Custom magic items are carried as their RAW server form (as in
-;; ::mi5e/custom-items), so the recipient runs the identical expand pipeline and
+;; ::mi5e/custom-items, less the database ids and owner), so the recipient runs the identical expand pipeline and
 ;; the raw list drops straight into every seam that reads custom-items. The raw
 ;; name lives under this namespaced key (mi5e/name).
 (def ^:private raw-item-name-key :orcpub.dnd.e5.magic-items/name)
+(def ^:private raw-item-owner-key :orcpub.dnd.e5.magic-items/owner)
+
+(defn- shareable-item
+  "A raw item as it may leave its owner's account: no :db/id at any depth and no owner.
+   The viewer draws the item from its fields and needs neither, and both point back at
+   the owner's account."
+  [raw]
+  (walk/postwalk #(if (map? %) (dissoc % :db/id) %) (dissoc raw raw-item-owner-key)))
 
 (defn used-custom-items
   "Raw custom items this character equips. `expand-one` maps a single raw item to
    its expanded, keyed variant(s) (magic-items/expand-magic-items on a 1-item vec)
    — injected so this stays pure/cljc-testable. A weapon/armor item expands to
    several keyed variants (one per subtype); the raw item is kept if the character
-   selected ANY of them. Returns a vector; empty when none."
+   selected ANY of them. Returns a vector of shareable items; empty when none."
   [character raw-items expand-one]
   (let [used (selected-keys character)]
-    (filterv (fn [raw] (some #(contains? used (:key %)) (expand-one raw))) raw-items)))
+    (into []
+          (comp (filter (fn [raw] (some #(contains? used (:key %)) (expand-one raw))))
+                (map shareable-item))
+          raw-items)))
 
 (defn whitelist-shared
   "Fail-closed structural gate for an UNTRUSTED shared payload. Accepts either the
@@ -339,13 +360,15 @@
         plugins-in (if container? (:plugins data) data)
         items-in   (when container? (:custom-items data))
         {pb :bundle pd :dropped} (whitelist-bundle plugins-in)
+        ;; A link made before ids were stripped still carries them; drop them on the way in.
         items (if (sequential? items-in)
-                (filterv (fn [it]
+                (mapv shareable-item
+                 (filterv (fn [it]
                            (and (map? it)
                                 (let [nm (get it raw-item-name-key)]
                                   (and (string? nm)
                                        (common/starts-with-letter? (str/trim nm))))))
-                         items-in)
+                         items-in))
                 [])
         idropped (if (sequential? items-in) (- (count items-in) (count items)) 0)]
-    {:plugins pb :custom-items items :dropped (+ pd idropped)}))
+    {:plugins (without-embedded-media pb) :custom-items items :dropped (+ pd idropped)}))

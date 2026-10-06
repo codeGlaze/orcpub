@@ -21,6 +21,7 @@
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.components :as comps]
             [re-frame.core :refer [dispatch subscribe]]
             [re-frame.db])
@@ -1219,7 +1220,7 @@
                        all-weapons-map (mi/compute-all-weapons-map
                                         ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -1800,7 +1801,7 @@
                                      all-weapons-map (mi/compute-all-weapons-map
                                                       ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon
@@ -2962,8 +2963,9 @@
                            :tags #{:subclass}
                            :order 2
                            :options (conj
-                                     (map
-                                      #(subclass-option spell-lists spells-map language-map (assoc cls :key kw) %)
+                                     (keep
+                                      #(guard/guard-entry :orcpub.dnd.e5/subclasses %
+                                                           (partial subclass-option spell-lists spells-map language-map (assoc cls :key kw)))
                                       (if source (map (fn [sc] (assoc sc :source source)) subclasses) subclasses))
                                      (custom-subclass-option spell-lists spells-map weapon-map kw level-kw subclass-selection-key (some? spellcasting)))})]))
                     (when (and (not plugin?) (ability-inc-set i))
@@ -3042,7 +3044,7 @@
                             spellcasting
                             multiclass-prereqs]
                      :as cls}]
-  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
+  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (common/safe-compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
         kw (or key (common/name-to-kw name))
         {:keys [save skill-options skill-expertise-options multiclass-skill-options tool-options multiclass-tool-options tool]
          armor-profs :armor weapon-profs :weapon} profs

@@ -2,7 +2,9 @@
 # Browser end-to-end checks against a real server and a real database.
 #
 #   ./scripts/e2e/run.sh --describe <suite>  prints: <bundle> <profiles> <own-server yes|no> <kind>
-#   ./scripts/e2e/run.sh [suite] [args...]   a file in scripts/e2e/ (default run.js), or a path
+#   ./scripts/e2e/run.sh --build-only <suite> builds the bundle and stylesheet the suite needs, and
+#                                            stops; run-all.sh does this while a server boots
+#   ./scripts/e2e/run.sh <suite> [args...]   a file in scripts/e2e/, or a path
 #                                            such as test/browser/boot_rescue_e2e.js; any args
 #                                            are passed to the suite
 #
@@ -31,14 +33,22 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 PORT="${E2E_PORT:-8890}"
-LOG="${E2E_LOG:-/tmp/e2e-server.log}"
 BASE="http://localhost:${PORT}"
 BUNDLE=resources/public/js/compiled/orcpub.js
 SHEET=resources/public/css/compiled/styles.css
 
-DESCRIBE=""
+DESCRIBE=""; BUILD_ONLY=""
 [ "${1:-}" = --describe ] && { DESCRIBE=1; shift; }
-SUITE_ARG="${1:-run.js}"
+[ "${1:-}" = --build-only ] && { BUILD_ONLY=1; shift; }
+# No default suite: with none named, list them. Checked before anything builds or boots.
+if [ $# -eq 0 ]; then
+  echo "usage: ./scripts/e2e/run.sh <suite> [args...]"; echo "suites:"
+  for f in scripts/e2e/*.js test/browser/*_e2e.js; do
+    case "$f" in */lib.js|*/boot-check.js) ;; *) echo "  $f" ;; esac
+  done
+  exit 2
+fi
+SUITE_ARG="$1"
 [ $# -gt 0 ] && shift
 SUITE_ARGS=("$@")
 case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG" ;; esac
@@ -70,7 +80,8 @@ fail() { echo; echo "E2E RUN STOPPED: $*"; result FAIL 0 0 "(stopped: $*)"; exit
 
 # Playwright is installed under scripts/e2e; a suite elsewhere (test/browser) resolves it from there.
 export NODE_PATH="$(pwd)/scripts/e2e/node_modules${NODE_PATH:+:$NODE_PATH}"
-node -e "require('playwright')" 2>/dev/null \
+# --build-only needs neither playwright nor a browser.
+[ -n "$BUILD_ONLY" ] || node -e "require('playwright')" 2>/dev/null \
   || fail "playwright is not installed: (cd scripts/e2e && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install)"
 
 # --- one browser for every suite ------------------------------------------------------------
@@ -90,9 +101,11 @@ find_browser() {
     [ -x "$d/chromium" ] && { echo "$d/chromium"; return; }
   done
 }
-BROWSER="$(find_browser)"
-[ -n "$BROWSER" ] || fail "no Chromium found (E2E_CHROMIUM${E2E_CHROMIUM:+=$E2E_CHROMIUM is not executable}, playwright's own, ~/.cache/ms-playwright, /opt/pw-browsers)"
-export E2E_CHROMIUM="$BROWSER" CHROME="$BROWSER" CHROME_PATH="$BROWSER" PLAYWRIGHT_CHROMIUM="$BROWSER"
+if [ -z "$BUILD_ONLY" ]; then
+  BROWSER="$(find_browser)"
+  [ -n "$BROWSER" ] || fail "no Chromium found (E2E_CHROMIUM${E2E_CHROMIUM:+=$E2E_CHROMIUM is not executable}, playwright's own, ~/.cache/ms-playwright, /opt/pw-browsers)"
+  export E2E_CHROMIUM="$BROWSER" CHROME="$BROWSER" CHROME_PATH="$BROWSER" PLAYWRIGHT_CHROMIUM="$BROWSER"
+fi
 
 # --- the bundle the suite needs, fresh ------------------------------------------------------
 # The server compiles from source at every boot; the bundle is an artifact nothing rebuilds. So a
@@ -144,6 +157,7 @@ fi
 if [ ! -f "$SHEET" ] || [ -n "$(newer_sources "$SHEET" src/clj/orcpub/styles)" ]; then
   echo "Compiling the stylesheet..."; lein garden once || fail "the stylesheet did not compile"
 fi
+[ -n "$BUILD_ONLY" ] && { echo "The $NEED bundle and the stylesheet are ready."; exit 0; }
 
 # A development bundle loads its code as separate scripts, which the strict Content Security
 # Policy blocks, so it is off for dev-bundle suites only. Production runs keep the real policy.
@@ -161,6 +175,14 @@ else
   ./scripts/e2e/server.sh start "$PROFILES" || fail "the server did not start (reason above)"
   trap './scripts/e2e/server.sh stop' EXIT
 fi
+
+# The seeded characters some suites open, from the server's log (dev/e2e_boot.clj prints them).
+SERVER_LOG="${E2E_LOG:-/tmp/e2e-server-${PORT}.log}"
+seeded() { grep -o "$1 200 [0-9]*" "$SERVER_LOG" 2>/dev/null | awk '{print $3}' | tail -1; }
+export E2E_CHARACTER_ID="$(seeded E2E-CHARACTER)"
+export E2E_HOMEBREW_CHARACTER_ID="$(seeded E2E-HOMEBREW-CHARACTER)"
+export E2E_EXPIRED_CHARACTER_ID="$(seeded E2E-EXPIRED-CHARACTER)"
+export E2E_MAIL_PORT="${E2E_MAIL_PORT:-2525}"
 
 # --- the app must start before anything is judged ------------------------------------------
 node scripts/e2e/boot-check.js "$BASE" || fail "the app did not start in a browser (reason above)"

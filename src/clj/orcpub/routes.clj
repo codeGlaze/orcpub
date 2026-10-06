@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
             [bidi.bidi :as bidi]
@@ -33,11 +34,15 @@
             [orcpub.route-map :as route-map]
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
+            [orcpub.config :as config]
             [orcpub.email :as email]
+            [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
-            [orcpub.config :as config]
+            [orcpub.spellbook :as spellbook]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
+            [orcpub.pwned :as pwned]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -46,9 +51,11 @@
             [orcpub.fork.user-data :as user-data]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
+            [orcpub.routes.share :as share]
+            [orcpub.datomic :as odb]
             [hiccup.page :as page]
             [hiccup2.core :as h]
-            [environ.core :as environ]
+            [orcpub.env :as env]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
@@ -63,9 +70,11 @@
 (deftype FixedBuffer [^long len])
 
 (def ^:private jwt-secret
-  "JWT signing secret from SIGNATURE env var.
-   nil when unset — check-auth returns 500 with a diagnostic message."
-  (environ/env :signature))
+  "JWT signing secret: /run/secrets/signature, else SIGNATURE (config/signature), nil when unset
+   or blank. Never read the environment directly here, or a Docker-secrets deployment gets nil.
+   Blank must be nil: buddy signs and verifies with \"\", so an empty SIGNATURE= accepted forged
+   tokens. docs/kb/blank-env-values.md."
+  (config/signature))
 
 (when-not jwt-secret
   (println (str "WARNING: " config/signature-missing-message)))
@@ -79,6 +88,40 @@
   []
   (or jwt-secret
       (throw (ex-info config/signature-missing-message {:error :signature-not-set}))))
+
+(defn- report-registration-mode!
+  "Say at startup what registration will actually do, because every wrong answer
+   here is silent.
+
+   Printed at namespace load, beside the SIGNATURE warning above, because this
+   branch has no boot report to hang it on. If one is added later, move it there
+   -- it belongs with the rest of the effective configuration."
+  []
+  (let [smtp? (email/configured?)
+        opted-out? (email/unverified-registration-allowed?)]
+    (cond
+      (and (not smtp?) opted-out?)
+      (do (println "WARNING: registration is running WITHOUT EMAIL VERIFICATION.")
+          (println "         EMAIL_SERVER_URL is unset and ALLOW_UNVERIFIED_REGISTRATION=true,")
+          (println "         so anyone who registers is verified on the spot and nobody proves")
+          (println "         they own the address they typed. Intended for a private instance.")
+          (println "         Set EMAIL_SERVER_URL to restore verification."))
+
+      (not smtp?)
+      (do (println "WARNING: registration is DISABLED — EMAIL_SERVER_URL is unset, so no")
+          (println "         verification email can be sent. Existing users are unaffected.")
+          (println "         Set EMAIL_SERVER_URL, or ALLOW_UNVERIFIED_REGISTRATION=true to")
+          (println "         accept accounts without verifying the address."))
+
+      opted-out?
+      ;; The loaded gun: inert today, decides policy the day SMTP goes missing.
+      (do (println "WARNING: ALLOW_UNVERIFIED_REGISTRATION is set but has no effect right now,")
+          (println "         because EMAIL_SERVER_URL is configured. If that value is ever lost")
+          (println "         — a typo, a dropped deploy variable, a failed secret mount — this")
+          (println "         flag silently turns registration into OPEN registration instead of")
+          (println "         failing. Remove it unless this is a private instance.")))))
+
+(report-registration-mode!)
 
 (def backend (backends/jws {:secret jwt-secret}))
 
@@ -166,15 +209,78 @@
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
-                       username (get-in updated-request [:identity :user])]
-                   (if (and (:identity updated-request)
-                            username)
-                     (assoc context :request (assoc updated-request :username username))
-                     (terminate-request context 401 "Unauthorized")))
+                       username (get-in updated-request [:identity :user])
+                       minted (get-in updated-request [:identity :minted])]
+                   (cond
+                     (not (and (:identity updated-request) username))
+                     (terminate-request context 401 "Unauthorized")
+
+                     ;; Changing a password takes back the sessions that existed
+                     ;; before it. The same 401 as any other refusal: which of
+                     ;; the two reasons it was is not the caller's business.
+                     (security/token-withdrawn? username minted)
+                     (terminate-request context 401 "Unauthorized")
+
+                     :else
+                     (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
+
+(defn withdraw-sessions
+  "Signs every session for this account out, including the one asking.
+
+   Deliberately does NOT require the password: somebody who thinks their account
+   is open somewhere they cannot reach should be able to close it from the
+   session they already hold, and they have already proved they hold it. It
+   grants an attacker with a session nothing -- they can sign themselves out."
+  [{:keys [conn db identity] :as _request}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (when username (first-user-by db username-query username))]
+    (if-not id
+      {:status 400 :body {:error :user-not-found}}
+      (let [now (java.util.Date.)]
+        @(d/transact conn [{:db/id id :orcpub.user/sessions-withdrawn now}])
+        (security/note-password-changed! username (.getTime now))
+        {:status 200 :body {:withdrawn true}}))))
+
+(def ^:private recent-password-changes-query
+  ;; Either reason a token is withdrawn. The caller keeps the LATER per account,
+  ;; so signing out everywhere and then resetting -- or the reverse -- does not
+  ;; let the earlier of the two reinstate anything.
+  '[:find ?username ?changed
+    :in $ ?since
+    :where
+    (or [?e :orcpub.user/password-reset ?changed]
+        [?e :orcpub.user/sessions-withdrawn ?changed])
+    [(> ?changed ?since)]
+    [?e :orcpub.user/username ?username]])
+
+(defn refresh-token-withdrawals!
+  "Rebuilds the in-memory register of passwords that moved recently, from the
+   database, where the durable record lives.
+   GOTCHA: memory-only, so a restart silently reinstates every token it was
+   holding, looking exactly like working; only changes inside the token
+   lifetime matter, since older ones already expired. See account-flows.md."
+  [db]
+  (let [since (java.util.Date. (- (System/currentTimeMillis)
+                                  (* auth/token-lifetime-hours 60 60 1000)))
+        rows (d/q recent-password-changes-query db since)]
+    (security/absorb-password-changes!
+     (reduce (fn [m [username ^java.util.Date changed]]
+               (update m username (fnil max 0) (.getTime changed)))
+             {}
+             rows)
+     (.getTime since))
+    (count rows)))
+
+(defn withdrawal-refresh-job
+  "Heartbeat job: re-read the register from the database. Also repairs it if a
+   note was ever lost, since the database is the record and this is the cache."
+  [conn]
+  (refresh-token-withdrawals! (d/db conn))
+  nil)
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -238,7 +344,11 @@
                       {:error error-key})})
 
 (defn create-token [username exp]
+  ;; :minted, not :iat. buddy validates the registered claims it recognises, and
+  ;; a standard iat is seconds where this is millis -- naming it apart keeps the
+  ;; library out of it entirely.
   (jwt/sign {:user username
+             :minted (System/currentTimeMillis)
              :exp exp}
             (signature-or-throw)))
 
@@ -262,14 +372,32 @@
     (some? (:orcpub.user/dark-button-text? user))
     (assoc :dark-button-text? (:orcpub.user/dark-button-text? user))))
 
-(defn bad-credentials-response [db username ip]
+(defn base-url [{:keys [scheme headers]}]
+  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
+
+(defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
   (if (security/too-many-attempts-for-username? username)
-    (login-error errors/too-many-attempts)
+    (do (security/note-refusal! :login-username)
+        (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
-      (login-error (if (:db/id user-for-username)
-                     errors/bad-credentials
-                     errors/no-account)))))
+      ;; Several addresses failing against ONE account inside a minute is also what
+      ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
+      ;; the owner rather than locking them out. Runs on another thread, and its
+      ;; outcome never reaches the response: failing logins must not learn a thing.
+      (when (and (:db/id user-for-username)
+                 (security/multiple-ip-attempts-to-same-account? username)
+                 (security/claim-sign-in-notice! username))
+        (future
+          (email/send-sign-in-attempts-email
+           (base-url request)
+           {:email (:orcpub.user/email user-for-username)
+            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+            :user-agent (get (:headers request) "user-agent")})))
+      ;; One answer for both. Telling somebody the username does not exist made
+      ;; the login form the same membership test the reset endpoint was, and a
+      ;; cheaper one, since it needs no mail to be sent.
+      (login-error errors/bad-credentials))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -289,6 +417,15 @@
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
+
+      ;; Checked before the credentials, not on the failure path: stuffing ends on
+      ;; the one account it guesses right, so a check that only runs after a failed
+      ;; lookup would never see that attempt. Trips on five DISTINCT usernames
+      ;; failing from this address inside a minute -- one person on several devices can't, a spray across accounts can.
+      (security/multiple-account-access? remote-addr)
+      (do (security/note-refusal! :login-spray)
+          (login-error errors/too-many-attempts))
+
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
                   {:keys [:orcpub.user/verified?
@@ -298,17 +435,14 @@
                   unverified? (not verified?)
                   expired? (and verification-sent (verification-expired? verification-sent))]
               (cond
-                (nil? id) (bad-credentials-response db username remote-addr)
+                (nil? id) (bad-credentials-response db username remote-addr request)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
                 (create-login-response db conn user id))))))
 
-(defn login [{:keys [json-params db] :as request}]
-  (try
-    (let [resp (login-response request)]
-      resp)
-    (catch Throwable e (prn "E" e) (throw e))))
+(defn login [request]
+  (login-response request))
 
 
 (defn user-for-email [db email]
@@ -320,9 +454,6 @@
                                        ?email]]}
                             (s/lower-case email))]
     user))
-
-(defn base-url [{:keys [scheme headers]}]
-  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -336,26 +467,141 @@
    params
    verification-key))
 
-(defn do-verification [request params conn & [tx-data]]
-  (let [verification-key (str (java.util.UUID/randomUUID))
-        now (java.util.Date.)]
+(defn do-verification
+  "Create or refresh a pending verification, then email the link. The key is written BEFORE the
+   send (the link only resolves once stored), so a failed send is rolled back: a new account is
+   retracted, an existing one gets its previous key back. Tests: registration_rollback_test.clj.
+   docs/email-system.md mirrors this flow for operators; change both together."
+  [request params conn & [tx-data]]
+  (cond
+    ;; No SMTP and no ALLOW_UNVERIFIED_REGISTRATION: fail closed. A typo'd or empty mount must
+    ;; not quietly turn the site into open registration.
+    (and (not (email/configured?))
+         (not (email/unverified-registration-allowed?)))
+    (do
+      (println "ERROR: registration unavailable — EMAIL_SERVER_URL is unset, so no"
+               "verification email can be sent. Set it, or set"
+               "ALLOW_UNVERIFIED_REGISTRATION=true to accept accounts without"
+               "verifying the address.")
+      ;; A response, not a throw. A throw reaches the client as a bare 500 it
+      ;; cannot tell apart from any other failure, so the form showed nothing.
+      {:status 503 :body {:error :email-not-configured}})
+
+    ;; Deliberately running without email: verify on the spot rather than
+    ;; promising a mail that cannot be sent. The operator of a mail-less
+    ;; instance is handing out the accounts themselves, so address ownership is
+    ;; not being proved by anyone anyway.
+    (not (email/configured?))
+    (do
+      (println "INFO: EMAIL_SERVER_URL is unset — verifying" (:username params)
+               "on creation instead of sending a verification email.")
+      (try
+        @(d/transact conn [(merge tx-data {:orcpub.user/verified? true})])
+        ;; The client branches on this to show "registration complete, you can
+        ;; log in" rather than "check your email".
+        {:status 200 :body {:verified? true}}
+        (catch Exception e
+          (println "ERROR: Failed to create account:" (.getMessage e))
+          (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                          {:error :verification-failed}
+                          e)))))
+    :else
+    (let [verification-key (str (java.util.UUID/randomUUID))
+        now (java.util.Date.)
+        ;; re-verify passes an existing {:db/id id}; register does not. The two
+        ;; need different rollbacks -- never retract the ENTITY for a user who
+        ;; already existed, only the attributes this attempt set.
+        existing-id (:db/id tx-data)
+        tempid "verification-subject"
+        report (try
+                 @(d/transact
+                   conn
+                   [(merge
+                     tx-data
+                     {:db/id (or existing-id tempid)
+                      :orcpub.user/verified? false
+                      :orcpub.user/verification-key verification-key
+                      :orcpub.user/verification-sent now})])
+                 (catch Exception e
+                   (println "ERROR: Failed to create verification record:" (.getMessage e))
+                   (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                                   {:error :verification-failed}
+                                   e))))
+        eid (or existing-id (get (:tempids report) tempid))
+        ;; What this resend overwrote, read from the database just before ITS OWN write, so an
+        ;; overlapping resend that wrote and emailed in between is what comes back if ours fails.
+        ;; verification-key is cardinality-one: without this the link already in the inbox dies.
+        previous (when existing-id
+                   (d/pull (:db-before report)
+                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
+                           existing-id))]
     (try
-      @(d/transact
-        conn
-        [(merge
-          tx-data
-          {:orcpub.user/verified? false
-           :orcpub.user/verification-key verification-key
-           :orcpub.user/verification-sent now})])
       (send-verification-email request params verification-key)
       {:status 200}
-      (catch Exception e
-        (println "ERROR: Failed to create verification record:" (.getMessage e))
+      (catch Throwable e
+        (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
+        (try
+          @(d/transact conn (if existing-id
+                              ;; Restore or remove ONLY while still ours: an overlapping newer
+                              ;; resend may own the inbox link now. :db/cas makes it conditional.
+                              (let [{old-key :orcpub.user/verification-key
+                                     old-sent :orcpub.user/verification-sent} previous]
+                                [(if old-key
+                                   [:db/cas eid :orcpub.user/verification-key verification-key old-key]
+                                   [:db/retract eid :orcpub.user/verification-key verification-key])
+                                 (if old-sent
+                                   [:db/cas eid :orcpub.user/verification-sent now old-sent]
+                                   [:db/retract eid :orcpub.user/verification-sent now])])
+                              [[:db/retractEntity eid]]))
+          (catch Exception re
+            (if (re-find #"cas-failed" (str re (some-> re .getCause)))
+              ;; Not a failure: a newer resend superseded this attempt, so its
+              ;; state is the right state to keep.
+              (println "INFO: verification rollback skipped — a newer resend owns the key now.")
+              ;; Report the rollback failure, but surface the original cause.
+              (println "ERROR: Rollback ALSO failed; a partial account may remain:"
+                       (.getMessage re)))))
         (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                        {:error :verification-failed}
-                        e))))))
+                        {:error :verification-email-failed}
+                        e)))))))
 
-(defn register [{:keys [json-params db conn] :as request}]
+
+(defn- breach-message
+  "Why this reads as a strength verdict, not a security warning: the corpus
+   measures commonness, not a breach or an attacker targeting this person.
+   GOTCHA: speaks like the strength meter under the \"Too common\" badge, so it
+   must not repeat what the badge already said. See account-flows.md."
+  [_n]
+  "A few words strung together are harder to guess and easier to remember.")
+
+(def ^:private breach-refusal-threshold
+  "How many corpus appearances make a password common enough to refuse.
+   GOTCHA: below this line it's advisory only, surfaced by the strength meter
+   while typing; at or above, refusal at submit is reserved for the egregious
+   case -- one appearance is an old leak, four figures ships in every cracking
+   wordlist. See account-flows.md."
+  1000)
+
+(defn- breach-errors
+  "A validation map for an egregiously common password, or nil.
+
+   Only a positive answer counts, and only one at or above the threshold: an
+   unreachable service must read as no objection, and nor must a handful of
+   appearances."
+  [password]
+  (let [result (pwned/check password)]
+    (when (and (number? result) (>= result breach-refusal-threshold))
+      ;; Its OWN key, not :password: a strength verdict, not a rule fault, so it
+      ;; belongs to the meter -- the only thing on the page judging password quality.
+      ;; Keyed with the rule faults instead, it would render as a red field error
+      ;; sitting right above a meter reporting UNCOMMON in green: two disagreeing verdicts.
+      {:password-common [(breach-message result)]})))
+
+(def ^:private registration-throttled-message
+  (str "Too many accounts have been created from this connection in the last hour. "
+       "Try again a little later, or email us if you are stuck."))
+
+(defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
         email (when email (s/lower-case (s/trim email)))
@@ -364,25 +610,35 @@
                     json-params
                     (seq (d/q email-query db email))
                     (seq (d/q username-query db username)))
-        now (java.util.Date.)]
-    (try
-      (if (seq validation)
-        {:status 400
-         :body validation}
-        (do-verification
-         request
-         json-params
-         conn
-         (merge
-          {:orcpub.user/email email
-           :orcpub.user/username username
-           :orcpub.user/password (hashers/encrypt password)
-           :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created now}
-          (when auth/record-last-login-at-registration?
-            {:orcpub.user/last-login now})
-          (user-data/registration-defaults))))
-      (catch Throwable e (prn e) (throw e)))))
+        now (java.util.Date.)
+        ;; Checked only once the form is otherwise valid: no reason to ask a third
+        ;; party about a password attached to a malformed signup.
+        validation (if (seq validation)
+                     validation
+                     (or (breach-errors password) validation))
+        ;; Checked last, so a form that was going to be rejected anyway is not
+        ;; counted against the host. :general rather than a field key: nobody
+        ;; can edit their way past a rate limit, so it must not sit in the map
+        ;; that disables the button.
+        validation (if (or (seq validation) (security/registration-allowed? remote-addr))
+                     validation
+                     (assoc validation :general [registration-throttled-message]))]
+    (if (seq validation)
+      {:status 400
+       :body validation}
+      (do-verification
+       request
+       json-params
+       conn
+       (merge
+        {:orcpub.user/email email
+         :orcpub.user/username username
+         :orcpub.user/password (hashers/encrypt password)
+         :orcpub.user/send-updates? send-updates?
+         :orcpub.user/created now}
+        (when auth/record-last-login-at-registration?
+          {:orcpub.user/last-login now})
+        (user-data/registration-defaults))))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -455,8 +711,12 @@
         {:keys [:orcpub.user/verification-sent
                 :orcpub.user/verified?
                 :db/id] :as user} (user-for-email db email)]
-    (if verified?
-      (redirect route-map/verify-success-route)
+    (cond
+      verified? (redirect route-map/verify-success-route)
+      ;; No account for this address: answer like a resend and create nothing. Passing
+      ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
+      (nil? id) {:status 200}
+      :else
       (do-verification request
                        (merge query-params
                               {:first-and-last-name auth/verification-display-name})
@@ -514,13 +774,29 @@
                      (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))
       {:status 400 :body {:error "User not found"}})))
 
+(defn hash-reset-key
+  "What goes in the database. The emailed key is the secret; storing it verbatim
+   made anyone who can read the user table able to complete a reset on any
+   account with one outstanding. Only the digest is kept, so a stolen table
+   yields nothing that can be mailed back in."
+  [key]
+  (->> (.getBytes ^String key "UTF-8")
+       (.digest (java.security.MessageDigest/getInstance "SHA-256"))
+       (map #(format "%02x" %))
+       (apply str)))
+
+;; Two hours. One is the usual choice and is a one-line change here; two leaves
+;; room for mail that takes a while to arrive and for somebody who reads it on
+;; the way home, on a site whose worst case is a character sheet.
+(def password-reset-valid-hours 2)
+
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
       @(d/transact
         conn
         [{:db/id user-id
-          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-key (hash-reset-key key)
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
@@ -536,49 +812,121 @@
                         e))))))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent
+       (before? (instant password-reset-sent) (-> password-reset-valid-hours hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
   (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
-(defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
-  (try
-    (let [email (:email query-params)
-          {:keys [:orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset
-                  :db/id] :as user} (user-for-email db email)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (if id
+(defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
+  (let [email (:email query-params)
+        {:keys [:db/id]} (user-for-email db email)]
+    ;; The answer is identical whether or not that address has an account:
+    ;; confirmed-valid addresses are precisely what a stuffing run needs.
+    ;; The per-address limit is checked AFTER the lookup but never changes the
+    ;; response -- a limit that visibly altered it would itself be a membership oracle, which the uniform 200 closes.
+    (when (and id (security/reset-email-allowed? email remote-addr))
+      (try
         (do-send-password-reset id email conn request)
-        {:status 400 :body {:error :no-account}}))
-    (catch Throwable e (prn e) (throw e))))
+        (catch Exception e
+          ;; Swallowed on purpose. Letting this escape would restore the oracle
+          ;; in a subtler form -- only a real account can fail to be emailed,
+          ;; so an error response would mark the address as registered.
+          (println "ERROR: password reset for a known address could not be sent:"
+                   (.getMessage e)))))
+    {:status 200}))
 
-(defn do-password-reset [conn user-id password]
+(def reset-link-spent-message
+  "This reset link has expired or has already been used. Request a new one from the login page.")
+
+(defn do-password-reset [conn user-id password & [request user]]
   (try
     @(d/transact
       conn
-      [{:db/id user-id
-        :orcpub.user/password (hashers/encrypt (s/trim password))
-        :orcpub.user/password-reset (java.util.Date.)
-        :orcpub.user/verified? true}])
+      (cond-> [{:db/id user-id
+                :orcpub.user/password (hashers/encrypt (s/trim password))
+                :orcpub.user/verified? true}
+               ;; Conditional on the reset this request read (nil: none yet), so of two submits of
+               ;; one link racing, the second fails instead of also setting a password.
+               [:db/cas user-id :orcpub.user/password-reset
+                (:orcpub.user/password-reset user) (java.util.Date.)]]
+        ;; The link is spent with the password it set, in the same transaction.
+        (:orcpub.user/password-reset-key user)
+        (conj [:db/retract user-id :orcpub.user/password-reset-key
+               (:orcpub.user/password-reset-key user)])))
+    ;; Before anything else that can fail: every token minted before now is no
+    ;; longer good for this account, including the one this very request is
+    ;; using. That is the point -- a reset is how somebody takes their account
+    ;; back, and leaving the intruder's session alive would defeat it.
+    (when-let [username (:orcpub.user/username user)]
+      (security/note-password-changed! username))
+    ;; After the transact, on another thread, and its outcome never reaches the
+    ;; response: the password HAS changed by now, and a mail failure must not
+    ;; report an error for something that already happened -- somebody would
+    ;; simply do it again.
+    (when (and request (:orcpub.user/email user))
+      (future
+        (email/send-password-changed-email
+         (base-url request)
+         {:email (:orcpub.user/email user)
+          :first-and-last-name (:orcpub.user/first-and-last-name user)
+          :user-agent (get (:headers request) "user-agent")})))
     {:status 200}
     (catch Exception e
-      (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
-      (throw (ex-info "Unable to reset password. Please try again or contact support."
-                      {:error :password-update-failed
-                       :user-id user-id}
-                      e)))))
+      (if (odb/cas-failed? e)
+        {:status 400 :body {:general [reset-link-spent-message]}}
+        (do (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
+            (throw (ex-info "Unable to reset password. Please try again or contact support."
+                            {:error :password-update-failed
+                             :user-id user-id}
+                            e)))))))
 
-(defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
+(declare user-by-password-reset-key-query)
+
+(defn reset-password
+  "Set a new password with the key from a reset link. The key is the only authority: opening
+   the link grants no session, and the key is checked here, at submit, then retired."
+  [{:keys [json-params db conn] :as request}]
   (try
     (let [{:keys [password verify-password]} json-params
-          username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)]
+          ;; Trimmed before anything judges it, because do-password-reset stores it
+          ;; trimmed and the corpus lookup hashes it: an untrimmed check asks about
+          ;; a different string from the one saved.
+          password        (some-> password s/trim)
+          verify-password (some-> verify-password s/trim)
+          reset-key (:key json-params)
+          {:keys [:db/id :orcpub.user/username :orcpub.user/email
+                  :orcpub.user/password-reset-sent :orcpub.user/password-reset] :as user}
+          (when-not (s/blank? reset-key)
+            (first-user-by db user-by-password-reset-key-query (hash-reset-key reset-key)))
+          usable? (and id
+                       (not (password-reset-expired? password-reset-sent))
+                       (not (password-already-reset? password-reset password-reset-sent)))
+          ;; The username is known here, even though this page never shows it,
+          ;; so a password that IS the username can be refused the way
+          ;; registration already refuses one. Without the context this was the
+          ;; one rule the two paths did not share.
+          context {:username username :email email}
+          rule-errors (registration/validate-password password context)
+          ;; Asked once. Only reached when the password is otherwise acceptable,
+          ;; so a rejected reset never costs a call.
+          breached (when (and usable? (= password verify-password) (empty? rule-errors))
+                     (first (:password-common (breach-errors password))))]
+      ;; Field-keyed, in :body, the same shape registration answers with.
+      ;; :message is not a Pedestal response key: these came back as a 400 with
+      ;; an EMPTY body, so the reasons never left the server and the page had
+      ;; nothing to show but a generic apology.
       (cond
-        (not= password verify-password) {:status 400 :message "Passwords do not match"}
-        (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
-        :else (do-password-reset conn id password)))
+        ;; Missing, unknown, expired and used are one answer: this link no longer works.
+        (not usable?)
+        {:status 400 :body {:general [reset-link-spent-message]}}
+
+        (not= password verify-password)
+        {:status 400 :body {:verify-password ["Passwords do not match"]}}
+
+        (seq rule-errors) {:status 400 :body rule-errors}
+        breached {:status 400 :body {:password-common [breached]}}
+        :else (do-password-reset conn id password request user)))
     (catch Throwable t (prn t) (throw t))))
 
 (def font-sizes
@@ -658,21 +1006,22 @@
    load-fonts embeds its own subset of every face used, so building a set here and
    another in add-magic-item-cards! puts two complete copies of Vollkorn in a
    character sheet that prints both kinds of card."
-  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]
+  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded? & [spell-order]]
   (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
           ;; capping it would keep the first few classes whole and drop the rest.
           flat-spells (bound-cards "spell" (-> spells-known vals flatten))
+          ;; By class, then spellbook/spell-sort-key: level and name, or name alone.
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
-                           [(if (keyword? class)
-                              (common/kw-to-name class)
-                              class)
-                            key])
+                           (into [(if (keyword? class)
+                                    (common/kw-to-name class)
+                                    (str class))]
+                                 (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))]
+          parts (vec (partition-all 9 sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -735,6 +1084,77 @@
                                  logo-img)))))))
     (catch Exception e (println "pdf: failed adding magic item cards" e))))
 
+(defn- one-of
+  "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
+  [allowed v default]
+  (let [k (cond (keyword? v) v (string? v) (keyword v))]
+    (if (contains? allowed k) k default)))
+
+(defn- small-int
+  "`v` when it is an integer from `lo` to `hi`, else nil."
+  [v lo hi]
+  (when (and (integer? v) (<= lo v hi)) v))
+
+(defn- short-str
+  "`v` cut to at most `n` characters when it is a string, else nil."
+  [v n]
+  (when (string? v) (subs v 0 (min n (count v)))))
+
+(defn- slot-table
+  "A slot table {level count} from request map `m`, keeping levels 1-9 with counts 0-20; level
+   keys may arrive as keywords."
+  [m]
+  (into {}
+        (for [[l n] (when (map? m) m)
+              :let [l (small-int (if (keyword? l) (parse-long (name l)) l) 1 9)
+                    n (small-int n 0 20)]
+              :when (and l n)]
+          [l n])))
+
+(defn spellbook-options
+  "The :spellbook request map made safe to lay out from, or nil. Caller-supplied, so every
+   value is checked: unknown choices fall back to the defaults, numbers are bounded, strings
+   cut short, and an emblem must be one of the vendored icons, since its name becomes part
+   of a resource path."
+  [sb character-name]
+  (when (map? sb)
+    (let [classes (->> (:classes sb)
+                       (filter map?)
+                       (take (config/get-pdf-max-caster-sections))
+                       (keep (fn [{:keys [class level ability dc attack pact? icon]}]
+                               (when-let [class (short-str class 60)]
+                                 (let [class-kw (common/name-to-kw class)]
+                                   {:class class
+                                    :class-kw class-kw
+                                    :level (small-int level 1 30)
+                                    :ability (short-str ability 20)
+                                    :dc (small-int dc 0 99)
+                                    :attack (short-str attack 6)
+                                    :pact? (true? pact?)
+                                    :icon (emblems/icon-for class-kw icon)}))))
+                       vec)]
+      (when (seq classes)
+        {:layout (one-of #{:book :ledger :prep} (:layout sb) :book)
+         :order (one-of #{:level :alpha} (:order sb) :level)
+         :class-break (one-of #{:runon :page} (:class-break sb) :runon)
+         :tabs (one-of #{:head :inset :off} (:tabs sb) :head)
+         :classes classes
+         :slots (slot-table (:slots sb))
+         :pact-slots (slot-table (:pact-slots sb))
+         :character-name (short-str character-name 80)}))))
+
+(defn add-spellbook!
+  "Appends the spellbook pages. Like the cards, a failure is logged rather than thrown, so
+   it cannot cost the character their sheet."
+  [doc fonts img opts spells-known custom-spells]
+  (try
+    (let [spells-map (merge spells/spell-map (common/map-by-key custom-spells))
+          ;; Bounded by the card ceiling; the pages read only the flat list, under one key.
+          spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
+      (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
+    (catch Exception e
+      (println "pdf: failed adding the spellbook -" (.getMessage e)))))
+
 (def valid-sheet-styles
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
   #{1 2 3 4})
@@ -753,6 +1173,7 @@
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
+    :spellbook :spell-order
     :flatten?})
 
 (def ^:private image-url-shape
@@ -799,19 +1220,45 @@
         (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
         outcome))))
 
+(def ^:private probe-max-concurrency
+  "Outbound fetches the probe endpoint may have running at once. This endpoint
+   needs no login and answers one URL per request, so without a bound a caller
+   can hand it many distinct not-yet-cached addresses and park a Jetty worker
+   on someone else's slow host per request. Small on purpose: this is one
+   request's worth of curiosity about one picture, not sheet generation."
+  8)
+
+(def ^:private probe-slots
+  (delay (java.util.concurrent.Semaphore. probe-max-concurrency true)))
+
 (defn image-probe
-  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before
-   it exports a picture the browser could not read. Answers 200 with a reason name: ok,
-   blocked-address, the fetch's failure reason, or unknown. The fetched bytes are kept for the
-   export that follows.
-   GOTCHA: it needs no login, so it must never return the picture; that would make it an
-   open proxy."
-  [{:keys [transit-params]}]
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before it exports one the browser couldn't read.
+   Answers 200 with a reason: ok, blocked-address, the fetch's failure reason, unknown, or rate-limited; fetched bytes are kept for the export that follows.
+   A cache hit always answers; a miss is gated by a per-host hourly limit and the concurrency bound, since misses are what let an unauthenticated caller park Jetty workers on hosts of their choosing -- both refusals surface as rate-limited.
+
+   GOTCHA: no login is required, so this must never return the picture itself; that would make it an open proxy."
+  [{:keys [transit-params remote-addr]}]
   (let [url (:url transit-params)
-        reason (if-not (well-formed-image-url? url)
+        cached (get @probed-images url)
+        reason (cond
+                 (not (well-formed-image-url? url))
                  :blocked-address
-                 (let [{:keys [image reason]} (probed-outcome url)]
-                   (if image :ok (or reason :unknown))))]
+
+                 cached
+                 (let [{:keys [image reason]} (:outcome cached)]
+                   (if image :ok (or reason :unknown)))
+
+                 (not (security/image-probe-allowed? remote-addr))
+                 :rate-limited
+
+                 (not (.tryAcquire ^java.util.concurrent.Semaphore @probe-slots))
+                 :rate-limited
+
+                 :else
+                 (try
+                   (let [{:keys [image reason]} (probed-outcome url)]
+                     (if image :ok (or reason :unknown)))
+                   (finally (.release ^java.util.concurrent.Semaphore @probe-slots))))]
     ;; The HOST only, never the URL: an image address can carry a signed query
     ;; string. This is how the genuinely unreachable set gets measured rather than
     ;; guessed at.
@@ -976,7 +1423,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? spellbook spell-order]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1069,12 +1516,17 @@
       ;; a card page is actually coming, since a plain sheet needs neither.
       (let [spell-cards? (and print-spell-cards? (seq spells-known))
             item-cards? (and print-magic-item-cards? (seq magic-items-known))
-            fonts (when (or spell-cards? item-cards?) (pdf/load-fonts doc))
-            img (when (or spell-cards? item-cards?) (pdf/make-image-loader doc))]
+            book (when (seq spells-known) (spellbook-options spellbook character-name))
+            spell-order (one-of #{:level :alpha} spell-order :level)
+            fonts (when (or spell-cards? item-cards? book) (pdf/load-fonts doc))
+            img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
+        ;; Order: sheet, spellbook, then cards.
+        (when book
+          (add-spellbook! doc fonts img book spells-known custom-spells))
         (when spell-cards?
           (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
                             custom-spells print-spell-card-dc-mod? card-back-logo-img
-                            bw? bw-faded?))
+                            bw? bw-faded? spell-order))
         (when item-cards?
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))
@@ -1148,14 +1600,15 @@
     (merge
      response
      {:status 200
-      :headers {"Content-Type" "text/html" }
+      :headers (merge {"Content-Type" "text/html"} (:headers response))
       :body
       (index-page
        {:url (str "http://" host uri)
         :title (or title default-title)
         :description (or description default-description)
         :image (or image-url (default-image-url host))
-        :nonce csp-nonce}
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]
@@ -1164,23 +1617,32 @@
 (defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
   (default-index-page request response))
 
-(defn reset-password-page [{:keys [query-params db conn] :as req}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:db/id
-                  :orcpub.user/username
-                  :orcpub.user/password-reset-key
-                  :orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset] :as user}
-          (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (cond
-        expired? (redirect route-map/password-reset-expired-route)
-        already-reset? (redirect route-map/password-reset-used-route)
-        :else (let [token (create-token username (-> 1 hours from-now))]
-                (index req {:cookies {"token" token}}))))
-    {:status 400
-     :body "Key is required"}))
+(defn reset-password-page [{:keys [query-params db] :as req}]
+  (let [key (:key query-params)
+        {:keys [:db/id
+                :orcpub.user/username
+                :orcpub.user/password-reset-sent
+                :orcpub.user/password-reset]}
+        ;; The link carries the key; the table holds only its digest.
+        (when-not (s/blank? key)
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key)))
+        expired? (password-reset-expired? password-reset-sent)
+        already-reset? (password-already-reset? password-reset password-reset-sent)]
+    (cond
+      ;; Covers both no key at all and a key matching nobody, so neither bare-strings
+      ;; a "Key is required" error nor falls through to :else and signs a token for
+      ;; a nil username. A mangled link and an expired one are the same event to the
+      ;; reader -- it doesn't work -- so both land on the page offering to send a new one.
+      (nil? id) (redirect route-map/password-reset-expired-route)
+      expired? (redirect route-map/password-reset-expired-route)
+      already-reset? (redirect route-map/password-reset-used-route)
+      ;; No session: the key in the URL is what the form submits. The username cookie grants
+      ;; nothing; it lets the meter flag a password equal to it. no-referrer keeps the key out of
+      ;; the Referer of anything this page loads.
+      :else (index req {:headers {"Referrer-Policy" "no-referrer"}
+                        :cookies {"reset-username" {:value username :path "/"
+                                                    :max-age (* password-reset-valid-hours 3600)
+                                                    :same-site :strict}}}))))
 
 (defn check-field [query value db]
   {:status 200
@@ -1396,9 +1858,12 @@
       {:status 200
        :body result})))
 
-(defn get-item [{:keys [db] {:keys [:id]} :path-params}]
+(defn get-item
+  "A custom item, for its owner only. Anyone else gets the 404 a missing item gets, so an id
+   says nothing about whether it exists."
+  [{:keys [db username] {:keys [:id]} :path-params}]
   (let [item (d/pull db '[*] id)]
-    (if (::mi5e/owner item)
+    (if (and (::mi5e/owner item) (= username (::mi5e/owner item)))
       {:status 200
        :body item}
       {:status 404})))
@@ -1511,17 +1976,46 @@
         (errors/with-db-error-handling :character-deletion-failed
           {:character-id parsed-id}
           "Unable to delete character. Please try again or contact support."
-          @(d/transact conn [[:db/retractEntity parsed-id]])
+          @(d/transact conn (cons [:db/retractEntity parsed-id]
+                                  (share/retractions-for-character db parsed-id)))
           {:status 200})
         {:status 400 :body problems})
       {:status 401 :body "You do not own this character"})))
+
+(defn- public-owner
+  "The owner as a character read shows it: the username, or nil. For nine days in May 2017 the
+   login token carried whatever the user typed (e3cdf5f to cf170fc), so characters saved then name
+   their owner by email address; this read needs no login, so the address must not go out."
+  [db owner]
+  (if-let [user (find-user-by-username-or-email db owner)]
+    (:orcpub.user/username user)
+    (when-not (s/includes? owner "@") owner)))
+
+(defn- equipped-custom-items
+  "The owner's custom items this character has equipped, without database ids or owner. Whoever may
+   read the character sees these, because the sheet is drawn from them; the owner's other items stay
+   out. Any failure sends none rather than failing the character read."
+  [db username character]
+  (try
+    (sb/used-custom-items (entity/from-strict character)
+                          (d/q '[:find [(pull ?e [*]) ...] :in $ ?owner :where [?e ::mi5e/owner ?owner]]
+                               db username)
+                          #(mi5e/expand-magic-items [%]))
+    (catch Exception e
+      (println "WARNING: custom items not attached to character" (:db/id character) ":" (.getMessage e))
+      nil)))
 
 (defn get-character-for-id [db id]
   (let [{:keys [::se/owner] :as character} (d/pull db '[*] id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (or (not owner) (seq problems))
       {:status 400 :body problems}
-      {:status 200 :body character})))
+      (let [shown (public-owner db owner)
+            items (when shown (equipped-custom-items db shown character))]
+        {:status 200 :body (cond-> (if shown
+                                     (assoc character ::se/owner shown)
+                                     (dissoc character ::se/owner))
+                             (seq items) (assoc ::char5e/custom-items items))}))))
 
 (defn character-summary-for-id [db id]
   ;; Fixed: bare destructuring outside let silently returned nil
@@ -1608,6 +2102,7 @@
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
     (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+          current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
         {:status 400 :body {:error :user-not-found}}
@@ -1618,6 +2113,13 @@
           (cond
             (nil? id)
             {:status 400 :body {:error :user-not-found}}
+
+            ;; Re-authentication: moving an account to another address takes it away
+            ;; from whoever holds this one, requiring more than just a session -- a
+            ;; borrowed or forgotten session alone must not be enough to walk off with
+            ;; the account. The password is compared, never read: lookup-user does the hash check.
+            (nil? (:db/id (lookup-user db username (str current-password))))
+            {:status 400 :body {:error :bad-credentials}}
 
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
@@ -1661,6 +2163,16 @@
                 (send-email-change-verification request
                                                 {:email new-email :username username}
                                                 verification-key)
+                ;; Tells the address that currently owns the account. Verification goes to
+                ;; the NEW address, unreachable by the owner if this wasn't them, so without
+                ;; this notice the losing party is never told. Runs on another thread: the
+                ;; change is already accepted, so a failure here must not report an error.
+                (future
+                  (email/send-email-change-notice
+                   (base-url request)
+                   {:email email
+                    :first-and-last-name (:orcpub.user/first-and-last-name user)
+                    :new-email new-email}))
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e
                   (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
@@ -1719,6 +2231,11 @@
    [route-map/login-page-route]
    [route-map/verify-sent-route]
    [route-map/password-reset-sent-route]
+   ;; Was the only one of these missing. The client routes here after a reset,
+   ;; so it renders inside a session -- but a refresh, a back button or a
+   ;; bookmark asked the server for it and got "Not Found", on the one page
+   ;; whose whole job is to confirm the password was changed.
+   [route-map/password-reset-success-route]
    [route-map/password-reset-expired-route]
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
@@ -1822,6 +2339,8 @@
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
+       [(route-map/path-for route-map/user-sessions-route) ^:interceptors [check-auth]
+        {:delete `withdraw-sessions}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]
@@ -1831,9 +2350,8 @@
         {:post `save-item
          :get `item-list}]
        [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:delete `delete-item}]
-       [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [parse-id]
-        {:get `get-item}]
+        {:get `get-item
+         :delete `delete-item}]
 
        ;; Characters
        [(route-map/path-for route-map/dnd-e5-char-list-route) ^:interceptors [check-auth]
@@ -1847,6 +2365,15 @@
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
         {:get `get-character}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [parse-id]
+        {:get `share/get-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [check-auth parse-id]
+        {:put `share/put-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
+        {:get `share/get-token
+         :put `share/create-token
+         :post `share/new-token
+         :delete `share/stop-sharing}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
@@ -1884,7 +2411,7 @@
         {:get `re-verify}]
        [(route-map/path-for route-map/unsubscribe-route)
         {:get `unsubscribe}]
-       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies check-auth]
+       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies]
         {:post `reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
         {:get `reset-password-page}]
