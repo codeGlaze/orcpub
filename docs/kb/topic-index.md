@@ -2359,7 +2359,7 @@ _pedestal-csp-history · pedestal csp history_
 
 _perf-entity-build · perf entity build_
 
-**topics:** 500, click, clock, cyclic, dags, debounce, divergences, doubling, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
+**topics:** 500, browser, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
 
 - 1. Is it actually slow in the browser? Yes.
 - 2. Where the time goes (JVM phase split of apply-options)
@@ -3000,9 +3000,10 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2024, 317, 805, checked, column, counterpart, counting, delta, designed, dnd, editions, magic, monsters, namespace, open5e, srd, started, text
+**topics:** 2024, 317, 322, 339, 805, checked, counterpart, counting, dnd, magic, monsters, namespace, open5e, reconcile, species, srd, started, text
 
 - Content
+- SRD membership per 5etools (verified 2026-10-06)
 - Rules and reference (no e5 data namespace)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
@@ -3052,15 +3053,18 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, compressed, diff, edition, editions, open5e, open5e-upstream-notes, owner, pdf, rung, similarity, spells, srd, srd-2024-coverage, text, trunk, wording
+**topics:** 2014, 2024, 5etools, alpha, breadth, content, diff, edition, editions, open5e, owner, pdf, rung, srd, srd-2024-coverage, text, trunk, wording
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
 - One loader for the SRD and for homebrew
 - The ladder
-- The plan: spells first
-- Two different comparisons — do not confuse them
-- Steps, in order
+- The plan: breadth first
+- Four sources, two comparisons
+- Phase 1 — the breadth survey (next)
+- Phase 2 — order the content types
+- Phase 3 — per content type, in that order
+- Spells, already partly through phase 3
 - Decided
 - Wanted, not yet scoped
 - Open decisions
@@ -3113,7 +3117,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map

@@ -50,6 +50,8 @@ while the SRD gives it a higher-level rule.
 | `srd-2024` | Chain Lightning | SRD 5.2.1 p.114 | "Using a Higher-Level Spell Slot. One additional bolt leaps from the first target…" |
 | `srd-2024` | Dissonant Whispers | SRD 5.2.1 p.124 | "Using a Higher-Level Spell Slot. The damage increases by 1d6 for each spell slot level above 1." |
 
+5etools, an independent transcription, carries all three upcasts in both editions.
+
 ## 3. Upcasting is structured unevenly between the two documents — **verified**
 
 open5e records upcasting twice: as `higher_level` text, and as per-slot `SpellCastingOption`

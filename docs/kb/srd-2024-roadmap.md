@@ -84,7 +84,7 @@ capacity and the SPA, scheduled as its own decision. Treat them as one design, n
 |---|---|---|
 | 1. Research | what is in 2024, how it differs, what the app cannot express | **Mostly done, uneven.** Spells, magic items, classes, rules tier and conditions surveyed; species, backgrounds and feats mapped by shape. Monsters, equipment, weapons and armor not surveyed. |
 | 2. Design | the decisions below | **Made, now written down here.** |
-| 3. Plan | order, dependencies, what blocks what | **Spells ordered** — see *The plan* below. Other content types not yet ordered; the coverage map lists them. |
+| 3. Plan | order, dependencies, what blocks what | **Breadth first** — see *The plan* below. Per-type order follows the breadth survey and the alpha decision. |
 | 4. Framework | the machinery that makes 2024 possible in the app | **Nothing built.** One characterization test exists. |
 | 5. MVP | something a user can touch | **Not started.** |
 | 6. Alpha | an MVP verified against the SRD and safe to hand to testers | **Not started.** |
@@ -96,49 +96,66 @@ Proposed meaning of done for each rung, to be confirmed:
 - **Framework** — a source-tagged `e55` entry can reach a character without being silently dropped, and can be filtered by edition.
 - **MVP** — open question; see *Which rung is alpha*.
 
-## The plan: spells first
+## The plan: breadth first
 
-Spells go first because all three sources are already in hand (`e5`, open5e's 2014 and 2024 data,
-both SRD PDFs) and because the method proved on spells is then repeated for each other content
-type, tracked on [srd-2024-coverage.md](srd-2024-coverage.md).
+Earlier work went deep on spells while monsters, equipment, weapons and armor were not even
+surveyed. The risk is not just neglect: a pipeline designed around spells may not fit the rest.
+Monsters rename and split between editions (2014's Goblin became Goblin Minion, Warrior and Boss);
+species and backgrounds changed *structure*, so they cannot be diffed; magic items are expanded per
+base item. So: **one shallow, fixed-size pass over every content type before more depth anywhere.**
 
-### Two different comparisons — do not confuse them
+### Four sources, two comparisons
 
-| | compares | answers | status |
-|---|---|---|---|
-| **A. Edition difference** | 2014 spell text against 2024 spell text | how each 2024 spell is **stored**: as a diff against its 2014 entry, or in full | run once, on *uncorrected* open5e text; figures are provisional |
-| **B. Three-way check** | `e5` against open5e `srd-2014`, then both against the SRD 5.1 PDF | whether the app's **existing 2014 data is right** | description text done; fields not yet compared |
+| source | role |
+|---|---|
+| SRD PDFs (`resources/srd/`) | **the authority**; disputes are settled on the rendered page |
+| open5e repo data | structured transcription; the basis we generate from, after our corrections |
+| 5etools (`5etools-mirror-3/5etools-src`) | **independent crosscheck only** — detector, not fixer (see *Decided*) |
+| `e5` | the app's existing 2014 data, under review |
 
-**B comes before A.** A diffs each 2024 spell against a 2014 base, so the base has to be verified
-first; otherwise the first correction to it breaks or silently changes the diffs built on it.
+Two comparisons apply to every content type, and must not be confused:
 
-**The 2014 base is the corrected open5e text, verified against the PDF** — following the pipeline
-decision below — not `e5` directly. `e5`'s departures from the SRD are reviewed separately and its
-good editorial work kept where it fits (some of it reads like the builder summaries we need).
+- **A. Edition difference** — 2014 against 2024. Decides how a 2024 entry is *stored*: diff
+  against its 2014 entry, in full, or neither where the structure changed.
+- **B. Correctness check** — `e5`, open5e and 5etools against each other, then the PDF. Decides
+  whether the data is *right*. **B comes before A**: A diffs against a 2014 base, which must be
+  verified first. That base is the corrected open5e text, not `e5` directly.
 
-A's current figures (5 of 317 shared spells word-identical, the similarity spread behind the 60%
-threshold) were taken on open5e text that still has three missing upcasts and soft-hyphen
-artifacts. They are recomputed in step 4.
+Triage under B: open5e and 5etools agree and `e5` differs — `e5` is likely wrong. open5e differs
+from both — a correction and an upstream fix. open5e and 5etools disagree — an error *or* a
+deliberate SRD-versus-PHB difference, so check the PDF.
 
-### Steps, in order
+### Phase 1 — the breadth survey (next)
 
-1. **Finish check B for spells.** Compare *fields* (level, school, casting time, range,
-   components, duration) between `e5` and open5e `srd-2014`. Confirm the 12 spells whose text
-   departs — 8 in `e5`, 4 in open5e — on rendered PDF pages. *Description text done; the rest not
-   started.*
-2. **Start the corrections list.** Each open5e fix with its record, field, corrected value and PDF
-   page. It doubles as the upstream PR list ([open5e-upstream-notes.md](open5e-upstream-notes.md)).
-3. **Generate canonical spell files for both editions** from the corrected data, normalising
-   *structure* only: all upcasting in one place, encoding artifacts folded, gaps filled from the PDF
-   and flagged. Stored text stays verbatim. Verify against the PDF.
-4. **Re-run comparison A on the canonical files.** Store each 2024 spell as a diff where at least
-   60% of its wording matches (provisional), otherwise in full. Log the five measures per entry and
-   check every diff round-trips to the exact 2024 text.
-5. **Replace `e55/spells.cljc`** with the generated output, carrying the mechanical fields the
-   current 109-entry file throws away.
+For every content type, the same seven questions, results recorded in
+[srd-2024-coverage.md](srd-2024-coverage.md):
 
-Alongside, not blocking: **review the 8 `e5` spells** that depart from the SRD — where their text
-came from (only SRD content ships) and whether any should become summaries.
+1. **Counts** across `e5`, open5e 2014 and 2024, 5etools (`srd` / `srd52`) and the PDFs — measured by
+   loading the data, never by grepping.
+2. **Do 2014 and 2024 entries match one-to-one by name**, or rename, split, merge?
+3. **What changed structurally** — fields added or removed, format changes.
+4. **What mechanical fields** the sources offer.
+5. **Which storage model fits** — diff, full, or neither.
+6. **A small `e5` spot-check** — a handful of entries against the PDF, not the full check.
+7. **What it needs from the framework** — grant vocabulary, the version filter, and so on.
+
+### Phase 2 — order the content types
+
+Set by the open **alpha decision** (browse the 2024 SRD, build a 2024 character, or mix
+editions) and by which types most threaten the pipeline design. Not by convenience.
+
+### Phase 3 — per content type, in that order
+
+Check B; corrections list (each fix with its PDF page, doubling as upstream PRs); canonical files
+for both editions, normalising structure only; comparison A where a storage model fits, with the
+60% threshold provisional and every diff round-trip checked; replace the `e55` file.
+
+### Spells, already partly through phase 3
+
+Check B on description text is done: 311 of 319 `e5` spells are SRD text, 8 depart, open5e
+departs in 4 others. The three upcasts open5e lacks (Heroism, Chain Lightning, Dissonant
+Whispers) are present in 5etools in both editions. Remaining for spells: fields, the 12
+departures on rendered pages, then the rest of phase 3. **Not the next thing** — phase 1 is.
 
 ## Decided
 
@@ -156,6 +173,7 @@ came from (only SRD content ships) and whether any should become summaries.
 | An edition is not packed into browser-loaded content: it is far too large for the plugin store. It is compiled in, like `e5`. | owner |
 | Only SRD content ships. We keep **our own copies, in our own syntax, verbatim in content**. | owner |
 | Sources: the **SRD PDF is the authority**; open5e's per-publisher repo data (`data/v2/wizards-of-the-coast/srd-2024`) supplies structure and is verified against it; a **rendered page** settles disputes. Text extracted from the PDF is never checked only against itself. | agreed in discussion |
+| **5etools is an independent crosscheck, never a source.** It flags SRD membership on every entry (`srd` / `srd52`), with counts matching both SRDs, and maps renamed entries to their SRD names ("Bigby's Hand" carries `srd: "Arcane Hand"`). It detects errors; it does not fix them — its text is PHB text, so corrections come from the SRD PDF. Its data is fetched only to check against and is never committed. Mirrors get taken down; the live one as of 2026-10-06 is `5etools-mirror-3/5etools-src`. | owner |
 | The 5.2.1 PDF and a text transcript are kept in the repository (`resources/srd/` on the trunk). | owner |
 | Machinery **specific to 2024** belongs on the 5.5 trunk; machinery that is **edition-neutral or helps both** belongs to the refactor. Decide per piece. | owner |
 | Species and backgrounds: **map the shapes now, mechanise later.** Keep a running list of what is needed. | owner |

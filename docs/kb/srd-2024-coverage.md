@@ -25,6 +25,21 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 | languages | 16 | — | **NOT CHECKED** | no obvious 2024 counterpart file |
 | skills | 18 | `SkillDescription.json` | **NOT CHECKED** | |
 
+## SRD membership per 5etools (verified 2026-10-06)
+
+5etools marks SRD entries with `srd` (5.1) and `srd52` (5.2.1). Counts, with what they match:
+
+| content | `srd` | `srd52` | check |
+|---|---|---|---|
+| spells | 319 | 339 | both SRDs exactly |
+| monsters | 322 | 330 | 2014 matches open5e (322) and the PDF (323); 2024 within 2 of the PDF's 332 |
+| species | 9 | 9 | matches |
+| backgrounds | 1 | 4 | matches |
+| feats | 1 | 17 | matches |
+| conditions | 15 | 15 | matches |
+| items | 493 | 456 | **reconcile** — includes ordinary gear; the magic-item share does not match the PDF's ~231 / ~237 |
+| 2014 subraces | 9 | — | **reconcile** — open5e records 4 |
+
 ## Rules and reference (no e5 data namespace)
 
 | type | 2024 source | status |
