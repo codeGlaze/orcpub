@@ -76,6 +76,20 @@ That asymmetry — universal path, narrow intended change — is why characteriz
 **Characterizing class tools is not a prerequisite.** It is the same shape as the skills case and
 would confirm rather than discover. Do it as part of step 5, not before step 1.
 
+### Step 1 of the decided design: the build plan (2026-10-06)
+
+On `fix/hidden-multiclass-skill-pick`, on top of the shared `picks` namespace (#47). One commit each,
+its test green before the next. Items 7–8 wait for the header-layout design pass.
+
+| # | commit | test |
+|---|---|---|
+| 1 | `picks/disqualified`, `picks/overflow`: addresses of stored picks whose selection is closed, and the newest picks over a selection's limit. The builder's own pipeline (`random-character` in `events.cljs`): `available-selections` → `combine-selections` → `count-remaining`, so one rule for showing and applying. A pick whose option the template does not offer (missing homebrew) is never reported; a closed selection sharing its storage slot with an open one is overflow, not closed; addresses under another reported address are dropped | JVM, real classes: Hunter 6 with Steel Will; Champion 9 with two styles; first-class skills on a second class; homebrew override; missing homebrew; a normal level-10 character reports nothing |
+| 2 | `picks/to-planned` / `from-planned`: move reported picks out with `remove-at` (records kept in memory), put them back with `put-at` when no longer reported; nil from `put-at` retires the record. Repeat until nothing changes, with a pass limit that errors rather than guesses | JVM: 7→6→7 and 10→9→10 round-trip; re-picked meanwhile retires; convergence |
+| 3 | Wire where the heals run (`set-character`, `cache-template`, the character sub); the hold in app-db, never saved; on open with ghosts, set aside and save | cljs + e2e: ranger 7→6→7, Champion 10→9→10, reload drops the hold |
+| 4 | Remove the skills-only fix (per-arm conditions); its tests stay as characterization | the research tests give the same sheet |
+| 5 | Stop the reset on deleting or changing the first class (flow 5 data loss) | e2e: the other class keeps its picks |
+| 6 | Full checks; PR into `integration` only with items 7–8 | |
+
 ### Step 5, mapped (2026-10-01)
 
 > **Superseded by the owner's decision of 2026-10-03** (`decision-gate-hidden-picks.md`, top): one
