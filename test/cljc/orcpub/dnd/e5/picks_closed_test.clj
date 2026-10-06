@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.picks-closed-test
-  "`picks/disqualified` and `picks/overflow` on the real fighter, ranger and rogue templates."
+  "`picks/disqualified`, `picks/overflow` and the planned hold on the real fighter, ranger and
+   rogue templates."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.template :as t5e]
@@ -109,4 +110,65 @@
         "the first class takes maximum hit points at level 1")
     (is (= #{} (:disqualified (closed (character [(class-entry :fighter 1) rolled-1]))))
         "a later class rolls its level 1")))
+
+;; ---------------------------------------------------------------------------
+;; The planned hold: set aside, put back, retired
+
+(defn- levels-path [i] [::entity/options :class i ::entity/options :levels])
+(defn- drop-level [ch i] (update-in ch (levels-path i) pop))
+(defn- add-level [ch i n] (update-in ch (levels-path i) conj (lvl n)))
+(defn- styles [ch] (mapv ::entity/key (get-in ch [::entity/options :class 0 ::entity/options
+                                                   :fighting-style])))
+(defn- update-planned [ch planned] (picks/update-planned @template ch planned))
+
+(deftest a-level-drop-sets-a-pick-aside-and-raising-it-puts-it-back
+  (let [ch7 (character [(class-entry :ranger 7 (hunter :steel-will))])
+        r6 (update-planned (drop-level ch7 0) [])
+        r7 (update-planned (add-level (:character r6) 0 7) (:planned r6))]
+    (is (nil? (get-in (:character r6) [::entity/options :class 0 ::entity/options :levels 2
+                                       ::entity/options :ranger-archetype ::entity/options
+                                       :defensive-tactics]))
+        "at 6 Steel Will is out of the character")
+    (is (= [steel-will] (mapv :address (:planned r6))))
+    (is (= [steel-will] (mapv :address (:set-aside r6))))
+    (is (= ch7 (:character r7)) "back at 7 the character is exactly what it was")
+    (is (= [] (:planned r7)))
+    (is (= [steel-will] (mapv :address (:restored r7))))))
+
+(deftest the-newest-style-waits-for-champion-10
+  (let [ch10 (character [(class-entry :fighter 10 champion two-styles)])
+        r9 (update-planned (drop-level ch10 0) [])
+        r10 (update-planned (add-level (:character r9) 0 10) (:planned r9))]
+    (is (= [:defense] (styles (:character r9))))
+    (is (= [[:class :fighter :fighting-style :archery]] (mapv :address (:planned r9))))
+    (is (= ch10 (:character r10)))
+    (is (= [] (:planned r10)))))
+
+(deftest a-pick-chosen-again-while-held-retires-the-held-copy
+  (let [ch10 (character [(class-entry :fighter 10 champion two-styles)])
+        r9 (update-planned (drop-level ch10 0) [])
+        switched (assoc-in (:character r9) [::entity/options :class 0 ::entity/options
+                                            :fighting-style]
+                           [{::entity/key :archery}])
+        r10 (update-planned (add-level switched 0 10) (:planned r9))]
+    (is (= [:archery] (styles (:character r10))) "the player's choice stands; nothing is added")
+    (is (= [] (:planned r10)))
+    (is (= [] (:restored r10)))
+    (is (= [[:class :fighter :fighting-style :archery]] (mapv :address (:retired r10))))))
+
+(deftest swapping-the-class-order-holds-and-returns-first-class-picks
+  (let [rogue (class-entry :rogue 1 nil rogue-first-class-skills)
+        fighter (class-entry :fighter 1)
+        second (update-planned (character [fighter rogue]) [])
+        first-again (update-planned (assoc-in (:character second) [::entity/options :class]
+                                              [rogue fighter])
+                                    (:planned second))]
+    (is (= 4 (count (:planned second))) "a second class holds its first-class skills")
+    (is (= [] (:planned first-again)))
+    (is (= (character [rogue fighter]) (:character first-again)))))
+
+(deftest a-character-whose-picks-all-apply-is-left-as-it-is
+  (let [ch (character [(class-entry :fighter 10 champion two-styles)])]
+    (is (= {:character ch :planned [] :set-aside [] :restored [] :retired []}
+           (update-planned ch [])))))
 

@@ -169,3 +169,55 @@
          e (take-last over counted)]
      (conj path (::entity/key e)))))
 
+;; The planned hold: `remove-at` records of picks that stopped applying, kept in memory only and
+;; put back when they fit again. decision-gate-hidden-picks.md, "Current decision".
+
+(defn to-planned
+  "`character` without its `disqualified` and `overflow` picks under `template`, as
+   {:character :set-aside}; `:set-aside` holds their `remove-at` records."
+  [template character]
+  (let [built (entity/build character template)
+        addresses (concat (disqualified template character built)
+                          (overflow template character built))]
+    (reduce (fn [{:keys [character] :as acc} address]
+              (let [{c :character r :removed} (remove-at character address)]
+                (cond-> (assoc acc :character c) r (update :set-aside conj r))))
+            {:character character :set-aside []}
+            addresses)))
+
+(defn from-planned
+  "`character` with each record in `planned` put back by `put-at`, as
+   {:character :put-back :retired}: a record `put-at` cannot write is retired."
+  [character planned]
+  (reduce (fn [{:keys [character] :as acc} record]
+            (if-let [c (put-at character record)]
+              (-> acc (assoc :character c) (update :put-back conj record))
+              (update acc :retired conj record)))
+          {:character character :put-back [] :retired []}
+          planned))
+
+(def ^:private max-passes 8)
+
+(defn update-planned
+  "`character` and its hold `planned` once every held pick that fits is back and every pick that
+   no longer applies is held, as {:character :planned :set-aside :restored :retired}; the last
+   three are records, against the `planned` passed in. Throws ex-info if it does not settle."
+  [template character planned]
+  (let [addresses #(set (map :address %))
+        initial (vec planned)
+        before (addresses initial)]
+    (loop [character character planned (vec planned) retired [] n 0]
+      (when (= n max-passes)
+        (throw (ex-info "Picks did not settle" {:passes n :planned (mapv :address planned)})))
+      (let [{c1 :character r :retired} (from-planned character planned)
+            {c2 :character held :set-aside} (to-planned template c1)
+            retired (into retired r)]
+        (if (and (= c2 character) (= (addresses held) (addresses planned)))
+          (let [after (addresses held)]
+            {:character c2
+             :planned held
+             :set-aside (filterv #(not (before (:address %))) held)
+             :restored (filterv #(not (or (after (:address %)) ((addresses retired) (:address %))))
+                                initial)
+             :retired retired})
+          (recur c2 held retired (inc n)))))))
