@@ -28,14 +28,20 @@
    "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}}
    "site"    {:label "Site"    :color "#f0a100" :hosts nil}))
 
+(defn- ascii-lower
+  "Lower case for ASCII names and hosts. On the JVM the default locale decides the folding, and
+   Turkish turns I into a dotless i; these strings are compared with fixed ASCII."
+  [x]
+  #?(:clj (.toLowerCase (str x) java.util.Locale/ROOT) :cljs (s/lower-case x)))
+
 (defn parse
   "{:scheme :userinfo :host} for an absolute URL, or nil."
   [url]
   (when-let [[_ scheme authority] (re-find #"^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)" (s/trim (str url)))]
     (let [[_ userinfo hostport] (re-find #"^(?:(.*)@)?(.*)$" authority)]
-      {:scheme (s/lower-case scheme)
+      {:scheme (ascii-lower scheme)
        :userinfo userinfo
-       :host (s/lower-case (s/replace hostport #":\d*$" ""))})))
+       :host (ascii-lower (s/replace hostport #":\d*$" ""))})))
 
 (defn- host-matches? [host allowed]
   (some #(or (= host %) (s/ends-with? host (str "." %))) allowed))
@@ -82,7 +88,7 @@
         p (url-problem u)]
     (cond
       (s/blank? u) nil
-      (s/starts-with? "https://" (s/lower-case u)) nil
+      (s/starts-with? "https://" (ascii-lower u)) nil
       (= p "Links must start with https://") p
       done? p
       (and p (s/starts-with? p "Links can be up to")) p

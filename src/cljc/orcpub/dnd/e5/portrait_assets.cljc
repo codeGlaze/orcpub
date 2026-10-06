@@ -24,6 +24,12 @@
             #?(:clj [orcpub.dnd.e5.portrait-calibration :refer [calibration]]))
   #?(:cljs (:require-macros [orcpub.dnd.e5.portrait-calibration :refer [calibration]])))
 
+(defn- ascii-lower
+  "Lower case for ASCII names and hosts. On the JVM the default locale decides the folding, and
+   Turkish turns I into a dotless i; these strings are compared with fixed ASCII."
+  [x]
+  #?(:clj (.toLowerCase (str x) java.util.Locale/ROOT) :cljs (s/lower-case x)))
+
 (def layer-order
   "Layer keys in z-order, bottom (0) → top (9). Mirrors the illustrator's
    real folder convention (`layer 0 - hair bits`, `layer 9 - bangs`, …)."
@@ -235,7 +241,7 @@
 (defn- assets-for
   [layer-key entries]
   (mapv (fn [{:asset/keys [id label file]}]
-          (let [cal (get-in piece-calibration [layer-key (s/lower-case file)])]
+          (let [cal (get-in piece-calibration [layer-key (ascii-lower file)])]
             (into {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)

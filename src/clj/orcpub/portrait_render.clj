@@ -69,7 +69,7 @@
             (with-open [in (io/input-stream res)
                         out (ByteArrayOutputStream.)]
               (io/copy in out)
-              {:mime (if (s/ends-with? (s/lower-case uri) ".svg")
+              {:mime (if (s/ends-with? (.toLowerCase (str uri) java.util.Locale/ROOT) ".svg")
                        "image/svg+xml"
                        "image/png")
                :bytes (.toByteArray out)})
