@@ -64,6 +64,22 @@ Text carries the soft hyphens of the 5.1 PDF's text layer: `ConditionDescription
 exhaustion reads `long-­‐term` (U+00AD followed by U+2010). These register as differences in
 any text comparison and as odd characters in display. Not yet measured across all files.
 
+## 5. `srd-2014` spell text that does not match the SRD — **candidates, not yet verified**
+
+Found in the three-way spell check (`e5` / open5e / SRD 5.1 PDF). For each, the app's `e5` text
+occurs word for word in the PDF while open5e's mostly does not, measured as the share of 8-word
+runs found in the PDF transcript:
+
+| spell | open5e text in PDF | `e5` text in PDF |
+|---|---|---|
+| Water Breathing | 0% | 100% |
+| Hold Monster | 13% | 100% |
+| Fire Shield | 24% | 100% |
+| See Invisibility | 33% | 100% |
+
+**Confirm each on the rendered PDF page before filing or correcting.** The measure is good at
+saying which source matches the transcript, but the transcript is extractor output.
+
 ## Observations, not yet issues
 
 - **Cantrip scaling lives in `higher_level`** (9 spells in `srd-2014`, 15 in `srd-2024`). The SRD

@@ -1759,7 +1759,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, failing, hour, job, jobs, jumped, measure, outage, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, dates, expires, failing, hour, job, jobs, jumped, outage, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -2185,7 +2185,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, 638, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, side-effect, split
+**topics:** 148, 2026-09-15, 638, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, split
 
 - Directory Layout
 - Entry Points
@@ -2212,13 +2212,14 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 760, documents, filter, higher, higher-level, issue, issues, open5e, parameters, pdf, pdfs, records, spell, srd, srd-2024-roadmap, text, upcast, upcasting
+**topics:** 100, 760, documents, filing, filter, higher, higher-level, issue, open5e, pdf, records, spell, srd, srd-2024-roadmap, text, transcript, upcast, upcasting
 
 - Before filing anything
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs
 - 3. Upcasting is structured unevenly between the two documents — verified
 - 4. SRD 5.1 encoding artifacts in srd-2014 text — verified, extent not measured
+- 5. srd-2014 spell text that does not match the SRD — candidates, not yet verified
 - Observations, not yet issues
 - Not open5e's
 
@@ -2503,7 +2504,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2843,7 +2844,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, rolling, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3038,8 +3039,9 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, agreed, alpha, diff, edition, editions, mvp, open5e, owner, pdf, rung, similarity, srd, terminology, text, trunk, wording
+**topics:** 2014, 2024, agreed, content, diff, edition, editions, mvp, open5e, owner, pdf, rung, similarity, srd, terminology, text, trunk, wording
 
+- Long-term goal: a pure SPA
 - The ladder
 - Decided
 - Wanted, not yet scoped

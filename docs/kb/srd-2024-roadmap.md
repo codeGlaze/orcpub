@@ -12,6 +12,28 @@ lives elsewhere and is linked, not repeated:
 Trunk: `srd52/develop`, watching `refactor/content-extensibility` and through it
 `integration`. Leaves go under `srd52/*`.
 
+## Long-term goal: a pure SPA
+
+**Read this before choosing how any SRD content is stored or served.**
+
+The long-term goal (owner, 2026-10-06) is for the app to run as a **pure single-page app, like
+5etools**: static hosting, all data as files the browser fetches and caches, no backend needed to
+browse the SRD or build a character. Not scheduled, and a long way off, but it constrains choices
+being made now.
+
+**The decision it drives: SRD content is served as static data files, never through a server
+endpoint.** Full verbatim text for both editions is built into static, cacheable files and fetched
+by the browser on demand; the builder ships summaries and structured mechanical fields. A server
+endpoint for SRD content would be a step away from this goal and is ruled out.
+
+**What ties the app to a server today is not the SRD**, which is already compiled into the browser
+app. It is: PDF generation (server-side PDFBox), accounts and saved characters (Datomic), and short
+share links (tokens stored server-side). Those are what a pure-SPA effort would one day have to
+replace. Nothing in the SRD work should add to that list.
+
+**Cheap to keep the door open:** make the static files cache-friendly from the start, which is
+also what lets an SPA work offline.
+
 ## The ladder
 
 | rung | what it is | state |
@@ -55,6 +77,9 @@ Proposed meaning of done for each rung, to be confirmed:
 | **Two kinds of normalisation, kept apart.** *Structural* — where data lives (all upcasting in one place, cantrip scaling included), encoding artifacts folded, gaps filled from the PDF and flagged as filled — happens at import and is stored. *Linguistic* — treating 2014 and 2024 phrasings of the same term as equal — is used only to compare and classify, and never stored, because stored text stays verbatim. | agreed in discussion |
 | The app's existing 2014 data (`e5`, the original conversion) is **not assumed correct**. Verify it three ways: `e5` against open5e's `srd-2014`, then both against the SRD 5.1 PDF. | owner |
 | Keep notes on problems in open5e's data and API, and PR useful fixes back upstream. | owner |
+| **How our content is generated: open5e's data, plus our corrections, verified against the PDF.** Correct open5e problems as they are found, and generate our own content from the corrected data. Idea for the shape: a small corrections list (record, field, corrected value, PDF page as evidence) applied at generation time, so each correction is also a ready-made upstream PR and the upstream notes and the corrections are one list. | owner (decision), idea (shape) |
+| **`e5`'s departures from the SRD are reviewed, not dismissed.** The original conversion has opinionated content, and some of it is good. Each departure is judged on its own: the hosted SRD text stays verbatim, but good editorial work is kept where it fits — some of `e5`'s rewritten spells read like summaries, which is exactly what the builder needs. | owner |
+| **SRD content is served as static data files, not endpoints**, because of the pure-SPA goal above. | owner |
 
 ## Wanted, not yet scoped
 
@@ -132,5 +157,11 @@ lose content their character already holds.
 - One spell description (Guards and Wards) still ends early.
 - `e5` ships 805 magic items against roughly 231 in SRD 5.1. Probably per-base-item expansion,
   as open5e does; not yet confirmed.
-- **`e5` itself is unverified** against the SRD it was converted from. The three-way check
-  (e5 / open5e / PDF) has not been run for any content type.
+- **`e5` spell text, checked three ways** (description text only; fields not yet compared).
+  311 of 319 `e5` spells are SRD text. **8 depart from it**, judged by how much of each text
+  occurs word for word in the SRD 5.1 PDF: Branding Smite, Animal Friendship and Vicious Mockery
+  (none of their wording is in the SRD), Guardian of Faith and Compulsion (little of it), and
+  Counterspell, Goodberry and Hunter's Mark (partly rewritten). Their origin — paraphrase or
+  another book — is unknown and matters, because only SRD content ships. Review each per the
+  decision above rather than overwriting. Not yet confirmed on rendered pages.
+- **The three-way check has not been run for any other content type.**

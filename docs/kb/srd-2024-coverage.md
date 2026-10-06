@@ -46,6 +46,10 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 
 ## Known gaps in what IS done
 
+- **`e5` spell text vs SRD 5.1:** 274 verbatim, 30 near-verbatim, 9 edited, 6 rewritten or
+  abridged. Of the 15 that depart, `e5` is the one that differs in 8, open5e in 4, and in 3 both
+  are SRD text covering different parts. Detail in the roadmap's known debt.
+
 - `e55/spells.cljc`: one description (Guards and Wards) still ends early; cause not established.
 - The spell delta keyed on FIELDS only and called 230 spells identical. Comparing open5e's `desc`
   text for both editions, **5** are word-identical. The PDF-based text diff tried earlier was
