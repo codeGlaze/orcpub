@@ -44,6 +44,8 @@
             [orcpub.pdf :as pdf]
             [orcpub.portrait-render :as portrait-render]
             [orcpub.reset-key :as reset-key]
+            [orcpub.portrait-pack.strands :as strands]
+            [orcpub.dnd.e5.portrait-effects :as portrait-fx]
             [orcpub.artist-credit :as artist-credit]
             [orcpub.artist-email :as artist-email]
             [orcpub.crypto :as crypto]
@@ -72,7 +74,8 @@
   ;; InputStream.
   (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
-           (java.io ByteArrayOutputStream ByteArrayInputStream))
+           (java.io ByteArrayOutputStream ByteArrayInputStream)
+           (javax.imageio ImageIO))
   (:gen-class))
 
 (deftype FixedBuffer [^long len])
@@ -2594,7 +2597,30 @@
 
 (def get-js get-file)
 
-(def get-image get-file)
+(defonce ^:private worked-out-strands (atom {}))
+
+(defn- strands-on-the-fly
+  "PNG bytes of a hair piece's strand field when no .strands.png was deployed beside its art:
+   worked out from the art once and kept, so the builder's request does not 404 and no
+   visitor's browser works it out. nil for anything else. The deploy step stays the fast path."
+  [uri]
+  (when-let [[_ layer art] (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" (str uri))]
+    (or (get @worked-out-strands uri)
+        (when-let [res (and (portrait-fx/hair-layer? (keyword layer))
+                            (io/resource (str "public/image/portraits/" layer "/" art ".png")))]
+          (let [img (with-open [in (io/input-stream res)] (ImageIO/read in))
+                out (ByteArrayOutputStream.)]
+            (ImageIO/write (strands/field->image (strands/field-of img (keyword layer))) "png" out)
+            (let [bytes (.toByteArray out)]
+              (swap! worked-out-strands assoc uri bytes)
+              bytes))))))
+
+(defn get-image [request]
+  (or (get-file request)
+      (when-let [bytes (strands-on-the-fly (:uri request))]
+        {:status 200
+         :headers {"Content-Type" "image/png" "Cache-Control" "public, max-age=86400"}
+         :body bytes})))
 
 (def get-favicon get-file)
 
