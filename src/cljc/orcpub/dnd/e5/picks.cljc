@@ -170,7 +170,7 @@
      (conj path (::entity/key e)))))
 
 ;; The planned hold: `remove-at` records of picks that stopped applying, kept in memory only and
-;; put back when they fit again. decision-gate-hidden-picks.md, "Current decision".
+;; returned to the character once they fit again. decision-gate-hidden-picks.md, "Current decision".
 
 (defn to-planned
   "`character` without its `disqualified` and `overflow` picks under `template`, as

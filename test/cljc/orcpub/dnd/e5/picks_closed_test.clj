@@ -159,11 +159,11 @@
 (deftest swapping-the-class-order-holds-and-returns-first-class-picks
   (let [rogue (class-entry :rogue 1 nil rogue-first-class-skills)
         fighter (class-entry :fighter 1)
-        second (update-planned (character [fighter rogue]) [])
-        first-again (update-planned (assoc-in (:character second) [::entity/options :class]
+        as-second (update-planned (character [fighter rogue]) [])
+        first-again (update-planned (assoc-in (:character as-second) [::entity/options :class]
                                               [rogue fighter])
-                                    (:planned second))]
-    (is (= 4 (count (:planned second))) "a second class holds its first-class skills")
+                                    (:planned as-second))]
+    (is (= 4 (count (:planned as-second))) "a second class holds its first-class skills")
     (is (= [] (:planned first-again)))
     (is (= (character [rogue fighter]) (:character first-again)))))
 
