@@ -121,6 +121,24 @@
       (some? v) nil
       :else (assoc-in character (conj opath sel) entry))))
 
+(defn addresses
+  "Every pick stored in `character` as [address entry], where `address` is what `remove-at` and
+   `put-at` take. A parent comes before its children; otherwise the order is the options maps' own.
+   An entry with no `::entity/key` has no address, so it and its children are left out."
+  [character]
+  (letfn [(entries [address opts]
+            (mapcat (fn [[sel v]]
+                      (mapcat #(entry (conj address sel) %)
+                              (cond (sequential? v) v (map? v) [v] :else [])))
+                    opts))
+          (entry [prefix e]
+            (when-let [k (when (map? e) (::entity/key e))]
+              (let [address (conj prefix k)]
+                (cons [address e]
+                      (when (map? (::entity/options e))
+                        (entries address (::entity/options e)))))))]
+    (vec (entries [] (::entity/options character)))))
+
 ;; Which stored picks no longer apply, by the builder's own pipeline (`random-character` in
 ;; events.cljs), so one rule decides what is shown and what applies. decision-gate-hidden-picks.md
 
