@@ -32,7 +32,7 @@
      {:group "Your homebrew library"
       :icon "fa-clone"
       :headline "Homebrew is safe in two tabs"
-      :detail "Saving homebrew in one tab no longer erases homebrew you saved in another: the older tab's change is merged in, and a real clash is shown to you. Renamed items keep their links and the characters that use them."}
+      :detail "Saving homebrew in one tab no longer erases homebrew you saved in another: the older tab's change is merged in, and a real clash is shown to you. When you rename an item, links to it in the same source follow, and you are asked about links in other sources."}
 
      {:group "Characters"
       :icon "fa-bolt"
@@ -59,12 +59,12 @@
      {:group "Sharing"
       :icon "fa-link"
       :headline "Links you control"
-      :detail "Make a new link or stop sharing at any time. A link nobody opens expires, and the character page tells you when one has."}
+      :detail "Make a new link or stop sharing at any time. A link nobody opens can expire, and the character page tells you when one has."}
 
      {:group "Accounts"
       :icon "fa-user-shield"
       :headline "New sign-in pages and stronger passwords"
-      :detail "Signing up, signing in and recovering an account have new pages. Passwords are judged on length, a meter shows what to fix as you type, and passwords known from data breaches are turned away."}
+      :detail "Signing up, signing in and recovering an account have new pages. Passwords are judged on length, a meter shows what to fix as you type, and passwords that turn up again and again in data breaches are turned away."}
      {:group "Accounts"
       :icon "fa-key"
       :headline "You stay in charge of your account"
@@ -94,7 +94,7 @@
      {:group "Site"
       :icon "fa-mobile-alt"
       :headline "Fits your phone"
-      :detail "On a phone the header, menus and ability buttons fit the screen, and a desktop window narrowed to phone width gets the same layout."}
+      :detail "On a phone the header, menus and ability buttons fit the screen, and a desktop browser opened at phone width gets the same layout."}
      {:group "Site"
       :icon "fa-adjust"
       :headline "Easier-to-read buttons"
