@@ -185,7 +185,7 @@ sides had been written blind to the other's findings.
 | [fork-customization.md](fork-customization.md) | Fork override files: 6-file pattern, branding/integrations/user_tier, merge strategy, cherry-pick between branches |
 | [dmv-production-changes.md](dmv-production-changes.md) | DMV production analysis: backport-worthy fixes, security issues, hotfix history, git workflow gotchas |
 | [pdf-generation-architecture.md](pdf-generation-architecture.md) | PDF export end-to-end: template selection, spell card lifecycle, silent catch pattern, PDFBox 3.x migration, testing methodology |
-| [lizardfolk-ac-drops-later-bonuses.md](lizardfolk-ac-drops-later-bonuses.md) | LIVE: the lizardfolk AC wrapper keeps the AC calculation as it stood when it applied, so a ring or bracers applied later is dropped; order-dependent, predates the Robe fix; tortle has the same shape |
+| [ac-tests-and-modifier-order.md](ac-tests-and-modifier-order.md) | AC tests must order modifiers as entity/apply-options does: in list order a ring after lizardfolk looked lost, which the app never does. Also the tortle bonus bug fixed in codeGlaze/orcpub #55 |
 | [spellbook-print.md](spellbook-print.md) | The spellbook pages (#169) and card order (#520): layouts, keep rules and why, lining figures drawn from glyph outlines, the game-icons emblems and their credits, the packed-sheet and "reAct." fixes |
 | [reframe-subscription-patterns.md](reframe-subscription-patterns.md) | reg-sub-raw HTTP pattern, loading counter (int not bool), auth guard placement, subscribe context rules, debugging |
 | [docker-setup-flow.md](docker-setup-flow.md) | run mode flow: block order, flag combos, helpers, generate_env(), error recovery, test infrastructure |

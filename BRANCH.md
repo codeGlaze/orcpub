@@ -8,7 +8,19 @@ a stale branch cites lines that have moved.
 
 ## Current state
 
-*Updated 2026-09-13. Update at every milestone — nothing else here carries live state.*
+*Updated 2026-10-06. Update at every milestone — nothing else here carries live state.*
+
+### Summer Patch: where it stands (2026-10-06)
+
+- **On `integration`:** everything for the release, plus #50 spellbook, #51 parallel fresh-server
+  browser runs, #52 spec docstrings, #53 the changelog rewritten by outcome, #54 What's New.
+- **In review:** #55, the Robe of the Archmagi and tortle AC fix (`fix/robe-of-the-archmagi-ac`).
+- **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
+  for outcomes no issue covered. The changelog cites them.
+- **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
+  upstream #674 with "Fixes #N" for the 35 issues the release answers.
+- **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
+  Greptile's trial is out of credits.
 
 ### The tree
 
@@ -75,7 +87,7 @@ was a superset; both had been written without the other. Start at
   to the id in the URL) and there was no good answer for it under time pressure. It wants doing when
   the storage shape is already being moved, i.e. in `refactor/`, not as a hotfix. Investigation and
   five pinning tests sit on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`) — 16 commits ahead
-  of a 2026-04-09 base.
+  of a 2026-04-09 base. Filed upstream as #704 (2026-10-06).
 
 ## Active sequence — do these in order
 
@@ -83,6 +95,8 @@ was a superset; both had been written without the other. Start at
 point of the ordering is that each step names its own blocker.*
 
 ### 1. Land the #669 stale-filtered-list fix
+
+**Done 2026-09-13** (`3bd77862`, via `fix/filtered-list-staleness`).
 
 Verified ready: merge is 3 conflict hunks, the cljs suite is green at 354/1699, and the tests are
 proven to fail when the defect is reinstated. See
@@ -143,11 +157,12 @@ Also worth lifting while in there: that branch's `login()` helper into a shared
 
 ### 4. Only then, resume combing branches
 
-The `claude/*` triage is paused at this point deliberately, with its findings recorded:
+**Resumed 2026-10-06.** Every branch and its status: [branch-inventory.md](docs/kb/branch-inventory.md),
+with a log of the 65 branches deleted that day and their tips. 28 unmerged branches are still
+untriaged. Earlier findings:
 [`claude-branch-triage.md`](docs/kb/claude-branch-triage.md),
 [`unsaved-knowledge-on-prunable-branches.md`](docs/kb/unsaved-knowledge-on-prunable-branches.md),
-[`rescued/`](docs/kb/rescued/README.md). Nothing has been deleted; deletion is still the owner's call
-and the report is the input to it.
+[`rescued/`](docs/kb/rescued/README.md). Deletion is the owner's call, branch by branch.
 
 ## Agent tooling
 

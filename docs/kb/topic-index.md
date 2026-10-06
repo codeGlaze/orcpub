@@ -244,6 +244,16 @@ _ability-increase-spreads · ability increase spreads_
 - Containment across silos (multi-source)
 - Tests
 
+## ac-tests-and-modifier-order.md
+
+_ac-tests-and-modifier-order · ac tests and modifier order_
+
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, listed, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
+
+- What it looked like
+- Why it is not a bug
+- What was a real bug, found at the same time
+
 ## account-flows.md
 
 _account-flows · account flows_
@@ -938,7 +948,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, items, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -2085,16 +2095,6 @@ _library-management-and-conflicts · library management and conflicts_
 - Where the code lives
 - Related
 
-## lizardfolk-ac-drops-later-bonuses.md
-
-_lizardfolk-ac-drops-later-bonuses · lizardfolk ac drops later bonuses_
-
-**topics:** 2026-10-06, 3466, applied, archmagi, bonus, bracers, cloak, codeglaze, higher, ignoring, lizardfolk, natural, order, previous, protection, ring, stood, wrapper
-
-- What happens
-- What is not known
-- The likely fix
-
 ## locale-safety.md
 
 _locale-safety · locale safety_
@@ -2778,7 +2778,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, hover, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
+**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, modern, navigation, orcpub, polish, responsive, search, sort, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
