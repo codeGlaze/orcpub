@@ -16,28 +16,28 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Added
 
-- **Homebrew:** move or copy content between sources, one item or many at a time.
+- **Homebrew:** move or copy content between sources, one item or many at a time. (#705)
 - **Homebrew:** turn all homebrew, a source or one section off without deleting it, and search inside a source. (#475)
 - **Homebrew:** a library health card shows what needs fixing; damaged entries are set aside with a repair panel instead of breaking their source. (#683)
 - **Homebrew:** imports settle duplicate keys with safe defaults in one click, with a review panel for the detail. (#682)
 - **Homebrew:** content missing required fields can be saved with placeholder names, and Fix & Restore names entries for you. (#690, #691)
-- **Homebrew:** homebrew classes can define starting equipment, or start from an SRD class and keep only what differs.
+- **Homebrew:** homebrew classes can define starting equipment, or start from an SRD class and keep only what differs. (#706)
 - **Homebrew:** an option to show each class's homebrew source beside its name. (#671)
 - **Characters:** a character that will not load opens a recovery panel instead of a blank page, and can be reported in one click. (#679, #685)
-- **Characters:** the equipment lists filter as you type, with no limit on length.
-- **Characters:** character pictures load from far more sites, with paste and upload when a site refuses.
+- **Characters:** the equipment lists filter as you type, with no limit on length. (#707)
+- **Characters:** character pictures load from far more sites, with paste and upload when a site refuses. (#707)
 - **Sharing:** share a character by a short link that brings the homebrew and magic items its sheet uses; renew or stop a link at any time, and unused links expire. (#692, #693)
-- **Accounts:** new sign-up, sign-in and account-recovery pages.
-- **Accounts:** password rules based on length, a live strength meter, and screening against known-breached passwords.
-- **Accounts:** "Sign out everywhere", and an email when a password or email address changes.
+- **Accounts:** new sign-up, sign-in and account-recovery pages. (#708)
+- **Accounts:** password rules based on length, a live strength meter, and screening against known-breached passwords. (#708)
+- **Accounts:** "Sign out everywhere", and an email when a password or email address changes. (#708)
 - **Printing:** spellbook pages: every printed spell by class, with save DC and attack on each page, as a full-text book, a ledger or a prep sheet. (#169)
-- **Printing:** multiclass casters can print one class per spell column, with Pact Magic kept as its own pool.
-- **Printing:** spell rows mark concentration, casting time and costly materials.
+- **Printing:** multiclass casters can print one class per spell column, with Pact Magic kept as its own pool. (#710)
+- **Printing:** spell rows mark concentration, casting time and costly materials. (#710)
 - **Printing:** magic item cards, an optional card-back logo, and black-and-white cards for home printers. (#684)
-- **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out.
-- **Site:** a What's New panel shows each release's highlights once.
-- **Site:** a "Dark Button Text" option for the yellow buttons.
-- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets.
+- **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out. (#710)
+- **Site:** a What's New panel shows each release's highlights once. (#711)
+- **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
+- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
 
 ### Changed
 
@@ -45,10 +45,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
 - **Homebrew:** opening the app with a large library is faster; the rest is tracked in #703.
 - **Printing:** spell cards list spells by level, then name, or by name alone. (#520)
-- **Printing:** PDF exports are smaller and faster, card icons print sharp, and the site name prints on each page and card back.
-- **Site:** on phones the header, menus and ability buttons fit the screen.
+- **Printing:** PDF exports are smaller and faster, card icons print sharp, and the site name prints on each page and card back. (#710)
+- **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
-- **Server:** without email configured, registration is refused unless explicitly allowed.
+- **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
 
 ### Fixed
 
@@ -59,22 +59,22 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a save that runs out of browser storage warns and offers a backup. (#678)
 - **Homebrew:** homebrew names with non-English letters are recognised. (#681)
 - **Homebrew:** import and export no longer duplicate a source or lose renamed items, and their messages are readable. (#682, #672)
-- **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered.
-- **Homebrew:** renamed items keep their links, and the characters using them.
+- **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered. (#705)
+- **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
 - **Accounts:** a failed verification email no longer leaves an account stuck. (#700)
-- **Accounts:** the app signs you out when the server stops accepting your login.
-- **Printing:** some spells never printed, and prepared ticks landed on the wrong rows, on three sheet styles.
-- **Printing:** styles 3 and 4 could not export a character with two casting classes.
-- **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory were left empty.
-- **Printing:** the features page no longer lands between spell pages.
-- **Printing:** Pact Magic slots are no longer added into the normal slot count.
-- **Printing:** filled fields read the same in every PDF viewer, and negative numbers print correctly.
-- **Printing:** a reaction's casting time prints as "1 React." on spell cards.
+- **Accounts:** the app signs you out when the server stops accepting your login. (#708)
+- **Printing:** some spells never printed, and prepared ticks landed on the wrong rows, on three sheet styles. (#709)
+- **Printing:** styles 3 and 4 could not export a character with two casting classes. (#709)
+- **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory were left empty. (#709)
+- **Printing:** the features page no longer lands between spell pages. (#709)
+- **Printing:** Pact Magic slots are no longer added into the normal slot count. (#709)
+- **Printing:** filled fields read the same in every PDF viewer, and negative numbers print correctly. (#709)
+- **Printing:** a reaction's casting time prints as "1 React." on spell cards. (#709)
 - **Site:** blank icons show again. (#696)
-- **Site:** bold text renders bold, and buttons use the site font.
+- **Site:** bold text renders bold, and buttons use the site font. (#711)
 - **Server:** the same content gets the same keys on Turkish and other locales. (#699)
 
 ### Security
