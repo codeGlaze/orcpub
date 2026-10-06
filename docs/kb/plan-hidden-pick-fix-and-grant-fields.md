@@ -83,12 +83,55 @@ its test green before the next. Items 7–8 wait for the header-layout design pa
 
 | # | commit | test |
 |---|---|---|
-| 1 | `picks/disqualified`, `picks/overflow`: addresses of stored picks whose selection is closed, and the newest picks over a selection's limit. The builder's own pipeline (`random-character` in `events.cljs`): `available-selections` → `combine-selections` → `count-remaining`, so one rule for showing and applying. A pick whose option the template does not offer (missing homebrew) is never reported; a closed selection sharing its storage slot with an open one is overflow, not closed; addresses under another reported address are dropped | JVM, real classes: Hunter 6 with Steel Will; Champion 9 with two styles; first-class skills on a second class; homebrew override; missing homebrew; a normal level-10 character reports nothing |
-| 2 | `picks/to-planned` / `from-planned`: move reported picks out with `remove-at` (records kept in memory), put them back with `put-at` when no longer reported; nil from `put-at` retires the record. Repeat until nothing changes, with a pass limit that errors rather than guesses | JVM: 7→6→7 and 10→9→10 round-trip; re-picked meanwhile retires; convergence |
-| 3 | Wire where the heals run (`set-character`, `cache-template`, the character sub); the hold in app-db, never saved; on open with ghosts, set aside and save | cljs + e2e: ranger 7→6→7, Champion 10→9→10, reload drops the hold |
-| 4 | Remove the skills-only fix (per-arm conditions); its tests stay as characterization | the research tests give the same sheet |
-| 5 | Stop the reset on deleting or changing the first class (flow 5 data loss) | e2e: the other class keeps its picks |
-| 6 | Full checks; PR into `integration` only with items 7–8 | |
+| 1 ✓ `226de9b8` | `picks/disqualified`, `picks/overflow`: addresses of stored picks whose selection is closed, and the newest picks over a selection's limit. The builder's own pipeline (`random-character` in `events.cljs`): `available-selections` → `combine-selections` → `count-remaining`, so one rule for showing and applying. A pick whose option the template does not offer (missing homebrew) is never reported; a closed selection sharing its storage slot with an open one is overflow, not closed; addresses under another reported address are dropped | JVM, real classes: Hunter 6 with Steel Will; Champion 9 with two styles; first-class skills on a second class; homebrew override; missing homebrew; a normal level-10 character reports nothing |
+| 2 ✓ `14968c17` | `picks/to-planned` / `from-planned`: move reported picks out with `remove-at` (records kept in memory), put them back with `put-at` when no longer reported; nil from `put-at` retires the record. Repeat until nothing changes, with a pass limit that errors rather than guesses | JVM: 7→6→7 and 10→9→10 round-trip; re-picked meanwhile retires; convergence |
+| 3 ✓ `674c7ab9`, `a272cccb` (A1 below replaces its wiring) | Wire where the heals run (`set-character`, `cache-template`, the character sub); the hold in app-db, never saved; on open with ghosts, set aside and save | cljs + e2e: ranger 7→6→7, Champion 10→9→10, reload drops the hold |
+| 4 ✓ `74fcb11a` | Remove the skills-only fix (per-arm conditions); its tests stay as characterization | the research tests give the same sheet |
+| 5 ✓ `993a831e` (deleting; changing the class is B2) | Stop the reset on deleting or changing the first class (flow 5 data loss) | e2e: the other class keeps its picks |
+| 6 | Full checks, after the hardening below; PR into `integration` only with items 7–8 | |
+
+### Step 1 hardening: seams found 2026-10-06
+
+Found by reviewing the wiring after commit 5. Phase A comes first: commit 3 put the settle inside
+every edit, which made the builder more fragile. Each item is one commit with its test; ✓ when done.
+
+**The rule this applies** (proposed for AGENTS.md, owner to approve): *work derived from an edit
+never runs inside the edit.* The edit applies and cannot fail because of it; the derived work
+(builds, settles) runs after edits pause, isolated, and on failure logs and leaves the app as it was.
+
+**A. Stability: first**
+
+| id | problem | evidence | fix | test |
+|---|---|---|---|---|
+| A1 | The settle runs inside every edit (`plan-picks` interceptor); if it throws, re-frame drops the edit, so every edit to that character fails | code: no catch in `plan-picks`, `update-planned` throws when it does not settle | Off the write path: a trailing `::e5/settle-picks` after edits pause, timed like the build debounce, in try/catch. On failure: log once and keep the character as edited (today's behaviour before the fix), never block an edit | cljs: a settle that throws leaves the edit applied and the error logged; existing hold tests unchanged |
+| A2 | Cost on every keystroke: text fields dispatch per keystroke (`comps/input-field`) | measured, browser, ranger 7: build 8.3 ms, settle 13.9 ms, a name keystroke 13.0 ms | A1's debounce; and no settle when `::entity/options` and the template are unchanged | cljs: a name edit queues no settle; timing re-measured |
+| A3 | Character pages settle on every app change: the `::char5e/character` reaction derefs `@app-db` (`subs.cljs`) | code | Settle in its own sub, inputs that character and the template, in try/catch (falls back to the healed character) | cljs: an unrelated app-db change does not recompute it |
+| A4 | A trailing settle can finish after a newer edit | follows from A1 | Apply only if the character is still the one it settled; otherwise wait for the next pause | cljs |
+| A5 | A save right after an edit can send an unsettled character | follows from A1 | Save handlers run the same guarded settle first | cljs |
+
+**B. Correctness**
+
+| id | problem | evidence | fix | test |
+|---|---|---|---|---|
+| B1 | The hold resets on a first save (`:character-save-success` → `:set-character`, id nil → n) and survives `:new-character` (no interceptor) | code | nil → id is the same character; reset on `:new-character` and any event that replaces the character (import) | cljs, both |
+| B2 | An edit that removes a level or class entry deletes its picks: 7 → 2 loses Hunter and Steel Will; deleting or changing a class loses its picks | code: `set-class-level` (`take`), `delete-class`, `set-class` | The settle also holds picks the edit removed with their level or class entry; not picks the player removed directly | cljs + e2e: 7 → 2 → 7, delete and re-add a class, rogue → wizard → rogue |
+| B3 | A new pick in a slot does not retire its held pick unless the slot is full or holds the same key (`put-at`) | code | Per the owner's rule, below | JVM |
+| B4 | "Still fits" checks only room in the slot, not the pick's own requirements: a skill now held from elsewhere comes back | code | `from-planned` also checks the option's prereqs, as the builder's `meets-prereqs?`; a failure is retired and named | JVM |
+
+**Owner's calls** (B2 and B3 wait on them): does switching subclass hold the old subclass's picks
+or retire them? Does a new pick in a slot retire the held one (the written rule) or not ("they can
+just switch")?
+
+**C. For the UI step (items 7–8):** C1, `::e5/picks-change` is replaced on every event, so a
+notice would vanish at the next keystroke; it accumulates until shown or dismissed. C2, saving a
+character cleaned on open, with its notice (open since commit 3).
+
+**D. Process:** D1, CI runs only the JVM suite, so the wiring (tested in the browser and e2e
+suites) is checked by hand only. Add the browser suite to CI once `fix/cljs-harness-exit` lands;
+its exit code is now reliable. D2, measure before adding work to an edit.
+
+**Order:** A1–A5 (A1, A2 and A4 can be one commit: one move), B1, B4, then B2 and B3 after the
+owner's calls, then item 6. C with the UI. D1 on its own branch, name approved first.
 
 ### Step 5, mapped (2026-10-01)
 
