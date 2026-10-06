@@ -103,20 +103,20 @@ never runs inside the edit.* The edit applies and cannot fail because of it; the
 
 | id | problem | evidence | fix | test |
 |---|---|---|---|---|
-| A1 | The settle runs inside every edit (`plan-picks` interceptor); if it throws, re-frame drops the edit, so every edit to that character fails | code: no catch in `plan-picks`, `update-planned` throws when it does not settle | Off the write path: a trailing `::e5/settle-picks` after edits pause, timed like the build debounce, in try/catch. On failure: log once and keep the character as edited (today's behaviour before the fix), never block an edit | cljs: a settle that throws leaves the edit applied and the error logged; existing hold tests unchanged |
-| A2 | Cost on every keystroke: text fields dispatch per keystroke (`comps/input-field`) | measured, browser, ranger 7: build 8.3 ms, settle 13.9 ms, a name keystroke 13.0 ms | A1's debounce; and no settle when `::entity/options` and the template are unchanged | cljs: a name edit queues no settle; timing re-measured |
-| A3 | Character pages settle on every app change: the `::char5e/character` reaction derefs `@app-db` (`subs.cljs`) | code | Settle in its own sub, inputs that character and the template, in try/catch (falls back to the healed character) | cljs: an unrelated app-db change does not recompute it |
-| A4 | A trailing settle can finish after a newer edit | follows from A1 | Apply only if the character is still the one it settled; otherwise wait for the next pause | cljs |
-| A5 | A save right after an edit can send an unsettled character | follows from A1 | Save handlers run the same guarded settle first | cljs |
+| A1 ✓ `8390e95a` | The settle runs inside every edit (`plan-picks` interceptor); if it throws, re-frame drops the edit, so every edit to that character fails | code: no catch in `plan-picks`, `update-planned` throws when it does not settle | Off the write path: a trailing `::e5/settle-picks` after edits pause, timed like the build debounce, in try/catch. On failure: log once and keep the character as edited (today's behaviour before the fix), never block an edit | cljs: a settle that throws leaves the edit applied and the error logged; existing hold tests unchanged |
+| A2 ✓ `8390e95a`: 13.0 → 0.81 ms | Cost on every keystroke: text fields dispatch per keystroke (`comps/input-field`) | measured, browser, ranger 7: build 8.3 ms, settle 13.9 ms, a name keystroke 13.0 ms | A1's debounce; and no settle when `::entity/options` and the template are unchanged | cljs: a name edit queues no settle; timing re-measured |
+| A3 ✓ `79337feb` | Character pages settle on every app change: the `::char5e/character` reaction derefs `@app-db` (`subs.cljs`) | code | Settle in its own sub, inputs that character and the template, in try/catch (falls back to the healed character) | cljs: an unrelated app-db change does not recompute it |
+| A4 ✓ `8390e95a`, by design | A trailing settle can finish after a newer edit | follows from A1 | The settle is an event that reads the db when it runs, so it never applies an older result | none needed |
+| A5 ✓ `427745d5` | A save right after an edit can send an unsettled character | follows from A1 | Save handlers run the same guarded settle first | cljs |
 
 **B. Correctness**
 
 | id | problem | evidence | fix | test |
 |---|---|---|---|---|
-| B1 | The hold resets on a first save (`:character-save-success` → `:set-character`, id nil → n) and survives `:new-character` (no interceptor) | code | nil → id is the same character; reset on `:new-character` and any event that replaces the character (import) | cljs, both |
+| B1 ✓ `ffa335c5` | The hold resets on a first save (`:character-save-success` → `:set-character`, id nil → n) and survives `:new-character` (no interceptor) | code | `::e5/planned-for` records whose hold it is; a save hands it the new id; `:new-character` empties it | cljs; e2e flow 6 |
 | B2 | An edit that removes a level or class entry deletes its picks: 7 → 2 loses Hunter and Steel Will; deleting or changing a class loses its picks | code: `set-class-level` (`take`), `delete-class`, `set-class` | The settle also holds picks the edit removed with their level or class entry; not picks the player removed directly | cljs + e2e: 7 → 2 → 7, delete and re-add a class, rogue → wizard → rogue |
 | B3 | A new pick in a slot does not retire its held pick unless the slot is full or holds the same key (`put-at`) | code | Per the owner's rule, below | JVM |
-| B4 | "Still fits" checks only room in the slot, not the pick's own requirements: a skill now held from elsewhere comes back | code | `from-planned` also checks the option's prereqs, as the builder's `meets-prereqs?`; a failure is retired and named | JVM |
+| B4 ✓ `59c1d0d4` | "Still fits" checks only room in the slot, not the pick's own requirements: a skill now held from elsewhere comes back | code | A pick `put-at` could place but whose own prereqs fail waits in the hold (not retired) and returns once they pass | JVM: an Urchin background's Stealth |
 
 **Owner's calls** (B2 and B3 wait on them): does switching subclass hold the old subclass's picks
 or retire them? Does a new pick in a slot retire the held one (the written rule) or not ("they can
