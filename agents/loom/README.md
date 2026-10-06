@@ -64,6 +64,7 @@ LOOM=agents/loom/release/silhouette-loom-v2.html PACKZIP=/path/to/portrait-pack.
 | `leakview.js` | Show leaks: bright green, see-through amplified | `OUT` dir |
 | `patch.js` | Patch gaps: paint behind the art, undo, reload, export, manifest | `OUT` dir |
 | `stroke.js` | a quick stroke is a solid line (Paint, Add fill; zoom 1 and 2.5) | `OUT` dir |
+| `session.js` | a refresh keeps the pack, placements, reviews, patches and pack version; Clear forgets it | `OUT` dir |
 
 ## The see-through fill: scope
 

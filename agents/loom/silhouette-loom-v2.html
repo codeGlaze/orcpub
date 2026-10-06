@@ -11,6 +11,8 @@
     --good: #5fb37a; --warn: #e0a33a; --bad: #d9646a;
   }
   * { box-sizing: border-box; }
+  /* a pull-down on a phone reloads the page: not here */
+  html, body { overscroll-behavior-y: contain; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 'Open Sans', system-ui, -apple-system, sans-serif;
@@ -200,6 +202,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.39</b> a refresh no longer loses your work: the art you drop is kept in this browser and comes back on reload with your eye placements, fill reviews and patches; Clear forgets it. Pull-to-refresh is off on this page ·
       <b>v2.38</b> brushes paint continuous strokes: the gaps between pointer positions are filled in (they left a trail of dots on a quick stroke), every position the browser reports is used, and the picture redraws once a frame; the patch view no longer re-tints its reference pieces on every move ·
       <b>v2.37</b> "Patch gaps" on every piece: paint behind the art to close a gap between pieces (it can never change a drawn pixel), with the pieces under and over it shown in skin and hair colour; Paint / Erase / Off, eyedropper, undo/redo; kept in this browser and in the manifest, and written into the downloaded pack ·
       <b>v2.36</b> removes "Smooth small holes": in real portraits it filled the gaps between strands and smeared eye whites. The fill is back to filling the speckled insides that colouring shows, nothing more ·
@@ -329,7 +332,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.38';
+const LOOM_VERSION = 'v2.39';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1776,6 +1779,7 @@ function render() {
   }
 
   renderViewbar();
+  keepSession();
   summary.hidden = items.length === 0;
   summary.innerHTML = '';
   const pill = (txt, cls) => {
@@ -1805,7 +1809,7 @@ function render() {
   }
   $('save').textContent = items.length ? `Download zip (${chosen.length})` : 'Download zip';
 
-  $('save').disabled = !items.some(isAsset);
+  $('save').disabled = busyDrops > 0 || !items.some(isAsset);
   $('manifest').disabled = !items.some(isAsset);
   $('kit').disabled = !items.some(isAsset);
   $('kit-images').disabled = !items.some(isAsset);
@@ -1996,6 +2000,11 @@ function offerPackVersion(v, from) {
 document.addEventListener('DOMContentLoaded', () => {
   $('ver').addEventListener('input', () => { verFrom = 'user'; $('ver-from').textContent = ''; });
   if (BUNDLED_MANIFEST) offerPackVersion(BUNDLED_MANIFEST.packVersion, 'bundled');
+  restoreDone = restoreSession();
+  // an eye edit ends on a release or a control change: keep it then
+  document.addEventListener('pointerup', keepSession);
+  document.addEventListener('change', keepSession);
+  $('ver').addEventListener('input', keepSession);
 });
 // a loose manifest beats the bundled placements, which beat a zip's own
 // (often older) manifest; names are matched without regard to case
@@ -2119,6 +2128,13 @@ function applyPendingManifests() {
     offerPackVersion(m.packVersion, 'loose');
     for (const layer of (m.layers || [])) {
       for (const a of (layer.assets || [])) {
+        if (restoring) {   // a manifest dropped earlier: below everything you did since
+          const k = (layer.key || 'unassigned') + '/' + String(a.file).toLowerCase();
+          if (a.iris && !priorIris.has(String(a.file).toLowerCase())) zipIris.set(String(a.file).toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites });
+          if (a.fillReview) zipFill.set(k, a.fillReview);
+          if (a.patch) zipPatch.set(k, a.patch);
+          continue;
+        }
         if (a.iris) { priorIris.set(String(a.file).toLowerCase(), { iris: a.iris, pupil: a.pupil ?? 0.45, whites: !!a.whites }); n++; }
         if (a.fillReview) { looseFill.set((layer.key || 'unassigned') + '/' + String(a.file).toLowerCase(), a.fillReview);
                             const ex = items.find(i => itemKey(i.layer, i.name) === (layer.key || 'unassigned') + '/' + String(a.file).toLowerCase());
@@ -2155,7 +2171,15 @@ async function addAll(files) {
   await addPairs([...files].map(f => ({ file: f, path: f.webkitRelativePath || '' })));
 }
 
-async function addPairs(rawPairs) {
+async function addPairs(rawPairs, fromRestore = false) {
+  // nothing downloads while a drop is waiting or working: it would miss it
+  busyDrops++; $('save').disabled = true;
+  try { await addPairsNow(rawPairs, fromRestore); }
+  finally { busyDrops--; render(); }
+}
+async function addPairsNow(rawPairs, fromRestore) {
+  // a drop waits for a restore in progress, so the two never interleave
+  if (!fromRestore) { say('working…'); await restoreDone; keepFiles(rawPairs); }
   // manifests first: the iris regions have to be in hand before the images
   // that need them are processed
   const pairs = await expand(await absorbManifests(rawPairs));
@@ -2214,6 +2238,65 @@ function resetDrop() {
     + '<br><span style="font-size:12px">A <b>zip</b> works too, and keeps its folder names. '+ 'A folder named <code>layer 2 - head</code> sets the layer automatically.</span>';
 }
 function say(msg) { $('dropmsg').textContent = msg; }
+
+
+/* ---------- keeping the session across a reload ----------
+   A refresh (easy to do by accident on a phone) used to lose everything.
+   The art you drop is kept in this browser's IndexedDB, and your eye
+   placements and pack version in a small record; on load they come back.
+   Fill reviews and patches were already kept per piece. Clear forgets it. */
+const SESSION_KEY = 'silhouette-loom.session';
+let restoring = false, restoreDone = Promise.resolve(), busyDrops = 0;
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('silhouette-loom', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('files');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbDo(mode, fn) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('files', mode), st = tx.objectStore('files'), out = fn(st);
+    tx.oncomplete = () => { db.close(); res(out && out.result !== undefined ? out.result : undefined); };
+    tx.onerror = () => { db.close(); rej(tx.error); };
+  });
+}
+async function keepFiles(pairs) {
+  try { await idbDo('readwrite', st => { for (const { file, path } of pairs) st.put({ file, path: path || '' }, (path || '') + '/' + file.name + ':' + file.size); }); }
+  catch (e) { console.warn('could not keep the files in this browser', e); }
+}
+async function keptFiles() {
+  try { return (await idbDo('readonly', st => st.getAll())) || []; } catch (_) { return []; }
+}
+async function forgetFiles() {
+  try { await idbDo('readwrite', st => st.clear()); } catch (_) {}
+  try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+}
+let sessionTimer = 0;
+function keepSession() {
+  if (restoring) return;
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    const placements = {};
+    for (const it of items) { const pl = placementOf(it); if (pl.iris) placements[String(it.name).replace(/\.[^.]+$/, '.png').toLowerCase()] = pl; }
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ ver: $('ver').value, placements })); } catch (_) {}
+  }, 400);
+}
+async function restoreSession() {
+  const recs = await keptFiles();
+  if (!recs.length) return;
+  let sess = null; try { sess = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (_) {}
+  // your placements as you left them beat everything else
+  if (sess && sess.placements) for (const [k, pl] of Object.entries(sess.placements))
+    priorIris.set(k, { iris: pl.iris, pupil: pl.pupil ?? 0.45, whites: !!pl.whites });
+  restoring = true;
+  try {
+    await addPairs(recs.map(r => ({ file: r.file, path: r.path })), true);
+    if (sess && sess.ver) { $('ver').value = sess.ver; verFrom = 'loose'; $('ver-from').textContent = '(as you left it)'; }
+    say(`Restored ${recs.length} file${recs.length === 1 ? '' : 's'} from this browser, with your placements, reviews and patches. Press Clear to start fresh.`);
+  } finally { restoring = false; keepSession(); }
+}
 
 /* ---------- input ---------- */
 drop.addEventListener('click', e => { if (e.target.id !== 'pickdir') $('file').click(); });
@@ -2285,6 +2368,7 @@ for (const id of ['height', 'mode']) {
 // drop starts from the bundled working placements (and anything dropped with it)
 $('clear').addEventListener('click', () => {
   items.length = 0; priorIris.clear(); zipIris.clear(); carryOver.clear(); zipFill.clear(); looseFill.clear(); zipPatch.clear(); loosePatch.clear(); render();
+  forgetFiles(); say('Cleared. Nothing is kept in this browser until you drop a pack again.');
 });
 
 /* One piece per layer is a whole portrait rather than a whole pack, which is
@@ -2387,6 +2471,29 @@ function packVersion() {
   return ($('ver').value || 'v1').trim().replace(/[^A-Za-z0-9._-]/g, '');
 }
 
+function placementOf(it) {
+  return {
+    ...(it.irises && it.irises.length
+            ? { iris: it.irises.map(e => ({
+                  cx: +e.cx.toFixed(5), cy: +e.cy.toFixed(5),
+                  rx: +e.rx.toFixed(5), ry: +e.ry.toFixed(5),
+                  rot: +e.rot.toFixed(5),
+                  px: +((e.px || 0).toFixed(4)), py: +((e.py || 0).toFixed(4)),
+                  lid: e.lid ? { x0: +e.lid.x0.toFixed(5), y0: +e.lid.y0.toFixed(5),
+                                 mx: +e.lid.mx.toFixed(5), my: +e.lid.my.toFixed(5),
+                                 x1: +e.lid.x1.toFixed(5), y1: +e.lid.y1.toFixed(5) }
+                              : null,
+                  ...(it.whites && e.lower
+                      ? { lower: { x0: +e.lower.x0.toFixed(5), y0: +e.lower.y0.toFixed(5),
+                                   mx: +e.lower.mx.toFixed(5), my: +e.lower.my.toFixed(5),
+                                   x1: +e.lower.x1.toFixed(5), y1: +e.lower.y1.toFixed(5) } }
+                      : {}) })),
+                pupil: +it.pupil.toFixed(3),
+                ...(it.whites ? { whites: true } : {}) }
+            : {}),
+  };
+}
+
 function buildManifest(chosen) {
   const byLayer = {};
   // Belt and braces: the list should never hold a piece twice (addFile
@@ -2418,24 +2525,7 @@ function buildManifest(chosen) {
             : {}),
         // normalised 0..1 of the frame, so a re-render at another size still
         // lands on the same part of the drawing
-        ...(it.irises && it.irises.length
-            ? { iris: it.irises.map(e => ({
-                  cx: +e.cx.toFixed(5), cy: +e.cy.toFixed(5),
-                  rx: +e.rx.toFixed(5), ry: +e.ry.toFixed(5),
-                  rot: +e.rot.toFixed(5),
-                  px: +((e.px || 0).toFixed(4)), py: +((e.py || 0).toFixed(4)),
-                  lid: e.lid ? { x0: +e.lid.x0.toFixed(5), y0: +e.lid.y0.toFixed(5),
-                                 mx: +e.lid.mx.toFixed(5), my: +e.lid.my.toFixed(5),
-                                 x1: +e.lid.x1.toFixed(5), y1: +e.lid.y1.toFixed(5) }
-                              : null,
-                  ...(it.whites && e.lower
-                      ? { lower: { x0: +e.lower.x0.toFixed(5), y0: +e.lower.y0.toFixed(5),
-                                   mx: +e.lower.mx.toFixed(5), my: +e.lower.my.toFixed(5),
-                                   x1: +e.lower.x1.toFixed(5), y1: +e.lower.y1.toFixed(5) } }
-                      : {}) })),
-                pupil: +it.pupil.toFixed(3),
-                ...(it.whites ? { whites: true } : {}) }
-            : {}),
+        ...placementOf(it),
       });
   }
   const first = chosen[0];
