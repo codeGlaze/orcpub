@@ -369,6 +369,21 @@ See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier stru
 7. **`warlock_test.clj`** is the entity/build integration test — use it as a pattern
    for adding new build tests (e.g. other classes, multiclassing)
 
+### Tests prove their fail state — MUST FOLLOW
+
+**Before a test is committed, it is seen to fail.** A test only ever seen passing proves nothing:
+the spellbook's "packing saves a page" check passed only because the packed export had lost its
+spell list.
+
+- Break what the test guards: check out the pre-fix source for a regression test, or change the
+  code path it claims to cover (one break per claim). Run it and see the expected checks fail,
+  and only those.
+- Restore with git (`git checkout HEAD -- src`) and confirm the worktree is clean. A break is
+  never committed.
+- Then run it green, and put the failing output in the PR description beside the pass.
+- A break that does not make the test fail means the test is weak. Strengthen the test; never
+  weaken the break.
+
 ---
 
 ## PR & Safety Guidelines
