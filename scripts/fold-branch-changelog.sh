@@ -39,7 +39,7 @@ fi
 # that order when missing. "## Why this branch exists" and "## Highlights" are dropped (the release's
 # Highlights are written by hand). Any other section, and any line in a type section that is not a
 # top-level bullet or its continuation, stops the fold before anything is removed. A bullet without a
-# leading "**Area:**" label is folded with a warning.
+# leading "**Area:**" label is folded with a warning, except under Security, whose lines are plain.
 python3 - "$BC" "$CL" "$RELEASE" <<'PY' || exit 1
 import re, sys
 bc_path, cl_path, release = sys.argv[1:4]
@@ -71,7 +71,7 @@ for line in text.splitlines():
                      "use top-level '- ' bullets and plain continuation lines only")
 for t in TYPES:
     for b in found[t]:
-        if not re.match(r"- \*\*[^*]+:\*\*", b[0]):
+        if t != "Security" and not re.match(r"- \*\*[^*]+:\*\*", b[0]):
             print(f"fold: warning: no **Area:** label: {b[0][:70]}", file=sys.stderr)
 if "Highlights" in text and re.search(r"^## Highlights", text, re.M):
     print("fold: the branch's Highlights were dropped; edit the release's Highlights by hand if it earns a line.", file=sys.stderr)
