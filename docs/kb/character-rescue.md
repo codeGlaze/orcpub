@@ -24,9 +24,10 @@ probe against an in-memory Datomic with the real schema.
 - The builder's rescue bar cannot get the id from the server; it needs the draft read by something
   that parses EDN (see the browser-only question below).
 
-**Needed from `picks`, not yet in it:** a list of every stored pick as an address `remove-at`
-accepts, in stored order. `walk` passes selection keys only (a wizard's and a fighter's
-`:level-4` share a path); `keys-of` returns a set of keys.
+**`picks/addresses`** (added on this branch, the owner's call relayed from the planning session):
+every stored pick as `[address entry]`, the address `remove-at` and `put-at` take, a parent before
+its children. A separate function, not a change to `walk`: `walk-typed` and the heal rely on
+`walk`'s selection-keys-only path. An entry with no `::entity/key` has no address and is left out.
 
 **Found on the way, not this branch's to fix:** `save-character` reads `:transit-params` only. A
 body in any other format reaches it as nil, passes the spec as `{}`, and creates a blank character
@@ -162,10 +163,16 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Open, for the owner
 
-- Browser-only characters (and the builder's bar): a server route that runs the engine on a posted
-  draft and stores nothing (recommended), or a separate small JS build of the engine.
-- Whether "Reset all choices" is in scope for layer 3 or only layer 4.
-- Who adds the address list to `picks`.
+- Browser-only characters: the app loads one with a trapped pick, so its fix belongs in the
+  in-app list (layer 4). What this branch could do is keep a copy of a draft the app cannot read:
+  today `db.cljs` `handle-unreadable` deletes it on boot (homebrew gets a `:corrupt` copy;
+  characters do not).
+- The builder's rescue bar: the server cannot know which character is open.
+
+## Decided
+
+- No "Reset all choices" on the repair page: it amounts to a new character (owner, 2026-10-06).
+- Changelog: Summer Patch, on integration.
 
 ## History
 
