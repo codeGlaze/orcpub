@@ -34,6 +34,54 @@ replace. Nothing in the SRD work should add to that list.
 **Cheap to keep the door open:** make the static files cache-friendly from the start, which is
 also what lets an SPA work offline.
 
+**Standing principle (owner, 2026-10-06): prefer SPA groundwork that also helps the app now.**
+When a choice can serve the long-term goal *and* fix something today, take that route.
+
+### How SRD data is loaded
+
+Measured on the 2014 content, whole entries, compressed for the wire:
+
+| content | raw | compressed |
+|---|---|---|
+| spells | 343 KB | 87 KB |
+| monsters | 463 KB | 73 KB |
+| magic items | 808 KB | 77 KB |
+
+An edition's whole core is under 250 KB compressed. At that size, clever per-entry loading costs
+more engineering than it saves. So:
+
+- **One file per content type per edition** (`spells-2014`, `spells-2024`, …). Never one request per
+  entry: an entry is about 1 KB, and each request is a round trip.
+- **Fetched the first time it is needed, then cached.** A version stamp in the filename picks up
+  changes immediately; repeat visits cost nothing until then.
+- **Two priorities, not a system.** Whatever the user opens loads first. Everything else loads in
+  the background while the app is idle, ordered for the current page (spells first in the
+  builder, monsters first on monster pages). The text is usually there before anyone clicks.
+- **Revisit only if one file grows past a few hundred KB compressed.**
+
+### One loader for the SRD and for homebrew
+
+**Why a shared loader, honestly stated.** It is *not* the fix for the freeze users reported.
+That freeze happens while *using* the builder — switching race, subrace, class, subclass — and
+the perf investigation traced it to retained memory on class browsing, blocking class switches and
+a double build per change. No storage read happens on a class switch. Its ranking: double-build fix
+and lazy class bodies first (the double build is now debounced on `integration`; lazy class bodies
+were proven by a spike, not shipped); the ~750 ms one-time library parse at builder open last, and
+the plan for it (`plan-chunked-library-storage.md`) is **deprioritized** for exactly that reason.
+
+The real case for the loader is **capacity and the SPA goal.** localStorage holds about 5.18 M
+characters; IndexedDB has about 916 MB of measured origin quota. The KB records IndexedDB as "the
+eventual right tier", to be scheduled on capacity grounds regardless of the perf work — not
+rejected. Moving to it is per-key and asynchronous by nature, which is also exactly what on-demand
+SRD edition files need. So: one loader for homebrew sources and SRD editions, justified by
+capacity and the SPA, scheduled as its own decision. Treat them as one design, not two.
+
+**Trial it as a throwaway spike first** ("do not pick on reasoning", per the perf doc). Risks a
+spike must cover, none yet recorded as findings for this project: startup becoming asynchronous
+(homebrew is read synchronously at init today); migrating existing libraries without ever losing
+homebrew; browser eviction unless persistent storage is granted; Safari and private-browsing
+behaviour; cross-tab coordination.
+
 ## The ladder
 
 | rung | what it is | state |

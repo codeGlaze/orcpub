@@ -674,6 +674,11 @@ already proved the fix works.
 1+2 fix "opening the builder freezes"; 3+4 fix "using it chugs and bloats". Independent
 tracks, either can ship first. Characterization gates as per Phase 1 above apply to each.
 
+**Track 1 is shared with the SRD work.** Loading each source only when needed and keeping it in
+browser storage is also how SRD data should load under the long-term pure-SPA goal. Design one
+loader for homebrew packs and SRD editions alike; see `srd-2024-roadmap.md`, "One loader for the
+SRD and for homebrew".
+
 
 ## The fix plan (revised — supersedes the original below)
 

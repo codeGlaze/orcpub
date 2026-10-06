@@ -812,7 +812,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, readme, rediscovering, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, rediscovering, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1723,7 +1723,7 @@ _handoff-669-final-pass · handoff 669 final pass_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, pool, race, registry, row, rows, silo, step, steps, strike, widgets
+**topics:** acceptance, feat, fixed-class, frozen, grants, legacy, nested, normalization, normalize, pool, registry, row, rows, silo, step, steps, strike, widgets
 
 - Where you are
 - The work, in order
@@ -2082,7 +2082,7 @@ _locale-safety · locale safety_
 
 _memoize-antipattern-scan · memoize antipattern scan_
 
-**topics:** arguments, cache, closure, dead, delete, factory, freeze, heap, large, measurably, memoize, perf-homebrew-builder-loop, react, reagent-architecture-tenets, retained, scan, sites, suites
+**topics:** arguments, cache, closure, dead, delete, factory, heap, large, measurably, memoize, perf-homebrew-builder-loop, re-render, react, reagent-architecture-tenets, retained, scan, sites, suites
 
 - The defect
 - Scan
@@ -2479,7 +2479,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, per-key, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, per-key, phase, plan, quota, source, sources
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -3039,9 +3039,11 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, agreed, content, diff, edition, editions, mvp, open5e, owner, pdf, rung, similarity, srd, terminology, text, trunk, wording
+**topics:** 2014, 2024, 2026-10-06, agreed, compressed, content, edition, editions, goal, open5e, owner, pdf, rung, scheduled, srd, text, trunk, wording
 
 - Long-term goal: a pure SPA
+- How SRD data is loaded
+- One loader for the SRD and for homebrew
 - The ladder
 - Decided
 - Wanted, not yet scoped
@@ -3150,7 +3152,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
