@@ -202,6 +202,8 @@ in no test run and needs a pack passed to it.
 
 - Worth it (the spike's verdict), but it needs the stored format split per source plus a
   one-time conversion of every existing user's library: a feature, not a fix.
+- Full write-up, with known costs, risks and how to trial it:
+  [kb/proposal-indexeddb-storage.md](kb/proposal-indexeddb-storage.md).
 - Change the storage format **once**: the KB's plan parks it as a single decision, ideally
   straight to IndexedDB (async, no ~5 MB ceiling, sources loaded lazily). Per-source parsing
   under localStorage is a compatible stepping stone, not a competing design.

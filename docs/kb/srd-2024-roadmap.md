@@ -76,11 +76,7 @@ rejected. Moving to it is per-key and asynchronous by nature, which is also exac
 SRD edition files need. So: one loader for homebrew sources and SRD editions, justified by
 capacity and the SPA, scheduled as its own decision. Treat them as one design, not two.
 
-**Trial it as a throwaway spike first** ("do not pick on reasoning", per the perf doc). Risks a
-spike must cover, none yet recorded as findings for this project: startup becoming asynchronous
-(homebrew is read synchronously at init today); migrating existing libraries without ever losing
-homebrew; browser eviction unless persistent storage is granted; Safari and private-browsing
-behaviour; cross-tab coordination.
+**Full write-up, known costs, risks and how to trial it:** [proposal-indexeddb-storage.md](proposal-indexeddb-storage.md). Parked; the owner recalls past non-starters that are not yet recorded — recover those first.
 
 ## The ladder
 

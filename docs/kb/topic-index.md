@@ -271,7 +271,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, points, prescribes, refreshed, setup, stripper, trailer
+**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, marker, points, prescribes, setup, stripper, trailer
 
 - The rule
 - The entry point follows the same rule
@@ -383,7 +383,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, owner, paragraph, review, row, screenshot, signing, unknown, vanished
+**topics:** 2026-09-29, block, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, review, row, screenshot, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -455,7 +455,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -724,7 +724,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1058,7 +1058,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, figwheel, init, java, orchestrates, port, profile, repl, start
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, port, profile, repl, start
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, rediscovering, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1613,7 +1613,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, 800, csp, cyrillic, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, sans, subset, subsets
+**topics:** 118, csp, cyrillic, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, ofl, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1915,7 +1915,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized
+**topics:** aside, cache, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -2479,7 +2479,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, per-key, phase, plan, quota, source, sources
+**topics:** blob, capacity, chars, chunk, granularity, groups, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -2571,7 +2571,7 @@ _plan-next · plan next_
 
 _plan-npc-statblock-customizer · plan npc statblock customizer_
 
-**topics:** adjust, attack, averaged, botched, build-from-scratch, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
+**topics:** adjust, attack, averaged, bonuses, botched, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
 
 - The cascade
 - What the app has
@@ -2595,6 +2595,19 @@ _pool-grant-map · pool grant map_
 - Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
 - The path — four items, then wait for a case
+
+## proposal-indexeddb-storage.md
+
+_proposal-indexeddb-storage · proposal indexeddb storage_
+
+**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, safari, srd-2024-roadmap, storage, trial
+
+- The idea
+- Why it is worth looking at
+- What it is not
+- Known costs, already recorded
+- Risks a trial must cover
+- How to trial it
 
 ## re-frame-subscribe-refactor.md
 
@@ -2945,7 +2958,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, innate, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3039,7 +3052,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, agreed, compressed, content, edition, editions, goal, open5e, owner, pdf, rung, scheduled, srd, text, trunk, wording
+**topics:** 2014, 2024, agreed, compressed, content, edition, editions, goal, open5e, owner, pdf, rung, scheduled, spa, srd, text, trunk, wording
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3114,7 +3127,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3224,7 +3237,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, non-, patches, phrase, prunable, ranked, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, non-, patches, phrase, promote, prunable, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
@@ -3261,7 +3274,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, move, race, race-only, shared, split, toolkit, truly, views
+**topics:** 30-line, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture
