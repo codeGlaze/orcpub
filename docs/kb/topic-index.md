@@ -185,7 +185,7 @@ _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
 _UPGRADE_PLAN · UPGRADE_PLAN_
 
-**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jackson, jdk, jetty, lein-figwheel, npm, pedestal, pro, react, shadow-cljs, src, upgrade
+**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jackson, jdk, jetty, lein-figwheel, npm, pedestal, pro, react, reagent, shadow-cljs, upgrade
 
 - Overview
 - 🚨 Major Changes (January 2026)
@@ -407,7 +407,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** account, auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, operator, opt-in, registration, send, smtp, unconfigured
+**topics:** auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, knowing, operator, opt-in, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -440,6 +440,25 @@ _branch-context-history · branch context history_
 - Workflow
 - Handoff Notes
 - Related Docs
+
+## branch-inventory.md
+
+_branch-inventory · branch inventory_
+
+**topics:** 2026-10-06, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
+
+- Trunk (9)
+- Release (1)
+- Active (3)
+- Unique work (11)
+- Decide (4)
+- Landed, held by a worktree (1)
+- Contained, kept for a worktree or PR (8)
+- Lives in another trunk (10)
+- Unmerged, not triaged (28)
+- Left alone locally
+- Deleted
+- 2026-10-06 (65 branches)
 
 ## browser-probe-registration.md
 
@@ -527,7 +546,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026-09-05, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, 2026-06-15, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -587,7 +606,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, picks, renamed, report, saved, spell-selection
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -636,7 +655,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** account, backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, characters, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -777,7 +796,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1259,7 +1278,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, person, readme, rediscovering, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, rediscovering, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1318,7 +1337,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1383,7 +1402,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, loader, readable, readme, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, readable, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1616,7 +1635,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, 800, csp, cyrillic, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, sans, subset, subsets
+**topics:** 118, 800, csp, cyrillic, external, font, fonts, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, ofl, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1627,7 +1646,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** ---------, adsense, api, bridge, cljs, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
+**topics:** ---------, adsense, api, cljs, customization, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1918,7 +1937,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, retries, retry, set-aside, spell, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -1948,7 +1967,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, immediately, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -1977,7 +1996,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 50-200ms, 500ms, cleared, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
 
 - Current Design (post-refactor)
 - Data flow
@@ -1992,7 +2011,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, record, refusal, rename, round, save, source
+**topics:** address, answers, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2492,7 +2511,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
+**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2832,7 +2851,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, rage, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3020,7 +3039,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _starting-equipment-override-ledger · starting equipment override ledger_
 
-**topics:** addressing, base, bases, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, recompiler, srd, stable, sub-choice
+**topics:** addressing, base, bases, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, srd, stable, sub-choice
 
 - The shape (what a ledger addresses)
 - The missing shape: groups/options have no stable id
@@ -3051,7 +3070,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3089,7 +3108,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -3123,7 +3142,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, db-side, effects, extracting, handlers, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3161,7 +3180,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, non-, patches, phrase, prunable, ranked, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, non-, patches, phrase, promote, prunable, ranked, searching, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
