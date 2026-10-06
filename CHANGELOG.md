@@ -63,6 +63,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
+- **Characters:** the Robe of the Archmagi sets your AC to 15 + Dex instead of adding 5, so it no longer stacks with Draconic Resilience or Unarmored Defense.
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
 - **Accounts:** a failed verification email no longer leaves an account stuck. (#700)
 - **Accounts:** the app signs you out when the server stops accepting your login. (#708)
