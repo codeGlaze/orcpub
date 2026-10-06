@@ -1,0 +1,173 @@
+# Character rescue: a way to fix a character that works without the app
+
+*DESIGN, owner-approved direction 2026-10-04. Layer 1 built (`picks`, #47); layers 2, 3, 0 not built. Code on `feature/character-rescue`, from `integration`.*
+
+## Settled by test (phase 1, 2026-10-06)
+
+Measured on the seeded server (Tide Pak wizard from `orphan-clear.js`, clicks only) and in a JVM
+probe against an in-memory Datomic with the real schema.
+
+| question | answer | evidence |
+|---|---|---|
+| how picks are stored | every selection and every option is its own component entity with a `:db/id` (`::strict/selections` → `::strict/option` or `::strict/options` → `::strict/selections` …). A `picks` address maps to exactly one option entity | `GET /dnd/5e/characters/:id` returns `d/pull [*]`: feat at `[:feats :tidebreaker]`, spell at `[:class :wizard :wizard-spells-known :brine-lash]`, race at `[:race :tidefolk]` |
+| removing one | `[:db/retractEntity <option id>]` removes it and its subtree; the character still passes `::se/entity` | JVM probe: 19 keyed entities → 16, no trace of the three picks |
+| empty selection | a one-pick selection left with no option reads back through `from-strict` as `[]` (`:race []`) | JVM probe. `picks/remove-at` avoids it: it dissocs a one-pick selection |
+| auth from a page without the app | works unchanged: a script reads `:token "…"` from localStorage `"user"` (EDN) and sends `Authorization: Token <jwt>`; `check-auth` gives 200, and 401 for no token or a bad one | Playwright on `/privacy-policy` (no `orcpub.js`) after a real login. Zoe's token on Kaylee's character: `DELETE` 401 |
+| does the builder's address know the id | **no.** It is always `/pages/dnd/5e/character-builder`; the server's HTML has no id. The id is only in the localStorage draft (`"character"`, strict EDN). A regex cannot pick it out safely: the first `:db/id` printed belongs to a selection | Playwright: builder URL and draft read after Open → Edit |
+| what the app sends on save | `application/transit+json` (`:transit-params`, `http_safe.cljs` `wrap-transit-params`); the response is `application/edn` | request captured from a real Save click |
+
+**Consequences for the build:**
+- Layer 2 remove = `from-strict` → `picks/remove-at` → `to-strict` → the existing `update-character`,
+  which already owner-checks and retracts the ids that are gone. No new transaction code.
+- The rescue routes take JSON (or the address in the URL) and answer JSON: the page script never
+  ships transit or parses EDN.
+- The builder's rescue bar cannot get the id from the server; it needs the draft read by something
+  that parses EDN (see the browser-only question below).
+
+**Needed from `picks`, not yet in it:** a list of every stored pick as an address `remove-at`
+accepts, in stored order. `walk` passes selection keys only (a wizard's and a fighter's
+`:level-4` share a path); `keys-of` returns a set of keys.
+
+**Found on the way, not this branch's to fix:** `save-character` reads `:transit-params` only. A
+body in any other format reaches it as nil, passes the spec as `{}`, and creates a blank character
+owned by the caller, with 200.
+
+## Why
+
+Characters have carried data that broke the builder on load, with no way for the player to fix
+them. Measured examples (`hidden-selection-picks.md`, "Trapped picks"; `test/e2e/orphan-clear.js`
+on `fix/hidden-multiclass-skill-pick`, `ab89f88e`): with a homebrew pack not loaded, a feat pick
+cannot be cleared by any route, and a spell pick only by changing class. "Missing Content" lists
+them and offers no action.
+
+**Owner's rules:**
+- Nothing stored on a character may be trapped with no way to clear it.
+- Clearing is an option the player takes, never automatic: homebrew lives in one browser, so a pick
+  missing here may be fine in another.
+- Only the character the player decides on is saved: rescue is a view over stored data, never new
+  stored data.
+
+## The principle: an emergency path at the bottom, nicer layers on top
+
+If bad data can stop the app from loading, anything that lives inside the app can be taken out by
+the same bug. The foundation works without the app running; each layer above works if everything
+above it is broken.
+
+| layer | what | depends on |
+|---|---|---|
+| 1. engine | two pure functions over the stored character: list every stored pick with its path; remove the pick at a path. No template, homebrew or rendering. Shared code, JVM-tested. Shows nothing by itself | the stored data only |
+| 2. server routes | list the picks on a saved character; remove one. Behind the existing login and owner checks, like saving a character | layer 1, the database |
+| 3. emergency page | server-rendered, at a plain address (e.g. `/characters/:id/repair`), with its own tiny script and none of the app bundle. Prints the raw list, Remove per line. Reached from the boot-rescue bar, the "won't load" recovery panel, or typed directly | layers 1–2 |
+| 4. in-app choices list | the friendly version: active / planned / missing, Clear, Reset all (mocked: `inactive-picks` review, round 4 "m8"). Same engine, so it cannot disagree with layer 3 | the app |
+| 5. builder markers | "Planned: …", the "1st" badge (`decision-gate-hidden-picks.md`) | the builder |
+
+**Browser-only characters** (made logged out, never saved) are not on the server, so layers 2–3
+cannot reach them. They take time to make, so they get rescue too: the same layer-1 engine behind
+a client-side page in the boot-rescue style, which depends on nothing the app owns.
+
+## Layer 1 spec: the shared `picks` namespace (decided 2026-10-04)
+
+One engine over a character's stored picks, used by this rescue work AND the hidden-pick work
+(`decision-gate-hidden-picks.md`). Built ONCE, as its own small PR from `integration`, first.
+
+**Built** on `refactor/picks-namespace` and **merged into `integration`** as `d2137952` (#47, 2026-10-04).
+As built: `walk` (public), `walk-typed` (private), `keys-of`, `relink` (the four moved, token-identical
+bar the names), plus `remove-at` / `put-at`. `remove-at` returns `{:character :removed}`; `:removed` is
+`{:address :entry :multiselect?}`, which `put-at` takes. Address: `[selection key, entry key]` pairs, the
+app's option-path format.
+
+**Storage shapes, and why `:multiselect?` is recorded.** A selection stores its picks as a vector when
+it is `::t/multiselect?`, otherwise as the one entry map; absent means never chosen. `remove-at`
+leaves a multiselect's vector in place, empty if it took the last pick: the same state unticking
+the last pick leaves (`event_handlers.cljc` `update-multi-select`), so it is not a new state, and
+saving strips empty collections (`entity/remove-empty-fields`), so it never reaches storage. A single
+pick's selection is dissoc'd, as if never chosen. Neither shows its shape afterwards, so the removed
+record carries `:multiselect?` (the template's own word, `::t/multiselect?`) for `put-at`: true appends
+to the vector, false makes it the selection's entry.
+
+**`put-at` writes only into an empty place** (`453aff1d`). A multiselect already holding the key, or a
+one-pick selection already holding any pick, is left alone and `put-at` returns nil, as when the path is
+gone. That is the decided rule (`decision-gate-hidden-picks.md`): a new pick in that slot retires the held
+one, so the player's later choice is never overwritten or duplicated. Nil means "retire the held copy". JVM 542, cljs 546, lint 0 errors and no new warnings, dev build clean.
+
+**It is a consolidation, not new code.** Three walkers over stored picks already exist; a fourth
+would be the duplication to avoid:
+
+| existing | where | this PR |
+|---|---|---|
+| `walk-entries`, `walk-picks`, `picks-of`, `relink-picks` | `content_reconciliation.cljs` (the heals) | **move** into `src/cljc/orcpub/dnd/e5/picks.cljc`, bodies unchanged; callers updated, no aliases left behind |
+| `flatten-options`, `build-option-paths` | `entity.cljc` (the build, hot path) | **not touched** |
+| `extract-content-keys` | `content_reconciliation.cljs` (Missing Content) | **not touched** |
+
+**New, and only this:** `remove-at` and `put-at`. A pick is addressed by its selection path plus
+its own key, never by its index in a vector (indices shift when another pick is removed). Planned
+later on top, by the hidden-pick work: `disqualified`, `overflow`, `to-planned`, `from-planned`,
+and `::picks/planned` (the in-memory hold).
+
+**Why `.cljc`:** the rescue server path (layers 2–3) must walk and remove picks without the app;
+the server's stored format converts with `entity/from-strict` / `to-strict`, both already shared.
+Bonus: the heal-walker tests then also run in the JVM suite, which CI gates on.
+
+**The `.cljc` traps, and the rules that keep this PR safe** (`testing-infrastructure.md` on
+`agents/develop`; `clojurescript-type-tolerance.md`):
+- JVM and browser can disagree: `(into #{} …)` once diverged on 159 of 808 graphs in the browser
+  only. The namespace never depends on the iteration order of a set or map; its docstring says so (`keys-of` returns a set, used only for membership).
+- CI runs only the JVM suite, so this PR also runs the browser suite by hand
+  (`lein fig:test` + `node test/e2e/cljs-harness.js`).
+- No browser calls; one broken `.cljc` blocks the whole browser test build.
+- **Proof of a pure move:** the moved bodies tokenize identically to the originals (comments
+  stripped, strings masked); the heal tests pass unchanged on both platforms.
+
+**Not built, on purpose:** a general tree library, history, or an undo framework. Undo for an
+automatic change is keeping the previous character value (immutable, free to keep) until the notice
+is dismissed; Redo keeps the undone one.
+
+## Layer 0: the hatch finds the player
+
+A hatch nobody can find is not one. Entry points, most robust first:
+
+1. **A rescue bar on every character page, boot-rescue style.** The server already renders each
+   character's page (`routes.clj` `character-page`, which knows the id before any app code runs).
+   It writes a hidden one-line bar with that character's repair link, shown unless the app reports
+   the character rendered within a few seconds. A white screen or an endless spinner still shows
+   "This character didn't load. Repair it." Check whether the builder's own address knows the
+   character id server-side; if not, it needs the same.
+2. **The "won't load" recovery panel** links to the repair page.
+3. **The character list:** a "Repair" item per character (the list reads summaries, so it usually
+   survives one broken character).
+4. **Support:** the "report a character that won't load" email carries the repair address.
+5. **The plain address** (`/characters/<id>/repair`), last resort.
+
+Browser-only characters: the same bar and repair page, run from the browser's own storage.
+
+## Precedents to build on, not beside (D29)
+
+- `orcpub.index/boot-rescue` (`index.clj`): the homebrew dead-man's switch. Server-rendered, inline
+  styles, plain `localStorage`, shown unless the app reports it booted. The model for layer 3 and
+  for the browser-only page.
+- The "character won't load" recovery panel and its report action (CHANGELOG, Summer Patch:
+  `d50eaf87`, `c2bc7d03`): the natural in-app entry point to layer 3.
+- Character routes (`routes.clj`): `get-character` (`:get` on `dnd-e5-char-route`, no auth),
+  `save-character` (owner-checked), `delete-character` (`check-auth`). Layer 2 follows their auth.
+- The login token is in `localStorage` under `"user"` (`db.cljs`, `local-storage-user-key`), as an
+  EDN string, so a page without the app reads it the way boot-rescue reads `plugins`.
+
+## Limits, stated up front
+
+- **An open builder tab can undo a repair:** its next autosave can write the removed pick back
+  (`multi-tab-character-contamination.md`, on `agents/develop`). Until that is fixed, the repair
+  page says to close the character elsewhere first.
+- **Layer 3's Remove is raw:** it deletes a stored entry by path without knowing the rules. Right
+  for an emergency tool; the friendly layers sit above it.
+
+## Open, for the owner
+
+- Browser-only characters (and the builder's bar): a server route that runs the engine on a posted
+  draft and stores nothing (recommended), or a separate small JS build of the engine.
+- Whether "Reset all choices" is in scope for layer 3 or only layer 4.
+- Who adds the address list to `picks`.
+
+## History
+
+- 2026-10-06: the three open questions (storage, auth, builder id) settled by test; see the table
+  at the top.
