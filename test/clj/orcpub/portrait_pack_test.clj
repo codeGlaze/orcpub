@@ -73,7 +73,7 @@
     ;; the repo ships silhouettes and no strand files, so every hair piece on
     ;; the classpath is listed -- and nothing that is not hair
     (is (seq m))
-    (is (every? #(re-find #"/(hair-back|hair-bits|hair-front|bangs|scalp)/" %) m))))
+    (is (every? #(re-find #"/(hair-back|hair-bits|hair-front|bangs)/" %) m))))
 
 (deftest loom-edn-records-which-pack-it-came-from
   (let [text (imp/render-loom {:eyes {"l6_eyes_01.png" {:pupil 0.45 :iris []}}} "v1.6")]

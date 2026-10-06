@@ -548,7 +548,7 @@
 (def shine-layers
   "The pieces over the top of the head, where light catches: not the hair
    behind it or the bits hanging below."
-  #{:scalp :hair-front :bangs})
+  #{:hair-front :bangs})
 
 (defn- split-wobble
   "A slow wave down the frame, -1..1, the SAME for every piece: the split's

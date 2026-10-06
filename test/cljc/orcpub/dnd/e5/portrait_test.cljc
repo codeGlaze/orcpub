@@ -10,25 +10,13 @@
 ;; ---------- registry ----------
 
 (deftest layer-order-matches-taxonomy
-  (testing "the illustrator's real z-order, plus :scalp -- a blob between the
-            head and the hair that takes the hair colour, because some
-            hair-front and bangs pairs do not meet and leave an island of skin
-            on the crown. It is not one of her pieces, so it is not in the
-            taxonomy; it is in the stack."
-    (is (= [:hair-bits :hair-back :head :scalp :shirt :hair-front
-            :ears :eyes :nose :mouth :bangs]
-           pa/layer-order))
+  (testing "the illustrator's real z-order. The generated :scalp that sat
+            between the head and the hair is retired: the art now meets."
     (is (= [:hair-bits :hair-back :head :shirt :hair-front
             :ears :eyes :nose :mouth :bangs]
-           pa/pickable-layers)
-        "and it is not offered in the picker: one option that changes nothing")
-    (is (= #{:scalp} pa/hidden-layers))
-    (testing "it sits ABOVE the head and BELOW every hair layer, or it cannot
-              do its job"
-      (let [idx #(.indexOf ^java.util.List pa/layer-order %)]
-        (is (< (idx :head) (idx :scalp)))
-        (doseq [hair [:hair-front :bangs]]
-          (is (< (idx :scalp) (idx hair)) (str "scalp must be under " hair)))))
+           pa/layer-order))
+    (is (= pa/layer-order pa/pickable-layers) "every layer is offered in the picker")
+    (is (= #{} pa/hidden-layers))
     (is (= (count pa/layer-order) (count pa/layer-labels)))
     (is (= (count pa/layer-order) (count pa/layer-colors)))
     (is (= (set pa/layer-order) (set (keys pa/color-slots)))
@@ -138,9 +126,7 @@
   (is (re-matches #"#[0-9a-f]{6}" (pa/shade-hex "#5c3a1e" 15)) "output stays #rrggbb"))
 
 (deftest layers-in-slot-groups-by-slot
-  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair))
-      "the scalp draws from the hair slot but is not LISTED as a hair piece --
-       the list drives a per-piece tweak panel, and there is nothing to tweak")
+  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair)))
   (is (= [:head :ears :nose] (pa/layers-in-slot :skin)))
   (is (= [:eyes] (pa/layers-in-slot :eyes)))
   (is (= [:shirt] (pa/layers-in-slot :shirt)))
@@ -518,9 +504,13 @@
   (is (= [:a :b] (map first (order-of [[:a "A" [:eyes]] [:b "B" [:bangs]]] [:eyes :bangs]))))
   (is (= [:b :a] (map first (order-of [[:b "B" [:bangs]] [:a "A" [:eyes]]] [:eyes :bangs])))))
 
-(deftest the-generated-scalp-carries-no-weight
-  (is (= [[:a 10 1] [:b 0 1]]
-         (order-of [[:b "B" [:scalp]] [:a "A" [:head]]] [:head :scalp]))))
+(deftest a-retired-layer-in-a-saved-portrait-credits-no-one
+  ;; a portrait saved while the scalp existed still names it; whoever drew it
+  ;; must not appear in the credit for it, nor gain weight
+  (with-redefs [pa/registry (split-registry [[:b "B" []] [:a "A" [:head]]])]
+    (let [saved (assoc (pick-first [:head]) :scalp {:artist/id :b :asset/id :l2b-scalp-01})]
+      (is (= [[:a 10 1]] (mapv (juxt :artist/id :credit/weight :credit/pieces) (pa/credit-order saved))))
+      (is (= [:a] (pa/all-artists-for-layers saved))))))
 
 (deftest every-surface-names-artists-in-credit-order
   (with-redefs [pa/registry (split-registry [[:b "Bee" [:ears]] [:a "Ay" [:head]]])]

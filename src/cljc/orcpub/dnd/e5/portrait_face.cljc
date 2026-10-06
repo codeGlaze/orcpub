@@ -360,7 +360,7 @@
 
 (defn shade-map
   "The soft shade the hair over the face throws onto the skin, 0..1 per
-   pixel: `hair` (0..255, the scalp, front hair and bangs) blurred wide, on
+   pixel: `hair` (0..255, the front hair and bangs) blurred wide, on
    skin that shows (`skin`, 0..1). Not a cast shadow -- that is the narrow
    band under an overhanging fringe -- but the general dimness near hair.
    nil when off."

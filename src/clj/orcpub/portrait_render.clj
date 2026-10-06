@@ -435,7 +435,7 @@
         shade? (pos? (:shade fs))]
     (when (or casts? marks? shade?)
       (let [^doubles skin (combined-alpha portrait placed-of [:head :ears] any? w h)
-            ^doubles hair (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)
+            ^doubles hair (combined-alpha portrait placed-of [:hair-front :bangs] any? w h)
             ^doubles k (when casts?
                 (fx/shadow-map (combined-alpha portrait placed-of pa/layer-order fx/casts-shadow? w h)
                                skin hair w h (:light (fx/ombre-settings portrait))))
@@ -495,7 +495,7 @@
               iris (when (and (:glow ls) (seq (:asset/iris eyes)))
                      (when-let [rect (asset-rect eyes w h)] (iris-coverage eyes rect w h)))
               maps (light/light-maps ls {:alpha alpha :ink ink :iris iris
-                                         :hair-cover (combined-alpha portrait placed-of [:scalp :hair-front :bangs] any? w h)}
+                                         :hair-cover (combined-alpha portrait placed-of [:hair-front :bangs] any? w h)}
                                      w h)]
           (dotimes [i n]
             (let [argb (aget d i) a (bit-and (unsigned-bit-shift-right argb 24) 0xff)]
