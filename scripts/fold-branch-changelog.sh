@@ -37,8 +37,9 @@ fi
 # Fold by change type: each bullet under the branch changelog's "## Added", "## Changed", "## Fixed" or
 # "## Security" goes to the end of the same "### " heading inside "## [RELEASE]", which is created in
 # that order when missing. "## Why this branch exists" and "## Highlights" are dropped (the release's
-# Highlights are written by hand). Any other section stops the fold. A bullet without a leading
-# "**Area:**" label is folded with a warning.
+# Highlights are written by hand). Any other section, and any line in a type section that is not a
+# top-level bullet or its continuation, stops the fold before anything is removed. A bullet without a
+# leading "**Area:**" label is folded with a warning.
 python3 - "$BC" "$CL" "$RELEASE" <<'PY' || exit 1
 import re, sys
 bc_path, cl_path, release = sys.argv[1:4]
@@ -60,10 +61,14 @@ for line in text.splitlines():
         if line.startswith("- "):
             current = [line]
             found[section].append(current)
-        elif current is not None and line.startswith(("  ", "\t")) and line.strip():
+        elif current is not None and line.startswith(("  ", "\t")) and line.strip() and not line.lstrip().startswith(("- ", "* ", "#")):
             current.append(line)
         elif not line.strip():
             current = None
+        else:
+            # Anything else would be dropped while the file is deleted: refuse instead.
+            sys.exit(f"fold: line not folded under '## {section}' in {bc_path}: {line.strip()[:70]!r}; "
+                     "use top-level '- ' bullets and plain continuation lines only")
 for t in TYPES:
     for b in found[t]:
         if not re.match(r"- \*\*[^*]+:\*\*", b[0]):
