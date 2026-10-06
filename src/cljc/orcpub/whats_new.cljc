@@ -94,7 +94,7 @@
      {:group "Site"
       :icon "fa-mobile-alt"
       :headline "Fits your phone"
-      :detail "On a phone the header, menus and ability buttons fit the screen, and a desktop browser opened at phone width gets the same layout."}
+      :detail "On a phone the header, menus and ability buttons fit the screen, and a desktop window narrowed to phone width gets the same layout."}
      {:group "Site"
       :icon "fa-adjust"
       :headline "Easier-to-read buttons"
