@@ -70,8 +70,8 @@
       (is (some #(= :unnamed-1 (:key %)) (ledger/rows (:character (ledger/read-character text)))))))
   (testing "what cannot be read is an error, never a blank character"
     (doseq [text ["{:a" "[1 2 3]" "{:name \"x\"}" ""]]
-      (let [{:keys [character error]} (ledger/read-character text)]
-        (is (nil? character) (pr-str text))
+      (let [{parsed :character error :error} (ledger/read-character text)]
+        (is (nil? parsed) (pr-str text))
         (is (string? error) (pr-str text))))))
 
 (deftest only-the-owner-by-username-or-email

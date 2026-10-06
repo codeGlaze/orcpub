@@ -73,7 +73,7 @@
   (get-in character [::entity/values :orcpub.dnd.e5.character/character-name]))
 
 (defn support-text
-  "The rows as plain text for a support message: a heading naming the character, then one
-   `:line` per row."
-  [heading rows]
-  (s/join "\n" (cons heading (map :line rows))))
+  "`ledger-rows` (from `rows`) as plain text for a support message: `heading`, which names the
+   character, then one `:line` per row."
+  [heading ledger-rows]
+  (s/join "\n" (cons heading (map :line ledger-rows))))
