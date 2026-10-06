@@ -12,13 +12,16 @@ that answer, the change is wrong.
 | set aside, not refunded | a pick whose gate closes (level lowered, class removed, moved, or changed) leaves the character and is held. Mistaken clicks and build experiments cost nothing |
 | held in memory only | the hold lives with the open page: never saved, exported, or sent to the server. No session/local storage (tab and device behaviour is not predictable enough to explain) |
 | forgotten when | the page is left or reloaded; or the player clears it, or picks something new in that slot |
-| comes back | automatically when its gate reopens, if it still fits (a skill now held from elsewhere, deleted homebrew, a smaller slot: not restored, and named). A short notice with **Undo**, persistent until dismissed |
+| comes back | automatically when its gate reopens, if it still fits (a skill now held from elsewhere, deleted homebrew, a smaller slot: not restored, and named). A pick that comes back in view (the section reappears with it selected) gets no notice; picks that come back out of view, or several at once, get a short notice with **Undo**, persistent until dismissed |
 | no reload warning | browsers show only a generic "changes may not be saved" on reload (custom text ignored), it is unreliable on mobile, and the app already uses it for pending autosave |
 | one path, nothing hides | on open and on every change, a pick that does not apply goes through the same set-aside path and is named. Opening a character with old ghost picks counts as the moment they stopped applying: set aside, the cleaned character saves, a short notice names them. The build-time check is a backstop for the same path, never a silent filter |
-| shared slots: newest first | a slot that loses room sets aside the most recently chosen pick. Stored order is click order (`event_handlers.cljc` `update-multi-select`, `conj`); nothing records which level granted a pick. The player keeps the other with one action ("Keep instead") |
-| the marker | a fourth state of the section header's existing counter (`remaining-component`): "1 set aside", tappable, opening the list with reason and actions. One count per section, however many picks |
-| copy | notices are glanceable: a few words, names not keys ("Steel Will set aside: needs level 7", "Steel Will is back · Undo") |
+| shared slots: newest first | a slot that loses room sets aside the most recently chosen pick. Stored order is click order (`event_handlers.cljc` `update-multi-select`, `conj`); nothing records which level granted a pick. To keep the other one the player just switches; no "Keep instead" action (round 3) |
+| the marker | the word is **"Planned"** (round 3): "Planned: Steel Will (L7)", status first, then the name, then the level. A fourth state of the section header's counter (`remaining-component`); tapping it shows one line, "Steel Will returns at level 7.", with Clear. Its placement beside "complete", and the notice's, are OPEN: the owner wants a design pass on the header layout first (round 4) |
+| copy | notices are glanceable: a few words, names not keys. The restore notice, provisionally accepted (round 3: "I think this is okay?"): "Rogue picks restored (7) · Undo", then "Restore undone · Redo". "Set aside" is the code's word for the hold, not player copy. The on-open notice's wording is OPEN |
 | order of work | 1. the fix (picks stop applying, set-aside path) · 2. showing set-aside picks · 3. "Make starting class" |
+
+Rounds 3 and 4 are the owner's answers on the mockup review page (2026-10-03/04), stored with the
+page; the summaries above quote them.
 
 **Dropped:** the repair-log attribute (`::char5e/repair-log`, below). It would store ghost data on
 the character, which the owner ruled out: only the character the player decides on is saved.
