@@ -12,7 +12,7 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 
 | type | e5 ships | 2024 source | status | note |
 |---|---|---|---|---|
-| spells | 319 | `Spell.json` (339) | **DONE** | `e55/spells.cljc`, 109-entry delta, verified by loading and against the rendered page |
+| spells | 319 | `Spell.json` (339) | **PARTIAL** | `e55/spells.cljc` holds 109 entries. Text compared by word, not by meaning: 312 of 317 shared spells differ in some wording, which mixes terminology, flavour, moved clauses, real rule changes and source errors. Classification pending. Fields verified; text and mechanical fields not carried |
 | magic items | **805** | `MagicItem.json` | **DONE** | `e55/magic_items.cljc`, 32-entry delta, verified |
 | species / races | in `template.cljc` | `Species` (9), `SpeciesTrait` (51) | **SHAPE ONLY** | lineages need level-gated grants |
 | backgrounds | 1, in `spell_subs.cljs` | `Background` (4), `BackgroundBenefit` (20) | **SHAPE ONLY** | needs ASI + origin-feat grants; no data namespace exists |
@@ -47,9 +47,9 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 ## Known gaps in what IS done
 
 - `e55/spells.cljc`: one description (Guards and Wards) still ends early; cause not established.
-- The spell delta keys on FIELDS only. A spell whose wording changed but whose level, school,
-  casting time, range and duration did not is currently counted as identical. The text diff that
-  would catch those was attempted and retracted as unreliable, so **109 is a floor**.
+- The spell delta keyed on FIELDS only and called 230 spells identical. Comparing open5e's `desc`
+  text for both editions, **5** are word-identical. The PDF-based text diff tried earlier was
+  retracted as unreliable; open5e's structured text is clean enough to settle it.
 - Magic items were never checked against a rendered page, only against extracted text.
 
 

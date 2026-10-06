@@ -100,8 +100,9 @@ with `source: srd-5.2.1` on every record.
 
 ## 5. Telling two editions of the same item apart (UX)
 
-**What changed.** Nothing in the rules — this is ours. With both editions enabled, the 87
-spells that exist in both with differences appear twice under identical names.
+**What changed.** Nothing in the rules — this is ours. With both editions enabled, every spell that
+exists in both editions with any wording difference appears twice under identical names — 312 of
+the 317 shared spells, not the 87 a field-only comparison suggested.
 
 **Idea.** Append the version at render time rather than storing it in the name. The pattern
 already exists: `pdf_spec.cljc` appends a parenthesised qualifier to a spell name when

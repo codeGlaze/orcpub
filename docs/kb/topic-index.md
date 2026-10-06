@@ -383,7 +383,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, owner, paragraph, review, row, signing, unknown, unless, vanished
+**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, owner, paragraph, review, row, screenshot, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -428,7 +428,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -754,7 +754,7 @@ _code-comment-style · code comment style_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, hosted, invariant, invariants, keys, nets, non-additive, redesign, selection, selection-key
+**topics:** 252, call-sites, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, hosted, invariant, invariants, keys, nets, non-additive, selection, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -775,7 +775,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -886,7 +886,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** disable, disable-based, disabled, duplicate-key, example, fork, graduates, independent, item-level, nondeterministic, nondeterministic-override, notify, override, owned, per-account, same-key, variant, versioned
+**topics:** disable, disable-based, disabled, duplicate-key, example, fork, graduates, item-level, nondeterministic, nondeterministic-override, notify, override, owned, per-account, prereq, same-key, variant, versioned
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -995,7 +995,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1124,7 +1124,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-infrastructure · docker infrastructure_
 
-**topics:** 128m, 1gb, 512m, alpine, build-time, busybox, datomic, docker, envsubst, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
+**topics:** 128m, 1gb, 512m, alpine, busybox, chown, datomic, docker, envsubst, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
 
 - Key Decisions
 - host=datomic (not 0.0.0.0)
@@ -1201,7 +1201,7 @@ _docker-swarm-compat · docker swarm compat_
 
 _docker-testing-guide · docker testing guide_
 
-**topics:** admin, backup, codespaces, compose, daemon, deploy, docker, env, healthy, json, password, pipe, piped, prompt, script, secrets, swarm, wipe
+**topics:** admin, backup, codespaces, compose, daemon, docker, env, healthy, json, password, pipe, piped, prompt, script, secrets, smoke, swarm, wipe
 
 - Automated Tests (No Docker Daemon)
 - Fixtures (test/docker/fixtures/)
@@ -1257,7 +1257,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, instrument, investigation, narrate, readme, rediscovering, reminder, standing, tenets, tradeoff, tried, unioning, verification-discipline, window
+**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, readme, rediscovering, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1281,7 +1281,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, designed, item, key, match, rebind, relink, rename, renames, rung, save, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, renames, rung, save, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1667,7 +1667,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, row, seeded
+**topics:** 648, block, branch, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -2362,7 +2362,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, switch, task
+**topics:** ---, 130, builder-open, cache, caster, casters, chunking, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2567,7 +2567,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, choice, dependent, direction, entry, fighting, grant, granting, grants, irregularity, pool, pools, registered, registry, spells, styles, vector
+**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, pool, pools, registered, registry, spells, styles, two-level, vector
 
 - In four sentences
 - The three layers
@@ -2930,7 +2930,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, differ, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, innate, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -2960,7 +2960,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** agreed, artificer, caster, factor, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
+**topics:** artificer, caster, factor, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED
@@ -2972,7 +2972,7 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2024, 317, 805, checked, column, counted, counterpart, counting, delta, designed, dnd, magic, monsters, namespace, open5e, srd, started, vars
+**topics:** 2024, 317, 805, checked, column, counterpart, counting, delta, designed, dnd, editions, magic, monsters, namespace, open5e, srd, started, text
 
 - Content
 - Rules and reference (no e5 data namespace)
@@ -3020,11 +3020,24 @@ _srd-2024-integration · srd 2024 integration_
 - What would validate or kill this
 - Related Files
 
+## srd-2024-roadmap.md
+
+_srd-2024-roadmap · srd 2024 roadmap_
+
+**topics:** 2014, 2024, agreed, alpha, edition, edition-neutral, editions, frightened, heroism, mvp, open5e, owner, rung, species, srd, text, trunk, wording
+
+- The ladder
+- Decided
+- Wanted, not yet scoped
+- Open decisions
+- What blocks what
+- Known debt in what exists
+
 ## srd-pdf-as-source-of-record.md
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, pdf, pdfs, school, spells, srd, srd-2024-intergration, srd-5
+**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, pdf, school, schools, spells, srd, srd-2024-intergration, srd-5
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -3066,7 +3079,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -3208,7 +3221,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, proves, running, synthetic
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
