@@ -6,13 +6,14 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
-            [environ.core :refer [env]]))
+            [orcpub.loading-spinner :as spinner]
+            [orcpub.env :as env]))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
    Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
    When unset, no fetch is attempted — plugins come only from local imports."
-  (env :load-homebrew-url))
+  (env/value :load-homebrew-url))
 
 (defn meta-tag [property content]
   (when content
@@ -123,7 +124,8 @@
                           description
                           image
                           fb-type
-                          nonce]}
+                          nonce
+                          spinner-kind]}
                   & [splash?]]
   (html5
    {:lang :en}
@@ -233,6 +235,7 @@ table {
 html {
 	min-height: 100%;
 }"]
+    [:style spinner/css]
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
@@ -242,33 +245,31 @@ html {
     [:div#app
      (if splash?
        (views-2/splash-page)
-       [:div.h-full {:style "display:flex;justify-content:space-around"}
-        [:img {:src "/image/spiral.gif"
-               :style "height:200px;width:200px;margin-top:200px"}]])]
-    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the
-    ;; app once it has actually rendered. Nothing has to DETECT a failure — a
-    ;; broken bundle, a CLJS error, a homebrew blob that crashes the app on load
-    ;; all simply leave it standing. It sits below the fold during a normal boot,
-    ;; so the second or two before the app clears it costs nothing.
-    ;;
-    ;; Deliberately independent of everything the app owns: server-rendered
-    ;; markup, inline styles (styles.css may not have loaded either), plain
-    ;; localStorage and a vanilla anchor download rather than FileSaver. Every
-    ;; dependency it takes is one more thing that can be broken when it is needed.
+       (spinner/markup (or spinner-kind (spinner/pick nil))))]
+    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
+    ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
+    ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
+    ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
     (boot-rescue nonce)
     (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
+    ;; Every script tag carries the per-request nonce. It is nil in dev mode,
+    ;; where no CSP header is set at all; enforcing otherwise.
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
+    ;; 400, 600 and 700: the stylesheet asks for bold on tabs, titles and labels, and with only
+    ;; 400 loaded Chrome rendered all of it at regular weight. One variable file serves all
+    ;; three, so the extra weights cost nothing over 400 alone. See docs/design/style-guide.md.
+    (include-css "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
       (script-tag {:nonce nonce}
        (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
+        const noLibrary = () => {
+          const p = localStorage.getItem('plugins');
+          return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
+        };
+        if (noLibrary()) {
           fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
@@ -277,8 +278,10 @@ html {
               return resp.text();
             })
             .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
+              // only into a library that is still empty, and bumped like any write so other tabs reload
+              if (!text.toUpperCase().includes('NOT FOUND') && noLibrary()) {
                 localStorage.setItem('plugins', text);
+                localStorage.setItem('plugins:rev', String(Number(localStorage.getItem('plugins:rev') || 0) + 1));
                 window.location.reload(false);
               }
             })

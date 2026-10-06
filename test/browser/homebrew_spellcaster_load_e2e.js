@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Are spells built into the character builder when you are NOT looking at spells?
 //
 // Scales homebrew SPELLCASTING classes/subclasses (each with a full spell list) plus custom
@@ -24,8 +26,8 @@
 // that does not persist measures a builder with no homebrew in it. Keep packs under ~2.5 MB.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack } = require('./lib/orcbrew-import');
-function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 // Instrument BEFORE the builder page ever renders, via an init script, so the FIRST
 // template build is captured — that is the one the user waits on.

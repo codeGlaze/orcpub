@@ -1,11 +1,9 @@
 (ns orcpub.dnd.e5.srd-starting-equipment
-  "'Start from an SRD class': derive a class's starting equipment as serializable data
-   (fixed grants + :equipment-selections) DIRECTLY from the live class definition — no
-   hand-transcribed copy. class-option's built output holds the equipment as fixed
-   associated-options plus choice selections whose grants live in modifier fns; we read
-   the fixed ones as data and recover choice grants by APPLYING each modifier fn (exactly
-   how the app applies them to a character). Verified by a decompile->recompile round-trip
-   against the live class in orcpub.starting-equipment-test."
+  "'Start from an SRD class': derives a class's starting equipment as serializable data
+   (fixed grants + :equipment-selections) from the live class definition. Fixed
+   associated-options are read as data; choice grants, which live in modifier fns, are
+   recovered by APPLYING each fn as the app does to a character. Round-trip tested
+   against the live class in orcpub.starting-equipment-test. See starting-equipment.md."
   (:require [clojure.string :as str]
             [orcpub.dnd.e5.classes :as classes]
             [orcpub.dnd.e5.weapons :as weapons]

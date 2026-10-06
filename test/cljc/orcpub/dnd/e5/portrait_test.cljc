@@ -428,9 +428,10 @@
               nothing errors, so only a check like this notices."
       (doseq [{:link/keys [icon label]} (:artist/links a)]
         (is (some? icon) (str label " has no icon"))
-        (is (.exists (java.io.File.
-                      (str "resources/public/image/social/" icon ".svg")))
-            (str "/image/social/" icon ".svg is missing"))))
+        ;; the file check needs a filesystem: the JVM run makes it
+        #?(:clj (is (.exists (java.io.File.
+                              (str "resources/public/image/social/" icon ".svg")))
+                    (str "/image/social/" icon ".svg is missing")))))
     (testing "and every link keeps its label, which is the accessible name --
               an icon with no text is unreadable to a screen reader"
       (is (every? (comp seq :link/label) (:artist/links a)))))

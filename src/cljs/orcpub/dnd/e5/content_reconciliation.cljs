@@ -1,17 +1,15 @@
 (ns orcpub.dnd.e5.content-reconciliation
-  "Detects missing content references in characters and suggests fixes.
-
-   When a character references homebrew content (classes, races, etc.) that
-   isn't currently loaded, this module helps identify what's missing and
-   suggests similar content that might be a match.
-
-   Extracts content keys directly from the entity options structure using
-   the same get-in patterns the rest of the app uses, rather than walking
-   the entire options tree generically."
+  "Detects homebrew content (classes, races, etc.) a character references that is not loaded, and
+   suggests similar loaded content. Keys are extracted from the entity options with the same
+   get-in paths the rest of the app uses, not a generic tree walk."
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [orcpub.entity :as entity]
             [orcpub.common :as common]
+            [orcpub.template :as t]
+            [orcpub.dnd.e5.library-links :as links]
+            [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
@@ -48,17 +46,17 @@
   (let [race-opt (get options :race)]
     (cond-> []
       (::entity/key race-opt)
-      (conj {:key (::entity/key race-opt) :content-type :race :content-label "Race"})
+      (conj {:key (::entity/key race-opt) :content-type :race :content-label "Race" :path [:race]})
 
       (get-in race-opt [::entity/options :subrace ::entity/key])
       (conj {:key (get-in race-opt [::entity/options :subrace ::entity/key])
-             :content-type :subrace :content-label "Subrace"}))))
+             :content-type :subrace :content-label "Subrace" :path [:race :subrace]}))))
 
 (defn- extract-background-key
   "Extract background key from a character."
   [options]
   (when-let [k (get-in options [:background ::entity/key])]
-    [{:key k :content-type :background :content-label "Background"}]))
+    [{:key k :content-type :background :content-label "Background" :path [:background]}]))
 
 (defn- extract-class-keys
   "Extract class and subclass keys from a character.
@@ -77,7 +75,7 @@
                                   subclass-selection-keys)]
            (cond-> []
              class-key
-             (conj {:key class-key :content-type :class :content-label "Class"})
+             (conj {:key class-key :content-type :class :content-label "Class" :path [:class]})
 
              subclass-key
              (conj {:key subclass-key :content-type :subclass :content-label "Subclass"}))))
@@ -92,12 +90,12 @@
     (when (sequential? feats)
       (keep (fn [feat-opt]
               (when-let [k (::entity/key feat-opt)]
-                {:key k :content-type :feat :content-label "Feat"}))
+                {:key k :content-type :feat :content-label "Feat" :path [:feats]}))
             feats))))
 
 (defn extract-content-keys
   "Extract all content keys from a character's options.
-   Returns a seq of {:key :keyword :content-type :type :content-label \"Label\"}."
+   Returns a seq of {:key :content-type :content-label :path}; `:path` is the selection path read."
   [character]
   (let [options (::entity/options character)]
     (concat
@@ -159,17 +157,19 @@
 ;; Built-in (SRD) Content — excluded from missing-content warnings
 ;; ============================================================================
 
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by `offered-keys`, which reads what
+;; the builder actually offers instead of a hand-kept copy of it. See homebrew-keys-design.md.
 ;; Only SRD content belongs here. Non-SRD PHB content (Battle Master,
 ;; Folk Hero, etc.) comes from plugins and SHOULD be flagged when removed.
 
-(def ^:private builtin-races
+#_(def ^:private builtin-races
   #{:dwarf :elf :halfling :human :dragonborn :gnome
     :half-elf :half-orc :tiefling})
 
 ;; Built-in subraces: PHB subrace keys auto-generated from their names via
 ;; common/name-to-kw. Human cultural variants (Calishite etc.) are defined
 ;; in spell_subs.cljs with only :name, so their keys are derived from the name.
-(def ^:private builtin-subraces
+#_(def ^:private builtin-subraces
   #{;; Dwarf
     :hill-dwarf :mountain-dwarf
     ;; Elf
@@ -185,17 +185,17 @@
     :standard-human :variant-human})
 
 ;; Only Acolyte is hardcoded (spell_subs.cljs:538).
-(def ^:private builtin-backgrounds #{:acolyte})
+#_(def ^:private builtin-backgrounds #{:acolyte})
 
 ;; SRD subclasses — one per class, hardcoded in classes.cljc.
-(def ^:private builtin-subclasses
+#_(def ^:private builtin-subclasses
   #{:champion :berserker :lore :life :land :open-hand
     :devotion :hunter :thief :draconic :fiend :evocation})
 
 ;; Grappler is the only SRD feat (feats5e/feats-plugin, hardcoded).
-(def ^:private builtin-feats #{:grappler})
+#_(def ^:private builtin-feats #{:grappler})
 
-(defn- builtin?
+#_(defn- builtin?
   "True if this key is SRD built-in content that won't appear in plugin subs."
   [k content-type]
   (case content-type
@@ -208,61 +208,62 @@
     false))
 
 ;; ============================================================================
+;; What the builder offers
+;; ============================================================================
+
+(def offered-keys library/offered-keys)
+
+;; ============================================================================
 ;; Missing Content Detection
 ;; ============================================================================
 
-;; Sentinel keys that are NOT references to loadable content, so they can never
-;; be "missing" — every "Custom" option (background/race/subrace/subclass) is
-;; named "Custom", which name-to-kw turns into :custom, and the real data lives
-;; INLINE on the entity (::entity/value + ::entity/options), not in a plugin;
-;; :none is an explicit "no selection". Mirrors the #{:none :custom} sentinel
-;; guard in events.cljs. Checked here (not per extractor) so one guard covers
-;; all inline-custom content types at once.
+;; Keys that never mean missing content: every "Custom" option (background/race/subrace/subclass)
+;; becomes :custom and keeps its data INLINE on the entity (::entity/value + ::entity/options), and
+;; :none is an explicit "no selection". Mirrors the #{:none :custom} guard in events.cljs; checked
+;; here so one guard covers every inline-custom type.
 (def ^:private inline-content-sentinels #{:custom :none})
 
 (defn check-content-availability
-  "Check which content keys from a character are missing.
-
-   Parameters:
-   - character-keys: seq from extract-content-keys
-   - available-content: map of {:classes [...] :races [...] :subclasses [...] ...}
-
-   Returns seq of missing content with suggestions."
-  [character-keys available-content]
-  (let [available-keys (into {}
-                             (map (fn [[ct field]]
-                                    [ct (set (map :key (get available-content field)))]))
-                             content-type->field)]
+  "Entries of `character-keys` (from `extract-content-keys`) the builder does not offer, each with
+   `:missing? true`, `:suggestions` drawn from `available-content` ({:classes [...] ...}) and
+   `:inferred-source`. An entry whose `:path` is a `library/pick-homes` path of a type
+   `offered-by-type` lists is looked up in that type's keys; any other in `offered` (from
+   `offered-keys`). `offered` nil means not yet known: nothing is
+   reported."
+  [character-keys available-content offered & [offered-by-type]]
+  (when (some? offered)
     (keep
-     (fn [{:keys [key content-type] :as entry}]
-       (let [type-keys (get available-keys content-type #{})
-             missing? (and (not (contains? inline-content-sentinels key))
-                           (not (contains? type-keys key))
-                           (not (builtin? key content-type)))]
-         (when missing?
-           (let [field (get content-type->field content-type)
-                 suggestions (find-similar-content
-                              key content-type
-                              (get available-content field []))]
-             (assoc entry
-                    :missing? true
-                    :suggestions suggestions
-                    :inferred-source (infer-source-from-key key))))))
+     (fn [{:keys [key content-type path] :as entry}]
+       (when-not (or (contains? inline-content-sentinels key)
+                     (library/offers? (get offered-by-type (library/pick-homes path) offered) key))
+         (let [field (get content-type->field content-type)
+               suggestions (find-similar-content
+                            key content-type
+                            (get available-content field []))]
+           (assoc entry
+                  :missing? true
+                  :suggestions suggestions
+                  :inferred-source (infer-source-from-key key)))))
      character-keys)))
 
 (defn generate-missing-content-report
-  "Generate a user-friendly report of missing content.
-
-   Returns:
-   {:has-missing? bool
-    :missing-count int
-    :items [{:key :foo
-             :label \"Class\"
-             :inferred-source \"Kibbles' Tasty\"
-             :suggestions [{:key :bar :name \"Similar\" :similarity 0.8}]}]}"
-  [character available-content]
+  "Report of the content `character` references that the builder does not offer:
+   {:has-missing? bool :missing-count n :items [{:key :content-type :content-label
+   :inferred-source :suggestions [{:key :name :similarity}]} ...]}. Also lists spell and language
+   picks no longer offered when `choice-tags` is given. `offered` nil reports nothing."
+  [character available-content offered & [choice-tags offered-by-type]]
   (let [char-keys (extract-content-keys character)
-        missing (check-content-availability char-keys available-content)]
+        known (set (map :key char-keys))
+        missing (concat
+                 (check-content-availability char-keys available-content offered offered-by-type)
+                 ;; Spells and languages the character picked that the builder no longer offers.
+                 (when (and (some? offered) choice-tags)
+                   (for [{:keys [key tag]} (library/missing-picks character offered choice-tags
+                                                                  #{:spells :language-profs})
+                         :when (not (contains? known key))]
+                     {:key key :content-type (if (= :spells tag) :spell :language)
+                      :content-label (if (= :spells tag) "Spell" "Language")
+                      :missing? true :suggestions [] :inferred-source (infer-source-from-key key)})))]
     {:has-missing? (boolean (seq missing))
      :missing-count (count missing)
      :items (vec missing)}))
@@ -271,15 +272,10 @@
 ;; Spell Selection Key Reconciliation
 ;; ============================================================================
 ;;
-;; During a regression window, the plugin-classes sub mutated class :name
-;; to "Cleric (Source)", which leaked into spell-selection :key derivation
-;; (selection keys are computed via name-to-kw of the class name + suffix).
-;; Characters built or re-saved during the window have selection keys like
-;; :cleric-source-cantrips-known. After reverting the mutation, the template
-;; uses the canonical :cleric-cantrips-known again, leaving the saved key
-;; orphaned and the selections invisible.
-;;
-;; This reconciler heals unambiguous orphans at character load.
+;; A class's spell selections are keyed :<class-key>-cantrips-known and :<class-key>-spells-known.
+;; FIELD NOTE (spell-selection-orphans): saved characters exist with the suffix under another
+;; prefix (:cleric-source-cantrips-known, :artificer-cantrips-known under :artificer-kibbles-tasty).
+;; Their selections render as nothing until rewritten.
 
 (def ^:private spell-selection-suffix-re
   #"^.+?-(cantrips-known|spells-known)$")
@@ -301,11 +297,8 @@
       (keyword (str (name class-key) "-spells-known"))}))
 
 (defn- reconcile-class-entry-options
-  "Walk one class entry's option map. Returns {:options reconciled :rewrote [...]}.
-   Orphan spell-selection keys with a single suffix-match candidate in the
-   expected set are rewritten in place; everything else passes through
-   unchanged. The existing missing-content banner surfaces class-level
-   orphans (entries whose class isn't loaded)."
+  "One class entry's `options` with each orphaned spell-selection key moved to the one key of
+   `expected-keys` sharing its suffix, as {:options :rewrote}. Anything else passes through."
   [class-key options expected-keys]
   (reduce-kv
    (fn [acc k v]
@@ -332,30 +325,10 @@
    options))
 
 (defn reconcile-spell-selection-keys
-  "Heal orphaned spell-selection keys on a
-   character. Runs at :set-character (lazy, per-character-on-view).
-
-   With key-based kw derivation, the canonical spell-selection key for a class
-   entry is :{class-key}-cantrips-known / :{class-key}-spells-known. Saved
-   characters bound to the older :name-derived shape (e.g.
-   :artificer-cantrips-known under a class entry whose :key is
-   :artificer-kibbles-tasty) get auto-rewritten via suffix match.
-
-   Args:
-   - character: character entity (with ::entity/options)
-   - loaded-class-keys: collection of class keys the system knows about right
-     now (built-ins + plugins; same source the class dropdown consumes via
-     ::classes5e/classes).
-
-   For each class entry in the character whose :key is in the loaded set,
-   walk its options and rewrite spell-selection-shaped keys to the canonical
-   class-key-derived form when there's a single suffix-match candidate.
-   Class entries whose :key is NOT loaded pass through unchanged — the
-   existing missing-content banner surfaces them for user-driven relink.
-
-   Returns:
-   {:character reconciled-character
-    :rewrote [{:class-key K :from K1 :to K2} ...]}"
+  "`character` with orphaned spell-selection keys rewritten under each class entry whose :key is
+   in `loaded-class-keys` (built-ins plus enabled plugin classes), as {:character :rewrote
+   [{:class-key :from :to}]}. A key moves only when exactly one expected key shares its suffix.
+   Entries of classes not loaded pass through; the missing-content report covers them."
   [character loaded-class-keys]
   (let [known-keys (set loaded-class-keys)
         class-entries (get-in character [::entity/options :class])]
@@ -382,71 +355,50 @@
       {:character character :rewrote []})))
 
 ;; ── Former keys ─────────────────────────────────────────────────────────────
-;; Resolving an import conflict renames a key. Every character that had already
-;; selected that content stored the OLD key, and would otherwise stop resolving --
-;; the option silently unbinds and the character loses whatever it granted.
+;; An item whose key changed lists its old keys in :former-keys. A "heal" rewrites a character's
+;; picks of an old key to the current one. It is in memory until the character is saved.
+;; Long form and tracing: character-heals.md.
 ;;
-;; rename-key-in-plugin records the outgoing key as :former-key on the item, so
-;; the rename is reversible by lookup. This translates a character's stored keys
-;; through those records when it loads, and the result persists on the next save,
-;; so each character heals once.
+;; FIELD NOTE (heal-sites): every heal goes through reconcile-former-keys, from three places:
+;;   events/set-character          the builder's character, on every load
+;;   autosave-fx/cache-template    re-dispatches :set-character once, when the offered-key list
+;;                                 first exists (before it, the indexes are empty)
+;;   subs ::char5e/character       saved characters as pages read them; never stored
+;; A pick healed in the builder but not on a page (or the reverse) means a path skips one of these.
 ;;
-;; Done here rather than at match time on purpose: t/option-cfg builds template
-;; options from a fixed allow-list and drops unknown fields, so carrying
-;; :former-key through to matching would mean threading it through every
-;; per-content-type option builder. The character is right here, and :plugins are
-;; already hydrated at :set-character.
+;; FIELD NOTE (heal-typed): a key is unique only within its type. The built-in Dragonborn "Blue"
+;; ancestry and a background picked as :blue share :blue. A pick at a library/pick-homes path uses
+;; its own type's index; every other pick uses the flat index. A type with no offered list is
+;; unknown, never empty. typed-keys.md.
 
-(def former-key-cap
-  "Former keys kept per item. A repair aid, not an archive."
-  4)
+;; GOTCHA: heal the character, not the matching. t/option-cfg drops fields it does not know, so
+;; :former-keys never reaches the template.
 
-(defn former-keys
-  "`item`'s former keys, oldest first. Reads the singular `:former-key` as a one-entry history."
-  [item]
-  (or (:former-keys item)
-      (some-> (:former-key item) vector)
-      []))
+(def former-key-cap links/former-key-cap)
+(def former-keys links/former-keys)
+(def record-former-key links/record-former-key)
 
-(defn record-former-key
-  "Append `old-key` to `item`'s `:former-keys`, capped at `former-key-cap`. Drops `:former-key`.
-
-   Entry 0 is the prime key, minted at creation, and is never evicted — kept on the assumption
-   that the oldest characters point at the oldest key. Overflow is taken from the middle.
-   Six renames: `[:one :three :four :five]` under `:six` — `:two` gave way, `:one` stays."
-  [item old-key]
-  (let [prior (former-keys item)
-        ks    (if (some #{old-key} prior) prior (conj (vec prior) old-key))]
-    (-> item
-        (dissoc :former-key)
-        (assoc :former-keys (if (<= (count ks) former-key-cap)
-                              ks
-                              (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
-
-(defn former-key-index
-  "{former-key -> current-key} across every source and content type in `plugins`.
-
-   Deliberately not keyed by content type. The character's option tree stores a
-   content key as a bare value under ::entity/key with no type beside it, so a
-   type-aware index could not be consulted without reconstructing the path. Two
-   exclusions make a global index safe instead:
-
-   - a former key claimed by MORE THAN ONE item is dropped. Two items both
-     claiming to have been :artificer cannot both be rebound to, and picking one
-     would bind a character to whichever happened to be walked first.
-   - a former key that is some item's LIVE key is dropped. The live item owns that
-     key; a character pointing at it already resolves, and rebinding it away would
-     break something that works."
+(defn- items-with-formers
+  "[{:type :key :formers}] for every item in `plugins`. A background's name-derived key counts as
+   a former key."
   [plugins]
-  (let [items (for [[_ plugin] plugins
-                    :when (map? plugin)
-                    [ct content] plugin
-                    :when (map? content)
-                    [k item] content
-                    :when (map? item)]
-                {:key k :formers (former-keys item)})
-        live (into #{} (map :key) items)
-        claims (reduce (fn [acc {:keys [key formers]}]
+  (for [[_ plugin] plugins
+        :when (map? plugin)
+        [ct content] plugin
+        :when (map? content)
+        [k item] content
+        :when (map? item)]
+    ;; a background was offered under its name's key until the stored one was used
+    {:type ct
+     :key k
+     :formers (cond-> (vec (former-keys item))
+                (and (= ct :orcpub.dnd.e5/backgrounds) (string? (:name item)))
+                (conj (common/name-to-kw (:name item))))}))
+
+(defn- claimed-once
+  "{former-key -> current-key} of `items`' formers claimed by exactly one item and not in `live`."
+  [items live]
+  (let [claims (reduce (fn [acc {:keys [key formers]}]
                          (reduce (fn [acc former]
                                    (cond-> acc
                                      (not= former key)
@@ -462,42 +414,78 @@
                     [former (first targets)])))
           claims)))
 
+(defn former-key-index
+  "{former-key -> current-key} across every source and content type in `plugins`, for picks of
+   no known type. `offered` is from `offered-keys`; nil means not yet known, and the index is
+   empty.
+   GOTCHA: drops a former key claimed by more than one item, held by any library item (disabled
+   ones included), or in `offered` (built-in content included). Such a key still answers."
+  [plugins offered]
+  (if (nil? offered)
+    {}
+    (let [items (items-with-formers plugins)]
+      (claimed-once items (into offered (map :key) items)))))
+
+(defn typed-former-key-index
+  "{content-type {former-key -> current-key}} for each `library/pick-homes` type that
+   `offered-by-type` (from `library/offered-by-type`) lists; a type it does not list is absent.
+   Per type, the same rule as `former-key-index`, against that type's items and offered keys only."
+  [plugins offered-by-type]
+  (let [by-type (group-by :type (items-with-formers plugins))]
+    (into {}
+          (keep (fn [t]
+                  (when-let [offered (get offered-by-type t)]
+                    (let [items (get by-type t)]
+                      [t (claimed-once items (into offered (map :key) items))]))))
+          (set (vals library/pick-homes)))))
+
+(defn former-key-indexes
+  "What a heal reads: {:flat (former-key-index plugins offered)
+   :typed (typed-former-key-index plugins offered-by-type)}."
+  [plugins offered offered-by-type]
+  {:flat (former-key-index plugins offered)
+   :typed (typed-former-key-index plugins offered-by-type)})
+
+(defn relink-to-ask
+  "The index into `relinks` (db/pending-relinks) of the first rename to ask `character` about, or
+   nil: a saved character not yet asked, holding the renamed item's old key as a pick of its type,
+   while `plugins` holds both the renamed item (`:to`) and the item now under the old key."
+  [relinks character plugins]
+  (let [id (:db/id character)
+        holds? (fn [ct k] (some #(some? (get-in % [ct k])) (vals plugins)))]
+    (when id
+      (first (keep-indexed (fn [i {:keys [content-type from to asked]}]
+                             (when (and (not (contains? asked id))
+                                        (contains? (picks/keys-of character content-type) from)
+                                        (holds? content-type to) (holds? content-type from))
+                               i))
+                           relinks)))))
+
 (defn reconcile-former-keys
-  "Rewrite a character's stored content keys through `index`.
-
-   Walks ::entity/options and translates every ::entity/key it finds, which is
-   where a content key always lives -- nested under a selection, or inside a
-   vector for a multi-select like :feats. Selection keys, which are MAP keys, are
-   left alone; only chosen-option identity moves.
-
-   Returns {:character .. :rewrote [{:from .. :to ..}]}, matching
-   reconcile-spell-selection-keys, so a caller can report what healed."
-  [character index]
-  (if (or (empty? index) (nil? (::entity/options character)))
+  "`character` with its picks rewritten through `indexes` (from `former-key-indexes`), as
+   {:character :rewrote [{:from :to}]}. A pick at a `library/pick-homes` path whose type `:typed`
+   lists uses that type's index only; any other pick uses `:flat`."
+  [character {:keys [flat typed] :as indexes}]
+  {:pre [(contains? indexes :typed)]}
+  (if (or (and (empty? flat) (every? empty? (vals typed))) (nil? (::entity/options character)))
     {:character character :rewrote []}
     (let [rewrote (atom [])
-          walked (walk/postwalk
-                  (fn [x]
-                    (if (and (map? x) (contains? x ::entity/key))
-                      (if-let [to (get index (::entity/key x))]
-                        (do (swap! rewrote conj {:from (::entity/key x) :to to})
-                            (assoc x ::entity/key to))
-                        x)
-                      x))
-                  (::entity/options character))]
-      {:character (assoc character ::entity/options walked)
+          opts (picks/walk
+                (::entity/options character)
+                (fn [path e]
+                  (let [t (library/pick-homes path)
+                        idx (if (contains? typed t) (get typed t) flat)]
+                    (if-let [to (get idx (::entity/key e))]
+                      (do (swap! rewrote conj {:from (::entity/key e) :to to})
+                          (assoc e ::entity/key to))
+                      e))))]
+      {:character (assoc character ::entity/options opts)
        :rewrote @rewrote})))
 
 ;; ── Class binding report ────────────────────────────────────────────────────
-;; The reconcilers above REPAIR. This one only reports, and deliberately so: a
-;; report threaded through a repair function's return value is a report that gets
-;; dropped by the next caller who destructures only the part it wanted, which is
-;; precisely how :rewrote went unread for as long as it did.
-;;
-;; It answers two questions the missing-content banner could not. "Something is
-;; missing" is true but useless when a class fails to bind, because the builder
-;; resets every choice downstream of a class -- the person needs to know WHICH
-;; class, and whether the subclass hanging off it even belongs to it.
+;; Reports, never repairs: classes that do not bind, and subclasses filed under the wrong class.
+;; GOTCHA: an unbound class resets every choice below it, so the report names the class; the
+;; missing-content report alone does not say which.
 
 (defn- class-entry-subclass
   "The [selection-key subclass-key] a class entry carries, or nil. Mirrors the
@@ -509,21 +497,10 @@
         subclass-selection-keys))
 
 (defn class-binding-report
-  "What is wrong with this character's class bindings, if anything.
-
-   - `loaded-class-keys`  the classes that exist right now (built-ins union
-     plugins) -- the same set the class dropdown is built from, so the report
-     cannot disagree with what the person can actually pick.
-   - `subclass->class`    {subclass-key -> owning class-key}, as far as it is
-     known. Homebrew subclasses carry :class; anything absent from this map is
-     simply not judged.
-
-   Returns {:unbound-classes [...] :subclass-mismatches [...]}.
-
-   A subclass is only called a mismatch when the map SAYS it belongs elsewhere.
-   An unknown subclass is left alone -- accusing content of being misfiled
-   because we happen not to have loaded it would turn every missing plugin into
-   a second, wrong complaint."
+  "{:unbound-classes [{:class-key :subclass-key?}] :subclass-mismatches [{:class-key :subclass-key
+   :belongs-to :selection-key}]} for `character`. `loaded-class-keys`: the classes that exist now
+   (the class dropdown's set). `subclass->class`: {subclass-key class-key}, as far as known.
+   GOTCHA: a subclass absent from `subclass->class` is never a mismatch."
   [character loaded-class-keys subclass->class]
   (let [known (set loaded-class-keys)
         entries (get-in character [::entity/options :class])]
@@ -540,10 +517,8 @@
                      (cond-> {:class-key class-key}
                        subclass-key (assoc :subclass-key subclass-key)))
 
-             ;; Only a real disagreement counts. Note this fires even when the
-             ;; class IS loaded -- a subclass filed under the wrong class binds
-             ;; without error and then grants the wrong features, which is worse
-             ;; than not binding at all because nothing looks broken.
+             ;; Also when the class is loaded: a misfiled subclass binds without error and grants
+             ;; the wrong features.
              (and class-key subclass-key owner (not= owner class-key))
              (update :subclass-mismatches conj
                      {:class-key class-key
@@ -554,13 +529,9 @@
        entries))))
 
 (defn subclass->class-index
-  "{subclass-key -> class-key} from loaded plugins. Homebrew subclasses record
-   their class in :class, which is the same field rename-key-in-plugin rewrites
-   when a class is renamed, so this stays correct across a conflict resolution.
-
-   A subclass claimed by two different classes across sources is dropped rather
-   than guessed at, for the same reason former-key-index drops a contested
-   claim: binding to whichever source was walked first is not an answer."
+  "{subclass-key -> class-key} from the :class of each loaded subclass. rename-key-in-plugin
+   rewrites that field, so the index survives a conflict resolution. A subclass claimed by two
+   classes across sources is dropped, not guessed, as former-key-index drops a contested claim."
   [plugins]
   (let [claims (for [[_ plugin] plugins
                      :when (map? plugin)

@@ -17,8 +17,22 @@
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+;; Field-error red (GOV.UK's, not the site's own wine-toned red): 4.86:1 as text on the white
+;; card, 4.52:1 as a border on its own tint -- never run as text ON that tint, which only clears 4.52:1 (AA-scrape).
+;; Ink/muted on the white auth card: 8.9:1 and 4.6:1 respectively (counterparts to muted-on-dark).
+(def text-color-light "#4b545e")
+(def muted-on-light "#6b7681")
+(def error-red "#d4351c")
+(def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+
+;; Text on the amber buttons is small and low-contrast either way, so it gets a
+;; faint edge in the opposite tone: dark under white text, light under dark.
+(def text-lift-dark "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)")
+(def text-lift-light "0 0 2px rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.3)")
+;; for the short ability-button labels, which have too little stroke for the standard lift
+(def text-lift-light-strong "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)")
 
 (def container-style
   {:display :flex
@@ -48,7 +62,14 @@
   (px-prop
    :margin-top
    :m-t
-   (concat (range 0 10) [21] (range 10 30 5))))
+   ;; 100 drops a success message clear of the registration panel's heading.
+   (concat (range 0 10) [21] (range 10 30 5) [100])))
+
+(def min-widths
+  (px-prop
+   :min-width
+   :min-w
+   [53 120 160]))
 
 (def widths
   (px-prop
@@ -113,6 +134,10 @@
    [:.flex-basis-50-p
     {:flex-basis "50%"}]
 
+   ;; Space between the lines of a wrapping row whose buttons carry no vertical margin.
+   [:.row-gap-5
+    {:row-gap "5px"}]
+
    [:.i
     {:font-style :italic}]
 
@@ -125,6 +150,11 @@
    [:.f-w-b
     {:font-weight :bold}]
    [:.f-w-600
+    {:font-weight 600}]
+   ;; Bold at display sizes renders at 600: at 18px and up, 700 thickens
+   ;; mixed-case letters. Small caps labels keep 700. See the style guide.
+   [:.f-w-b.f-s-18 :.f-w-b.f-s-20 :.f-w-b.f-s-24 :.f-w-b.f-s-28
+    :.f-w-b.f-s-32 :.f-w-b.f-s-36 :.f-w-b.f-s-48
     {:font-weight 600}]
 
    [:.l-h-19
@@ -548,6 +578,32 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   [:.emblem-icon
+    {:width "22px"
+     :height "22px"
+     :filter "invert(1)"
+     :opacity "0.85"}]
+   [:.emblem-choices
+    {:display "grid"
+     :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
+     :gap "4px"
+     :max-width "320px"
+     :margin "6px 0 8px 0"}]
+   [:.emblem-choice
+    {:display "flex"
+     :align-items "center"
+     :justify-content "center"
+     :height "34px"
+     :background "transparent"
+     :border "1px solid transparent"
+     :border-radius "4px"
+     :cursor "pointer"}]
+   [:.emblem-choice:hover
+    {:border-color "rgba(255,255,255,0.3)"}]
+   [:.emblem-choice.selected
+    {:border-color "var(--accent, #f0a100)"}]
+
    ;; An always-on note under a control, saying what the current setting will do.
    ;; Set like the ? lines so the two read as one kind of note, but its own class
    ;; -- it is the state of the build, not a fixed explanation.
@@ -672,6 +728,376 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+
+   ;; The gryphon panel needs background-repeat:no-repeat and background-size:cover --
+   ;; without them, the moment the panel grows taller than the image (as on the
+   ;; register form, the tallest page, with its confirm fields) the browser tiles
+   ;; it by default: a second gryphon appears below the first, half cropped.
+   [:.registration-image
+    {:background-image "url(/image/login-side.jpg)"
+     :background-repeat :no-repeat
+     :background-size :cover
+     :background-position "center"
+     :background-clip :content-box
+     :width "350px"
+     :min-height "600px"}]
+   ;; The auth card is white whatever theme the app is in, so anything inside it needs
+   ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
+   ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
+   ;; does this but that selector never matches here, hence the explicit override.
+   [:.registration-content
+    ;; GOTCHA: body{line-height:1} is UNITLESS, so each descendant multiplies 1 by
+    ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
+    ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
+    ;; a readable default; boxes with tuned geometry pin their own below.
+    {:line-height "1.5"}
+    [:.red {:color red}
+     [:a :a:visited {:color red}]]
+
+    ;; LIGHT-GROUND VARIANTS: .field-notice, .message and .callout default to dark-app
+    ;; tones (rgba(255,255,255,0.06) ground, red-on-dark text, color:white), which
+    ;; would put white text on white if dropped onto this card unchanged. Re-toned
+    ;; here rather than forked, so the auth pages reuse the same components as everywhere else.
+    [:.field-notice
+     {:background-color :transparent
+      :border-left :none
+      :padding "0"
+      :margin "0 2px 8px"
+      :font-size "13px"
+      :line-height "19px"
+      ;; The words are INK. Only the mark and the label carry the colour, because
+      ;; a wall of red text is most of what makes a form feel like it is shouting.
+      :color text-color-light
+      :text-align :left}
+     ;; An empty notice is not a notice. The slot is always rendered so a live
+     ;; check and a submitted one cannot lay the field out differently, which
+     ;; means every healthy field carried a bare "!" until this.
+     [:&:empty {:display :none}]
+     [:&.is-error:before
+      {:content "\"!\""
+       :flex "0 0 auto"
+       :font-weight :bold
+       :color error-red}]
+     [:&.is-note {:color muted-on-light
+                  :margin "7px 2px 0"}]]
+    ;; GOTCHA: flex-basis ZERO, not auto or the dark-app notice's 260px -- those
+    ;; size by content, so a long message (e.g. "Too common. A few words...")
+    ;; wraps as a whole block, stranding the "!" above. Zero lets it wrap INSIDE
+    ;; the remaining space beside the mark; min-width must go with it or a long unbroken word restores the floor.
+    [:.field-notice-what {:flex "1 1 0"
+                          :min-width "0"}]
+    [:.field-notice-action {:color "#c98700"
+                            :font-size "13px"}]
+    [:.field-notice.is-error {:color text-color-light}]
+    [:.field-notice.is-warning {:color text-color-light}]
+
+    [:.message {:color text-color-light}]
+    [:.message.tone-error {:background-color "rgba(212, 53, 28, 0.08)"
+                           :border-color "rgba(212, 53, 28, 0.45)"}]
+    [:.message.tone-warning {:background-color "rgba(240, 161, 0, 0.10)"
+                             :border-color "rgba(240, 161, 0, 0.5)"}]
+    [:.message.tone-success {:background-color "rgba(74, 112, 0, 0.09)"
+                             :border-color "rgba(74, 112, 0, 0.45)"}]
+    [:.tone-error [:.message-icon {:color error-red}]]
+    [:.tone-success [:.message-icon {:color "#4a7000"}]]
+
+    [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
+    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]
+
+    ;; GOTCHA: the notch is driven by :placeholder-shown, not a class -- a class
+    ;; desyncs the moment someone types and tabs away, dropping the label back over
+    ;; their text (reads as the field clearing itself); every input needs
+    ;; placeholder=" " for the selector to match. Field owns its own alignment, not the page's text-align:center wrapper.
+    [:.field {:position :static
+              :margin-bottom "22px"
+              :text-align :left}]
+    ;; The heading. Ink with an amber rule under it, replacing an orange word
+    ;; carrying a drop shadow -- which six pages each held their own copy of.
+    ;; The rule carries the brand colour so the heading does not have to shout
+    ;; it, and ink reads at full contrast on the card where the orange did not.
+    [:.auth-heading {:margin "0"
+                     :font-size "25px"
+                     :font-weight :bold
+                     :letter-spacing "0.055em"
+                     :text-transform :uppercase
+                     :color "#23282e"
+                     :text-align :center
+                     :line-height "1.2"}]
+    [:.auth-rule {:width "54px"
+                  :height "3px"
+                  :background-color orange
+                  :border-radius "2px"
+                  :margin "10px auto 8px"}]
+    ;; Everything below the fields -- submit, "already have an account", consent --
+    ;; centres itself; a page-level text-align:center wrapper is NOT used, since
+    ;; that leaves a non-centred element hard against the left edge. .auth-summary uses
+    ;; .bg-note's neutral ground with an error-colour rail rather than a tinted box, since the fields below are already tinted and two pink areas stacked would crowd.
+    [:.auth-summary {:border-left (str "3px solid " error-red)
+                     :background-color "rgba(0, 0, 0, 0.035)"
+                     :border-radius "3px"
+                     :padding "12px 14px"
+                     :margin "0 0 22px"
+                     :text-align :left}]
+    [:.auth-summary-title {:font-weight :bold
+                           :color error-red
+                           :font-size "14px"
+                           :margin-bottom "6px"}]
+    [:.auth-summary-list {:margin "0"
+                          :padding-left "18px"
+                          :font-size "13.5px"
+                          :color text-color-light}
+     [:li {:margin-bottom "3px"}]
+     [:a {:color error-red
+          :text-decoration :underline
+          :text-underline-offset "2px"
+          :cursor :pointer}]]
+
+    [:.auth-tail {:text-align :center
+                  :padding "0 16px"
+                  :box-sizing :border-box
+                  :font-weight :normal
+                  :font-size "14px"
+                  :color text-color-light}]
+    ;; Full width, as the design pass settled: at 174px it read as one option
+    ;; among the links around it rather than the thing the page is for.
+    [:.join-button {:width "100%"
+                    :height "48px"
+                    :font-size "15px"
+                    :font-weight "700"
+                    :letter-spacing "0.12em"
+                    :margin-top "4px"}]
+    ;; text-wrap:balance avoids a single orphaned word on the second line of centred
+    ;; text in this 435px column (e.g. "off." or "Privacy Policy." alone) -- without
+    ;; it, browsers fall back to a ragged wrap. The card is a fixed 600px and these
+    ;; pages hold exactly three lines, so centring the block in the space below the heading settles it against the full-height image beside it.
+    [:.auth-outcome {:display :flex
+                     :flex-direction :column
+                     :align-items :center
+                     :justify-content :center
+                     :text-align :center
+                     :min-height "340px"
+                     :padding "0 16px"}]
+    ;; The one thing in an outcome sentence worth picking out -- the address the
+    ;; mail went to. Ink and bold, because red is a fault everywhere else here.
+    [:.auth-emphasis {:font-weight :bold
+                      :color "#23282e"
+                      :word-break :break-word}]
+    [:.auth-outcome-line {:color text-color-light
+                          :font-size "15px"
+                          :max-width "34ch"
+                          :text-wrap :balance}]
+    [:.auth-outcome-onward {:margin-top "26px"
+                            :width "100%"
+                            :max-width "260px"}]
+
+    ;; The other ways in. A question and the thing that answers it on ONE line,
+    ;; with one rhythm down the group -- these were three separate blocks, two
+    ;; of them holding a pair of <br> that pushed the answer three lines from
+    ;; its question.
+    [:.auth-alts {:display :flex
+                  :flex-direction :column
+                  :gap "10px"}]
+    [:.auth-alt {:display :flex
+                 :justify-content :center
+                 :align-items :baseline
+                 :flex-wrap :wrap
+                 :gap "8px"}]
+    ;; Set apart from the pair above it: not another way in, but what to do when
+    ;; the way in never arrived.
+    [:.auth-help {:margin-top "22px"
+                  :padding-top "18px"
+                  :border-top "1px solid #ebe7e1"
+                  :font-size "13.5px"
+                  :color muted-on-light
+                  :text-align :center}]
+
+
+    [:.auth-fineprint {:margin-top "16px"
+                       :font-size "12.5px"
+                       :color muted-on-light
+                       :text-align :center
+                       :text-wrap :balance
+                       :padding "0 16px"}]
+    [:.auth-lede {:margin "0 0 22px"
+                  :text-align :center
+                  :text-wrap :balance
+                  :color text-color-light
+                  :font-size "14.5px"}]
+
+    ;; The gutter base-input used to carry as .p-l-10.p-r-10 on every field.
+    ;; It belongs to the form, not to each field -- a field that indents itself
+    ;; cannot be put anywhere else -- and the wrong-state rail needs room to sit
+    ;; in, which is why it is 16px rather than 10.
+    [:.auth-form {:padding "0 16px"
+                  :box-sizing :border-box}]
+    [:.field-box {:position :relative}]
+    ;; border-box, because there is no global one: width:100% plus 13px of
+    ;; padding and a border made every field wider than the 435px column it
+    ;; sits in, and it ran out over the gryphon.
+    [:.field [:input {:width "100%"
+                      :box-sizing :border-box
+                      :height "50px"
+                      :padding "14px 13px 0"
+                      :font-size "15px"
+                      :color text-color-light
+                      :background-color :white
+                      :border "1px solid #d9dee3"
+                      :border-radius "3px"
+                      :color-scheme :light
+                      :outline :none
+                      :transition "border-color 0.15s, box-shadow 0.15s, background-color 0.15s"}]]
+    [:.field [:.notch {:position :absolute
+                       ;; Pinned: this is positioned to the pixel against the
+                       ;; input's border and the card's line-height would move it.
+                       :line-height "1"
+                       :left "11px"
+                       :top "15px"
+                       :padding "0 4px"
+                       :pointer-events :none
+                       :color muted-on-light
+                       :font-size "15px"
+                       :background-color :white
+                       :transition "top 0.14s, font-size 0.14s, color 0.14s, letter-spacing 0.14s"}]]
+    [:.field ["input:not(:placeholder-shown) + .notch" "input:focus + .notch"
+              {:top "-9px"
+               :font-size "11px"
+               :letter-spacing "0.08em"
+               :text-transform :uppercase
+               :color text-color-light}]]
+    [:.field ["input:focus" {:border-color orange
+                             :box-shadow "0 0 0 3px rgba(240, 161, 0, 0.20)"}]]
+    [:.field ["input:focus + .notch" {:color "#c98700"}]]
+
+    ;; GOTCHA: one container, not four -- tinting the input AND doubling its border
+    ;; AND boxing the message AND railing the box all at once looks pinched. The
+    ;; field visibly changes shape as a signal before the word is read; label
+    ;; leaves the notch for a plain line, GOV.UK order: explanation before the box to retype.
+    [:.field [:.lift {:display :none
+                      :line-height "1"
+                      :margin "0 0 5px"
+                      :font-size "11px"
+                      :letter-spacing "0.08em"
+                      :text-transform :uppercase
+                      :color error-red}]]
+    [:.field.is-wrong {:padding-left "13px"
+                       :border-left (str "3px solid " error-red)
+                       :margin-left "-16px"}]
+    [:.field.is-wrong [:.lift {:display :block}]]
+    [:.field.is-wrong [:.notch {:display :none}]]
+    [:.field.is-wrong [:input {:border-color error-red
+                               :background-color error-tint}]]
+    [:.field.is-wrong ["input:focus" {:box-shadow "0 0 0 3px rgba(212, 53, 28, 0.18)"}]]
+
+    ;; The reveal. Inside the field so it cannot be read as a control of its
+    ;; own; the input reserves room rather than letting text run under it.
+    [:.peek {:position :absolute
+             :right "6px"
+             :top "8px"
+             :height "34px"
+             :padding "0 11px"
+             :border :none
+             :background :none
+             :color muted-on-light
+             :font-size "11.5px"
+             :font-weight :bold
+             :letter-spacing "0.11em"
+             :text-transform :uppercase
+             :cursor :pointer
+             :border-radius "3px"}]
+    [:.peek:hover {:color text-color-light
+                   :background-color "#eef1f4"}]
+    ;; A keyword cannot carry the parens of :has(), so this selector is a string.
+    [".field-box:has(.peek) input" {:padding-right "78px"}]]
+
+   ;; Password meter: 4 slots, one fill sweeping through (continuous movement,
+   ;; countable milestones); min length lands on the first slot's edge so the gap
+   ;; marks it, no separate notch needed. Fill WIDTH alone is set inline (it IS the
+   ;; measurement). LIGHT-ground colours only -- *-on-dark washes out on this white card -- and fill/label colours stay separate families since Legendary's fill is a gradient (wrong behind text via currentColor).
+   [:.pw-slots {:display :flex
+                :gap "4px"
+                :height "10px"}]
+   [:.pw-slot {:flex "1"
+               :border-radius "2px"
+               :overflow :hidden
+               :background-color "rgba(0,0,0,0.12)"}]
+   [:.pw-fill {:height "100%"
+               :width "0"
+               :transition "width 0.22s cubic-bezier(0.4,0,0.2,1), background-color 0.2s"}]
+
+   ;; A broken rule takes every slot to the failure colour. The fill still
+   ;; reports the real length, so the bar never claims progress it has not made.
+   [:.pw-fill-fail {:background-color red}]
+   [:.pw-fill-0 {:background-color "#5d8c00"}]
+   [:.pw-fill-1 {:background-color "#2f6fb5"}]
+   [:.pw-fill-2 {:background-color purple}]
+   [:.pw-fill-3 {:background-image "linear-gradient(100deg,#b06d08,#e8b24a 42%,#ffe08a 52%,#e8b24a 62%,#b06d08)"}]
+
+   [:.pw-name-fail {:color red}]
+   [:.pw-name-0 {:color "#4a7000"}]
+   [:.pw-name-1 {:color "#2f6fb5"}]
+   [:.pw-name-2 {:color "#6f61b0"}]
+   [:.pw-name-3 {:color "#a2650c"}]
+
+   [:.pw-verdict {:display :flex
+                  :justify-content :space-between
+                  :align-items :center
+                  :gap "10px"
+                  :min-height "24px"
+                  :margin-top "9px"}]
+   ;; One chip per rule. Outlined and quiet: five of these have to sit under a
+   ;; field without reading as five warnings, so the satisfied state is a thin
+   ;; green line and the broken one a thin red line, neither of them filled.
+   [:.pw-chips {:display :flex
+                :flex-wrap :wrap
+                :gap "5px"
+                :margin-top "10px"}]
+   [:.pw-chip {:font-size "11.5px"
+               :line-height "16px"
+               :padding "3px 9px"
+               :border-radius "11px"
+               :border "1px solid #e3e7eb"
+               :color muted-on-light
+               :background-color "#fbfcfd"}]
+   [:.pw-chip.is-ok {:border-color "#c2dd8e"
+                     :color "#4a7000"
+                     :background-color "#f4f9ea"}]
+   [:.pw-chip.is-bad {:border-color "#f0b9c4"
+                      :color error-red
+                      :background-color error-tint}]
+
+   ;; The line under the bar, in both its readings: why a password was refused,
+   ;; and -- the rest of the time -- what buys the next rung. Ink rather than
+   ;; red: the bar and the word above it already carry the colour, and this is
+   ;; advice on writing a better password, not a second alarm.
+   [:.pw-note {:font-size "12.5px"
+               :line-height "18px"
+               :color text-color-light
+               :text-align :left
+               :margin-top "9px"
+               :max-width "38ch"}]
+   [:.pw-note.is-tip {:color muted-on-light}]
+   [:.pw-tier-name {:font-size "13px"
+                    :font-weight :bold
+                    :letter-spacing "0.08em"
+                    :text-transform :uppercase}]
+   [:.pw-next {:font-size "12px"
+               :color "#6b7681"
+               :font-variant-numeric "tabular-nums"}]
+
+   ;; The JOIN button's dimensions. They were four inline declarations on the
+   ;; element, alongside a class that dimmed it to 50% whenever the form was
+   ;; not ready -- which is gone: a control that looks dead reads as a broken
+   ;; site rather than an unfinished form, and it cannot say why it will not go.
+   [:.join-button {:height "40px"
+                   :width "174px"
+                   :font-size "16px"
+                   :font-weight "600"}]
+
+   [:.registration-notice
+    {:color red
+     :font-size "14px"
+     :line-height "1.5"}]
+
    [:.bg-orange
     {:background-color orange}]
    [:.bg-red
@@ -698,6 +1124,34 @@
      :line-height "1.45"
      :color :white}]
 
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
+
    [:.message.tone-success
     {:background-color "rgba(112, 168, 0, 0.16)"
      :border-color "rgba(112, 168, 0, 0.5)"}]
@@ -716,6 +1170,14 @@
    [:.tone-success [:.message-icon {:color "#8cc63f"}]]
    [:.tone-warning [:.message-icon {:color orange}]]
    [:.tone-error [:.message-icon {:color red-on-dark}]]
+
+   ;; Per-line marks on a partial import: imported, repaired, skipped.
+   [:.message-mark
+    {:width "16px"
+     :margin-right "6px"
+     :text-align :center}]
+   [:.message-mark.mark-done :.message-mark.mark-repaired {:color "#8cc63f"}]
+   [:.message-mark.mark-skipped {:color orange}]
 
    [:.message-body
     {:flex "1 1 auto"
@@ -754,22 +1216,17 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
-   ;; Accent rails for a callout. The rail is the same device .health-rail uses,
-   ;; but coloured by identity rather than severity, so a notice can say whose it
-   ;; is without borrowing the warning palette. Named options only -- a caller
-   ;; picks one of these rather than passing a colour, which keeps the site's
-   ;; colours in this file instead of spread across component styles.
+   ;; Accent rails for a callout: the .health-rail device, coloured by identity
+   ;; rather than severity, so a notice says whose it is without the warning
+   ;; palette. Named options only -- a caller picks one rather than passing a colour.
    [:.callout-accent-brand
-    ;; A gradient ring around the whole box, not a rail down one side. The ring is
-    ;; a pseudo-element masked to just its own edge -- the standard way to get a
-    ;; gradient border that still follows rounded corners, since border-image
-    ;; squares them off and a plain border cannot hold a gradient at all. The card
-    ;; keeps its translucent fill because the mask punches the middle out rather
-    ;; than painting over it. The outer shadow is the glow, kept low: it should
-    ;; look like the ring is giving off a little light, not like a selected field.
+    ;; A gradient ring around the whole box, drawn by a pseudo-element masked to its
+    ;; own edge: border-image squares off rounded corners, and a plain border cannot
+    ;; hold a gradient. The mask punches the middle out, so the translucent fill stays.
+    ;; The outer shadow is a low glow, not a selected-field highlight.
     {:position :relative
      :border-color :transparent
-     :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
+     :box-shadow "0 0 14px rgba(240, 161, 0, 0.13)"}
     [:&:before
      {:content "''"
       :position :absolute
@@ -875,6 +1332,14 @@
     [:tr.visible-xs {:display "table-row !important"}]
     [:th.visible-xs,
      :td.visible-xs {:display "table-cell !important"}])
+
+   ;; Six 68px roll buttons need 432px, wider than a phone; share the row instead.
+   (at-media xs-query
+    [:.ability-scores
+     [:>div {:flex "1 1 0" :min-width 0}]
+     ;; with a keyboard the button sits in its ctrl/shift tip; let that fill too
+     [:.tooltip {:display "block"}]
+     [:.roll-button {:min-width 0 :width "calc(100% - 4px)"}]])
 
    (at-media xs-query
     [:.visible-xs-block
@@ -1052,11 +1517,22 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
+      ;; clip, not hidden: hidden also clips vertically, which cut off the tab menus.
+      :overflow-x :clip}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     ;; A full-width child plus its padding measures wider than the bar without this.
+     [:.w-100-p {:box-sizing :border-box}]
+     ;; The logo is sized for the desktop header and crowds the search row here.
+     ;; On the narrowest phones it also gives up width before the login does.
+     [:a {:min-width 0}]
+     [:img {:max-height "40px" :max-width "100%" :object-fit "contain"}]]
+    [:.import-log-panel
+     {:max-width "100vw"}]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
@@ -1159,15 +1635,6 @@
      {:width "785px"
       :min-height "600px"}]
 
-    [:.login-form-inputs
-     {:max-width "350px"
-      :margin-left :auto
-      :margin-right :auto
-      :margin-top "50px"}
-     [:input
-      {:width "100%"
-       :box-sizing :border-box}]]
-
     [:.registration-input
      {:min-width "438px"}]
 
@@ -1184,6 +1651,47 @@
 
     [:a :a:visited
      {:color orange}]
+
+    ;; Opt-in dark text on the amber buttons: white on this amber is 2.1:1, dark
+    ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
+    [".app.dark-button-text:not(.light-theme)"
+     [:.form-button :.mc-btn :.roll-button
+      {:color "#15202e"
+       :text-shadow text-lift-light}]
+     ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
+     ;; hold them up. paint-order draws the rim behind the letters, not over them.
+     [:.roll-button
+      {:text-shadow text-lift-light-strong
+       :-webkit-text-stroke (str "2px " warning-yellow)
+       :paint-order "stroke fill"}]]
+
+    ;; Browsers give buttons their own default font (Arial), not the page's, so every
+    ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
+    [:button
+     {:font-family font-family}]
+
+    ;; Amber everywhere except .form-button in the light theme, which is slate.
+    [".app:not(.light-theme) .form-button" :.mc-btn :.roll-button
+     {:text-shadow text-lift-dark}]
+
+    ;; The header tabs sit on the banner art, and the active one on amber.
+    ;; -4% tracking fits MY CONTENT on one line at 700 in the fixed 110px tab
+    ;; (it needs 86.9px of 90px; untracked it needs 92.5px).
+    [:.header-tab
+     {:text-shadow text-lift-dark}
+     [:.title {:letter-spacing "-0.04em"}]]
+    ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
+    ;; row's padding is the 10px gutter.
+    [:.app-header-menu
+     {:gap "4px"
+      :padding "0 2px"}
+     [:&.phone-tabs {:padding "0 10px"}]]
+
+    ;; The header bar's search and login boxes, and the desktop slot left of the
+    ;; tabs that holds the supporter link.
+    [:.header-search-box {:background-color "rgba(0,0,0,0.3)"}]
+    [:.header-login-box {:background-color "rgba(0,0,0,0.4)"}]
+    [:.supporter-slot {:min-width "53px"}]
 
     ;; color-scheme is what makes the browser draw the native option LIST dark.
     ;; Without it the popup is white while the options inherit the select's white
@@ -1248,20 +1756,41 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
-    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
-    ;;
-    ;; The z-index does two jobs, and the SECOND one sets the number. It keeps an
-    ;; adjacent tab from intercepting the dropdown, and it has to beat the sticky
-    ;; button row below (`.sticky-header`, z-index 100) — the tab is positioned
-    ;; and z-indexed, so it forms a stacking context and the flyout's own z-index
-    ;; is resolved INSIDE it. At an equal 100 the button row wins on document
-    ;; order, and the dropdown renders under buttons that then swallow the click.
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
      {:scrollbar-width "thin"
       :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
 
+    ;; The flyout hangs under its tab (84px desktop tabs, 46px phone tabs), and the
+    ;; user menu under the login box. Both open over the page, so the z-index.
+    [:.header-flyout :.user-menu
+     {:position :absolute
+      :right 0
+      :z-index 10000
+      :background-color "#2c3445"}]
+    [:.header-flyout {:top "84px"}]
+    ;; On a phone the left three tabs open their menu to the right, so it stays on screen.
+    [:.phone-tabs
+     [:.header-flyout {:top "46px"}]
+     [".header-tab:nth-child(-n+3) .header-flyout" {:left 0 :right :auto}]]
+    [:.user-menu {:display :none}
+     [:&.open {:display :block}]]
+
+    ;; The current section's tab, and its page in the flyout.
+    [:.header-tab.active :.header-flyout>.active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    ;; The Light Theme and Dark Button Text settings are keyboard switches; the same
+    ;; focus ring as the dev-mode switch, since *:focus removes the browser's.
+    [:.setting-toggle:focus-visible
+     {:outline (str "2px solid " orange)
+      :outline-offset "3px"}]
+
+    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
+    ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
+    ;; tab is a stacking context, so the flyout's own z-index resolves inside it, and at
+    ;; an equal 100 the row wins on document order and swallows the dropdown's clicks.
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
@@ -1418,7 +1947,7 @@
 
     [:.form-button
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"
@@ -1428,12 +1957,9 @@
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
     ;; ── Library-header "disabled" badges ─────────────────────────────────────
-    ;; A small pill on a collapsed library row showing how many items are OFF,
-    ;; colored by REASON (not a blanket warning): blue = you turned it off
-    ;; (benign), amber = the app turned it off for compatibility (kept one of a
-    ;; duplicate). The pill's tinted fill carries the contrast, so calm hues stay
-    ;; legible. Light-mode re-tone lives under .app.light-theme below; and
-    ;; prefers-contrast: more swaps to solid high-contrast fills automatically.
+    ;; A pill on a collapsed library row counting items that are OFF, coloured by reason:
+    ;; blue = the user turned it off, amber = the app did (kept one of a duplicate).
+    ;; Light mode re-tones under .app.light-theme; prefers-contrast: more uses solid fills.
     [:.lib-badge
      {:display "inline-flex"
       :align-items :center
@@ -1459,14 +1985,60 @@
                [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
                [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
 
+    ;; ── Share line ───────────────────────────────────────────────────────────
+    ;; A character's sharing line: a status pill (label, never tappable) then actions as text
+    ;; buttons, 40px tall for a thumb target. Before a link exists it's the pill + Share link;
+    ;; after, Copy link / New link / Stop sharing. Light-theme colours are under .app.light-theme below.
+    [:.share-line
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :column-gap "18px"
+      :text-transform :none}]
+    [:.share-pill
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :font-weight 600
+      :line-height 1.4
+      :padding "3px 10px"
+      :border-radius "999px"
+      :white-space :nowrap}]
+    [:.share-pill-neutral {:background-color "rgba(255,255,255,0.08)" :color "rgba(255,255,255,0.75)"}]
+    [:.share-pill-shared {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}]
+    [:.share-pill-expired {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}]
+    [:.share-action
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :min-height "40px"
+      :padding 0
+      :border :none
+      :background :none
+      :cursor :pointer
+      :font-family "inherit"
+      :font-size "13px"
+      :font-weight 600
+      :color orange
+      :white-space :nowrap}
+     [:.fa {:font-size "14px"}]]
+    ;; Only where a pointer hovers: a phone keeps :hover after a tap, leaving the action underlined.
+    (at-media {:hover "hover"} [:.share-action:hover {:text-decoration :underline}])
+    [:.share-action:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px" :border-radius "3px"}]
+    [:.share-action:disabled {:opacity 0.6 :cursor :default :text-decoration :none}]
+    [:.share-action-danger {:color "#ef8592"}]
+    [:.share-action-quiet {:color "rgba(255,255,255,0.7)"}]
+    (at-media xs-query [:.share-line {:column-gap "16px"}])
+
     [:.roll-button
      {:color :white
       :min-width "68px"
-      :font-weight 600
-      :font-size "14px"
+      :font-weight 700
+      ;; 16px reads at phone size; the trimmed padding keeps the button 31px tall
+      :font-size "16px"
       :border :none
       :border-radius "2px"
-      :padding "6px 6px"
+      :padding "4.5px 6px"
       :margin-right "2px"
       :margin-left "2px"
       :margin-bottom "2px"
@@ -1499,7 +2071,7 @@
     [:.mc-right {:display :flex :align-items :center :gap "10px"}]
     [:.mc-btn
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"
@@ -1569,11 +2141,9 @@
     (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
 
     ;; ── Library health status ─────────────────────────────────────────────
-    ;; Passive card that appears only when something needs attention. Warm
-    ;; escalation: warning-yellow for resolvable (conflicts, missing fields),
-    ;; red reserved for broken. One --accent drives the rail, icon and action
-    ;; link so it reads as a single object; a one-time flash fires on appearance
-    ;; and whenever the count changes (the card is re-keyed on count).
+    ;; Shown only when something needs attention: warning-yellow for resolvable
+    ;; (conflicts, missing fields), red for broken; rail, icon and link share one colour.
+    ;; The flash fires on appearance and on every count change (the card is keyed on count).
     (at-keyframes "health-pulse"
                   [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
@@ -1603,14 +2173,9 @@
     (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
 
     ;; ── save button, carrying an unsaved repair ──────────────────────────────
-    ;; A reconciler fixed a stored key on load, but only in memory. The toast that
-    ;; says so is gone in eight seconds, and leaving the page takes the fix with
-    ;; it -- so the button keeps a slow glint going until the character is saved.
-    ;; Deliberately unlike .health-flash, which fires twice and stops: this is a
-    ;; standing condition, not an event, so it repeats.
-    ;;
-    ;; Slow and low-contrast on purpose. It sits in the header next to the other
-    ;; actions and has to read as "worth doing" without behaving like an error.
+    ;; A reconciler fixed a stored key on load, in memory only, so the button glints
+    ;; until the character is saved. Unlike .health-flash it repeats: a standing
+    ;; condition, not an event. Slow and low-contrast: "worth doing", not an error.
     (at-keyframes "save-healed-glint"
                   [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
                   [:35% {:box-shadow "0 0 10px 2px rgba(255,210,26,0.45)"}]
@@ -1618,15 +2183,22 @@
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}])
     [:.save-healed
      {:animation "save-healed-glint 2.6s ease-in-out infinite"
-      :position :relative}]
+      :position :relative
+      ;; Above its neighbours. The header buttons are siblings in a row, so the
+      ;; next one along paints over anything this draws outside its own box --
+      ;; which swallowed most of the sparkle before this was here.
+      :z-index 1}]
     ;; The sparkle itself. A pseudo-element rather than markup so the button's
     ;; hiccup stays a plain button, and pointer-events none so it can never eat
     ;; the click it is advertising.
     [:.save-healed:after
      {:content "'\\2726'"
       :position :absolute
-      :top "-4px"
-      :right "-3px"
+      ;; Inset, not hung off the corner. Sitting outside the button put it in the
+      ;; gap between Save and the next button, where it read as belonging to
+      ;; neither and was half covered by whichever one painted later.
+      :top "3px"
+      :right "4px"
       :font-size "11px"
       :line-height 1
       :color "rgba(255,210,26,0.95)"
@@ -1858,6 +2430,15 @@
       {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}
       [:.lib-dot {:background-color "#b47800"}]]
 
+     ;; Share line: the same meanings on a light ground, with the light theme's blue for actions.
+     [:.share-pill-neutral {:background-color "rgba(0,0,0,0.06)" :color "#4a4a4a"}]
+     [:.share-pill-shared {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+     [:.share-pill-expired {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}]
+     [:.share-action {:color "#33658A"}]
+     [:.share-action:focus-visible {:outline-color "#33658A"}]
+     [:.share-action-danger {:color "#9a031e"}]
+     [:.share-action-quiet {:color "#4a4a4a"}]
+
      [:.builder-option-dropdown
       (merge
        {:border "1px solid #282828"
@@ -1883,9 +2464,13 @@
      {:background-image "linear-gradient(to right, #d35730, #eda41e)"
       :padding ".5em 2em"}]
 
-    [:.modal-container :.m-b-10,
-     :.modal-container :.link-button
-     {:font-weight "bold"}]
+    ;; GOTCHA: [:.modal-container :.m-b-10, :.modal-container :.link-button {...}] looks nested but
+    ;; garden treats every keyword before the map as a SEPARATE selector, compiling to
+    ;; .modal-container, .m-b-10, .modal-container, .link-button -- putting font-weight:bold on
+    ;; .m-b-10, a margin utility used 194 times across the app. Nest the vectors instead, as below.
+    [:.modal-container
+     [:.m-b-10 {:font-weight "bold"}]
+     [:.link-button {:font-weight "bold"}]]
     
     [:.modal-container :.link-button
      {:color "#f7c257"
@@ -1926,28 +2511,32 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
-     ;; 600px was set for a short warning and inherited by the conflict panel,
-     ;; where every row carries two source names and a key: "Keep Eberron - Rising
-     ;; from the Last War's :quori -- rename the other source(s)" wrapped onto two
-     ;; lines, so a list of 27 of them read as a wall. There is no fixed width, so
-     ;; a modal still shrinks to its content -- the export warning is unchanged --
-     ;; and the clamp keeps it off the edges on a narrow screen.
+     ;; Wide enough that a conflict row (two source names and a key) stays on one line.
+     ;; No fixed width, so a short modal still shrinks to its content; the clamp keeps
+     ;; it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
       :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -1957,22 +2546,17 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
-     ;; The modal chrome is always dark (#1a1e28) in both themes, so give the body
-     ;; an explicit light default — otherwise plain text (e.g. the opinionated
-     ;; import summary) inherits the app's dark text color and reads dark-on-dark.
-     ;; The advanced conflict cards set their own colors, so this only lifts text
-     ;; that would otherwise be illegible.
+     ;; The modal chrome is dark (#1a1e28) in both themes, so the body gets a light
+     ;; default; otherwise plain text (the import summary) inherits the app's dark
+     ;; text colour. The conflict cards set their own colours.
      {:padding "16px 20px"
       :overflow-y :auto
       :color "rgba(255,255,255,0.85)"
       :flex 1}]
 
-    ;; On a phone the panel is the screen. The footer is the part that actually
-    ;; breaks: four buttons in a nowrap flex row overflow a 360px viewport and push
-    ;; the modal wider than the clamp, so let it wrap and let the primary action
-    ;; take the full width when it does. Padding comes down because at this size
-    ;; 20px each side is a fifth of the screen, and the panel takes more height
-    ;; because there is nothing behind it worth looking at.
+    ;; On a phone the panel is the screen: less padding, more height. The footer
+    ;; wraps, since four nowrap buttons overflow a 360px viewport and push the modal
+    ;; past the clamp, and the primary action takes the full width when it does.
     (at-media {:max-width "600px"}
               [:.conflict-modal
                {:max-width "calc(100vw - 16px)"
@@ -1990,8 +2574,9 @@
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
 
     ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
     ;; the same warning-yellow language as the My Content health card, so the modal
@@ -2014,6 +2599,47 @@
     [:.conflict-count
      {:color "rgba(255,255,255,0.5)"
       :margin-top "8px"}]
+
+    ;; A nameless item in the missing-fields dialog: placeholder title, key beneath.
+    [:.issue-item-heading
+     {:margin-bottom "4px"}]
+
+    [:.issue-item-key
+     {:font-family "monospace"
+      :font-size "12px"
+      :color "rgba(255,255,255,0.5)"}]
+
+    ;; The z-index sits under an open header tab's 200, so a header menu long enough
+    ;; to reach this corner draws over the button; at 900 the button covered the
+    ;; menu's last item on a laptop screen. Still above the sticky button row (100).
+    ;; The log panel the button opens is at 950.
+    [:.import-log-button
+     {:position :fixed
+      :bottom "20px"
+      :right "20px"
+      :width "40px"
+      :height "40px"
+      :border-radius "50%"
+      :background "#2c3445"
+      :color :white
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"
+      :z-index 150
+      :transition "all 0.2s ease"}
+     [:&.open {:background orange}]
+     [:.fa {:font-size "14px"}]]
+
+    [:.import-log-badge
+     {:position :absolute
+      :top "-4px"
+      :right "-4px"
+      :background "#d94b20"
+      :color :white
+      :font-size "10px"
+      :font-weight :bold
+      :min-width "16px"
+      :height "16px"
+      :border-radius "8px"
+      :padding "0 4px"}]
 
     ;; Conflict card — an unresolved conflict is an attention item, so its rail and
     ;; key carry the same warning-yellow used by the health card and library tint.
@@ -2176,14 +2802,8 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
-    ;; An expanded source's own row: search, show-disabled, then its actions. The
-    ;; search used to sit on a line of its own under the buttons, edge to edge. The
-    ;; side padding keeps it off the panel wall, and the flex-basis is what makes it
-    ;; take a line of its own on a phone rather than squeezing to nothing.
-    ;; Developer mode: a named switch in the footer, replacing two unlabelled
-    ;; orange icons. The switch stays visible at all times — the tools behind it
-    ;; are for getting content out when the app is misbehaving, so the way to
-    ;; reach them cannot itself be hidden.
+    ;; Developer mode: a named switch in the footer, visible at all times -- the tools
+    ;; behind it get content out when the app misbehaves, so the way in cannot hide.
     [:.dev-mode-row
      {:display :flex
       :align-items :center
@@ -2217,7 +2837,13 @@
       [:&:after {:transform "translateX(16px)"}]]
      [:&:focus-visible
       {:outline (str "2px solid " orange)
-       :outline-offset "3px"}]]
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
 
     ;; the off track has to show on a light page too
     [:.app.light-theme :.app.light-plus-theme :.app.parchment-theme
@@ -2245,6 +2871,9 @@
       :cursor :pointer}
      [:&:hover {:text-decoration :underline}]]
 
+    ;; An expanded source's own row: search, show-disabled, then its actions. The side
+    ;; padding keeps the search off the panel wall; its flex-basis gives it a line of
+    ;; its own on a phone rather than squeezing to nothing.
     [:.mc-source-toolbar
      {:display :flex
       :align-items :center
@@ -2315,12 +2944,22 @@
       :margin-top "6px"}]
 
     [:.whats-new-close
+     ;; A real <button> now (keyboard-focusable, with button semantics), so this
+     ;; also strips the UA chrome (background/border/appearance) a button carries
+     ;; by default -- the icon glyph itself still comes from .fa's own font-family,
+     ;; untouched here.
      {:font-size "20px"
       :color muted-on-dark
       :cursor :pointer
-      :padding "4px 6px"}
+      :padding "4px 6px"
+      :background :none
+      :border :none
+      :appearance :none}
      [:&:hover
-      {:color :white}]]
+      {:color :white}]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "2px"}]]
 
     [:.whats-new-body
      ;; The inset shadow sits on the padding box, so it stays at the bottom edge
@@ -2422,11 +3061,9 @@
       :margin-left "4px"}]
 
     ;; ── Export busy page ────────────────────────────────────────────────────
-    ;; The page a character sheet export lands on when every export slot is busy.
-    ;; It is served into the download tab, where the builder's markup and scripts
-    ;; are absent, so it restates the app's ground and panel rather than reusing
-    ;; app layout classes. Colours are the app's own: the #app gradient, the
-    ;; #1a1e28 panel, and .form-button for the button.
+    ;; Where a sheet export lands when every export slot is busy. Served into the
+    ;; download tab without the builder's markup or scripts, so it restates the #app
+    ;; gradient and #1a1e28 panel instead of reusing layout classes.
     [:.busy-body
      {:margin 0
       :min-height "100vh"
@@ -2463,11 +3100,9 @@
              {:font-weight 600
               :font-variant-numeric :tabular-nums})]]
 
-    ;; Ported from port/redesign-on-refactor (option_menu_views.cljs). Self-contained:
-    ;; no theme tokens, no CSS custom properties, only str + handle-browsers.
     ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
-    ;; Sized so it works on a phone: the popover is width-capped but never wider than the
-    ;; viewport, and the list scrolls rather than growing the page.
+    ;; Self-contained: no theme tokens or CSS custom properties. Width-capped but never
+    ;; wider than the viewport; the list scrolls rather than growing the page.
     [:.inv-picker {:position :relative
                    :margin "6px 0 10px"}]
 
@@ -2668,9 +3303,238 @@
      [:.inv-combo-pop:popover-open {:animation :none}]
      [:.inv-combo-row {:transition :none}])
 
+
+    ;; ── Harvested from refactor/garden-inline-styles ─────────────────────────
+    ;; Classes lifted here rather than merging that branch. Call sites that used
+    ;; these as inline :style maps are converted separately, against integration's
+    ;; current views.cljs. See garden-inline-styles-harvest.md.
+
+    [:.character-display
+     {:padding "20px 5px"
+      :background-color "rgba(0,0,0,0.15)"}]
+
+    [:.checkbox-border
+     {:margin-top "-3px"
+      :border-color "#f0a100"
+      :border-style :solid
+      :border-width "1px"
+      :border-bottom-width "3px"}]
+
+    [:.close-btn-posn
+     {:right "8px"
+      :top "8px"}]
+
+    [:.close-button
+     {:position "fixed"
+      :top "20px"
+      :right "40px"}]
+
+    [:.close-icon
+     {:top 0
+      :right 0
+      :padding "17px"}]
+
+    [:.columns-2
+     (handle-browsers :column-count 2)]
+
+    [:.columns-3
+     (handle-browsers :column-count 3)]
+
+    [:.debug-textarea
+     {:width "400px"
+      :height "450px"}]
+
+    [:.error-warning-box
+     {:background-color "rgba(255,0,0,0.1)"
+      :border "1px solid red"
+      :border-radius "4px"}]
+
+    [:.expanded-spell-background
+     {:background-color "rgba(0,0,0,0.1)"}]
+
+    [:.folder-dropdown
+     {:width :auto
+      :align-self :stretch
+      :box-sizing :border-box}]
+
+    [:.form-input-base
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"}]
+
+    [:.form-input-default
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"
+      :border-color "rgba(72,72,72,0.37)"}]
+
+    [:.form-submit-btn
+     {:height "40px"
+      :width "174px"
+      :font-size "16px"
+      :font-weight "600"}]
+
+    [:.fullscreen-overlay
+     {:top 0
+      :left 0
+      :right 0
+      :bottom 0
+      :z-index 100}]
+
+    [:.h-16
+    {:height "16px"}]
+
+    [:.h-42
+    {:height "42px"}]
+
+    [:.header-bar-item
+     {:display :flex
+      :align-items "stretch"}]
+
+    [:.header-bar-row
+     {:align-items :stretch}]
+
+    [:.header-controls
+     {:border-left "1px solid rgba(255,255,255,0.15)"
+      :padding-left "12px"
+      :margin-left :auto
+      :gap "4px"}]
+
+    [:.header-menu-dropdown
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 84)
+      :right 0}]
+
+    [:.header-menu-dropdown-mobile
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 46)
+      :right 0}]
+
+    [:.header-tab-active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    [:.highlight-spell-slot-row
+     {:background-color "rgba(255,255,255,0.3)"}]
+
+    [:.input-error
+     {:border "2px solid red"}]
+
+    [:.loading-overlay
+     {:position "fixed"
+      :height "100%"
+      :width "100%"
+      :top 0
+      :bottom 0
+      :right 0
+      :left 0
+      :z-index 100
+      :background-color "rgba(0,0,0,0.6)"}]
+
+    [:.login-menu
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.notes-textarea
+     {:height "400px"
+      :width "100%"}]
+
+    [:.oracle-frame
+     {:overflow-y "scroll"
+      :position "fixed"
+      :z-index 1
+      :background-color "rgba(0,0,0,0.95)"
+      :top 0
+      :left 0
+      :right 0
+      :bottom 0}]
+
+    [:.orcacle-icon
+     {:filter "drop-shadow(0 0 4px rgba(240,161,0,0.6)) drop-shadow(0 0 12px rgba(240,161,0,0.3))"}]
+
+    [:.orcacle-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color "rgba(255,255,255,0.1)"
+      :color :white}]
+
+    [:.print-disabled
+     {:opacity 0.5
+      :cursor :not-allowed
+      :pointer-events "none"}]
+
+    [:.registration-header
+     {:height "65px"
+      :background-color "#1a2532"
+      :border-right "1px solid white"}]
+
+    [:.registration-left-col
+     {:flex-direction :column
+      :width "435px"}]
+
+    [:.search-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color :transparent
+      :color :white}]
+
+    [:.search-input-parent
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.social-icon
+     {:color :white
+      :font-size "20px"}]
+
+    [:.svg-bar-stroke
+     {:stroke-width 5
+      :stroke "#f0a100"
+      :opacity "0.8"}]
+
+    [:.svg-icon-inline
+     {:vertical-align "middle"
+      :fill "currentColor"}]
+
+    [:.svg-stroke
+     {:stroke-width 1}]
+
+    [:.text-color-dark
+     {:color "#484848"}]
+
+    [:.user-menu
+     {:background-color "#2c3445"
+      :z-index 10000
+      :position :absolute
+      :right 0
+      :display :none}]
+
+    [:.z-1 {:z-index 1}]
+
+    [:.z-200 {:z-index 200}]
+
 ];concat-bracket
    margin-lefts
    margin-tops
+   min-widths
    widths
    font-sizes
    props

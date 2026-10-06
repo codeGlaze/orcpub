@@ -1,5 +1,6 @@
 // per docs/kb/cljs-headless-harness.md — full-suite run (B)
 const http=require('http'),fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const {findChrome}=require('../browser/lib/find-chrome');
 const ROOT=path.resolve('target/test');
 // The runner page is WRITTEN HERE rather than kept in target/, which is build
 // output: `lein fig:test && node test/e2e/cljs-harness.js` used to depend on an
@@ -31,20 +32,32 @@ const RUNNER=`<!DOCTYPE html>
 if(!fs.existsSync(path.join(ROOT,'js','test.js'))){
  console.error('target/test/js/test.js is missing — run `lein fig:test` first.');process.exit(1);}
 fs.writeFileSync(path.join(ROOT,'runner-all.html'),RUNNER);
-function fc(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}}
 const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[0]);const f=path.join(ROOT,u==='/'?'runner-all.html':u);
  if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);return r.end();}
  r.writeHead(200,{'Content-Type':f.endsWith('.js')?'application/javascript; charset=utf-8':f.endsWith('.html')?'text/html; charset=utf-8':'application/octet-stream'});fs.createReadStream(f).pipe(r);});
 (async()=>{await new Promise(r=>srv.listen(0,r));const port=srv.address().port;
- const br=await chromium.launch({executablePath:fc()});const pg=await br.newPage();const out=[];
+ const br=await chromium.launch({executablePath:findChrome()});const pg=await br.newPage();const out=[];
  pg.on('console',m=>out.push(m.text()));pg.on('pageerror',e=>out.push('PAGEERROR '+e));
  await pg.goto(`http://localhost:${port}/runner-all.html`);
- try{await pg.waitForFunction(()=>/Ran \d+ tests/.test(document.body.innerText),null,{timeout:240000});}catch(e){out.push('TIMEOUT waiting for Ran N tests');}
+ // Figwheel's auto-testing page reports a "Totals" block, not cljs.test's "Ran N tests" line.
+ try{await pg.waitForFunction(()=>/Ran \d+ tests|Totals\s+\d+ Tests/.test(document.body.innerText),null,{timeout:240000});}catch(e){out.push('TIMEOUT waiting for the totals');}
  const body=await pg.evaluate(()=>document.body.innerText);
  const all=out.join('\n')+'\n'+body;
  const ran=all.match(/Ran \d+ tests containing \d+ assertions\./g)||[]; const tot=all.match(/\d+ failures?, \d+ errors?\./g)||[];
- console.log('SUMMARY:',ran.slice(-1)[0]||'(none)',tot.slice(-1)[0]||'');
- const fails=[...new Set((all.match(/(FAIL|ERROR) in \([^)]*\)/g)||[]))];
+ const lines=body.split('\n').map(l=>l.trim()).filter(Boolean);const ti=lines.indexOf('Totals');
+ const totals=ti>=0?lines.slice(ti+1,lines.indexOf('Hide/Show Passing',ti)).join(', '):'';
+ const verdict=ti>0?lines[ti-1]:'';
+ console.log('SUMMARY:',ran.slice(-1)[0]||(totals?`${verdict}: ${totals}`:'(none)'),tot.slice(-1)[0]||'');
+ const passed=ran.length?/ 0 failures, 0 errors/.test(' '+(tot.slice(-1)[0]||'')):verdict==='All Tests Passed';
+ process.exitCode=passed?0:1;
+ // The auto-testing page marks each failed assertion with a .test-fail node inside its test's node.
+ const shown=await pg.evaluate(()=>[...document.querySelectorAll('.test-fail')].map(n=>
+   (n.parentElement.innerText.split('\n')[0]+' :: '+n.innerText.replace(/\s+/g,' ')).slice(0,300)));
+ const fails=[...new Set([...(all.match(/(FAIL|ERROR) in \([^)]*\)/g)||[]),...shown])];
  console.log(`distinct FAIL/ERROR: ${fails.length}`); fails.slice(0,40).forEach(f=>console.log('  '+f));
  fs.writeFileSync('target/test/cljs-run.log',all);
+ // Green only on a complete summary reading zero failures and zero errors; a
+ // timeout or crash leaves no summary and must not pass.
+ const last=tot.slice(-1)[0]||''; const clean=ran.length>0&&/^0 failures, 0 errors\./.test(last);
+ process.exitCode=clean&&fails.length===0?0:1;
  await br.close();srv.close();})();

@@ -1,3 +1,4 @@
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Screenshot the Equipment filter-and-pick combobox open, filtered and on mobile.
 //
 // The popover lives in the browser's top layer but is still real DOM, so unlike a
@@ -8,14 +9,8 @@
 // Run: node test/browser/combobox_shots_e2e.js /path/to/pack.orcbrew [outdir]
 const fs = require('fs'), path = require('path');
 const { chromium, devices } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-  return path.join(b, d, 'chrome-linux', 'chrome');
-}
 
 // device-type is User-Agent based, so the mobile builder only appears under a mobile UA.
 // It shows one section at a time and steps with Next -- there is no tab row to click.

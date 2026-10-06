@@ -227,7 +227,6 @@
   [:div.conflict-modal
    [:div.conflict-modal-header
     [:div.flex.align-items-c
-     [:i.fa.fa-magic.m-r-5.conflict-title-icon]
      [:span.f-s-18.f-w-b.conflict-title "Ready to import"]]
     [:div.f-s-12.conflict-subtitle (str "Importing: " import-name)]
     [:div.f-s-12.conflict-count
@@ -257,7 +256,6 @@
     [:div.conflict-modal
      [:div.conflict-modal-header
       [:div.flex.align-items-c
-       [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
        [:span.f-s-18.f-w-b.conflict-title.warn "Key Conflicts Detected"]]
       [:div.f-s-12.conflict-subtitle
        (str (if library? "In: " "Importing: ") import-name)]
@@ -385,6 +383,16 @@
                                 edit-path
                                 (.. % -target -value)])}])]))
 
+(defn item-heading
+  "Title and subtitle for an item in the missing-fields dialog. A nameless item reads
+   as the placeholder Export & Auto-Fix gives it -- \"Unnamed Spell\" -- with its key
+   beneath, where the dialog used to show a bare :no-name."
+  [content-type item-name item-key]
+  (if (s/blank? item-name)
+    {:title (str "Unnamed " (get orcbrew-val/content-type-singular content-type "Item"))
+     :subtitle (when item-key (str ":" (name item-key)))}
+    {:title (str item-name)}))
+
 (defn- item-issue-editor
   "Renders inline editors for a single item's missing fields + traits."
   [plugin-name content-type {:keys [key name missing-fields
@@ -392,8 +400,10 @@
    plugin-data]
   [:div {:style {:padding "8px 12px"
                  :border-bottom "1px solid rgba(255,255,255,0.1)"}}
-   [:div.f-w-b {:style {:margin-bottom "4px"}}
-    (or name (str ":" (clojure.core/name key)))]
+   (let [{:keys [title subtitle]} (item-heading content-type name key)]
+     [:div.issue-item-heading
+      [:div.f-w-b title]
+      (when subtitle [:div.issue-item-key subtitle])])
 
    ;; Missing top-level fields (dropdowns first — they block export)
    (let [sorted-fields (concat (filter dropdown-fields missing-fields)
@@ -466,7 +476,6 @@
         ;; Header
         [:div.conflict-modal-header
          [:div.flex.align-items-c
-          [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
           [:span.f-s-18.f-w-b.conflict-title.warn "Missing Required Fields"]]
          [:div.f-s-12.conflict-subtitle
           (if multi?
@@ -474,8 +483,8 @@
                  (when (not= 1 (count plugins)) "s") " with issues")
             (str "Exporting: " (:name (first plugins))))]
          [:div.f-s-12.conflict-count
-          (str total-items " item" (when (not= 1 total-items) "s")
-               " need attention. Fix inline or export with auto-filled placeholders.")]]
+          (str total-items (if (= 1 total-items) " item needs" " items need")
+               " attention. Fix inline or export with auto-filled placeholders.")]]
 
         ;; Body — collapsible per-plugin for multi, flat for single
         [:div.conflict-modal-body {:style {:max-height "400px"}}
@@ -536,7 +545,6 @@
        [:div.conflict-modal
         [:div.conflict-modal-header
          [:div.flex.align-items-c
-          [:i.fa.fa-i-cursor.m-r-5.conflict-title-icon]
           [:span.f-s-18.f-w-b.conflict-title "Which source name?"]]
          [:div.f-s-12.conflict-subtitle
           "This file's name differs from the source its content came from."]]
@@ -548,10 +556,10 @@
           [:strong.conflict-source-existing content-name] "."]
          [:div.f-s-14.m-t-10 "Import it under which name?"]]
         [:div.conflict-modal-footer
-         [:span.link-button
+         [:button.link-button.underline
           {:on-click #(dispatch [:cancel-source-name-choice])}
           "Cancel"]
-         [:button.form-button
+         [:button.link-button.underline
           {:on-click #(dispatch [:resolve-source-name filename-name])}
           (str "Rename to “" filename-name "”")]
          [:button.form-button

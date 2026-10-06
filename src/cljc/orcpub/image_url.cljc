@@ -1,17 +1,10 @@
 (ns orcpub.image-url
-  "What can be told about a picture's address without asking anyone.
-
-   Most of what goes wrong with a character portrait is visible in the string:
-   the address of a PAGE rather than of the picture on it, a missing scheme, an
-   http link the browser will refuse to display. Waiting for a fetch to fail
-   before saying so costs a round trip and tells the person less than the string
-   already did.
-
-   Nothing here blocks anything: what must hold is enforced where it cannot be
-   argued with, by address validation on the server and by CORS in the browser. So
-   this is free to be occasionally wrong, and its weakest rule -- an unknown host
-   with no file name -- is only a note."
-  (:require [clojure.string :as s]))
+  "What can be told about a picture's address from the string alone, without fetching it:
+   a PAGE's address rather than the picture's, a missing scheme, an http link the browser
+   will refuse. Advisory only and may be wrong; nothing here blocks anything, since server
+   address validation and browser CORS enforce what must hold."
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (def ^:private page-not-picture
   "Addresses of pages that SHOW a picture, which people paste far more often than
@@ -55,7 +48,7 @@
   "The host part of an http(s) address, lower-cased, or nil."
   [url]
   (some-> (second (re-find #"(?i)^https?://([^/?#]+)" url))
-          s/lower-case
+          common/ascii-lower-case
           (s/replace #":\d+$" "")))
 
 (defn- known-image-host? [url]
@@ -67,18 +60,11 @@
   (re-find #"(?i)\.(png|jpe?g|gif|webp|bmp)(?:[?#]|$)" url))
 
 (defn advise
-  "What is worth saying about `url` before anyone tries to fetch it.
-
-   Returns nil when there is nothing useful to say, or a map:
-
-     :level   :error when it cannot work as written, :warning when it probably
-              will not, :note when it merely might not
-     :message one self-contained sentence, carrying its own fix where there is
-              one to describe
-     :fix     a corrected address, when one can be derived mechanically, else nil
-
-   A :fix is only ever offered where the correction is mechanical. Nothing here
-   guesses at a picture's address from a page's."
+  "What is worth saying about `url` before anyone tries to fetch it: nil when nothing, else
+   {:level :message :fix}. `:level` is :error (cannot work as written), :warning (probably
+   will not) or :note (might not); `:message` is one self-contained sentence carrying its own
+   fix; `:fix` is a corrected address when it can be derived mechanically, else nil. Nothing
+   here guesses a picture's address from a page's."
   [url]
   (let [raw (str url)
         trimmed (s/trim raw)]

@@ -1,77 +1,59 @@
 (ns orcpub.dnd.e5.api-subs
-  "Shared HOF for API-backed `reg-sub-raw` subscriptions that lazy-load
-   data from the backend on first subscribe.
-
-   Eliminates ~10 lines of boilerplate per sub (guard, loading counter,
-   http/get with auth headers, handle-api-response wrapping, reaction
-   construction) that was previously duplicated across 5 sites —
-   `::mi5e/custom-items`, `::char5e/characters`, `::party5e/parties`,
-   `::folder5e/folders`, `:user`.
-
-   The guard uses `event-utils/get-auth-token` as its canonical check,
-   so every API sub registered via `reg-api-sub` gets the correct
-   token-path check for free and cannot re-introduce the
-   `:user` / `:user-data` typo class that broke `::mi5e/remote-item`.
-
-   This file lives in its own namespace (rather than event_utils.cljc
-   or subs.cljs) because the HOF needs cljs-only imports that don't
-   belong in a cross-platform `.cljc` file, and putting it in
-   `subs.cljs` would require a new import edge from `equipment_subs.cljs`
-   → `subs.cljs` to reuse it for `::mi5e/custom-items`. A small
-   dedicated namespace is the cleanest break."
+  "`reg-api-sub`: one HOF for API-backed `reg-sub-raw` subscriptions that lazy-load from the
+   backend on first subscribe (guard, loading counter, auth headers, response handling, reaction).
+   Its guard is `event-utils/get-auth-token`, the canonical token path, so no sub can re-introduce
+   the `:user` / `:user-data` typo that broke `::mi5e/remote-item`.
+   GOTCHA: not in `subs.cljs`, which `equipment_subs.cljs` would then have to require."
   (:require [re-frame.core :refer [reg-sub-raw dispatch]]
             [reagent.ratom :as ra]
             [orcpub.dnd.e5.event-utils :as event-utils]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+(defn rejected-token!
+  "What a loader does on a 401: the server no longer accepts the token it sent, so log out, then
+   run the sub's :on-401 with its query, or route to login when it has none.
+
+   Log out with :clear-login, not :set-user-data: that one merges into :user-data, and a merge
+   cannot remove the token. Does nothing when the token changed while the request was out, since
+   that 401 is about a login that has already been replaced."
+  [app-db sent-token on-401 query-v]
+  (when (= sent-token (event-utils/get-auth-token @app-db))
+    (dispatch [:clear-login])
+    (if on-401
+      (on-401 query-v)
+      (dispatch [:route-to-login]))))
+
 (defn reg-api-sub
-  "Register a `reg-sub-raw` that lazy-loads from a backend endpoint
-   when the user is logged in.
-
-   Required opts:
-     :sub-key   — subscription registration keyword
-     :route     — bidi route (passed to `url-for-route`)
-     :db-key    — where cached results live; keyword or vec path for
-                  `get-in`
-
-   Optional opts:
-     :set-event  — shorthand: success dispatches
-                   `[set-event (:body response)]`
-     :on-success — 1-arg fn called with the full response; if both
-                   :set-event and :on-success are given, :on-success
-                   wins; if neither, success is a no-op (fire-and-forget,
-                   as with the `:user` sub)
-     :on-401     — 1-arg fn receiving the query-v; omit for the
-                   `handle-api-response` default (dispatches
-                   `:route-to-login`)
-     :on-500     — 1-arg fn receiving the query-v; omit for the
-                   `handle-api-response` default (dispatches
-                   `show-generic-error`)
-     :context    — error log string; default `(str sub-key)`
-     :default    — default value for unset `db-key`; default `[]`
-
-   The guard, loading-counter management, header injection, response
-   dispatch shape, and reaction construction are owned by this HOF.
-   Call sites express only what varies between subs."
+  "Registers `:sub-key` as a `reg-sub-raw` that, when logged in, GETs `:route` (`url-for-route`)
+   with auth headers, and returns a reaction on `:db-key` (keyword or `get-in` path; unset reads
+   `:default`, default []). Success calls `:on-success` with the response, else dispatches
+   `[:set-event body]`, else does nothing. A 401 first logs out (`:clear-login`). `:on-401` /
+   `:on-500` get the query-v; omitted, the `handle-api-response` defaults route to login / show a
+   generic error. `:context` names the call in error logs, default `(str sub-key)`."
   [{:keys [sub-key route db-key set-event on-success on-401 on-500 context default]
     :or {default []}}]
   (reg-sub-raw sub-key
     (fn [app-db query-v]
-      (when (event-utils/get-auth-token @app-db)
+      (when-let [token (event-utils/get-auth-token @app-db)]
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (event-utils/url-for-route route)
-                                         {:headers (event-utils/auth-headers @app-db)}))]
+                                         {:headers {"Authorization" (str "Token " token)}}))]
               (dispatch [:set-loading false])
-              (event-utils/handle-api-response response
-                (cond
-                  on-success #(on-success response)
-                  set-event  #(dispatch [set-event (:body response)])
-                  :else      (fn []))
-                :on-401 (when on-401 #(on-401 query-v))
-                :on-500 (when on-500 #(on-500 query-v))
-                :context (or context (str sub-key))))))
+              ;; A logout or account switch while this request was in flight must not land:
+              ;; the response is for whoever held `token`, not whoever is logged in now, so a
+              ;; stale response would either send the new token nowhere useful or cache the old
+              ;; account's data under the new one.
+              (when (= token (event-utils/get-auth-token @app-db))
+                (event-utils/handle-api-response response
+                  (cond
+                    on-success #(on-success response)
+                    set-event  #(dispatch [set-event (:body response)])
+                    :else      (fn []))
+                  :on-401 #(rejected-token! app-db token on-401 query-v)
+                  :on-500 (when on-500 #(on-500 query-v))
+                  :context (or context (str sub-key)))))))
       (ra/make-reaction
        (fn [] (if (vector? db-key)
                 (get-in @app-db db-key default)

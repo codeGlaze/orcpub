@@ -1,7 +1,9 @@
 (ns ^{:doc "Effects and utils for handling throttled autosave"}
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
-            [re-frame.core :refer [reg-fx reg-event-db dispatch subscribe]]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
+            [re-frame.core :refer [reg-fx reg-event-fx dispatch subscribe]]
             [reagent.core :as r]))
 
 ;; timeout in ms during which we wait for further changes; if
@@ -37,9 +39,13 @@
 
 ;; The primary fx handler; simply return from a -fx event handler
 ;; as {::char5e/save-character-throttled <characterId>}
+(declare ensure-template-cache!)
+
 (reg-fx
   ::char5e/save-character-throttled
   (fn [id]
+    ;; The save builds the character from the cached template; start caching it now.
+    (ensure-template-cache!)
     (if-let [timer @throttled-save-timer]
       ; existing timer; clear it
       (js/clearTimeout timer)
@@ -59,21 +65,60 @@
 ;; Cache the global template in app-db so the save handler can compute
 ;; built-character without subscribing outside a reactive context.
 ;; track! creates a proper reactive context — no warnings.
-(reg-event-db
- ::cache-template
- (fn [db [_ template]]
-   (assoc db ::cached-template template)))
+(defn cache-template
+  "Handler for `::cache-template`: stores `template`, what it offers (`offered-keys`,
+   `offered-by-type`) and its `choice-tags`. On the first list, if the loaded character has a key
+   the list now lets it heal, re-dispatches `:set-character`."
+  [{:keys [db]} [_ template]]
+  (let [offered (content-recon/offered-keys template)
+        by-type (library/offered-by-type template)
+        character (:character db)
+        ;; The heal's indexes are empty until this list exists (heal-sites).
+        heal? (and (nil? (::content-recon/offered-keys db))
+                   character
+                   (seq (:rewrote (content-recon/reconcile-former-keys
+                                   character
+                                   (content-recon/former-key-indexes (:plugins db) offered by-type)))))]
+    (cond-> {:db (assoc db
+                        ::cached-template template
+                        ::content-recon/offered-keys offered
+                        ::content-recon/offered-by-type by-type
+                        ::content-recon/choice-tags (library/choice-tags template))}
+      ;; No route follows this heal, so it announces itself.
+      heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
+
+(reg-event-fx ::cache-template cache-template)
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.
-   Called from core.cljs after all subscriptions are registered.
+   Started once, by ensure-template-cache!.
    Guards the subscribe call itself — if the handler isn't registered yet,
    subscribe returns nil and we skip (no @nil crash). r/track! re-fires
    reactively when the subscription value changes."
   []
   (r/track!
     (fn []
-      (when-let [sub (subscribe [::char5e/template])]
-        (when-let [template @sub]
-          (dispatch [::cache-template template]))))))
+      ;; Building the template can throw on bad homebrew. Caught, the cache stays empty,
+      ;; which the save handler already allows for; uncaught, it stopped startup.
+      (try
+        (when-let [sub (subscribe [::char5e/template])]
+          (when-let [template @sub]
+            (dispatch [::cache-template template])))
+        (catch :default e
+          (js/console.error "Could not build the character template for the save cache:" e))))))
+
+(defonce ^:private template-cache (atom nil))
+
+(defn ensure-template-cache!
+  "Starts the template cache once: when a character is opened or a page showing one is
+   reached, or when a save needs it. Never at app start.
+   GOTCHA: built eagerly, bad homebrew stopped the app from starting. The save and the
+   heal of renamed picks both read it. See homebrew-safety-net.md."
+  []
+  (when-not @template-cache
+    (reset! template-cache (init-template-cache!))))
+
+(reg-fx
+  ::ensure-template-cache
+  (fn [_] (ensure-template-cache!)))
 

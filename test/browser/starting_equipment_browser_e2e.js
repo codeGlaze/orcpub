@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Browser-driven e2e for the starting-equipment class-builder UI.
 //
 // Drives the REAL app in headless chromium: boots it, navigates to the class
@@ -8,7 +9,7 @@
 // Prerequisites (not part of `lein test` — run manually / in a browser CI job):
 //   1. Dev build present:   lein fig:build      (populates resources/public/js/compiled/out/)
 //   2. Playwright module:   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install playwright
-//      (chromium binaries are expected under $PLAYWRIGHT_BROWSERS_PATH, default /opt/pw-browsers)
+//      (which Chromium it launches: see lib/find-chrome.js)
 // Run:  node test/browser/starting_equipment_browser_e2e.js
 // Exit code 0 = all checks passed.
 //
@@ -21,21 +22,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 
 const ROOT = path.resolve(__dirname, '../../resources/public');
 const MIME = { '.js':'application/javascript', '.css':'text/css', '.html':'text/html',
   '.json':'application/json', '.map':'application/json', '.svg':'image/svg+xml',
   '.png':'image/png', '.gif':'image/gif', '.woff':'font/woff', '.woff2':'font/woff2',
   '.ttf':'font/ttf', '.ico':'image/x-icon' };
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base).filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) { const p = path.join(base, dir, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined; // fall back to playwright's bundled browser
-}
 
 const HOST_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</title>
 <script>window.__BRANDING__={};window.__INTEGRATIONS__={};</script></head>
@@ -98,8 +91,11 @@ const check = (name, ok, detail='') => { results.push({ok}); console.log(`${ok?'
                                 window.__d('[:orcpub.dnd.e5.classes/set-class-prop :option-pack "Browser Test Source"]');
                                 window.__d('[:orcpub.dnd.e5.classes/save-class]'); });
     await page.waitForTimeout(300);
-    const savedWeapons = await dbAt(page, '[:plugins "Browser Test Source" :orcpub.dnd.e5/classes :browser-test-class :weapons]');
-    check('save-class persists the class + equipment into :plugins', savedWeapons && savedWeapons !== 'nil', `saved :weapons = ${savedWeapons}`);
+    // A new item's key is minted from its name AND tagged with its source (D10b, `address-for` in
+    // events.cljs), e.g. :browser-test-class-brttse, and written back onto the open builder item.
+    const savedKey = await dbAt(page, '[:orcpub.dnd.e5.classes/builder-item :key]');
+    const savedWeapons = await dbAt(page, `[:plugins "Browser Test Source" :orcpub.dnd.e5/classes ${savedKey} :weapons]`);
+    check('save-class persists the class + equipment into :plugins', savedWeapons && savedWeapons !== 'nil', `saved under ${savedKey}, :weapons = ${savedWeapons}`);
 
     const [ download ] = await Promise.all([
       page.waitForEvent('download', { timeout: 10000 }).catch(() => null),
