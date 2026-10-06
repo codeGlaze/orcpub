@@ -3,7 +3,9 @@
    browser's draft and lists its stored picks, with none of the app loaded. Plain DOM, so a
    character that breaks the app cannot break this page. character-rescue.md"
   (:require [cljs.reader :as reader]
-            [orcpub.dnd.e5.ledger :as ledger]))
+            [cognitect.transit :as transit]
+            [orcpub.dnd.e5.ledger :as ledger]
+            [orcpub.dnd.e5.picks :as picks]))
 
 (def ^:private colors
   {:bg "#1f2533" :panel "#2c3445" :text "#e8ebf0" :muted "#aab3c2" :line "#3d4659" :accent "#f0a100"})
@@ -27,6 +29,15 @@
     (.addEventListener b "click" #(on-click b))
     b))
 
+(defn- small-button
+  "A quiet button labelled `text` that calls `on-click` with the button."
+  [text on-click]
+  (let [b (el "button" (str "font:inherit;font-size:13px;color:" (:text colors) ";background:transparent;"
+                            "border:1px solid " (:line colors) ";border-radius:3px;padding:3px 10px;cursor:pointer")
+              text)]
+    (.addEventListener b "click" #(on-click b))
+    b))
+
 (defn- link
   "An anchor to `href` reading `text`."
   [href text]
@@ -34,7 +45,7 @@
     (set! (.-href a) href)
     a))
 
-(defn- stored
+(defn- storage-item
   "The localStorage value at `k`, or nil when there is none or storage is blocked."
   [k]
   (try (.getItem js/localStorage k) (catch :default _ nil)))
@@ -42,7 +53,7 @@
 (defn- login
   "The app's stored login ({:user-data {:username :email} :token}), or nil."
   []
-  (try (some-> (stored "user") reader/read-string) (catch :default _ nil)))
+  (try (some-> (storage-item "user") reader/read-string) (catch :default _ nil)))
 
 (defn- show!
   "Replace everything in `root` with `nodes`."
@@ -92,35 +103,118 @@
                 (when indent (str "padding-left:" (+ 10 (* 18 indent)) "px")))
       content))
 
+(defonce ^:private state
+  ;; The open character: {:root :stored :character :pending :saved-id :note}. `:stored` is the
+  ;; map as read from storage, `:pending` the `picks/remove-at` records not saved yet.
+  (atom nil))
+
+(declare render! load-saved! load-draft!)
+
+(defn- remove!
+  "Take the pick at `address` (its row is `row`) out of the open character, unsaved."
+  [address row]
+  (let [{:keys [character removed]} (picks/remove-at (:character @state) address)]
+    (when removed
+      (swap! state #(-> % (assoc :character character :note nil)
+                        (update :pending conj (assoc removed :line (:line row) :below (:below row)))))
+      (render!))))
+
+(defn- undo!
+  "Put pending removal `i` back, or say what has to come back first."
+  [i]
+  (let [{:keys [character pending]} @state
+        back (picks/put-at character (nth pending i))]
+    (if back
+      (swap! state assoc :character back :note nil
+             :pending (vec (concat (subvec pending 0 i) (subvec pending (inc i)))))
+      (swap! state assoc :note "Put back the choice it sits under first."))
+    (render!)))
+
+(defn- saved!
+  "After a save: show `note` over what storage now holds."
+  [note]
+  (let [{:keys [root saved-id]} @state]
+    (if saved-id (load-saved! root saved-id note) (load-draft! root note))))
+
+(defn- save!
+  "Write the open character back: to the server through the app's own save route, or to this
+   browser's draft. Keeps everything the page did not change."
+  []
+  (let [{:keys [stored character saved-id]} @state
+        data (ledger/save-data stored character)]
+    (if-not saved-id
+      (if (try (.setItem js/localStorage "character" (str data)) true (catch :default _ false))
+        (saved! "Saved.")
+        (do (swap! state assoc :note "This browser would not save it.") (render!)))
+      (-> (js/fetch "/dnd/5e/characters"
+                    #js {:method "POST"
+                         :headers #js {"Content-Type" "application/transit+json"
+                                       "Accept" "application/edn"
+                                       "Authorization" (str "Token " (:token (login)))}
+                         :body (transit/write (transit/writer :json) data)})
+          (.then (fn [r]
+                   (if (.-ok r)
+                     (.then (.text r)
+                            (fn [text]
+                              (let [new-id (str (:db/id (ledger/read-stored text)))]
+                                (if (and (seq new-id) (not= new-id (str saved-id)))
+                                  (set! (.-location js/window) (str "/pages/dnd/5e/characters/" new-id "/data"))
+                                  (saved! "Saved.")))))
+                     (do (swap! state assoc :note (if (= 401 (.-status r))
+                                                    "Only the owner can save this. Log in again and retry."
+                                                    "The server refused this change."))
+                         (render!)))))
+          (.catch (fn [_] (swap! state assoc :note "Not saved: check the connection and retry.") (render!)))))))
+
 (defn- row-node
-  "One table row for ledger `row`."
-  [{:keys [depth section choice key value below]}]
+  "One table row for ledger `row`, with its Remove button."
+  [{:keys [address depth section choice key value below] :as row}]
   (el "tr" nil
       (cell section depth)
       (cell choice)
       (cell (el "code" (str "font-size:12px;color:" (:muted colors)) (str key)))
       (cell (when value (el "code" (str "font-size:12px;color:" (:muted colors)) value)))
-      (cell (when (pos? below) (str below " below")))))
+      (cell (when (pos? below) (str below " below")))
+      (cell (small-button (if (pos? below) (str "Remove with " below " below") "Remove")
+                          (fn [_] (remove! address row))))))
 
-(defn- table-view
-  "The rows of `character` under `heading`, with a copy for support labelled `support-heading`."
-  [root heading character support-heading]
-  (let [rows (ledger/rows character)
+(defn- pending-node
+  "The removals not saved yet, each with Undo, and the Save button; nil when there are none."
+  [pending]
+  (when (seq pending)
+    (el "div" (str "background:" (:panel colors) ";padding:10px 12px;border-radius:3px;margin:8px 0")
+        (el "div" "font-weight:600;margin-bottom:6px" (str "Not saved yet: " (count pending) " removed"))
+        (apply el "div" nil
+               (map-indexed (fn [i {:keys [line below]}]
+                              (el "div" "margin:4px 0"
+                                  (small-button "Undo" (fn [_] (undo! i)))
+                                  (str " " line (when (pos? below) (str ", with " below " below")))))
+                            pending))
+        (button "Save" (fn [_] (save!)))
+        (el "span" (str "color:" (:muted colors)) "Close this character in other tabs before saving."))))
+
+(defn- render!
+  "Draw the open character from `state`."
+  []
+  (let [{:keys [root character pending note heading support-heading]} @state
+        rows (ledger/rows character)
         head (fn [t] (el "th" (str "text-align:left;padding:6px 10px;color:" (:muted colors)) t))]
     (show! root
            (el "h2" "margin:0 0 4px;font-size:18px" heading)
            (message (str (count rows) " stored choices"))
+           (when note (el "p" (str "color:" (:accent colors) ";font-weight:600") note))
+           (pending-node pending)
            (button "Copy for support" #(copy! (ledger/support-text support-heading rows) %))
            (el "div" "overflow-x:auto;margin-top:8px"
                (el "table" "border-collapse:collapse;width:100%;font-size:14px"
                    (el "thead" nil (el "tr" nil (head "Section") (head "Choice") (head "Stored key")
-                                       (head "Value") (head "")))
+                                       (head "Value") (head "") (head "")))
                    (apply el "tbody" nil (map row-node rows)))))))
 
 (defn- open-character
   "Show `text` read as a character: the table, or the raw view when it cannot be read.
-   `saved-id` is the saved character's id, nil for the browser draft."
-  [root text saved-id]
+   `saved-id` is the saved character's id, nil for the browser draft; `note` is shown on top."
+  [root text saved-id note]
   (let [{:keys [character error]} (ledger/read-character text)
         filename (str "character-" (or saved-id "draft") ".edn")]
     (cond
@@ -132,26 +226,28 @@
              (message (link (str "/pages/dnd/5e/characters/" saved-id) "Back to the character")))
 
       :else
-      (let [nm (ledger/character-name character)
-            heading (or nm (if saved-id "Unnamed character" "This browser's draft"))]
-        (table-view root heading character
-                    (str (if saved-id (str "Character " saved-id) "Browser draft")
-                         (when nm (str " (" nm ")"))))))))
+      (let [nm (ledger/character-name character)]
+        (reset! state {:root root :stored (ledger/read-stored text) :character character
+                       :pending [] :saved-id saved-id :note note
+                       :heading (or nm (if saved-id "Unnamed character" "This browser's draft"))
+                       :support-heading (str (if saved-id (str "Character " saved-id) "Browser draft")
+                                             (when nm (str " (" nm ")")))})
+        (render!)))))
 
 (defn- load-saved!
-  "Fetch saved character `id` and show it."
-  [root id]
+  "Fetch saved character `id` and show it, with `note` on top when given."
+  [root id & [note]]
   (-> (js/fetch (str "/dnd/5e/characters/" id) #js {:headers #js {"Accept" "application/edn"}})
       (.then (fn [r] (if (.-ok r)
-                       (.then (.text r) #(open-character root % id))
+                       (.then (.text r) #(open-character root % id note))
                        (show! root (message "There is no saved character with this number.")))))
       (.catch #(show! root (message "The character could not be fetched. Check the connection and reload.")))))
 
 (defn- load-draft!
-  "Show the character this browser is holding as its draft."
-  [root]
-  (if-let [text (stored "character")]
-    (open-character root text nil)
+  "Show the character this browser is holding as its draft, with `note` on top when given."
+  [root & [note]]
+  (if-let [text (storage-item "character")]
+    (open-character root text nil note)
     (show! root (message "This browser holds no character draft."))))
 
 (defn ^:export init

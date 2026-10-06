@@ -36,7 +36,8 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 ## Added
 
 - **Characters:** a Character data page lists everything stored on a saved character or on this
-  browser's draft, and opens even when the character itself will not load.
+  browser's draft, lets its owner remove any of it and save, and opens even when the character
+  itself will not load.
 
 ## Changed
 

@@ -46,19 +46,40 @@
                :line (s/join " › " (map label address))}))
           listed)))
 
+(defn- read-edn
+  "`text` read as EDN after repairing bare-colon keys, as the app does
+   (`common/sanitize-edn-colons`). Throws when it still cannot be read."
+  [text]
+  (let [healed (:text (common/sanitize-edn-colons text))]
+    #?(:clj (edn/read-string healed) :cljs (reader/read-string healed))))
+
 (defn read-character
   "Text from storage (a saved character's EDN, or the browser draft) as {:character} in the
-   `entity/from-strict` shape, or {:error message} when it cannot be read as a character.
-   Bare-colon keys are repaired first, as the app does (`common/sanitize-edn-colons`)."
+   `entity/from-strict` shape, or {:error message} when it cannot be read as a character."
   [text]
   (try
-    (let [data #?(:clj (edn/read-string (:text (common/sanitize-edn-colons text)))
-                  :cljs (reader/read-string (:text (common/sanitize-edn-colons text))))]
+    (let [data (read-edn text)]
       (if (and (map? data) (some #(contains? data %) [::se/selections ::se/values ::se/owner]))
         {:character (entity/from-strict data)}
         {:error "This is not a character."}))
     (catch #?(:clj Exception :cljs :default) e
       {:error (str "This character's data cannot be read: " #?(:clj (.getMessage e) :cljs (.-message e)))})))
+
+(defn read-stored
+  "Text from storage as the stored map itself (the strict shape, as saved), or nil when it
+   cannot be read. The base `save-data` works from, so whatever the page does not change is
+   written back exactly as it was."
+  [text]
+  (try
+    (let [data (read-edn text)] (when (map? data) data))
+    (catch #?(:clj Exception :cljs :default) _ nil)))
+
+(defn save-data
+  "`stored` (from `read-stored`) with its selections replaced by those of `character` (the
+   `entity/from-strict` shape, after `picks/remove-at` or `put-at`): what the save route or the
+   browser draft takes. Everything else, the summary and values included, is kept as stored."
+  [stored character]
+  (assoc stored ::se/selections (vec (::se/selections (entity/to-strict character)))))
 
 (defn owner?
   "True when `user` (the app's stored login: {:user-data {:username :email}}) owns `character`,

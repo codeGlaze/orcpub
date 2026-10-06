@@ -1,8 +1,10 @@
 (ns orcpub.dnd.e5.ledger-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.set]
             [clojure.string :as str]
             [orcpub.entity :as entity]
-            [orcpub.dnd.e5.ledger :as ledger]))
+            [orcpub.dnd.e5.ledger :as ledger]
+            [orcpub.dnd.e5.picks :as picks]))
 
 (def tide-pak
   "The saved Tide Pak wizard from orphan-clear.js, as the server returns it (ids trimmed)."
@@ -83,3 +85,58 @@
     (is (not (ledger/owner? c nil)) "logged out")
     (is (not (ledger/owner? (dissoc c ::entity/owner) {:user-data {:username nil :email nil}}))
         "no owner and no login never match")))
+
+(def stored-with-ids
+  "A saved character as the server returns it: every selection and option with its :db/id,
+   plus a summary and the browser draft's :changed flag."
+  {:db/id 1
+   :changed true
+   :orcpub.entity.strict/owner "kaylee"
+   :orcpub.entity.strict/values {:db/id 2 :orcpub.dnd.e5.character/character-name "Beren Dale"}
+   :orcpub.entity.strict/summary {:db/id 3 :orcpub.dnd.e5.character/race-name "Tidefolk"}
+   :orcpub.entity.strict/selections
+   [{:db/id 10 :orcpub.entity.strict/key :ability-scores
+     :orcpub.entity.strict/option {:db/id 11 :orcpub.entity.strict/key :standard-scores
+                                   :orcpub.entity.strict/map-value {:db/id 12 :orcpub.dnd.e5.character/str 15}}}
+    {:db/id 20 :orcpub.entity.strict/key :class
+     :orcpub.entity.strict/options
+     [{:db/id 21 :orcpub.entity.strict/key :wizard
+       :orcpub.entity.strict/selections
+       [{:db/id 22 :orcpub.entity.strict/key :wizard-spells-known
+         :orcpub.entity.strict/options [{:db/id 23 :orcpub.entity.strict/key :brine-lash}
+                                        {:db/id 24 :orcpub.entity.strict/key :magic-missile}]}]}]}
+    {:db/id 30 :orcpub.entity.strict/key :race :orcpub.entity.strict/option {:db/id 31 :orcpub.entity.strict/key :tidefolk}}
+    {:db/id 40 :orcpub.entity.strict/key :feats
+     :orcpub.entity.strict/options [{:db/id 41 :orcpub.entity.strict/key :tidebreaker}]}]})
+
+(defn- ids
+  "Every :db/id in `m`."
+  [m]
+  (entity/db-ids m))
+
+(deftest saving-unchanged-writes-back-exactly-what-was-stored
+  (let [text (pr-str stored-with-ids)]
+    (is (= stored-with-ids
+           (ledger/save-data (ledger/read-stored text) (:character (ledger/read-character text)))))))
+
+(deftest saving-a-removal-drops-exactly-that-pick
+  (let [text (pr-str stored-with-ids)
+        opened (:character (ledger/read-character text))]
+    (testing "one of several: only its option goes"
+      (let [saved (ledger/save-data (ledger/read-stored text)
+                                    (:character (picks/remove-at opened [:class :wizard :wizard-spells-known :brine-lash])))]
+        (is (= #{23} (clojure.set/difference (ids stored-with-ids) (ids saved))))
+        (is (= (:orcpub.entity.strict/summary stored-with-ids) (:orcpub.entity.strict/summary saved)) "the summary is kept")
+        (is (true? (:changed saved)) "the draft's :changed flag is kept")))
+    (testing "a single pick: its selection goes with it, so no empty selection is left"
+      (let [saved (ledger/save-data (ledger/read-stored text)
+                                    (:character (picks/remove-at opened [:race :tidefolk])))]
+        (is (= #{30 31} (clojure.set/difference (ids stored-with-ids) (ids saved))))))
+    (testing "a parent takes its children"
+      (let [saved (ledger/save-data (ledger/read-stored text)
+                                    (:character (picks/remove-at opened [:class :wizard])))]
+        (is (= #{21 22 23 24} (clojure.set/difference (ids stored-with-ids) (ids saved))))))
+    (testing "removing and putting back is no change at all"
+      (let [{removed-char :character removed :removed} (picks/remove-at opened [:feats :tidebreaker])]
+        (is (= stored-with-ids
+               (ledger/save-data (ledger/read-stored text) (picks/put-at removed-char removed))))))))
