@@ -176,6 +176,24 @@ or closes, or a branch changes role, update this section in the same commit.
 | #34 | `f1852203-accounts` → `develop` | paused; its homebrew commits were inputs to #37 |
 | #35 | `hotfix/locale-safety` → `mirror/upstream-develop` | the clean hotfix |
 
+## When `integration` is next merged in — AC lines (added 2026-10-06)
+
+`integration` PR #55 (`fix/robe-of-the-archmagi-ac`) fixed the Robe of the Archmagi and tortle AC.
+Resolve these by hand rather than taking either side wholesale:
+
+- **`mod5e/ac-formula` and the Ring/Cloak of Protection hunk in `deferred-magic-item-fn`** were copied
+  from this branch word for word, so they should merge clean.
+- **Robe of the Archmagi** (`magic_items.cljc`): take `integration`'s `mod5e/ac-formula` (15 + Dex +
+  shield, 0 in armor). This branch's `(mod5e/ac-bonus {:armor? false} 5)` stacks onto Draconic
+  Resilience and Unarmored Defense.
+- **`:tortle-ac` and `:lizardfolk-ac`** (`options.cljc`): keep this branch's (the AC engine). Then
+  check its tortle still adds bonuses: a Ring of Protection must give 18, Bracers of Defense 19.
+  `integration`'s `test/cljc/orcpub/dnd/e5/robe_ac_test.clj` has those cases; keep that file, and
+  note its `ac` helper orders modifiers as `entity/apply-options` does.
+- **`template_base.cljc`**: `integration` removed `?magical-ac-bonus`.
+
+Background: `ac-tests-and-modifier-order.md` on `agents/develop`.
+
 ## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
 
 Deliberately **not** done here, and they **must be surfaced when this branch is finalized** — repeat
