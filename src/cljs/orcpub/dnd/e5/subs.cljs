@@ -1549,6 +1549,14 @@
    (get db ::char5e/print-character-sheet-style?)))
 
 (reg-sub
+ ::char5e/spellbook-options
+ ;; The spellbook export options; pdf-spec fills in their defaults. :print-spellbook? is
+ ;; false until ticked.
+ (fn [db _]
+   (assoc (get db ::char5e/spellbook-options)
+          :print-spellbook? (boolean (::char5e/print-spellbook? db)))))
+
+(reg-sub
  ::char5e/spell-layout
  (fn [db _]
    (get db ::char5e/spell-layout)))

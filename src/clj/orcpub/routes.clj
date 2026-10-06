@@ -39,6 +39,8 @@
             [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.spellbook :as spellbook]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
             [orcpub.pwned :as pwned]
             [orcpub.entity.strict :as se]
@@ -1004,21 +1006,22 @@
    load-fonts embeds its own subset of every face used, so building a set here and
    another in add-magic-item-cards! puts two complete copies of Vollkorn in a
    character sheet that prints both kinds of card."
-  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]
+  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded? & [spell-order]]
   (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
           ;; capping it would keep the first few classes whole and drop the rest.
           flat-spells (bound-cards "spell" (-> spells-known vals flatten))
+          ;; By class, then spellbook/spell-sort-key: level and name, or name alone.
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
-                           [(if (keyword? class)
-                              (common/kw-to-name class)
-                              class)
-                            key])
+                           (into [(if (keyword? class)
+                                    (common/kw-to-name class)
+                                    (str class))]
+                                 (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))]
+          parts (vec (partition-all 9 sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -1081,6 +1084,77 @@
                                  logo-img)))))))
     (catch Exception e (println "pdf: failed adding magic item cards" e))))
 
+(defn- one-of
+  "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
+  [allowed v default]
+  (let [k (cond (keyword? v) v (string? v) (keyword v))]
+    (if (contains? allowed k) k default)))
+
+(defn- small-int
+  "`v` when it is an integer from `lo` to `hi`, else nil."
+  [v lo hi]
+  (when (and (integer? v) (<= lo v hi)) v))
+
+(defn- short-str
+  "`v` cut to at most `n` characters when it is a string, else nil."
+  [v n]
+  (when (string? v) (subs v 0 (min n (count v)))))
+
+(defn- slot-table
+  "A slot table {level count} from request map `m`, keeping levels 1-9 with counts 0-20; level
+   keys may arrive as keywords."
+  [m]
+  (into {}
+        (for [[l n] (when (map? m) m)
+              :let [l (small-int (if (keyword? l) (parse-long (name l)) l) 1 9)
+                    n (small-int n 0 20)]
+              :when (and l n)]
+          [l n])))
+
+(defn spellbook-options
+  "The :spellbook request map made safe to lay out from, or nil. Caller-supplied, so every
+   value is checked: unknown choices fall back to the defaults, numbers are bounded, strings
+   cut short, and an emblem must be one of the vendored icons, since its name becomes part
+   of a resource path."
+  [sb character-name]
+  (when (map? sb)
+    (let [classes (->> (:classes sb)
+                       (filter map?)
+                       (take (config/get-pdf-max-caster-sections))
+                       (keep (fn [{:keys [class level ability dc attack pact? icon]}]
+                               (when-let [class (short-str class 60)]
+                                 (let [class-kw (common/name-to-kw class)]
+                                   {:class class
+                                    :class-kw class-kw
+                                    :level (small-int level 1 30)
+                                    :ability (short-str ability 20)
+                                    :dc (small-int dc 0 99)
+                                    :attack (short-str attack 6)
+                                    :pact? (true? pact?)
+                                    :icon (emblems/icon-for class-kw icon)}))))
+                       vec)]
+      (when (seq classes)
+        {:layout (one-of #{:book :ledger :prep} (:layout sb) :book)
+         :order (one-of #{:level :alpha} (:order sb) :level)
+         :class-break (one-of #{:runon :page} (:class-break sb) :runon)
+         :tabs (one-of #{:head :inset :off} (:tabs sb) :head)
+         :classes classes
+         :slots (slot-table (:slots sb))
+         :pact-slots (slot-table (:pact-slots sb))
+         :character-name (short-str character-name 80)}))))
+
+(defn add-spellbook!
+  "Appends the spellbook pages. Like the cards, a failure is logged rather than thrown, so
+   it cannot cost the character their sheet."
+  [doc fonts img opts spells-known custom-spells]
+  (try
+    (let [spells-map (merge spells/spell-map (common/map-by-key custom-spells))
+          ;; Bounded by the card ceiling; the pages read only the flat list, under one key.
+          spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
+      (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
+    (catch Exception e
+      (println "pdf: failed adding the spellbook -" (.getMessage e)))))
+
 (def valid-sheet-styles
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
   #{1 2 3 4})
@@ -1099,6 +1173,7 @@
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
+    :spellbook :spell-order
     :flatten?})
 
 (def ^:private image-url-shape
@@ -1348,7 +1423,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? spellbook spell-order]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1441,12 +1516,17 @@
       ;; a card page is actually coming, since a plain sheet needs neither.
       (let [spell-cards? (and print-spell-cards? (seq spells-known))
             item-cards? (and print-magic-item-cards? (seq magic-items-known))
-            fonts (when (or spell-cards? item-cards?) (pdf/load-fonts doc))
-            img (when (or spell-cards? item-cards?) (pdf/make-image-loader doc))]
+            book (when (seq spells-known) (spellbook-options spellbook character-name))
+            spell-order (one-of #{:level :alpha} spell-order :level)
+            fonts (when (or spell-cards? item-cards? book) (pdf/load-fonts doc))
+            img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
+        ;; Order: sheet, spellbook, then cards.
+        (when book
+          (add-spellbook! doc fonts img book spells-known custom-spells))
         (when spell-cards?
           (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
                             custom-spells print-spell-card-dc-mod? card-back-logo-img
-                            bw? bw-faded?))
+                            bw? bw-faded? spell-order))
         (when item-cards?
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))

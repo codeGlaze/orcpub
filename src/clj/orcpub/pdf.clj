@@ -264,7 +264,7 @@
        (with-open [in (io/input-stream (io/resource resource-path))]
          (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
 
-(defn- normalize-text
+(defn normalize-text
   "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
    (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
    stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
@@ -2071,12 +2071,15 @@
         (s/replace #"round" "Rnd")
         (max-len 16))))
 
-(defn abbreviate-casting-time [casting-time]
+(defn abbreviate-casting-time
+  "\"1 bonus action\" -> \"1 B.A.\", \"1 reaction\" -> \"1 React.\". Reaction goes before
+   action, which it contains."
+  [casting-time]
   (-> casting-time
       abbreviate-times
       (s/replace #"bonus action" "B.A.")
-      (s/replace #"action" "Act.")
-      (s/replace #"reaction" "React.")))
+      (s/replace #"reaction" "React.")
+      (s/replace #"\baction" "Act.")))
 
 (defn abbreviate-range [range]
   (-> range

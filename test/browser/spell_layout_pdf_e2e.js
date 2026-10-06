@@ -15,7 +15,7 @@
 // Exit code 0 = all checks passed.
 //
 // Needs:     the real app at :8890 (`lein e2e-server`)
-// Runs in:   ~60-85s. It builds a character and exports sheets, but far fewer than
+// Runs in:   ~70-100s. It builds a character and exports sheets, but far fewer than
 //            character_image_capture -- which is why its 20 checks land in a fraction of the time.
 // Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
 //            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
@@ -266,18 +266,64 @@ async function postSpec(page, spec, style, name) {
     const pc = pageCount(perClass.file);
     check(`style ${uiStyle} packed export is a PDF`, pp > 0, `${pp} pages`);
     check(`style ${uiStyle} per-class export is a PDF`, pc > 0, `${pc} pages`);
-    check(`style ${uiStyle} packing saves a page`, pp < pc, `${pp} < ${pc}`);
+    check('the packed export really packs', /:spell-relabels \[/.test(packedSpec));
 
-    // Styles the dropdown does not offer are gated in the UI, not in the route,
-    // so they go through the real server with the spec the builder just made.
-    for (const style of [1, 2, 3, 4].filter(s => s !== uiStyle)) {
-      const a = await postSpec(page, packedSpec, style, `style-${style}-packed`);
-      const b = await postSpec(page, perClassSpec, style, `style-${style}-per-class`);
+    // Sheets compared without cards, which add the same pages to both. This Warlock and
+    // Sorcerer share Charisma, so per-class is one page too: packing must add none.
+    const noCards = (spec) => spec.replace(':print-spell-cards? true', ':print-spell-cards? false');
+    for (const style of [1, 2, 3, 4]) {
+      const a = await postSpec(page, noCards(packedSpec), style, `style-${style}-packed`);
+      const b = await postSpec(page, noCards(perClassSpec), style, `style-${style}-per-class`);
       const ap = pageCount(a.file);
       const bp = pageCount(b.file);
-      check(`style ${style} packed export is a PDF`, ap > 0, `HTTP ${a.status}, ${ap} pages`);
-      check(`style ${style} per-class export is a PDF`, bp > 0, `HTTP ${b.status}, ${bp} pages`);
-      check(`style ${style} packing saves a page`, ap < bp, `${ap} < ${bp}`);
+      check(`style ${style} packed sheet is a PDF`, ap > 0, `HTTP ${a.status}, ${ap} pages`);
+      check(`style ${style} per-class sheet is a PDF`, bp > 0, `HTTP ${b.status}, ${bp} pages`);
+      check(`style ${style} packing adds no page`, ap <= bp, `${ap} <= ${bp}`);
+    }
+
+    // A packed sheet must still send the spell list the cards and the spellbook read.
+    check('a packed sheet still sends the spell list',
+          /:spells-known \{/.test(packedSpec) && /:class "Warlock"/.test(packedSpec));
+
+    // The spellbook: off by default, then a group of its own with an emblem per class.
+    await page.getByText(/^export$/i).first().click();
+    await page.waitForTimeout(1200);
+    await page.locator('div', { hasText: /^Sheet style$/ })
+      .locator('xpath=following::select[1]').first().selectOption(String(uiStyle));
+    await page.waitForTimeout(800);
+    check('the spellbook is off until asked for',
+          !(await page.innerText('body')).includes('Class emblems'));
+    await page.getByText('Print Spellbook', { exact: true }).first().click();
+    // GOTCHA: the options panel is mounted twice with one copy hidden; count :visible only.
+    const changers = page.locator('span:visible', { hasText: /^Change$/ });
+    await changers.first().waitFor({ timeout: 5000 }).catch(() => {});
+    const pickers = await changers.count();
+    check('an emblem picker for each casting class', pickers === 2, `${pickers} found`);
+    await changers.first().click();
+    const choice = page.locator('.emblem-choice:visible:not(.selected)').first();
+    await choice.waitFor({ timeout: 5000 });
+    const picked = (await choice.locator('img').getAttribute('src')).replace(/^.*\//, '').replace('.svg', '');
+    await choice.click();
+    await page.locator(`.emblem-choice.selected:visible img[src$="/${picked}.svg"]`).waitFor({ timeout: 5000 });
+    await page.screenshot({ path: path.join(OUT, 'pdf-options-spellbook.png') });
+    const ctx2 = page.context();
+    const sbFile = path.join(OUT, 'spellbook.pdf');
+    const caughtSb = catchPdf(ctx2, sbFile);
+    await page.getByText(/^create pdf$/i).first().click();
+    await caughtSb;
+    for (const other of ctx2.pages()) if (other !== page) await other.close().catch(() => {});
+    const sbSpec = await lastSpec(page);
+    check('the export asks for a spellbook', /:spellbook \{/.test(sbSpec));
+    check('the chosen emblem goes with it', picked !== null && sbSpec.includes(`"${picked}"`), String(picked));
+    check('the Warlock prints from its pact slots', /:pact\? true/.test(sbSpec));
+    const sbPages = pageCount(sbFile);
+    check('the spellbook adds pages', sbPages > pp, `${sbPages} > ${pp}`);
+    // Every layout and break rule through the real route, with the character just built.
+    for (const [from, to] of [[':layout :book', ':layout :ledger'], [':layout :book', ':layout :prep'],
+                              [':class-break :runon', ':class-break :page'], [':tabs :head', ':tabs :inset']]) {
+      const r = await postSpec(page, sbSpec.replace(from, to), uiStyle, `spellbook-${to.replace(/[: ]+/g, '-')}`);
+      const n = pageCount(r.file);
+      check(`spellbook with ${to} exports`, r.status === 200 && n > 0, `HTTP ${r.status}, ${n} pages`);
     }
 
     check('no console errors while exporting', errors.length === 0, errors.join(' | '));

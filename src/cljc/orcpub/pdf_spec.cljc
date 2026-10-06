@@ -15,6 +15,7 @@
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.spell-packing :as packing]
+            [orcpub.dnd.e5.emblems :as emblems]
 ))
 
 (defn entity-vals [built-char kws]
@@ -585,7 +586,16 @@
              ;; Even when asked for outright. A packed page that lost a class is
              ;; worse than the layout the caller did not want.
              (packing/fits? style (packing/packing-shape classes)))
-      (packed-spellcasting-fields classes style)
+      ;; The spell list for the cards and the spellbook, which every layout must send.
+      (merge (make-spell-card-info sorted-spells-known
+                                   spell-save-dc-fn
+                                   spell-attack-modifier-fn
+                                   print-prepared-spells?
+                                   prepares-spells
+                                   prepared-spells-by-class
+                                   spells-map
+                                   plugin-spells-map)
+             (packed-spellcasting-fields classes style))
       (spell-page-fields sorted-spells-known
                          spell-slots
                          spell-save-dc-fn
@@ -596,6 +606,45 @@
                          spells-map
                          plugin-spells-map
                          style)))))
+
+(def spellbook-defaults
+  "What the spellbook prints when its options are untouched."
+  {:layout :book :order :level :class-break :runon :tabs :head})
+
+(defn spellbook-classes
+  "One entry per casting class for the spellbook pages, in the order casting-classes gives:
+   the class as the spells name it, its level, casting ability, DC and attack, and the
+   emblem to head it. `chosen-emblems` is the player's picks, class keyword to icon name."
+  [built-char spells-map chosen-emblems]
+  (let [levels (char5e/levels built-char)
+        abilities (into {}
+                        (for [cfg (char5e/flat-spells (char5e/spells-known built-char))]
+                          [(:class cfg) (:ability cfg)]))]
+    (vec
+     (for [{:keys [class dc attack pact?]} (casting-classes built-char spells-map)
+           :let [class-kw (common/name-to-kw (str class))
+                 ability (get abilities class)]]
+       (cond-> {:class (str class)
+                :class-kw class-kw
+                :level (get-in levels [class-kw :class-level])
+                :ability (:name (opt5e/abilities-map ability))
+                :dc dc
+                :attack attack
+                :icon (emblems/icon-for class-kw (get chosen-emblems class-kw))}
+         pact? (assoc :pact? true))))))
+
+(defn spellbook-spec
+  "The :spellbook map the server lays its pages out from, or nil when none is wanted."
+  [built-char spells-map {:keys [print-spellbook? spellbook-layout spell-order
+                                 spellbook-class-break spellbook-tabs spellbook-emblems]}]
+  (when (and print-spellbook? (seq (char5e/spells-known built-char)))
+    {:layout (or spellbook-layout (:layout spellbook-defaults))
+     :order (or spell-order (:order spellbook-defaults))
+     :class-break (or spellbook-class-break (:class-break spellbook-defaults))
+     :tabs (or spellbook-tabs (:tabs spellbook-defaults))
+     :classes (spellbook-classes built-char spells-map spellbook-emblems)
+     :slots (or (char5e/shared-spell-slots built-char) {})
+     :pact-slots (or (char5e/pact-spell-slots built-char) {})}))
 
 (defn profs-paragraph [profs prof-map title]
   (when (seq profs)
@@ -732,7 +781,8 @@
            print-bw?
            bw-faded?
            print-magic-item-cards?
-           spell-layout] :as options}
+           spell-layout
+           spell-order] :as options}
    {:keys [spells-map plugin-spells-map language-map
            all-weapons-map all-magic-items-map current-armor-class
            image-bytes]}]
@@ -817,6 +867,8 @@
       :print-bw? print-bw?
       :bw-faded? bw-faded?
       :print-magic-item-cards? print-magic-item-cards?
+      :spell-order spell-order
+      :spellbook (spellbook-spec built-char spells-map options)
       :magic-items-known (when print-magic-item-cards?
                            (magic-item-card-info built-char all-magic-items-map))
       }
