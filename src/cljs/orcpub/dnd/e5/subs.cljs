@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -632,9 +633,14 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (:character (content-recon/reconcile-former-keys
-                       (get-in @app-db [::char5e/character-map int-id] {})
-                       @(subscribe [::content-recon/former-key-indexes])))
+           (let [healed (:character (content-recon/reconcile-former-keys
+                                     (get-in @app-db [::char5e/character-map int-id] {})
+                                     @(subscribe [::content-recon/former-key-indexes])))
+                 template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
+             ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
+             (if (seq template)
+               (:character (picks/update-planned template healed []))
+               healed))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after self-heal; the

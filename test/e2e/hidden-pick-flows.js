@@ -19,12 +19,12 @@
 // State is set only by clicking. app-db, the :built-character subscription and the saved character
 // are READ to observe; nothing is dispatched.
 const { chromium } = require('playwright');
-const { BASE, findChrome, dbAt, readyPage, clickTab } = require('./lib');
+const { BASE, findChrome, dbAt, clickTab, TABS, pick: pickAny, setClass, setLevel, login } = require('./lib');
 
-const TABS = ['Class / Level', 'Proficiencies', 'Equipment', 'Ability Scores / Feats', 'Background', 'Race', 'Spells'];
 const ONLY = (process.env.FLOWS || '').split(',').filter(Boolean);
 const out = [];
 const log = (...a) => { const s = a.join(' '); out.push(s); console.log(s); };
+const pick = (page, tab, title, name, opts = {}) => pickAny(page, tab, title, name, { ...opts, log });
 
 // Every visible selection section of the current tab: its parent title (the class it belongs to),
 // its title, the "select N / remaining" line, and its option cards with selected/selectable state.
@@ -60,42 +60,6 @@ async function scanAll(page, rx) {
   return found;
 }
 
-// Click the option card `name` in the nth visible section titled `title` (optionally under parent).
-// Looks on `tab` first, then on every other tab.
-async function pick(page, tab, title, name, opts = {}) {
-  let r;
-  for (const t of [tab, ...TABS.filter(x => x !== tab)]) {
-    r = await pickOn(page, t, title, name, opts);
-    if (r !== 'no section') break;
-  }
-  return r === 'ok';
-}
-
-async function pickOn(page, tab, title, name, { parent, nth = 0 } = {}) {
-  await clickTab(page, tab);
-  const ok = await page.evaluate(({ title, name, parent, nth }) => {
-    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-    const secs = [...document.querySelectorAll('#app div.p-5.m-b-20')].filter(vis).filter(s => {
-      const own = e => e.closest('div.p-5.m-b-20') === s;
-      const t = [...s.querySelectorAll('span.m-l-5.f-s-18.f-w-b')].find(own);
-      const p = [...s.querySelectorAll('span.i.f-s-14.f-w-n')].find(own);
-      return t && t.textContent.trim() === title && (!parent || (p && p.textContent.trim() === parent));
-    });
-    const s = secs[nth];
-    if (!s) return 'no section';
-    const card = [...s.querySelectorAll('div.p-10.b-1.b-rad-5.m-5.b-orange')]
-      .filter(c => c.closest('div.p-5.m-b-20') === s)
-      .find(c => (c.querySelector('span.f-w-b.f-s-1') || {}).textContent.trim() === name);
-    if (!card) return 'no card';
-    card.click();
-    return 'ok';
-  }, { title, name, parent, nth });
-  if (ok === 'no section') return ok;
-  await page.waitForTimeout(1200);
-  log(`   pick ${tab} > ${parent ? parent + ' / ' : ''}${title} > ${name}: ${ok}`);
-  return ok;
-}
-
 // The class rows of the Class / Level tab: class select, level select, delete icon.
 const classRows = page => page.evaluate(() => {
   const rows = [...document.querySelectorAll('#app select.builder-option-dropdown.flex-grow-1')];
@@ -108,17 +72,6 @@ const classRows = page => page.evaluate(() => {
   });
 });
 
-async function setClass(page, i, key) {
-  await clickTab(page, 'Class / Level');
-  await page.locator('#app select.builder-option-dropdown.flex-grow-1').nth(i).selectOption(key);
-  await page.waitForTimeout(2000);
-}
-async function setLevel(page, i, n) {
-  await clickTab(page, 'Class / Level');
-  await page.locator('#app select.builder-option-dropdown.flex-grow-1').nth(i)
-    .locator('xpath=..').locator('select.w-100').selectOption(`level-${n}`);
-  await page.waitForTimeout(2000);
-}
 async function addClass(page, key) {
   await clickTab(page, 'Class / Level');
   await page.getByText('Add Levels in Another Class', { exact: true }).click();
@@ -159,23 +112,6 @@ async function snapshot(page, label, { traitRx } = {}) {
   const tr = names(await built(page, 'traits'));
   log(`   built traits${traitRx ? ' matching ' + traitRx : ''}: ${(traitRx ? tr.filter(n => traitRx.test(n)) : tr).join('; ') || '-'}`);
   log(`   sheet AC: ${await sheetAC(page)}`);
-}
-
-async function login(browser) {
-  const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
-  page.errors = [];
-  page.on('pageerror', e => page.errors.push(String(e).slice(0, 160)));
-  page.on('console', m => { if (m.type() === 'error' && !/figwheel|favicon|404|ERR_CERT/i.test(m.text())) page.errors.push('console: ' + m.text().slice(0, 160)); });
-  await page.goto(`${BASE}/pages/login-page`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('input');
-  await page.locator('input').nth(0).fill('kaylee');
-  await page.locator('input').nth(1).fill('serenity99');
-  await page.getByRole('button', { name: 'LOGIN' }).click({ force: true });
-  await page.waitForTimeout(5000);
-  await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'load' });
-  await page.waitForTimeout(3000);
-  await readyPage(page);
-  return page;
 }
 
 // Save through the UI, then read the character back from the server the way the app does.

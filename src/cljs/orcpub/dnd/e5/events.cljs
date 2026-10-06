@@ -229,7 +229,44 @@
                   :before (fn [context]
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
-(def character-interceptors [check-spec-interceptor
+(defn plan-picks-db
+  "`db-after` with its character settled against the planned hold (`picks/update-planned`), when
+   the character changed from `db-before` and the template is cached; otherwise `db-after`. The
+   hold restarts on `:reset-character` or when the loaded character's `:db/id` differs.
+   decision-gate-hidden-picks.md, \"Current decision\""
+  [db-before db-after event-id]
+  (let [char-before (:character db-before)
+        char-after (:character db-after)
+        template (get db-after ::autosave-fx/cached-template)]
+    (if (or (not (seq template)) (= char-before char-after))
+      db-after
+      (let [hold (if (or (= :reset-character event-id)
+                         (not= (:db/id char-before) (:db/id char-after)))
+                   []
+                   (get db-after ::e5/planned-picks []))
+            {:keys [character planned set-aside restored retired]}
+            (picks/update-planned template char-after hold)]
+        (assoc db-after
+               :character character
+               ::e5/planned-picks planned
+               ::e5/picks-change {:set-aside set-aside :restored restored :retired retired})))))
+
+;; Outermost, so its :after sees the whole db last and rewrites the draft when it moves picks.
+(def plan-picks
+  (->interceptor
+   :id :plan-picks
+   :after (fn [context]
+            (let [db-after (get-in context [:effects :db])]
+              (if (nil? db-after)
+                context
+                (let [db' (plan-picks-db (get-in context [:coeffects :db]) db-after
+                                         (first (get-in context [:coeffects :event])))]
+                  (when-not (identical? (:character db') (:character db-after))
+                    (character->local-store (:character db')))
+                  (assoc-in context [:effects :db] db')))))))
+
+(def character-interceptors [plan-picks
+                             check-spec-interceptor
                              set-changed
                              (path :character)
                              ->local-store])
@@ -2186,7 +2223,7 @@
 
 (reg-event-fx
  :set-character
- [db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ [plan-picks db-char->local-store (inject-cofx ::e5/pending-relinks)]
  (fn [{:keys [db] :as cofx} event]
    (let [db' (set-character db event)
          relinks (::e5/pending-relinks cofx)
