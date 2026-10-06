@@ -3,12 +3,14 @@
 // "Current decision".
 //
 // 1 ranger Hunter 7 with Steel Will, 7 -> 6 -> 7; 2 the same, 7 -> 6, reload, -> 7;
-// 3 fighter Champion 10 with Defense + Archery, 10 -> 9 -> 10.
+// 3 fighter Champion 10 with Defense + Archery, 10 -> 9 -> 10; 4 a draft saved at 6 that still
+// stores Steel Will (the state before this fix) is settled on opening, before any edit.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
 //
-// State is set only by clicking; app-db and the browser's saved draft are READ to assert.
+// State is set only by clicking, except flow 4, which writes the old-style draft it opens.
+// app-db and the browser's saved draft are READ to assert.
 const { chromium } = require('playwright');
 const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login } = require('./lib');
 
@@ -30,6 +32,15 @@ async function hunter7(page) {
   await pick(page, 'Class / Level', 'Defensive Tactics', 'Steel Will');
   return check('ranger 7 has Steel Will', (await dbAt(page, TACTIC)) === ':steel-will');
 }
+
+// The saved draft with its first class one level lower and every pick kept: what a level drop
+// left before the hold existed.
+const dropLevelInDraft = page => page.evaluate(() => {
+  const c = window.cljs.core, read = window.cljs.reader.read_string, e5 = window.orcpub.dnd.e5.character;
+  const ch = e5.from_strict(read(localStorage.getItem('character')));
+  const at = read('[:orcpub.entity/options :class 0 :orcpub.entity/options :levels]');
+  localStorage.setItem('character', c.pr_str(e5.to_strict(c.update_in(ch, at, c.pop))));
+});
 
 const flows = {
   async 1(page) {
@@ -67,6 +78,20 @@ const flows = {
     check('at 9 the newest style, Archery, is held', `${await styles(page)}` === 'defense' && (await heldCount(page)) === 1);
     await setLevel(page, 0, 10);
     check('back at 10 both styles, in order', `${await styles(page)}` === 'defense,archery' && (await heldCount(page)) === 0);
+  },
+
+  async 4(page) {
+    if (!(await hunter7(page))) return;
+    await dropLevelInDraft(page);
+    check('the draft is at 6 and still stores Steel Will', /steel-will/.test(await draft(page)));
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForTimeout(3000);
+    await readyPage(page);
+    check('opened at 6, Steel Will is out of the character', (await dbAt(page, TACTIC)) === 'nil');
+    check('and held', (await heldCount(page)) === 1);
+    check('and the saved draft lacks it', !/steel-will/.test(await draft(page)));
+    await setLevel(page, 0, 7);
+    check('raised to 7, Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
   },
 };
 

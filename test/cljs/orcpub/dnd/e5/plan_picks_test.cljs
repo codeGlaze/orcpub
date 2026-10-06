@@ -82,6 +82,16 @@
         (is (not (steel-will? (:character after))) label)
         (is (= [] (:orcpub.dnd.e5/planned-picks after)) label)))))
 
+(deftest a-draft-is-settled-when-the-template-arrives
+  (let [ghost (assoc-in (ranger 7) [::entity/options :class 0 ::entity/options :levels]
+                        (vec (butlast (get-in (ranger 7) [::entity/options :class 0
+                                                          ::entity/options :levels]))))
+        opened {:character ghost}
+        cached (events/plan-picks-db opened (merge (db ghost) opened) :cache-template)]
+    (is (steel-will? ghost) "a level-6 draft that still stores Steel Will")
+    (is (not (steel-will? (:character cached))) "settled once the template is cached")
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks cached))))))
+
 (deftest nothing-changes-without-a-template-or-a-changed-character
   (let [d (db (ranger 6))]
     (is (= (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template)

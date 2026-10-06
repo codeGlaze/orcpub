@@ -231,14 +231,16 @@
 
 (defn plan-picks-db
   "`db-after` with its character settled against the planned hold (`picks/update-planned`), when
-   the character changed from `db-before` and the template is cached; otherwise `db-after`. The
-   hold restarts on `:reset-character` or when the loaded character's `:db/id` differs.
+   the character or the cached template changed from `db-before`; otherwise `db-after`. The hold
+   restarts on `:reset-character` or when the loaded character's `:db/id` differs.
    decision-gate-hidden-picks.md, \"Current decision\""
   [db-before db-after event-id]
   (let [char-before (:character db-before)
         char-after (:character db-after)
         template (get db-after ::autosave-fx/cached-template)]
-    (if (or (not (seq template)) (= char-before char-after))
+    (if (or (not (seq template))
+            (and (= char-before char-after)
+                 (identical? template (get db-before ::autosave-fx/cached-template))))
       db-after
       (let [hold (if (or (= :reset-character event-id)
                          (not= (:db/id char-before) (:db/id char-after)))
@@ -2220,6 +2222,10 @@
  :toggle-item-expanded
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
+
+;; Registered here, not in autosave_fx, so the hold can wrap it: the first template a draft is
+;; opened with settles it, before any edit.
+(reg-event-fx ::autosave-fx/cache-template [plan-picks] autosave-fx/cache-template)
 
 (reg-event-fx
  :set-character

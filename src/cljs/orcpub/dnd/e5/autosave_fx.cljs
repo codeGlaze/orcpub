@@ -3,7 +3,7 @@
   (:require [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
-            [re-frame.core :refer [reg-fx reg-event-fx dispatch subscribe]]
+            [re-frame.core :refer [reg-fx dispatch subscribe]]
             [reagent.core :as r]))
 
 ;; timeout in ms during which we wait for further changes; if
@@ -87,7 +87,7 @@
       ;; No route follows this heal, so it announces itself.
       heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
 
-(reg-event-fx ::cache-template cache-template)
+;; Registered in events.cljs, inside the planned-picks hold.
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.
