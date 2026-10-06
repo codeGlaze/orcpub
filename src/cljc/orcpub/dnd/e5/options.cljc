@@ -3472,10 +3472,15 @@
                                              (?armor-class-with-armor armor shield))))])
       :tortle-ac (when v
                    [(mods/modifier ?natural-ac-bonus 7)
+                    ;; 17 + shield, whatever armor is worn; a competing calculation (the Robe of the
+                    ;; Archmagi) wins when higher, and bonuses such as a Ring of Protection add on top.
                     (mods/modifier ?armor-class-with-armor
                                   (fn [armor & [shield]]
-                                    (+ 17
-                                       (if shield (?shield-ac-bonus shield) 0))))])
+                                    (apply +
+                                           (apply max
+                                                  (+ 17 (if shield (?shield-ac-bonus shield) 0))
+                                                  (map #(% armor shield) ?ac-fns))
+                                           (map #(% armor shield) ?ac-bonus-fns))))])
       :language (collect-map-modifiers
                  v
                  #(modifiers/language %))
