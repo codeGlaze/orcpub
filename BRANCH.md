@@ -13,8 +13,18 @@ a stale branch cites lines that have moved.
 ### Summer Patch: where it stands (2026-10-06)
 
 - **On `integration`:** everything for the release, plus #50 spellbook, #51 parallel fresh-server
-  browser runs, #52 spec docstrings, #53 the changelog rewritten by outcome, #54 What's New.
-- **In review:** #55, the Robe of the Archmagi and tortle AC fix (`fix/robe-of-the-archmagi-ac`).
+  browser runs, #52 spec docstrings, #53 the changelog rewritten by outcome, #54 What's New,
+  #55 the Robe of the Archmagi and tortle AC fix, #56 a browser test that an equipped Ring of
+  Protection reaches the shown AC on natural armor (`test/browser/natural_armor_ring_e2e.js`).
+- **Tests prove their fail state** before they are committed (AGENTS.md, Testing Guidelines). #56
+  and `robe_ac_test.clj` were both checked against the pre-#55 source and a broken item path.
+- **Still in development, not in this release yet:** `fix/hidden-multiclass-skill-pick`, steps 1-4 of
+  its plan done (`plan-hidden-pick-fix-and-grant-fields.md` on `feature/grant-rows`); step 5 (the
+  first-class reset) and the PR remain, and it is 10 commits behind `integration`.
+- **#32 is parked; nothing goes to `develop` until the owner says so.** When it is picked up: `develop`
+  has two commits `integration` lacks (`15e1fe04` the design-handoff gitignore, `93c15c03`), which
+  conflict in `.gitignore`; and CodeQL fails on a regex built from a CLI argument in
+  `scripts/test/trace-probe.js:52`, with two docker workflows missing a `permissions` block.
 - **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
   for outcomes no issue covered. The changelog cites them.
 - **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
