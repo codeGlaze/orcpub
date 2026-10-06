@@ -7,6 +7,7 @@ lives elsewhere and is linked, not repeated:
 - [srd-2024-coverage.md](srd-2024-coverage.md) — what has and has not been analysed, per content type
 - [srd-2024-implementation-notes.md](srd-2024-implementation-notes.md) — running list of what we cannot yet express, with ideas
 - [srd-pdf-as-source-of-record.md](srd-pdf-as-source-of-record.md) — sources, extraction, and what the old import got wrong
+- [open5e-upstream-notes.md](open5e-upstream-notes.md) — problems found in open5e's API and data, kept to PR back
 
 Trunk: `srd52/develop`, watching `refactor/content-extensibility` and through it
 `integration`. Leaves go under `srd52/*`.
@@ -50,6 +51,10 @@ Proposed meaning of done for each rung, to be confirmed:
 | Species and backgrounds: **map the shapes now, mechanise later.** Keep a running list of what is needed. | owner |
 | Every entry should carry as much mechanical data as can be derived, **on both editions** — prose that a machine could act on becomes data. Additive passes; a key never changes because a mechanical field arrives. | owner |
 | The app already is a 2014 SRD. Anything built to present 2024 content should serve 2014 equally. | owner |
+| We host our own copy of the **full** SRD in both editions — every entry, whether stored in full or as a diff. | owner |
+| **Two kinds of normalisation, kept apart.** *Structural* — where data lives (all upcasting in one place, cantrip scaling included), encoding artifacts folded, gaps filled from the PDF and flagged as filled — happens at import and is stored. *Linguistic* — treating 2014 and 2024 phrasings of the same term as equal — is used only to compare and classify, and never stored, because stored text stays verbatim. | agreed in discussion |
+| The app's existing 2014 data (`e5`, the original conversion) is **not assumed correct**. Verify it three ways: `e5` against open5e's `srd-2014`, then both against the SRD 5.1 PDF. | owner |
+| Keep notes on problems in open5e's data and API, and PR useful fixes back upstream. | owner |
 
 ## Wanted, not yet scoped
 
@@ -61,7 +66,16 @@ Proposed meaning of done for each rung, to be confirmed:
 ## Open decisions
 
 - **Which rung is "alpha"** — browse 2024 SRD content, build a 2024 character, or mix editions on one character. This sets how much verification the plan must carry.
-- **The diff threshold** — the word-similarity above which a 2024 entry is stored as a diff rather than in full. For spells: at 90% it would be 43 diffs and 274 full entries; at 80%, 88 and 229; at 60%, 221 and 96. It is a storage choice, not a judgement of sameness: similarity does not track mechanical change (Control Weather is 71% and changes the rule; Wall of Force is 97% and only rewords).
+- **The diff threshold is provisionally 60%** (owner, 2026-10-06), to run in development and be
+  reviewed for being too lax. Two conditions make that review meaningful. Diffs are **regenerable
+  build output**, produced from the 2014 base and the full 2024 text and checked by round-trip
+  (applying the diff must reproduce the 2024 text exactly), so changing the threshold or correcting
+  a 2014 entry means regenerating, never hand-editing. And every entry records several measures,
+  not just the one the rule uses: word-sequence similarity, changed-word count, number of changed
+  spans, similarity after terminology normalisation, and whether a number, dice expression or range
+  changed. Whether a combined rule beats a single percentage is decided from that data, by reading
+  entries that pass at 60% but score badly on the other measures. For reference, at 60% spells split
+  221 diff / 96 full; at 80%, 88 / 229; at 90%, 43 / 274.
 - **The `:source` value for 2024 content** (currently the placeholder `:srd-2024`). Small: the `e55` data is generated, so it is a one-line change until something outside the code stores it, such as a user's saved edition preference. Pick it when the version filter is built. The other names in play are separate contexts and need no decision: `srd52` is the branch, `e55` the namespace, and `srd-pdfs-2024` a local git tag that is redundant now the PDF is committed.
 - **Subdomain precedence** — does a user's saved choice beat a `2024.` link?
 - **Where the theming work lives.** It is on none of `integration`, the refactor trunk, the redesign branches or `develop`, so version tells cannot be scheduled.
@@ -118,3 +132,5 @@ lose content their character already holds.
 - One spell description (Guards and Wards) still ends early.
 - `e5` ships 805 magic items against roughly 231 in SRD 5.1. Probably per-base-item expansion,
   as open5e does; not yet confirmed.
+- **`e5` itself is unverified** against the SRD it was converted from. The three-way check
+  (e5 / open5e / PDF) has not been run for any content type.

@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, upgraded, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -455,7 +455,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -615,7 +615,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, blank, descriptive, dice, dwarf, elf, generator, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, aasimar, blank, descriptive, dwarf, elf, generator, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -652,7 +652,7 @@ _character-rescue-console · character rescue console_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, intent, malformed, modernization, own-branch, pdf, proposal, realized, representation, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, installment, intent, malformed, modernization, own-branch, proposal, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -812,7 +812,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1470,7 +1470,7 @@ _equipment-option-picker · equipment option picker_
 
 _error-handling-import-validation · error handling import validation_
 
-**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, panel, prs, re-frame, slide-out, subviews
+**topics:** architecture, composite, css, decomposition, destructuring, extracted, findings, garden, grouped, handling, hof, instance, modal, prs, re-frame, slide-out, subviews, validation
 
 - Context
 - What Was Built
@@ -1708,7 +1708,7 @@ _growable-option-menus · growable option menus_
 
 _handoff-669-final-pass · handoff 669 final pass_
 
-**topics:** 401, accounts, api, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, resolving, suite, unit, units
+**topics:** 401, accounts, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, resolving, suite, union, unit, units
 
 - What the change is
 - Already verified — do not spend time re-running
@@ -1723,7 +1723,7 @@ _handoff-669-final-pass · handoff 669 final pass_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, grants, legacy, nested, normalization, normalize, pool, registry, row, rows, silo, step, steps, strike, widgets
+**topics:** acceptance, feat, fixed-class, frozen, legacy, nested, normalization, normalize, pool, race, registry, row, rows, silo, step, steps, strike, widgets
 
 - Where you are
 - The work, in order
@@ -1883,7 +1883,7 @@ _homebrew-keys-design · homebrew keys design_
 
 _homebrew-override · homebrew override_
 
-**topics:** armor, constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
+**topics:** constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, player, restriction, select, selection, switch, systematically, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -2049,7 +2049,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, problems, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2067,7 +2067,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _locale-safety · locale safety_
 
-**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, formatter, linguistic, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, turkish, webjar, windows
+**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, formatter, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, spanish, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2140,7 +2140,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, characters, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, recently, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, recently, rehydrates, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -2207,6 +2207,20 @@ _namespace-architecture · namespace architecture_
 - Known Anomalies
 - Cross-references
 - Corrections
+
+## open5e-upstream-notes.md
+
+_open5e-upstream-notes · open5e upstream notes_
+
+**topics:** 760, documents, filter, higher, higher-level, issue, issues, open5e, parameters, pdf, pdfs, records, spell, srd, srd-2024-roadmap, text, upcast, upcasting
+
+- Before filing anything
+- 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
+- 2. Missing upcast data on three spells — verified against the PDFs
+- 3. Upcasting is structured unevenly between the two documents — verified
+- 4. SRD 5.1 encoding artifacts in srd-2014 text — verified, extent not measured
+- Observations, not yet issues
+- Not open5e's
 
 ## orcbrew-format-versioning.md
 
@@ -2430,7 +2444,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 401, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 401, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -3024,7 +3038,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, agreed, alpha, edition, edition-neutral, editions, frightened, heroism, mvp, open5e, owner, rung, species, srd, text, trunk, wording
+**topics:** 2014, 2024, agreed, alpha, diff, edition, editions, mvp, open5e, owner, pdf, rung, similarity, srd, terminology, text, trunk, wording
 
 - The ladder
 - Decided
@@ -3037,7 +3051,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, pdf, school, schools, spells, srd, srd-2024-intergration, srd-5
+**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, school, schools, spells, srd, srd-2024-intergration, srd-5, srd-ogl
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -3079,7 +3093,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map

@@ -1,0 +1,83 @@
+# open5e — issues found, for fixing upstream
+
+**Notes on problems in open5e's API and data, kept so useful fixes can be PR'd back.** We use
+open5e's per-publisher repo data (`open5e/open5e-api`, `data/v2/wizards-of-the-coast/`) as a
+structured source checked against the SRD PDFs; see [srd-2024-roadmap.md](srd-2024-roadmap.md).
+Everything below was found while doing that.
+
+## Before filing anything
+
+- **Re-verify on their current `main`.** Their data moves; a note here is a snapshot.
+- One issue per report. Cite the file path, the record `pk`, and for data issues the SRD PDF
+  page. API behaviour suits an issue; data fixes suit a PR.
+- Our PRs go out as codeGlaze: check commit authorship and trailers first
+  (`check-authorship-before-publishing`).
+
+## 1. `/v2/magicitems/` silently ignores `document__key` — **verified 2026-10-06**
+
+The filter spelling that works on `/v2/spells/` does nothing on `/v2/magicitems/`, and the API
+drops unrecognised filter parameters without error, so a plausible query returns the entire
+third-party catalogue labelled as if it were filtered.
+
+| query on `/v2/magicitems/` | total |
+|---|---|
+| `document__key=srd-2024` | **2322** — every document |
+| `document=srd-2024` | 760 |
+| `document__key__in=srd-2024` | 760 |
+| `document__slug=srd-2024` | unfiltered, same as no filter |
+
+760 is exactly what `srd-2024/MagicItem.json` holds, and that file is clean. The extra records
+come from other documents: `Bloodprice Breastplate` reports `document = vom` (Kobold Press, Vault
+of Magic) and is returned under `document__key=srd-2024`. Control: `/v2/spells/?document__key=srd-2024`
+filters correctly.
+
+**Impact.** A consumer who learns the filter on `/spells/` and reuses it on `/magicitems/` gets
+third-party content believing it is SRD. This happened to a real downstream import: roughly three
+quarters of the base items it saved were not SRD content.
+
+**Suggested fix.** Make the filterset fields consistent across v2 endpoints (accept
+`document__key` on `/magicitems/`), and consider rejecting unknown filter parameters with a 400
+rather than ignoring them, so this class fails loudly.
+
+## 2. Missing upcast data on three spells — **verified against the PDFs**
+
+Each has an empty `higher_level` and no `slot_level_*` record in `SpellCastingOption.json`,
+while the SRD gives it a higher-level rule.
+
+| document | spell | SRD page | SRD text |
+|---|---|---|---|
+| `srd-2014` | Heroism | SRD 5.1 p.154 | "At Higher Levels. When you cast this spell using a spell slot of 2nd level or higher…" |
+| `srd-2024` | Chain Lightning | SRD 5.2.1 p.114 | "Using a Higher-Level Spell Slot. One additional bolt leaps from the first target…" |
+| `srd-2024` | Dissonant Whispers | SRD 5.2.1 p.124 | "Using a Higher-Level Spell Slot. The damage increases by 1d6 for each spell slot level above 1." |
+
+## 3. Upcasting is structured unevenly between the two documents — **verified**
+
+open5e records upcasting twice: as `higher_level` text, and as per-slot `SpellCastingOption`
+records (`slot_level_2` with `target_count: 2`, and so on). `srd-2024` has slot-level options
+for 107 of the 109 spells the PDF says upcast. `srd-2014` has them for only 47, against 92 "At
+Higher Levels" sections in the SRD 5.1 PDF; the rest exist as text only. Backfilling the 2014
+options would make the two documents consistent and make 2014 upcasting usable as data.
+
+## 4. SRD 5.1 encoding artifacts in `srd-2014` text — **verified, extent not measured**
+
+Text carries the soft hyphens of the 5.1 PDF's text layer: `ConditionDescription` for
+exhaustion reads `long-­‐term` (U+00AD followed by U+2010). These register as differences in
+any text comparison and as odd characters in display. Not yet measured across all files.
+
+## Observations, not yet issues
+
+- **Cantrip scaling lives in `higher_level`** (9 spells in `srd-2014`, 15 in `srd-2024`). The SRD
+  writes it in the description with no higher-level heading. A defensible modelling choice;
+  worth documenting rather than changing.
+- **`CharacterClass.primary_abilities` was empty** on every record sampled. 2024 multiclassing
+  prerequisites depend on it. Unverified across all records and not yet checked against the
+  SRD. Do not file until both are done.
+- `srd-2024/MagicItem.json` holds 760 records over roughly 403 base names, against about 237
+  magic items in the SRD. Looks like per-base-item expansion (Adamantine Armor per armor type),
+  which is intended. Not an issue unless reconciliation shows otherwise.
+
+## Not open5e's
+
+`adkinn/srd-5.2.1` republishes open5e's `wotc-srd` document — SRD 5.1 — with every record
+labelled `source: srd-5.2.1`. A different project's mislabelling, recorded here so it is not
+mistaken for an open5e problem.
