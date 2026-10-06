@@ -606,11 +606,29 @@
  (fn [[plugins offered offered-by-type] _]
    (content-recon/former-key-indexes plugins offered offered-by-type)))
 
+(defn page-settler
+  "A fn of [template character] returning `character` without the picks that no longer apply
+   (`picks/update-planned`, empty hold), for pages. It settles again only when the character (by
+   value) or the template (identical?) changed; a failure is logged and `character` returned."
+  []
+  (let [memo (atom nil)]
+    (fn [template character]
+      (let [[t c out] @memo]
+        (if (and (identical? t template) (= c character))
+          out
+          (let [out (try (:character (picks/update-planned template character []))
+                         (catch :default e
+                           (js/console.error "Picks were not settled for this page." e)
+                           character))]
+            (reset! memo [template character out])
+            out))))))
+
 ;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
-    (let [int-id (when id (js/parseInt id))]
+    (let [int-id (when id (js/parseInt id))
+          settle (page-settler)]
       (when (some? int-id)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route
@@ -638,9 +656,7 @@
                                      @(subscribe [::content-recon/former-key-indexes])))
                  template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
              ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
-             (if (seq template)
-               (:character (picks/update-planned template healed []))
-               healed))
+             (if (seq template) (settle template healed) healed))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after self-heal; the

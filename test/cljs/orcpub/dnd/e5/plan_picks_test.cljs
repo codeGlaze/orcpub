@@ -7,6 +7,7 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.picks :as picks]
+            [orcpub.dnd.e5.subs :as subs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
@@ -164,3 +165,22 @@
                                    :multiclass-skill-proficiency])))
       (is (= [[:class :rogue :multiclass-skill-proficiency :athletics]]
              (mapv :address (:orcpub.dnd.e5/planned-picks settled)))))))
+
+(deftest a-page-settles-again-only-when-its-character-or-template-changes
+  (let [settle (subs/page-settler)
+        calls (atom 0)
+        real picks/update-planned
+        other (without-tactic (ranger 7))
+        ghost (assoc-in (ranger 7) [::entity/options :class 0 ::entity/options :levels]
+                        (vec (butlast (get-in (ranger 7) [::entity/options :class 0
+                                                          ::entity/options :levels]))))]
+    (with-redefs [picks/update-planned (fn [& args] (swap! calls inc) (apply real args))]
+      (is (not (steel-will? (settle @template ghost))) "the page leaves out the closed pick")
+      (settle @template ghost)
+      (settle @template (into {} ghost))
+      (is (= 1 @calls) "the same character, by value, does not settle again")
+      (settle @template other)
+      (is (= 2 @calls) "a changed one does"))
+    (with-redefs [picks/update-planned (fn [& _] (throw (ex-info "settle failed" {})))]
+      (is (= ghost ((subs/page-settler) @template ghost))
+          "a failure shows the character as stored"))))
