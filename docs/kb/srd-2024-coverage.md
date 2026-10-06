@@ -40,6 +40,58 @@ per-publisher data (`data/v2/wizards-of-the-coast/srd-2024`).
 | items | 493 | 456 | **reconcile** — includes ordinary gear; the magic-item share does not match the PDF's ~231 / ~237 |
 | 2014 subraces | 9 | — | **reconcile** — open5e records 4 |
 
+## Breadth survey — phase 1 (2026-10-06)
+
+Run on 5etools data (both editions, one format, SRD flags), with open5e and `e5` for counts.
+"Same name" pairs 2014 and 2024 entries by SRD name. Text similarity is word-level over the
+entry's descriptive text with 5etools markup stripped; 60% is the provisional diff threshold.
+
+| type | 5.1 | 5.2.1 | same name | 2014 only | 2024 only | text: identical / ≥60% / <60% | storage model that fits |
+|---|---|---|---|---|---|---|---|
+| spells | 319 | 339 | 317 | 2 | 22 | 7 / 220 / 90 | diff, mostly |
+| monsters | 322 | 330 | 285 | 37 | 45 | 0 / 49 / 236 | **mostly full**; identity map for renames and splits |
+| magic items | 313 | 320 | 287 | 26 | 33 | 23 / 199 / 65 | diff, mostly |
+| gear | 180 | 136 | 101 | 79 | 35 | 24 / 32 / 45 | mixed; many renames |
+| weapons | 37 | 38 | 36 | 1 | 2 | *not meaningful* | data rows; new `mastery` field |
+| armor | 13 | 13 | 13 | 0 | 0 | *not meaningful* | data rows |
+| species | 9 | 9 | 7 | 2 | 2 | 0 / 0 / 7 | **neither** — structure changed |
+| backgrounds | 1 | 4 | 1 | 0 | 3 | — | **neither** — structure changed |
+| feats | 1 | 17 | 1 | 0 | 16 | — | **neither** — structure changed |
+| conditions | 15 | 15 | 15 | 0 | 0 | 0 / 3 / 12 | full (all restyled) |
+
+Open5e counts for comparison: creatures 325 / 331, magic items 499 / 760 (expanded per base
+item), items 237 / 203, weapons 37 / 38, armor 12 / 13.
+
+**What it says, type by type**
+
+- **Monsters were rewritten, not edited.** Of 285 same-name pairs none is identical and only 49
+  reach 60%. A diff model buys little here. 82 entries do not pair by name at all — renames and
+  splits (Acolyte, Androsphinx, Bugbear on the 2014 side; the 2024 side adds dinosaurs and
+  animated objects). Monsters need a cross-edition identity map before anything is stored.
+  *Measurement note:* a first pass read 5etools' `entries` field, which monsters do not use
+  (their text is in `trait`, `action`, `legendary`…), and reported all 285 as identical. Corrected.
+- **Spells and magic items suit the diff model**: 220 of 317 and 222 of 287 same-name pairs reach
+  60%. Spell renames exist too: Feeblemind (2014 only) and Befuddlement (2024 only) are the same
+  spell under a new name.
+- **Species, backgrounds and feats changed structure**, confirmed from fields. Species lose
+  `ability` (no more racial ability scores) and gain `creatureTypes`, `sizeEntry` and `_versions`
+  (lineages). Backgrounds gain `ability` and `feats`. Feats gain `ability` and `category`. These
+  need grant vocabulary, not diffs.
+- **Weapons gain `mastery`** — weapon mastery, a 2024 subsystem with no 2014 counterpart. Net is
+  2014 only; Musket and Pistol are 2024 only.
+- **Conditions**: all 15 restyled; 3 reach 60%.
+
+**`e5` name coverage, and why most of it is not yet usable**
+
+`e5` holds all 319 SRD spells by name, and 313 of 322 monsters (the 4 misses are naming:
+`elf, drow`, `succubus/incubus`). For **magic items (215 of 313), gear (70 of 180) and armor (6 of
+13)** the low figures are mostly **naming conventions**, not missing content: `e5` writes
+`adamantine armor, breastplate` and `acid` where 5etools writes other forms. Name normalisation is
+needed before `e5` coverage means anything for those types.
+
+**Flag:** `e5` weapons include `firearm, burst (dmv)` — DMV-labelled content in the core weapon
+list on this line. Not investigated; check whether it is meant to be here.
+
 ## Rules and reference (no e5 data namespace)
 
 | type | 2024 source | status |

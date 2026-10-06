@@ -125,7 +125,7 @@ Triage under B: open5e and 5etools agree and `e5` differs — `e5` is likely wro
 from both — a correction and an upstream fix. open5e and 5etools disagree — an error *or* a
 deliberate SRD-versus-PHB difference, so check the PDF.
 
-### Phase 1 — the breadth survey (next)
+### Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
 
 For every content type, the same seven questions, results recorded in
 [srd-2024-coverage.md](srd-2024-coverage.md):
@@ -139,7 +139,13 @@ For every content type, the same seven questions, results recorded in
 6. **A small `e5` spot-check** — a handful of entries against the PDF, not the full check.
 7. **What it needs from the framework** — grant vocabulary, the version filter, and so on.
 
-### Phase 2 — order the content types
+### Phase 2 — order the content types (next; needs the alpha decision)
+
+What phase 1 changed: the diff model fits spells and magic items, **not** monsters (rewritten:
+49 of 285 pairs reach 60%) and not species, backgrounds or feats (structure changed). Monsters,
+spells and gear all need a **cross-edition identity map** for renames and splits. A new 2024-only
+subsystem turned up — **weapon mastery** — which belongs on the 5.5 trunk under the machinery
+split.
 
 Set by the open **alpha decision** (browse the 2024 SRD, build a 2024 character, or mix
 editions) and by which types most threaten the pipeline design. Not by convenience.

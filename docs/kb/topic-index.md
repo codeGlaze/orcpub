@@ -282,7 +282,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, gain, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -1281,7 +1281,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, renames, rung, save, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, repair, rung, save, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -2119,7 +2119,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, sorted-map, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2958,7 +2958,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, descriptive, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3000,10 +3000,11 @@ _spell-slot-progression · spell slot progression_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2024, 317, 322, 339, 805, checked, counterpart, counting, dnd, magic, monsters, namespace, open5e, reconcile, species, srd, started, text
+**topics:** 2014, 2024, 285, 313, 317, 319, 322, 339, 5etools, counterpart, gear, magic, monsters, open5e, species, srd, started, text
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
+- Breadth survey — phase 1 (2026-10-06)
 - Rules and reference (no e5 data namespace)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
@@ -3053,7 +3054,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 5etools, alpha, breadth, content, diff, edition, editions, open5e, owner, pdf, rung, srd, srd-2024-coverage, text, trunk, wording
+**topics:** 2014, 2024, 2026-10-06, 5etools, alpha, diff, edition, editions, open5e, owner, pdf, rung, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3061,8 +3062,8 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - The ladder
 - The plan: breadth first
 - Four sources, two comparisons
-- Phase 1 — the breadth survey (next)
-- Phase 2 — order the content types
+- Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
+- Phase 2 — order the content types (next; needs the alpha decision)
 - Phase 3 — per content type, in that order
 - Spells, already partly through phase 3
 - Decided
