@@ -29,8 +29,10 @@ bangs 03 in pack v1.775).
 
 1. Unpack the art pack (currently **v1.775**, exported from the Loom with "Fill see-through
    insides" ticked) over `resources/public/image/portraits/`, or the volume that serves it.
-2. Generate the strand files there: `lein run -m orcpub.portrait-pack.strands <art-dir>`. The
-   server logs one line at start if any hair piece is missing its file.
+2. Generate the strand files there: `lein run -m orcpub.portrait-pack.strands <art-dir>`. This
+   is the fast path, not a requirement: a hair piece without its file has its strand field worked
+   out from the art by the server on first request and kept in memory. The server logs one line
+   at start naming any piece without a file.
 3. Configure, as needed: `PORTRAIT_ARTISTS` (credits and artist accounts), `PROFILE_ENCRYPTION_KEYS`
    (preferred names), `APP_URL` (links in artist emails), `EMAIL_ADMIN_TO`.
 4. A What's New entry for the builder, in whichever release ships it. Draft:
