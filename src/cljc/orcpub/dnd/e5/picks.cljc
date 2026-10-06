@@ -6,6 +6,7 @@
    GOTCHA: never depend on the iteration order of a set or map here; it differs between the JVM
    and the browser (`testing-infrastructure.md`)."
   (:require [orcpub.entity :as entity]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.library :as library]))
 
 (defn walk
@@ -119,3 +120,52 @@
                                    (with-meta (conj (vec v) entry) (meta v))))
       (some? v) nil
       :else (assoc-in character (conj opath sel) entry))))
+
+;; Which stored picks no longer apply, by the builder's own pipeline (`random-character` in
+;; events.cljs), so one rule decides what is shown and what applies. decision-gate-hidden-picks.md
+
+(defn- stored-entries
+  "The entry maps stored at selection `path` (a vector, or the one map)."
+  [template character path]
+  (let [v (entity/get-option template character path)]
+    (cond (sequential? v) (filter map? v) (map? v) [v] :else [])))
+
+(defn- drop-nested
+  "`addresses` without those under another address in it."
+  [addresses]
+  (let [under? (fn [a b] (and (< (count b) (count a)) (= b (subvec a 0 (count b)))))]
+    (remove (fn [a] (some #(under? a %) addresses)) addresses)))
+
+(defn disqualified
+  "Addresses of `character`'s picks under a selection whose gate is closed in `built`: reachable
+   from its stored picks but not available. A slot an open selection shares is `overflow`'s.
+   GOTCHA: a pick the template does not offer (homebrew not loaded) is never reported."
+  [template character built]
+  (let [reachable (remove nil? (entity/get-all-selections-aux-2 template
+                                                                (entity/make-path-map character)))
+        open-paths (set (map (comp vec entity/actual-path)
+                             (entity/remove-disqualified-selections reachable built)))
+        addresses (distinct
+                   (for [s reachable
+                         :let [path (vec (entity/actual-path s))]
+                         :when (not (open-paths path))
+                         :let [offered (set (map ::t/key (entity/selection-options s)))]
+                         e (stored-entries template character path)
+                         :when (offered (::entity/key e))]
+                     (conj path (::entity/key e))))]
+    (vec (drop-nested (vec addresses)))))
+
+(defn overflow
+  "Addresses of the newest picks over an available selection's limit in `built`, per
+   `entity/count-remaining` (selections sharing a slot combined; a waived limit reports none)."
+  [template character built]
+  (vec
+   (for [s (entity/combine-selections (entity/available-selections character built template))
+         :let [over (- (entity/count-remaining template character s))]
+         :when (pos? over)
+         :let [path (vec (entity/actual-path s))
+               counted (filter (partial entity/option-selected? (::t/require-value? s))
+                               (stored-entries template character path))]
+         e (take-last over counted)]
+     (conj path (::entity/key e)))))
+
