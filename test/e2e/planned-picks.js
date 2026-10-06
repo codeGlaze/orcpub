@@ -6,7 +6,7 @@
 // 3 fighter Champion 10 with Defense + Archery, 10 -> 9 -> 10; 4 a draft saved at 6 that still
 // stores Steel Will (the state before this fix) is settled on opening, before any edit; 5 fighter
 // first, rogue 3 second with its multiclass skill: deleting the fighter keeps the rogue's levels
-// and holds that skill.
+// and holds that skill; 6 a held pick survives the character's first save.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -109,6 +109,17 @@ const flows = {
     check('the rogue keeps its 3 levels', ((await levels()).match(/:level-\d/g) || []).length === 3);
     check('its multiclass skill is out of the character', !/:stealth/.test(await multi(0)));
     check('and held', /:multiclass-skill-proficiency :stealth/.test(await dbAt(page, HELD)));
+  },
+
+  async 6(page) {
+    if (!(await hunter7(page))) return;
+    await setLevel(page, 0, 6);
+    await page.getByText('Save New Character', { exact: true }).first().click();
+    await page.waitForTimeout(4000);
+    check('saved: the character has an id', /^\d+$/.test((await dbAt(page, '[:character :db/id]')).trim()));
+    check('Steel Will is still held', (await heldCount(page)) === 1);
+    await setLevel(page, 0, 7);
+    check('raised to 7 after the save, Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
   },
 };
 

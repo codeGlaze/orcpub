@@ -230,13 +230,15 @@
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
 (defn hold-for
-  "`db-after` with the planned hold emptied when the edit starts on another character:
-   `:reset-character`, or a different `:db/id`."
+  "`db-after` with the planned hold emptied when the edit starts on another character than the one
+   it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, or a
+   different id. A first save hands the hold the new id (`character-save-success-fx`)."
   [db-before db-after event-id]
-  (if (or (= :reset-character event-id)
-          (not= (get-in db-before [:character :db/id]) (get-in db-after [:character :db/id])))
-    (assoc db-after ::e5/planned-picks [])
-    db-after))
+  (let [id (get-in db-after [:character :db/id])
+        owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
+    (if (or (= :reset-character event-id) (not= owner id))
+      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id)
+      (assoc db-after ::e5/planned-for id))))
 
 (defn settle-needed?
   "Whether an edit from `db-before` to `db-after` can change which picks apply: the cached
@@ -598,19 +600,24 @@
 #_ ;; unreferenced — character path is constructed inline
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
-(reg-event-fx
- :character-save-success
- (fn [{:keys [db]} [_ response]]
-   (let [strict-character (:body response)
-         character (char5e/from-strict strict-character)
-         id (:db/id character)]
-     {:dispatch-n [[:show-message
-                    (if-let [char-name (not-empty
-                                        (get-in character [::entity/values ::char5e/character-name]))]
-                      (str "Saved “" char-name "”")
-                      "Your character has been saved.")]
-                   [:set-character character]
-                   [::char5e/set-character id character]]})))
+(defn character-save-success-fx
+  "Handler for `:character-save-success`: shows the saved character. When it is the builder's
+   (unsaved, or the same id), the planned hold now holds for its id (`hold-for`)."
+  [{:keys [db]} [_ response]]
+  (let [strict-character (:body response)
+        character (char5e/from-strict strict-character)
+        id (:db/id character)]
+    {:db (cond-> db
+           (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id))
+     :dispatch-n [[:show-message
+                   (if-let [char-name (not-empty
+                                       (get-in character [::entity/values ::char5e/character-name]))]
+                     (str "Saved “" char-name "”")
+                     "Your character has been saved.")]
+                  [:set-character character]
+                  [::char5e/set-character id character]]}))
+
+(reg-event-fx :character-save-success character-save-success-fx)
 
 (defn descriptive-character-label
   "Build a descriptive label like 'High Elf Ranger 3' from character properties.
@@ -3485,11 +3492,13 @@
    (assoc-in db [:character-report-status char-id]
              (if (get-in response [:body :sent?]) :sent :failed))))
 
-(reg-event-fx
- :new-character
- (fn [{:keys [db]} _]
-   {:db (assoc db :character default-character)
-    :dispatch [:route routes/dnd-e5-char-builder-route]}))
+(defn new-character-fx
+  "Handler for `:new-character`: the default character, with an empty planned hold."
+  [{:keys [db]} _]
+  {:db (assoc db :character default-character ::e5/planned-picks [] ::e5/planned-for nil)
+   :dispatch [:route routes/dnd-e5-char-builder-route]})
+
+(reg-event-fx :new-character new-character-fx)
 
 (reg-event-db
  :hide-message

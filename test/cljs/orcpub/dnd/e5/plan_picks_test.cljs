@@ -62,8 +62,9 @@
 (defn- edit
   "What an edit and the settle it queues leave: `queue-settle`, then `::e5/settle-picks`."
   [db-before db-after event]
-  (let [d (events/hold-for db-before db-after event)]
-    (if (events/settle-needed? db-before db-after) (events/settle-picks-db d) d)))
+  (if (events/settle-needed? db-before db-after)
+    (events/settle-picks-db (events/hold-for db-before db-after event))
+    db-after))
 
 (deftest a-level-drop-holds-the-pick-and-raising-it-returns-it
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
@@ -135,8 +136,9 @@
 
 (deftest nothing-changes-without-a-template-or-a-changed-character
   (let [d (db (ranger 6))]
-    (is (= (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template)
-           (edit d (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) :e)))
+    (is (= (select-keys d [:character :orcpub.dnd.e5/planned-picks])
+           (select-keys (edit d (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) :e)
+                        [:character :orcpub.dnd.e5/planned-picks])))
     (is (identical? d (edit d d :e)))))
 
 ;; As the builder passes them (character_builder `make-options-map`).
@@ -196,3 +198,20 @@
     (is (not (re-find #"steel-will" (pr-str (get-in fx [:http :transit-params]))))
         "without the pick that stopped applying")
     (is (not (steel-will? (get-in fx [:db :character]))) "and the builder holds it")))
+
+(deftest a-first-save-keeps-the-hold-and-a-new-character-empties-it
+  (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
+        saved-6 (assoc (:character at-6) :db/id 7)
+        saved (:db (events/character-save-success-fx
+                    {:db at-6} [:character-save-success {:body (char5e/to-strict saved-6)}]))
+        reloaded (edit saved (assoc saved :character saved-6) :set-character)]
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-6))) "unsaved, at 6, Steel Will held")
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks reloaded)))
+        "still held once the first save gives the character an id")
+    (is (= [] (:orcpub.dnd.e5/planned-picks
+               (edit reloaded (assoc reloaded :character (assoc (ranger 7) :db/id 99))
+                     :set-character)))
+        "opening another saved character empties it")
+    (is (= [] (:orcpub.dnd.e5/planned-picks
+               (:db (events/new-character-fx {:db at-6} [:new-character]))))
+        "so does a new character")))
