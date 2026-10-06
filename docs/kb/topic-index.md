@@ -546,7 +546,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026-06-15, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, bespoke, builders, creatures, feat, field, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -938,7 +938,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, items, localstorage, magic, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -2085,6 +2085,16 @@ _library-management-and-conflicts · library management and conflicts_
 - Where the code lives
 - Related
 
+## lizardfolk-ac-drops-later-bonuses.md
+
+_lizardfolk-ac-drops-later-bonuses · lizardfolk ac drops later bonuses_
+
+**topics:** 2026-10-06, 3466, applied, archmagi, bonus, bracers, cloak, codeglaze, higher, ignoring, lizardfolk, natural, order, previous, protection, ring, stood, wrapper
+
+- What happens
+- What is not known
+- The likely fix
+
 ## locale-safety.md
 
 _locale-safety · locale safety_
@@ -2578,7 +2588,7 @@ _plan-next · plan next_
 
 _plan-npc-statblock-customizer · plan npc statblock customizer_
 
-**topics:** adjust, attack, averaged, bonuses, botched, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
+**topics:** adjust, attack, averaged, botched, build-from-scratch, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
 
 - The cascade
 - What the app has
@@ -2768,7 +2778,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, modern, navigation, orcpub, polish, responsive, search, sort, splash, transitions, views, visual
+**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, hover, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
@@ -3088,7 +3098,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** chain, cljc, low, parameter, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, render, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
