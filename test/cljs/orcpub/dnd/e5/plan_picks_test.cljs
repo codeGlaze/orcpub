@@ -184,3 +184,15 @@
     (with-redefs [picks/update-planned (fn [& _] (throw (ex-info "settle failed" {})))]
       (is (= ghost ((subs/page-settler) @template ghost))
           "a failure shows the character as stored"))))
+
+(deftest a-save-right-after-an-edit-sends-the-settled-character
+  (let [ghost (assoc-in (ranger 7) [::entity/options :class 0 ::entity/options :levels]
+                        (vec (butlast (get-in (ranger 7) [::entity/options :class 0
+                                                          ::entity/options :levels]))))
+        fx (events/save-character-fx {:db (db ghost)}
+                                     [:save-character (entity/build ghost @template)])]
+    (is (steel-will? ghost) "edited to 6, its settle not yet run")
+    (is (some? (:http fx)) "the save goes out")
+    (is (not (re-find #"steel-will" (pr-str (get-in fx [:http :transit-params]))))
+        "without the pick that stopped applying")
+    (is (not (steel-will? (get-in fx [:db :character]))) "and the builder holds it")))

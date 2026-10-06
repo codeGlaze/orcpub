@@ -720,34 +720,38 @@
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
-(reg-event-fx
- :save-character
- (fn [{:keys [db]} [_ built-character]]
-   (let [character-name (char5e/character-name built-character)
-         needs-name? (s/blank? character-name)
-         ;; Generate a random name for unnamed characters on manual save
-         rand-name (when needs-name? (generate-random-name built-character))
-         ;; Update entity in db so the name persists across future edits
-         db' (if needs-name?
+(defn save-character-fx
+  "Handler for `:save-character`. Settles picks first (`settle-picks-db`), so a save right after
+   an edit never sends a pick that has stopped applying."
+  [{:keys [db]} [_ built-character]]
+  (let [character-name (char5e/character-name built-character)
+        needs-name? (s/blank? character-name)
+        ;; Generate a random name for unnamed characters on manual save
+        rand-name (when needs-name? (generate-random-name built-character))
+        ;; Update entity in db so the name persists across future edits
+        db' (settle-picks-db
+             (if needs-name?
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
-               db)
-         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
-         summary (cond-> (make-summary built-character)
-                   ;; Override summary name with the generated name
-                   ;; (make-summary produced a descriptive label since entity was blank)
-                   needs-name? (assoc ::char5e/character-name rand-name))]
-     (if (every?
-          (fn [ability-kw]
-            (nat-int? (get-in built-character [:base-abilities ability-kw])))
-          char5e/ability-keys)
-       {:db db'
-        :dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db')
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
-       {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
+               db))
+        {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+        summary (cond-> (make-summary built-character)
+                  ;; Override summary name with the generated name
+                  ;; (make-summary produced a descriptive label since entity was blank)
+                  needs-name? (assoc ::char5e/character-name rand-name))]
+    (if (every?
+         (fn [ability-kw]
+           (nat-int? (get-in built-character [:base-abilities ability-kw])))
+         char5e/ability-keys)
+      {:db db'
+       :dispatch [:set-loading true]
+       :http {:method :post
+              :headers (authorization-headers db')
+              :url (url-for-route routes/dnd-e5-char-list-route)
+              :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+              :on-success [:character-save-success]}}
+      {:dispatch [:show-error-message "You must provide values for all ability scores"]})))
+
+(reg-event-fx :save-character save-character-fx)
 
 (reg-event-fx
  :item-save-success
