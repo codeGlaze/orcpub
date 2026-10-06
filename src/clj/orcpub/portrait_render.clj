@@ -17,7 +17,8 @@
    Every failure degrades to 'no portrait' rather than throwing: a share card
    without a picture is a state the page already handles, and it must not cost
    the character their page."
-  (:require [clojure.java.io :as io]
+  (:require [orcpub.env :as env]
+            [clojure.java.io :as io]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
             [orcpub.pdf :as pdf]
@@ -131,7 +132,7 @@
    solid, to preview art whose fill is not quite opaque. The fix belongs in
    the art (the Loom flags it and can fill it on export). On when the server
    runs with PORTRAIT_DEV_SOLID=1."
-  (delay (= "1" (System/getenv "PORTRAIT_DEV_SOLID"))))
+  (delay (= "1" (env/value :portrait-dev-solid))))
 
 (defn- solid
   "A copy of the art with its inside made fully opaque (portrait-colorize/

@@ -1,20 +1,10 @@
 (ns orcpub.dnd.e5.spell-annotations
-  "The marks printed beside a spell's name on a sheet.
-
-   Everything here is already on the spell, though not always as its own field:
-   concentration is the start of :duration rather than a flag, and a costly
-   material is a gp figure inside the prose of :material-component.
-
-   Of 319 spells, concentration touches 126, a costly material 52, a bonus action
-   14 and a reaction 4. Ritual is deliberately absent: it would want an R beside
-   the RE of reaction, and two single capitals that mean unrelated things is the
-   confusion these columns exist to avoid.
-
-   Plain V S M is absent for the reason the plan gives -- it is on nearly every
-   spell, so it is the widest to print and the least worth reading. Only a
-   material with a PRICE is carried, because that is the one that stops the spell
-   happening if it is not in the pack."
-  (:require [clojure.string :as s]))
+  "The marks printed beside a spell's name on a sheet: concentration, bonus action or
+   reaction, and a costly material. All are read from the spell's existing fields --
+   concentration from the start of :duration, the cost from a gp figure in the prose
+   of :material-component. Ritual and plain V S M are deliberately not marked."
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (defn concentration?
   "Whether the spell needs concentration.
@@ -22,7 +12,7 @@
    5e writes this as the first word of the duration -- \"Concentration, up to 1
    minute\" -- and gives it no field of its own."
   [spell]
-  (s/starts-with? (s/lower-case (str (:duration spell))) "concentration"))
+  (s/starts-with? (common/ascii-lower-case (:duration spell)) "concentration"))
 
 (defn casting-tag
   "\"BA\" for a bonus action, \"RE\" for a reaction, nil for anything else.
@@ -30,7 +20,7 @@
    The two that change what else can be done in the same turn. An action or a
    longer casting time is the ordinary case and is not marked."
   [spell]
-  (let [t (s/lower-case (str (:casting-time spell)))]
+  (let [t (common/ascii-lower-case (:casting-time spell))]
     (cond
       (s/includes? t "bonus action") "BA"
       (s/includes? t "reaction") "RE")))

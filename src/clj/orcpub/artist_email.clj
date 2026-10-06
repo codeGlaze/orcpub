@@ -19,7 +19,7 @@
   (:require [clojure.string :as s]
             [hiccup2.core :as hiccup]
             [postal.core :as postal]
-            [environ.core :refer [env]]
+            [orcpub.env :as env]
             [orcpub.crypto :as crypto]
             [orcpub.email :as email]
             [orcpub.fork.branding :as branding]
@@ -41,9 +41,9 @@
 (defn admin-recipient
   "Where artist-account notices go: EMAIL_ADMIN_TO, else the error inbox."
   []
-  (or (not-empty (env :email-admin-to)) (not-empty (env :email-errors-to))))
+  (or (env/value :email-admin-to) (env/value :email-errors-to)))
 
-(defn- email-on? [] (boolean (not-empty (env :email-server-url))))
+(defn- email-on? [] (boolean (env/value :email-server-url)))
 
 (defn reset-url [base key]
   (str base (routes/path-for routes/reset-password-page-route) "?key=" key))

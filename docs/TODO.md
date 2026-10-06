@@ -228,7 +228,10 @@ Beyond refuse both and are upload-or-nothing.
 
 ## Layout is chosen by user agent, not by viewport width
 
-**Status:** Open
+**Status:** Fixed on `feature/style-guide` (2026-10-01): at 767px and under the phone layout is
+drawn on any device, from `matchMedia`, live on resize; wider, the device decides as before. Width
+only ever asks for the smaller layout, so a phone turned sideways keeps the phone layout. The
+builder's Description tab now has one key in both layouts. Checked by `scripts/e2e/layout-width.js`.
 **Severity:** Medium — a desktop browser at phone width gets a broken hybrid
 **Reported:** 2026-09-05
 

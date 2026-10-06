@@ -1,43 +1,37 @@
-<!-- Branch changelog. Copy this file to docs/branch-changelog.md at the start of a branch,
-     fill it in as work lands, and fold it into CHANGELOG.md at merge-to-integration with
-     `scripts/fold-branch-changelog.sh "<release>"`. The fold strips the guidance and the
-     "Why" section; a "## Highlights" section (if earned) survives. Undated by design. -->
+<!-- Branch changelog. Copy this file to docs/branch-changelog.md at the start of a branch, fill it
+     in as work lands, and fold it into CHANGELOG.md at merge-to-integration with
+     `scripts/fold-branch-changelog.sh "<release>"`. The fold moves each line into the same heading of
+     the release and drops "Why this branch exists" and "Highlights". Undated by design. -->
 
 # Branch changelog — `<branch-name>`
 
 <!-- ─────────────────────────── HOUSE STYLE (read once) ───────────────────────────
-Entries are bullets under ## Added / ## Fixed / ## Changed (Keep a Changelog categories).
+Say what the BRANCH did, not the commits it took. A branch that built new sign-in pages and
+tightened passwords writes two lines, however many commits got it there:
 
-Bullets:
-  • One change per bullet. Split, don't cram three changes into one line with semicolons.
-  • Succinct and plain. Not necessarily terse — but to the point.
-  • Cut: AI-jargon ("seamless / robust / comprehensive / powerful / streamlined / leverage"),
-    restating the same change twice, and explaining internal wiring the reader doesn't need.
-  • Say WHAT changed and WHY it matters. End with the commit(s): (`shorthash`).
+  - **Accounts:** new sign-up, sign-in and account-recovery pages.
+  - **Accounts:** password rules based on length, a live strength meter, and breach screening.
 
-Highlights (optional — DELETE the section if this branch doesn't earn one):
-  • Allowed ONLY for an impactful branch: a new capability or a behavioral shift that
-    didn't exist before — NOT a bugfix bundle or routine polish.
-  • ≤ 3 sentences, user-facing, plain. This is the one place prose is allowed, and it
-    survives the fold. Decide whether the branch earns it before you open the PR.
-
-No prose intro paragraphs anywhere else — not under this title, not under a category.
+Rules:
+  • One line per outcome a user or maintainer would notice. Open it with its area in bold
+    (**Homebrew:**, **Characters:**, **Sharing:**, **Accounts:**, **Printing:**, **Site:**, **Server:**).
+  • Fixed is for bugs that existed before this branch. A fix to something this branch (or the same
+    release) built is part of building it: no line of its own.
+  • No internal work: tests, CI, refactors, tooling, code moves. They belong in the PR and the KB.
+  • Cite the upstream issue (#N) when there is one. No commit hashes.
+  • Plain words; no AI-jargon ("seamless / robust / comprehensive / powerful / streamlined / leverage").
+  • Security fixes: one plain line under Security, with no detail an attacker could use.
 ────────────────────────────────────────────────────────────────────────────────── -->
 
 ## Why this branch exists
 
-<!-- Reviewer context only. STRIPPED at fold — never reaches CHANGELOG.md. Say what problem
-     this branch solves and any scope/rationale a reviewer needs. Prose is fine here. -->
-
-## Highlights
-
-<!-- OPTIONAL. Keep only if the branch clears the bar above; otherwise delete this section.
-     2–3 sentences, user-facing. Example:
-     Homebrew content is now real mechanics, not inert text — one builder abstraction
-     replaces per-silo bespoke code, so a homebrew feat can grant a fighting style. -->
+<!-- Reviewer context only. Dropped at fold; never reaches CHANGELOG.md. What problem this branch
+     solves and any scope a reviewer needs. Prose is fine here. -->
 
 ## Added
 
+## Changed
+
 ## Fixed
 
-## Changed
+## Security

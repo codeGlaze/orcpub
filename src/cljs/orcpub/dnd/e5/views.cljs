@@ -8,6 +8,7 @@
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -47,7 +48,9 @@
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
@@ -56,6 +59,7 @@
             [orcpub.ver :as v]
             [clojure.string :as s]
             [orcpub.artist-links :as artist-links]
+            [goog.crypt.base64 :as b64]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
             [bidi.bidi :as bidi]
@@ -100,34 +104,218 @@
          [:li.red (str common/dot-char " " msg)])
        messages))]))
 
-(defn base-input [attrs]
-  [:div.m-b-10
-   [:div.f-s-10.t-a-l.m-l-10 (:placeholder attrs)]
-   [:div.flex.p-l-10.p-l-10.p-r-10
-    [:input.flex-grow-1
-     (merge
-      attrs
-      ;; Rem'd out to allow auto fill on use/password
-      ;;{:auto-complete :off}
-     )]]])
+(defn base-input
+  "One auth field: a notched-outline label, an optional reveal button, and the
+   notice slot `messages`/`hint` render into.
+   GOTCHA: both label positions are always rendered and the stylesheet picks
+   via :placeholder-shown / .is-wrong, so a live check and a submit lay out
+   the same. :messages, :hint, :reveal? are optional; other keys pass to <input>.
+   See account-flows.md."
+  [{:keys [title messages hint action reveal? revealed? on-reveal] :as attrs}]
+  (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
+        message-id (str id "-message")
+        wrong? (boolean (seq messages))
+        input-attrs (-> attrs
+                        (dissoc :title :messages :hint :action :reveal? :revealed? :on-reveal :key)
+                        (assoc :id id
+                               ;; the selector the notch is driven by
+                               :placeholder " "
+                               :aria-describedby message-id)
+                        (cond-> wrong? (assoc :aria-invalid true)))]
+    [:div.field {:class (when wrong? "is-wrong")}
+     [:label.lift {:for id} title]
+     [:div.field-notice.is-error {:id message-id}
+      (when wrong? [:span.field-notice-what (first messages)])]
+     [:div.field-box
+      [:input input-attrs]
+      [:label.notch {:for id} title]
+      (when reveal?
+        [:button.peek {:type "button"
+                       :aria-controls id
+                       :aria-pressed (boolean revealed?)
+                       :on-click on-reveal}
+         (if revealed? "Hide" "Show")])]
+     (when (or hint action)
+       [:div.field-notice.is-note
+        (when hint [:span.field-notice-what hint])
+        (when-let [{:keys [label on-choose]} action]
+          ;; on-mouse-down, NOT on-click: blur re-renders this notice and the
+          ;; button is gone before mouseup, so a click handler here never fires.
+          ;; preventDefault stops focus moving at all.
+          [:button.field-notice-action
+           {:type "button"
+            :on-mouse-down (fn [e] (.preventDefault e) (on-choose))}
+           label])])]))
 
 (defn form-input []
-  (let [blurred? (r/atom false)]
-    (fn [{:keys [title key value messages type on-change]}]
-      [:div
-       [base-input
-        {:name key
-         :type type
-         :value value
-         :placeholder title
-         :style input-style
-         :class (if (and @blurred? (seq messages))
-                       "b-red"
-                       "b-gray")
-         :on-focus (fn [_] (reset! blurred? false))
-         :on-change on-change
-         :on-blur (fn [e] (reset! blurred? true))}]
-       (when @blurred? (validation-messages messages))])))
+  (let [blurred? (r/atom false)
+        revealed? (r/atom false)]
+    ;; show-errors? is how a submit reveals faults in fields nobody has visited.
+    ;; Without it, pressing the button on a form with an untouched empty field
+    ;; had nothing to say, which is why the button used to dim instead.
+    (fn [{:keys [title key value messages type on-change show-errors? hint action reveal?]
+          reveal-state :revealed? on-reveal :on-reveal}]
+      ;; The reveal is usually this field's own business. A password and its
+      ;; confirmation have to share one, so the caller can own it instead.
+      (let [shown (when (or @blurred? show-errors?) messages)
+            shown-as-text? (if (some? reveal-state) reveal-state @revealed?)
+            flip (or on-reveal #(swap! revealed? not))]
+        [base-input
+         {:name key
+          ;; A revealed password is a text field. The type is the reveal.
+          :type (if (and reveal? shown-as-text?) :text type)
+          :value value
+          :title title
+          :messages shown
+          :hint hint
+          :action action
+          :reveal? reveal?
+          :revealed? shown-as-text?
+          :on-reveal flip
+          :on-focus (fn [_] (reset! blurred? false))
+          :on-change on-change
+          :on-blur (fn [_] (reset! blurred? true))}]))))
+
+(def ^:private password-rule-chips
+  "One chip per rule: which rule it is, and whether `password` satisfies it.
+   GOTCHA: the \"not your name\" chip only renders where `ctx` has identifying
+   info -- the reset page passes none, so a context chip there would always
+   pass. See account-flows.md."
+  [{:label "12 or more"
+    :ok? (fn [p _] (>= (count (or p "")) registration/min-password-length))}
+   {:label "no triples"
+    :ok? (fn [p _] (not (registration/repeated-run? p)))}
+   {:label "no key runs"
+    :ok? (fn [p _] (not (registration/sequential-run? p)))}
+   {:label "some variety"
+    :ok? (fn [p _] (not (registration/too-few-distinct? p)))}
+   {:label "not your name"
+    :needs-context? true
+    :ok? (fn [p ctx] (not (registration/contains-identifier? p ctx)))}])
+
+(def ^:private password-tips
+  "Per-rung lines to show once the password passes that rung, several per rung.
+   GOTCHA: `password-tip` picks among a rung's lines by text length, not
+   randomly, so the line holds still while typing instead of flickering on
+   every keystroke. See account-flows.md."
+  [["Two words that have no business together beat one clever one."
+    "Another word buys more than another symbol."
+    "Swapping o for 0 fools nobody. That is the first thing tried."]
+   ["Spaces are allowed. A short sentence types faster than it looks."
+    "One more word is the cheapest upgrade here."
+    "Nonsense is fine. It does not have to mean anything."]
+   ["Try something your character would say."
+    "One more word and this is as good as it gets."
+    "If you can picture it, you will remember it."]
+   ["Nothing left to prove. Write it down somewhere safe."
+    "About as good as it gets. Go make a character."
+    "Just do not use this one anywhere else."]])
+
+(defn- password-tip
+  "The tip for this rung, held still by picking it from the length."
+  [rung length]
+  (when (and rung (not (neg? rung)))
+    (let [set (nth password-tips rung)]
+      (nth set (mod length (count set))))))
+
+(defn password-meter
+  "The password-strength meter, shared by the register and reset forms.
+   `context` is identifying info the password must not contain, empty on the
+   reset page, which is also what the server judges it against. `refused`
+   shows \"too common\" once the server has rejected the password.
+   GOTCHA: only this meter checks live; the server enforces the same rules
+   silently otherwise. See account-flows.md."
+  ([password] (password-meter password nil nil))
+  ([password context] (password-meter password context nil))
+  ([password context refused]
+   (let [{:keys [rung fills]} (registration/password-strength password context)
+         tier-names ["Uncommon" "Rare" "Very Rare" "Legendary"]
+         ;; The corpus outranks the ladder. Only the server can reach it, so it
+         ;; arrives late and separately -- but a password it refuses is not a
+         ;; Rare one, and showing both is how the page ended up holding two
+         ;; verdicts that disagreed.
+         refused? (boolean (seq refused))
+         reached? (and (not refused?) rung (not (neg? rung)))
+         suffix (cond refused? "fail" (nil? rung) nil (neg? rung) "fail" :else rung)
+         remaining (when (and reached? (< rung 3))
+                     (- (nth registration/strength-rungs (inc rung))
+                        (count (or password ""))))]
+     [:div.p-r-10.p-l-10.p-t-5
+      [:div.pw-slots
+       (doall
+        (for [[i percent] (map-indexed vector fills)]
+          ^{:key i}
+          [:div.pw-slot
+           ;; The only inline style on this widget. The width IS the
+           ;; measurement, so it cannot be a named class.
+           [:div.pw-fill {:class (when suffix (str "pw-fill-" suffix))
+                          :style {:width (str percent "%")}}]]))]
+      [:div.pw-verdict
+       [:span.pw-tier-name {:class (when suffix (str "pw-name-" suffix))}
+        (cond refused? "Too common"
+              reached? (nth tier-names rung))]
+       [:span.pw-next
+        (cond
+          refused? nil
+          remaining (str (nth tier-names (inc rung)) " in " remaining)
+          (seq password) (str (count password) " characters"))]]
+      ;; Every rule, each as its own chip. Before this the five rules spoke only
+      ;; through whichever one happened to fail first, so nobody could see what
+      ;; was being asked of them until they had broken it.
+      (when (seq password)
+        [:div.pw-chips
+         (doall
+          (for [{:keys [label ok? needs-context?]} password-rule-chips
+                :when (or (not needs-context?) (seq (vals context)))]
+            ^{:key label}
+            [:span.pw-chip {:class (if (ok? password context) "is-ok" "is-bad")}
+             label]))
+         ;; Only the server can reach the corpus, so this appears once it has
+         ;; answered and never guesses in the meantime.
+         (when refused? [:span.pw-chip.is-bad "too common"])])
+      ;; The line under the bar: what is wrong when something is, and what to do
+      ;; next when nothing is. It sits with the bar it is about rather than in
+      ;; the field's error slot, because both readings are advice on writing a
+      ;; better password, which is what the whole widget is.
+      (cond
+        refused? [:div.pw-note refused]
+        :else (when-let [tip (password-tip rung (count (or password "")))]
+                [:div.pw-note.is-tip tip]))])))
+
+(defn password-pair
+  "A password field and its confirmation; revealing the password retires the
+   confirmation field entirely.
+   GOTCHA: the confirm field is REMOVED, not faded, on reveal -- faded would
+   stay in the accessibility tree and a submit could fail pointing at a field
+   nobody can see. `revealed?`/`on-toggle` are the caller's, since submit-gating
+   has to know confirmation isn't being asked for. See account-flows.md."
+  [{:keys [password confirm messages confirm-messages show-errors? revealed?
+           on-toggle on-password on-confirm]}]
+  [:div
+   [form-input {:title "Password"
+                :key :password
+                :value password
+                :type :password
+                :messages messages
+                :show-errors? show-errors?
+                :reveal? true
+                :revealed? revealed?
+                :on-reveal on-toggle
+                :on-change on-password}]
+   (when-not revealed?
+     [form-input {:title "Confirm password"
+                  :key :verify-password
+                  :value confirm
+                  :type :password
+                  ;; The caller may have more to say about this field than a
+                  ;; mismatch -- the server answers per field too -- so its
+                  ;; messages win when it passes any.
+                  :messages (or (seq confirm-messages)
+                                (when (and (seq password) (seq confirm)
+                                           (not= password confirm))
+                                  ["Passwords do not match"]))
+                  :show-errors? show-errors?
+                  :on-change on-confirm}])])
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
@@ -166,10 +354,7 @@
 (defn download-form [built-char]
   [:form.download-form
    {:id "download-form"
-    :action (if (and js/window.location
-                     (s/starts-with? js/window.location.href "http://localhost"))
-              "http://localhost:8890/character.pdf"
-              "/character.pdf")
+    :action (event-utils/backend-url "/character.pdf")
     :method "POST"
     :target "_blank"}
    [:input {:type "hidden" :name "body" :id "fields-input"}]])
@@ -188,9 +373,6 @@
 (def login-style
   {:color "#f0a100"})
 
-(def login-style-menu
-  {:background-color "rgba(0,0,0,0.4)"})
-
 (defn dispatch-logout []
   (dispatch [:logout]))
 
@@ -205,33 +387,6 @@
 #_(def header-tab-style
   {:width "85px"})
 
-(def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
-
-(def menu-color "#2c3445")
-
-(def header-menu-item-style
-  {:position :absolute
-   :background-color "#2c3445"
-   :z-index 10000
-   :top 84
-   :right 0})
-
-;; dead — zero callers
-#_(def desktop-menu-item-style
-  (assoc header-menu-item-style
-         :width "100%"))
-
-(def mobile-header-menu-item-style
-  (assoc header-menu-item-style
-         :top 46))
-
-(def user-menu-style
-  {:background-color menu-color
-   :z-index 10000
-   :position :absolute
-   :right 0
-   :display :none})
-
 (defn handle-user-menu [e]
   (let [user-header (js/document.getElementById "user-header")
         user-menu (js/document.getElementById "user-menu")
@@ -239,14 +394,12 @@
         width (.-offsetWidth user-header)
         bottom (.-bottom bounding-rect)
         right (.-right bounding-rect)
-        style (.-style user-menu)
         window-width js/document.documentElement.clientWidth]
-    (set! (.-display style) "block")))
+    (.add (.-classList user-menu) "open")))
 
 (defn hide-user-menu [e]
-  (let [user-menu (js/document.getElementById "user-menu")
-        style (.-style user-menu)]
-    (set! (.-display style) "none")))
+  (let [user-menu (js/document.getElementById "user-menu")]
+    (.remove (.-classList user-menu) "open")))
 
 (defn user-header-view []
   (let [username @(subscribe [:username])
@@ -255,20 +408,22 @@
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
-      [:div.user-icon [svg-icon "orc-head" 35 ""]]
+     ;; on a phone: no icon, and the same 36px height as the search button
+     [:div.header-login-box.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
+      {:class (if mobile? "h-36" "p-t-5 p-b-5")}
+      ;; the gap rides on the icon, so a phone (which hides it) centres LOGIN
+      [:div.user-icon.m-r-5 [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
          (when (not @(subscribe [:mobile?])) [:span.m-r-5 username])]
         [:span.pointer.flex.flex-column.align-items-end
-         [:span.white.f-w-b.m-l-5
+         [:span.white.f-w-b
           {:on-click dispatch-route-to-login}
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
-     [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style
-       :on-click hide-user-menu}
+     [:div#user-menu.user-menu.shadow.f-w-b
+      {:on-click hide-user-menu}
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -297,12 +452,8 @@
 
 (defn- fit-flyout!
   "Cap an opening flyout at the room left below it, and let it scroll.
-
-   The menu is absolutely positioned under its tab, so its height has nothing to
-   do with the window's: My Content is eleven rows and ran off the bottom of a
-   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
-   pointer away to use the page scrollbar closes it. Measured in a frame, after
-   :hover has applied and the menu has a box to measure."
+   GOTCHA: the menu is absolutely positioned, so its height ignores the window's, and a hover
+   menu cannot be scrolled into reach. Measured in a frame, once :hover has applied."
   [e]
   (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
     (js/requestAnimationFrame
@@ -315,7 +466,7 @@
 
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -325,10 +476,12 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (on-click e)))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
+              ;; on a phone the tabs share the row evenly instead of spreading out
               :class (str (if disabled "disabled" "pointer")
                           " "
-                          (when (not mobile?) " w-110"))}
+                          (if mobile? "flex-grow-1" "w-110")
+                          (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -339,15 +492,14 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
             ^{:key name}
             [:div.p-10.opacity-5.hover-opacity-full
              (let [current-route @(subscribe [:route])]
-               {:style (when (or (= route current-route)
-                               (= route (get current-route :handler))) active-style)
+               {:class (when (or (= route current-route)
+                               (= route (get current-route :handler))) "active")
                 :on-click (fn [e]
                             (.stopPropagation e)
                             (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
@@ -358,7 +510,7 @@
 
 (defn header-tab2 [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -368,10 +520,11 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (when-not mobile? "w-110"))}
+                               (if mobile? "flex-grow-1" "w-110")
+                               (when active " active"))}
        (seq buttons) (assoc :tab-index 0
                             :on-mouse-enter fit-flyout!
                             :on-focus fit-flyout!))
@@ -383,7 +536,6 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
@@ -393,9 +545,9 @@
                           (.stopPropagation e)
                           (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
                             (.blur tab)))
-              :style (let [current-route @(subscribe [:route])]
+              :class (let [current-route @(subscribe [:route])]
                        (when (or (= route current-route)
-                                 (= route (get current-route :handler))) active-style))}
+                                 (= route (get current-route :handler))) "active"))}
              [:a.no-text-decoration {:href route} name]])
           buttons))])]))
 
@@ -418,10 +570,9 @@
   [:a.p-5.opacity-5.hover-opacity-full.main-text-color
    {:style social-icon-style
     :href link :target :_blank}
-   [:svg {:xmlns "http://www.w3.org/2000/svg"
-          :viewBox "0 0 568 501"
-          :width "20" :height "18"
-          :style {:vertical-align "middle" :fill "currentColor"}}
+   [:svg.svg-icon-inline {:xmlns "http://www.w3.org/2000/svg"
+                          :viewBox "0 0 568 501"
+                          :width "20" :height "18"}
     [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
 
 (def search-input-style
@@ -436,9 +587,6 @@
 #_(def search-icon-style
   {:top 6
    :right 25})
-
-(def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.3)"})
 
 ;; dead — zero callers
 #_(def transparent-search-input-style
@@ -488,14 +636,17 @@
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
-          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20.h-100-p
+          ;; phones share one 10px gutter with the tabs, title and builder below
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.h-100-p
+           {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20")}
            logo
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
-              [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style}
+              ;; on a phone the search is a 36px square with its icon centred
+              [:div.header-search-box.b-rad-5.flex.align-items-c
+               {:class (when mobile? "h-36 w-36 justify-cont-c")}
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
                   [:input.w-100-p.main-text-color
@@ -504,16 +655,18 @@
                     :on-key-press search-input-keypress
                     :on-change set-search-text
                     :placeholder "search"}]])
-               [:div.p-r-10.pointer
-                {:on-click open-orcacle}
-                [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
+               [:div.pointer.flex
+                {:class (when (not mobile?) "p-r-10")
+                 :on-click open-orcacle}
+                [svg-icon "magnifying-glass" (if mobile? 24 48) ""]]]])
            [user-header-view]]]]]
        [:div.container
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
+          ;; room for the supporter link beside the social icons; a phone shows neither
           [:div
-           {:style {:min-width "53px"}}
+           {:class (when (not mobile?) "supporter-slot")}
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -528,6 +681,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
+           {:class (when mobile? "phone-tabs")}
            [header-tab
             "characters"
             "battle-gear"
@@ -635,12 +789,6 @@
    :border "1px solid white"
    :color text-color})
 
-(def registration-page-style
-  {:background-image "url(/image/login-side.jpg)"
-   :background-clip :content-box
-   :width "350px"
-   :min-height "600px"})
-
 (def registration-left-column-style
   {:flex-direction :column
    :width "435px"})
@@ -653,9 +801,12 @@
 (defn route-to-default-page []
   (dispatch [:route :default]))
 
-(defn registration-page [content]
-  [:div.sans.h-full.flex
-   {:style {:flex-direction :column}}
+(defn registration-page
+  "The shell every auth page renders through. `legal-links?` false suppresses the
+   footer's two links for a page that already carries them in its own consent copy."
+  ([content] (registration-page content true))
+  ([content legal-links?]
+  [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
      {:style registration-content-style}
@@ -668,9 +819,62 @@
           :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
-       [views-2/legal-footer]]
-      [:div.registration-image
-       {:style registration-page-style}]]]]])
+       [views-2/legal-footer legal-links?]]
+      [:div.registration-image]]]]]))
+
+(defn auth-page
+  "The shared auth shell: heading, rule, optional `lede` line, then `content`.
+   `lede` is the line under the rule and is optional.
+   See account-flows.md."
+  ([heading content] (auth-page heading nil content nil))
+  ([heading lede content] (auth-page heading lede content nil))
+  ([heading lede content {:keys [legal-links?] :or {legal-links? true}}]
+   (registration-page
+    [:div
+     [:h1.auth-heading.m-t-20 heading]
+     [:div.auth-rule]
+     (when lede [:div.auth-lede lede])
+     content]
+    legal-links?)))
+
+(defn- reset-username
+  "The username of the account a reset link is for, from the plain cookie the reset page sets.
+   Grants nothing; used only to flag \"password equals username\" while typing. The server
+   re-derives it from the link's key on submit. See account-flows.md."
+  []
+  (some-> (get (events/cookies) "reset-username") js/decodeURIComponent))
+
+(defn password-fields
+  "The password pair plus the strength meter under it, as one unit.
+   GOTCHA: state stays with the caller -- register keeps it in app-db, reset in
+   a local atom, since a reset form exists for ninety seconds behind a one-use
+   link. See account-flows.md."
+  [{:keys [password confirm revealed? context messages confirm-messages
+           show-errors? refused on-password on-confirm on-toggle]}]
+  [:div
+   [password-pair
+    {:password password
+     :confirm confirm
+     :messages messages
+     :confirm-messages confirm-messages
+     :show-errors? show-errors?
+     :revealed? revealed?
+     :on-toggle on-toggle
+     :on-password on-password
+     :on-confirm on-confirm}]
+   [password-meter password context refused]])
+
+(defn auth-form-page
+  "An auth-page shell for a form: `fields` in a column, then `tail` (submit and
+   any links or fineprint) below them.
+   See account-flows.md."
+  [{:keys [heading lede fields tail legal-links?]
+    :or {legal-links? true}}]
+  (auth-page heading lede
+             [:div
+              [:div.m-t-10.auth-form fields]
+              (when tail [:div.m-t-10.auth-tail tail])]
+             {:legal-links? legal-links?}))
 
 (def make-event-handler
   (memoize
@@ -684,30 +888,33 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  (when (#{" " "Enter"} (.-key e))
+                                    (.preventDefault e)
+                                    (handler e))))
+    (nil? handler) (assoc :aria-disabled "true")))
+
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
-      (registration-page
-       [:div.flex.justify-cont-s-b {:style {:text-align :center
-                           :flex-direction :column}}
-        [:div.p-20
-         [:div.f-w-b.f-s-24.p-b-10
-          "Your key has expired."]
-         [:div "You must verify your email within 24 hours of registering. Send another verification email by submitting you address here:"]
-         [base-input
-          {:name :email
-           :value (:email @params)
-           :type :email
-           :placeholder "Email"
-           :style default-input-style
-           :on-change (partial set-value params :email)}]
-         [:button.form-button.m-l-20.m-t-10
-          {:style {:height "40px"
-                   :width "174px"
-                   :font-size "16px"
-                   :font-weight "600"}
-           :on-click (make-event-handler :re-verify @params)}
-          "RESEND"]]]))))
+      (auth-form-page
+       {:heading "Your key has expired"
+        :lede (str "You must verify your email within 24 hours of registering. "
+                   "Send another verification email by submitting your address here.")
+        :fields [base-input
+                 {:name :email
+                  :value (:email @params)
+                  :type :email
+                  :title "Email address"
+                  :on-change (partial set-value params :email)}]
+        :tail [:button.form-button.form-submit-btn
+               {:on-click (make-event-handler :re-verify @params)}
+               "RESEND"]}))))
 
 
 (defn hide-login-message []
@@ -718,15 +925,12 @@
     (fn [error-message]
       (let [email (:email @params)
             bad-email? (registration/bad-email? email)]
-        (registration-page
-         [:div.flex.justify-cont-s-b.w-100-p
-          {:style {:text-align :center
-                   :flex-direction :column}}
-          [:div.p-t-10
+        (auth-form-page
+         {:heading "Reset your password"
+          :lede "Submit your email address and we will send you a link to reset your password."
+          :fields
+          [:div
            (when error-message [:div.red.m-b-20 error-message])
-           [:div.f-w-b.f-s-24.p-b-10
-            "Send Password Reset Email"]
-           [:div.m-b-10 "Submit your email address here and we will send you a link to reset your password."]
            [form-input
             {:title "Email"
              :key :email
@@ -742,20 +946,30 @@
                :error
                @(subscribe [:login-message])
                hide-login-message]])
-           [:button.form-button.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when bad-email? "disabled opacity-5 hover-no-shadow")
+           ]
+          :tail
+          [:div
+           [:button.form-button.form-submit-btn
+            {:class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
-           [:div.m-t-20
-            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
-           ]])))))
+           ;; The link text is the whole phrase, not the one word "whitelist" in
+           ;; the middle of it: a single word is a small target, and it is what a
+           ;; screen reader announces on its own, where it names no destination.
+           [:div.auth-help
+            [:span "Didn't receive the reset email? Check your spam folder, or "]
+            [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+             "read how to let our email through"]
+            [:span ", then try again."]]]})))))
 
 (defn password-reset-expired-page []
-  [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
+  ;; Reached by an expired link AND by one that is mangled or unrecognised, so
+  ;; the wording cannot claim to know which. It also no longer says 24 hours,
+  ;; which stopped being true when the window became two.
+  [send-password-reset-page
+   (str "That reset link no longer works. Links last "
+        "two hours, and each one can only be used once. "
+        "Send yourself a new one below.")])
 
 (defn password-reset-used-page []
   [send-password-reset-page "Your reset link has already been used. Please use the form below to send another reset email."])
@@ -770,219 +984,270 @@
     (fn []
       (let [password (:password @params)
             verify-password (:verify-password @params)
-            password-messages (password-validation-messages password)
-            different? (not= password verify-password)
-            invalid? (or (seq password-messages)
-                         different?)]
-        (registration-page
-         [:div.flex.justify-cont-s-b {:style {:text-align :center
-                                              :flex-direction :column}}
-          [:div.p-20
-           [:div.f-w-b.f-s-24.p-b-10
-            "Reset Password"]
-           [:div "Create a new password."]
-           [form-input {:title "Password"
-                        :key :password
-                        :value password
-                        :type :password
-                        ;;:messages password-messages
-                        :on-change (fn [e] (swap! params assoc :password (event-value e)))}]
-           [form-input {:title "Verify Password"
-                        :key :verify-password
-                        :value verify-password
-                        :type :password
-                        :messages (when different? ["Passwords do not match"])
-                        :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
+            ;; Merged per field, so a server objection -- a common password, the
+            ;; one rule only the server can apply -- sits alongside whatever the
+            ;; form already found rather than replacing it.
+            server-errors @(subscribe [:password-reset-server-errors])
+            ;; GOTCHA: context carries only the username, never email, to avoid a disclosure
+            ;; via cookie; the server checks email separately on submit. See account-flows.md.
+            context {:username (reset-username)}
+            ;; Reading the password back is what the confirm box stands in for,
+            ;; so revealing it retires the box -- and the check that decides
+            ;; whether this can be submitted has to know that, which is why the
+            ;; flag is out here rather than inside password-pair.
+            revealed? (:password-revealed? @params)
+            faults (registration/password-pair-faults password verify-password
+                                                      revealed? context)
+            password-messages (vec (distinct (concat (:password faults)
+                                                     (:password server-errors))))
+            confirm-messages (vec (distinct (concat (:verify-password faults)
+                                                    (:verify-password server-errors))))
+            invalid? (or (seq password-messages) (seq confirm-messages))
+            ;; Local to this page's own atom on purpose. The register form keeps
+            ;; the same flag in app-db, and reaching for that from here is what
+            ;; split the reveal state between a db read and a component atom
+            ;; last time.
+            attempted? (:attempted? @params)]
+        (auth-form-page
+         {:heading "Choose a new password"
+          :lede "This replaces the password on your account."
+          :fields
+          [:div
+           ;; The same pair and meter the register form uses.
+           ;; GOTCHA: this is account RECOVERY, the last door somebody has -- a
+           ;; silently dimmed button with no message is worse here than anywhere
+           ;; else. See account-flows.md.
+           [password-fields
+            {:password password
+             :confirm verify-password
+             :context context
+             :messages password-messages
+             :confirm-messages confirm-messages
+             :show-errors? attempted?
+             :revealed? revealed?
+             :refused (first (:password-common server-errors))
+             :on-toggle #(swap! params update :password-revealed? not)
+             :on-password (fn [e]
+                            (dispatch [:password-reset-clear-errors])
+                            (swap! params assoc :password (event-value e)))
+             :on-confirm (fn [e]
+                           (dispatch [:password-reset-clear-errors])
+                           (swap! params assoc :verify-password (event-value e)))}]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
-           [:button.form-button.m-l-20.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
-             :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
-            "SUBMIT"]]])))))
+           ]
+          ;; Never dimmed, the same call the register form makes: a button that
+          ;; looks dead reads as a broken site and cannot say why it will not
+          ;; go. Pressing it always does something, and when the form is not
+          ;; ready that something is showing the faults it has been sitting on.
+          :tail [:button.form-button.form-submit-btn
+                 {:on-click #(if invalid?
+                               (swap! params assoc :attempted? true)
+                               ((make-event-handler :password-reset @params)))}
+                 "SUBMIT"]})))))
 
 (defn login-link []
   [:span.underline.f-w-b.m-l-10.pointer.orange
    {:on-click dispatch-route-to-login}
    "LOGIN"])
 
+(defn auth-outcome
+  "A page with nothing to ask for: a statement, and at most one `onward` action.
+   GOTCHA: `onward` is a button, not the inline link the register form uses --
+   the one thing to do should look like it. See account-flows.md."
+  ([heading message] (auth-outcome heading message nil))
+  ([heading message onward]
+   (auth-page heading
+              [:div.auth-outcome
+               [:div.auth-outcome-line message]
+               (when onward [:div.auth-outcome-onward onward])])))
+
+(defn- login-button []
+  [:button.form-button.form-submit-btn
+   {:on-click dispatch-route-to-login}
+   "LOGIN"])
+
 (defn verify-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Success! Registration is complete"]
-    [:div.m-t-20 "You can now"]
-    [login-link]]))
+  (auth-outcome
+   "Success! Registration is complete"
+   "Your account is ready."
+   [login-button]))
 
 (defn password-reset-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Your password has been successfully reset"]
-    [:div.m-t-20 "You can now log in"]
-    [login-link]]))
+  (auth-outcome
+   "Password changed"
+   "Use the new one from now on."
+   [login-button]))
 
 (defn unsubscribe-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Unsubscribed"]
-    [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
-    [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
+  (auth-outcome
+   "Unsubscribed"
+   [:div
+    [:div "You will not get email updates from us any more."]
+    [:div.m-t-10 "You can turn them back on whenever you like, from your account settings."]]))
 
 (defn email-sent [text]
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Check your email"]
-    [:div.p-20
-     text]]))
+  (auth-outcome "Check your email" text))
 
 (defn verify-sent []
   (email-sent
    [:div
     [:span "We sent a verification email to "]
-    [:span.f-w-b.red.f-s-18 @(subscribe [:temp-email])]
+    ;; Ink, not .red. Red is what a fault looks like on every one of these
+    ;; pages, and this is the address somebody just typed correctly.
+    [:span.auth-emphasis @(subscribe [:temp-email])]
     [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
     [:span " "]
     [:span "Remember to check your spam folder."]]))
 
 (defn password-reset-sent []
+  ;; Conditional on purpose. The endpoint now answers identically for an address
+  ;; with no account, so this page is no longer in a position to claim that an
+  ;; email went out -- and claiming it would hand back the membership test the
+  ;; server stopped answering.
   (email-sent
-   (str "We sent an email to "
+   (str "If "
         @(subscribe [:temp-email])
-        " with a link to reset your password.")))
+        " has an account, a link to reset your password is on its way.")))
+
+(def ^:private field-order
+  "The order the summary lists faults in, which is the order they appear on the
+   form. Sorting by map key would list them however the keywords happen to hash."
+  [[:username "Username"] [:email "Email address"] [:verify-email "Confirm email address"]
+   [:password "Password"] [:verify-password "Confirm password"]
+   [:first-and-last-name "Name"]])
+
+(defn error-summary
+  "A list of faults above the form, each a link to its field, after a submit
+   that could not go through. Renders nothing until a submit has been attempted.
+   GOTCHA: counts FIELDS, not messages (two faults on one field count as one),
+   and each link's text is the fault message, not the field name -- prefixing
+   the field name would say it twice, and the link text is what a screen
+   reader reads on its own. See account-flows.md."
+  [validation]
+  (let [faults (for [[k label] field-order
+                     :let [messages (seq (get validation k))]
+                     :when messages]
+                 [k label (first messages)])]
+    (when (seq faults)
+      [:div.auth-summary {:role "alert"}
+       [:div.auth-summary-title
+        (str (count faults) (if (= 1 (count faults))
+                              " thing needs fixing"
+                              " things need fixing"))]
+       [:ul.auth-summary-list
+        (for [[k label message] faults]
+          ^{:key k}
+          [:li
+           [:a {:href (str "#f-" (name k))
+                :on-click (fn [_]
+                            (when-let [el (.getElementById js/document (str "f-" (name k)))]
+                              (.focus el)))}
+            message]])]])))
 
 (defn register-form []
-  (let [registration-validation @(subscribe [:registration-validation])
+  (let [base-validation @(subscribe [:registration-validation])
         registration-form @(subscribe [:registration-form])
+        show-errors? @(subscribe [:registration-attempted?])
+        ;; The confirmation is checked HERE, not in the shared validator, which
+        ;; runs on the server too and has no idea whether the field is currently
+        ;; revealed -- and a revealed password has no confirmation to differ from.
+        confirm-needed? (not (:password-revealed? registration-form))
+        mismatch? (and confirm-needed?
+                       (seq (:password registration-form))
+                       (not= (:password registration-form)
+                             (:verify-password registration-form)))
+        registration-validation (cond-> base-validation
+                                  mismatch?
+                                  (update :verify-password conj "Passwords do not match"))
         send-updates? (not= false (:send-updates? registration-form))
-        password-strength (registration/password-strength (:password registration-form))]
-    (registration-page
-     [:div {:style {:text-align :center}}
-      [:div {:style {:color orange
-                     :font-weight :bold
-                     :font-size "36px"
-                     :text-transform :uppercase
-                     :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                     :margin-top "20px"}}
-       "join for free"]
-      [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
-      [:div.m-t-10
+        ]
+    (auth-form-page
+     {:heading "Join for free"
+      :lede "Save your characters, share them, and pick up where you left off."
+      :legal-links? false
+      :fields
+      [:div
+       (when show-errors? [error-summary registration-validation])
        [form-input {:title "Username"
                     :key :username
                     :value (:username registration-form)
                     :messages (:username registration-validation)
+                    :show-errors? show-errors?
                     :type :username
                     :on-change (fn [e] (dispatch [:registration-username (event-value e)]))}]
-       [form-input {:title "Email"
-                    :key :email
-                    :value (:email registration-form)
-                    :messages (:email registration-validation)
-                    :type :email
-                    :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}]
+       (let [suggestion (registration/suggest-email-domain (:email registration-form))]
+         [form-input {:title "Email"
+                      :key :email
+                      :value (:email registration-form)
+                      :messages (:email registration-validation)
+                      :show-errors? show-errors?
+                      :type :email
+                      :hint (when suggestion "That domain looks like a typo.")
+                      :action (when suggestion
+                                {:label (str "Use " suggestion)
+                                 :on-choose #(dispatch [:registration-email suggestion])})
+                      :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}])
        [form-input {:title "Verify Email"
                     :key :verify-email
                     :value (:verify-email registration-form)
                     :messages (:verify-email registration-validation)
+                    :show-errors? show-errors?
                     :type :email
                     :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
-       [form-input {:title "Password"
-                    :key :password
-                    :value (:password registration-form)
-                    :messages (:password registration-validation)
-                    :type :password
-                    :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
-       (let [[color text]
-              (cond
-                (= 5 password-strength) ["bg-green" "Strong"]
-                (< 1 password-strength 5) ["bg-orange" "Moderate"]
-                :else ["bg-red" "Weak"])]
-         [:div.p-r-10.p-l-10.p-t-5
-          [:div
-           {:style {:position :relative
-                    :height "30px"}}
-           [:div.b-rad-5
-            {:style {:top 0
-                     :left 0
-                     :height "30px"
-                     :opacity "0.7"
-                     :width "100%"
-                     :position :absolute}
-             :class color}]
-           [:div.b-rad-5.password-strength-meter
-            {:style {:top 0
-                     :left 0
-                     :position :absolute
-                     :height "30px"
-                     :transition "width 1s"
-                     :width (str (* 100 (float (/ password-strength 5))) "%")}
-             :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5
-            {:style {:position :absolute
-                     :padding-top "6px"}}
-             [:span "Password Strength:"]
-             [:span.f-w-b.m-l-5 text]]]])
-       [:div.m-t-20
-        {:style {:text-align :left
-                 :margin-left "15px"}}
-        [:i.fa.fa-check.f-s-14.pointer
+       [password-fields
+        {:password (:password registration-form)
+         :confirm (:verify-password registration-form)
+         :context {:username (:username registration-form)
+                   :email (:email registration-form)}
+         :messages (:password registration-validation)
+         :confirm-messages (:verify-password registration-validation)
+         :show-errors? show-errors?
+         :revealed? (boolean (:password-revealed? registration-form))
+         :refused @(subscribe [:registration-password-common])
+         :on-toggle #(dispatch [:registration-password-revealed?
+                                (not (:password-revealed? registration-form))])
+         :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
+         :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
+       [:div.m-t-20.t-a-l.m-l-15
+        [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
-          :style {:margin-top "-3px"
-                  :border-color "#f0a100"
-                  :border-style :solid
-                  :border-width "1px"
-                  :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
-       [:div.m-t-10
-        [:div.p-10
-         [:span "Already have an account?"]
-         (login-link)]
-        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button
-         {:style {:height "40px"
-                  :width "174px"
-                  :font-size "16px"
-                  :font-weight "600"}
-          :class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
-          :on-click #(when (empty? registration-validation)
-                       (dispatch [:register]))}
-         "JOIN"]]]
-      [:div.m-t-5.p-r-10.p-l-10
-       [:span.f-s-14
-        "By clicking JOIN you agree to our"
-        [:a.m-l-5 {:href "/terms-of-use" :target :_blank
-                   :style {:color text-color}} "Terms of Use"]
-        [:span.m-l-5 "and that you've read our"]
-        [:a.m-l-5 {:href "/privacy-policy" :target :_blank
-                   :style {:color text-color}} "Privacy Policy"]]]])))
+       ]
+      :tail
+      [:div
+       (when-let [notice @(subscribe [:registration-notice])]
+          [:div.m-t-10.registration-notice
+           (for [line notice] ^{:key line} [:div line])])
+        ;; Not .m-b-10: that margin utility is bundled into a rule that sets
+        ;; font-weight bold across the whole app (styles/core.clj, .modal-container
+        ;; group). Using it here quietly emboldened this sentence.
+        [:div.m-t-10.m-b-5
+         [:span "We will send a confirmation link to the address above."]]
+        ;; Never dimmed. A submit button that looks dead reads as a broken site
+        ;; rather than an unfinished form, and it cannot tell anyone WHY it will
+        ;; not go -- so pressing it always does something, and when the form is
+        ;; not ready that something is showing the faults it has been sitting on.
+        [:button.form-button.join-button
+         {:on-click #(if (empty? registration-validation)
+                       (dispatch [:register])
+                       (dispatch [:registration-attempted]))}
+         "JOIN"]
+       [:div.m-t-20.auth-alt
+        [:span "Already have an account?"]
+        (login-link)]
+       ;; This page links both documents in its consent line, so the shell's
+       ;; footer keeps the copyright and drops its copies of the same two links.
+       [:div.auth-fineprint
+        "By joining you agree to our "
+        [:a {:href "/terms-of-use" :target :_blank} "Terms of Use"]
+        " and confirm you have read our "
+        [:a {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+        "."]]})))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
@@ -995,17 +1260,14 @@
     (fn []
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
-        (registration-page
-         [:div {:style {:text-align :center}}
-          [:div {:style {:color orange
-                         :font-weight :bold
-                         :font-size "36px"
-                         :text-transform :uppercase
-                         :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                         :margin-top "20px"}}
-           "LOGIN"]
-          [:div.m-t-10]
-          [:div.login-form-inputs
+        ;; .login-form-inputs was this page's own container, so its fields were
+        ;; 350px where every other page's are the column's width, and the tail
+        ;; nested inside it came out narrower than the fields above it. It is on
+        ;; the same shape as the rest now.
+        (auth-form-page
+         {:heading "Welcome back"
+          :fields
+          [:div
            [form-input {:title "Username or Email"
                         :key :username
                         :value (:username @params)
@@ -1017,32 +1279,35 @@
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
            (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
-                                      :error
-                                      login-message
-                                      hide-login-message]])
-           [:div.m-t-10
-            
-            [:button.form-button
-             {:style {:height "40px"
-                      :width "174px"
-                      :font-size "16px"
-                      :font-weight "600"}
-              :on-click #(dispatch [:login @params true])}
+             [:div.m-t-5 [notifications/message
+                          :error
+                          login-message
+                          hide-login-message]])]
+          :tail
+          [:div
+            [:button.form-button.join-button
+             {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
-            [:div.m-t-20
-             [:span "Don't have a login? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-register-page}
-              "REGISTER NOW"]]
-            [:div.m-t-20
-             [:span "Forgot your password? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-reset-password-page}
-              "RESET PASSWORD"]]
-            
-            [:div.m-t-20
-             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
+            ;; One group, one rhythm: each question and its answer share a line,
+            ;; the way the register page already asks its one.
+            [:div.m-t-20.auth-alts
+             [:div.auth-alt
+              [:span "Don't have a login?"]
+              [:span.orange.underline.pointer
+               {:on-click route-to-register-page}
+               "REGISTER NOW"]]
+             [:div.auth-alt
+              [:span "Forgot your password?"]
+              [:span.orange.underline.pointer
+               {:on-click route-to-reset-password-page}
+               "RESET PASSWORD"]]]
+            ;; Kept apart from the pair above: it is not another way in, it is
+            ;; what to do when the way in never arrived.
+            [:div.auth-help
+             [:span "Didn't receive the validation email? Check your spam folder, or "]
+             [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+              "read how to let our email through"]
+             [:span "."]]]})))))
 
 (def loading-style
   {:position :fixed
@@ -1069,17 +1334,20 @@
 
 (def confirm-handler (memoize confirm-fn))
 
-(defn header [title button-cfgs & {:keys [frame?]}]
+(defn header [title button-cfgs & {:keys [frame? subheader]}]
   (let [device-type @(subscribe [:device-type])]
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
-       [:h1.f-s-36.f-w-b.m-t-5.m-l-10
-        {:class (when (not= :mobile device-type) "m-t-21 m-b-20")}
+       ;; 36px fills a 320px phone with "Character Builder" alone
+       [:h1.f-w-b.m-t-5.m-l-10
+        {:class (if (= :mobile device-type) "f-s-28" "f-s-36 m-t-21 m-b-20")}
         title]
        (when frame?
          logo)]
-      [:div.flex.align-items-c.justify-cont-end.flex-wrap.m-r-10.m-l-10
+      ;; each button carries 5px of its own, so on a phone the row adds only 5
+      [:div.flex.align-items-c.justify-cont-end.flex-wrap
+       {:class (if (= :mobile device-type) "m-l-5 m-r-5" "m-l-10 m-r-10")}
        (map-indexed
         (fn [i {:keys [title icon on-click style class-name] :as cfg}]
           (if (vector? cfg)
@@ -1097,6 +1365,9 @@
              [:span.m-l-5.header-button-text title]]
               ))
         button-cfgs)]]
+     ;; A full-width line under the title and buttons, such as a character's share line.
+     (when subheader
+       [:div.m-l-10.m-r-10.m-b-10 subheader])
      (when @(subscribe [:confirmation-shown?])
        [:div.flex.justify-cont-end.m-r-10.m-b-20.m-l-10
         (let [cfg @(subscribe [:confirmation-cfg])]
@@ -1137,12 +1408,10 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           {:class (when dev? "on")
-            :role "switch"
-            :aria-checked (str (boolean dev?))
-            :tabIndex 0
-            :title "Show diagnostic tools for getting your content out"
-            :on-click (make-event-handler ::e5/toggle-dev-mode)}]
+           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+                  {:class (when dev? "on")
+                   :title "Show diagnostic tools for getting your content out"
+                   :on-click (make-event-handler ::e5/toggle-dev-mode)})]
           [:span.dev-mode-label
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
@@ -1600,14 +1869,15 @@
                                   (.disconnect obs)
                                   (reset! observer nil)))
       :reagent-render
-      (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
+      (fn [title button-cfgs content & {:keys [hide-header-message? frame? subheader]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
+              dark-button-text? @(subscribe [:dark-button-text?])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
           [:div.app.min-h-full
-           {:class theme
+           {:class (str theme (when dark-button-text? " dark-button-text"))
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?
@@ -1620,16 +1890,11 @@
              [app-header])
            (when orcacle-open?
              [orcacle])
-           (let [hdr [header title button-cfgs :frame? frame?]]
+           (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
-              ;; One header, sticky, rather than a fixed copy of it above an
-              ;; inline one. Two copies meant every control in the header --
-              ;; every button, and the whole PDF options panel that opens inside
-              ;; it -- existed twice in the DOM, twice in the tab order, and with
-              ;; its own component-local state in each.
-              ;;
-              ;; Not sticky inside a frame, which has no app header to scroll
-              ;; past, or behind the Orcacle panel, which covers the page.
+              ;; One header, sticky -- never a fixed copy of it, which would put every
+              ;; header control and its local state in the DOM twice. Not sticky inside a
+              ;; frame (no app header to scroll past) or behind the Orcacle panel.
               [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
                {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
@@ -1650,11 +1915,9 @@
 
               [:div#app-main.container
                [:div.content.w-100-p
-                ;; Library-health status — shown on every content page (it self-
-                ;; hides when clean), so a conflict/missing-field is never a
-                ;; surprise on one page and invisible on another. Excludes the
-                ;; character list (no homebrew content there). On My Content it
-                ;; ALWAYS shows (the hub); elsewhere it's dismissable.
+                ;; Library-health status on every content page except the character list
+                ;; (it self-hides when clean). Always shown on My Content, dismissable
+                ;; elsewhere.
                 (let [handler (:handler @(subscribe [:route]))]
                   (when-not (= handler routes/dnd-e5-char-list-page-route)
                     [library-health-status
@@ -1668,7 +1931,7 @@
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
@@ -1923,19 +2186,11 @@
   (into (subvec items 0 i) (subvec items (inc i))))
 
 (defn isolate-culprit
-  "Fault isolation by re-execution — the active counterpart to render-guard.
-   `render-coll` renders/processes a whole collection and may throw; `items` is
-   that collection. Return the item(s) NECESSARY for the failure: an item is a
-   culprit if removing it makes render-coll stop throwing. Catches AGGREGATE
-   failures (e.g. a sort over a nil key) that a per-item guard never sees — and
-   pinpoints the culprit even when the failure only manifests in combination
-   (a nil sort key never throws alone, but removing the item fixes the whole list,
-   so leave-one-out finds it where 'does this item alone fail?' cannot).
-
-   Returns nil if render-coll doesn't throw. Honest limit: with two INDEPENDENT
-   faulty items (each breaks things by itself), removing one still throws, so
-   neither looks necessary — we then fall back to the smallest failing subset
-   found by bisection rather than claim a single culprit."
+  "Fault isolation by re-execution, the active counterpart to render-guard. `render-coll`
+   processes the collection `items` and may throw. Returns the item(s) whose removal stops
+   it throwing -- catching aggregate failures (a sort over a nil key) a per-item guard never
+   sees -- or nil if it doesn't throw. GOTCHA: with two independent faulty items neither is
+   necessary, so it falls back to the smallest failing subset found by bisection."
   [render-coll items]
   (letfn [(throws? [coll]
             (try (doall (render-coll coll)) false (catch :default _ true)))
@@ -2297,7 +2552,8 @@
 (def button-roll-handler (memoize button-roll-fn))
 
 (defn roll-button [message roll & {:keys [text disable-tooltip style]}]
-  (let [mobile? @(subscribe [:mobile?])
+  ;; the tip is about ctrl and shift, so it follows the device, not the width
+  (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)
@@ -2450,7 +2706,7 @@
                                (toggle-spell-expanded! expanded-spells k)
                                prepare-spell-count
                                prepared-spell-count))))
-              (sort-by :key spells))))]]]))))
+              (sort-by :key common/safe-compare spells))))]]]))))
 
 (defn toggle-hide-unprepared-fn [hide-unprepared?]
   #(swap! hide-unprepared? not))
@@ -2656,14 +2912,9 @@
         (fn on-change [e]
           (let [v (-> e .-target .-value)]
             (when initial-value
-              ; we have to dispatch-sync because in the case where id is nil,
-              ; this event handler dispatches, so the call below gets
-              ; a stale DB value and overwrites this one. It ought be
-              ; possible to make it affect the :db directly, but I don't
-              ; know what sort of side effects that could have....
-              ; See: update-character-fx, and its use of :dispatch; might
-              ; be able to replace that with:
-              ;  {:db (set-character db (update-fn (:character db)))}
+              ; dispatch-sync: when id is nil this handler dispatches too, so the call
+              ; below would read a stale db and overwrite this value. See
+              ; update-character-fx's use of :dispatch.
               (dispatch-sync [::char/toggle-feature-used id units initial-value]))
             ((toggle-feature-used-handler id units v))))
 
@@ -2973,13 +3224,9 @@
 
 (defn summary-details [num-columns id]
   (let [;; The builder renders character-display with an explicit nil id, so this
-        ;; was [:built-character nil] -- a different query vector from the
-        ;; builder's own [:built-character], hence a second debounced-build-sub
-        ;; over the same character (2 builds per click). Collapse only that case.
-        ;; The non-nil path is left exactly as it was: [:built-character id]
-        ;; ignores id and returns the builder's character, which looks wrong on a
-        ;; character page, but ::char/built-character id fetches over HTTP, so
-        ;; changing it needs its own verification.
+        ;; collapses [:built-character nil] into the builder's own [:built-character]
+        ;; rather than running a second debounced build. GOTCHA: [:built-character id]
+        ;; ignores id and returns the builder's character; changing it needs its own test.
         built-char @(subscribe (if id
                                  [:built-character id]
                                  [:built-character]))
@@ -3911,14 +4158,10 @@
        vec))
 
 (defn feature-render-error
-  "Recovery panel shown in place of a character section that failed to render.
-   General fail-soft: we do NOT try to guess the cause — by design this catches
-   failures we did not anticipate and cannot name. What we CAN always tell the
-   user is which section broke, that their data is safe, and how to recover
-   (try again / reload / open it in the builder to locate it). The exact error
-   is one click away for a bug report. The specific malformed item, when a single
-   item is at fault, is surfaced in place by the per-item render-guard / the
-   bisection isolator (see isolate-culprit)."
+  "Recovery panel shown in place of a character section that failed to render. It does not
+   guess the cause: it says which section broke, that the data is safe, and how to recover
+   (edit in the builder / reload), with the exact error one click away. A single faulty
+   selection is traced by isolate-culprit-selection (Features section only)."
   [_section _id _error _stack _retry]
   (let [show-details? (r/atom false)
         copied? (r/atom false)
@@ -3985,19 +4228,11 @@
              [:pre.f-s-12.m-t-5.wsp-prw {:style {:user-select "text"}} report]])]]))))
 
 (defn error-boundary
-  "React error boundary. If a child throws while rendering, render
-   (fallback error retry) instead of letting the exception unmount the whole app
-   (the black screen). Give the boundary a :key that changes with its content
-   (e.g. the selected tab) so navigating away clears the error automatically.
-
-   Recovery is driven by React's static getDerivedStateFromError, which is the
-   only React-18 hook that re-renders the boundary to show a fallback (a
-   setState/atom reset in componentDidCatch alone does NOT). component-did-catch
-   runs in the commit phase and is where React hands us the component stack — the
-   one generically-available 'where' for an error we can't otherwise diagnose — so
-   we both log it and stash it in state for the fallback to surface.
-
-   The fallback is called as (fallback error component-stack retry)."
+  "React error boundary: if a child throws while rendering, renders
+   (fallback error component-stack retry) instead of unmounting the whole app. Key it on its
+   content (e.g. the selected tab) so navigating away clears the error.
+   GOTCHA: only getDerivedStateFromError re-renders into the fallback; component-did-catch
+   logs the component stack and stores it for the fallback."
   [_fallback _child]
   (r/create-class
    {:display-name "error-boundary"
@@ -4017,7 +4252,10 @@
         (if-let [e (.. this -state -error)]
           (fallback e
                     (.. this -state -componentStack)
-                    #(.setState this #js {:error nil :componentStack nil}))
+                    ;; Reagent re-renders on new props, not on React state alone, so
+                    ;; clearing the error has to force the redraw as well.
+                    #(.setState this #js {:error nil :componentStack nil}
+                                (fn [] (.forceUpdate this))))
           child)))}))
 
 (defn app-error-fallback
@@ -4026,12 +4264,17 @@
    can be any page): say something broke, reassure the data is safe, offer recovery,
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
-  [_error _stack _retry]
+  [_error _stack retry]
   ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
   ;; took it away, then this page threw. Getting homebrew out matters most in
   ;; exactly the state where the app has stopped being able to export it.
   (when-let [rescue (aget js/window "orcpubBootRescue")]
     (rescue))
+  ;; The page may have failed on homebrew that only breaks once it is drawn. Check every
+  ;; entry deeply; if any are set aside, try the page again.
+  (js/setTimeout #(when (seq (homebrew-check/check-and-set-aside! nil))
+                    (js/setTimeout retry 500))
+                 0)
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
@@ -4258,11 +4501,14 @@
                      print-bw?
                      bw-faded?
                      print-magic-item-cards?
-                     spell-layout]
+                     spell-layout
+                     spellbook-options]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
-                               {:print-character-sheet? print-character-sheet?
+                               (merge
+                                spellbook-options
+                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
@@ -4273,7 +4519,7 @@
                                 :print-bw? print-bw?
                                 :bw-faded? bw-faded?
                                 :print-magic-item-cards? print-magic-item-cards?
-                                :spell-layout spell-layout})]
+                                :spell-layout spell-layout}))]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4299,16 +4545,10 @@
 
 
 (defn capture-images
-  "Reads the character's pictures in the browser when this mounts, so their bytes
-   are in hand before the export button is clicked. Renders nothing.
-
-   Kept off the click handler on purpose: the export is a synchronous form submit
-   into a new tab, and any await between the click and .submit() spends the
-   transient user activation that keeps that tab from being blocked. Each request
-   is idempotent, so re-rendering costs one read per URL and no more.
-
-   `urls` comes through the argv rather than a subscription so that a URL edited
-   while this is mounted is picked up by the update."
+  "Reads the character's pictures (`urls`) in the browser on mount, so their bytes are in
+   hand before export is clicked. Renders nothing; reads on mount only (no update hook).
+   GOTCHA: kept off the click handler: the export is a synchronous submit into a new tab, and
+   an await before .submit() spends the user activation that keeps it from being blocked."
   [_urls]
   (let [ask (fn [this]
               (doseq [url (second (r/argv this))
@@ -4317,6 +4557,52 @@
     (r/create-class
      {:component-did-mount ask
       :reagent-render (fn [_] nil)})))
+
+(defn emblem-picker
+  "One casting class's emblem, with the icons it can be swapped for behind a toggle. The
+   choice lasts the session, like the rest of the PDF options."
+  [_class-kw _class-name _chosen]
+  (let [open? (r/atom false)]
+    (fn [class-kw class-name chosen]
+      (let [icon (emblems/icon-for class-kw chosen)]
+        [:div.m-b-5
+         [:div.flex.align-items-c
+          [:img.emblem-icon {:src (str "/image/emblems/" icon ".svg") :alt ""}]
+          [:span.m-l-5 class-name]
+          [:span.orange.underline.pointer.f-s-12.m-l-10
+           {:on-click #(swap! open? not)}
+           (if @open? "Done" "Change")]]
+         (when @open?
+           (into [:div.emblem-choices]
+                 (for [[nm author] (emblems/options class-kw)]
+                   [:button.emblem-choice
+                    {:key nm
+                     :type "button"
+                     :class (when (= nm icon) "selected")
+                     :title (str (s/replace nm "-" " ") " by " (s/replace author "-" " "))
+                     :on-click #(dispatch [::char/set-spellbook-emblem class-kw nm])}
+                    [:img.emblem-icon {:src (str "/image/emblems/" nm ".svg") :alt (s/replace nm "-" " ")}]])))]))))
+
+(def spellbook-layouts
+  "The spellbook layouts PDF Options offers, as dropdown items."
+  [{:title "Spellbook: full text, two columns" :value "book"}
+   {:title "Ledger: one row a spell" :value "ledger"}
+   {:title "Prep sheet: a box to tick per spell" :value "prep"}])
+
+(def spellbook-option-handler
+  "The on-change handler setting spellbook option `k` from a dropdown value; blank clears it."
+  (memoize
+   (fn [k]
+     #(dispatch [::char/set-spellbook-option k (when-not (s/blank? %) (keyword %))]))))
+
+(defn spellbook-dropdown
+  "A labelled dropdown for spellbook option `k`, offering `items` with `value` selected."
+  [label k items value]
+  [:div.m-b-10.w-250
+   [labeled-dropdown label
+    {:items items
+     :value (name value)
+     :on-change (spellbook-option-handler k)}]])
 
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
@@ -4331,6 +4617,8 @@
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
         spell-layout @(subscribe [::char/spell-layout])
+        spellbook-options @(subscribe [::char/spellbook-options])
+        print-spellbook? (:print-spellbook? spellbook-options)
         ;; Read off built-char, not [::char/image-url id]: a character still being
         ;; built has no id yet, and the id-keyed subscription answers nil for it.
         ;; This is the same accessor pdf-spec uses to put the URL in the export.
@@ -4372,8 +4660,7 @@
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
-      ;; how either is inked. The card options used to be split by the known /
-      ;; prepared choice, which is a sheet setting.
+      ;; how either is inked. The known / prepared choice is a sheet setting.
       [option-group "Character Sheet"
        [:div.m-b-10
         [labeled-dropdown
@@ -4449,6 +4736,51 @@
         (str "The same cards for the magic items the character carries, "
              "attunement and charges included.")]]
 
+      (when has-spells?
+        (let [opt (fn [k] (or (get spellbook-options k)
+                              (get pdf-spec/spellbook-defaults
+                                   (keyword (s/replace (name k) #"^spellbook-" "")))))]
+          [option-group "Spellbook"
+           [option-checkbox
+            "Print Spellbook"
+            print-spellbook?
+            (make-event-handler ::char/toggle-spellbook-print)
+            (str "Adds pages listing every printed spell by class, with its save DC and "
+                 "attack on every page. Fewer pages than cards and nothing to cut out.")]
+           (when print-spellbook?
+             [:div.m-l-20
+              [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
+              (when (> (count casting-classes) 1)
+                [spellbook-dropdown "New class starts" :spellbook-class-break
+                 [{:title "Straight after the last" :value "runon"}
+                  {:title "On a new page" :value "page"}]
+                 (opt :spellbook-class-break)])
+              [spellbook-dropdown "Level tabs" :spellbook-tabs
+               [{:title "In the page header" :value "head"}
+                {:title "Down the side (narrows the page)" :value "inset"}
+                {:title "Off" :value "off"}]
+               (opt :spellbook-tabs)]
+              [:div.f-w-b.m-b-5 "Class emblems"]
+              (for [{:keys [class]} casting-classes
+                    :let [class-kw (common/name-to-kw (str class))]]
+                ^{:key class}
+                [emblem-picker class-kw (str class)
+                 (get-in spellbook-options [:spellbook-emblems class-kw])])])
+           (when (or print-spellbook? print-spell-cards?)
+             [:div.m-t-10]) ;; clear of the last emblem row above
+           (when (or print-spellbook? print-spell-cards?)
+             [spellbook-dropdown "Spell order" :spell-order
+              [{:title "By level, then name" :value "level"}
+               {:title "By name" :value "alpha"}]
+              (or (:spell-order spellbook-options) :level)])
+           (when (or print-spellbook? print-spell-cards?)
+             [:div.option-note
+              (str "Orders the "
+                   (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
+                         print-spellbook? "spellbook"
+                         :else "cards")
+                   " within each class.")])]))
+
       ;; Both card kinds are inked the same way, so this group follows either --
       ;; gating it on spell cards alone hid it from anyone printing only items.
       (when (or print-spell-cards? print-magic-item-cards?)
@@ -4503,7 +4835,8 @@
                                       print-bw?
                                       bw-faded?
                                       print-magic-item-cards?
-                                      spell-layout)}
+                                      spell-layout
+                                      spellbook-options)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -4607,8 +4940,7 @@
         [content-page
          (when (not frame?)
            "Character Page")
-         (into
-          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+         (vec
           (remove nil?
            [#_[:div.m-l-5.hover-shadow.pointer
                {:on-click #(swap! expanded? not)}
@@ -4617,7 +4949,7 @@
                      owner
                      (= owner username))
               {:title "Edit"
-               :icon "pencil"
+               :icon "pencil-alt"
                :on-click (make-event-handler :edit-character character)})
             {:title "Export"
              :icon "download"
@@ -4634,7 +4966,8 @@
                                "?frame=true"))}]]))
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?])))))
+         :frame? frame?
+         :subheader [integrations/share-line id]])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -4672,7 +5005,7 @@
           :on-click (delete-item-handler item-key)})
        (when owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler ::mi/edit-custom-item item)})])
      [:div.p-10.main-text-color
       [item-component item]
@@ -6466,13 +6799,9 @@
      delete-selection-event]]])
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
-;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring:
-;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
-;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
-;;                    [{:name .. :options {item-key qty}}]
-;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
-;; not offered here — it carries fn-valued modifiers that don't serialize.
+;; SRD shorthand keys, read by opt5e/class-option: fixed :weapons/:armor/:equipment
+;; {item-key qty}; choice :weapon-choices/:armor-choices/:equipment-choices
+;; [{:name .. :options {item-key qty}}]. No :selections form: fn modifiers don't serialize.
 
 (def starting-equipment-categories
   [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
@@ -6535,9 +6864,8 @@
 
 ;; ---- Rich equipment choices (:equipment-selections) ------------------------
 ;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
-;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
-;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
-;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+;; weapon sub-choice: the full SRD form, which subsumes one item per option.
+;; Consumed by opt5e/class-equipment-selections.
 
 (def ^:private grant-kinds
   [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
@@ -7200,8 +7528,8 @@
                    {:title (name kw)
                     :value (name kw)})
                  ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
+         ;; A subrace whose race is missing, or has no size, has no size to show.
+         :value (some-> (or (get subrace :size) (get race :size)) name)
          :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
       [:div.m-r-5
        [labeled-dropdown
@@ -8581,6 +8909,7 @@
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
             twin-idx   @(subscribe [::e5/collision-twin-index])
+            dangling   @(subscribe [::e5/dangling-links])
             select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
@@ -8608,8 +8937,11 @@
                :on-click (if global-off?
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
-              [:div.f-s-10 "enabled?"]
-              [comps/checkbox (not eff-off?) global-off?]]
+              [:span.dev-mode-switch.compact
+               (merge (switch-attrs (not eff-off?)
+                                    (when-not global-off?
+                                      (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
+                      {:class (when-not eff-off? "on") :title "On in the builder"})]]
              [:div.h-48.flex.align-items-c
               {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
@@ -8670,14 +9002,22 @@
                                  :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                       [:div.f-s-10 "enabled?"]
-                       [comps/checkbox
-                        (not (get-in plugin [type-key key :disabled?]))
-                        false]]
+                       (let [on? (not (get-in plugin [type-key key :disabled?]))]
+                         [:span.dev-mode-switch.compact
+                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                                 {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
                       [:div.flex-grow-1
                        [:span name]
+                       (when-let [missing (get dangling [source-name type-key key])]
+                         [:div.f-s-12 {:style {:color "#ffd21a"}}
+                          ;; `name` here is the item's name (destructured above), not the function.
+                          (str "Uses "
+                               (s/join ", " (for [{:keys [to target]} missing]
+                                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                                   " \u201c" (if (keyword? target) (cljs.core/name target) target) "\u201d")))
+                               ", which isn't in your library.")])
                        (when note
                          [:div.f-s-12
                           {:class (when (= :off (:kind note)) "b-color-gray")
@@ -8690,27 +9030,25 @@
                             (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                       [:div
                        [:button.form-button.m-l-5
-                        {:on-click (make-event-handler edit-event item)}
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
                         "edit"]
                        [:button.form-button.m-l-5
-                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
                         "delete"]]])))
                  visible))]])]))))))
 
-;; One data-driven table for the My Content library, replacing 13 near-identical
-;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
-;; rendered category rows (see my-content-item) and the add-content menu, so
-;; "hide empty categories" and "still be able to create the first item of a type
-;; that has none yet" read from the same list. Order here is the display order.
+;; The My Content library's content types, one entry each. Drives both the rendered
+;; category rows (my-content-item) and the add-content menu, so hiding empty categories
+;; and creating a type's first item read the same list. Order here is display order.
 (def my-content-types
   [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
    {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
    {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
    {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
    {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
-   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon "woman-elf-face" :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
    {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
-   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon "mounted-knight" :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
    {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
    {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
    {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
@@ -8781,10 +9119,10 @@
           {:on-click #(swap! expanded? not)}
           [:div.m-r-10.flex.align-items-c.flex-column
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-           [:div.f-s-10 "enabled?"]
-           [comps/checkbox
-            (not (get plugin :disabled?))
-            false]]
+           (let [on? (not (get plugin :disabled?))]
+             [:span.dev-mode-switch
+              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+                     {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
            ;; disabled badge(s), colored by reason — amber (app/compat) shown first
@@ -8819,7 +9157,9 @@
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
-                  [comps/checkbox show? false]
+                  [:span.dev-mode-switch.compact
+                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                          {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
               [:button.form-button
@@ -9007,11 +9347,9 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
-   ;; (Library-health status is rendered by content-page at the top of every
-   ;; content page — always-on here on the My Content hub, dismissable elsewhere.)
-   ;; Library-level mutual-exclusion summary: when duplicate keys have forced
-   ;; one side off, say so once at the top with a link into the conflict modal,
-   ;; so the silenced items are explained in aggregate — not just per-row.
+   ;; Library-health status is rendered by content-page, not here.
+   ;; When duplicate keys have forced items off, say so once at the top with a link into
+   ;; the conflict modal, explaining the silenced items in aggregate, not just per row.
    (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
      (when (pos? off-n)
        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
@@ -9030,7 +9368,9 @@
      [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
-       [comps/checkbox (not global-off?) false]
+       [:span.dev-mode-switch
+        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+               {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
@@ -9054,19 +9394,38 @@
    the now-valid entries into the live library (::e5/repair-quarantined-source) —
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
-  [src-name plugin]
-  (let [entries (vec (for [[ct items] plugin
-                           :when (and (qualified-keyword? ct) (map? items))
-                           [ik item] items]
-                       {:ct ct :ik ik :item item}))
-        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
-                                         [[[ct ik :name] (or (:name item) "")]
-                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
-                                       entries)))]
+  [_ _]
+  ;; Only what the user has typed, kept across restores: an entry that restored leaves `plugin`, so
+  ;; its typing stops showing; one still set aside keeps what was typed for the next try.
+  (let [typed (r/atom {})]
     (fn [src-name plugin]
-      (let [current @edits]
+      (let [entries (vec (for [[ct items] (when (map? plugin) plugin)
+                               :when (and (qualified-keyword? ct) (map? items))
+                               [ik item] items]
+                           {:ct ct :ik ik :item item}))
+            ;; Set aside whole because nothing readable was left in them. There is no
+            ;; name to type for these, so only the export and discard below apply.
+            damaged (if (map? plugin)
+                      (vec (for [[ct v] plugin :when (e5/damaged-section? ct v)] ct))
+                      [::whole-source])
+            default-of (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                          [[[ct ik :name] (or (:name item) "")]
+                                           [[ct ik :option-pack] (or (not-empty (:option-pack item))
+                                                                     src-name)]])
+                                        entries))
+            current (merge default-of (select-keys @typed (keys default-of)))
+            edits typed]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
+         (when (seq damaged)
+           [:div.f-s-12.m-t-5.m-b-5
+            (if (= [::whole-source] damaged)
+              "This whole source is damaged: it isn't stored as homebrew content, so it can't be repaired here. "
+              (str "Damaged: the " (s/join ", " (map name damaged))
+                   (if (= 1 (count damaged)) " section isn't" " sections aren't")
+                   " stored as a list of entries, so nothing in "
+                   (if (= 1 (count damaged)) "it" "them") " can be repaired here. "))
+            "Export raw keeps a copy of exactly what is stored; Discard removes it."])
          (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
@@ -9082,6 +9441,9 @@
                ^{:key (str ct "/" ik)}
                [:div.m-t-5.m-b-5
                 [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                (when-let [d (not-empty (str (get-in plugin [ct ik :description])))]
+                  [:div.f-s-12.i.m-t-5 {:style {:opacity 0.8}}
+                   (if (> (count d) 140) (str (subs d 0 140) "…") d)])
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
@@ -9098,10 +9460,11 @@
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
                                 :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
-           [:div.f-s-12.m-t-5 "No entries to repair."])
+           (when (empty? damaged)
+             [:div.f-s-12.m-t-5 "No entries to repair."]))
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
-                                      @edits))
+                                      current))
                ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
                ;; entry's current name is invalid AND repair-name-lead can't
                ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
@@ -9142,6 +9505,55 @@
                           (dispatch [::e5/discard-quarantined-source src-name]))}
              "Discard"]])]))))
 
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- item-name-in
+  "The name of the item any source of `plugins` holds under `k` of type `ct`, else `k`'s name."
+  [plugins ct k]
+  (or (some #(get-in % [ct k :name]) (vals plugins)) (name k)))
+
+(defn repairs-panel
+  "Links a past rename left behind, each with its suggested fix; nothing changes until the author
+   picks. Renders nothing when there are none."
+  []
+  (let [repairs @(subscribe [::e5/suggested-repairs])
+        plugins @(subscribe [::e5/plugins])]
+    (when (seq repairs)
+      [:div.decision-callout
+       [:div
+        [:div
+         [:div.message-title (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+         [:div.message-detail "A rename left these pointing at nothing."]
+         (doall
+          (for [{:keys [source type key name to target to-key] :as r} repairs]
+            ^{:key (str source type key target)}
+            [:div.flex.align-items-c.m-t-5
+             [:div.f-s-14
+              (str (quoted (or name (cljs.core/name key))) " uses "
+                   (quoted (cljs.core/name target))
+                   ", which was renamed. Switch it to "
+                   (quoted (item-name-in plugins to to-key))
+                   ". ")]
+             [:button.link-button.underline.m-l-5 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+         [:div.decision-actions
+          [:button.form-button {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+          [:button.link-button.underline {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]]]])))
+
+(defn pre-fix-copy-line
+  "The kept copy of the library from before it was first tidied, and the way back to it."
+  []
+  (when-let [at @(subscribe [::e5/pre-fix-at])]
+    [:div.decision-callout.quiet
+     [:div
+      [:div.message-title (str "Library tidied on " (.toLocaleDateString (js/Date. at)))]
+      [:div.message-detail "The copy from before is kept, in case you need it."]]
+     [:div.decision-actions
+     [:button.link-button.underline
+      {:on-click #(when (js/confirm "Replace your library with the copy from before it was tidied? Changes made since will be lost.")
+                    (dispatch [::e5/restore-pre-fix-library]))}
+      "Restore that copy"]
+     [:button.link-button.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Discard it"]]]))
+
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
    each source loaded normally; these are preserved, not discarded, so you can fix
@@ -9149,15 +9561,23 @@
   []
   (let [quarantined @(subscribe [::e5/quarantined-plugins])
         n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    :when (map? plugin)
                                     [ct items] plugin
                                     :when (and (qualified-keyword? ct) (map? items))]
-                                (count items)))]
+                                (count items)))
+        n-damaged (reduce + 0 (for [[_ plugin] quarantined]
+                                (if (map? plugin)
+                                  (count (filter (fn [[ct v]] (e5/damaged-section? ct v)) plugin))
+                                  1)))]
     (when (seq quarantined)
       [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+        (str (s/join " and " (cond-> []
+                               (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
+                               (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                           (when (not= 1 n-damaged) "s")))))
              " couldn't load — needs attention")]
        [:div.f-s-12
         "The rest of each source loaded fine. Fix these back in, or export/discard them."]
@@ -9172,6 +9592,8 @@
    []
    [:div
     [quarantine-panel]
+    [repairs-panel]
+    [pre-fix-copy-line]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -9375,6 +9797,7 @@
     (r/with-let [_ (dispatch [:load-account])
                  editing? (r/atom false)
                  new-email (r/atom "")
+                 current-password (r/atom "")
                  confirm-email (r/atom "")]
       (let [current-email @(subscribe [:email])
             pending-email @(subscribe [:pending-email])
@@ -9385,12 +9808,25 @@
                             (registration/bad-email? @new-email))
             emails-dont-match? (and (seq @confirm-email)
                                     (not= @new-email @confirm-email))
-            can-submit? (and (seq @new-email)
+            can-submit? (and (seq @current-password)
+                             (seq @new-email)
                              (not bad-format?)
                              (= @new-email @confirm-email))]
         [content-page
          "My Account"
-         [{:title "Delete Account"
+         [;; No password asked for: somebody who thinks their account is open
+          ;; somewhere they cannot reach should be able to shut it from the
+          ;; session they already hold. It signs THIS one out too, which is why
+          ;; it confirms first.
+          {:title "Sign out everywhere"
+           :icon "sign-out"
+           :on-click #(dispatch
+                       [:show-confirmation
+                        {:confirm-button-text "SIGN OUT EVERYWHERE"
+                         :question (str "Sign out of every device, including this one? "
+                                        "You will need to sign in again. Your password does not change.")
+                         :event [:withdraw-sessions]}])}
+          {:title "Delete Account"
            :icon "trash"
            :on-click #(dispatch
                       [:show-confirmation
@@ -9412,6 +9848,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change again"]]
 
@@ -9432,16 +9869,25 @@
                 :on-change #(reset! confirm-email (event-value %))}]
               (when emails-dont-match?
                 [:div.m-t-5.red "Email addresses don't match"])
+              ;; Re-entering the password here proves the account holder, not just
+              ;; the session, before moving the account to another address.
+              ;; See account-flows.md.
+              [:input.input.m-t-5
+               {:type :password
+                :value @current-password
+                :placeholder "Your current password"
+                :on-change #(reset! current-password (event-value %))}]
               [:div.m-t-5
                [:button.form-button
                 {:disabled (not can-submit?)
                  :on-click #(when can-submit?
-                              (dispatch [:change-email @new-email]))}
+                              (dispatch [:change-email @new-email @current-password]))}
                 "Save"]
                [:button.link-button.m-l-10
                 {:on-click #(do (reset! editing? false)
                                 (reset! new-email "")
                                 (reset! confirm-email "")
+                                (reset! current-password "")
                                 (dispatch [:change-email-clear]))}
                 "Cancel"]]
               (when error
@@ -9454,6 +9900,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change"]
               (when pending-email
@@ -9537,16 +9984,9 @@
 ;; events are set and passed by the individual pages defined below this
 (defn meta-edit-row
   "A quiet `label value change` line that swaps in an input when `change` is clicked.
-
-   The shape plumbing takes on a form: the item's key and its source's key tag are the same kind of
-   thing — an address the app decided, occasionally corrected — so they read the same and sit in the
-   same `.bf-meta` register.
-
-     :value        what to show at rest; nil renders nothing at all
-     :derived?     the value is the app's guess rather than a stored choice, shown muted
-     :placeholder  seeds the input
-     :on-save      called with the raw string typed; blank is the caller's to interpret
-     :help         a line a `?` opens beneath the row"
+   Opts: :label; :value shown at rest (nil renders nothing); :derived? the value is the app's
+   guess, shown muted; :placeholder seeds the input; :on-save gets the raw string typed
+   (blank is the caller's to interpret); :help, a line a `?` opens beneath the row."
   [_]
   (let [editing? (r/atom false)
         draft    (r/atom "")]
@@ -9583,18 +10023,27 @@
    only way an author fixes a key minted from a typo. Renders nothing until the item has one."
   [item save-event]
   (when-let [k (:key item)]
-    [meta-edit-row
-     {:label "key"
-      :value (str k)
-      :placeholder (name k)
-      ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
-      :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]))
+    (let [missing (some (fn [[[src _ ik] m]] (when (and (= src (:option-pack item)) (= ik k)) m))
+                        @(subscribe [::e5/dangling-links]))]
+      [:div
+       [meta-edit-row
+        {:label "key"
+         :value (str k)
+         :placeholder (name k)
+         ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+         :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
+       (when missing
+         [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
+          (str "The saved version uses "
+               (s/join ", " (for [{:keys [to target]} missing]
+                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+               ", which isn't in your library.")])])))
 
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  ;; Draft event is derived from save-event (events/draft-event-for) and registered
-  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  ;; The key row rides the same derivation: builder-drafts already maps the save event to the
-  ;; builder-item sub, so EVERY builder gets it here rather than each wiring its own.
+  ;; The draft event and the builder-item sub are both derived from save-event
+  ;; (events/draft-event-for, events/builder-drafts), so the Export-draft hatch and the
+  ;; key row reach every builder unwired.
   (let [export-draft-event (events/draft-event-for save-event)
         [item-sub] (get events/builder-drafts save-event)
         item       (when item-sub @(subscribe [item-sub]))]
@@ -9645,7 +10094,7 @@
           :on-click (delete-item-handler item-key)})
        (if owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler [::mi/edit-custom-item item])})])
      [:div.p-10.main-text-color
       [item-component item]]]))
@@ -9683,13 +10132,9 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      ;; NOT "Save to Browser Storage", which is what every other
-                      ;; builder's button says and does. A magic item is saved to
-                      ;; the database like a character is: ::mi/save-item posts to
-                      ;; /dnd/5e/items with an auth header, so the label was
-                      ;; promising local storage while requiring an account, and a
-                      ;; logged-out click landed on the login page having said
-                      ;; nothing about needing one.
+                      ;; Not "Save to Browser Storage": a magic item is saved to the
+                      ;; server like a character (::mi/save-item posts to /dnd/5e/items
+                      ;; with an auth header), so saving needs an account.
                       {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
@@ -9768,8 +10213,8 @@
         current-folder-id (get char-folder-map id)]
     [:div
      {:style character-display-style}
-     [:div.flex.justify-cont-end.uppercase.align-items-c
-      [integrations/share-link-www id]
+     [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
+      [integrations/share-copy-button id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
@@ -10226,7 +10671,9 @@
                          [:div.main-text-color.item-list-item
                           [:div.pointer
                            [:div.flex.justify-cont-s-b.align-items-c
-                            {:on-click #(swap! expanded-characters update-in [id character-id] not)}
+                            {:on-click #(do (when-let [token (and (not expanded?) (:orcpub.party-share/token summary))]
+                                              (dispatch [::party/load-shared-homebrew character-id token]))
+                                            (swap! expanded-characters update-in [id character-id] not))}
                             [:div.m-l-10.flex.align-items-c
                              [:div.f-s-24.f-w-600
                               [:div.list-character-summary

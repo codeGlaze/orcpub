@@ -29,9 +29,10 @@
 
    Nothing here faces the web: no admin page, no invite endpoint. The only
    inputs are the deployment's own config and an email the owner confirmed."
-  (:require [clojure.string :as s]
+  (:require [orcpub.reset-key :as reset-key]
+            [clojure.string :as s]
             [datomic.api :as d]
-            [environ.core :refer [env]]
+            [orcpub.env :as env]
             [cheshire.core :as cheshire]
             [buddy.hashers :as hashers]
             [com.stuartsierra.component :as component]
@@ -78,7 +79,7 @@
 (defn configured
   "This deployment's artist-account config."
   []
-  (parse-config (not-empty (or (env :portrait-artists) (System/getenv "PORTRAIT_ARTISTS")))))
+  (parse-config (env/value :portrait-artists)))
 
 ;; ---------------------------------------------------------------------------
 ;; Lookups
@@ -186,7 +187,8 @@
                       :orcpub.user/verified? false
                       :orcpub.user/created now
                       :orcpub.user/artist artist-id
-                      :orcpub.user/password-reset-key reset-key
+                      ;; the digest: the reset form looks keys up by it
+                      :orcpub.user/password-reset-key (reset-key/digest reset-key)
                       :orcpub.user/password-reset-sent now
                       :orcpub.user/password-reset-expires expires}
                name-enc (assoc :orcpub.user/preferred-name name-enc))]

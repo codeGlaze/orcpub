@@ -1,68 +1,9 @@
 (ns orcpub.time
-  "Date/Time utilities providing clj-time-compatible readable syntax.
-   
-   =============================================================================
-   MIGRATION NOTES
-   =============================================================================
-   
-   This namespace provides helper functions to preserve clj-time's readable
-   threading syntax after migrating from clj-time 0.15.0 to clojure.java-time
-   1.4.2 (January 2026).
-   
-   clj-time (built on Joda-Time) is no longer maintained. clojure.java-time
-   wraps java.time (JSR-310), the modern Java date/time API.
-   
-   WHAT THIS NAMESPACE PROVIDES:
-   
-   Duration constructors (for use with threading macros):
-     - (seconds n)  → java.time.Duration
-     - (minutes n)  → java.time.Duration  
-     - (hours n)    → java.time.Duration
-     - (millis n)   → java.time.Duration
-     - (days n)     → java.time.Duration
-   
-   Relative time functions:
-     - (ago duration)      → java.time.Instant (past)
-     - (from-now duration) → java.time.Instant (future)
-     - (now)               → java.time.Instant (current)
-   
-   Comparison functions:
-     - (before? a b) → boolean
-     - (after? a b)  → boolean
-   
-   USAGE EXAMPLES:
-   
-     ;; Get an instant 1 minute in the past
-     (-> 1 minutes ago)
-     
-     ;; Get an instant 24 hours in the future
-     (-> 24 hours from-now)
-     
-     ;; Get an instant 30 seconds ago
-     (-> 30 seconds ago)
-     
-     ;; Current instant
-     (now)
-     
-     ;; Check if timestamp is older than 24 hours
-     (before? (instant some-date) (-> 24 hours ago))
-   
-   HOW IT WORKS:
-   
-     1. (minutes 1) returns a java.time.Duration of 1 minute
-     2. (ago duration) subtracts that duration from the current instant
-     3. The threading macro (-> 1 minutes ago) chains: 1 → (minutes 1) → (ago ...)
-   
-   FUTURE CONSIDERATION:
-   
-   If cross-platform (CLJ + CLJS) date/time code is needed, consider migrating
-   to cljc.java-time or juxt/tick, which work in both environments. Currently:
-     - Server (src/clj): Uses this namespace (clojure.java-time)
-     - Client (src/cljs): Uses cljs-time (stale but functional)
-   
-   See UPGRADE_PLAN.md for full migration details.
-   =============================================================================
-   "
+  "Date/time helpers over java.time (clojure.java-time) with clj-time's readable threading
+   syntax, e.g. (-> 1 minutes ago), (-> 24 hours from-now).
+   Durations: seconds minutes hours millis days. Instants: now ago from-now instant.
+   Comparison and arithmetic: before? after? plus minus. Server only; the client uses
+   cljs-time. Migration details: UPGRADE_PLAN.md."
   (:require [java-time.api :as t]))
 
 ;; =============================================================================
@@ -132,13 +73,9 @@
 ;; =============================================================================
 
 (defn instant
-  "Coerces a value to a java.time.Instant.
-   - If no argument, returns current instant (same as `now`)
-   - If given a java.util.Date, converts it
-   - If given an Instant, returns it unchanged
-   - If given a long (epoch millis), converts it
-   
-   Useful for comparing dates from Datomic (which returns java.util.Date)."
+  "Coerces a value to a java.time.Instant. With no argument, the current instant (as `now`);
+   a java.util.Date (what Datomic returns) or epoch-millis long is converted; an Instant is
+   returned unchanged."
   ([]
    (t/instant))
   ([x]

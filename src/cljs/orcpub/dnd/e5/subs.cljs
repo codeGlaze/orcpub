@@ -1,6 +1,5 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
-            [re-frame.db]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -29,7 +28,9 @@
             [orcpub.dnd.e5.compute :as compute]
             [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.route-map :as routes]
+            [orcpub.user-agent :as user-agent]
             [clojure.string :as s]
             [reagent.ratom :as ra]
             [cljs.core.async :refer [<!]]
@@ -72,12 +73,50 @@
    (get db :srd-message-closed? false)))
 
 (reg-sub
+ :registration-server-errors
+ (fn [db [_]]
+   (get db :registration-server-errors)))
+
+(reg-sub
+ :password-reset-server-errors
+ (fn [db [_]]
+   (get db :password-reset-server-errors)))
+
+(reg-sub
  :registration-validation
  :<- [:registration-form]
  :<- [:email-taken?]
  :<- [:username-taken?]
- (fn [args [_]]
-   (apply registration/validate-registration args)))
+ :<- [:registration-server-errors]
+ (fn [[form email-taken? username-taken? server] [_]]
+   ;; Merged per field, so a server objection sits alongside anything the form
+   ;; found rather than replacing it.
+   (merge-with (comp vec distinct concat)
+               (registration/validate-registration form email-taken? username-taken?)
+               ;; :general is excluded: the submit button disables while this map has
+               ;; anything in it, and a rate limit here would leave it stuck forever.
+               ;; :password-common is excluded too -- it's the meter's verdict already,
+               ;; not a field fault. See account-flows.md.
+               (dissoc (or server {}) :general :password-common))))
+
+(reg-sub
+ :registration-attempted?
+ (fn [db [_]]
+   (get db :registration-attempted? false)))
+
+(reg-sub
+ :registration-notice
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (:general server)))
+
+;; The corpus verdict, for the meter. Only the server can reach the corpus, so
+;; this is the one thing the meter cannot work out for itself.
+(reg-sub
+ :registration-password-common
+ :<- [:registration-server-errors]
+ (fn [server [_]]
+   (first (:password-common server))))
 
 (reg-sub
  :temp-email
@@ -352,6 +391,11 @@
    (:email-change-sent? db)))
 
 (reg-sub
+ :sessions-withdraw-error
+ (fn [db [_]]
+   (:sessions-withdraw-error db)))
+
+(reg-sub
  :email-change-error
  (fn [db _]
    (:email-change-error db)))
@@ -410,13 +454,10 @@
                            t @tmpl-sub]
                        (reset! built-from [c t])
                        (reset! result (built-character c t))))
-        ;; Both inputs are derived from app-db, so ONE interaction dirties both
-        ;; and this watch fires twice — but reagent updates them one at a time.
-        ;; Building on the first notification therefore paired the NEW character
-        ;; with the OLD template, and the corrected result only arrived from the
-        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
-        ;; settle first: one build, from values that agree. Still same-frame, so
-        ;; "dropdown changes compute instantly" is preserved.
+        ;; Both inputs derive from app-db, so one interaction dirties both and this watch fires
+        ;; twice, one input at a time. Building on the first notice would pair the new character
+        ;; with the old template; coalescing to a microtask builds once, from values that agree,
+        ;; still within the same frame.
         pending    (atom false)
         disposed?  (atom false)
         settled    (fn []
@@ -495,10 +536,7 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-;; API-backed subscriptions — use reg-api-sub for consistent guard, loading
-;; counter, auth headers, and handle-api-response wrapping. See
-;; orcpub.dnd.e5.api-subs for the HOF definition and the anti-pattern
-;; it replaces.
+;; Subscriptions that load from the server; see orcpub.dnd.e5.api-subs.
 
 (reg-api-sub
  {:sub-key    ::char5e/characters
@@ -512,44 +550,20 @@
 (reg-api-sub
  {:sub-key    ::party5e/parties
   :route      routes/dnd-e5-char-parties-route
-  ;; NB: db-key is ::char5e/parties (historical naming, set by
-  ;; ::party5e/set-parties event handler). Do not "fix" to ::party5e/parties
-  ;; without also updating set-parties and its callers.
+  ;; The list lives under ::char5e/parties, where ::party5e/set-parties writes it; rename both
+  ;; together.
   :db-key     ::char5e/parties
   :set-event  ::party5e/set-parties
   :on-401     (fn [[_ login-optional?]]
                 (when-not login-optional? (dispatch [:route-to-login])))
   :context    "fetch parties"})
 
-;; :user sub helpers — extracted as named fns so the compound on-401
-;; logic (clear login state + conditionally bounce to login) is unit-
-;; testable. See subs-test.cljs for the regression tests that pin this
-;; behavior in place across the P5 reg-api-sub migration.
-
-(defn user-sub-on-401-actions
-  "Pure: returns the sequence of dispatch vectors the :user sub's 401
-   handler would produce, given the current `:user-data` map and the
-   subscription query-v.
-
-   Always clears the login credentials (via `:set-user-data` with
-   `:user-data` and `:token` dissoced — preserves `:theme` and any
-   other non-login fields). Additionally bounces to the login route
-   when the subscription was invoked with `required?` true.
-
-   Split from the side-effecting `user-sub-on-401` so tests can
-   assert on the action sequence without stubbing dispatch."
-  [user-data-map [_ required?]]
-  (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
-    required? (conj [:route-to-login])))
 
 (defn user-sub-on-401
-  "Side-effecting: dispatches the actions produced by
-   `user-sub-on-401-actions` against the current re-frame.db/app-db."
-  [query-v]
-  (doseq [action (user-sub-on-401-actions
-                  (:user-data @re-frame.db/app-db)
-                  query-v)]
-    (dispatch action)))
+  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
+   when the caller flagged the request as required."
+  [[_ required?]]
+  (when required? (dispatch [:route-to-login])))
 
 (defn user-sub-on-500
   "Conditional 500 handler for the :user sub: bounces to the generic
@@ -561,11 +575,8 @@
  {:sub-key    :user
   :route      routes/user-route
   :db-key     :user
-  ;; No :set-event / :on-success — the :user sub is fire-and-forget
-  ;; in the current design (the response is discarded on 200). Preserved
-  ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
-  ;; dead-storage cleanup follow-up in the investigation notes for
-  ;; context on why this is intentional today.
+  ;; The response is not stored. db :user holds only the :following list that :follow-user and
+  ;; :unfollow-user build locally.
   :on-401     user-sub-on-401
   :on-500     user-sub-on-500
   :context    "fetch user"})
@@ -639,6 +650,15 @@
    (get character-map id)))
 
 
+(reg-sub
+ ::content-recon/former-key-indexes
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-keys]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered offered-by-type] _]
+   (content-recon/former-key-indexes plugins offered offered-by-type)))
+
+;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
@@ -652,26 +672,27 @@
               (handle-api-response response
                 #(let [body (:body response)]
                    (if (http/decode-failed? body)
-                     ;; Response was unreadable even after self-heal: don't feed
-                     ;; the marker to from-strict (that silently builds a blank
-                     ;; default character). Flag the load as failed so the
-                     ;; character page renders an in-place recovery panel
-                     ;; (delete / go to list) instead of a blank sheet.
+                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                     ;; would silently build a blank default character.
                      (dispatch [::char5e/set-character-load-error int-id body])
                      (do (dispatch [::char5e/set-character-load-error int-id nil])
+                         ;; Before the character, so its first build already has them.
+                         (dispatch [::mi5e/set-character-custom-items int-id
+                                    (::char5e/custom-items body) (::se/owner body)])
                          (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
          (if int-id
-           (get-in @app-db [::char5e/character-map int-id] {})
+           (:character (content-recon/reconcile-former-keys
+                       (get-in @app-db [::char5e/character-map int-id] {})
+                       @(subscribe [::content-recon/former-key-indexes])))
            (get @app-db :character)))))))
 
-;; Records that a character's server response could not be decoded even after
-;; self-heal; the character page reads it to show an in-place recovery panel
-;; (with a copyable diagnostic report) instead of a blank sheet. `marker` is the
-;; http-safe decode-error map (carries the raw body + reader error); nil clears
-;; it on a subsequent successful load.
+;; Records that a character's server response could not be decoded even after self-heal; the
+;; character page shows an in-place recovery panel with a copyable report instead of a blank
+;; sheet. `marker` is the http-safe decode-error map (raw body + reader error); nil clears it.
 (reg-event-db
  ::char5e/set-character-load-error
  (fn [db [_ id marker]]
@@ -782,10 +803,25 @@
  (fn [db _]
    (:message-type db)))
 
+;; What the device says it is. For what the device can do (a keyboard for
+;; ctrl+click), not for layout.
 (reg-sub
- :device-type
+ :ua-device-type
  (fn [db _]
    (:device-type db)))
+
+;; The layout to draw, which follows the window width. Every view keys off this.
+(reg-sub
+ :narrow-screen?
+ (fn [db _]
+   (:narrow-screen? db)))
+
+(reg-sub
+ :device-type
+ :<- [:ua-device-type]
+ :<- [:narrow-screen?]
+ (fn [[device narrow?] _]
+   (user-agent/layout-type device narrow?)))
 
 (reg-sub
  :mobile?
@@ -1120,20 +1156,10 @@
    (common/aloof-sort-by :name spells)))
 
 (defn reg-filtered-sub
-  "Register a reactively-filtered sub composing a sorted input and a
-   text-filter input.
-
-   When `filter-text` is absent or shorter than `min-length`, returns
-   the sorted input unchanged. Otherwise calls `filter-fn filter-text
-   sorted` to produce the filtered slice.
-
-   This replaced a `(or (::key db) sorted)` pattern where the filter
-   event handler computed a snapshot and wrote it to db, freezing the
-   list from that point forward — breaking reactivity whenever the
-   underlying data changed (#669). The reactive composition here
-   recomputes automatically when either input changes and re-frame's
-   sub memoization keeps the per-keystroke cost low: the upstream
-   sorted-sub is cached, so only the filter step re-runs."
+  "Registers `sub-key` composing `sorted-sub-vec` and `text-filter-sub-vec`: the sorted input
+   unchanged when the filter text is absent or shorter than `min-length`, else
+   `(filter-fn filter-text sorted)`. Recomputes whenever either input changes; per keystroke only
+   the filter step re-runs, since the sorted sub is cached."
   [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
   (reg-sub sub-key
     (fn [_ _]
@@ -1270,6 +1296,11 @@
  :theme
  (fn [db _]
    (get-in db [:user-data :theme])))
+
+(reg-sub
+ :dark-button-text?
+ (fn [db _]
+   (boolean (get-in db [:user-data :dark-button-text?]))))
 
 (reg-sub
  ::show-class-source-suffix
@@ -1572,6 +1603,14 @@
    (get db ::char5e/print-character-sheet-style?)))
 
 (reg-sub
+ ::char5e/spellbook-options
+ ;; The spellbook export options; pdf-spec fills in their defaults. :print-spellbook? is
+ ;; false until ticked.
+ (fn [db _]
+   (assoc (get db ::char5e/spellbook-options)
+          :print-spellbook? (boolean (::char5e/print-spellbook? db)))))
+
+(reg-sub
  ::char5e/spell-layout
  (fn [db _]
    (get db ::char5e/spell-layout)))
@@ -1702,13 +1741,62 @@
     :feats feats}))
 
 (reg-sub
+ :orcpub.dnd.e5/repairs-dismissed
+ (fn [db _] (or (:orcpub.dnd.e5/repairs-dismissed db) #{})))
+
+(reg-sub
+ :orcpub.dnd.e5/suggested-repairs
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ :<- [:orcpub.dnd.e5/repairs-dismissed]
+ (fn [[plugins offered dismissed] _]
+   (vec (remove #(contains? dismissed ((juxt :source :type :key :link :target) %))
+                (library/suggested-repairs plugins offered)))))
+
+(reg-sub
+ :orcpub.dnd.e5/pre-fix-at
+ (fn [db _] (:orcpub.dnd.e5/pre-fix-at db)))
+
+(reg-sub
+ :orcpub.dnd.e5/dangling-links
+ :<- [:orcpub.dnd.e5/plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[plugins offered] _]
+   (library/dangling plugins offered)))
+
+(reg-sub
+ ::content-recon/offered-keys
+ (fn [db _]
+   (::content-recon/offered-keys db)))
+
+(reg-sub
+ ::content-recon/offered-by-type
+ (fn [db _]
+   (::content-recon/offered-by-type db)))
+
+(reg-sub
+ :orcpub.dnd.e5/relink-question
+ (fn [db _]
+   (let [q (:orcpub.dnd.e5/relink-question db)]
+     (when (and q (= (:character-id q) (get-in db [:character :db/id]))) q))))
+
+(reg-sub
+ ::content-recon/choice-tags
+ (fn [db _]
+   (::content-recon/choice-tags db)))
+
+(reg-sub
  ::char5e/missing-content-report
  (fn [_]
    [(subscribe [:character])
-    (subscribe [::char5e/available-content])])
- (fn [[character available-content]]
+    (subscribe [::char5e/available-content])
+    (subscribe [::content-recon/offered-keys])
+    (subscribe [::content-recon/choice-tags])
+    (subscribe [::content-recon/offered-by-type])])
+ (fn [[character available-content offered choice-tags offered-by-type]]
    (when character
-     (content-recon/generate-missing-content-report character available-content))))
+     (content-recon/generate-missing-content-report character available-content offered choice-tags
+                                                    offered-by-type))))
 
 (reg-sub
  ::char5e/has-missing-content?

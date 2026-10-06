@@ -1,3 +1,4 @@
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Can you BROWSE the combobox, or only search it?
 //
 // Characterization + A/B. Opens the largest inventory section, then asks:
@@ -9,14 +10,8 @@
 // Run: node test/browser/combobox_scroll_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-  return path.join(b, d, 'chrome-linux', 'chrome');
-}
 
 const OBSERVE = `
   window.__long = [];

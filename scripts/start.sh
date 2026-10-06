@@ -174,7 +174,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     echo -n "Leiningen: "
@@ -182,7 +182,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     # Target-specific checks
@@ -193,7 +193,7 @@ run_checks() {
                 echo -e "${GREEN}OK${NC}"
             else
                 echo -e "${RED}FAILED${NC}"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic config: "
@@ -209,7 +209,7 @@ run_checks() {
                 fi
             else
                 echo -e "${RED}FAILED${NC} (no config or template)"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic port ($DATOMIC_PORT): "
@@ -264,6 +264,9 @@ run_checks() {
             fi
             ;;
     esac
+
+    echo ""
+    print_env_config
 
     echo ""
     if [[ $failed -gt 0 ]]; then
@@ -406,13 +409,19 @@ start_server() {
     cd "$REPO_ROOT"
 
     # Use headless mode if not running interactively (background/nohup)
-    if [[ -t 0 ]]; then
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
         log_info "Starting REPL with server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl
+        lein with-profile +dev,+start-server repl || rc=$?
     else
         log_info "Starting headless server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl :headless
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
     fi
+    # The REPL held the terminal until now; this is the first chance to explain
+    # a bind failure, and the only place the reserved-port case is visible.
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 start_figwheel() {
@@ -431,6 +440,8 @@ start_figwheel() {
 
     # Clean up stale PID file
     cleanup_stale_pid "figwheel"
+
+    confirm_dev_mode || exit $EXIT_SUCCESS
 
     # ── Remote dev environment detection ──────────────────────────────
     # Figwheel's default connect URL (ws://localhost:PORT) only works when
@@ -519,7 +530,7 @@ start_garden() {
             show_startup_failure "garden" "$LOG_DIR/garden.log" ""
             exit $EXIT_RUNTIME
         fi
-        ((checks++))
+        checks=$((checks + 1))
     done
     log_info "Garden is running"
 }
@@ -628,7 +639,15 @@ start_all() {
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
     cd "$REPO_ROOT"
-    lein with-profile +dev,+start-server repl
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
+        lein with-profile +dev,+start-server repl || rc=$?
+    else
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
+    fi
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 # -----------------------------------------------------------------------------
@@ -766,6 +785,24 @@ main() {
         run_checks "$target"
         exit $?
     fi
+
+    # First-run .env offer. A prompt is read; a banner is not -- so this is the
+    # one interactive thing that happens before startup.
+    #
+    # It goes HERE, below every non-startup branch, not above them: `help`,
+    # `--install` and `--check` are not requests to start a server, and none of
+    # them should stop to ask whether to write a file. (`--help` already exits
+    # during argument parsing.) It used to sit above all three.
+    #
+    # Return 10 means the file was written. Stop there rather than start: .env
+    # was sourced before it existed, so the answers just given are not in this
+    # shell and the server would launch on the configuration the user was asked
+    # about and answered.
+    offer_env_file || {
+        rc=$?
+        [[ $rc -eq 10 ]] && exit $EXIT_SUCCESS
+        exit $rc
+    }
 
     # Check prerequisites for runtime targets
     check_java || exit $EXIT_PREREQ

@@ -1,7 +1,8 @@
 (ns orcpub.config
-  (:require [environ.core :refer [env]]
+  (:require [orcpub.env :as env]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import [java.util Locale]))
 
 (def default-datomic-uri "datomic:dev://localhost:4334/orcpub")
 
@@ -14,19 +15,11 @@
       (not-empty (str/trim (slurp f))))))
 
 (defn redact-secrets
-  "Blank out credentials in a connection string so it can be logged.
-
-   A Datomic SQL URI carries the database password in plain sight:
-
-     datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
-
-   Handles both shapes a credential arrives in -- a `password=`/`secret=`/`token=`
-   query parameter, and `scheme://user:pass@host` userinfo. Anything else is returned
-   unchanged, so a `datomic:mem://orcpub` or `datomic:dev://localhost:4334/orcpub`
-   still reads normally in the log.
-
-   Redacting is not the same as being safe to print: only call this on values that are
-   meant to be seen, and never widen what is logged because it is redacted."
+  "Blank out credentials in a connection string so it can be logged; nil for nil.
+   Redacts a `password=`/`secret=`/`token=`-style query parameter and `scheme://user:pass@host`
+   userinfo; anything else is returned unchanged.
+   GOTCHA: redacted is not safe to print. Call it only on values meant to be seen, and never
+   widen what is logged because it is redacted."
   [s]
   (when s
     (-> (str s)
@@ -34,42 +27,34 @@
         (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
 
 (defn datomic-env
-  "Return the raw DATOMIC_URL environment value or nil if unset." []
-  (or (env :datomic-url)
-      (some-> (System/getenv "DATOMIC_URL") not-empty)))
+  "Return the raw DATOMIC_URL environment value or nil if unset or blank." []
+  (env/value :datomic-url))
 
 (defn datomic-password
   "Return DATOMIC_PASSWORD from Docker secret, env var, or nil.
   Resolution order: /run/secrets/datomic_password > DATOMIC_PASSWORD env var." []
   (or (read-secret "datomic_password")
-      (env :datomic-password)
-      (some-> (System/getenv "DATOMIC_PASSWORD") not-empty)))
+      (env/value :datomic-password)))
 
 (defn signature
   "Return SIGNATURE from Docker secret, env var, or nil.
   Resolution order: /run/secrets/signature > SIGNATURE env var." []
   (or (read-secret "signature")
-      (env :signature)
-      (some-> (System/getenv "SIGNATURE") not-empty)))
+      (env/value :signature)))
 
 (defn profile-encryption-keys
   "Return PROFILE_ENCRYPTION_KEYS from Docker secret, env var, or nil.
   Resolution order: /run/secrets/profile_encryption_keys > PROFILE_ENCRYPTION_KEYS.
   Format and use: orcpub.crypto." []
   (or (read-secret "profile_encryption_keys")
-      (env :profile-encryption-keys)
-      (some-> (System/getenv "PROFILE_ENCRYPTION_KEYS") not-empty)))
+      (env/value :profile-encryption-keys)))
 
 (defn get-datomic-uri
-  "Return the Datomic URI from the environment or the default.
+  "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
+  default datomic:dev://localhost:4334/orcpub.
 
-  Prefers the raw env value (from `datomic-env`), otherwise returns a safe
-  local development default (datomic:dev://localhost:4334/orcpub).
-
-  If the URL does not contain a ?password= parameter and DATOMIC_PASSWORD
-  is set, appends it automatically. This allows admins to keep the password
-  out of DATOMIC_URL (e.g. for Docker secrets) while remaining backward
-  compatible with URLs that embed the password."
+  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `?password=<pw>`, so
+  the password can be kept out of DATOMIC_URL (e.g. in a Docker secret)."
   []
   (let [url (or (datomic-env) default-datomic-uri)
         pw  (datomic-password)]
@@ -77,8 +62,7 @@
       (str url "?password=" pw)
       url)))
 
-;; Content Security Policy configuration
-;; CSP_POLICY environment variable options:
+;; CSP_POLICY options (read by `get-csp-policy`):
 ;;   - "strict"     : Nonce-based CSP with 'strict-dynamic' (default, maximum security)
 ;;   - "permissive" : Allows same-origin scripts without strict-dynamic (legacy fallback)
 ;;   - "none"       : Disables CSP entirely (not recommended for production)
@@ -96,17 +80,21 @@
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
   []
-  (let [policy (or (env :csp-policy)
-                   (System/getenv "CSP_POLICY")
-                   "strict")]
-    (str/lower-case policy)))
+  ;; Blank means unset, so an empty CSP_POLICY is "strict", not the permissive fallback.
+  (let [policy (env/value :csp-policy "strict")]
+    ;; Locale/ROOT, not str/lower-case: this is an ASCII config token, not
+    ;; prose. str/lower-case folds using the default locale, so on a Turkish
+    ;; machine "STRICT" becomes "strıct" (dotless i), misses every comparison
+    ;; below, and silently falls through to the permissive policy.
+    (.toLowerCase ^String policy Locale/ROOT)))
 
 (defn- env-raw
-  "The raw string for an env var name, from environ or the process environment, or nil.
-   One implementation so \"is it set?\" and \"what is it?\" can never disagree."
+  "The string for an env var name, from environ or the process environment; nil when unset or
+   blank (orcpub.env/value). One implementation so \"is it set?\" and \"what is it?\" can never
+   disagree."
   [n]
-  (not-empty (or (env (keyword (str/lower-case (str/replace n "_" "-"))))
-                 (System/getenv n))))
+  (or (env/value (keyword (.toLowerCase (str/replace n "_" "-") Locale/ROOT)))
+      (some-> (System/getenv n) str/trim not-empty)))
 
 (defn- positive-int-env
   "Reads `names` in order and returns the first that parses as a positive
@@ -139,27 +127,18 @@
 
 (defn get-pdf-concurrency
   "How many character sheets may be generated at once, from ORCPUB_PDF_CONCURRENCY.
+   Defaults to twice the core count, minimum eight.
 
-   Bounded separately from the HTTP pool so a rush of exports cannot take the
-   whole site down with it: requests past this limit wait for a slot, and the
-   pages, logins and saves keep their own workers.
-
-   Sizing: an export in flight holds roughly 11 MB of heap, so the ceiling is
-   about (usable heap - 100 MB) / 11 MB. Throughput is bounded by cores, not by
-   this number -- raising it past what the cores can chew through lengthens the
-   queue without shortening the wait. Defaults to twice the core count, minimum
-   eight."
+   Separate from the HTTP pool: exports past this limit wait for a slot while pages, logins
+   and saves keep their own workers. Sizing against the heap: docs/PDF-EXPORT-CAPACITY.md."
   []
   (positive-int-env ["ORCPUB_PDF_CONCURRENCY"] (max 8 (* 2 @available-processors))))
 
 (defn get-pdf-max-caster-sections
-  "Most spellcasting sections one sheet may be grown to, from
-   ORCPUB_PDF_MAX_CASTER_SECTIONS.
-
-   The caster count comes from the field NAMES in the request -- the largest N in
-   spellcasting-class-N -- so without a ceiling a body of a few dozen bytes can
-   ask for thousands of cloned pages at about 14 MB each. Thirteen is every class
-   in the game, which no character can exceed."
+  "Most spellcasting sections one sheet may be grown to, from ORCPUB_PDF_MAX_CASTER_SECTIONS.
+   Defaults to 13, every class in the game.
+   GOTCHA: the count comes from the field NAMES in the request (the largest N in
+   spellcasting-class-N), so without a ceiling a tiny body can ask for thousands of pages."
   []
   (positive-int-env ["ORCPUB_PDF_MAX_CASTER_SECTIONS"] 13))
 
@@ -174,16 +153,10 @@
 
 (defn get-pdf-max-cards
   "Most cards of one kind a single export will print, from ORCPUB_PDF_MAX_CARDS.
-
-   Whole sheets: 22 pages of nine. The caller says how many cards it wants, so without a cap
-   an export is only as bounded as the request body -- a 2 MB body holds about 60,000 spell
-   entries, some 13,000 pages, and a quarter of an hour holding an export slot.
-
-   198 is far past any real character; a level 20 wizard's spellbook is about 44. It was 200,
-   which is 22 sheets plus two cards on a twenty-third -- a ragged last page for no reason,
-   since nothing about the limit wanted a round decimal number.
-
-   Counted per KIND, so spells, items and features are each bounded separately."
+   Defaults to 22 whole sheets (198). Counted per KIND, so spells, items and features are
+   each bounded separately.
+   GOTCHA: the caller says how many cards it wants, so without a cap an export is only as
+   bounded as the request body. Sizing: docs/PDF-EXPORT-CAPACITY.md."
   []
   (positive-int-env ["ORCPUB_PDF_MAX_CARDS"] (* 22 cards-per-page)))
 
@@ -209,18 +182,19 @@
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
    must compare against the string \"true\" explicitly."
   []
-  (= "true" (str/lower-case (or (env :dev-mode) ""))))
+  ;; equalsIgnoreCase compares per character rather than by locale casing
+  ;; rules, so it is immune to the Turkish-I problem described above. Note the
+  ;; receiver order: the literal is first so a nil env var returns false
+  ;; instead of throwing.
+  (env/flag? :dev-mode))
 
 (defn strict-csp?
-  "Returns true when CSP_POLICY=strict (regardless of dev mode).
-
-   When true, nonce-interceptor generates per-request nonces and adds them
-   to script tags. The header type depends on mode:
-   - Dev mode: Content-Security-Policy-Report-Only (violations logged, not blocked)
-   - Prod mode: Content-Security-Policy (violations blocked)
-
-   This allows catching CSP issues during development while still allowing
-   Figwheel's document.write() scripts to execute."
+  "Returns true when CSP_POLICY=strict, regardless of dev mode.
+   `orcpub.pedestal/make-nonce-interceptor` acts on it only outside dev mode, where it adds
+   per-request nonces and an enforcing Content-Security-Policy header. In dev mode this
+   application sends no CSP at all, which is what lets Figwheel's scripts and websocket work.
+   DEV_MODE defaults to false, so a checkout with no .env enforces CSP and Figwheel's hot reload
+   (ws://localhost:3449) is blocked with no obvious cause; .env.example sets DEV_MODE=true."
   []
   (= "strict" (get-csp-policy)))
 
@@ -257,16 +231,56 @@
    "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
    "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
+(defn get-share-max-upload-kb
+  "Largest compressed homebrew one short share link keeps, in KB, from ORCPUB_SHARE_MAX_UPLOAD_KB.
+
+   Measured 2026-09-13 on the MegaPak: a packed level 20 character's homebrew compresses to 12 to 25 KB,
+   and a wizard holding every subclass and spell in it to 40 KB. Over the cap, the owner's link carries
+   the homebrew itself instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_UPLOAD_KB"] 64))
+
+(defn get-share-max-text-kb
+  "Largest that homebrew may be unpacked, in KB, from ORCPUB_SHARE_MAX_TEXT_KB. The same measurement:
+   34 to 112 KB for a packed level 20 character, 175 KB for the everything wizard. It also bounds what a
+   viewer's browser will unpack."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_TEXT_KB"] 256))
+
+(defn get-share-max-account-kb
+  "Shared homebrew one account keeps across all its characters, in KB, from ORCPUB_SHARE_MAX_ACCOUNT_KB.
+   1024 is about 40 wizard-sized shares; a share over it carries the homebrew in its link instead."
+  []
+  (positive-int-env ["ORCPUB_SHARE_MAX_ACCOUNT_KB"] 1024))
+
+(defn get-share-prune-days
+  "Days a character's share link may go unused while the server runs before the link and its share data
+   are deleted, from ORCPUB_SHARE_PRUNE_DAYS; 0 keeps them. The character itself is never deleted. 180
+   leaves room for a campaign that pauses for a season. 1 to 29 count as 30, so a typo cannot delete
+   links a day old."
+  []
+  (let [n (some-> (env-raw "ORCPUB_SHARE_PRUNE_DAYS") str/trim parse-long)]
+    (cond
+      (or (nil? n) (neg? n)) 180
+      (zero? n)              0
+      :else                  (max n 30))))
+
+(defn pwned-check-enabled?
+  "Whether a new password is screened against Have I Been Pwned, from
+   ORCPUB_PWNED_CHECK; on by default.
+   GOTCHA: fails open on a timeout, so a slow or down HIBP service never blocks
+   signup. Set the env var to off/false/0/no to disable the check entirely.
+   See account-flows.md."
+  []
+  (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
+    (not (contains? #{"off" "false" "0" "no"} raw))))
+
 (def settings
   "Everything the boot banner reports, in print order.
-
-   `:secret?` means the VALUE IS NEVER PRINTED -- only whether it is present. This whole
-   banner exists because a password reached a log; it must not become the next way one does.
-   `:critical?` marks a setting whose absence breaks the site, so it is called out below the
-   table rather than left to be spotted in a row.
-
-   `:get` supplies the resolved value where an accessor exists; without one the raw
-   environment value is shown, which is right for settings that have no default of ours."
+   `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
+   `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
+   `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
+   which is right for settings that have no default of ours."
   (concat
    [{:group "runtime"  :var "PORT"}
     {:group "runtime"  :var "DEV_MODE"      :note "dev-only behaviour and relaxed CORS"}
@@ -303,11 +317,28 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
      :note "spellcasting sections one sheet may grow to"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}]))
+     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
+     :note "compressed share data one share link keeps"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
+     :note "that share data unpacked"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
+     :note "share data one account keeps in all"}
+    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :get #(if (pwned-check-enabled?) "on" "off")
+     :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
+     :expects "on or off"
+     :note "screens a new password against known breaches; fails open, off disables the call"}
+    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
+     :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
+     :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
+
+(defn- positive-int-text? [raw]
+  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+    (boolean (and n (pos? n)))))
 
 (defn report
   "What each setting resolved to, and whether that came from the environment.
@@ -316,16 +347,16 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{:keys [var get secret? redact? critical? note group fix]} settings]
-    (let [raw      (env-raw var)
-          integer? (some? (some #(= var (:var %)) tunables))
-          parsed   (when (and raw integer?)
-                     (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
-          ignored? (boolean (and raw integer? (not (and parsed (pos? parsed)))))
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects]} settings]
+    (let [raw      (env-raw env-var)
+          tunable? (some? (some #(= env-var (:var %)) tunables))
+          ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
+          accepts  (or accepts (when tunable? positive-int-text?))
+          ignored? (boolean (and raw accepts (not (accepts raw))))
           value    (cond secret? nil
-                         get     (get)
+                         getter  (getter)
                          :else   raw)]
-      {:var var :group group :note note :critical? critical? :fix fix
+      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -343,10 +374,10 @@
   ([rows actual]
    (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
          ;; no number at all, so the VALUE column never argues with SOURCE beside it.
-         val    (fn [{:keys [var value secret? set?]}]
+         val    (fn [{env-var :var :keys [value secret? set?]}]
                   (cond secret?          (if set? "set" "NOT SET")
                         value            (str value)
-                        (get actual var) (str (get actual var))
+                        (get actual env-var) (str (get actual env-var))
                         :else            "-"))
          ;; A secret's VALUE column already says set / NOT SET; repeating DEFAULT beside it
          ;; says nothing, and "DEFAULT" next to "NOT SET" reads as though there is a
@@ -367,22 +398,22 @@
       ;; partition-by yields GROUPS OF ROWS, not key/value pairs -- destructuring it as
       ;; [g gr] bound the first row map as the heading and printed the whole record.
       (mapcat (fn [gr]
-                (cons (str "  [" (str/upper-case (or (:group (first gr)) "other")) "]")
+                (cons (str "  [" (.toUpperCase ^String (or (:group (first gr)) "other") Locale/ROOT) "]")
                       (map #(trim (format fmt (:var %) (val %) (source %) (or (:note %) ""))) gr)))
               (partition-by :group rows))
-      [(str "  [BRANDING]")
+      ["  [BRANDING]"
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
-              (for [{:keys [var raw]} bad]
-                (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
-                        var raw))))
+              (for [{env-var :var raw :raw expects :expects} bad]
+                (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
+                        env-var raw (or expects "a positive integer")))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.
       (when-let [miss (seq (filter #(and (:critical? %) (not (:set? %))) rows))]
-        (mapcat (fn [{:keys [var note fix]}]
-                  (let [body (str/split-lines (or fix (str var " is NOT SET -- " (or note "required"))))]
+        (mapcat (fn [{env-var :var :keys [note fix]}]
+                  (let [body (str/split-lines (or fix (str env-var " is NOT SET -- " (or note "required"))))]
                     (cons rule
                           ;; Continuations line up under the first line's text, not under the
                           ;; marker, so the block reads as one paragraph.
@@ -427,7 +458,7 @@
   []
   (cond
     ;; Strict mode - nonce-interceptor handles CSP dynamically
-    ;; (uses Report-Only in dev, enforcing in prod)
+    ;; (enforcing when DEV_MODE is not true; no header at all in dev mode)
     (= "strict" (get-csp-policy))
     {:content-security-policy-settings nil}
 

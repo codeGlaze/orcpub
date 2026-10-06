@@ -198,3 +198,24 @@
       (with-redefs [aa/configured (constantly fuss)]
         (routes/verify {:query-params {:key "k-123"} :db (d/db conn) :conn conn}))
       (is (= :house-pack (artist-of conn "fusspotart"))))))
+
+(deftest a-welcome-link-works-with-hashed-reset-keys
+  ;; Reset keys are stored as a digest and looked up by it; a welcome link
+  ;; written any other way is a link the reset page cannot find. It also has
+  ;; its own week-long expiry, which the two-hour rule must not cut short.
+  (with-conn conn
+    (let [sent (atom nil)
+          notify {:created (fn [m] (reset! sent m)) :upgraded (fn [_]) :unlinked (fn [_])}]
+      (aa/reconcile! conn fuss notify)
+      (let [emailed (:reset-key @sent)
+            u (pull-user conn "fusspot")]
+        (is (string? emailed))
+        (is (not= emailed (:orcpub.user/password-reset-key u)) "the table holds a digest, not the emailed key")
+        (is (= (:db/id u) (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
+                                                        (routes/hash-reset-key emailed))))
+            "the reset page finds the account from the key in the email")
+        (let [three-hours-ago (Date. (- (System/currentTimeMillis) (* 3 3600 1000)))
+              aged (assoc u :orcpub.user/password-reset-sent three-hours-ago)]
+          (is (not (routes/reset-link-expired? aged)) "three hours on, past an ordinary link's two, it still works")
+          (is (routes/reset-link-expired? (dissoc aged :orcpub.user/password-reset-expires))
+              "an ordinary link of the same age has expired"))))))

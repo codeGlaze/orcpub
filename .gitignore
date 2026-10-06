@@ -25,7 +25,9 @@ pom.xml
 # no trailing slash: the e2e tooling is run by symlinking this to a sibling checkout's copy,
 # and a trailing slash matches only a real directory
 /node_modules
-.clj-kondo
+# the linter's cache, not its config: config.edn is tracked and must stay addable
+.clj-kondo/*
+!.clj-kondo/config.edn
 .calva
 .lein-deps-sum
 .lein-repl-history
@@ -52,8 +54,12 @@ deploy/homebrew/*
 branch-sync-plan.md
 dev/test-accounts.edn
 
-# E2E test artifacts
+# E2E test artifacts. Unanchored, because a leading slash pins the pattern to the
+# repo root: /node_modules/ and /e2e/node_modules/ both missed the real one at
+# scripts/e2e/node_modules, and 179 files of it went into a commit.
+node_modules/
 /e2e/node_modules/
+/scripts/e2e/node_modules
 /e2e/playwright-report/
 /e2e/test-results/
 

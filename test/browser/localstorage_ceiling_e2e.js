@@ -1,3 +1,4 @@
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // The real localStorage ceiling, not the "5 MB" folklore.
 //
 // Fills in 64k chunks until the quota throws, with two alphabets: matching ceilings mean
@@ -12,9 +13,10 @@
 //
 // Run: lein e2e-server, then  node test/browser/localstorage_ceiling_e2e.js
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+  const browser = await chromium.launch({ executablePath: findChrome() });
   const page = await browser.newPage();
   await page.goto('http://localhost:8890/dnd/5e/my-content',
                   { waitUntil: 'domcontentloaded', timeout: 120000 });

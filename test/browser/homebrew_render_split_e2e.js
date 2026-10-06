@@ -1,3 +1,5 @@
+// Needs: dev bundle (splits the CPU profile by function name, and a production bundle renames them).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Where a real race click spends its time as homebrew grows.
 // Same real import + real clicks, but the instrument is a 50us CPU profile: it splits a
 // click into the rebuild path (entity/build, kahn-sort, collect-modifiers-2) versus the
@@ -18,8 +20,8 @@
 // the runtime numbers here are usable.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack } = require('./lib/orcbrew-import');
-function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 function agg(profile){
   const byId=new Map(); for(const n of profile.nodes) byId.set(n.id,n);
   const parent=new Map(); for(const n of profile.nodes) for(const c of (n.children||[])) parent.set(c,n.id);

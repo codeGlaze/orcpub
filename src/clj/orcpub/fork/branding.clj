@@ -5,7 +5,7 @@
    Server-side (.clj) is the source of truth. Client-side branding
    is delivered via the config bridge: index.clj injects client-config
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
-  (:require [environ.core :refer [env]]
+  (:require [orcpub.env :as env]
             [cheshire.core :as cheshire]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets])
   (:import [java.time Year]))
@@ -14,54 +14,52 @@
 
 (def app-name
   "Full display name. Used in emails, OG tags, page titles."
-  (or (env :app-name) "OrcPub"))
+  (env/value :app-name "OrcPub"))
 
 (def app-tagline
   "One-line description for OG/meta tags."
-  (or (env :app-tagline)
-      "D&D 5e character builder/generator and digital character sheet far beyond any other in the multiverse."))
+  (env/value :app-tagline "D&D 5e character builder/generator and digital character sheet far beyond any other in the multiverse."))
 
 (def app-url
   "Primary application URL for legal pages and external references. Empty = hidden."
-  (or (env :app-url) ""))
+  (env/value :app-url ""))
 
 (def default-page-title
   "Default <title> and og:title when no page-specific title is set."
-  (or (env :app-page-title)
-      (str app-name ": D&D 5e Character Builder/Generator")))
+  (env/value :app-page-title (str app-name ": D&D 5e Character Builder/Generator")))
 
 ;; ─── Logos & Images ────────────────────────────────────────────────
 
 (def logo-path
   "Path to the main SVG logo (splash page, header, privacy page)."
-  (or (env :app-logo-path) "/image/orcpub-logo.svg"))
+  (env/value :app-logo-path "/image/orcpub-logo.svg"))
 
 (def og-image-filename
   "Filename for the OG meta image (social sharing preview).
    Combined with the request host to form the full URL."
-  (or (env :app-og-image) "/image/orcpub-logo.png"))
+  (env/value :app-og-image "/image/orcpub-logo.png"))
 
 ;; ─── Copyright ─────────────────────────────────────────────────────
 
 (def copyright-holder
   "Entity name shown in legal footer."
-  (or (env :app-copyright-holder) "OrcPub"))
+  (env/value :app-copyright-holder "OrcPub"))
 
 (def copyright-year
   "Copyright year string. Defaults to the current year."
-  (or (env :app-copyright-year) (str (.getValue (Year/now)))))
+  (env/value :app-copyright-year (str (.getValue (Year/now)))))
 
 ;; ─── Email ─────────────────────────────────────────────────────────
 
 (def email-sender-name
   "Display name for outbound emails (verification, password reset)."
-  (or (env :app-email-sender-name) (str app-name " Team")))
+  (env/value :app-email-sender-name (str app-name " Team")))
 
 (def email-signoff
   "Who the warmer emails (the artist welcome) are signed from. Defaults to
    'The <sender name>'; a small team may prefer something personal, e.g.
    'both of us at OrcPub'."
-  (or (not-empty (env :app-email-signoff)) (str "The " email-sender-name)))
+  (env/value :app-email-signoff (str "The " email-sender-name)))
 
 (def email-from-address
   "From address for outbound emails (verification, password reset, reports).
@@ -70,21 +68,21 @@
    mail will be rejected. The fallback is an RFC-2606 reserved placeholder — it
    is intentionally non-deliverable so a misconfigured instance fails loudly
    instead of silently sending from a real domain it does not own."
-  (or (env :email-from-address) "no-reply@example.com"))
+  (env/value :email-from-address "no-reply@example.com"))
 
 (def email-configured?
   "Whether outbound email can actually be sent — true only when the operator has
    set a real from-address (not the placeholder). Email-dependent features
    should check this and degrade gracefully (e.g. hide a 'send' button, keep the
    copyable fallback) rather than attempt a doomed send."
-  (let [from (or (env :email-from-address) "")]
+  (let [from (env/value :email-from-address "")]
     (and (seq from) (not= from "no-reply@example.com"))))
 
 ;; ─── Support & Help ──────────────────────────────────────────────
 
 (def support-email
   "Contact email shown on privacy page, error messages, etc. Empty = hidden."
-  (or (env :app-support-email) ""))
+  (env/value :app-support-email ""))
 
 (def report-recipient
   "Where user-submitted 'character won't load' reports are emailed. Prefers the
@@ -92,32 +90,31 @@
    (EMAIL_ERRORS_TO) that the app's error notifications already use — so an operator
    who has configured error reporting needs no new setting. Empty (neither set) =
    reports can't send and the UI offers the copyable report instead."
-  (if (seq support-email) support-email (or (env :email-errors-to) "")))
+  (if (seq support-email) support-email (env/value :email-errors-to "")))
 
 (def help-url
   "URL for the help/FAQ page. Empty string = hidden."
-  (or (env :app-help-url) ""))
+  (env/value :app-help-url ""))
 
 ;; ─── Social Links ──────────────────────────────────────────────────
-;; Each link appears in the header/footer when non-empty.
-;; Set the corresponding env var to a URL to enable, or leave unset to hide.
+;; Each link shows in the header/footer when its env var is set to a URL; unset hides it.
 ;; e.g. in .env:  APP_SOCIAL_PATREON=https://www.patreon.com/YourProject
 ;;                APP_SOCIAL_DISCORD=https://discord.gg/your-invite
 
 (def social-links
   "Map of social platform links. Empty string = hidden."
-  {:patreon  (or (env :app-social-patreon)  "")
-   :facebook (or (env :app-social-facebook) "")
-   :bluesky  (or (env :app-social-bluesky)  "")
-   :twitter  (or (env :app-social-twitter)  "")
-   :reddit   (or (env :app-social-reddit)   "")
-   :discord  (or (env :app-social-discord)  "")})
+  {:patreon  (env/value :app-social-patreon "")
+   :facebook (env/value :app-social-facebook "")
+   :bluesky  (env/value :app-social-bluesky "")
+   :twitter  (env/value :app-social-twitter "")
+   :reddit   (env/value :app-social-reddit "")
+   :discord  (env/value :app-social-discord "")})
 
 ;; ─── Footer ─────────────────────────────────────────────────────
 
 (def copyright-url
   "URL for copyright holder name in footer. Empty string = plain text."
-  (or (env :app-copyright-url) ""))
+  (env/value :app-copyright-url ""))
 
 ;; ─── UI Behavior ────────────────────────────────────────────────
 
@@ -134,9 +131,9 @@
 
 (def field-limits
   "Max-length constraints for form input fields."
-  {:notes  (or (some-> (env :app-field-limit-notes) Integer/parseInt) 50000)
-   :text   (or (some-> (env :app-field-limit-text) Integer/parseInt) 255)
-   :number (or (some-> (env :app-field-limit-number) Integer/parseInt) 7)})
+  {:notes  (or (some-> (env/value :app-field-limit-notes) Integer/parseInt) 50000)
+   :text   (or (some-> (env/value :app-field-limit-text) Integer/parseInt) 255)
+   :number (or (some-> (env/value :app-field-limit-number) Integer/parseInt) 7)})
 
 ;; ─── Client-Side Config Bridge ───────────────────────────────────
 ;; index.clj injects this as window.__BRANDING__ JSON in <head>.
@@ -162,8 +159,7 @@
 
    A malformed value is ignored with a warning rather than taking down the
    page: a broken credit should cost the credit, not the site."
-  (or (when-let [raw (not-empty (or (env :portrait-artists)
-                                    (System/getenv "PORTRAIT_ARTISTS")))]
+  (or (when-let [raw (not-empty (env/value :portrait-artists))]
         (try
           (into {}
                 (for [[id fields] (cheshire/parse-string raw true)]

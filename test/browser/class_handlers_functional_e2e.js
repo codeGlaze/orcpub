@@ -1,3 +1,5 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Do the class handlers still WORK after being unmemoized?
 //
 // set-class, set-class-level, add-class and delete-class were wrapped in cljs.core/memoize.
@@ -16,17 +18,8 @@
 //            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-    if (d) { const p = path.join(b, d, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined;
-}
 
 let failures = 0;
 const check = (name, ok, detail) => {
