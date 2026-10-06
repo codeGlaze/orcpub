@@ -31,7 +31,8 @@ removed pick's records.
 - **Emptied lists stay:** removing the last pick of a multi-pick selection leaves the selection,
   empty, as unticking it in the builder does; a one-pick selection is removed whole.
 - **A new id is possible:** when the stored character fails the spec, the save route replaces it
-  under a new id; the page then opens the new id's data page. Not exercised by a test.
+  under a new id, and the page opens the new id's data page. Measured below, "Save replaces an
+  invalid character": the character also leaves its folders and parties.
 
 **Measured:** `ledger.js` is 1.2 MB, 264 KB gzipped; the app's `orcpub.js` is 3.2 MB, 813 KB gzipped
 (`integration` 63d63add; `develop` 15e1fe04: 2.9 MB, 725 KB). Most of either is built-in game data;
@@ -42,6 +43,47 @@ browser with no app loaded, `ledger.js` read the saved Tide Pak wizard and liste
 `Cache-Control` and no `ETag` for it (the `etag-interceptor` in `pedestal.clj` is wired in yet none
 comes out), and answers `If-Modified-Since` with the full file. A browser that checks before reusing
 its copy downloads 812 KB on every visit. Fixing it needs its own branch.
+
+## Save replaces an invalid character (research, 2026-10-06; nothing changed)
+
+`routes/update-character` has two paths. When the STORED character passes `::se/entity`, a save
+diffs ids: the character keeps its id. When it fails, the save retracts the whole character and
+creates the new one under a NEW id (`"INVALID CHARACTER FOUND, REPLACING"`, upstream code from
+2025-09). Pinned in `test/clj/orcpub/save_replace_research_test.clj` (each deftest asserts today's
+behaviour) and `test/e2e/digit-key-save.js`.
+
+| claim | verdict | evidence |
+|---|---|---|
+| R1 valid stored character: same id, folder, party and share intact | CONFIRMED | r1 |
+| R2 invalid stored character, a save that removes the bad part: 200, new id, old address answers 400 | CONFIRMED | r2, both causes below |
+| R5 then: dropped from its folder and party (references), share records left on the dead id (numbers) | CONFIRMED | r2 |
+| R3 invalid stored, and the save still invalid: refused (400), nothing changes | CONFIRMED | r3 |
+| R4 the save route refuses to create an invalid character | CONFIRMED | r4 |
+| R7 the app's own load-then-save merges duplicate selections, so the app's autosave takes the replace path too; a digit key survives the round trip and the app's save is refused | CONFIRMED | r7 |
+| R8 a tab still holding the old id is then refused: 401 "You do not own this character" | CONFIRMED | r8 |
+| R9 the save check refuses a key starting with a digit; the app cannot make one today (the loader quarantines such homebrew in `plugins:rejected`; `name-to-kw` itself does not repair) | CONFIRMED | r9, e2e 4/4 |
+| R10 two saves made from the same older copy, each adding the same selection, store two selections with one key: the stored character then fails the check | CONFIRMED (simulated race) | r10 |
+
+**How invalid data gets stored.** Only the save route writes characters, and it refuses invalid
+input (R4). So invalid stored data comes from (a) data saved before today's checks, or (b) two saves
+racing from the same older copy (R10): two tabs, or a double save. Its NEXT valid save, by the app's
+autosave (R7) or by the data page's Save, moves it to a new id (R2).
+
+**Why the data page makes it likelier:** repairing means removing the bad part, which is exactly
+"stored invalid, incoming valid".
+
+**Shown falsifiable:** with the invalid branch forced off, r2, r7 and r8 fail (12 assertions) and the
+folder and party links survive. That hints at a fix; it is not one, and needs its own tests.
+
+**Not known:** how many stored characters fail the check in production. Read-only, on a copy of the
+database:
+
+```clojure
+(require '[datomic.api :as d] '[clojure.spec.alpha :as spec] '[orcpub.entity.strict :as se])
+(let [db (d/db conn)]
+  (frequencies (for [id (d/q '[:find [?e ...] :where [?e ::se/owner]] db)]
+                 (spec/valid? ::se/entity (d/pull db '[*] id)))))
+```
 
 ## Settled by test (phase 1, 2026-10-06)
 
