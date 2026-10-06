@@ -153,22 +153,6 @@
                    (not (get skill-profs (:key skill))))))]
     :modifiers [(modifiers/skill-proficiency (:key skill))]}))
 
-(defn class-skill-option
-  "`skill-option`, but the modifier carries its arm's condition — see
-   `modifiers/class-skill-proficiency`. Used only by a class's two skill arms."
-  [cls-kw first-class? skill]
-  (t/option-cfg
-   {:name (:name skill)
-    :icon (:icon skill)
-    :key (:key skill)
-    :help (:description skill)
-    :prereqs [(t/option-prereq
-               "You already have this skill"
-               (fn [c]
-                 (let [skill-profs (character/skill-proficiencies c)]
-                   (not (get skill-profs (:key skill))))))]
-    :modifiers [(modifiers/class-skill-proficiency (:key skill) cls-kw first-class?)]}))
-
 (defn weapon-proficiency-option [{:keys [name key]}]
   (t/option-cfg
    {:name name
@@ -918,24 +902,17 @@
 (defn proficiency-help [num singular plural]
   (str "Select additional " (if (> num 1) plural singular) " for which you are proficient."))
 
-(defn skill-selection-2
-  "A skill-proficiency pick from `options` (skill keywords); `num` sets min and max unless given
-   separately. With `cls-kw` + `first-class?` each option's modifier carries its class arm's
-   condition; without them (background, feat, race) the options are unconditioned.
-   GOTCHA: `prereq-fn` only decides whether the builder OFFERS the pick; `entity/build` never
-   reads it, so a stored pick keeps applying unless its modifier is conditioned.
-   hidden-selection-picks.md"
-  [{:keys [options num min max order key prereq-fn cls-kw first-class?]}]
+(defn skill-selection-2 [{:keys [options num min max order key prereq-fn]}]
   (t/selection-cfg
    {:name "Skill Proficiency"
     :key key
     :order (or order 0)
     :help (proficiency-help (or num min) "a skill" "skills")
-    :options (let [key-set (set options)
-                   skills (filter (comp key-set :key) skills/skills)]
-               (if cls-kw
-                 (map (partial class-skill-option cls-kw first-class?) skills)
-                 (skill-options skills)))
+    :options (let [key-set (set options)]
+               (skill-options
+                (filter
+                 (comp key-set :key)
+                 skills/skills)))
     :min (or min num)
     :max (or max num)
     :multiselect? true
@@ -992,14 +969,12 @@
   ([num]
    (skill-selection-2 {:num num
                        :options (map :key skills/skills)}))
-  ([options num & [order key prereq-fn cls-kw first-class?]]
+  ([options num & [order key prereq-fn]]
    (skill-selection-2 {:options options
                        :num num
                        :order order
                        :key key
-                       :prereq-fn prereq-fn
-                       :cls-kw cls-kw
-                       :first-class? first-class?})))
+                       :prereq-fn prereq-fn})))
 
 (defn tool-proficiency-selection-2 [{:keys [num min max] :as cfg}]
   (t/selection-cfg
@@ -3022,13 +2997,9 @@
 
 
 
-(defn class-skill-selection
-  "A class's skill pick from its `:skill-options` or `:multiclass-skill-options`. `key` tells the
-   two arms apart and `prereq-fn` is the `first-class?` gate (or its complement) the builder shows
-   by. `cls-kw` and `first-class?` name the arm; the options' modifiers carry its condition."
-  [{skill-num :choose options :options skill-select-order :order} key prereq-fn cls-kw first-class?]
+(defn class-skill-selection [{skill-num :choose options :options skill-select-order :order} key prereq-fn]
   (let [skill-kws (if (:any options) (map :key skills/skills) (keys options))]
-    (skill-selection skill-kws skill-num skill-select-order key prereq-fn cls-kw first-class?)))
+    (skill-selection skill-kws skill-num skill-select-order key prereq-fn)))
 
 (defn class-help-field [name value]
   [:div.m-t-5
@@ -3111,11 +3082,11 @@
                     (when equipment-choices (class-equipment-options equipment-choices kw))
                     (when equipment-selections (class-equipment-selections equipment-selections kw weapon-map))
                     (when skill-options
-                      [(class-skill-selection skill-options :skill-proficiency first-class? kw true)])
+                      [(class-skill-selection skill-options :skill-proficiency first-class?)])
                     (when (seq skill-expertise-kws)
                       [(skill-expertise-selection skill-expertise-kws (:choose skill-expertise-options))])
                     (when multiclass-skill-options
-                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency (complement first-class?) kw false)])
+                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency (complement first-class?))])
                     [(t/selection-cfg
                       {:name (str name " Levels")
                        :key :levels

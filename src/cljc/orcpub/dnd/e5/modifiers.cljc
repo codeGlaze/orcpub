@@ -386,23 +386,6 @@
                  nil
                  ~conditions))
 
-(defn class-skill-proficiency
-  "A class's chosen proficiency in `skill-kw`, applying only while its arm holds: `first-class?`
-   true = `cls-kw` is the first class, false = it is not. Mirrors `tool-proficiency`.
-   GOTCHA: swapping the arms costs every multiclassed character a skill. hidden-selection-picks.md"
-  [skill-kw cls-kw first-class?]
-  (if first-class?
-    (mods/modifier ?skill-profs
-                   (assoc-in ?skill-profs [skill-kw nil] true)
-                   (s/capitalize (-> skill-kw skill5e/skills-map :name))
-                   "proficiency"
-                   [(= cls-kw (first ?classes))])
-    (mods/modifier ?skill-profs
-                   (assoc-in ?skill-profs [skill-kw nil] true)
-                   (s/capitalize (-> skill-kw skill5e/skills-map :name))
-                   "proficiency"
-                   [(not= cls-kw (first ?classes))])))
-
 (defn tool-proficiency [key & [first-class? cls-kw source]]
   (if first-class?
     (mods/modifier ?tool-profs
