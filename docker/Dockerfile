@@ -91,7 +91,9 @@ ENV TZ=${TZ}
 
 # Step 1: CLJS via figwheel-main (exits cleanly, no hang)
 RUN lein run -m figwheel.main -- --build-once prod && \
-    test -f resources/public/js/compiled/orcpub.js
+    test -f resources/public/js/compiled/orcpub.js && \
+    lein run -m figwheel.main -- --build-once ledger && \
+    test -f resources/public/js/compiled/ledger.js
 
 # Step 2: AOT compile (compilation finishes, subprocess hangs, timeout kills)
 RUN timeout 300 lein with-profile uberjar,uberjar-package compile || true; \

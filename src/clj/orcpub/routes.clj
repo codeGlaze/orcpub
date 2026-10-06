@@ -52,6 +52,7 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [orcpub.routes.share :as share]
+            [orcpub.ledger-page :as ledger-page]
             [orcpub.datomic :as odb]
             [hiccup.page :as page]
             [hiccup2.core :as h]
@@ -2377,6 +2378,12 @@
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-data-page-route :id ":id") ^:interceptors [parse-id]
+        {:get [:char-data-page `ledger-page/page-response]}]
+       [(route-map/path-for route-map/dnd-e5-char-repair-page-route :id ":id") ^:interceptors [parse-id]
+        {:get [:char-repair-page `ledger-page/page-response]}]
+       [(route-map/path-for route-map/dnd-e5-draft-data-page-route)
+        {:get [:draft-data-page `ledger-page/page-response]}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

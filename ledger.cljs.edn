@@ -1,0 +1,12 @@
+;; Figwheel-main build: the character data page's own script (advanced compilation, always).
+;; Run with: lein fig:ledger   (also part of `lein build` and the Docker build)
+;; The page (orcpub.ledger-page) loads this and never the app bundle. character-rescue.md
+^{:watch-dirs ["src/cljc" "src/cljs"]
+  :css-dirs []}
+{:main orcpub.ledger
+ :output-to "resources/public/js/compiled/ledger.js"
+ :output-dir "target/ledger/out"
+ :optimizations :advanced
+ :infer-externs true
+ :externs ["externs.js"]
+ :pretty-print false}
