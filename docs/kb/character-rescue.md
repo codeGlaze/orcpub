@@ -1,6 +1,33 @@
 # Character rescue: a way to fix a character that works without the app
 
-*DESIGN, owner-approved direction 2026-10-04. Layer 1 built (`picks`, #47); layers 2, 3, 0 not built. Code on `feature/character-rescue`, from `integration`.*
+*DESIGN, owner-approved direction 2026-10-04. Built: layer 1 (`picks`, #47) and the ledger's read-only view (the Character data page). Not built: its editing and the entry points. Code on `feature/character-rescue`, from `integration`.*
+
+## The ledger: the Character data page (decided 2026-10-06, commit 1 built)
+
+The owner's picture of the rescue: a structured view of the stored character, like a spreadsheet
+or a data table with a few buttons, that never asks the app to draw it. It replaces both the bare
+repair page (layer 3) and the later in-app list (layer 4): one page, saved and browser-only alike.
+
+| decided | what |
+|---|---|
+| how it reads | its own script, `ledger.js` (`ledger.cljs.edn`, `src/cljs/orcpub/ledger.cljs`), built from the shared code (`picks/addresses`, the EDN reader); never `orcpub.js`. Loaded only on that page |
+| where | `/pages/dnd/5e/characters/<id>/data`; `/repair` opens the same page; `/pages/dnd/5e/character-data` for this browser's draft (`orcpub.ledger-page`) |
+| names | on screen "Character data" (character page, list) and "Repair this character" (rescue bar, won't-load panel, support email). "Ledger" is internal only: the spellbook print options already show a "Ledger" layout |
+| rows | one per stored pick, children indented under their parent, with how many sit under each (`orcpub.dnd.e5.ledger/rows`). Removing a parent removes its children (they are stored inside it) |
+| who | owner only (stored owner matches the login's username or email). Anyone else, or logged out: "Only the owner can open this". This is not privacy: `GET /dnd/5e/characters/:id` is public |
+| support | no admin or moderator role (none exists; the two-person team does not want one). "Copy for support" copies the rows as text; the player makes the fix. A share link (`routes/share.clj`, the character's homebrew by token) lets a mod see it with the right homebrew |
+| later commits | 2: Remove, Undo, Save. 3: editing a stored key, only with dev mode on (localStorage `"dev-mode"`). 4: the links in, and the rows in the support email. 5, if wanted: keep a copy of a browser draft the app cannot read |
+| unreadable data | shown raw with a Download button, so nothing is lost |
+
+**Measured:** `ledger.js` is 1.2 MB, 264 KB gzipped; the app's `orcpub.js` is 3.2 MB, 813 KB gzipped
+(`integration` 63d63add; `develop` 15e1fe04: 2.9 MB, 725 KB). Most of either is built-in game data;
+`picks` brings it into `ledger.js` through `library.cljc` (without `picks`: 96 KB gzipped). In the
+browser with no app loaded, `ledger.js` read the saved Tide Pak wizard and listed all 11 choices.
+
+**Found on the way, not this branch's:** the server gzips `orcpub.js` (812 KB sent), but sends no
+`Cache-Control` and no `ETag` for it (the `etag-interceptor` in `pedestal.clj` is wired in yet none
+comes out), and answers `If-Modified-Since` with the full file. A browser that checks before reusing
+its copy downloads 812 KB on every visit. Fixing it needs its own branch.
 
 ## Settled by test (phase 1, 2026-10-06)
 
@@ -163,11 +190,10 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Open, for the owner
 
-- Browser-only characters: the app loads one with a trapped pick, so its fix belongs in the
-  in-app list (layer 4). What this branch could do is keep a copy of a draft the app cannot read:
-  today `db.cljs` `handle-unreadable` deletes it on boot (homebrew gets a `:corrupt` copy;
-  characters do not).
-- The builder's rescue bar: the server cannot know which character is open.
+- Commit 5: keep a copy of a browser draft the app cannot read (today `db.cljs` `handle-unreadable`
+  deletes it on boot; homebrew gets a `:corrupt` copy, characters do not). Build it, or not.
+
+The builder's rescue bar needs no character id: it links to the draft page, `/character-data`.
 
 ## Decided
 
@@ -175,6 +201,9 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 - Changelog: Summer Patch, on integration.
 
 ## History
+
+- 2026-10-06: the separate list/remove server routes (layer 2) dropped: the ledger reads through
+  the existing character read route and will save through the existing save route.
 
 - 2026-10-06: the three open questions (storage, auth, builder id) settled by test; see the table
   at the top.
