@@ -1,8 +1,8 @@
 # Character rescue: a way to fix a character that works without the app
 
-*DESIGN, owner-approved direction 2026-10-04. Built: layer 1 (`picks`, #47) and the ledger's read-only view (the Character data page). Not built: its editing and the entry points. Code on `feature/character-rescue`, from `integration`.*
+*DESIGN, owner-approved direction 2026-10-04. Built: layer 1 (`picks`, #47) and the ledger (the Character data page) with Remove, Undo and Save. Not built: key editing and the entry points. Code on `feature/character-rescue`, from `integration`.*
 
-## The ledger: the Character data page (decided 2026-10-06, commit 1 built)
+## The ledger: the Character data page (decided 2026-10-06; commits 1 and 2 built)
 
 The owner's picture of the rescue: a structured view of the stored character, like a spreadsheet
 or a data table with a few buttons, that never asks the app to draw it. It replaces both the bare
@@ -18,6 +18,20 @@ repair page (layer 3) and the later in-app list (layer 4): one page, saved and b
 | support | no admin or moderator role (none exists; the two-person team does not want one). "Copy for support" copies the rows as text; the player makes the fix. A share link (`routes/share.clj`, the character's homebrew by token) lets a mod see it with the right homebrew |
 | later commits | 2: Remove, Undo, Save. 3: editing a stored key, only with dev mode on (localStorage `"dev-mode"`). 4: the links in, and the rows in the support email. 5, if wanted: keep a copy of a browser draft the app cannot read |
 | unreadable data | shown raw with a Download button, so nothing is lost |
+
+**How Save works (commit 2):** `ledger/save-data` replaces only the stored map's selections, from
+`entity/to-strict` of the edited character; values, summary and owner go back exactly as read
+(`char5e/to-strict` is not used: it rewrites values the page never touches). A saved character goes
+through the app's own save route as transit, with the login's token; the browser draft is written
+back to localStorage `"character"`. Measured in `ledger_save_test.clj`: a removal retracts exactly the
+removed pick's records.
+
+- **The summary is not rebuilt:** the page cannot build the character, so the character list may
+  show the old race or class until the app next saves it.
+- **Emptied lists stay:** removing the last pick of a multi-pick selection leaves the selection,
+  empty, as unticking it in the builder does; a one-pick selection is removed whole.
+- **A new id is possible:** when the stored character fails the spec, the save route replaces it
+  under a new id; the page then opens the new id's data page. Not exercised by a test.
 
 **Measured:** `ledger.js` is 1.2 MB, 264 KB gzipped; the app's `orcpub.js` is 3.2 MB, 813 KB gzipped
 (`integration` 63d63add; `develop` 15e1fe04: 2.9 MB, 725 KB). Most of either is built-in game data;
