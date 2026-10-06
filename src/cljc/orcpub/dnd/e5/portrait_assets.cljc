@@ -27,17 +27,16 @@
 (def layer-order
   "Layer keys in z-order, bottom (0) → top (9). Mirrors the illustrator's
    real folder convention (`layer 0 - hair bits`, `layer 9 - bangs`, …)."
-  [:hair-bits :hair-back :head :scalp :shirt :hair-front :ears :eyes :nose :mouth :bangs])
+  [:hair-bits :hair-back :head :shirt :hair-front :ears :eyes :nose :mouth :bangs])
 
 (def hidden-layers
-  "Layers that render but are not offered in the picker.
+  "Layers that render but are not offered in the picker. None today.
 
-   :scalp is a plain blob that sits between the head and the hair and takes the
-   hair colour. Some hair-front and bangs pairs do not meet, leaving an island
-   of skin on the crown with hair all round it; this fills it. There is nothing
-   to choose, so putting it in the picker would only add a control with one
-   option that changes nothing."
-  #{:scalp})
+   There was one, :scalp -- a generated blob under the hair for the hair-front
+   and bangs pairs that left an island of skin on the crown. The art now meets
+   (hair front 02 was patched to reach bangs 03), so it was retired; a saved
+   portrait that still names it is read without it (see `current-layers`)."
+  #{})
 
 (def pickable-layers
   "The layers a person actually picks from, in z-order."
@@ -47,7 +46,6 @@
   {:hair-bits  "Hair bits"
    :hair-back  "Hair back"
    :head       "Head"
-   :scalp      "Scalp"
    :shirt      "Shirt"
    :hair-front "Hair front"
    :ears       "Ears"
@@ -64,7 +62,6 @@
   {:hair-bits  "#e0a24d"
    :hair-back  "#c88a4a"
    :head       "#f2e6d0"
-   :scalp      "#c88a4a"
    :shirt      "#7a94b8"
    :hair-front "#e6a040"
    :ears       "#eab098"
@@ -164,10 +161,6 @@
     {:asset/id :l7-nose-03
      :asset/label "Nose 03"
      :asset/file  "l7_nose_03.png"}]
-   :scalp
-   [{:asset/id :l2b-scalp-01
-     :asset/label "Scalp"
-     :asset/file  "l2b_scalp_01.png"}]
 
    :mouth
    ;; three mouths wanting three treatments (a line, lips, teeth); which is
@@ -367,6 +360,13 @@
   (when-let [base (some #(when (= artist-id (:artist/id %)) %) registry)]
     (merge base (get @artist-overrides artist-id))))
 
+(defn- current-layers
+  "A saved selection with only the layers the app still draws. A portrait
+   saved before a layer was retired (the old :scalp) keeps the key, and it
+   must not go on crediting whoever drew it."
+  [layers-selection]
+  (select-keys layers-selection layer-order))
+
 (defn all-artists-for-layers
   "Given the current portrait-layers selection (`{layer-key {:artist/id …
    :asset/id …}}`), return the DISTINCT artist ids currently on canvas,
@@ -388,7 +388,7 @@
                       (keep (fn [[layer-key sel]]
                               (or (artist-for-asset layer-key (:asset/id sel))
                                   (:artist/id sel))))
-                        layers-selection)]
+                        (current-layers layers-selection))]
       (into []
             (comp (map :artist/id) (filter in-use?))
             registry))))
@@ -422,7 +422,6 @@
    image, the numbers can be read and tuned, and a large mostly transparent
    asset cannot climb the list.
 
-   The scalp is 0: it is a generated patch under the hair, not a drawing.
    A layer missing from this map counts 1."
   {:head 10
    :hair-front 6
@@ -433,8 +432,7 @@
    :hair-bits 3
    :mouth 2
    :nose 1
-   :ears 1
-   :scalp 0})
+   :ears 1})
 
 (defn credit-order
   "The artists on canvas, in the order a credit should name them: most of the
@@ -464,7 +462,7 @@
                                              (get layer-credit-weight layer-key 1))
                                   (update-in [id :pieces] (fnil inc 0)))
                               acc)))
-                        {} layers-selection)
+                        {} (current-layers layers-selection))
           registry-rank (into {} (map-indexed (fn [i a] [(:artist/id a) i])) registry)]
       (->> tally
            (keep (fn [[id {:keys [weight pieces]}]]
@@ -655,8 +653,6 @@
    :hair-front :hair
    :bangs      :hair
    :head       :skin
-   ;; the scalp is hair, not skin -- that is the entire point of it
-   :scalp      :hair
    :ears       :skin
    :nose       :skin
    :eyes       :eyes

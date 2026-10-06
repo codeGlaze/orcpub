@@ -552,7 +552,7 @@
         marks? (and (face/marks? fs) (seq (:asset/iris eyes)))
         skin (sel [:head :ears] any?)]
     (when (and (seq skin) (or (seq casters) marks? (pos? (:shade fs))))
-      {:casters casters :skin skin :hair (sel [:scalp :hair-front :bangs] any?)
+      {:casters casters :skin skin :hair (sel [:hair-front :bangs] any?)
        :eyes (when marks? (:asset/url eyes))
        :nose (when marks? (some-> (pa/selected-asset portrait :nose) :asset/url))
        :eyes-asset (when marks? (as-placed eyes dev?))
@@ -635,7 +635,7 @@
     (when (light/lit? ls)
       (let [url-of #(some-> (pa/selected-asset portrait %) :asset/url)]
         {:layers (vec (keep url-of pa/layer-order))
-         :hair (vec (keep url-of [:scalp :hair-front :bangs]))
+         :hair (vec (keep url-of [:hair-front :bangs]))
          :eyes-asset (some-> (pa/selected-asset portrait :eyes) (as-placed dev?))
          :settings ls}))))
 

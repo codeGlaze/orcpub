@@ -13,7 +13,7 @@
    - :ink         how light the art itself is, 0..1 (the drawing, uncoloured),
                   so light lands on the fill and the linework stays ink
    - :iris        the placed iris region, feathered, 0..255
-   - :hair-cover  the hair over the face (scalp, front hair, bangs), 0..255
+   - :hair-cover  the hair over the face (front hair, bangs), 0..255
 
    Mood light comes in three styles, all chosen on the real art:
    - :edge  a lit edge along the side facing the light, with a light cast;
