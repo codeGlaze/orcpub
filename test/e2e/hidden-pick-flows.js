@@ -19,7 +19,7 @@
 // State is set only by clicking. app-db, the :built-character subscription and the saved character
 // are READ to observe; nothing is dispatched.
 const { chromium } = require('playwright');
-const { BASE, findChrome, dbAt, clickTab, TABS, pick: pickAny, setClass, setLevel, login } = require('./lib');
+const { BASE, findChrome, dbAt, clickTab, TABS, pick: pickAny, setClass, setLevel, login, classRows, addClass, deleteClass } = require('./lib');
 
 const ONLY = (process.env.FLOWS || '').split(',').filter(Boolean);
 const out = [];
@@ -58,32 +58,6 @@ async function scanAll(page, rx) {
   }
   await clickTab(page, 'Class / Level');
   return found;
-}
-
-// The class rows of the Class / Level tab: class select, level select, delete icon.
-const classRows = page => page.evaluate(() => {
-  const rows = [...document.querySelectorAll('#app select.builder-option-dropdown.flex-grow-1')];
-  return rows.map(sel => {
-    const row = sel.parentElement;
-    const lvl = row.querySelector('select.w-100');
-    return { cls: sel.value, level: lvl ? lvl.value : null,
-             classChoices: [...sel.options].map(o => o.value + (o.disabled ? '(disabled)' : '')),
-             controls: [...row.children].map(c => c.tagName.toLowerCase() + (c.className ? '.' + c.className.split(' ').join('.') : '')) };
-  });
-});
-
-async function addClass(page, key) {
-  await clickTab(page, 'Class / Level');
-  await page.getByText('Add Levels in Another Class', { exact: true }).click();
-  await page.waitForTimeout(1500);
-  const n = (await classRows(page)).length;
-  await setClass(page, n - 1, key);
-}
-async function deleteClass(page, i) {
-  await clickTab(page, 'Class / Level');
-  await page.locator('#app select.builder-option-dropdown.flex-grow-1').nth(i)
-    .locator('xpath=..').locator('i.fa-minus-circle').click();
-  await page.waitForTimeout(2500);
 }
 
 // READ the built character through the builder's own subscription.

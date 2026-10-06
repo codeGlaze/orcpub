@@ -334,6 +334,32 @@ async function setLevel(page, i, n) {
     .locator('xpath=..').locator('select.w-100').selectOption(`level-${n}`);
   await page.waitForTimeout(2000);
 }
+// The class rows of the Class / Level tab: class select, level select, delete icon.
+const classRows = page => page.evaluate(() => {
+  const rows = [...document.querySelectorAll('#app select.builder-option-dropdown.flex-grow-1')];
+  return rows.map(sel => {
+    const row = sel.parentElement;
+    const lvl = row.querySelector('select.w-100');
+    return { cls: sel.value, level: lvl ? lvl.value : null,
+             classChoices: [...sel.options].map(o => o.value + (o.disabled ? '(disabled)' : '')),
+             controls: [...row.children].map(c => c.tagName.toLowerCase() + (c.className ? '.' + c.className.split(' ').join('.') : '')) };
+  });
+});
+
+async function addClass(page, key) {
+  await clickTab(page, 'Class / Level');
+  await page.getByText('Add Levels in Another Class', { exact: true }).click();
+  await page.waitForTimeout(1500);
+  const n = (await classRows(page)).length;
+  await setClass(page, n - 1, key);
+}
+async function deleteClass(page, i) {
+  await clickTab(page, 'Class / Level');
+  await page.locator('#app select.builder-option-dropdown.flex-grow-1').nth(i)
+    .locator('xpath=..').locator('i.fa-minus-circle').click();
+  await page.waitForTimeout(2500);
+}
+
 // Log in as the seeded user (kaylee) and open the builder.
 async function login(browser) {
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
@@ -352,4 +378,4 @@ async function login(browser) {
   return page;
 }
 
-module.exports = { BASE, TABS, pick, setClass, setLevel, login, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, dismissWhatsNew, readyPage, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };
+module.exports = { BASE, TABS, pick, setClass, setLevel, login, classRows, addClass, deleteClass, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, dismissWhatsNew, readyPage, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };

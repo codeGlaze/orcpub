@@ -2374,7 +2374,11 @@
  character-interceptors
  event-handlers/set-class-level)
 
-(defn delete-class [character [_ class-key i options-map]]
+(defn delete-class
+  "Removes class `class-key`. When it was the first class, the class that becomes first keeps its
+   levels and picks and brings its starting equipment; picks that stop applying go to the hold
+   (`plan-picks`)."
+  [character [_ class-key i options-map]]
   (let [updated (update-in
                  character
                  [::entity/options :class]
@@ -2383,7 +2387,7 @@
         new-first-class-option (when new-first-class-key (options-map new-first-class-key))]
     (if (and (zero? i)
              new-first-class-option)
-      (char5e/set-class updated new-first-class-key 0 new-first-class-option)
+      (char5e/use-class-starting-equipment updated new-first-class-option)
       updated)))
 
 (reg-event-db

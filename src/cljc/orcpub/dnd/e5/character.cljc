@@ -840,17 +840,22 @@
              custom-equipment))))
          (meta equipment))))))
 
+(defn use-class-starting-equipment
+  "`character` with its class starting equipment replaced by `class-option`'s: what the first class
+   brings. Its other stored picks are untouched."
+  [character class-option]
+  (-> character
+      (remove-starting-equipment ::equip/class-starting-equipment?)
+      (add-associated-options (::t/associated-options class-option))))
+
 (defn set-class [character class-key class-index new-class-option]
-  (let [associated-options (::t/associated-options new-class-option)
-        with-new-class (assoc-in
+  (let [with-new-class (assoc-in
                         character
                         [::entity/options :class class-index]
                         {::entity/key class-key
-                         ::entity/options {:levels [{::entity/key :level-1}]}})
-        without-starting-equipment (remove-starting-equipment with-new-class ::equip/class-starting-equipment?)
-        with-new-starting-equipment (add-associated-options without-starting-equipment associated-options)]
+                         ::entity/options {:levels [{::entity/key :level-1}]}})]
     (if (zero? class-index)
-      with-new-starting-equipment
+      (use-class-starting-equipment with-new-class new-class-option)
       with-new-class)))
 
 (defn skill-prof-bonuses [prof-bonus skill-profs skill-expertise default-skill-bonus-fns]

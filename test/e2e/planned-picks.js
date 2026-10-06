@@ -4,7 +4,9 @@
 //
 // 1 ranger Hunter 7 with Steel Will, 7 -> 6 -> 7; 2 the same, 7 -> 6, reload, -> 7;
 // 3 fighter Champion 10 with Defense + Archery, 10 -> 9 -> 10; 4 a draft saved at 6 that still
-// stores Steel Will (the state before this fix) is settled on opening, before any edit.
+// stores Steel Will (the state before this fix) is settled on opening, before any edit; 5 fighter
+// first, rogue 3 second with its multiclass skill: deleting the fighter keeps the rogue's levels
+// and holds that skill.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -12,7 +14,7 @@
 // State is set only by clicking, except flow 4, which writes the old-style draft it opens.
 // app-db and the browser's saved draft are READ to assert.
 const { chromium } = require('playwright');
-const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login } = require('./lib');
+const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login, addClass, deleteClass } = require('./lib');
 
 const { check, report } = checker();
 const CLASS0 = '[:character :orcpub.entity/options :class 0 :orcpub.entity/options';
@@ -92,6 +94,21 @@ const flows = {
     check('and the saved draft lacks it', !/steel-will/.test(await draft(page)));
     await setLevel(page, 0, 7);
     check('raised to 7, Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
+  },
+
+  async 5(page) {
+    await setClass(page, 0, 'fighter');
+    await addClass(page, 'rogue');
+    await setLevel(page, 1, 3);
+    await pick(page, 'Proficiencies', 'Skill Proficiency', 'Stealth', { parent: 'Rogue' });
+    const multi = i => dbAt(page, `[:character :orcpub.entity/options :class ${i} :orcpub.entity/options :multiclass-skill-proficiency]`);
+    const levels = () => dbAt(page, `${CLASS0} :levels]`);
+    if (!check('rogue second, with Stealth as its multiclass skill', /:stealth/.test(await multi(1)))) return;
+    await deleteClass(page, 0);
+    check('the fighter is deleted; the rogue is first', (await dbAt(page, '[:character :orcpub.entity/options :class 0 :orcpub.entity/key]')) === ':rogue');
+    check('the rogue keeps its 3 levels', ((await levels()).match(/:level-\d/g) || []).length === 3);
+    check('its multiclass skill is out of the character', !/:stealth/.test(await multi(0)));
+    check('and held', /:multiclass-skill-proficiency :stealth/.test(await dbAt(page, HELD)));
   },
 };
 

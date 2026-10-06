@@ -1,7 +1,9 @@
 (ns orcpub.dnd.e5.plan-picks-test
-  "events/plan-picks-db: the builder's character settled against the planned hold."
-  (:require [cljs.test :refer-macros [deftest is]]
+  "events/plan-picks-db: the builder's character settled against the planned hold; and the class
+   deletion that relies on it."
+  (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.entity :as entity]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
@@ -11,6 +13,12 @@
             [orcpub.dnd.e5.weapons :as weapons5e]
             [orcpub.common :as common]))
 
+(def ^:private classes
+  (delay (mapv #(% sl5e/spell-lists spells5e/spell-map {}
+                   (common/map-by-key [{:name "Common" :key :common}])
+                   weapons5e/weapons-map)
+               [classes5e/ranger-option classes5e/rogue-option])))
+
 (def ^:private template
   (delay
    (t5e/template
@@ -18,9 +26,7 @@
      nil nil nil weapons5e/weapons-map weapons5e/weapons
      sl5e/spell-lists spells5e/spell-map
      [] []
-     [(classes5e/ranger-option sl5e/spell-lists spells5e/spell-map {}
-                               (common/map-by-key [{:name "Common" :key :common}])
-                               weapons5e/weapons-map)]
+     @classes
      []
      (common/map-by-key [{:name "Common" :key :common}])))))
 
@@ -97,3 +103,30 @@
     (is (= (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template)
            (events/plan-picks-db d (dissoc d :orcpub.dnd.e5.autosave-fx/cached-template) :e)))
     (is (identical? d (events/plan-picks-db d d :e)))))
+
+;; As the builder passes them (character_builder `make-options-map`).
+(defn- class-options [] (zipmap (map ::t/key @classes) @classes))
+
+(def ^:private rogue-3
+  {::entity/key :rogue
+   ::entity/options {:multiclass-skill-proficiency [{::entity/key :athletics}]
+                     :levels (vec (for [i (range 1 4)]
+                                    {::entity/key (keyword (str "level-" i))}))}})
+
+(deftest deleting-the-first-class-keeps-the-next-one
+  (let [ranger-first (assoc-in (ranger 7) [::entity/options :class 1] rogue-3)
+        deleted (events/delete-class ranger-first [:delete-class :ranger 0 (class-options)])
+        rogue (get-in deleted [::entity/options :class 0])
+        settled (events/plan-picks-db (db ranger-first) (db deleted) :delete-class)]
+    (is (= [:rogue] (mapv ::entity/key (get-in deleted [::entity/options :class]))))
+    (is (= 3 (count (get-in rogue [::entity/options :levels]))) "the rogue keeps its levels")
+    (is (= [:athletics] (mapv ::entity/key (get-in rogue [::entity/options
+                                                           :multiclass-skill-proficiency])))
+        "and its picks")
+    (is (= [:leather] (mapv ::entity/key (get-in deleted [::entity/options :armor])))
+        "it brings its starting equipment as the first class")
+    (testing "its multiclass skill no longer applies, so the hold takes it"
+      (is (empty? (get-in settled [:character ::entity/options :class 0 ::entity/options
+                                   :multiclass-skill-proficiency])))
+      (is (= [[:class :rogue :multiclass-skill-proficiency :athletics]]
+             (mapv :address (:orcpub.dnd.e5/planned-picks settled)))))))
