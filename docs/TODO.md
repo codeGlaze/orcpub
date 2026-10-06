@@ -87,6 +87,31 @@ parameterised monster. Needs the builder, not this.
 - **RAW the DM chooses the creatures** for the 2014 conjure spells, so a picker cannot simply be
   offered — it wants suggest-or-defer. Tasha's summons removed this; another place 2014-vs-2024 bites.
 
+### Raised here, belongs in the central backlog — Fall Update candidate
+
+**Encounter → printable statblock cards.** A DM builds an encounter, hits print, and gets a
+condensed sheet of cards — one per monster in it — to run the fight from paper.
+
+Not this branch's work, and not started. Noted here because it came up while scoping Extras and
+would otherwise be lost; **promote it to `agents/develop`'s `docs/TODO.md`** (Part 2 here is a
+read-only copy).
+
+Why it is a good Fall Update leaf rather than a new system:
+
+- The encounter builder already stores its creatures as **keyword references plus a count**
+  (`[:creatures n :creature :monster]`), so the statblocks are a lookup away, not a copy to
+  reconcile.
+- `pdf.clj` already prints two card families off shared machinery (spell cards, stat blocks), and
+  the Extras plan's beast cards reuse the same frame. A third consumer of one card frame, not a
+  third frame.
+- It shares the condensed-statblock shape with
+  [plan-npc-statblock-customizer.md](kb/plan-npc-statblock-customizer.md) — the other DM-facing
+  leaf — so the two likely want one card renderer between them.
+
+Open, and the reason it needs a plan rather than a ticket: how a many-of-one-monster encounter
+prints (one card plus a count, or N cards with per-individual HP boxes), and whether homebrew
+monsters print from the same path as SRD ones.
+
 ### Depends on `feature/grant-rows`
 
 That branch is the base and still moving — its step 6 (E3, creatures and traits) is the one this
