@@ -58,6 +58,11 @@
    ;; See orcpub.config/get-secure-headers-config
    })
 
+(defn with-portrait-guard
+  "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
+  [service-map]
+  (update service-map ::http/interceptors #(into [routes/portrait-art-guard] %)))
+
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
@@ -124,6 +129,7 @@
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
+      true with-portrait-guard
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal
