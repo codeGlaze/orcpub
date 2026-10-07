@@ -4,65 +4,65 @@
 
 (def musical-instruments
   [{:key :bagpipes
-    :name "Bagpipes"}
+    :name "Bagpipes" :cost {:num 30 :type :gp} :weight "6 lb."}
    {:key :drum
-    :name "Drum"}
+    :name "Drum" :cost {:num 6 :type :gp} :weight "3 lb."}
    {:key :dulcimer
-    :name "Dulcimer"}
+    :name "Dulcimer" :cost {:num 25 :type :gp} :weight "10 lb."}
    {:key :flute
-    :name "Flute"}
+    :name "Flute" :cost {:num 2 :type :gp} :weight "1 lb."}
    {:key :lute
-    :name "Lute"}
+    :name "Lute" :cost {:num 35 :type :gp} :weight "2 lb."}
    {:key :lyre
-    :name "Lyre"}
+    :name "Lyre" :cost {:num 30 :type :gp} :weight "2 lb."}
    {:key :horn
-    :name "Horn"}
+    :name "Horn" :cost {:num 3 :type :gp} :weight "2 lb."}
    {:key :pan-flute
-    :name "Pan Flute"}
+    :name "Pan Flute" :cost {:num 12 :type :gp} :weight "2 lb."}
    {:key :shawm
-    :name "Shawm"}
+    :name "Shawm" :cost {:num 2 :type :gp} :weight "1 lb."}
    {:key :viol
-    :name "Viol"}])
+    :name "Viol" :cost {:num 30 :type :gp} :weight "1 lb."}])
 
 (def artisans-tools
-  [{:name "Alchemist's Supplies", :key :alchemists-supplies :icon "fire-bottle"}
-   {:name "Brewer's Supplies", :key :brewers-supplies :icon "beer-stein"}
-   {:name "Calligrapher's Supplies", :key :calligraphers-supplies :icon "quill-ink"}
-   {:name "Carpenter's Tools", :key :carpenters-tools :icon "hand-saw"}
-   {:name "Cartographer's Tools", :key :cartographers-tools :icon "compass"}
-   {:name "Cobbler's Tools", :key :cobblers-tools :icon "leather-boot"}
-   {:name "Cook's Utensils", :key :cooks-utensils :icon "kitchen-knives"}
-   {:name "Glassblower's Tools", :key :glassblowers-tools :icon "potion-ball"}
-   {:name "Jeweler's Tools", :key :jewelers-tools :icon "cut-diamond"}
-   {:name "Leatherworker's Tools", :key :leatherworkers-tools :icon "animal-hide"}
-   {:name "Mason's Tools", :key :masons-tools :icon "freemasonry"}
-   {:name "Painter's Supplies", :key :painters-supplies :icon "paint-brush"}
-   {:name "Potter's Tools", :key :potters-tools :icon "amphora"}
-   {:name "Smith's Tools", :key :smiths-tools :icon "anvil-impact"}
-   {:name "Tinker's Tools", :key :tinkers-tools :icon "tinker"}
-   {:name "Weaver's Tools", :key :weavers-tools :icon "wool"}
-   {:name "Woodcarver's Tools", :key :woodcarvers-tools :icon "wood-axe"}])
+  [{:name "Alchemist's Supplies" :cost {:num 50 :type :gp} :weight "8 lb.", :key :alchemists-supplies :icon "fire-bottle"}
+   {:name "Brewer's Supplies" :cost {:num 20 :type :gp} :weight "9 lb.", :key :brewers-supplies :icon "beer-stein"}
+   {:name "Calligrapher's Supplies" :cost {:num 10 :type :gp} :weight "5 lb.", :key :calligraphers-supplies :icon "quill-ink"}
+   {:name "Carpenter's Tools" :cost {:num 8 :type :gp} :weight "6 lb.", :key :carpenters-tools :icon "hand-saw"}
+   {:name "Cartographer's Tools" :cost {:num 15 :type :gp} :weight "6 lb.", :key :cartographers-tools :icon "compass"}
+   {:name "Cobbler's Tools" :cost {:num 5 :type :gp} :weight "5 lb.", :key :cobblers-tools :icon "leather-boot"}
+   {:name "Cook's Utensils" :cost {:num 1 :type :gp} :weight "8 lb.", :key :cooks-utensils :icon "kitchen-knives"}
+   {:name "Glassblower's Tools" :cost {:num 30 :type :gp} :weight "5 lb.", :key :glassblowers-tools :icon "potion-ball"}
+   {:name "Jeweler's Tools" :cost {:num 25 :type :gp} :weight "2 lb.", :key :jewelers-tools :icon "cut-diamond"}
+   {:name "Leatherworker's Tools" :cost {:num 5 :type :gp} :weight "5 lb.", :key :leatherworkers-tools :icon "animal-hide"}
+   {:name "Mason's Tools" :cost {:num 10 :type :gp} :weight "8 lb.", :key :masons-tools :icon "freemasonry"}
+   {:name "Painter's Supplies" :cost {:num 10 :type :gp} :weight "5 lb.", :key :painters-supplies :icon "paint-brush"}
+   {:name "Potter's Tools" :cost {:num 10 :type :gp} :weight "3 lb.", :key :potters-tools :icon "amphora"}
+   {:name "Smith's Tools" :cost {:num 20 :type :gp} :weight "8 lb.", :key :smiths-tools :icon "anvil-impact"}
+   {:name "Tinker's Tools" :cost {:num 50 :type :gp} :weight "10 lb.", :key :tinkers-tools :icon "tinker"}
+   {:name "Weaver's Tools" :cost {:num 1 :type :gp} :weight "5 lb.", :key :weavers-tools :icon "wool"}
+   {:name "Woodcarver's Tools" :cost {:num 1 :type :gp} :weight "5 lb.", :key :woodcarvers-tools :icon "wood-axe"}])
 
 (def misc-tools
-  [{:name "Disguise Kit"
+  [{:name "Disguise Kit" :cost {:num 25 :type :gp} :weight "3 lb."
     :key :disguise-kit}
-   {:name "Forgery Kit"
+   {:name "Forgery Kit" :cost {:num 15 :type :gp} :weight "5 lb."
     :key :forgery-kit}
-   {:name "Herbalism Kit"
+   {:name "Herbalism Kit" :cost {:num 5 :type :gp} :weight "3 lb."
     :key :herbalism-kit}
-   {:name "Navigator's Tools"
+   {:name "Navigator's Tools" :cost {:num 25 :type :gp} :weight "2 lb."
     :key :navigators-tools}
-   {:name "Poisoner's Kit"
+   {:name "Poisoner's Kit" :cost {:num 50 :type :gp} :weight "2 lb."
     :key :poisoners-kit}
-   {:name "Thieves' Tools"
+   {:name "Thieves' Tools" :cost {:num 25 :type :gp} :weight "1 lb."
     :key :thieves-tools}])
 
 (def gaming-sets
-  [{:name "Dice Set"
+  [{:name "Dice Set" :cost {:num 1 :type :sp} :weight "—"
     :key :dice-set}
    {:name "Dragonchess Set"
     :key :dragonchess-set}
-   {:name "Playing Card Set"
+   {:name "Playing Card Set" :cost {:num 5 :type :sp} :weight "—"
     :key :playing-card-set}
    {:name "Three-Dragon Ante Set"
     :key :three-dragon-ante-set}])
@@ -142,7 +142,7 @@
     {:name "Antitoxin" :sell-container :vial :cost {:num 50 :type :gp} :weight "—"}
     {:name "Backpack" :cost {:num 2 :type :gp} :weight "5 lb."}
     {:name "Bag of Sand"}
-    {:name "Ball bearings" :sell-qty 1000 :sell-contiainer "bag" :cost {:num 1 :type :gp} :weight "2 lb."}
+    {:name "Ball bearings" :sell-qty 1000 :sell-container "bag" :cost {:num 1 :type :gp} :weight "2 lb."}
     {:name "Barrel" :cost {:num 2 :type :gp} :weight "70 lb."}
     {:name "Basket" :cost {:num 4 :type :sp} :weight "2 lb."}
     {:name "Bedroll" :cost {:num 1 :type :gp} :weight "7 lb."}
@@ -243,7 +243,7 @@
   (into
    []
    common/add-keys-xform
-   [{:name "Burglar's Pack"
+   [{:name "Burglar's Pack" :cost {:num 16 :type :gp}
      :items {:backpack 1
              :ball-bearings 1
              :string 1
@@ -258,7 +258,7 @@
              :tinderbox 1
              :waterskin 1
              :rope-hempen 1}}
-    {:name "Diplomat's Pack"
+    {:name "Diplomat's Pack" :cost {:num 39 :type :gp}
      :items {:chest 1
              :case-map-or-scroll 1
              :clothes-fine 1
@@ -270,7 +270,7 @@
              :perfume 1
              :sealing-wax 1
              :soap 1}}
-    {:name "Dungeoneer's Pack"
+    {:name "Dungeoneer's Pack" :cost {:num 12 :type :gp}
      :items {:backpack 1
              :crowbar 1
              :hammer 1
@@ -280,7 +280,7 @@
              :rations-1-day- 10
              :waterskin 1
              :rope-hempen 1}}
-    {:name "Entertainer's Pack"
+    {:name "Entertainer's Pack" :cost {:num 40 :type :gp}
      :items {:backpack 1
              :bedroll 1
              :costume 2
@@ -288,7 +288,7 @@
              :rations-1-day- 5
              :waterskin 1
              :disguise-kit 1}}
-    {:name "Explorer's Pack"
+    {:name "Explorer's Pack" :cost {:num 10 :type :gp}
      :items {:backpack 1
              :bedroll 1
              :mess-kit 1
@@ -297,7 +297,7 @@
              :rations-1-day- 10
              :waterskin 1
              :rope-hempen 1}}
-    {:name "Priest's Pack"
+    {:name "Priest's Pack" :cost {:num 19 :type :gp}
      :items {:backpack 1
              :blanket 1
              :candle 10
@@ -308,7 +308,7 @@
              :vestements 1
              :rations-1-day- 2
              :waterskin 1}}
-    {:name "Scholar's Pack"
+    {:name "Scholar's Pack" :cost {:num 40 :type :gp}
      :items {:backpack 1
              :book 1
              :ink 1
