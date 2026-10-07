@@ -417,7 +417,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** account, auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, operator, opt-in, registration, send, smtp, unconfigured
+**topics:** auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, knowing, operator, opt-in, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -2891,7 +2891,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, rolling, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated

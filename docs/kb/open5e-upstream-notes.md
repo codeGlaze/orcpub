@@ -18,8 +18,9 @@ quicksetup` and their tests before work is called done: run both before any PR.
 - **Re-verify on their current `main`.** Their data moves; a note here is a snapshot.
 - One issue per report. Cite the file path, the record `pk`, and for data issues the SRD PDF
   page. API behaviour suits an issue; data fixes suit a PR.
-- Our PRs go out as codeGlaze: check commit authorship and trailers first
-  (`check-authorship-before-publishing`).
+- Our PRs go out as codeGlaze (owner, 2026-10-07): author, signing key and the account that
+  opens the PR all codeGlaze, never mixed with another handle. Check authorship and trailers
+  first (`check-authorship-before-publishing`).
 
 ## 1. `/v2/magicitems/` silently ignores `document__key` — **verified 2026-10-06**
 

@@ -104,6 +104,8 @@ list on this line. Not investigated; check whether it is meant to be here.
 
 ### Conditions, check B (2026-10-07)
 
+Transcripts for both editions, plain and readable, are in `resources/srd/` on `srd52/develop`.
+
 All 15 conditions in each edition, open5e and 5etools each aligned word by word against the SRD
 PDF text (5.1 pp. 358-359, 5.2.1 pp. 177-191), page footers removed.
 
@@ -117,8 +119,7 @@ PDF text (5.1 pp. 358-359, 5.2.1 pp. 177-191), page footers removed.
   which is why 5etools detects and never fixes.
 - **Comparison A**: none of the 15 pairs is identical and 3 reach 60%, so both editions are stored
   in full.
-- **Not yet done:** canonical files. Conditions have no `e5` namespace, so the format and path of
-  the static data file are the open question that blocks writing them (roadmap, *Open decisions*).
+- **Not yet done:** canonical files, now unblocked (EDN under `resources/public/srd/<edition>/`).
 
 Method: `cond_check.py` in the session scratchpad; the alignment trims boundary words so only
 interior differences report. A first pass without that flagged 23 of 30 on heading words and
