@@ -2,7 +2,10 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [orcpub.routes :as routes]
-            [orcpub.portrait-pack.strands :as strands])
+            [orcpub.portrait-pack.strands :as strands]
+            [orcpub.system :as system]
+            [io.pedestal.http :as http]
+            [io.pedestal.test :refer [response-for]])
   (:import [javax.imageio ImageIO]
            [java.io ByteArrayInputStream]))
 
@@ -31,3 +34,29 @@
   (is (nil? (get-image "/image/portraits/bangs/no_such_piece.strands.png")) "no art, no field")
   (is (nil? (get-image "/image/portraits/../../project.clj.strands.png")) "no way out of the art directory")
   (is (some? (get-image "/image/portraits/bangs/l9_bangs_02.png")) "the art itself is served as before"))
+
+(def ^:private service
+  ;; the server's own chain: static files, the guard, then the routes
+  (delay (::http/service-fn (http/create-servlet (system/with-portrait-guard
+                                                   (http/default-interceptors system/prod-service-map))))))
+
+(defn- served [uri] (response-for @service :get uri))
+
+(deftest the-art-directory-serves-images-only
+  (testing "through the whole chain, where static files answer before any route"
+    (testing "a manifest unpacked beside the art is not public"
+      (is (some? (io/resource "public/image/portraits/silhouette-index.json")) "the file is there")
+      (is (= 404 (:status (served "/image/portraits/silhouette-index.json"))) "but not served")
+      (is (= 404 (:status (served "/image/portraits/manifest.json"))))
+      (is (= 404 (:status (served "/image/portraits/"))) "and the directory is not listed"))
+    (testing "each piece, and each worked-out strand file, asks not to be used for AI"
+      (let [r (served "/image/portraits/bangs/l9_bangs_01.png")]
+        (is (= 200 (:status r)))
+        (is (= "noai, noimageai" (get-in r [:headers "X-Robots-Tag"]))))
+      (let [r (served "/image/portraits/bangs/l9_bangs_03.strands.png")]
+        (is (= 200 (:status r)))
+        (is (= "noai, noimageai" (get-in r [:headers "X-Robots-Tag"])))))
+    (testing "images outside the art directory are served as before"
+      (let [r (served "/image/card-logo-bw.png")]
+        (is (= 200 (:status r)))
+        (is (nil? (get-in r [:headers "X-Robots-Tag"])))))))

@@ -2615,12 +2615,30 @@
               (swap! worked-out-strands assoc uri bytes)
               bytes))))))
 
-(defn get-image [request]
+(defn- portrait-art? [uri] (s/starts-with? (str uri) "/image/portraits/"))
+
+(defn get-image [{:keys [uri] :as request}]
   (or (get-file request)
-      (when-let [bytes (strands-on-the-fly (:uri request))]
+      (when-let [bytes (strands-on-the-fly uri)]
         {:status 200
          :headers {"Content-Type" "image/png" "Cache-Control" "public, max-age=86400"}
          :body bytes})))
+
+(def portrait-art-guard
+  "First in the chain, ahead of Pedestal's static files, which answer before any route: the
+   portrait art directory serves its PNGs and nothing else (a manifest unpacked beside the art
+   would otherwise be public), and every piece it serves asks not to be used for AI."
+  (interceptor/interceptor
+   {:name ::portrait-art-guard
+    :enter (fn [ctx]
+             (let [uri (get-in ctx [:request :uri])]
+               (if (and (portrait-art? uri) (not (re-find #"(?i)\.png$" uri)))
+                 (assoc ctx :response {:status 404 :headers {"Content-Type" "text/plain"} :body "Not found"})
+                 ctx)))
+    :leave (fn [ctx]
+             (if (and (portrait-art? (get-in ctx [:request :uri])) (:response ctx))
+               (assoc-in ctx [:response :headers "X-Robots-Tag"] "noai, noimageai")
+               ctx))}))
 
 (def get-favicon get-file)
 
