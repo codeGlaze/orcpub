@@ -96,11 +96,33 @@ list on this line. Not investigated; check whether it is meant to be here.
 
 | type | 2024 source | status |
 |---|---|---|
-| conditions | `ConditionDescription.json` | **NOT CHECKED** |
+| conditions | `ConditionDescription.json` | **Check B done 2026-10-07** — see *Conditions, check B* below |
 | rules / rulesets | `Rule.json`, `RuleSet.json` | **NOT CHECKED** — likely where grapple/exhaustion/surprise changes live |
 | spellcasting options | `SpellCastingOption.json` (230KB) | **NOT CHECKED** — may carry the higher-level/upcast structure |
 | damage types, creature types, alignments, abilities | several small `*Description.json` | **NOT CHECKED** |
 | services, cross-references | `Service(s).json`, `CrossReference.json` | **NOT CHECKED** |
+
+### Conditions, check B (2026-10-07)
+
+All 15 conditions in each edition, open5e and 5etools each aligned word by word against the SRD
+PDF text (5.1 pp. 358-359, 5.2.1 pp. 177-191), page footers removed.
+
+- **open5e matches the SRD verbatim on all 30.** One artifact: 2024 Prone reads `move- ment`
+  (a PDF line-break hyphen kept with a space) where the SRD has "movement" — upstream note 6.
+  The 2014 Exhaustion soft hyphens are upstream note 4.
+- **5etools departs, always on its side, never the SRD's.** 2014: it drops "(see the condition)"
+  from Grappled, Paralyzed, Petrified, Stunned and Unconscious, and its Exhaustion differs
+  (0.96 against open5e). 2024: "throws" for the SRD's "throw" in five conditions, "crawling" for
+  "crawl" in Prone, "effect" for "effects" in Charmed. That is PHB wording, not SRD wording —
+  which is why 5etools detects and never fixes.
+- **Comparison A**: none of the 15 pairs is identical and 3 reach 60%, so both editions are stored
+  in full.
+- **Not yet done:** canonical files. Conditions have no `e5` namespace, so the format and path of
+  the static data file are the open question that blocks writing them (roadmap, *Open decisions*).
+
+Method: `cond_check.py` in the session scratchpad; the alignment trims boundary words so only
+interior differences report. A first pass without that flagged 23 of 30 on heading words and
+footers — window noise, not text differences.
 
 ## App-side work, no SRD counterpart
 

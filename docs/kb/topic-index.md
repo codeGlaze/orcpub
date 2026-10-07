@@ -1347,7 +1347,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1412,7 +1412,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, loader, readable, readme, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, loader, non-word, readme, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 760, documents, filing, filter, higher, higher-level, issue, open5e, pdf, records, spell, srd, srd-2024-roadmap, text, transcript, upcast, upcasting
+**topics:** 100, 760, documents, filing, filter, higher, higher-level, hyphen, issue, open5e, pdf, records, spell, srd, srd-2024-roadmap, text, transcript, upcasting
 
 - Before filing anything
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
@@ -2252,6 +2252,7 @@ _open5e-upstream-notes · open5e upstream notes_
 - 3. Upcasting is structured unevenly between the two documents — verified
 - 4. SRD 5.1 encoding artifacts in srd-2014 text — verified, extent not measured
 - 5. srd-2014 spell text that does not match the SRD — candidates, not yet verified
+- 6. A kept line-break hyphen in srd-2024 Prone — verified 2026-10-07
 - Observations, not yet issues
 - Not open5e's
 
@@ -2889,7 +2890,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, rolling, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3045,12 +3046,13 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 285, 313, 317, 319, 322, 339, 5etools, counterpart, gear, magic, monsters, open5e, species, srd, started, text
+**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, started, text
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
 - Breadth survey — phase 1 (2026-10-06)
 - Rules and reference (no e5 data namespace)
+- Conditions, check B (2026-10-07)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
 - Counting these files correctly
@@ -3110,6 +3112,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
 - Phase 2 — order the content types (done 2026-10-07)
 - Phase 3 — per content type, in that order
+- Conditions, partly through phase 3
 - Spells, already partly through phase 3
 - Decided
 - Wanted, not yet scoped

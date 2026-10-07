@@ -171,6 +171,11 @@ Check B; corrections list (each fix with its PDF page, doubling as upstream PRs)
 for both editions, normalising structure only; comparison A where a storage model fits, with the
 60% threshold provisional and every diff round-trip checked; replace the `e55` file.
 
+### Conditions, partly through phase 3
+
+Check B done (open5e verbatim on all 30, one artifact) and comparison A done (full storage, both
+editions). Canonical files wait on the file format and path decision below.
+
 ### Spells, already partly through phase 3
 
 Check B on description text is done: 311 of 319 `e5` spells are SRD text, 8 depart, open5e
@@ -217,6 +222,12 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** â
 - **Small visual tells** for 2014, 2024 and both â€” composed with the theme, not a theme of their own, and never the only indicator. (owner)
 
 ## Open decisions
+
+- **Format and path of the SRD static data files.** Decided: one file per content type per
+  edition, served static, fetched on first need. Not decided: the format (EDN, read natively by
+  ClojureScript, or JSON) and the path. Blocks every canonical file, starting with conditions.
+  Recommendation: EDN under `resources/public/srd/<edition>/<type>.edn`, so the same file is a
+  static asset for the SPA and readable on the JVM for tests.
 
 - **The diff threshold is provisionally 60%** (owner, 2026-10-06), to run in development and be
   reviewed for being too lax. Two conditions make that review meaningful. Diffs are **regenerable

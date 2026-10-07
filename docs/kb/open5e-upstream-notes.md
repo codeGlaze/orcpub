@@ -82,6 +82,13 @@ runs found in the PDF transcript:
 **Confirm each on the rendered PDF page before filing or correcting.** The measure is good at
 saying which source matches the transcript, but the transcript is extractor output.
 
+## 6. A kept line-break hyphen in `srd-2024` Prone — **verified 2026-10-07**
+
+`ConditionDescription` `srd-2024_prone` reads "an amount of `move- ment` equal to half your
+Speed". The SRD 5.2.1 (p. 186) has "movement"; the hyphen is the PDF's line break. The other 29
+conditions across both documents match the SRD verbatim, so this looks like a one-off rather than
+a pattern — worth a quick search for `\w- \w` across the 2024 fixtures before filing.
+
 ## Observations, not yet issues
 
 - **Cantrip scaling lives in `higher_level`** (9 spells in `srd-2014`, 15 in `srd-2024`). The SRD
