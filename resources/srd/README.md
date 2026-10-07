@@ -33,8 +33,10 @@ The readable files come from the normalized transcripts:
 A hyphen at a line end is either a split word or a real compound broken at its hyphen. The
 script decides from the document's own vocabulary, and where that is silent it follows what the
 document usually does: 5.1 breaks only at real hyphens, 5.2.1 hyphenates by syllable.
-`--report` lists those guesses: 15 in 5.1, 94 in 5.2.1, read by eye, with two compounds
-corrected (`long-dead`, `nine-course`). `mid-size` was joined and is unconfirmed. Apart from
+Those it cannot decide are listed once, with the decision and its evidence, in
+`scripts/srd/hyphenation.tsv` on `agents/develop`: 105 forms, 81 confirmed against 5etools' text
+and 25 read by eye. `--report` lists any form not yet in that file, which is what a new PDF or
+version will produce. Apart from
 those hyphens and the footers, every non-space character is unchanged from the transcript.
 
 That normalization matters far more for 5.1 than for 5.2.1. The 5.1 text layer writes an
