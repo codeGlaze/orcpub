@@ -84,17 +84,17 @@ capacity and the SPA, scheduled as its own decision. Treat them as one design, n
 |---|---|---|
 | 1. Research | what is in 2024, how it differs, what the app cannot express | **Mostly done, uneven.** Spells, magic items, classes, rules tier and conditions surveyed; species, backgrounds and feats mapped by shape. Monsters, equipment, weapons and armor not surveyed. |
 | 2. Design | the decisions below | **Made, now written down here.** |
-| 3. Plan | order, dependencies, what blocks what | **Breadth first** — see *The plan* below. Per-type order follows the breadth survey and the alpha decision. |
+| 3. Plan | order, dependencies, what blocks what | **Breadth first** — see *The plan* below. Per-type order follows the breadth survey. |
 | 4. Framework | the machinery that makes 2024 possible in the app | **Nothing built.** One characterization test exists. |
 | 5. MVP | something a user can touch | **Not started.** |
-| 6. Alpha | an MVP verified against the SRD and safe to hand to testers | **Not started.** |
+| 6. Alpha | the whole project: all six rungs done — an MVP verified against the SRD and safe to hand to testers | **Not started.** |
 
 Proposed meaning of done for each rung, to be confirmed:
 
 - **Research** — every row of the coverage map is past NOT STARTED.
 - **Plan** — every framework item below has an owner trunk and a known blocker list.
 - **Framework** — a source-tagged `e55` entry can reach a character without being silently dropped, and can be filtered by edition.
-- **MVP** — open question; see *Which rung is alpha*.
+- **MVP** — still to define. Alpha is not a choice of rung: it is the end of all six (decided).
 
 ## The plan: breadth first
 
@@ -139,7 +139,7 @@ For every content type, the same seven questions, results recorded in
 6. **A small `e5` spot-check** — a handful of entries against the PDF, not the full check.
 7. **What it needs from the framework** — grant vocabulary, the version filter, and so on.
 
-### Phase 2 — order the content types (next; needs the alpha decision)
+### Phase 2 — order the content types (next)
 
 What phase 1 changed: the diff model fits spells and magic items, **not** monsters (rewritten:
 49 of 285 pairs reach 60%) and not species, backgrounds or feats (structure changed). Monsters,
@@ -147,8 +147,9 @@ spells and gear all need a **cross-edition identity map** for renames and splits
 subsystem turned up — **weapon mastery** — which belongs on the 5.5 trunk under the machinery
 split.
 
-Set by the open **alpha decision** (browse the 2024 SRD, build a 2024 character, or mix
-editions) and by which types most threaten the pipeline design. Not by convenience.
+Alpha is the end of all six rungs, so every content type is in scope and none is optional. The
+order is set by dependency and by which types most threaten the pipeline design, not by
+convenience.
 
 ### Phase 3 — per content type, in that order
 
@@ -167,6 +168,7 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** �
 
 | decision | by |
 |---|---|
+| **Alpha is the whole project**: all six rungs of the ladder done, not a subset such as browse-only or 2024-only characters. Every content type is in scope. | owner, 2026-10-06 |
 | Pick the gitea `srd-2024-intergration` branch for parts; do not merge it. Its structural notes are worth keeping, its data is not. | owner |
 | Model the work as two independent dials — **content** (which sources and items are on) and **rules** (what the engine computes) — not one edition switch. One switch can only express purity; users want to mix. | agreed in discussion |
 | The content dial is a **version filter**: 2014, 2024, or both. **No version selected means no filter.** That decouples tagging content from filtering it, so tagging can ship without changing anything for anyone. | owner |
@@ -202,7 +204,6 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** �
 
 ## Open decisions
 
-- **Which rung is "alpha"** — browse 2024 SRD content, build a 2024 character, or mix editions on one character. This sets how much verification the plan must carry.
 - **The diff threshold is provisionally 60%** (owner, 2026-10-06), to run in development and be
   reviewed for being too lax. Two conditions make that review meaningful. Diffs are **regenerable
   build output**, produced from the 2014 base and the full 2024 text and checked by round-trip

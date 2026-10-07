@@ -3034,7 +3034,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3054,7 +3054,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, 5etools, alpha, diff, edition, editions, open5e, owner, pdf, rung, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk, wording
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3063,7 +3063,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - The plan: breadth first
 - Four sources, two comparisons
 - Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
-- Phase 2 — order the content types (next; needs the alpha decision)
+- Phase 2 — order the content types (next)
 - Phase 3 — per content type, in that order
 - Spells, already partly through phase 3
 - Decided
