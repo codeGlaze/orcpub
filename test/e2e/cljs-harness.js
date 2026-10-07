@@ -2,7 +2,10 @@
 const http=require('http'),fs=require('fs'),path=require('path');const {chromium}=require('playwright');
 const {findChrome}=require('../browser/lib/find-chrome');
 const ROOT=path.resolve('target/test');
+// fig:test writes only the scripts; the page that runs them is served from here unless one exists.
+const RUNNER='<body><div id="app-auto-testing"></div><script src="js/test-auto-testing.js"></script></body>';
 const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[0]);const f=path.join(ROOT,u==='/'?'runner-all.html':u);
+ if(f===path.join(ROOT,'runner-all.html')&&!fs.existsSync(f)){r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return r.end(RUNNER);}
  if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);return r.end();}
  r.writeHead(200,{'Content-Type':f.endsWith('.js')?'application/javascript; charset=utf-8':f.endsWith('.html')?'text/html; charset=utf-8':'application/octet-stream'});fs.createReadStream(f).pipe(r);});
 (async()=>{await new Promise(r=>srv.listen(0,r));const port=srv.address().port;
