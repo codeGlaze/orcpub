@@ -25,6 +25,19 @@ test/
 
 **Important**: `test/cljc/` contains BOTH `.clj` and `.cljc` files. The `.clj` files only run on JVM. The `.cljc` files run on both.
 
+### Homebrew test fixtures: two packs, two jobs
+
+- `test/fixtures/test-pak.orcbrew`: a real, large multi-source pack with its text laundered. For
+  loading at scale and real-world shapes (`plugin_load_test`). Not designed: its six ranger
+  subclasses, for one, carry no choices.
+- `test/fixtures/coverage-pak.orcbrew` (on `fix/hidden-multiclass-skill-pick`, `8fcd174a`, until it
+  merges): designed. Every item uses every field its homebrew builder offers; it starts with
+  Wayfarer, a ranger subclass. Reach for it before inventing homebrew in a test, and extend it
+  (with a line in `coverage_pak_test.cljs` per field) rather than starting another pack.
+- Browser tests read a fixture with `orcpub.fixtures/fixture-text` (inlined at compile time) and
+  convert it with the app's own code (`coverage_pak.cljs`: `orcbrew-val/parse-edn`, then
+  `spell-subs/plugin-subclass`). An edited fixture is read again only when its user recompiles.
+
 ## Library Truths (Verified, Not Assumed)
 
 ### re-frame.test Does NOT Exist in re-frame 1.4.4
