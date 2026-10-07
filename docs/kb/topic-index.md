@@ -455,7 +455,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
+**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -806,7 +806,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -2244,8 +2244,9 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 760, documents, filing, filter, higher, higher-level, hyphen, issue, open5e, pdf, records, spell, srd, srd-2024-roadmap, text, transcript, upcasting
+**topics:** 100, 2026-10-07, 760, dissonant, documents, filing, heroism, higher, higher-level, lightning, open5e, pdf, pks, spell, srd, text, transcript, upcasting
 
+- Where the fixes live
 - Before filing anything
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs

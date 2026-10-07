@@ -5,6 +5,14 @@ open5e's per-publisher repo data (`open5e/open5e-api`, `data/v2/wizards-of-the-c
 structured source checked against the SRD PDFs; see [srd-2024-roadmap.md](srd-2024-roadmap.md).
 Everything below was found while doing that.
 
+## Where the fixes live
+
+Corrections are commits, not just notes: a local clone at `/home/codeglaze/projects/open5e-api`,
+branch `srd-corrections` off their `staging` (their default branch), one commit per fix with the
+SRD page in the message. Unpushed until a fork and PR are approved. Our canonical files are
+generated from that corrected clone. Their `AGENTS.md` asks for `uv run python manage.py
+quicksetup` and their tests before work is called done: run both before any PR.
+
 ## Before filing anything
 
 - **Re-verify on their current `main`.** Their data moves; a note here is a snapshot.
@@ -52,6 +60,11 @@ while the SRD gives it a higher-level rule.
 
 5etools, an independent transcription, carries all three upcasts in both editions.
 
+**Fixed on `srd-corrections`** (2026-10-07): `42b8a95` Heroism, `43d3879` Chain Lightning,
+`ee658a3` Dissonant Whispers. Each adds the `higher_level` text and slot options, with new option
+pks 10734-10752 above the highest in `data/v2`. Re-check those pks against `staging` before the
+PR, because new ones may have landed there.
+
 ## 3. Upcasting is structured unevenly between the two documents — **verified**
 
 open5e records upcasting twice: as `higher_level` text, and as per-slot `SpellCastingOption`
@@ -88,6 +101,8 @@ saying which source matches the transcript, but the transcript is extractor outp
 Speed". The SRD 5.2.1 (p. 186) has "movement"; the hyphen is the PDF's line break. The other 29
 conditions across both documents match the SRD verbatim, so this looks like a one-off rather than
 a pattern — worth a quick search for `\w- \w` across the 2024 fixtures before filing.
+
+**Fixed on `srd-corrections`** (2026-10-07): `278778f`.
 
 ## Observations, not yet issues
 
