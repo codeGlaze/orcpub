@@ -114,21 +114,27 @@ never runs inside the edit.* The edit applies and cannot fail because of it; the
 | id | problem | evidence | fix | test |
 |---|---|---|---|---|
 | B1 ✓ `ffa335c5` | The hold resets on a first save (`:character-save-success` → `:set-character`, id nil → n) and survives `:new-character` (no interceptor) | code | `::e5/planned-for` records whose hold it is; a save hands it the new id; `:new-character` empties it | cljs; e2e flow 6 |
-| B2 | An edit that removes a level or class entry deletes its picks: 7 → 2 loses Hunter and Steel Will; deleting or changing a class loses its picks | code: `set-class-level` (`take`), `delete-class`, `set-class` | The settle also holds picks the edit removed with their level or class entry; not picks the player removed directly | cljs + e2e: 7 → 2 → 7, delete and re-add a class, rogue → wizard → rogue |
+| B2 ✓ `0983becf` | An edit that removes a level or class entry deletes its picks: 7 → 2 loses Hunter and Steel Will; deleting or changing a class loses its picks | code: `set-class-level` (`take`), `delete-class`, `set-class` | The settle also holds picks the edit removed with their level or class entry; not picks the player removed directly | cljs + e2e: 7 → 2 → 7, delete and re-add a class, rogue → wizard → rogue |
 | B3 | A new pick in a slot does not retire its held pick unless the slot is full or holds the same key (`put-at`) | code | Per the owner's rule, below | JVM |
 | B4 ✓ `59c1d0d4` | "Still fits" checks only room in the slot, not the pick's own requirements: a skill now held from elsewhere comes back | code | A pick `put-at` could place but whose own prereqs fail waits in the hold (not retired) and returns once they pass | JVM: an Urchin background's Stealth |
 
-**Owner's calls** (B2 and B3 wait on them): does switching subclass hold the old subclass's picks
-or retire them? Does a new pick in a slot retire the held one (the written rule) or not ("they can
-just switch")?
+**Owner's calls.** Switching subclass holds the old subclass's picks (owner, 2026-10-07: the hold
+lives only while the character is being edited, so stashing them costs nothing); B2 does the same
+for any replaced choice (a race's subrace). Open: does a new pick in a slot retire the held one
+(the written rule) or not ("they can just switch")? (B3)
 
 **C. For the UI step (items 7–8):** C1, `::e5/picks-change` is replaced on every event, so a
 notice would vanish at the next keystroke; it accumulates until shown or dismissed. C2, saving a
 character cleaned on open, with its notice (open since commit 3).
 
 **D. Process:** D1, CI runs only the JVM suite, so the wiring (tested in the browser and e2e
-suites) is checked by hand only. Add the browser suite to CI once `fix/cljs-harness-exit` lands;
-its exit code is now reliable. D2, measure before adding work to an edit.
+suites) is checked by hand only. **Built** on `ci/browser-suite` (`6b6c140a`, on top of the
+harness fix, so it replaces `fix/cljs-harness-exit`): `browser-suite.yml` runs `lein fig:test` and
+the harness on pushes and PRs to integration, develop and main; the harness serves its runner page
+itself. It first runs on a PR into integration. D2, measure before adding work to an edit. D3,
+found doing D1: `continuous-integration.yml` (lint, the JVM suite, the app build) runs only for
+`develop` and `main`; on integration the JVM suite runs through `locale.yml`, but lint and the app
+build never do.
 
 **Order:** A1–A5 (A1, A2 and A4 can be one commit: one move), B1, B4, then B2 and B3 after the
 owner's calls, then item 6. C with the UI. D1 on its own branch, name approved first.
