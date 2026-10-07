@@ -77,8 +77,13 @@ options would make the two documents consistent and make 2014 upcasting usable a
 ## 4. SRD 5.1 encoding artifacts in `srd-2014` text — **verified, extent not measured**
 
 Text carries the soft hyphens of the 5.1 PDF's text layer: `ConditionDescription` for
-exhaustion reads `long-­‐term` (U+00AD followed by U+2010). These register as differences in
-any text comparison and as odd characters in display. Not yet measured across all files.
+exhaustion reads `long-­‐term` (hyphen, U+00AD, U+2010). These register as differences in any text
+comparison and as odd characters in display. **Measured 2026-10-07: 47 soft hyphens across 10
+`srd-2014` files** (Spell 13, Item 11, Environment 8, ItemSet 4, CreatureTypeDescription 3, and two
+each or fewer in five more).
+
+**Fixed for conditions on `srd-corrections`:** `a11a5de` (both soft hyphens, two doubled spaces),
+`c5ca059` (Blinded's one straight apostrophe). The other files wait for their content type.
 
 ## 5. `srd-2014` spell text that does not match the SRD — **candidates, not yet verified**
 

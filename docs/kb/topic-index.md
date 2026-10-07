@@ -2021,7 +2021,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source
+**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source, stamps
 
 - TL;DR
 - The map (VERIFIED)
@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 2026-10-07, 760, dissonant, documents, filing, heroism, higher, higher-level, lightning, open5e, pdf, pks, spell, srd, text, transcript, upcasting
+**topics:** 100, 2026-10-07, 760, documents, filing, higher, higher-level, hyphen, hyphens, open5e, pdf, pks, soft, spell, srd, text, transcript, upcasting
 
 - Where the fixes live
 - Before filing anything
@@ -3125,7 +3125,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, adult, concentration, costly, data, dragon, editions, gear, glossary, gold, jug, monsters, open5e, prices, spells, srd, weapons
+**topics:** 2014, 2024, 2026-10-07, actions, concentration, costly, dragon, editions, gear, glossary, gold, jug, monsters, open5e, prices, reactions, spells, srd
 
 - How this was measured
 - What the app shows today

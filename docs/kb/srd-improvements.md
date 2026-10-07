@@ -56,7 +56,7 @@ fail on the old data:
 
 | gap | entries | what it needs |
 |---|---|---|
-| Monster reactions are never shown | 12 monsters carry `:reactions` (the Marilith's Parry among them) | a Reactions section in `monster-component`, which never reads the field |
+| Monster reactions are never shown | 12 monsters carry `:reactions` (the Marilith's Parry among them) | a Reactions section in `monster-component`, which never reads the field. Re-checked 2026-10-07 on `integration` (`views.cljs` 1609): it draws traits, Actions and Legendary Actions only. The Reactions section that does exist is the **character** sheet's (`views.cljs` 3993, and the PDF). The monster builder cannot author one either: its trait types are Other, Action and Legendary Action |
 | No price or weight on any weapon; no price on any armor | all 40 weapons, all 14 armor | the data (SRD 5.1 tables: "Crossbow, light 25 gp 1d8 piercing 5 lb.") and somewhere that shows it |
 | 30 weapons link out to Wikipedia | weapons with `:link` | a decision: an SRD page, or nothing |
 
