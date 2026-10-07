@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.subs :as subs]
+            [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
@@ -59,12 +60,18 @@
                             ::entity/options :ranger-archetype ::entity/options
                             :defensive-tactics])))
 
+(defn- queued
+  "The db an edit leaves, through the real `queue-settle`, and whether it queued a settle."
+  [db-before db-after event]
+  (let [ctx ((:after events/queue-settle)
+             {:coeffects {:db db-before :event [event]} :effects {:db db-after}})]
+    [(get-in ctx [:effects :db]) (get-in ctx [:effects :orcpub.dnd.e5.events/settle-picks-soon])]))
+
 (defn- edit
   "What an edit and the settle it queues leave: `queue-settle`, then `::e5/settle-picks`."
   [db-before db-after event]
-  (if (events/settle-needed? db-before db-after)
-    (events/settle-picks-db (events/hold-for db-before db-after event))
-    db-after))
+  (let [[d settle?] (queued db-before db-after event)]
+    (if settle? (events/settle-picks-db d) d)))
 
 (deftest a-level-drop-holds-the-pick-and-raising-it-returns-it
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
@@ -162,11 +169,12 @@
         "and its picks")
     (is (= [:leather] (mapv ::entity/key (get-in deleted [::entity/options :armor])))
         "it brings its starting equipment as the first class")
-    (testing "its multiclass skill no longer applies, so the hold takes it"
+    (testing "its multiclass skill no longer applies, so the hold takes it, with the ranger's picks"
       (is (empty? (get-in settled [:character ::entity/options :class 0 ::entity/options
                                    :multiclass-skill-proficiency])))
-      (is (= [[:class :rogue :multiclass-skill-proficiency :athletics]]
-             (mapv :address (:orcpub.dnd.e5/planned-picks settled)))))))
+      (is (= #{[:class :rogue :multiclass-skill-proficiency :athletics]
+               [:class :ranger :levels :level-3 :ranger-archetype :hunter]}
+             (set (map :address (:orcpub.dnd.e5/planned-picks settled))))))))
 
 (deftest a-page-settles-again-only-when-its-character-or-template-changes
   (let [settle (subs/page-settler)
@@ -215,3 +223,22 @@
     (is (= [] (:orcpub.dnd.e5/planned-picks
                (:db (events/new-character-fx {:db at-6} [:new-character]))))
         "so does a new character")))
+
+(defn- to-level [d n]
+  (assoc d :character (event-handlers/set-class-level (:character d) [:set-class-level 0 n])))
+
+(deftest a-drop-below-the-subclass-holds-it-even-in-one-burst-of-edits
+  (let [at-7 (db (ranger 7))
+        at-2 (edit at-7 (to-level at-7 2) :set-class-level)
+        back (edit at-2 (to-level at-2 7) :set-class-level)
+        [burst-2 _] (queued at-7 (to-level at-7 2) :set-class-level)
+        burst-7 (edit burst-2 (to-level burst-2 7) :set-class-level)]
+    (is (not (steel-will? (:character at-2))) "at 2 Hunter and Steel Will are gone")
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-2))) "held: Hunter, Steel Will inside it")
+    (is (steel-will? (:character back)) "raised to 7, they return")
+    (is (= [] (:orcpub.dnd.e5/planned-picks back)))
+    (testing "7 -> 2 -> 7 before any settle runs"
+      (is (steel-will? (:character burst-7)))
+      (is (= {:set-aside [] :restored [] :retired []}
+             (:orcpub.dnd.e5/picks-change burst-7))
+          "nothing to tell: the picks never left"))))

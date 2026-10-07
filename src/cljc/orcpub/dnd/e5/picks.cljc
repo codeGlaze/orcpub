@@ -149,10 +149,10 @@
     (cond (sequential? v) (filter map? v) (map? v) [v] :else [])))
 
 (defn- drop-nested
-  "`addresses` without those under another address in it."
-  [addresses]
+  "`paths` without those under another of them."
+  [paths]
   (let [under? (fn [a b] (and (< (count b) (count a)) (= b (subvec a 0 (count b)))))]
-    (remove (fn [a] (some #(under? a %) addresses)) addresses)))
+    (remove (fn [a] (some #(under? a %) paths)) paths)))
 
 (defn disqualified
   "Addresses of `character`'s picks under a selection whose gate is closed in `built`: reachable
@@ -163,7 +163,7 @@
                                                                 (entity/make-path-map character)))
         open-paths (set (map (comp vec entity/actual-path)
                              (entity/remove-disqualified-selections reachable built)))
-        addresses (distinct
+        found (distinct
                    (for [s reachable
                          :let [path (vec (entity/actual-path s))]
                          :when (not (open-paths path))
@@ -171,7 +171,7 @@
                          e (stored-entries template character path)
                          :when (offered (::entity/key e))]
                      (conj path (::entity/key e))))]
-    (vec (drop-nested (vec addresses)))))
+    (vec (drop-nested (vec found)))))
 
 (defn overflow
   "Addresses of the newest picks over an available selection's limit in `built`, per
@@ -195,23 +195,41 @@
    {:character :set-aside}; `:set-aside` holds their `remove-at` records."
   [template character]
   (let [built (entity/build character template)
-        addresses (concat (disqualified template character built)
+        closed (concat (disqualified template character built)
                           (overflow template character built))]
     (reduce (fn [{:keys [character] :as acc} address]
               (let [{c :character r :removed} (remove-at character address)]
                 (cond-> (assoc acc :character c) r (update :set-aside conj r))))
             {:character character :set-aside []}
-            addresses)))
+            closed)))
+
+(defn removed-with-container
+  "`remove-at` records, taken from `before`, of the picks `after` lost along with the entry holding
+   them: a level or class entry removed, a subclass replaced. Not a pick the player removed itself
+   (its entry is still there), nor a `:levels` entry, whose return would raise a level."
+  [before after]
+  (let [now (set (map first (addresses after)))
+        lost (for [[address _] (addresses before)
+                   :let [parent (subvec address 0 (- (count address) 2))]
+                   :when (and (seq parent)
+                              (not (now address))
+                              (not (now parent))
+                              (not= :levels (peek (pop address))))]
+               address)]
+    (vec (keep #(:removed (remove-at before %)) (drop-nested (vec lost))))))
 
 (defn from-planned
   "`character` with each record in `planned` put back by `put-at`, as
-   {:character :put-back :retired}: a record `put-at` cannot write is retired."
+   {:character :put-back :waiting :retired}: a record whose entry on the way is not stored (yet)
+   waits; one `put-at` refuses where it is stored (the slot holds a newer pick) is retired."
   [character planned]
   (reduce (fn [{:keys [character] :as acc} record]
             (if-let [c (put-at character record)]
               (-> acc (assoc :character c) (update :put-back conj record))
-              (update acc :retired conj record)))
-          {:character character :put-back [] :retired []}
+              (if (options-path character (:address record))
+                (update acc :retired conj record)
+                (update acc :waiting conj record))))
+          {:character character :put-back [] :waiting [] :retired []}
           planned))
 
 (defn- requirements-met?
@@ -239,28 +257,28 @@
 (defn update-planned
   "`character` and its hold `planned` once every held pick that fits is back and every pick that
    no longer applies is held, as {:character :planned :set-aside :restored :retired}; the last
-   three are records, against the `planned` passed in. A held pick whose own prereqs fail waits.
-   Throws ex-info if it does not settle."
+   three are records, against the `planned` passed in. A held pick whose own prereqs fail, or
+   whose entry is not stored yet, waits. Throws ex-info if it does not settle."
   [template character planned]
-  (let [addresses #(set (map :address %))
+  (let [address-set #(set (map :address %))
         initial (vec planned)
-        before (addresses initial)]
+        before (address-set initial)]
     (loop [character character planned (vec planned) retired [] n 0]
       (when (= n max-passes)
         (throw (ex-info "Picks did not settle" {:passes n :planned (mapv :address planned)})))
       (let [wait (waiting template character planned)
-            waits (addresses wait)
+            waits (address-set wait)
             trying (remove #(waits (:address %)) planned)
-            {c1 :character r :retired} (from-planned character trying)
+            {c1 :character r :retired absent :waiting} (from-planned character trying)
             {c2 :character held :set-aside} (to-planned template c1)
-            held (into (vec wait) held)
+            held (-> (vec wait) (into absent) (into held))
             retired (into retired r)]
-        (if (and (= c2 character) (= (addresses held) (addresses planned)))
-          (let [after (addresses held)]
+        (if (and (= c2 character) (= (address-set held) (address-set planned)))
+          (let [after (address-set held)]
             {:character c2
              :planned held
              :set-aside (filterv #(not (before (:address %))) held)
-             :restored (filterv #(not (or (after (:address %)) ((addresses retired) (:address %))))
+             :restored (filterv #(not (or (after (:address %)) ((address-set retired) (:address %))))
                                 initial)
              :retired retired})
           (recur c2 held retired (inc n)))))))

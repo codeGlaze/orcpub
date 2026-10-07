@@ -232,13 +232,16 @@
 (defn hold-for
   "`db-after` with the planned hold emptied when the edit starts on another character than the one
    it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, or a
-   different id. A first save hands the hold the new id (`character-save-success-fx`)."
+   different id. A first save hands the hold the new id (`character-save-success-fx`). Otherwise
+   the character before the edit joins `::e5/settle-trail`, for `settle-picks-db` to compare."
   [db-before db-after event-id]
   (let [id (get-in db-after [:character :db/id])
         owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
     (if (or (= :reset-character event-id) (not= owner id))
-      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id)
-      (assoc db-after ::e5/planned-for id))))
+      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail [])
+      (-> db-after
+          (assoc ::e5/planned-for id)
+          (update ::e5/settle-trail (fnil conj []) (:character db-before))))))
 
 (defn settle-needed?
   "Whether an edit from `db-before` to `db-after` can change which picks apply: the cached
@@ -250,24 +253,42 @@
       (not= (dissoc (:character db-before) ::entity/values)
             (dissoc (:character db-after) ::entity/values))))
 
+(defn- lost-in-trail
+  "`picks/removed-with-container` records for each step of `trail` (characters before each edit)
+   ending at `character`, at most one per address."
+  [trail character]
+  (let [steps (conj (vec trail) character)]
+    (->> (map picks/removed-with-container steps (rest steps))
+         (apply concat)
+         (reduce (fn [acc r] (if (some #(= (:address r) (:address %)) acc) acc (conj acc r))) []))))
+
 (defn settle-picks-db
-  "`db` with its character settled against the planned hold (`picks/update-planned`) and the change
-   in `::e5/picks-change`. Returns `db` unchanged without a cached template, or when settling
-   throws (logged): the character stays as edited. decision-gate-hidden-picks.md"
+  "`db` with its character settled against the planned hold (`picks/update-planned`), the picks its
+   edits removed with their entry (`::e5/settle-trail`) held too, and the change in
+   `::e5/picks-change`. Unchanged without a cached template, or when settling throws (logged):
+   the character stays as edited. decision-gate-hidden-picks.md"
   [db]
   (let [template (get db ::autosave-fx/cached-template)]
     (if-not (seq template)
       db
       (try
-        (let [{:keys [character planned set-aside restored retired]}
-              (picks/update-planned template (:character db) (get db ::e5/planned-picks []))]
+        (let [hold (get db ::e5/planned-picks [])
+              held (set (map :address hold))
+              lost (remove #(held (:address %))
+                           (lost-in-trail (::e5/settle-trail db) (:character db)))
+              {:keys [character planned restored retired]}
+              (picks/update-planned template (:character db) (into (vec hold) lost))]
+          ;; Against the hold before: a pick lost and back within one burst of edits never left.
           (assoc db
                  :character character
                  ::e5/planned-picks planned
-                 ::e5/picks-change {:set-aside set-aside :restored restored :retired retired}))
+                 ::e5/settle-trail []
+                 ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
+                                    :restored (filterv #(held (:address %)) restored)
+                                    :retired retired}))
         (catch :default e
           (js/console.error "Picks were not settled; the character is left as edited." e)
-          db)))))
+          (cond-> db (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
 
 ;; Never settles inside the edit, so it cannot fail or slow one: it resets the hold when needed
 ;; and queues ::e5/settle-picks. plan-hidden-pick-fix-and-grant-fields.md, "Step 1 hardening".

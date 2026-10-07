@@ -6,7 +6,9 @@
 // 3 fighter Champion 10 with Defense + Archery, 10 -> 9 -> 10; 4 a draft saved at 6 that still
 // stores Steel Will (the state before this fix) is settled on opening, before any edit; 5 fighter
 // first, rogue 3 second with its multiclass skill: deleting the fighter keeps the rogue's levels
-// and holds that skill; 6 a held pick survives the character's first save.
+// and holds that skill; 6 a held pick survives the character's first save; picks an edit removes
+// with their entry are held: 7 ranger 7 -> 2 -> 7, 8 a Dwarf's subrace through Dwarf -> Elf -> Dwarf,
+// 9 a rogue's skills through rogue -> wizard -> rogue.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -120,6 +122,46 @@ const flows = {
     check('Steel Will is still held', (await heldCount(page)) === 1);
     await setLevel(page, 0, 7);
     check('raised to 7 after the save, Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
+  },
+
+  async 7(page) {
+    if (!(await hunter7(page))) return;
+    await setLevel(page, 0, 2);
+    check('at 2, no subclass', (await dbAt(page, `${CLASS0} :levels 2]`)) === 'nil');
+    await setLevel(page, 0, 7);
+    check('raised to 7, Hunter and Steel Will return', (await dbAt(page, TACTIC)) === ':steel-will');
+  },
+
+  // The SRD ranger has one subclass, so a replaced choice is driven with a race: its subrace is
+  // stored inside it, as a subclass's picks are.
+  async 8(page) {
+    const SUBRACE = '[:character :orcpub.entity/options :race :orcpub.entity/options :subrace :orcpub.entity/key]';
+    await pick(page, 'Race', 'Race', 'Dwarf');
+    const first = await page.evaluate(() => {
+      const s = [...document.querySelectorAll('#app div.p-5.m-b-20')].find(x =>
+        [...x.querySelectorAll('span.m-l-5.f-s-18.f-w-b')].some(t => t.textContent.trim() === 'Subrace'));
+      const n = s && s.querySelector('div.p-10.b-1.b-rad-5.m-5.b-orange span.f-w-b.f-s-1');
+      return n ? n.textContent.trim() : null;
+    });
+    if (!check('a Dwarf subrace is offered', first, first || 'none')) return;
+    await pick(page, 'Race', 'Subrace', first);
+    const sub = await dbAt(page, SUBRACE);
+    if (!check(`Dwarf with ${first}`, /^:/.test(sub), sub)) return;
+    await pick(page, 'Race', 'Race', 'Elf');
+    check('changed to Elf', /:elf/.test(await dbAt(page, '[:character :orcpub.entity/options :race :orcpub.entity/key]')));
+    await pick(page, 'Race', 'Race', 'Dwarf');
+    check(`back to Dwarf, ${first} returns`, (await dbAt(page, SUBRACE)) === sub);
+  },
+
+  async 9(page) {
+    await setClass(page, 0, 'rogue');
+    for (const sk of ['Acrobatics', 'Deception', 'Perception', 'Stealth']) await pick(page, 'Proficiencies', 'Skill Proficiency', sk, { parent: 'Rogue' });
+    const skills = async () => [...(await dbAt(page, `${CLASS0} :skill-proficiency]`)).matchAll(/:orcpub\.entity\/key :([\w-]+)/g)].map(m => m[1]).sort().join(',');
+    if (!check('rogue with four skills', (await skills()) === 'acrobatics,deception,perception,stealth')) return;
+    await setClass(page, 0, 'wizard');
+    check('changed to wizard', (await dbAt(page, '[:character :orcpub.entity/options :class 0 :orcpub.entity/key]')) === ':wizard');
+    await setClass(page, 0, 'rogue');
+    check('rogue again, its four skills return', (await skills()) === 'acrobatics,deception,perception,stealth');
   },
 };
 
