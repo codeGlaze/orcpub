@@ -75,6 +75,7 @@ const PROBES = [
   { file: 'sticky_header_e2e.js',              needs: 'server' },
   { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
 ];
+module.exports = { PROBES };
 
 const get = url => new Promise(res => {
   const r = http.get(url, x => { x.resume(); res(x.statusCode); });
@@ -134,7 +135,8 @@ function run(probe, pack, budgetMs) {
   });
 }
 
-(async () => {
+// Runs only when invoked directly; trace-probe.js requires this file for PROBES alone.
+if (require.main === module) (async () => {
   if (!fs.existsSync(path.join(ROOT, 'resources/public/js/compiled/orcpub.js'))) {
     console.error('No dev build — run `lein fig:build` first.');
     process.exit(2);
