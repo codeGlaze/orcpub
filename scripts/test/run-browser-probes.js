@@ -74,6 +74,7 @@ const PROBES = [
   { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
   { file: 'sticky_header_e2e.js',              needs: 'server' },
   { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
+  { file: 'cookie_notice_e2e.js',             needs: 'server', suppress: false },
 ];
 module.exports = { PROBES };
 

@@ -70,7 +70,7 @@ function Pop() {
             "1" +
             ";expires=" +
             expires.toUTCString() +
-            "path=" +
+            ";path=" +
             cookie.path;
     };
     // Opt-out for automated runs and local testing. The banner is position-fixed at the
