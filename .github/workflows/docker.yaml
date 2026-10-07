@@ -11,9 +11,9 @@ on:
         description: "Tag name to build (e.g., 1.2.3.4)"
         required: true
 
-# The token only checks out the repo; images push with the Docker Hub secrets.
+# Write: the last step pushes the version bump to develop. Images push with the Docker Hub secrets.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -33,6 +33,11 @@ jobs:
             VERSION="$INPUT_TAG"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Later steps put VERSION inside a sed program and Docker tags; only tag-safe characters.
+          if [[ ! "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Tag '${VERSION}' is not a release tag (letters, digits, . _ - only)"
+            exit 1
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
@@ -126,11 +131,13 @@ jobs:
       #  Commit the updated version file back to *develop*
       # --------------------------------------------------------------------
       - name: Commit updated ver.cljc
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git fetch --all
           git checkout develop || git checkout -b develop
           git add src/cljs/orcpub/ver.cljc
-          git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}"
+          git commit -m "Update version to ${VERSION}"
           git push
