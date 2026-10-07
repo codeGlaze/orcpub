@@ -139,7 +139,7 @@ For every content type, the same seven questions, results recorded in
 6. **A small `e5` spot-check** — a handful of entries against the PDF, not the full check.
 7. **What it needs from the framework** — grant vocabulary, the version filter, and so on.
 
-### Phase 2 — order the content types (next)
+### Phase 2 — order the content types (done 2026-10-07)
 
 What phase 1 changed: the diff model fits spells and magic items, **not** monsters (rewritten:
 49 of 285 pairs reach 60%) and not species, backgrounds or feats (structure changed). Monsters,
@@ -150,6 +150,20 @@ split.
 Alpha is the end of all six rungs, so every content type is in scope and none is optional. The
 order is set by dependency and by which types most threaten the pipeline design, not by
 convenience.
+
+**The order (owner, 2026-10-07).** Each type follows what it depends on.
+
+1. **Rules and conditions.** Everything else refers to them, and they are the target of rule
+   interlinking. Small; full storage (all 15 conditions were restyled).
+2. **Weapons, armor, gear.** The base items that magic items and classes build on. Weapon
+   mastery, the 2024-only subsystem, comes in here.
+3. **Spells, then magic items.** The diff model fits both. Each needs its identity map first
+   (Feeblemind became Befuddlement).
+4. **Feats, then backgrounds, then species.** Backgrounds grant an origin feat, so feats come
+   first. All three need grant vocabulary, which ties to `feature/grant-rows` on the refactor.
+5. **Classes and subclasses.** Depend on feats, spells and weapon mastery.
+6. **Monsters.** The largest job: full storage plus an identity map for renames and splits, and
+   only companions on the character side depend on them.
 
 ### Phase 3 — per content type, in that order
 

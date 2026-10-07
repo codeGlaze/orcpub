@@ -2536,7 +2536,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -3099,7 +3099,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, content, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3108,7 +3108,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - The plan: breadth first
 - Four sources, two comparisons
 - Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
-- Phase 2 — order the content types (next)
+- Phase 2 — order the content types (done 2026-10-07)
 - Phase 3 — per content type, in that order
 - Spells, already partly through phase 3
 - Decided
