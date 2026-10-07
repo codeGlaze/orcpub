@@ -50,6 +50,20 @@ Three header lines change how a suite is treated:
   in order, so a suite's old id overwrites the runner's and the panel returns with the next
   release. `orcbrew-import.js` reads the same variable.
 
+  **Policy (owner, 2026-10-07): overlays are on only for a suite that tests them, or one that
+  depends on or interacts with them.** Today that is `whats_new_e2e.js` (the release panel) and
+  `cookie_notice_e2e.js` (the cookie notice). The header is the switch for `run.sh`; the old
+  probe runner keeps its own `suppress: false` list in `scripts/test/run-browser-probes.js`, and
+  the two must name the same suites. They had drifted: `boot_rescue` and `builder_card_export`
+  were exempt in the probe runner only, with no recorded reason, and both pass with overlays
+  hidden (17/17, 13/13), so the exemption was dropped.
+
+  `cookie_notice_e2e.js` found a real bug on its first run: `cookies.js` wrote
+  `expires=...path=/` with no `;`, so the consent cookie took the path of the page it was
+  dismissed on (`/pages/dnd/5e` from the builder) and the notice came back everywhere else.
+  Chrome still parsed the expiry. It also caps cookie lifetimes at 400 days, so the notice's
+  "5 years" is about 13 months in practice.
+
 `importPack` (`test/browser/lib/orcbrew-import.js`) drives the visible import flow and works on a
 production bundle; using it is NOT a reason to tag a suite dev-only. Six suites were tagged for it;
 PR #43 moved five to production. The sixth, `homebrew_render_split`, and `freeze_cpu_profile` stay

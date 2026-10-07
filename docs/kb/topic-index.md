@@ -1366,7 +1366,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, prints, probes, production, profile, rebuilds, run, server, servers, stops, suite, suites
+**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, suite, suites
 
 - The rule
 - Production is the default
@@ -3102,7 +3102,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
