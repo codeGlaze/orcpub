@@ -53,14 +53,13 @@ jobs:
           ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
 
       # --------------------------------------------------------------------
-      # Update version/date in src/cljs/orcpub/ver.cljc
+      # Update the version in src/cljs/orcpub/ver.cljc (the date is set at compile time)
       # --------------------------------------------------------------------
       - name: Update src/cljs/orcpub/ver.cljc
         env:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           sed -i "s/defn version \\[\\] \".*\"/defn version [] \"${VERSION}\"/" src/cljs/orcpub/ver.cljc
-          sed -i 's/defn date \[\] ".*"/defn date [] "$(date +%m-%d-%Y)"/' src/cljs/orcpub/ver.cljc
           cat src/cljs/orcpub/ver.cljc
 
       # --------------------------------------------------------------------
