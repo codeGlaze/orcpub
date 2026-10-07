@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.subs :as subs]
+            [orcpub.dnd.e5.coverage-pak :as coverage-pak]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
@@ -18,7 +19,7 @@
             [orcpub.common :as common]))
 
 (def ^:private classes
-  (delay (mapv #(% sl5e/spell-lists spells5e/spell-map {}
+  (delay (mapv #(% sl5e/spell-lists spells5e/spell-map (coverage-pak/plugin-subclasses-map)
                    (common/map-by-key [{:name "Common" :key :common}])
                    weapons5e/weapons-map)
                [classes5e/ranger-option classes5e/rogue-option])))
@@ -242,3 +243,30 @@
       (is (= {:set-aside [] :restored [] :retired []}
              (:orcpub.dnd.e5/picks-change burst-7))
           "nothing to tell: the picks never left"))))
+
+(def ^:private archetype
+  [:character ::entity/options :class 0 ::entity/options :levels 2
+   ::entity/options :ranger-archetype])
+
+(defn- lantern-step? [character]
+  (= :lantern-step (get-in character [::entity/options :class 0 ::entity/options :levels 2
+                                      ::entity/options :ranger-archetype ::entity/options
+                                      :wayfarer-tricks ::entity/key])))
+
+(deftest switching-between-two-real-subclasses-holds-each-ones-picks
+  ;; Hunter (SRD) and Wayfarer (coverage-pak.orcbrew, through the app's homebrew conversion).
+  (let [at-7 (db (ranger 7))
+        to-wayfarer (edit at-7 (assoc-in at-7 archetype
+                                         {::entity/key :wayfarer
+                                          ::entity/options {:wayfarer-tricks
+                                                            {::entity/key :lantern-step}}})
+                          :select-option)
+        to-hunter (edit to-wayfarer (assoc-in to-wayfarer archetype {::entity/key :hunter})
+                        :select-option)
+        wayfarer-again (edit to-hunter (assoc-in to-hunter archetype {::entity/key :wayfarer})
+                             :select-option)]
+    (is (and (lantern-step? (:character to-wayfarer)) (not (steel-will? (:character to-wayfarer))))
+        "Wayfarer with its trick; Hunter's Steel Will held")
+    (is (and (steel-will? (:character to-hunter)) (not (lantern-step? (:character to-hunter))))
+        "back to Hunter: Steel Will returns, the trick is held")
+    (is (lantern-step? (:character wayfarer-again)) "Wayfarer again: the trick returns")))
