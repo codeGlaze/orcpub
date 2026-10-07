@@ -18,6 +18,13 @@ Not under `public/`: these are for tooling and reading, not served to users. The
 app already ships is `resources/public/dnld/SRD-OGL_V5.1.pdf`, a download link; the 5.1
 transcripts are made from that file and it is not duplicated here.
 
+## The served data files
+
+The SRD content the app will serve lives beside these, under `resources/public/srd/<edition>/`, one
+EDN file per content type per edition (`2014/conditions.edn`, `2024/conditions.edn`). Those are
+generated, not hand-edited: each names the script and the open5e-api `srd-corrections` commit it
+came from. Errors are fixed in that source and the file regenerated.
+
 ## How the transcript was made
 
     java -cp "$(lein classpath)" clojure.main scripts/srd/extract.clj SRD-5.2.1
@@ -54,6 +61,8 @@ value matters, render the page and look at it:
 
 ## Licence
 
-SRD 5.1 and SRD 5.2.1 are © Wizards of the Coast LLC, licensed under CC BY 4.0
+SRD 5.1 and SRD 5.2.1 are © Wizards of the Coast LLC, licensed under CC BY 4.0. The 5.1 PDF in
+this repository is the earlier Open Game License edition; Wizards re-released the same SRD 5.1 text
+under CC BY 4.0 in 2023, and that is the licence the generated files cite
 (https://creativecommons.org/licenses/by/4.0/). Redistributable with attribution; the
 transcripts are derivatives and carry the same terms.
