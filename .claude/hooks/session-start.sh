@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# SessionStart -- arm the git hooks.
+# SessionStart -- set this worktree up for an agent: tooling, CLAUDE.md and the git hooks.
 #
 # ---------------------------------------------------------------------------
 # IF YOU ARE AN AGENT SEEING THIS FOR THE FIRST TIME: READ THIS PARAGRAPH.
 #
-# This runs agent-setup.sh --hooks-only, read from the local agents/develop ref
-# (no network). It copies three hook files (commit-msg, pre-commit, pre-push)
-# from agents/develop's .githooks/ into .git/agent-hooks/ and points
-# core.hooksPath there. It changes no tracked file and always exits 0.
+# This runs agent-setup.sh --session, read from the local agents/develop ref
+# (no network). It copies .claude/ and a generated CLAUDE.md into this worktree
+# (both kept out of commits), copies the three git hooks into .git/agent-hooks/
+# and points core.hooksPath there. It changes no tracked file and always exits 0.
+# When it had to write CLAUDE.md it prints a line asking the agent to read it,
+# since CLAUDE.md is loaded before this hook runs.
 #
 # Undo with:  git config --unset core.hooksPath
 # ---------------------------------------------------------------------------
@@ -27,14 +29,14 @@ root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
 cd "$root" || exit 0
 
 if [ "$(git branch --show-current)" = "agents/develop" ] && [ -f scripts/agent-setup.sh ]; then
-  bash scripts/agent-setup.sh --hooks-only
+  bash scripts/agent-setup.sh --session
 else
   ref=""
   for r in origin/agents/develop agents/develop; do
     git rev-parse --verify -q "$r" >/dev/null 2>&1 && { ref="$r"; break; }
   done
   [ -n "$ref" ] || { echo "session-start: no agents/develop ref -- hooks not armed"; exit 0; }
-  git show "$ref:scripts/agent-setup.sh" | bash -s -- --hooks-only
+  git show "$ref:scripts/agent-setup.sh" | bash -s -- --session
 fi
 
 echo "session-start: core.hooksPath -> $(git config core.hooksPath 2>/dev/null || echo unset)"

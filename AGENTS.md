@@ -299,8 +299,10 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 
 ### Comments and Docstrings — MUST FOLLOW
 
-- **Docstrings are spec:** what it does, its args, what it returns, and at most a one-or-two-line
-  GOTCHA where a reader would otherwise write a bug.
+- **Every function gets a docstring, and docstrings are spec:** what it does, its args, what it
+  returns. A new dev should know what any function does without reading its body.
+- **A GOTCHA line is the rare exception, never a required part:** one or two lines, only for a
+  tricky function or code that is easy to break by accident. Most docstrings have none.
 - **Comments say what the code does and why it is surprising.** No history ("used to", "was
   once"), no rationale or decision narrative, no worked examples. Those go in `docs/kb/`, and the
   comment links the page by name (`key-collision-behavior.md`).
@@ -314,6 +316,18 @@ Follow existing event/subscription naming in `web/cljs/orcpub/*`.
   comment blocks over 4 fail. **Review each hit:** fix it, or approve it in
   `test/comment-baseline.edn` `:allowed` with a written reason. Never approve unread.
 - Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
+
+### Changelogs — MUST FOLLOW
+
+- **A changelog says what the branch DID, not the commits it took.** One line per outcome a user or
+  maintainer would notice: "New sign-up, sign-in and account-recovery pages", not the 85 commits
+  behind them.
+- **Fixed is for bugs that existed before.** A fix to something the same branch or release built is
+  part of building it and gets no line. No internal work (tests, CI, refactors, tooling).
+- Lines go under Added / Changed / Fixed / Security and open with their area in bold
+  (`**Accounts:**`). Cite the upstream issue (#N) when one matches; no commit hashes.
+- The rules and an example are in `docs/branch-changelog.template.md` on integration; fold with
+  `scripts/fold-branch-changelog.sh`, which files each line under its type.
 
 ---
 
@@ -354,6 +368,21 @@ See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier stru
 6. **See `docs/ENTITY-BUILD.md`** for the character build pipeline architecture
 7. **`warlock_test.clj`** is the entity/build integration test — use it as a pattern
    for adding new build tests (e.g. other classes, multiclassing)
+
+### Tests prove their fail state — MUST FOLLOW
+
+**Before a test is committed, it is seen to fail.** A test only ever seen passing proves nothing:
+the spellbook's "packing saves a page" check passed only because the packed export had lost its
+spell list.
+
+- Break what the test guards: check out the pre-fix source for a regression test, or change the
+  code path it claims to cover (one break per claim). Run it and see the expected checks fail,
+  and only those.
+- Restore with git (`git checkout HEAD -- src`) and confirm the worktree is clean. A break is
+  never committed.
+- Then run it green, and put the failing output in the PR description beside the pass.
+- A break that does not make the test fail means the test is weak. Strengthen the test; never
+  weaken the break.
 
 ---
 

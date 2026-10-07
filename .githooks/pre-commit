@@ -3,6 +3,56 @@
 # touches docs/, verify links resolve, KB docs are referenced, and the develop superset holds.
 # Bypass once with:  git commit --no-verify
 root="$(git rev-parse --show-toplevel)"
+
+# Every function gets a spec docstring (AGENTS.md, "Comments and Docstrings"). Blocks a commit that
+# ADDS a defn, defn- or defmacro with none; warns on history wording in added comment lines, using
+# comment_discipline_test's pattern. Runs in every worktree: core.hooksPath is shared by the clone.
+if command -v python3 >/dev/null 2>&1; then
+  python3 - <<'PY' || exit 1
+import re, subprocess, sys
+staged = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=AM"],
+                        capture_output=True, text=True).stdout.split()
+history = re.compile(r"(?i)\b(used to be|(?:this|it|they|we|that|which) used to|(?:was|were) once|originally|previously|until recently|historically|at one point|back when|this (?:fix|change|commit) (?:is|was|makes|made))\b")
+benign = re.compile(r"(?i)\bpreviously[- ][a-z]+ed\b")
+missing, warned = [], []
+for path in staged:
+    is_clj = re.search(r"\.clj[cs]?$", path)
+    if not (is_clj or re.search(r"\.(js|sh)$", path)):
+        continue
+    diff = subprocess.run(["git", "diff", "--cached", "-U0", "--", path], capture_output=True, text=True).stdout
+    added, line = set(), 0
+    for d in diff.splitlines():
+        m = re.match(r"@@ -\S+ \+(\d+)(?:,(\d+))? @@", d)
+        if m:
+            line = int(m.group(1)); continue
+        if d.startswith("+") and not d.startswith("+++"):
+            added.add(line)
+            text = d[1:]
+            comment = text.lstrip().startswith((";", "//", "#", "*", "/*"))
+            if comment and history.search(text) and not benign.search(text):
+                warned.append(f"{path}:{line}: {text.strip()[:90]}")
+            line += 1
+    if not is_clj:
+        continue
+    src = subprocess.run(["git", "show", f":{path}"], capture_output=True, text=True).stdout.splitlines()
+    for i, l in enumerate(src, 1):
+        m = re.match(r"\((defn-?|defmacro)\s+(?:\^\S+\s+)*([^\s\[\(]+)(.*)", l)
+        if not m or i not in added:
+            continue
+        rest = m.group(3) + "\n" + "\n".join(src[i:i + 3])
+        if not re.match(r'\s*(\{[^}]*:doc|")', rest):
+            missing.append(f"{path}:{i}: ({m.group(1)} {m.group(2)}")
+for w in warned:
+    print("  history wording in a comment (move it to docs/kb/ on agents/develop):", w, file=sys.stderr)
+if missing:
+    print("\n  commit blocked: new functions without a docstring (AGENTS.md: every function gets a", file=sys.stderr)
+    print("  spec docstring -- what it does, its args, what it returns):", file=sys.stderr)
+    for x in missing:
+        print("   ", x, file=sys.stderr)
+    sys.exit(1)
+PY
+fi
+
 # The same hook arms every worktree, and only agents/develop carries check-docs.sh.
 [ -x "$root/scripts/check-docs.sh" ] || exit 0
 if git diff --cached --name-only | grep -qE '^docs/'; then

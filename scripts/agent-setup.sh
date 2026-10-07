@@ -14,31 +14,36 @@
 #
 # --check       verify only, change nothing.
 # --hooks-only  arm the git hooks from the local copy of agents/develop and stop: no fetch,
-#               no tooling, no output beyond one line. What the SessionStart hook and
-#               setup-hooks.sh call, so there is one implementation.
+#               no tooling, no output beyond one line. What setup-hooks.sh calls.
+# --session     everything but the fetch, silently: tooling, CLAUDE.md and the git hooks from
+#               the local agents/develop ref. What the SessionStart hook calls. Prints one line
+#               telling the agent to read CLAUDE.md when it had to create or refresh it.
 
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 CHECK_ONLY=0
 HOOKS_ONLY=0
+SESSION=0
 case "${1:-}" in
   --check) CHECK_ONLY=1 ;;
   --hooks-only) HOOKS_ONLY=1 ;;
+  --session) SESSION=1 ;;
 esac
+ENTRY_WRITTEN=0
 
 KB=agents/develop
 branch="$(git branch --show-current)"
 say() { printf '%s\n' "$*"; }
 
-[ $HOOKS_ONLY -eq 1 ] && say() { :; }
+[ $HOOKS_ONLY -eq 1 ] || [ $SESSION -eq 1 ] && say() { :; }
 say ""
 say "  agent setup -- branch: ${branch:-(detached)}"
 say ""
 
 # --- the KB branch, fetched but never checked out -----------------------------------
 if git rev-parse --verify -q "origin/$KB" >/dev/null 2>&1; then
-  [ $CHECK_ONLY -eq 0 ] && [ $HOOKS_ONLY -eq 0 ] && git fetch -q origin "$KB" 2>/dev/null
+  [ $CHECK_ONLY -eq 0 ] && [ $HOOKS_ONLY -eq 0 ] && [ $SESSION -eq 0 ] && git fetch -q origin "$KB" 2>/dev/null
   KB_REF="origin/$KB"
 elif git rev-parse --verify -q "$KB" >/dev/null 2>&1; then
   KB_REF="$KB"
@@ -49,6 +54,23 @@ fi
 say "  knowledge base:  $KB_REF ($(git log -1 --format=%h "$KB_REF"))"
 
 if [ $HOOKS_ONLY -eq 0 ]; then
+# --- keep the agent files out of commits on any branch -------------------------------
+# A branch that does not gitignore CLAUDE.md or .claude/ (develop is one) gets them listed in
+# the clone's own info/exclude: shared by every worktree, never committed, and enough to keep
+# `git add -A` from picking them up. A branch that TRACKS one of them is left alone.
+exclude_file="$(git rev-parse --git-common-dir)/info/exclude"
+local_ignore() {  # <exclude pattern> <path to test>   0 when the path is ignored afterwards
+  git check-ignore -q "$2" 2>/dev/null && return 0
+  git ls-files --error-unmatch "$2" >/dev/null 2>&1 && return 1
+  [ $CHECK_ONLY -eq 1 ] && return 1
+  mkdir -p "$(dirname "$exclude_file")" && printf '%s\n' "$1" >> "$exclude_file"
+  git check-ignore -q "$2" 2>/dev/null
+}
+if [ "$branch" != "$KB" ]; then
+  local_ignore "/CLAUDE.md" CLAUDE.md
+  local_ignore ".claude/" .claude/settings.json
+fi
+
 # --- agent tooling into the working tree ---------------------------------------------
 # Skipped on the KB branch itself, where these files are tracked and extracting would
 # overwrite live edits with committed ones.
@@ -104,6 +126,7 @@ elif [ $CHECK_ONLY -eq 1 ]; then
   say "  entry point:     $([ -f CLAUDE.md ] && echo 'STALE' || echo 'MISSING') -- run without --check"
 elif entry_point > CLAUDE.md.new 2>/dev/null && [ -s CLAUDE.md.new ]; then
   mv CLAUDE.md.new CLAUDE.md
+  ENTRY_WRITTEN=1
   say "  entry point:     CLAUDE.md from $KB_REF, imports inlined ($(wc -l < CLAUDE.md | tr -d ' ') lines, gitignored)"
 else
   rm -f CLAUDE.md.new
@@ -150,6 +173,10 @@ else
   fi
 fi
 [ $HOOKS_ONLY -eq 1 ] && exit 0
+if [ $SESSION -eq 1 ]; then
+  [ $ENTRY_WRITTEN -eq 1 ] && printf '%s\n' "agent-setup: CLAUDE.md in $(pwd) was missing or out of date and has just been written. It was not loaded at session start: read it now (it holds the project's MUST FOLLOW rules)."
+  exit 0
+fi
 
 # --- verify rather than assume ---------------------------------------------------------
 if [ -x scripts/check-docs.sh ] && git ls-files --error-unmatch docs >/dev/null 2>&1; then

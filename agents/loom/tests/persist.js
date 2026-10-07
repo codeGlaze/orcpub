@@ -29,7 +29,7 @@ const stat = async (p) => { const c = head(p); if (!(await c.locator('.fill-edit
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#manifest')]); const mf = process.env.OUT + '/manifest-review.json'; await dl.saveAs(mf);
   const ctx2 = await b.newContext({ viewport: { width: 1300, height: 1000 } }); const p2 = await ctx2.newPage(); p2.on('pageerror', e => errs.push(String(e)));
   await open(p2, process.env.PACKZIP);
-  check(/2663 found automatically · 0 removed by you · 0 added by you$/.test((await stat(p2)).trim()) , 'a fresh browser starts clean: ' + await stat(p2));
+  check(/2653 found automatically · 0 removed by you · 0 added by you · 10 on lines left alone$/.test((await stat(p2)).trim()) , 'a fresh browser starts clean: ' + await stat(p2));
   await open(p2, [process.env.PACKZIP, mf]);
   check(await stat(p2) === s1, 'dropping the manifest with the art restores the review: ' + await stat(p2));
   check(errs.length === 0, 'no page errors ' + errs.join(' | '));

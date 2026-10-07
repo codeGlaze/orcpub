@@ -185,7 +185,7 @@ _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
 _UPGRADE_PLAN · UPGRADE_PLAN_
 
-**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jackson, jdk, jetty, lein-figwheel, npm, pedestal, pro, react, shadow-cljs, src, upgrade
+**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jackson, jdk, jetty, lein-figwheel, npm, pedestal, pro, react, reagent, shadow-cljs, upgrade
 
 - Overview
 - 🚨 Major Changes (January 2026)
@@ -244,11 +244,21 @@ _ability-increase-spreads · ability increase spreads_
 - Containment across silos (multi-source)
 - Tests
 
+## ac-tests-and-modifier-order.md
+
+_ac-tests-and-modifier-order · ac tests and modifier order_
+
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, listed, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
+
+- What it looked like
+- Why it is not a bug
+- What was a real bug, found at the same time
+
 ## account-flows.md
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, link, login, mail, meter, page, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -271,10 +281,12 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** 2026-09-30, agent, arm, armed, arming, authorship, byte, changelog, commit-msg, hook, hooks, installer, marker, points, prescribes, setup, stripper, trailer
+**topics:** agent, armed, arming, authorship, byte, clone, docstring, gitignore, hook, hooks, installer, session, sessionstart, setup, stripper, trailer, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
+- The trap this closes (2026-10-05)
+- The docstring gate
 - Why it is built this way
 - Limits
 
@@ -357,7 +369,7 @@ _auth-state-in-app-db · auth state in app db_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, wielder
+**topics:** author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -439,6 +451,25 @@ _branch-context-history · branch context history_
 - Handoff Notes
 - Related Docs
 
+## branch-inventory.md
+
+_branch-inventory · branch inventory_
+
+**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
+
+- Trunk (9)
+- Release (1)
+- Active (3)
+- Unique work (11)
+- Decide (4)
+- Landed, held by a worktree (1)
+- Contained, kept for a worktree or PR (8)
+- Lives in another trunk (10)
+- Unmerged, not triaged (28)
+- Left alone locally
+- Deleted
+- 2026-10-06 (65 branches)
+
 ## browser-probe-registration.md
 
 _browser-probe-registration · browser probe registration_
@@ -455,7 +486,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows
+**topics:** ---, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -525,7 +556,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026-09-05, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, 2026-06-15, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -569,7 +600,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -prefixed, -ref, accessor, body, character-validation, computed, deferred, entity, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -634,7 +665,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** account, backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, script, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -742,7 +773,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -812,7 +843,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, loads, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -853,7 +884,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, registry, revert, snapshots, stop, warlock
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, preconditions, registry, revert, snapshots, stop
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -1231,7 +1262,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, ledger, linked, narrative, operator, person, plan, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, linked, narrative, operator, plan, session, topic
 
 - What earns a doc
 - Verify, don't remember
@@ -1257,7 +1288,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, standing, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1316,7 +1347,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1335,7 +1366,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, account-flows, agent-hooks, batch, bundle, busy, dev-only, inside-the-app, pidfile, prints, probes, production, profile, rebuilds, run, server, suite, suites
+**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, prints, probes, production, profile, rebuilds, run, server, servers, stops, suite, suites
 
 - The rule
 - Production is the default
@@ -1343,6 +1374,7 @@ _e2e-runner · e2e runner_
 - Servers, parallel tests, and what a run costs
 - Known failures
 - Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
+- Fresh-server suites run beside each other (2026-10-05, PR #51)
 - Still open
 
 ## edition-drift.md
@@ -1451,7 +1483,7 @@ _env-and-auth · env and auth_
 
 _equipment-option-picker · equipment option picker_
 
-**topics:** 12-row, 1541, 306, arrow, cap, combobox, control, desktop, dismiss, dom, highlight, light, mobile, mounted, native, nodes, popover, rows
+**topics:** 12-row, 1541, 1637, 306, cap, combobox, control, desktop, dismiss, dom, highlight, light, mobile, mounted, native, nodes, popover, rows
 
 - Measured
 - Why the Popover API and not the hand-rolled popover
@@ -1569,7 +1601,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, property, protection, style, styles, thrown, weapon
+**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1624,7 +1656,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** ---------, adsense, api, bridge, cljs, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
+**topics:** ---------, adsense, api, cljs, customization, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1915,7 +1947,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -2256,7 +2288,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, bytes, card, cards, drawn, field, fields, foot, page, pages, pdfbox, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2377,7 +2409,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, cache, caster, casters, chunking, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, growth, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2504,7 +2536,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, summon, taxonomy, wild
+**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2538,7 +2570,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2571,7 +2603,7 @@ _plan-next · plan next_
 
 _plan-npc-statblock-customizer · plan npc statblock customizer_
 
-**topics:** adjust, attack, averaged, bonuses, botched, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
+**topics:** adjust, attack, averaged, botched, build-from-scratch, dcs, extras, initiative, npc, recompute, reskin, saves, score, scores, skills, statblock, str, wis
 
 - The cascade
 - What the app has
@@ -2664,7 +2696,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, fire, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, login, non-reactive, reaction, reactive, redirect, subscriptions
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -2702,7 +2734,7 @@ _registry-before-after · registry before after_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
+**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
@@ -2717,7 +2749,7 @@ _remote-dev · remote dev_
 
 _requirements-registry · requirements registry_
 
-**topics:** acquisition, alias, bonuses, channels, condition, context, contributors, distinguishable, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger
+**topics:** acquisition, alias, bonuses, channels, context, contributors, distinguishable, effect, entries, fact, falsey, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -2857,7 +2889,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, rolling, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -2869,7 +2901,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, ex-info, find-and-replace, leak, log, logs, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, ex-info, leak, log, logs, parameter, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -2942,7 +2974,7 @@ _source-tagged-keys · source tagged keys_
 
 _spa-routing-architecture · spa routing architecture_
 
-**topics:** 1289-1326, 1828-1838, 302, 33-75, client, component, entity-id, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
+**topics:** 1289-1326, 1828-1838, 302, 33-75, component, entity-id, handler, html, pages, password-reset-success, pedestal, redirected, route, routes, spa, unsubscribe-success, verify-success, watch-dirs
 
 - Route Registration (3 places)
 - 1. Route Map — src/cljc/orcpub/routemap.cljc
@@ -2995,6 +3027,19 @@ _spell-slot-progression · spell slot progression_
 - Warlock vs sorcerer when multiclassing — VERIFIED
 - Agreed design — DESIGN (this thread, not built)
 - Relation to other docs
+
+## spellbook-print.md
+
+_spellbook-print · spellbook print_
+
+**topics:** cards, chapter, column, columns, credit, crest, emblems, figures, head, heading, level, packed, pact, prep, spell, spellbook, tabs, taller
+
+- What it prints
+- Why the layout works the way it does
+- Lining figures
+- Emblems
+- Fixed on the way
+- Review history
 
 ## srd-2024-coverage.md
 
@@ -3054,7 +3099,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk, wording
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, content, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3245,7 +3290,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, non-, patches, phrase, promote, prunable, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, non-, patches, phrase, promote, prunable, searching, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this

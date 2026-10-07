@@ -7,7 +7,7 @@ at session start.
 ## The rule
 
 - **Every hook lives in `.githooks/` on `agents/develop`.** Today: `commit-msg` (strips agent
-  attribution trailers), `pre-commit` (docs check, where `scripts/check-docs.sh` exists),
+  attribution trailers), `pre-commit` (the docstring gate in every worktree; the docs check where `scripts/check-docs.sh` exists),
   `pre-push` (refuses an un-folded branch changelog onto integration, develop or main).
 - **`scripts/agent-setup.sh` is the only thing that sets `core.hooksPath`.** It copies the hooks
   into `.git/agent-hooks/` and points `core.hooksPath` there. That directory is inside `.git`, so
@@ -31,6 +31,30 @@ plain copy loaded neither: every agent on a code branch ran without the MUST FOL
 `--check` said the entry point was present. The generated file inlines both imports, starts with a
 marker line, and is refreshed whenever `agents/develop` changes; `--check` reports it `STALE`
 otherwise. A `CLAUDE.md` without the marker is someone's own and is left alone.
+
+A branch that does not gitignore `CLAUDE.md` or `.claude/` (develop is one) gets them listed in
+the clone's `info/exclude`, shared by every worktree and never committed; a branch that tracks one
+is left alone. The SessionStart hook runs `agent-setup.sh --session`: everything but the fetch,
+silently, from the local `agents/develop` ref, printing one line asking the agent to read
+`CLAUDE.md` when it had to write it (it is loaded before the hook runs).
+
+## The trap this closes (2026-10-05)
+
+Setup skipped `CLAUDE.md` on any branch that did not gitignore it, printed "SKIPPED" and moved on.
+The main checkout is on `develop`, which does not, so a session started there loaded no project
+rules at all, and the SessionStart hook only armed git hooks. Of 16 worktrees, 9 had never been set
+up and 3 carried an old `CLAUDE.md`. One such session misread the docstring rule, wrote history
+into comments and left dozens of functions undocumented. The Claude Code reminder hooks also looked
+only at the session's own checkout, while the work happened in other worktrees, so neither ever
+fired; they now follow the worktree the command runs in (the push hook) or every worktree the
+session's transcript names (the Stop hook).
+
+## The docstring gate
+
+`pre-commit` blocks a commit that adds a Clojure `defn`, `defn-` or `defmacro` with no docstring
+(AGENTS.md: every function gets a spec docstring), and warns on history wording in added comment
+lines with `comment_discipline_test`'s pattern. It runs in every worktree, because `core.hooksPath`
+is shared by the clone.
 
 ## Why it is built this way
 

@@ -181,8 +181,12 @@ Until 2026-09-29 the rule lived only here and in one feature branch's `BRANCH.md
 
 ## Docstring what you touch
 
-A function you had to read to understand gets a docstring before you move on — spec, not prose,
-per the rule above. The test is whether the next person has to re-derive what you just derived.
+Every function you write or touch gets a docstring before you move on: spec, not prose, per the
+rule above. Coverage is the point: a new dev opening any function should know what it does
+without reading its body. CodeRabbit's docstring-coverage check on PRs asks for the same thing;
+keep it on. On 2026-10-05 an agent advised switching it off as a conflict with "comments carry
+specifics"; that was a misreading, and the same session's code had history comments and dozens of
+undocumented helpers (cleaned up on `docs/spec-docstrings-spellbook-e2e`).
 
 This applies to **namespaces too, and they are the bigger gap**: `entity_spec.cljc` had none at
 all — 131 lines deciding what is expressible in the whole modifier system, with nothing at the
