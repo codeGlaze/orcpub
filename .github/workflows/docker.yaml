@@ -11,6 +11,10 @@ on:
         description: "Tag name to build (e.g., 1.2.3.4)"
         required: true
 
+# The token only checks out the repo; images push with the Docker Hub secrets.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,9 +25,12 @@ jobs:
       # --------------------------------------------------------------------
       - name: Get Version
         id: get_version
+        # Inputs and tag names reach the shell through env, never pasted into the script.
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-            VERSION="${{ github.event.inputs.tag }}"
+          if [[ -n "$INPUT_TAG" ]]; then
+            VERSION="$INPUT_TAG"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
@@ -41,8 +48,10 @@ jobs:
       # Update version/date in src/cljs/orcpub/ver.cljc
       # --------------------------------------------------------------------
       - name: Update src/cljs/orcpub/ver.cljc
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          sed -i 's/defn version \[\] ".*"/defn version [] "${{ steps.get_version.outputs.VERSION }}"/' src/cljs/orcpub/ver.cljc
+          sed -i "s/defn version \\[\\] \".*\"/defn version [] \"${VERSION}\"/" src/cljs/orcpub/ver.cljc
           sed -i 's/defn date \[\] ".*"/defn date [] "$(date +%m-%d-%Y)"/' src/cljs/orcpub/ver.cljc
           cat src/cljs/orcpub/ver.cljc
 
