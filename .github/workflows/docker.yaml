@@ -11,13 +11,16 @@ on:
         description: "Tag name to build (e.g., 1.2.3.4)"
         required: true
 
-# Write: the last step pushes the version bump to develop. Images push with the Docker Hub secrets.
+# Read-only by default. Only bump-version gets write, so the third-party Docker actions in build
+# never hold a token that can push. Images push with the Docker Hub secrets.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
     steps:
 
       # --------------------------------------------------------------------
@@ -127,17 +130,27 @@ jobs:
           push: true
           tags: orcpub/datomic:release-${{ steps.get_version.outputs.VERSION }}
 
-      # --------------------------------------------------------------------
-      #  Commit the updated version file back to *develop*
-      # --------------------------------------------------------------------
+  # --------------------------------------------------------------------
+  #  Commit the updated version file back to *develop*, after the images publish
+  # --------------------------------------------------------------------
+  bump-version:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
       - name: Commit updated ver.cljc
         env:
-          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
+          sed -i "s/defn version \\[\\] \".*\"/defn version [] \"${VERSION}\"/" src/cljs/orcpub/ver.cljc
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git fetch --all
-          git checkout develop || git checkout -b develop
           git add src/cljs/orcpub/ver.cljc
           git commit -m "Update version to ${VERSION}"
           git push
