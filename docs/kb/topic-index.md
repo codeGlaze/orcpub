@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username, veto
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -294,7 +294,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -369,7 +369,7 @@ _auth-state-in-app-db · auth state in app db_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, weapons, wielder
+**topics:** agree, author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -395,7 +395,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, block, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, review, row, screenshot, signing, unknown, vanished
+**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, review, row, screenshot, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -455,7 +455,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
+**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -755,7 +755,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -884,7 +884,7 @@ _content-extensibility-framework · content extensibility framework_
 
 _content-extensibility-plan · content extensibility plan_
 
-**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, preconditions, registry, revert, snapshots, stop
+**topics:** catalog, compatibility, content-extensibility, content-extensibility-compatibility, content-extensibility-decisions, existing, gate, goal, golden, green, loosen, phase, phases, registry, revert, snapshots, stop, warlock
 
 - Golden rules (read before doing anything)
 - The verification gate (exact commands)
@@ -1057,7 +1057,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, select, spell, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1288,7 +1288,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1347,7 +1347,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1699,7 +1699,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, block, branch, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -1869,7 +1869,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
+**topics:** address, auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -2151,7 +2151,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, sorted-map, split, splitting, tier, todo, views
+**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2393,7 +2393,7 @@ _pedestal-csp-history · pedestal csp history_
 
 _perf-entity-build · perf entity build_
 
-**topics:** 500, browser, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
+**topics:** 500, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired, wall
 
 - 1. Is it actually slow in the browser? Yes.
 - 2. Where the time goes (JVM phase split of apply-options)
@@ -2538,7 +2538,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2616,7 +2616,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, pool, pools, registered, registry, spells, styles, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, styles, vector
 
 - In four sentences
 - The three layers
@@ -2944,7 +2944,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, copy, deletes, homebrew, kaylee, link, opening, owner, page, party, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -2992,7 +2992,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, text-only, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3082,7 +3082,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3102,7 +3102,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3120,6 +3120,20 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - Open decisions
 - What blocks what
 - Known debt in what exists
+
+## srd-improvements.md
+
+_srd-improvements · srd improvements_
+
+**topics:** 2014, adult, attack, concentration, costly, damage, dragon, editions, extends, gear, glossary, gold, monsters, prose, spells, srd, srd-2024-implementation-notes, weapons
+
+- How this was measured
+- What the app shows today
+- Defects in the shipped 2014 data
+- What is prose that should be data
+- Features the data would unlock
+- Where the work would land
+- Open
 
 ## srd-pdf-as-source-of-record.md
 

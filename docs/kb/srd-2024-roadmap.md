@@ -187,6 +187,7 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** â
 
 | decision | by |
 |---|---|
+| **Improve on the 2014 SRD, not reproduce it.** Missing features, defects and prose that should be data are analysed and fixes proposed, for both editions: [srd-improvements.md](srd-improvements.md). | owner, 2026-10-07 |
 | **SRD static data files are EDN, at `resources/public/srd/<edition>/<type>.edn`**: one file per content type per edition. ClojureScript reads EDN natively, and the same file is a static asset for the SPA and readable on the JVM for tests. | owner, 2026-10-07 |
 | **Fixes to open5e go upstream as codeGlaze**: commits, signature and the PR account all under one name. | owner, 2026-10-07 |
 | **Alpha is the whole project**: all six rungs of the ladder done, not a subset such as browse-only or 2024-only characters. Every content type is in scope. | owner, 2026-10-06 |

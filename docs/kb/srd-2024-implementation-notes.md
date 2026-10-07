@@ -210,9 +210,12 @@ already assumes.
 
 **Stated by the owner 2026-10-05, and worth writing down because this work kept treating `e5`
 as a base to diff against rather than as what it is.** The app already ships most of the 2014
-SRD: 319 spells, 1780 monsters, 283 magic items, 506 class entries, equipment, weapons, armor.
+SRD: 319 spells, 317 monsters, 805 magic items (base items expanded per variant), the 12
+classes, 162 gear entries, 40 weapons and 14 armor (counted by loading each namespace, 2026-10-07;
+an earlier version of this line had grep counts that were several times too high).
 That is an SRD reference. Unlike comparable projects it does not surface it well, and most
-users do not know it is there.
+users do not know it is there. What it shows, what is wrong in it, and what to improve:
+[srd-improvements.md](srd-improvements.md).
 
 **Consequences for this track.** The 2024 work is not "add an SRD"; it is "add the second
 edition of an SRD we already have". Two things follow:
