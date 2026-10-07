@@ -297,6 +297,11 @@ Key environment variables (via `environ`):
 
 Follow existing event/subscription naming in `web/cljs/orcpub/*`.
 
+**Work derived from an edit never runs inside the edit.** The handler or interceptor that applies a
+click or keystroke does only that. Builds, settles and other derived work run afterwards on their own
+(a follow-up event, or a debounced subscription like `debounced-build-sub`); a failure there logs and
+leaves the edit in place. Measure before adding anything to an edit's path.
+
 ### Comments and Docstrings — MUST FOLLOW
 
 - **Every function gets a docstring, and docstrings are spec:** what it does, its args, what it
