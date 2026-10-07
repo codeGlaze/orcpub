@@ -49,8 +49,8 @@ Extends the catalogue in implementation-notes 9a with measured counts from the 2
 
 | content | today | proposal |
 |---|---|---|
-| spells: concentration | only inside the duration string (126 spells) | a flag, so "concentration spells" can be filtered and the tracker can warn |
-| spells: costly materials | only inside the component text (52 spells name a gp cost) | cost and consumed-or-not as data |
+| spells: concentration | **shown**: spell rows mark it (`spell_annotations.cljc`, from #50), read from the start of the duration string (126 spells). No field of its own | small: a field would let search and filters use it without re-reading the text. Not a missing feature |
+| spells: costly materials | **shown**: the gp figure is read out of the component text (52 spells). Whether the material is consumed is not read | add consumed-or-not; otherwise as above |
 | spells: damage, save, attack, area | only in the description; just 6 spells carry `attack-roll?` | open5e's fields (damage roll and types, save ability, shape), for both editions |
 | spells: upcasting | the last sentence of the description | a scaling rule: per slot above N, add dice or targets |
 | monsters: actions | prose: "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage." | attack bonus, reach or range, damage dice and type as data. The SRD writes every attack in this one fixed pattern, so a strict parser can take it and report what it cannot |
@@ -68,13 +68,17 @@ In rough order of value against effort. Each serves both editions.
    encounter builder already exist, so the rolls have a place to go.
 3. **Links from text to rules.** A spell that says "Blinded" links to the condition. Needs (1).
 4. **Spell filters on mechanics**: concentration, damage type, save, ritual, costly material.
+   Concentration and cost are already read for display (`spell_annotations.cljc`), so those two
+   filters can reuse it.
 5. **Equipment pages** for weapons, armor and gear, with the costs and weights the data is missing.
 6. **One search across every content type**, instead of a page per type.
 
 ## Where the work would land
 
-- **The data defects** are 2014 bugs in shipped content, so they belong on a fix branch off
-  `integration`, not on the 5.5 trunk. Not started; the branch needs the owner's approval by name.
+- **The data defects** are 2014 bugs in shipped content and edition-neutral, so they go on one fix
+  branch off `integration` and are PR'd back to it, not onto the 5.5 trunk. There is no matching
+  2024 fix branch: 2024 content is new and lives on `srd52/develop`. Not started; the branch needs
+  the owner's approval by name.
 - **Data enrichment and the features** serve both editions, so by the machinery split they go on
   the refactor tree, not on `srd52/develop`.
 - **2024-only additions** (weapon mastery and so on) stay on `srd52/develop`.

@@ -3125,7 +3125,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, adult, attack, concentration, costly, damage, dragon, editions, extends, gear, glossary, gold, monsters, prose, spells, srd, srd-2024-implementation-notes, weapons
+**topics:** 2014, 2024, adult, concentration, costly, damage, dragon, editions, extends, gear, glossary, gold, monsters, shown, spells, srd, srd-2024-implementation-notes, weapons
 
 - How this was measured
 - What the app shows today
