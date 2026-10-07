@@ -31,17 +31,34 @@ absent:
 
 ## Defects in the shipped 2014 data
 
-Contained fixes: each removes a defect with no design choice involved.
+**Fixed on `fix/srd-2014-data-defects`** (off `integration`, pushed 2026-10-07, PR not yet opened).
+Data corrections only, each value read from SRD 5.1, with a test (`srd_data_shape_test`) seen to
+fail on the old data:
 
-| defect | entries | effect |
+| defect | entries | fix |
 |---|---|---|
-| Skills stored as top-level keys (`:stealth 6`) instead of inside `:skills` | Adult Green Dragon, Ancient Brass Dragon, Ancient Gold Dragon, Adult Gold Dragon, Succubus/Incubus, Spy | the stat block reads only `:skills`, so these bonuses are never shown (*verified in code*, `views.cljs` `monster-component`) |
-| Traits under `:trait` instead of `:traits` | Flying Snake | its Flyby trait is never shown (*verified in code*, same component) |
-| Typo `:sell-contiainer` | Ball bearings | the field is ignored |
-| No `:description` | Alchemy Jug, Cap of Water Breathing, Driftglobe, Sending Stones, Rod of the Pact Keeper +1/+2/+3 | seven SRD magic items with no text |
-| No cost | 60 of 162 gear entries, including every pack and instrument | the SRD prices all of them (Burglar's Pack 16 gp) |
-| No cost or weight on any weapon; no cost on any armor | all 40 weapons, all 14 armor | the SRD tables give both: "Crossbow, light 25 gp 1d8 piercing 5 lb." (SRD 5.1) |
-| 30 weapons link out to Wikipedia | weapons with `:link` | an outbound link where an SRD page or nothing would serve |
+| Skills stored as top-level keys (`:stealth 6`) instead of inside `:skills`, so the stat block never showed them | Adult Green Dragon, Ancient Brass Dragon, Ancient Gold Dragon, Adult Gold Dragon, Succubus/Incubus, Spy | moved into `:skills`; values match each SRD stat block |
+| Traits under `:trait` instead of `:traits` | Flying Snake | renamed; Flyby now shows |
+| No cost (and no weight) | 42 tools, instruments, gaming sets and packs | SRD prices and weights from p. 70, checked on the rendered page |
+| `:frequncy` on an action, so its daily limit was dropped | Alchemy Jug | spelled `:frequency` |
+| Typo `:sell-contiainer` | Ball bearings | renamed (nothing reads the field, so no visible change) |
+
+**Not defects, despite how they first looked:**
+
+- **Seven magic items with no description** (Alchemy Jug, Cap of Water Breathing, Driftglobe,
+  Sending Stones, Rod of the Pact Keeper +1/+2/+3). They are Dungeon Master's Guide items, not
+  SRD: absent from SRD 5.1 and from open5e's SRD data. The app carries a one-line summary for them
+  on purpose. An earlier version of this doc listed them as SRD items missing text.
+- **18 gear entries still without a cost.** The SRD names them only inside pack contents (alms
+  box, censer, vestments) or does not have them (Monster Hunter's Pack, Dragonchess Set).
+
+**Still open — display work, so left off the data-fix branch:**
+
+| gap | entries | what it needs |
+|---|---|---|
+| Monster reactions are never shown | 12 monsters carry `:reactions` (the Marilith's Parry among them) | a Reactions section in `monster-component`, which never reads the field |
+| No price or weight on any weapon; no price on any armor | all 40 weapons, all 14 armor | the data (SRD 5.1 tables: "Crossbow, light 25 gp 1d8 piercing 5 lb.") and somewhere that shows it |
+| 30 weapons link out to Wikipedia | weapons with `:link` | a decision: an SRD page, or nothing |
 
 ## What is prose that should be data
 
@@ -76,15 +93,15 @@ In rough order of value against effort. Each serves both editions.
 ## Where the work would land
 
 - **The data defects** are 2014 bugs in shipped content and edition-neutral, so they go on one fix
-  branch off `integration` and are PR'd back to it, not onto the 5.5 trunk. There is no matching
-  2024 fix branch: 2024 content is new and lives on `srd52/develop`. Not started; the branch needs
-  the owner's approval by name.
+  branch off `integration` and are PR'd back to it, not onto the 5.5 trunk:
+  `fix/srd-2014-data-defects`. There is no matching 2024 fix branch: 2024 content is new and lives
+  on `srd52/develop`, and errors in open5e's data are fixed in the open5e clone.
 - **Data enrichment and the features** serve both editions, so by the machinery split they go on
   the refactor tree, not on `srd52/develop`.
 - **2024-only additions** (weapon mastery and so on) stay on `srd52/develop`.
 
 ## Open
 
-- Which defect fixes to take, and on which branch.
+- Whether the reactions section and weapon and armor prices go on the same fix branch.
 - The order of the features. The list above is a proposal.
 - Monster action parsing needs a measured success rate over all 317 monsters before it is promised.

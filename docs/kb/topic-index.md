@@ -1288,7 +1288,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -3125,7 +3125,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, adult, concentration, costly, damage, dragon, editions, extends, gear, glossary, gold, monsters, shown, spells, srd, srd-2024-implementation-notes, weapons
+**topics:** 2014, 2024, adult, concentration, costly, data, dragon, editions, gear, glossary, gold, jug, monsters, open5e, prices, spells, srd, weapons
 
 - How this was measured
 - What the app shows today
@@ -3270,12 +3270,13 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, conditionals, confuses, effects, extracting, handlers, jvm, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** assertions, browser, classpath, cljs-headless-harness, compile, conditionals, designed, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
 - What lein fig:test Actually Does
 - Directory Layout
+- Homebrew test fixtures: two packs, two jobs
 - Library Truths (Verified, Not Assumed)
 - re-frame.test Does NOT Exist in re-frame 1.4.4
 - What You CAN Do Without re-frame-test
