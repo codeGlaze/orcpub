@@ -52,11 +52,16 @@ fail on the old data:
 - **18 gear entries still without a cost.** The SRD names them only inside pack contents (alms
   box, censer, vestments) or does not have them (Monster Hunter's Pack, Dragonchess Set).
 
-**Still open — display work, so left off the data-fix branch:**
+**Done in PR #58 as well** (owner: same branch, no micro-branches): monster reactions now show,
+and the builder can add one; the 15 SRD 5.1 conditions have pages, Orcacle results and links from
+stat-block condition immunities. Browser-tested on the production bundle (10 checks, 9 of them
+seen failing against `integration`).
+
+**Still open:**
 
 | gap | entries | what it needs |
 |---|---|---|
-| Monster reactions are never shown | 12 monsters carry `:reactions` (the Marilith's Parry among them) | a Reactions section in `monster-component`, which never reads the field. Re-checked 2026-10-07 on `integration` (`views.cljs` 1609): it draws traits, Actions and Legendary Actions only. The Reactions section that does exist is the **character** sheet's (`views.cljs` 3993, and the PDF). The monster builder cannot author one either: its trait types are Other, Action and Legendary Action |
+| ~~Monster reactions are never shown~~ **fixed in PR #58** | 12 monsters carry `:reactions` (the Marilith's Parry among them) | a Reactions section in `monster-component`, which never reads the field. Re-checked 2026-10-07 on `integration` (`views.cljs` 1609): it draws traits, Actions and Legendary Actions only. The Reactions section that does exist is the **character** sheet's (`views.cljs` 3993, and the PDF). The monster builder cannot author one either: its trait types are Other, Action and Legendary Action |
 | No price or weight on any weapon; no price on any armor | all 40 weapons, all 14 armor | the data (SRD 5.1 tables: "Crossbow, light 25 gp 1d8 piercing 5 lb.") and somewhere that shows it |
 | 30 weapons link out to Wikipedia | weapons with `:link` | a decision: an SRD page, or nothing |
 
@@ -102,6 +107,7 @@ In rough order of value against effort. Each serves both editions.
 
 ## Open
 
-- Whether the reactions section and weapon and armor prices go on the same fix branch.
+- Weapon and armor prices, and where they would show.
+- A navigation entry for the conditions pages (none yet: reached through the Orcacle and stat-block links).
 - The order of the features. The list above is a proposal.
 - Monster action parsing needs a measured success rate over all 317 monsters before it is promised.

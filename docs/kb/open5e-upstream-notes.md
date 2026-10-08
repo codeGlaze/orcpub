@@ -83,7 +83,10 @@ comparison and as odd characters in display. **Measured 2026-10-07: 47 soft hyph
 each or fewer in five more).
 
 **Fixed for conditions on `srd-corrections`:** `a11a5de` (both soft hyphens, two doubled spaces),
-`c5ca059` (Blinded's one straight apostrophe). The other files wait for their content type.
+`c5ca059` (Blinded's one straight apostrophe), `5e245a1` (Poisoned's effect had no `* ` bullet
+marker, unlike the other conditions), and `9be39dc`, a typo in the SRD itself rather than in
+open5e (*thunder-wave*). That one may not suit an upstream PR, since open5e transcribes the SRD as
+printed. The other files wait for their content type.
 
 ## 5. `srd-2014` spell text that does not match the SRD — **candidates, not yet verified**
 

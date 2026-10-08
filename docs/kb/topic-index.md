@@ -3125,7 +3125,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, 2026-10-07, actions, concentration, costly, dragon, editions, gear, glossary, gold, jug, monsters, open5e, prices, reactions, spells, srd
+**topics:** 2014, 2024, 2026-10-07, actions, concentration, conditions, costly, dragon, editions, glossary, gold, jug, monsters, open5e, prices, reactions, spells, srd
 
 - How this was measured
 - What the app shows today
