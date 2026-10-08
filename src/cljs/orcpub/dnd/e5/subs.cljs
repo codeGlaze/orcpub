@@ -1033,6 +1033,16 @@
    (:search-text db)))
 
 (reg-sub
+ :srd-conditions
+ (fn [db _]
+   (:srd-conditions db)))
+
+(reg-sub
+ :srd-conditions-failed?
+ (fn [db _]
+   (:srd-conditions-failed? db)))
+
+(reg-sub
  :search-results
  (fn [db _]
    (:search-results db)))

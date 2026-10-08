@@ -125,6 +125,11 @@
     {:list-style-type :disc
      :list-style-position :inside}]
 
+   ;; SRD condition tables (Exhaustion's levels): left-aligned, a little room between columns.
+   [:.condition-table
+    [:th :td {:text-align :left
+              :padding "2px 16px 2px 0"}]]
+
    [:.f-w-bold
     {:font-weight :bold}]
 

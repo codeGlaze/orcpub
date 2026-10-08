@@ -98,6 +98,8 @@
    routes/dnd-e5-char-page-route views/character-page
    routes/dnd-e5-monster-page-route views/monster-page
    routes/dnd-e5-spell-page-route views/spell-page
+   routes/dnd-e5-condition-list-page-route views/condition-list-page
+   routes/dnd-e5-condition-page-route views/condition-page
    routes/dnd-e5-item-page-route views/item-page
    routes/dnd-e5-item-builder-page-route views/item-builder-page
    routes/dnd-e5-char-parties-page-route views/parties

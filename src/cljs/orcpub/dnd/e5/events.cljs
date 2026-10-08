@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.weapons :as weapons]
@@ -3506,7 +3507,11 @@
 ;; they store the filter text for the reactive subs.
 (def filter-by-name-xform compute/filter-by-name-xform)
 
-(defn search-results [text]
+(defn search-results
+  "What the Orcacle shows for `text`: a top result (a dice roll, an exact spell, monster, magic
+   item or condition, or a generated name) and lists of partial matches. `conditions` is the
+   parsed SRD conditions file, or nil before it has loaded."
+  [text & [conditions]]
   (let [search-text (s/lower-case text)
         dice-result (dice/dice-roll-text search-text)
         kw (when search-text (common/name-to-kw search-text))
@@ -3520,6 +3525,9 @@
                                                 :result (monsters/monster-map kw)}
                      (mi/magic-item-map kw) {:type :magic-item
                                              :result (mi/magic-item-map kw)}
+                     (srd-conditions/find-condition conditions search-text)
+                     {:type :condition
+                      :result (srd-conditions/find-condition conditions search-text)}
                      (= "tavern name" search-text) {:type :tavern-name
                                                     :result (char-rand5e/random-tavern-name)}
                      name-result name-result
@@ -3532,22 +3540,55 @@
         top-monsters (when (>= (count text) 3)
                        (sequence
                         filter-xform
-                        monsters/monsters))]
+                        monsters/monsters))
+        top-conditions (srd-conditions/matching conditions text)]
     (cond-> {}
       top-result (assoc :top-result top-result)
       (seq top-spells) (update :results conj {:type :spell
                                               :results top-spells})
       (seq top-monsters) (update :results conj {:type :monster
-                                                :results top-monsters}))))
+                                                :results top-monsters})
+      (seq top-conditions) (update :results conj {:type :condition
+                                                  :results top-conditions}))))
 
+
+(reg-event-fx
+ :set-search-text
+ (fn [{:keys [db]} [_ search-text]]
+   {:db (cond-> db
+          true (assoc :search-text search-text
+                      :search-results (search-results search-text (:srd-conditions db)))
+          (s/blank? search-text) (assoc :orcacle-clicked? false))
+    :dispatch [:load-srd-conditions]}))
 
 (reg-event-db
- :set-search-text
- (fn [db [_ search-text]]
-   (cond-> db
-     true (assoc :search-text search-text
-                 :search-results (search-results search-text))
-     (s/blank? search-text) (assoc :orcacle-clicked? false))))
+ :load-srd-conditions
+ ;; Fetches the static conditions file once; later calls are no-ops. See srd_conditions.cljc.
+ (fn [db _]
+   (if (or (:srd-conditions db) (:srd-conditions-loading? db))
+     db
+     (do (-> (js/fetch srd-conditions/data-path)
+             (.then (fn [response]
+                      (if (.-ok response)
+                        (.text response)
+                        (throw (js/Error. (str "HTTP " (.-status response)))))))
+             (.then #(dispatch [:set-srd-conditions (reader/read-string %)]))
+             (.catch (fn [e]
+                       (js/console.error "Could not load the SRD conditions:" e)
+                       (dispatch [:set-srd-conditions-failed]))))
+         (assoc db :srd-conditions-loading? true)))))
+
+(reg-event-db
+ :set-srd-conditions
+ ;; Re-runs an open search, so typing before the file arrived still finds conditions.
+ (fn [db [_ data]]
+   (cond-> (assoc db :srd-conditions data :srd-conditions-loading? false)
+     (:search-text db) (assoc :search-results (search-results (:search-text db) data)))))
+
+(reg-event-db
+ :set-srd-conditions-failed
+ (fn [db _]
+   (assoc db :srd-conditions-loading? false :srd-conditions-failed? true)))
 
 (reg-event-db
  :close-orcacle
@@ -3563,12 +3604,13 @@
      {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
                    [:open-orcacle]]}))
 
-(reg-event-db
+(reg-event-fx
  :open-orcacle
- (fn [db _]
-   (-> db
-       (assoc :orcacle-clicked? true)
-       (dissoc :search-text))))
+ (fn [{:keys [db]} _]
+   {:db (-> db
+            (assoc :orcacle-clicked? true)
+            (dissoc :search-text))
+    :dispatch [:load-srd-conditions]}))
 
 (reg-event-db
  ::char5e/set-selected-display-tab

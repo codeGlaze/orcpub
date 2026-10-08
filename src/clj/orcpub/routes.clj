@@ -2205,6 +2205,8 @@
    [route-map/dnd-e5-monster-page-route :key ":key"]
    [route-map/dnd-e5-spell-list-page-route]
    [route-map/dnd-e5-spell-page-route :key ":key"]
+   [route-map/dnd-e5-condition-list-page-route]
+   [route-map/dnd-e5-condition-page-route :key ":key"]
    [route-map/dnd-e5-spell-builder-page-route]
    [route-map/dnd-e5-monster-builder-page-route]
    [route-map/dnd-e5-selection-builder-page-route]

@@ -31,6 +31,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.damage-types :as damage-types]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
@@ -1606,6 +1607,68 @@
   {:max-width "300px"})
 
 
+(defn condition-page-handler
+  "Click handler that opens the page for the condition `key`."
+  [key]
+  (let [path (routes/path-for routes/dnd-e5-condition-page-route :key (name key))]
+    (make-event-handler :route (routes/match-route path))))
+
+(defn condition-body
+  "Draws a condition's `:body` blocks: paragraphs, bullet lists (labelled in 2024) and tables."
+  [blocks]
+  [:div
+   (doall
+    (map-indexed
+     (fn [i [kind v]]
+       ^{:key i}
+       (case kind
+         :p [:p.m-t-10 v]
+         :list [:ul.list-style-disc.m-t-5
+                (doall
+                 (map-indexed
+                  (fn [j {:keys [name text]}]
+                    ^{:key j}
+                    [:li.m-t-5 (when name [:span.f-w-b.i (str name ". ")]) text])
+                  v))]
+         :table [:table.condition-table.m-t-10
+                 [:thead [:tr (for [c (:columns v)] ^{:key c} [:th c])]]
+                 [:tbody
+                  (doall
+                   (map-indexed
+                    (fn [j row] ^{:key j} [:tr (map-indexed (fn [k c] ^{:key k} [:td c]) row)])
+                    (:rows v)))]]
+         nil))
+     blocks))])
+
+(defn condition-component
+  "One condition: its name, text and the SRD page it is from."
+  [{:keys [name page body]} document]
+  [:div.m-b-20
+   [:div.f-s-24.f-w-b name]
+   [condition-body body]
+   [:div.f-s-12.opacity-5.m-t-5 (str document ", p. " page)]])
+
+(defn srd-attribution
+  "The CC BY 4.0 attribution the SRD licence asks to be shown with its text."
+  [data]
+  [:div.f-s-12.opacity-5.m-t-20 (:srd/attribution data)])
+
+(defn condition-immunities-field
+  "The stat block's Condition Immunities line, each known condition a link to its page."
+  [text]
+  [:div
+   [:span.f-w-b "Condition Immunities:"]
+   [:span.m-l-10
+    (doall
+     (interpose
+      ", "
+      (map-indexed
+       (fn [i {:keys [text key]}]
+         (if key
+           ^{:key i} [:span.underline.pointer {:on-click (condition-page-handler key)} text]
+           ^{:key i} [:span text]))
+       (srd-conditions/immunity-parts text srd-conditions/condition-keys))))]])
+
 (defn monster-component [{:keys [name description size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
   (let [traits-by-type (group-by :type traits)
         traits (traits-by-type nil)
@@ -1650,7 +1713,7 @@
      (when damage-vulnerabilities (spell-field "Damage Vulnerabilities" damage-vulnerabilities))
      (when damage-resistances (spell-field "Damage Resistances" damage-resistances))
      (when damage-immunities (spell-field "Damage Immunities" damage-immunities))
-     (when condition-immunities (spell-field "Condition Immunities" condition-immunities))
+     (when condition-immunities [condition-immunities-field condition-immunities])
      (when senses (spell-field "Senses" senses))
      (when languages (spell-field "Languages" languages))
      (when challenge (spell-field "Challenge" (str
@@ -1712,6 +1775,28 @@
     (svg-icon "hydra" 36 "")
     [monster-component monster]]])
 
+(defn condition-result
+  "The Orcacle's top result for an exact condition name."
+  [condition]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 "")
+    [:div.m-l-10 [condition-component condition "SRD 5.1"]]]])
+
+(defn condition-results
+  "The Orcacle's list of conditions whose names match, each opening its page."
+  [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 36)
+    [:div.m-l-10
+     (doall
+      (map
+       (fn [{:keys [key name]}]
+         ^{:key key}
+         [:div.pointer.f-s-18 {:on-click (condition-page-handler key)} name])
+       results))]]])
+
 (defn search-results []
   (when-let [{{:keys [result] :as top-result} :top-result
             results :results
@@ -1726,6 +1811,7 @@
             :spell (spell-result result)
             :monster (monster-result result)
             :magic-item (magic-item-result result)
+            :condition (condition-result result)
             :name (name-result result)
             :tavern-name (tavern-name-result result)
             nil))])
@@ -1737,7 +1823,8 @@
            [:div.p-20
             (case type
               :spell (spell-results results)
-              :monster (monster-results results))])
+              :monster (monster-results results)
+              :condition (condition-results results))])
          results)))]))
 
 (def oracle-frame-style
@@ -10164,6 +10251,45 @@
               username
               summary])
            (sort-by ::char/character-name visible-chars)))])]]))))
+
+(defn condition-list-page
+  "Every SRD 5.1 condition, with the licence attribution."
+  []
+  (r/with-let [_ (dispatch [:load-srd-conditions])]
+    (let [data @(subscribe [:srd-conditions])]
+      [content-page
+       "Conditions"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          data [:div
+                (doall
+                 (map (fn [c] ^{:key (:key c)} [condition-component c (:srd/document data)])
+                      (:conditions data)))
+                [srd-attribution data]]
+          @(subscribe [:srd-conditions-failed?]) [:div "The conditions could not be loaded. Try reloading the page."]
+          :else [:div "Loading..."])]])))
+
+(defn condition-page
+  "One SRD 5.1 condition, from the route's `:key`."
+  [{:keys [key]}]
+  (r/with-let [_ (dispatch [:load-srd-conditions])]
+    (let [data @(subscribe [:srd-conditions])
+          condition (get (srd-conditions/by-key data) (keyword key))]
+      [content-page
+       "Condition"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          condition [:div
+                     [condition-component condition (:srd/document data)]
+                     [:div.pointer.underline.m-t-10
+                      {:on-click (make-event-handler :route routes/dnd-e5-condition-list-page-route)}
+                      "All conditions"]
+                     [srd-attribution data]]
+          data [:div "No condition by that name."]
+          @(subscribe [:srd-conditions-failed?]) [:div "The conditions could not be loaded. Try reloading the page."]
+          :else [:div "Loading..."])]])))
 
 (defn orcacle-page []
   [content-page
