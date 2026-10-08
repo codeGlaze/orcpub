@@ -13,7 +13,24 @@ SRD page in the message. Unpushed until a fork and PR are approved. Our canonica
 generated from that corrected clone. Their `AGENTS.md` asks for `uv run python manage.py
 quicksetup` and their tests before work is called done: run both before any PR.
 
-## Before filing anything
+## Filed upstream (2026-10-08)
+
+Fork `codeGlaze/open5e-api`, one branch per topic off their `staging`, each re-checked there:
+their `quicksetup` loads every fixture and `uv run pytest` passes (93) with all three applied.
+
+| what | where |
+|---|---|
+| Rules: the missing Resting, Movement and Position and Damage and Healing text; Critical Hits; text errors; names (note 7) | [PR #995](https://github.com/open5e/open5e-api/pull/995), branch `srd-2014-rules-fixes` |
+| Conditions: encoding artifacts and formatting, both documents (notes 4 and 6) | [PR #996](https://github.com/open5e/open5e-api/pull/996), branch `srd-conditions-fixes` |
+| Spells: higher-level rules for Heroism, Chain Lightning, Dissonant Whispers (note 2) | [PR #997](https://github.com/open5e/open5e-api/pull/997), branch `srd-spell-upcasts` |
+| `/v2/magicitems/` ignores `document__key` (note 1), counts re-checked on the live API the same day | [Issue #998](https://github.com/open5e/open5e-api/issues/998) |
+
+**Kept local, on purpose:** the "thunder-wave" correction (a typo in the SRD itself; open5e
+transcribes the SRD as printed). The Sage Advice paraphrase finding is raised in PR #995's
+description, not as a change. Their guide also invites a Discord or issue conversation before
+large contributions; PR #995 is the large one, so watch it for a request to split.
+
+
 
 - **Re-verify on their current `main`.** Their data moves; a note here is a snapshot.
 - One issue per report. Cite the file path, the record `pk`, and for data issues the SRD PDF

@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, artemis, com, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor, unit
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor, unit
 
 - Executive Summary
 - Test Results Matrix
@@ -631,7 +631,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, curl, host, hosts, https, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -2244,10 +2244,10 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 2026-10-07, 760, advice, chapter, compendium, death, filing, higher-level, hyphen, hyphens, open5e, pdf, spell, srd, text, transcript, upcasting
+**topics:** 2026-10-07, 760, 995, advice, compendium, death, dissonant, heroism, higher-level, hyphens, movement, open5e, open5e-api, pdf, sage, spell, srd, text
 
 - Where the fixes live
-- Before filing anything
+- Filed upstream (2026-10-08)
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs
 - 3. Upcasting is structured unevenly between the two documents — verified
