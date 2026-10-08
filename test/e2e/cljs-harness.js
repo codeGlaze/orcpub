@@ -21,7 +21,8 @@ const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[
  const totals=ti>=0?lines.slice(ti+1,lines.indexOf('Hide/Show Passing',ti)).join(', '):'';
  const verdict=ti>0?lines[ti-1]:'';
  console.log('SUMMARY:',ran.slice(-1)[0]||(totals?`${verdict}: ${totals}`:'(none)'),tot.slice(-1)[0]||'');
- const passed=ran.length?/ 0 failures, 0 errors/.test(' '+(tot.slice(-1)[0]||'')):verdict==='All Tests Passed';
+ // Figwheel says "All Tests Passed" for zero tests too (none found or loaded), so a pass needs a count.
+ const passed=ran.length?/ 0 failures, 0 errors/.test(' '+(tot.slice(-1)[0]||'')):verdict==='All Tests Passed'&&/\b[1-9]\d*\s+Tests\b/.test(totals);
  process.exitCode=passed?0:1;
  // The auto-testing page marks each failed assertion with a .test-fail node inside its test's node.
  const shown=await pg.evaluate(()=>[...document.querySelectorAll('.test-fail')].map(n=>
