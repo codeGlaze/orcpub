@@ -9265,3 +9265,12 @@ A priest typically has one or more acolytes to help with religious ceremonies an
 (def monster-map (reduce (fn [mp m] (assoc mp (:key m) m))
                          {}
                          monsters))
+
+(defn reactions
+  "A monster's reactions: its `:reactions`, then any of its `:traits` typed `:reaction`, which
+   is how the monster builder records one.
+
+   Args: `monster`, a monster map.
+   Returns: a seq of {:name :description} maps; empty when it has none."
+  [{own :reactions traits :traits}]
+  (concat own (filter #(= :reaction (:type %)) traits)))

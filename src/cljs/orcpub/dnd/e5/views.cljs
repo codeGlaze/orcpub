@@ -1680,6 +1680,16 @@
              ^{:key i}
              [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
            actions))]])
+     (when-let [reactions (seq (monsters/reactions monster))]
+       [:div.m-t-20
+        [:div.i.f-w-b.f-s-18 "Reactions"]
+        [:div
+         (doall
+          (map-indexed
+           (fn [i {:keys [name notes description]}]
+             ^{:key i}
+             [:div.m-t-10.wsp-prw (spell-field (str name (when notes (str " " notes))) description)])
+           reactions))]])
      (when legendary-actions
        [:div.m-t-20
         [:div.i.f-w-b.f-s-18 "Legendary Actions"]
@@ -8149,6 +8159,8 @@
        :types [{:title "Other"}
                {:title "Action"
                 :value :action}
+               {:title "Reaction"
+                :value :reaction}
                {:title "Legendary Action"
                 :value :legendary-action}]]]
      [:div.w-100-p.m-t-30
