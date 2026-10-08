@@ -42,6 +42,12 @@ A gap of a moment between that read and the write remains; closing it needs the 
 **Removing the race, a class or the ability scores asks first** (`ledger/warning`), saying what goes
 and what the builder will ask for. It warns, it never blocks: removing a broken class is a repair.
 
+**Production settings (measured, `test/e2e/character-data-strict.js`, 11/11):** under
+`CSP_POLICY=strict` the page's one script carries the request's nonce and runs; Remove, Save, Copy
+for support and the server request all work, and nothing is blocked. On a phone (Android user agent,
+412 px) the page does not scroll sideways; the table (515 px) scrolls inside its box, so each row's
+Remove button is the first column, on screen without scrolling.
+
 **Removing an essential choice (measured, `test/e2e/remove-essentials.js`):** neither breaks the app.
 
 | removed on the data page | the app opens it | Save as opened | the builder's way back |

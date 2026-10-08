@@ -151,7 +151,7 @@ async function dataRows(page, url) {
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
   return page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')]
-    .map(tr => [...tr.children].slice(0, 3).map(td => td.textContent.trim())));
+    .map(tr => [...tr.children].slice(1, 4).map(td => td.textContent.trim())));
 }
 const listed = (rows, section, choice) => rows.some(r => r[0] === section && r[1] === choice);
 const ledgerText = page => page.evaluate(() => document.getElementById('ledger').textContent);
@@ -204,11 +204,11 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     await dataRows(page, dataUrl);
     const rowButton = (choice) => page.locator('#ledger tbody tr', { has: page.locator('td', { hasText: new RegExp(`^${choice}$`) }) }).locator('button');
     await rowButton('Tidebreaker').click();
-    let rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    let rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check('Remove takes the row out', !rows.includes('Tidebreaker'));
     check('the removal is listed as not saved yet', /Not saved yet: 1 removed/.test(await ledgerText(page)));
     await page.getByRole('button', { name: 'Undo' }).click();
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check('Undo puts it back', rows.includes('Tidebreaker') && !/Not saved yet/.test(await ledgerText(page)));
     const classButton = rowButton('Wizard');
     const classLabel = (await classButton.innerText()).trim();
@@ -218,12 +218,12 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     await classButton.click();
     await wait(300);
     check('removing a class asks first, saying what goes', /^Remove Wizard and the \d+ choices under it\? The builder will ask for a class again\.$/.test(asked), asked);
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check('Cancel keeps the class', rows.includes('Wizard') && rows.includes('Brine Lash'));
     page.once('dialog', d => d.accept());
     await classButton.click();
     await wait(300);
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check("OK removes the class with its children", !rows.includes('Brine Lash') && !rows.includes('Level 4'));
     await page.getByRole('button', { name: 'Undo' }).click();
 
@@ -241,12 +241,12 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('a stale Save writes nothing', /:tidebreaker/.test(copy) && !/:brine-lash/.test(copy), 'the other tab\'s removal stands; this one is not written');
     check('and offers to reload keeping the removals', await page.getByRole('button', { name: 'Reload and keep my removals' }).isVisible());
     await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check('the reload shows the other tab\'s change with this removal still pending',
           !rows.includes('Brine Lash') && !rows.includes('Tidebreaker') && /Not saved yet: 1 removed/.test(await ledgerText(page)));
     await page.getByRole('button', { name: 'Save' }).click();
     await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[1].textContent.trim()));
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
     check('after Save the feat is gone and the rest stays', !rows.includes('Tidebreaker') && rows.includes('Tidefolk') && rows.includes('Wizard'));
     check('Save kept the same character', page.url() === dataUrl, page.url());
     const savedCopy = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);

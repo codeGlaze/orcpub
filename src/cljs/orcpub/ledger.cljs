@@ -206,16 +206,16 @@
     (render!)))
 
 (defn- row-node
-  "One table row for ledger `row`, with its Remove button."
+  "One table row for ledger `row`, its Remove button first so a narrow screen shows it."
   [{:keys [address depth section choice key value below] :as row}]
   (el "tr" nil
+      (cell (small-button (if (pos? below) (str "Remove with " below " below") "Remove")
+                          (fn [_] (remove! address row))))
       (cell section depth)
       (cell choice)
       (cell (el "code" (str "font-size:12px;color:" (:muted colors)) (str key)))
       (cell (when value (el "code" (str "font-size:12px;color:" (:muted colors)) value)))
-      (cell (when (pos? below) (str below " below")))
-      (cell (small-button (if (pos? below) (str "Remove with " below " below") "Remove")
-                          (fn [_] (remove! address row))))))
+      (cell (when (pos? below) (str below " below")))))
 
 (defn- pending-node
   "The removals not saved yet, each with Undo, and the Save button; nil when there are none."
@@ -248,8 +248,8 @@
            (button "Copy for support" #(copy! (ledger/support-text support-heading rows) %))
            (el "div" "overflow-x:auto;margin-top:8px"
                (el "table" "border-collapse:collapse;width:100%;font-size:14px"
-                   (el "thead" nil (el "tr" nil (head "Section") (head "Choice") (head "Stored key")
-                                       (head "Value") (head "") (head "")))
+                   (el "thead" nil (el "tr" nil (head "") (head "Section") (head "Choice") (head "Stored key")
+                                       (head "Value") (head "")))
                    (apply el "tbody" nil (map row-node rows)))))))
 
 (defn- open-character
