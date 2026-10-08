@@ -87,15 +87,21 @@ Extends the catalogue in implementation-notes 9a with measured counts from the 2
   on a phone with an Open link. Screenshots and the browser test are with the PR.
 - **The Orcacle finds rules and conditions** by name.
 
+## Built (PR #61, 2026-10-08)
+
+- **Weapon and armor prices and weights**, in the data and in each row's expanded details on the
+  character display (magic items show weight, not the base price).
+- **Rules clarifications in our own words:** `resources/public/notes/rules-clarifications.edn`,
+  two notes (spell attacks can crit; actions and bonus actions don't trade), each linked to the
+  Sage Advice Compendium and shown after its rule, marked as ours. Add more there.
+- **Condition links in spell, magic item and monster text**, with previews:
+  `srd-conditions/link-conditions`, the generator's patterns in cljc.
+
 ## Wanted, not built
 
-- **Rules clarifications, in our own words.** Sage Advice is official Wizards guidance and the
-  owner finds it useful as a sidebar (2026-10-08), but it is not SRD text and not under the SRD's
-  licence, so it is not copied into the SRD files. A short note in our own words saying what the
-  ruling is, linked to Wizards' published source, kept in its own data and marked as ours, would
-  serve the same purpose.
-- **Links from spell and monster text** (Find Steed, Conjure Animals, monster actions), the next
-  place links pay off; monster previews (a short stat block) earn their place there.
+- **Spell and monster links in spell and monster text** (Find Steed, Conjure Animals): conditions
+  are linked now; spell and monster names need the same closed-list approach, and monster
+  previews (a short stat block) earn their place there.
 
 ## Features the data would unlock
 

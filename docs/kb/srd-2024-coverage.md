@@ -151,6 +151,27 @@ an anchor, so subsections are reachable.
 in a pair ("is blinded (25%) or deafened"), which the patterns do not reach. Monster names in
 rules text occur only in two tables (Size, Mounts and Vehicles) and are not linked.
 
+### Equipment: weapons, armor, gear, check B (2026-10-08)
+
+Every open5e item's cost and weight, every weapon's damage, properties and (2024) mastery, and every
+armor's AC, Strength and Stealth, checked against the SRD equipment tables (5.1 pp. 62-74, 5.2.1
+pp. 89-103); 2024 tools against their "(N GP)" headings and Weight lines, instruments and gaming
+sets against their Variants lists. Script: `equip_check.py` approach, recorded here for reuse.
+
+- **2014 errors, fixed (open5e PR #999):** Heavy never assigned (8 weapons); Ammunition missing on
+  the heavy crossbow, Thrown on the Handaxe, Finesse on the Whip; the light crossbow's Two-Handed
+  record pointed at the Trident; Shortsword slashing for piercing; Acid, Blanket and Greatsword
+  missing cost or weight; crossbow bolts 0.080 for 0.075 lb.; "Essense of either".
+- **2024 errors, fixed (same PR):** Dart 1 lb. for 1/4; Entertainer's Pack 58 for 58½; Dragonchess
+  1 lb. for none; two holy symbol names with a stray ")".
+- **Agree:** everything else, including all 38 2024 weapons' properties and mastery.
+- **Modelling, not errors:** ammunition priced per piece; "Special (Lance)"; staffs linked to the
+  quarterstaff; 2024 tool names carrying their price (raised as a question in #999).
+
+**Canonical files:** `resources/public/srd/{2014,2024}/equipment.edn` (weapons and armor), by
+`scripts/srd/emit-equipment.py`. 2024 carries `:mastery` on all 38 weapons. The 2014 values are in
+the app's weapons and armor (PR #61), tied to the file by `srd_equipment_test`.
+
 ## App-side work, no SRD counterpart
 
 | item | status |

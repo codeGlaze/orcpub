@@ -369,7 +369,7 @@ _auth-state-in-app-db · auth state in app db_
 
 _authoring-vocabulary · authoring vocabulary_
 
-**topics:** agree, author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, vocabulary, weapon, wielder
+**topics:** author, authoring, crossbow, dual, feat, form, ignored, iterating, melee, predicate, spec, table, tag, tags, three-state, vocabulary, weapon, wielder
 
 - The syntax first
 - Why the map can't be derived
@@ -665,7 +665,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, script, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, characters, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, advice, compendium, death, dissonant, heroism, higher-level, hyphens, movement, open5e, open5e-api, pdf, sage, spell, srd, text
+**topics:** 2026-10-07, 760, 995, advice, com, compendium, death, dissonant, documents, higher-level, movement, open5e, open5e-api, pdf, sage, spell, srd, text
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2573,7 +2573,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3048,7 +3048,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, started, text, word
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, editions, gear, magic, monsters, open5e, species, srd, text, weapons, word
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3056,6 +3056,7 @@ _srd-2024-coverage · srd 2024 coverage_
 - Rules and reference (no e5 data namespace)
 - Conditions, check B (2026-10-07)
 - Rules (2014), check B (2026-10-08)
+- Equipment: weapons, armor, gear, check B (2026-10-08)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
 - Counting these files correctly
@@ -3128,13 +3129,14 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, actions, concentration, conditions, costly, data, dragon, editions, glossary, links, monster, monsters, open5e, reactions, rules, spells, srd
+**topics:** 2014, 2024, actions, conditions, data, dragon, editions, links, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
 
 - How this was measured
 - What the app shows today
 - Defects in the shipped 2014 data
 - What is prose that should be data
 - Built (PR #58, 2026-10-08)
+- Built (PR #61, 2026-10-08)
 - Wanted, not built
 - Features the data would unlock
 - Where the work would land
@@ -3375,7 +3377,7 @@ _views-builders-split · views builders split_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, dart, deals, firearm, flags, handaxe, javelin, mapping, melee, mistype, predicate, ranged, thrown, two-handed, versatile, weapon, weapons
+**topics:** authored-tag, boolean, deals, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

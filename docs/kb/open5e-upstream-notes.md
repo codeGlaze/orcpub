@@ -23,6 +23,7 @@ their `quicksetup` loads every fixture and `uv run pytest` passes (93) with all 
 | Rules: the missing Resting, Movement and Position and Damage and Healing text; Critical Hits; text errors; names (note 7) | [PR #995](https://github.com/open5e/open5e-api/pull/995), branch `srd-2014-rules-fixes` |
 | Conditions: encoding artifacts and formatting, both documents (notes 4 and 6) | [PR #996](https://github.com/open5e/open5e-api/pull/996), branch `srd-conditions-fixes` |
 | Spells: higher-level rules for Heroism, Chain Lightning, Dissonant Whispers (note 2) | [PR #997](https://github.com/open5e/open5e-api/pull/997), branch `srd-spell-upcasts` |
+| Equipment, both documents: Heavy never assigned in 2014, other missing or mis-pointed weapon properties, the Shortsword's damage type, missing costs and weights, three names (see coverage map, *Equipment*) | [PR #999](https://github.com/open5e/open5e-api/pull/999), branch `srd-equipment-fixes` |
 | `/v2/magicitems/` ignores `document__key` (note 1), counts re-checked on the live API the same day | [Issue #998](https://github.com/open5e/open5e-api/issues/998) |
 
 **Kept local, on purpose:** the "thunder-wave" correction (a typo in the SRD itself; open5e
