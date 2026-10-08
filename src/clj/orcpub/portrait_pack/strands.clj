@@ -1,19 +1,8 @@
 (ns orcpub.portrait-pack.strands
-  "Work out each hair piece's strand field once and write it beside the art.
-
-     lein run -m orcpub.portrait-pack.strands                      # resources/public/image/portraits
-     lein run -m orcpub.portrait-pack.strands /path/to/portraits   # a pack somewhere else
-
-   The field says which way the strands run, read from the linework, so hair
-   streaks can follow them (portrait-effects/strand-field). It depends on the
-   art alone, so there is no reason to work it out on every server start or in
-   every visitor's browser: this writes <name>.strands.png -- a small
-   greyscale image, one pixel per few of the art's -- next to each hair piece,
-   and the renderers read that. Re-run it when the art changes. A piece with
-   no file still streaks; the renderer works its field out once instead.
-
-   The files are derived from the art, so they travel with the art and are
-   never committed with the code."
+  "Each hair piece's strand field (which way its drawn strands run), worked out from the art and
+   written beside it as <name>.strands.png. The image build runs -main, so a deploy needs only the
+   art: lein run -m orcpub.portrait-pack.strands [art-dir] [--all]. Derived from the art, so never
+   committed; a piece without one has it worked out by the server instead."
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
             [com.stuartsierra.component :as component]
@@ -80,19 +69,37 @@
 
 (defn new-strand-check [] (->StrandCheck))
 
+(defn- current?
+  "Whether `strands` is there and at least as new as the art it was made from."
+  [^File art ^File strands]
+  (and (.exists strands) (>= (.lastModified strands) (.lastModified art))))
+
+(defn write-missing!
+  "Write the strand fields under `dir` that are missing or older than their art (every one with
+   `all?`). Returns {[layer file] :written | :kept | :no-art}."
+  [dir all?]
+  (into (sorted-map)
+        (for [k pa/layer-order :when (fx/hair-layer? k)
+              a (pa/assets-for-layer k)
+              :let [file-name (last (s/split (:asset/url a) #"/"))]]
+          [[k file-name]
+           (if-let [f (find-file (io/file dir (name k)) file-name)]
+             (let [out (io/file (.getParentFile f) (s/replace (.getName f) #"(?i)\.png$" ".strands.png"))]
+               (if (and (not all?) (current? f out))
+                 (do (println (format "  %-12s %-24s up to date" (name k) (.getName out))) :kept)
+                 (let [t (System/nanoTime)
+                       field (field-of (ImageIO/read f) k)]
+                   (ImageIO/write (field->image field) "png" out)
+                   (println (format "  %-12s %-24s %dx%d  %4dms" (name k) (.getName out) (:gw field) (:gh field)
+                                    (long (/ (- (System/nanoTime) t) 1e6))))
+                   :written)))
+             (do (println (format "  %-12s %-24s no art -- skipped" (name k) file-name)) :no-art))])))
+
 (defn -main [& args]
-  (let [dir (or (first args) default-dir)
-        pieces (for [k pa/layer-order :when (fx/hair-layer? k)
-                     a (pa/assets-for-layer k)]
-                 [k (last (s/split (:asset/url a) #"/"))])]
-    (println "Strand fields for" (count pieces) "hair pieces in" dir)
-    (doseq [[k file-name] pieces]
-      (if-let [f (find-file (io/file dir (name k)) file-name)]
-        (let [t (System/nanoTime)
-              field (field-of (ImageIO/read f) k)
-              out (io/file (.getParentFile f) (s/replace (.getName f) #"(?i)\.png$" ".strands.png"))]
-          (ImageIO/write (field->image field) "png" out)
-          (println (format "  %-12s %-24s %dx%d  %4dms" (name k) (.getName out) (:gw field) (:gh field)
-                           (long (/ (- (System/nanoTime) t) 1e6)))))
-        (println (format "  %-12s %-24s missing -- skipped" (name k) file-name))))
+  (let [all? (boolean (some #{"--all"} args))
+        dir (or (first (remove #{"--all"} args)) default-dir)
+        results (vals (write-missing! dir all?))]
+    (println (format "Strand fields in %s: %d written, %d up to date, %d without art"
+                     dir (count (filter #{:written} results)) (count (filter #{:kept} results))
+                     (count (filter #{:no-art} results))))
     (shutdown-agents)))

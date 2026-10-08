@@ -44,10 +44,12 @@ lein run -m orcpub.portrait-pack.strands                     # resources/public/
 lein run -m orcpub.portrait-pack.strands /path/to/portraits  # a pack kept elsewhere
 ```
 
-Run it wherever the real art is, and ship the files with the art. They are
-derived from it, so they are gitignored and never committed. A piece without
-one still streaks: the renderer works the field out from the art the first
-time (about 0.1–0.5s), then keeps it.
+The image build runs it (`docker/Dockerfile`, after the JavaScript build), so
+a deploy needs only the art: it writes the files that are missing or older
+than their art, and `--all` rewrites every one. They are derived from the art,
+so they are gitignored and never committed. A piece without one (running from
+source without the step) still streaks: the server works the field out the
+first time it is asked for (about 0.1–0.5s), then keeps it.
 
 ## Tweaking by hand
 

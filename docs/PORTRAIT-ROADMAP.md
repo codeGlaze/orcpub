@@ -29,10 +29,10 @@ bangs 03 in pack v1.775).
 
 1. Unpack the art pack (currently **v1.775**, exported from the Loom with "Fill see-through
    insides" ticked) over `resources/public/image/portraits/`, or the volume that serves it.
-2. Generate the strand files there: `lein run -m orcpub.portrait-pack.strands <art-dir>`. This
-   is the fast path, not a requirement: a hair piece without its file has its strand field worked
-   out from the art by the server on first request and kept in memory. The server logs one line
-   at start naming any piece without a file.
+2. Nothing else for the art: the image build writes the strand files beside it (the Dockerfile
+   runs `orcpub.portrait-pack.strands`, which only fills in missing or stale ones), so the image
+   carries them. Running from source without that step still works: the server then works a
+   missing one out on first request.
 3. Configure, as needed: `PORTRAIT_ARTISTS` (credits and artist accounts), `PROFILE_ENCRYPTION_KEYS`
    (preferred names), `APP_URL` (links in artist emails), `EMAIL_ADMIN_TO`.
 4. A What's New entry for the builder, in whichever release ships it. Draft:
@@ -60,6 +60,13 @@ Each of these works today or is hidden; none blocks shipping.
 - **Further healing of the art** (closing holes the fill does not reach). Parked with what was
   learned in `agents/loom/README.md`: the artist draws some marks with transparency, and no
   automatic rule tried so far tells them from holes.
+
+### Strand files
+
+- **One file per layer, per artist** instead of one per piece: people click through every option
+  in a category, so one request per category serves them all, and an artist's files never change
+  when another artist's pack is added (it also suits filtering by artist later). Today's files
+  are internal (saved portraits never store their addresses), so switching costs no data.
 
 ### Loom
 
