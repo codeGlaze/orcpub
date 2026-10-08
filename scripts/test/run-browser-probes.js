@@ -60,8 +60,8 @@ const PROBES = [
   { file: 'class_handlers_functional_e2e.js',  needs: 'server', needsPack: true },
   { file: 'equipment_add_functional_e2e.js',   needs: 'server', needsPack: true },
   { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },
-  { file: 'boot_rescue_e2e.js',                needs: 'server', suppress: false },
-  { file: 'builder_card_export_e2e.js',        needs: 'server', suppress: false },
+  { file: 'boot_rescue_e2e.js',                needs: 'server' },
+  { file: 'builder_card_export_e2e.js',        needs: 'server' },
   { file: 'fixes_persist_e2e.js',              needs: 'server' },
   { file: 'header_menus_e2e.js',               needs: 'server' },
   { file: 'homebrew_safety_net_e2e.js',        needs: 'server' },
@@ -74,7 +74,9 @@ const PROBES = [
   { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
   { file: 'sticky_header_e2e.js',              needs: 'server' },
   { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
+  { file: 'cookie_notice_e2e.js',             needs: 'server', suppress: false },
 ];
+module.exports = { PROBES };
 
 const get = url => new Promise(res => {
   const r = http.get(url, x => { x.resume(); res(x.statusCode); });
@@ -134,7 +136,8 @@ function run(probe, pack, budgetMs) {
   });
 }
 
-(async () => {
+// Runs only when invoked directly; trace-probe.js requires this file for PROBES alone.
+if (require.main === module) (async () => {
   if (!fs.existsSync(path.join(ROOT, 'resources/public/js/compiled/orcpub.js'))) {
     console.error('No dev build — run `lein fig:build` first.');
     process.exit(2);

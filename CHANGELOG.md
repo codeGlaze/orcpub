@@ -77,6 +77,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a reaction's casting time prints as "1 React." on spell cards. (#709)
 - **Site:** blank icons show again. (#696)
 - **Site:** bold text renders bold, and buttons use the site font. (#711)
+- **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed.
 - **Server:** the same content gets the same keys on Turkish and other locales. (#699)
 
 ### Security

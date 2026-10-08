@@ -20,6 +20,10 @@ on:
       - '.github/workflows/docker-integration.yml'
   workflow_dispatch:
 
+# Checkout is the only use of the token.
+permissions:
+  contents: read
+
 jobs:
   detect-stack:
     name: Detect Stack

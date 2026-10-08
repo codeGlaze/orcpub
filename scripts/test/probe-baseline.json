@@ -79,5 +79,9 @@
   "natural_armor_ring_e2e.js": {
     "checks": 7,
     "seconds": 15
+  },
+  "cookie_notice_e2e.js": {
+    "checks": 9,
+    "seconds": 10
   }
 }
