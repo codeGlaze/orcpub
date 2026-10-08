@@ -14,7 +14,17 @@
          (conditions/link-conditions "A Frightened creature flees.")))
   (is (= ["the " [:a {:kind :condition :key :invisible} "INVISIBLE"] " condition"]
          (conditions/link-conditions "the INVISIBLE condition"))
-      "a capital I folds the same on every locale"))
+      "a capital I folds the same on every locale")
+  (is (= ["The creature is " [:a {:kind :condition :key :blinded} "blinded"] " and "
+          [:a {:kind :condition :key :deafened} "deafened"] "."]
+         (conditions/link-conditions "The creature is blinded and deafened."))
+      "a condition continuing a named one is linked too")
+  (is (= ["it is " [:a {:kind :condition :key :charmed} "charmed"] ", "
+          [:a {:kind :condition :key :frightened} "frightened"] ", or "
+          [:a {:kind :condition :key :poisoned} "poisoned"]]
+         (conditions/link-conditions "it is charmed, frightened, or poisoned")))
+  (is (= ["is " [:a {:kind :condition :key :blinded} "blinded"] " and the other"]
+         (conditions/link-conditions "is blinded and the other"))))
 
 (deftest leaves-ordinary-words-alone
   (is (= ["Other elemental creatures include azers and invisible stalkers."]

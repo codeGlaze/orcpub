@@ -72,6 +72,21 @@
        "|isn't|aren't|is not|are not|wasn't)(?: also)? (" condition-alternation ")"
        "|of (exhaustion)|(exhaustion) level)\\b"))
 
+(def ^:private follow-on-pattern
+  "A further condition continuing a named one: \"is blinded and deafened\", \"charmed or frightened\"."
+  (re-pattern (str "^(,? (?:and|or) |, )(" condition-alternation ")\\b")))
+
+(defn- with-follow-ons
+  "`matches` plus every condition that continues one of them in `lower`, in order."
+  [lower matches]
+  (vec (mapcat (fn [[_ at word :as m]]
+                 (loop [end (+ at (count word)) out [m]]
+                   (if-let [[_ sep w] (re-find follow-on-pattern (subs lower end))]
+                     (let [w-at (+ end (count sep))]
+                       (recur (+ w-at (count w)) (conj out [end w-at w])))
+                     out)))
+               matches)))
+
 (defn- condition-matches
   "Each place `lower` names a condition, as [start word-start word] triples in order."
   [lower]
@@ -100,7 +115,7 @@
   [text]
   (let [text (or text "")
         lower (common/ascii-lower-case text)]
-    (loop [[[_ at word] & more] (condition-matches lower)
+    (loop [[[_ at word] & more] (with-follow-ons lower (condition-matches lower))
            pos 0
            out []]
       (if-not at
