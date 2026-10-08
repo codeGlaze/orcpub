@@ -35,10 +35,12 @@ The data fixes change no code. A misnamed key is not an error anywhere; its read
 the value never shows, which is how these went unnoticed. A new test pins every monster and gear
 entry to the keys their readers know, so the next misnamed key fails the build instead.
 
-Two display gaps found on the way are fixed here too, rather than on branches of their own: the
-monster stat block never showed reactions, and the app had none of the SRD's conditions. The
-conditions are read from a static data file generated from corrected open5e data
-(`resources/public/srd/2014/conditions.edn`), the first of the SRD files the 2024 work produces.
+Found on the way and fixed here too, rather than on branches of their own: the monster stat block
+never showed reactions, and the app held none of the SRD's rules or conditions as text. The rules
+and conditions are static data files (`resources/public/srd/2014/`) generated from open5e's data
+with corrections, the first of the SRD files the 2024 work produces. open5e lacked about 2,500
+words of the SRD rules (Resting, Movement and Position, and death saving throws with the rest of
+Damage and Healing), which were added from the SRD itself.
 Clear typos in the SRD itself are corrected and noted, not preserved: Grappled's "thunder-wave" is
 "thunderwave".
 
@@ -46,8 +48,11 @@ Left out: weapons and armor carry no price at all, with nothing that would displ
 
 ## Added
 
-- **Rules:** pages for the 15 SRD conditions, with links to them from each monster's condition
-  immunities, and the Orcacle finds them by name.
+- **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
+- **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
+  on hover, or on a first tap on a phone.
+- **Orcacle:** finds rules and conditions by name.
+- **Monsters:** each condition in a monster's condition immunities links to its page.
 
 ## Fixed
 
