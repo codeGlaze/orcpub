@@ -4,6 +4,7 @@
    the JVM tests. character-rescue.md"
   (:require #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as reader])
             [clojure.string :as s]
+            [clojure.walk :as walk]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
@@ -80,6 +81,38 @@
    browser draft takes. Everything else, the summary and values included, is kept as stored."
   [stored character]
   (assoc stored ::se/selections (vec (::se/selections (entity/to-strict character)))))
+
+(defn same-stored?
+  "True when stored maps `a` and `b` (from `read-stored`) hold the same data, whatever order
+   their lists come back in."
+  [a b]
+  (let [unordered (fn [x] (walk/postwalk #(if (sequential? %) (frequencies %) %) x))]
+    (= (unordered a) (unordered b))))
+
+(defn reapply
+  "`pending` (`picks/remove-at` records) applied again to `character`, a fresh copy, as
+   {:character :pending :lost}: `:pending` the records that applied, `:lost` the `:line` of each
+   one whose pick is no longer stored there."
+  [character pending]
+  (reduce (fn [acc rec]
+            (let [{c :character removed :removed} (picks/remove-at (:character acc) (:address rec))]
+              (if removed
+                (-> acc (assoc :character c) (update :pending conj (merge rec removed)))
+                (update acc :lost conj (:line rec)))))
+          {:character character :pending [] :lost []}
+          pending))
+
+(defn warning
+  "What to tell the player before `row` (from `rows`) is removed, or nil when nothing needs
+   saying: removing the race, a class or the ability scores leaves the builder asking again."
+  [{:keys [address choice] under :below}]
+  (let [with (when (pos? under) (str " and the " under " choices under it"))]
+    (when (= 2 (count address))
+      (case (first address)
+        :class (str "Remove " choice with "? The builder will ask for a class again.")
+        :race (str "Remove " choice with "? The builder will ask for a race again.")
+        :ability-scores "Remove the ability scores? The app will not save this character until you choose them again in the builder."
+        nil))))
 
 (defn owner?
   "True when `user` (the app's stored login: {:user-data {:username :email}}) owns `character`,

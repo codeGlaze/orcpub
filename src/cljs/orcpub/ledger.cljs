@@ -3,6 +3,7 @@
    browser's draft and lists its stored picks, with none of the app loaded. Plain DOM, so a
    character that breaks the app cannot break this page. character-rescue.md"
   (:require [cljs.reader :as reader]
+            [clojure.string]
             [cognitect.transit :as transit]
             [orcpub.dnd.e5.ledger :as ledger]
             [orcpub.dnd.e5.picks :as picks]))
@@ -104,17 +105,20 @@
       content))
 
 (defonce ^:private state
-  ;; The open character: {:root :stored :character :pending :saved-id :note}. `:stored` is the
-  ;; map as read from storage, `:pending` the `picks/remove-at` records not saved yet.
+  ;; The open character: {:root :stored :character :pending :saved-id :note :conflict}. `:stored`
+  ;; is the map as read from storage, `:pending` the `picks/remove-at` records not saved yet,
+  ;; `:conflict` the newer text storage held when a save found it changed.
   (atom nil))
 
 (declare render! load-saved! load-draft!)
 
 (defn- remove!
-  "Take the pick at `address` (its row is `row`) out of the open character, unsaved."
+  "Take the pick at `address` (its row is `row`) out of the open character, unsaved, after the
+   player confirms `ledger/warning` when there is one."
   [address row]
-  (let [{:keys [character removed]} (picks/remove-at (:character @state) address)]
-    (when removed
+  (let [{:keys [character removed]} (picks/remove-at (:character @state) address)
+        caution (ledger/warning row)]
+    (when (and removed (or (nil? caution) (js/confirm caution)))
       (swap! state #(-> % (assoc :character character :note nil)
                         (update :pending conj (assoc removed :line (:line row) :below (:below row)))))
       (render!))))
@@ -136,7 +140,7 @@
   (let [{:keys [root saved-id]} @state]
     (if saved-id (load-saved! root saved-id note) (load-draft! root note))))
 
-(defn- save!
+(defn- write!
   "Write the open character back: to the server through the app's own save route, or to this
    browser's draft. Keeps everything the page did not change."
   []
@@ -166,6 +170,41 @@
                          (render!)))))
           (.catch (fn [_] (swap! state assoc :note "Not saved: check the connection and retry.") (render!)))))))
 
+(defn- current-text
+  "Call `f` with the character's text as storage holds it now, or with nil when it cannot be read."
+  [f]
+  (let [{:keys [saved-id]} @state]
+    (if-not saved-id
+      (f (storage-item "character"))
+      (-> (js/fetch (str "/dnd/5e/characters/" saved-id) #js {:headers #js {"Accept" "application/edn"}})
+          (.then (fn [r] (if (.-ok r) (.then (.text r) f) (f nil))))
+          (.catch (fn [_] (f nil)))))))
+
+(defn- save!
+  "Save, but only when storage still holds what the page opened: otherwise say so and offer to
+   reload with the pending removals kept."
+  []
+  (current-text
+   (fn [text]
+     (if (and text (ledger/same-stored? (:stored @state) (ledger/read-stored text)))
+       (write!)
+       (do (swap! state assoc :conflict text
+                  :note (if text "This character changed since you opened this page." "Not saved: the character could not be read again."))
+           (render!))))))
+
+(defn- reload-keeping!
+  "Open the character as storage holds it now, with the pending removals applied again; name any
+   that no longer apply."
+  []
+  (let [{:keys [conflict pending]} @state
+        {fresh :character} (ledger/read-character conflict)
+        {:keys [character lost] kept :pending} (ledger/reapply fresh pending)]
+    (swap! state assoc :stored (ledger/read-stored conflict) :character character :pending kept :conflict nil
+           :note (if (seq lost)
+                   (str "Reloaded. No longer stored: " (clojure.string/join ", " lost) ".")
+                   "Reloaded with your removals. Check, then save."))
+    (render!)))
+
 (defn- row-node
   "One table row for ledger `row`, with its Remove button."
   [{:keys [address depth section choice key value below] :as row}]
@@ -190,7 +229,9 @@
                                   (small-button "Undo" (fn [_] (undo! i)))
                                   (str " " line (when (pos? below) (str ", with " below " below")))))
                             pending))
-        (button "Save" (fn [_] (save!)))
+        (if (:conflict @state)
+          (button "Reload and keep my removals" (fn [_] (reload-keeping!)))
+          (button "Save" (fn [_] (save!))))
         (el "span" (str "color:" (:muted colors)) "Close this character in other tabs before saving."))))
 
 (defn- render!

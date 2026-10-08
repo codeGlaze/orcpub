@@ -34,6 +34,14 @@ removed pick's records.
   under a new id, and the page opens the new id's data page. Measured below, "Save replaces an
   invalid character": the character also leaves its folders and parties.
 
+**Save checks first (commit 2b):** before writing, the page reads the character again. If it
+changed since the page opened (`ledger/same-stored?`, which ignores list order), nothing is written:
+"This character changed since you opened this page", with **Reload and keep my removals**, which
+applies the pending removals to the fresh copy (`ledger/reapply`) and names any no longer stored.
+A gap of a moment between that read and the write remains; closing it needs the server.
+**Removing the race, a class or the ability scores asks first** (`ledger/warning`), saying what goes
+and what the builder will ask for. It warns, it never blocks: removing a broken class is a repair.
+
 **Removing an essential choice (measured, `test/e2e/remove-essentials.js`):** neither breaks the app.
 
 | removed on the data page | the app opens it | Save as opened | the builder's way back |

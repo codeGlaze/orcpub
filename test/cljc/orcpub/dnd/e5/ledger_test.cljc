@@ -140,3 +140,33 @@
       (let [{removed-char :character removed :removed} (picks/remove-at opened [:feats :tidebreaker])]
         (is (= stored-with-ids
                (ledger/save-data (ledger/read-stored text) (picks/put-at removed-char removed))))))))
+
+(deftest a-change-since-opening-is-noticed-but-list-order-is-not
+  (let [stored (ledger/read-stored (pr-str stored-with-ids))]
+    (is (ledger/same-stored? stored (ledger/read-stored (pr-str stored-with-ids))))
+    (is (ledger/same-stored? stored (update stored :orcpub.entity.strict/selections (comp vec reverse)))
+        "the same selections in another order are the same character")
+    (is (not (ledger/same-stored? stored (assoc-in stored [:orcpub.entity.strict/values :orcpub.dnd.e5.character/character-name] "Renamed"))))
+    (is (not (ledger/same-stored? stored (update stored :orcpub.entity.strict/selections pop)))
+        "a pick removed elsewhere is a change")))
+
+(deftest pending-removals-apply-again-to-a-fresh-copy
+  (let [opened (:character (ledger/read-character (pr-str stored-with-ids)))
+        pend (fn [address line] (assoc (:removed (picks/remove-at opened address)) :line line))
+        pending [(pend [:feats :tidebreaker] "Feats › Tidebreaker")
+                 (pend [:class :wizard :wizard-spells-known :brine-lash] "Class › Wizard › Wizard Spells Known › Brine Lash")]
+        fresh (:character (picks/remove-at opened [:class :wizard]))
+        {again :character lost :lost kept :pending} (ledger/reapply fresh pending)]
+    (is (= ["Class › Wizard › Wizard Spells Known › Brine Lash"] lost) "the spell went with its class elsewhere")
+    (is (= [[:feats :tidebreaker]] (map :address kept)))
+    (is (= "Feats › Tidebreaker" (:line (first kept))) "a kept record keeps its line for the list")
+    (is (not-any? #(= [:feats :tidebreaker] (first %)) (picks/addresses again)))))
+
+(deftest only-the-race-a-class-and-the-ability-scores-warn
+  (let [rows (into {} (map (juxt :address identity)) (ledger/rows (:character (ledger/read-character (pr-str stored-with-ids)))))]
+    (is (= "Remove Wizard and the 2 choices under it? The builder will ask for a class again."
+           (ledger/warning (rows [:class :wizard]))))
+    (is (= "Remove Tidefolk? The builder will ask for a race again." (ledger/warning (rows [:race :tidefolk]))))
+    (is (re-find #"will not save this character" (ledger/warning (rows [:ability-scores :standard-scores]))))
+    (is (nil? (ledger/warning (rows [:feats :tidebreaker]))))
+    (is (nil? (ledger/warning (rows [:class :wizard :wizard-spells-known :brine-lash]))) "a choice under a class does not warn")))
