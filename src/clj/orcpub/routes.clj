@@ -1760,6 +1760,13 @@
          ::se/game-version :e5
          ::se/type :character))
 
+(defn- held-entity-ids
+  "The :db/id of each entity `entity` holds directly: its selections, values and summary."
+  [entity]
+  (into [] (comp (mapcat (fn [[_ v]] (cond (map? v) [v] (sequential? v) v :else [])))
+                 (keep #(when (map? %) (:db/id %))))
+        (dissoc entity :db/id)))
+
 (defn update-character [db conn character username]
   (let [id (:db/id character)]
     (if (owns-entity? db username id)
@@ -1767,20 +1774,23 @@
             problems [] #_(dnd-e5-char-type-problems current-character)
             current-valid? (spec/valid? ::se/entity current-character)]
         (when-not current-valid?
-          (prn "INVALID CHARACTER FOUND, REPLACING" #_current-character)
+          (prn "INVALID CHARACTER FOUND, REPLACING ITS CONTENTS" #_current-character)
           (prn "INVALID CHARACTER EXPLANATION" #_(spec/explain-data ::se/entity current-character)))
         (if (seq problems)
           (throw (ex-info "Character has problems"
                           {:error :character-problems :problems problems}))
           (if-not current-valid?
+            ;; Replaces the contents, never the character: folders, parties and share records
+            ;; point at this id. character-rescue.md, "Save replaces an invalid character".
             (let [new-character (entity/remove-ids character)
-                  tx [[:db/retractEntity (:db/id current-character)]
-                      (-> new-character
-                          (assoc :db/id "tempid"
-                                 :orcpub.entity.strict/owner username)
-                          add-dnd-5e-character-tags)]
-                  result @(d/transact conn tx)]
-              (d/pull (d/db conn) '[*] (-> result :tempids (get "tempid"))))
+                  tx (conj (mapv (fn [child-id] [:db/retractEntity child-id])
+                                 (held-entity-ids current-character))
+                           (-> new-character
+                               (assoc :db/id id
+                                      :orcpub.entity.strict/owner username)
+                               add-dnd-5e-character-tags))]
+              @(d/transact conn tx)
+              (d/pull (d/db conn) '[*] id))
             (let [new-character (entity/remove-orphan-ids character)
                   current-ids (entity/db-ids current-character)
                   new-ids (entity/db-ids new-character)

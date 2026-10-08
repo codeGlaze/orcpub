@@ -43,4 +43,8 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 
 ## Fixed
 
+- **Characters:** saving a character whose stored copy was damaged no longer moves it to a new
+  address: it stays in its folders and parties, its share link keeps working, and other open tabs
+  can still save it.
+
 ## Security

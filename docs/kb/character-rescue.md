@@ -30,9 +30,8 @@ removed pick's records.
   show the old race or class until the app next saves it.
 - **Emptied lists stay:** removing the last pick of a multi-pick selection leaves the selection,
   empty, as unticking it in the builder does; a one-pick selection is removed whole.
-- **A new id is possible:** when the stored character fails the spec, the save route replaces it
-  under a new id, and the page opens the new id's data page. Measured below, "Save replaces an
-  invalid character": the character also leaves its folders and parties.
+- **Damaged stored copies:** the save route replaces such a character's contents under the same id
+  (fixed on this branch; "Save replaces an invalid character" below).
 
 **Save checks first (commit 2b):** before writing, the page reads the character again. If it
 changed since the page opened (`ledger/same-stored?`, which ignores list order), nothing is written:
@@ -68,13 +67,16 @@ browser with no app loaded, `ledger.js` read the saved Tide Pak wizard and liste
 comes out), and answers `If-Modified-Since` with the full file. A browser that checks before reusing
 its copy downloads 812 KB on every visit. Fixing it needs its own branch.
 
-## Save replaces an invalid character (research, 2026-10-06; nothing changed)
+## Save replaces an invalid character (fixed 2026-10-08: same id)
 
-`routes/update-character` has two paths. When the STORED character passes `::se/entity`, a save
-diffs ids: the character keeps its id. When it fails, the save retracts the whole character and
-creates the new one under a NEW id (`"INVALID CHARACTER FOUND, REPLACING"`, upstream code from
-2025-09). Pinned in `test/clj/orcpub/save_replace_research_test.clj` (each deftest asserts today's
-behaviour) and `test/e2e/digit-key-save.js`.
+**Current behaviour:** when the STORED character fails `::se/entity`, a save retracts the entities it
+holds (selections, values, summary) and writes the new contents onto the SAME id
+(`routes/update-character`, `held-entity-ids`). Folders, parties (anyone's) and share records keep
+pointing at it; a tab holding an older copy saves to it (the later save wins, as between any two
+tabs). Pinned in `test/clj/orcpub/save_replace_research_test.clj` r2, r7, r8, r11; putting the old
+code back fails 25 of their assertions.
+
+**Before the fix (2025-09 upstream code to 2026-10-08), measured the same way:**
 
 | claim | verdict | evidence |
 |---|---|---|
@@ -96,11 +98,11 @@ autosave (R7) or by the data page's Save, moves it to a new id (R2).
 **Why the data page makes it likelier:** repairing means removing the bad part, which is exactly
 "stored invalid, incoming valid".
 
-**Shown falsifiable:** with the invalid branch forced off, r2, r7 and r8 fail (12 assertions) and the
-folder and party links survive. That hints at a fix; it is not one, and needs its own tests.
+**Still true after the fix:** R3, R4, R9 and R10. Two saves racing from one older copy can still
+store duplicate selections (R10); the next valid save now repairs them in place.
 
-**Not known:** how many stored characters fail the check in production. Read-only, on a copy of the
-database:
+**Not known, and not polled (owner, 2026-10-08):** how many stored characters fail the check in
+production. Read-only, on a copy of the database, if ever needed:
 
 ```clojure
 (require '[datomic.api :as d] '[clojure.spec.alpha :as spec] '[orcpub.entity.strict :as se])
@@ -281,6 +283,9 @@ The builder's rescue bar needs no character id: it links to the draft page, `/ch
 - Changelog: Summer Patch, on integration.
 
 ## History
+
+- 2026-10-08: a save of an invalid stored character kept its contents but moved it to a new id, out
+  of folders and parties; now it keeps the id.
 
 - 2026-10-06: the separate list/remove server routes (layer 2) dropped: the ledger reads through
   the existing character read route and will save through the existing save route.

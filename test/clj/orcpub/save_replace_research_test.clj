@@ -1,7 +1,7 @@
 (ns orcpub.save-replace-research-test
-  "RESEARCH: pins TODAY's behaviour of the character save route (`routes/do-save-character`)
-   when the stored character fails `::se/entity`. Each deftest is named for its claim and asserts
-   what happens now, not what should. character-rescue.md, \"Save replaces an invalid character\"."
+  "Pins the character save route (`routes/do-save-character`) when the stored character fails
+   `::se/entity`: the save replaces its contents and keeps its id. Each deftest is named for its
+   claim. character-rescue.md, \"Save replaces an invalid character\"."
   (:require [clojure.spec.alpha :as spec]
             [clojure.test :refer [deftest testing is]]
             [datomic.api :as d]
@@ -70,23 +70,31 @@
     (is (= id (:db/id body)))
     (is (= {:folder id :party id :share id} (links conn id)))))
 
-(deftest r2-fixing-an-invalid-stored-character-gives-it-a-new-id
+(deftest r2-fixing-an-invalid-stored-character-keeps-its-id-and-replaces-its-contents
   (doseq [[label bad] [["a key starting with a digit" {::se/key :1st-pick ::se/option {::se/key :x}}]
                        ["two selections with one key" {::se/key :race ::se/option {::se/key :x}}]]]
     (testing label
       (let [conn (fresh-conn) id (store! conn (character bad))
-            _ (is (not (spec/valid? ::se/entity (d/pull (d/db conn) '[*] id))) "the stored copy fails the check")
+            before (d/pull (d/db conn) '[*] id)
+            old-children (disj (set (map :db/id (concat (::se/selections before) [(::se/values before) (::se/summary before)]))) nil)
+            _ (is (not (spec/valid? ::se/entity before)) "the stored copy fails the check")
             {:keys [status body]} (save! conn (without conn id (::se/key bad)))
-            new-id (:db/id body)]
+            after (d/pull (d/db conn) '[*] id)]
         (is (= 200 status))
-        (is (not= id new-id) "a new id")
-        (is (nil? (::se/owner (d/pull (d/db conn) '[*] id))) "the old id is no longer a character")
-        (is (= 400 (:status (routes/get-character-for-id (d/db conn) id))) "its address now answers 400")
-        (testing "R5: links by reference lose it; links by number point at the dead id"
-          (is (= {:folder nil :party nil :share id} (links conn id))))
-        (testing "R6: the new one is what was sent"
-          (is (= "Beren" (get-in body [::se/values :orcpub.dnd.e5.character/character-name])))
-          (is (= "kaylee" (::se/owner body))))))))
+        (is (= id (:db/id body)) "the same id")
+        (is (spec/valid? ::se/entity after) "the stored copy now passes the check")
+        (is (= 1 (count (filter #(= :race (::se/key %)) (::se/selections after)))))
+        (is (not (re-find #":1st-pick" (pr-str after))))
+        (is (empty? (filter #(seq (dissoc (d/pull (d/db conn) '[*] %) :db/id)) old-children))
+            "none of the old contents is left behind")
+        (is (= 200 (:status (routes/get-character-for-id (d/db conn) id))) "its address still answers")
+        (testing "R5: folders, parties and share records still point at it"
+          (is (= {:folder id :party id :share id} (links conn id))))
+        (testing "R6: its contents are what was sent"
+          (is (= "Beren" (get-in after [::se/values :orcpub.dnd.e5.character/character-name])))
+          (is (= "Beren" (get-in after [::se/summary :orcpub.dnd.e5.character/character-name])))
+          (is (= "kaylee" (::se/owner after)))
+          (is (= :character (::se/type after))))))))
 
 (deftest r3-saving-an-invalid-character-that-is-still-invalid-is-refused-and-changes-nothing
   (let [conn (fresh-conn)
@@ -103,26 +111,40 @@
 
 (deftest r7-the-apps-own-round-trip-merges-duplicate-selections-but-keeps-a-digit-key
   (let [conn (fresh-conn)]
-    (testing "duplicates: the app's next save is valid, so it takes the replace path"
+    (testing "duplicates: the app's next save is valid, takes the replace path, and keeps the id"
       (let [id (store! conn (character {::se/key :race ::se/option {::se/key :x}}))
             round-trip (char5e/to-strict (char5e/from-strict (d/pull (d/db conn) '[*] id)))]
         (is (spec/valid? ::se/entity round-trip))
-        (is (not= id (:db/id (:body (save! conn round-trip)))) "the app's own save changes the id")))
+        (is (= id (:db/id (:body (save! conn round-trip)))))
+        (is (= {:folder id :party id :share id} (links conn id)))))
     (testing "a digit key: the app's next save is still invalid, so it is refused"
       (let [id (store! conn (character {::se/key :1st-pick ::se/option {::se/key :x}}))
             round-trip (char5e/to-strict (char5e/from-strict (d/pull (d/db conn) '[*] id)))]
         (is (not (spec/valid? ::se/entity round-trip)))
         (is (= 400 (:status (save! conn round-trip))))))))
 
-(deftest r8-a-tab-still-holding-the-old-id-is-refused-as-not-yours
+(deftest r8-a-tab-holding-an-older-copy-saves-to-the-same-character
   (let [conn (fresh-conn)
         id (store! conn (character {::se/key :race ::se/option {::se/key :x}}))
         first-save (without conn id :race)
         other-tab (update (without conn id :race) ::se/values assoc :orcpub.dnd.e5.character/character-name "Renamed")]
-    (is (not= id (:db/id (:body (save! conn first-save)))) "the first save moves it to a new id")
-    (let [{:keys [status body]} (save! conn other-tab)]
-      (is (= 401 status))
-      (is (= "You do not own this character" body)))))
+    (is (= id (:db/id (:body (save! conn first-save)))))
+    (let [{:keys [status body]} (save! conn other-tab)
+          after (d/pull (d/db conn) '[*] id)]
+      (is (= 200 status) "no longer refused as not yours")
+      (is (= id (:db/id body)))
+      (is (= "Renamed" (get-in after [::se/values :orcpub.dnd.e5.character/character-name])) "the later save wins, as between any two tabs")
+      (is (spec/valid? ::se/entity after))
+      (is (= 1 (count (filter #(= :race (::se/key %)) (::se/selections after)))) "the duplicate does not come back")
+      (is (= {:folder id :party id :share id} (links conn id))))))
+
+(deftest r11-another-players-party-keeps-the-character
+  (let [conn (fresh-conn)
+        id (store! conn (character {::se/key :race ::se/option {::se/key :x}}))]
+    @(d/transact conn [{:orcpub.dnd.e5.party/owner "zoe" :orcpub.dnd.e5.party/name "Zoe's table"
+                        :orcpub.dnd.e5.party/character-ids [id]}])
+    (save! conn (without conn id :race))
+    (is (= id (d/q '[:find ?c . :where [?p :orcpub.dnd.e5.party/name "Zoe's table"] [?p :orcpub.dnd.e5.party/character-ids ?c]] (d/db conn))))))
 
 (deftest r9-the-save-check-refuses-a-pick-whose-key-starts-with-a-digit
   ;; The app cannot make such a pick today: the homebrew loader sets aside items whose key does
