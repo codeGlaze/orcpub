@@ -1,0 +1,29 @@
+# Guard: the licensed portrait art lives only on the private deployment branch (Gitea), never
+# here. scripts/private-art.sh writes resources/public/image/portraits/PRIVATE-ART when it lays
+# the art in, so a push or pull request carrying that marker is the private branch arriving in
+# the public repository. Art committed without the marker is caught by
+# orcpub.portrait-art-guard-test, which checks every portrait file against its silhouette.
+
+name: Portrait art guard
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-private-art:
+    name: No private portrait art
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The private-art marker must not be in the public repository
+        run: |
+          if [ -e resources/public/image/portraits/PRIVATE-ART ]; then
+            echo "::error file=resources/public/image/portraits/PRIVATE-ART::This branch carries the licensed portrait art. It belongs only on the private deployment branch. Remove it from GitHub (and from the history if it was pushed) and tell the art owner."
+            exit 1
+          fi
+          echo "OK - no private portrait art on $GITHUB_REF_NAME."

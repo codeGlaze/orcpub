@@ -93,6 +93,10 @@ ENV TZ=${TZ}
 RUN lein run -m figwheel.main -- --build-once prod && \
     test -f resources/public/js/compiled/orcpub.js
 
+# Step 1b: strand fields for any hair art without one, written beside the art so
+# the jar carries them (orcpub.portrait-pack.strands). A deploy needs only the art.
+RUN timeout 300 lein run -m orcpub.portrait-pack.strands
+
 # Step 2: AOT compile (compilation finishes, subprocess hangs, timeout kills)
 RUN timeout 300 lein with-profile uberjar,uberjar-package compile || true; \
     test -f target/classes/orcpub/server__init.class || exit 1

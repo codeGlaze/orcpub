@@ -7,6 +7,8 @@
             [datomic.api :as d]
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
+            [orcpub.artist-accounts :as artist-accounts]
+            [orcpub.portrait-pack.strands :as strands]
             [orcpub.heartbeat :as heartbeat]
             [orcpub.routes.share :as share]
             [orcpub.pwned :as pwned]
@@ -55,6 +57,11 @@
    ;; Uses same config as prod - nonce-interceptor handles strict mode dynamically.
    ;; See orcpub.config/get-secure-headers-config
    })
+
+(defn with-portrait-guard
+  "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
+  [service-map]
+  (update service-map ::http/interceptors #(into [routes/portrait-art-guard] %)))
 
 (def prod-service-map
   {::http/routes routes/routes
@@ -122,6 +129,7 @@
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
+      true with-portrait-guard
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal
@@ -149,6 +157,17 @@
                                 ;; being read.
                                 "breach check summary" pwned/summary-job
                                 "rate limit summary" security/summary-job})
-      [:conn])))
+      [:conn])
+
+    ;; links or creates artist accounts named in PORTRAIT_ARTISTS; runs in the
+    ;; background after the database is up and never blocks the site starting
+    :artist-accounts
+    (component/using
+      (artist-accounts/new-artist-accounts)
+      [:conn])
+
+    ;; says in the log if the portrait art shipped without its strand fields
+    :strand-check
+    (strands/new-strand-check)))
 
 (rrepl/set-init! #(system :prod))

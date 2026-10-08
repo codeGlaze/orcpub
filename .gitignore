@@ -143,3 +143,6 @@ _*.js
 # Python bytecode from scripts/ (scripts/lint-changelog.py is run, not imported)
 __pycache__/
 *.pyc
+
+# strand fields are derived from the real portrait art and travel with it
+resources/public/image/portraits/**/*.strands.png

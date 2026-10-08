@@ -8,7 +8,351 @@
    "def links"
    "89e2979c2962"]
   "A field table: one line per field of a link entry, each defining it. Nothing in it is history."},
- :baseline [],
+ :baseline
+ [["src/clj/orcpub/artist_accounts.clj"
+   :long-docstring
+   "ns orcpub.artist-accounts"
+   "1fef820e5171"]
+  ["src/clj/orcpub/artist_credit.clj"
+   :long-docstring
+   "ns orcpub.artist-credit"
+   "02b412026348"]
+  ["src/clj/orcpub/artist_email.clj"
+   :long-docstring
+   "ns orcpub.artist-email"
+   "e8f92481105b"]
+  ["src/clj/orcpub/crypto.clj"
+   :long-docstring
+   "ns orcpub.crypto"
+   "29ba21878a6f"]
+  ["src/clj/orcpub/db/schema.clj"
+   :long-comment
+   "One per artist account the SERVER created, keyed \"artist-id email\"."
+   "37abac3bfc34"]
+  ["src/clj/orcpub/db/schema.clj"
+   :long-docstring
+   "def db-functions"
+   "0d71805ea76c"]
+  ["src/clj/orcpub/dnd/e5/portrait_calibration.clj"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-calibration"
+   "db2461976d52"]
+  ["src/clj/orcpub/fork/branding.clj"
+   :long-docstring
+   "def portrait-artists"
+   "93e01e1a65d3"]
+  ["src/clj/orcpub/index.clj"
+   :long-comment
+   "Opt out of generative-AI training and image reuse. This is the"
+   "9be8149c8797"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "def max-artwork-embedded"
+   "2381c953c327"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn decode-artwork-bytes"
+   "65ab0ed9b694"]
+  ["src/clj/orcpub/pdf.clj"
+   :long-docstring
+   "defn- fit-artwork"
+   "a54fb1cb70e0"]
+  ["src/clj/orcpub/portrait_pack/import.clj"
+   :long-docstring
+   "ns orcpub.portrait-pack.import"
+   "fe978b474568"]
+  ["src/clj/orcpub/portrait_render.clj"
+   :long-docstring
+   "def load-face"
+   "c1031884bdf4"]
+  ["src/clj/orcpub/portrait_render.clj"
+   :long-docstring
+   "defn asset-source"
+   "179f0d2f5c12"]
+  ["src/clj/orcpub/portrait_render.clj"
+   :long-docstring
+   "defn- draw-credit!"
+   "5f3bd1ef4cf0"]
+  ["src/clj/orcpub/portrait_render.clj"
+   :long-docstring
+   "defn- multiply!"
+   "072519bb41c4"]
+  ["src/clj/orcpub/portrait_render.clj"
+   :long-docstring
+   "ns orcpub.portrait-render"
+   "5bc44e178f0a"]
+  ["src/clj/orcpub/routes.clj"
+   :history-phrase
+   "defn character-summary-for-id | it used to"
+   "5d1cb548cc72"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "A composed (paper-doll) portrait has no URL that could produce"
+   "1211a445058a"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Inside this let, so it can see whether the composed portrait was"
+   "0e6915ffee6d"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "The wildcard cannot take the path above. `*` asks whether a"
+   "8a2d62b299e0"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "drawable?, not (seq :layers). A selection naming only assets this"
+   "1d2c7b22f6b1"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "def artwork-epoch"
+   "7f4cd0f905c7"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn character-portrait-png"
+   "a144eea509f7"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn portrait-etag"
+   "a0678c9352de"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn stamp-document-info!"
+   "fc84684cb0b7"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn- any-representation-requested?"
+   "d5ba2f9ef19c"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn- covered-by-if-none-match?"
+   "b90716ef319c"]
+  ["src/cljc/orcpub/artist_links.cljc"
+   :long-docstring
+   "ns orcpub.artist-links"
+   "19ded82cc1a0"]
+  ["src/cljc/orcpub/dnd/e5/character.cljc"
+   :long-docstring
+   "defn parse-portrait"
+   "8d21ef50cd6e"]
+  ["src/cljc/orcpub/dnd/e5/character.cljc"
+   :long-docstring
+   "defn- sane-portrait"
+   "81bf16fdebdc"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-comment
+   "---------- character colors ----------"
+   "2d19f53c345e"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-comment
+   "Resolve through the registry by asset id first, and"
+   "6e4e103d9f80"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-comment
+   "The full set, for the builder, which has room. Chosen with her rather"
+   "66506163e2e2"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def asset-inventory"
+   "23302fbc7ae6"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def calibration-fields"
+   "25bc6e3fd7b3"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def color-slots"
+   "cb2abaed9fe1"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def gap-inventory"
+   "de52dc91db85"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def layer-credit-weight"
+   "0fef5fb01084"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn credit-line"
+   "1a0a604801c1"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn credit-mark-layout"
+   "aafcad88f149"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn credit-order"
+   "f93344ce426a"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn credit-variants"
+   "c8989dac8740"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn render-mode"
+   "7117bdd2c708"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn tint-gamma"
+   "d925edf6e192"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-assets"
+   "21bb1c7ba47f"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "Feathering the region's edge"
+   "0b174657d1fe"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "Solid insides"
+   "e01303513f88"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "The iris region"
+   "bdfcb7c2bc75"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-comment
+   "Streaks that follow the strands"
+   "f53e58cf0d4a"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn arc-frame"
+   "17946ca80c79"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn gradient-frame"
+   "981029c5ef9a"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn piece-settings"
+   "8ebd6600d6a1"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn strand-field"
+   "b91ef27f63d5"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn- shine-band"
+   "85084a8f7e9c"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-effects"
+   "b9aa0bf60462"]
+  ["src/cljc/orcpub/dnd/e5/portrait_face.cljc"
+   :long-comment
+   "three groups, each [cx cy rx ry share]: the near cheek"
+   "8454d0de0f80"]
+  ["src/cljc/orcpub/dnd/e5/portrait_face.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-face"
+   "97e179724c1b"]
+  ["src/cljc/orcpub/dnd/e5/portrait_layout.cljc"
+   :long-docstring
+   "defn credit-layout"
+   "d9091b403a80"]
+  ["src/cljc/orcpub/dnd/e5/portrait_layout.cljc"
+   :long-docstring
+   "defn site-mark-layout"
+   "709bcde3fdc8"]
+  ["src/cljc/orcpub/dnd/e5/portrait_light.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-light"
+   "87319a407767"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :history-phrase
+   "The character on screen is only replaced when the save was ABOUT it. | it used to"
+   "4ed9e081ff30"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "---- portrait compositor drawer ----"
+   "839937248c56"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect"
+   "09e7f24a6ff0"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-comment
+   "The character on screen is only replaced when the save was ABOUT it."
+   "4ed9e081ff30"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn drop-portrait-draft"
+   "65a857e69c12"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn saved-character-is-the-one-being-edited?"
+   "eafd79915e13"]
+  ["src/cljs/orcpub/dnd/e5/events.cljs"
+   :long-docstring
+   "defn set-character"
+   "36d729ea143c"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :history-phrase
+   "Directly under the art it describes. It used to sit in the footer | it used to"
+   "22c67b2d6b67"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :history-phrase
+   "def empty-slot-styles | it used to"
+   "3810be692bc0"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- developer: the Eyes 01 far-iris alternative ---------"
+   "9aa5258ac663"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- rasterization (for PDF export) ----------------"
+   "eb266d462cc6"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- solid insides (developer tool) ----------------"
+   "6f6c60e817d8"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- the artist credit ----------------"
+   "d99ef2480175"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "Tint by MULTIPLY, not by masking. source-in reads the"
+   "852cfc2fefde"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "def empty-slot-styles"
+   "3810be692bc0"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn drawer"
+   "2e6cefd20673"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn tab-panel"
+   "c91ae9c538ed"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn- credit-lockup"
+   "ec686e9f13e6"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn- draw-credit!"
+   "10ab3e611ebb"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn- linked-credit"
+   "6f41e5783914"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "defn- mask-style"
+   "956e356536b2"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait"
+   "73118ff3edc9"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-comment
+   "the server has the baked pixels but"
+   "9005f8d6415b"]
+  ["src/cljs/orcpub/dnd/e5/views.cljs"
+   :long-docstring
+   "defn export-pdf"
+   "b931df008a5f"]],
  :field-notes
  {["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
   "e8e6f28a2ab7",
