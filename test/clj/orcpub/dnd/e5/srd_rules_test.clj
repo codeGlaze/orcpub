@@ -61,6 +61,9 @@
     (is (= {:section :damage-and-healing :anchor :dropping-to-0-hit-points}
            (select-keys (rules/find-rule data "  dropping to 0 hit points ") [:section :anchor])))
     (is (nil? (rules/find-rule data "dropping")))
+    (is (= :interacting-with-objects-around-you
+           (:anchor (rules/find-rule data "INTERACTING WITH OBJECTS AROUND YOU")))
+        "a capital I folds the same on every locale")
     (is (some #(= "Grappling" (:name %)) (rules/matching data "grapp")))
     (is (empty? (rules/matching data "gr")) "under three characters matches nothing")
     (testing "a rule's blocks stop at the next rule and keep its own subheadings"

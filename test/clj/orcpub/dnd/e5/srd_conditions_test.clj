@@ -29,6 +29,10 @@
   (let [data (conditions-file)]
     (is (= :blinded (:key (conditions/find-condition data "  Blinded "))))
     (is (nil? (conditions/find-condition data "blind")))
+    (testing "a capital I folds the same on every locale (a Turkish JVM makes it a dotless ı)"
+      (is (= :invisible (:key (conditions/find-condition data "Invisible"))))
+      (is (= [{:text "Incapacitated" :key :incapacitated}]
+             (conditions/immunity-parts "Incapacitated" conditions/condition-keys))))
     (is (= ["Poisoned"] (map :name (conditions/matching data "poi"))))
     (is (empty? (conditions/matching data "po")) "under three characters matches nothing")
     (is (= [{:text "charmed" :key :charmed} {:text "Exhaustion" :key :exhaustion}

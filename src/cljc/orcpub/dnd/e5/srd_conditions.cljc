@@ -2,7 +2,8 @@
   "Lookups over the SRD conditions file, `resources/public/srd/2014/conditions.edn`, as parsed
    from EDN. Shared by the conditions pages, the Orcacle and the monster stat block. The file is
    generated: see `resources/srd/README.md`."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (def data-path
   "URL of the 2014 conditions file, served from `resources/public`."
@@ -29,7 +30,7 @@
    Returns: the condition map, or nil."
   [data text]
   (when-not (s/blank? text)
-    (get (by-key data) (keyword (s/lower-case (s/trim text))))))
+    (get (by-key data) (keyword (common/ascii-lower-case (s/trim text))))))
 
 (defn matching
   "Conditions whose names contain `text`, ignoring case, in file order.
@@ -38,9 +39,9 @@
    Returns: a seq of condition maps; empty for text under three characters, as the Orcacle's
    other lists are."
   [data text]
-  (let [t (s/lower-case (s/trim (or text "")))]
+  (let [t (common/ascii-lower-case (s/trim (or text "")))]
     (when (>= (count t) 3)
-      (filter #(s/includes? (s/lower-case (:name %)) t) (:conditions data)))))
+      (filter #(s/includes? (common/ascii-lower-case (:name %)) t) (:conditions data)))))
 
 (defn immunity-parts
   "Splits a monster's condition-immunities text into its named conditions.
@@ -54,6 +55,6 @@
         (comp (map s/trim)
               (remove s/blank?)
               (map (fn [part]
-                     (let [k (keyword (s/lower-case part))]
+                     (let [k (keyword (common/ascii-lower-case part))]
                        {:text part :key (when (known k) k)}))))
         (s/split (or text "") #",")))

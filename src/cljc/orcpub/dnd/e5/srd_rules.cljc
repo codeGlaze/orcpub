@@ -2,7 +2,8 @@
   "Lookups over the SRD rules file, `resources/public/srd/2014/rules.edn`, as parsed from EDN.
    Shared by the Rules pages, the link previews and the Orcacle. The file is generated, and its
    block format is described in `resources/srd/README.md`."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (def data-path
   "URL of the 2014 rules file, served from `resources/public`."
@@ -49,8 +50,8 @@
    Returns: the matching entry of `headings`, or nil."
   [data text]
   (when-not (s/blank? text)
-    (let [t (s/lower-case (s/trim text))]
-      (some #(when (= t (s/lower-case (:name %))) %) (headings data)))))
+    (let [t (common/ascii-lower-case (s/trim text))]
+      (some #(when (= t (common/ascii-lower-case (:name %))) %) (headings data)))))
 
 (defn matching
   "Rules and sections whose names contain `text`, ignoring case, in file order, at most 12.
@@ -58,6 +59,6 @@
    Args: `data`, the parsed rules file or nil; `text`, a search string.
    Returns: a seq of `headings` entries; empty for text under three characters."
   [data text]
-  (let [t (s/lower-case (s/trim (or text "")))]
+  (let [t (common/ascii-lower-case (s/trim (or text "")))]
     (when (>= (count t) 3)
-      (take 12 (filter #(s/includes? (s/lower-case (:name %)) t) (headings data))))))
+      (take 12 (filter #(s/includes? (common/ascii-lower-case (:name %)) t) (headings data))))))
