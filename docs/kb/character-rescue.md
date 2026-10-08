@@ -34,6 +34,16 @@ removed pick's records.
   under a new id, and the page opens the new id's data page. Measured below, "Save replaces an
   invalid character": the character also leaves its folders and parties.
 
+**Removing an essential choice (measured, `test/e2e/remove-essentials.js`):** neither breaks the app.
+
+| removed on the data page | the app opens it | Save as opened | the builder's way back |
+|---|---|---|---|
+| the class (with its 4 levels) | yes, no errors; sheet at level 0 | saves (200) | "Add Levels in Another Class", then saves |
+| the ability scores | yes, no errors; scores show 0 | refused before sending: "You must provide values for all ability scores" | pick a method (Standard Scores, Point Buy...), then saves |
+
+So the data page warns, it does not block: the warning says what goes and what the builder will ask
+for. Removing the race was not measured.
+
 **Measured:** `ledger.js` is 1.2 MB, 264 KB gzipped; the app's `orcpub.js` is 3.2 MB, 813 KB gzipped
 (`integration` 63d63add; `develop` 15e1fe04: 2.9 MB, 725 KB). Most of either is built-in game data;
 `picks` brings it into `ledger.js` through `library.cljc` (without `picks`: 96 KB gzipped). In the
