@@ -39,6 +39,13 @@
         (is (= cost (:cost w)))
         (is (== weight (pounds (:weight w))))))))
 
+(deftest weapon-categories-follow-the-srd-table
+  (testing "thrown, yet listed under the ranged weapons"
+    (let [by-key (into {} (map (juxt :key :category)) (:weapons (equipment-file)))]
+      (is (= :simple-ranged (by-key :dart)))
+      (is (= :martial-ranged (by-key :net)))
+      (is (= :simple-melee (by-key :javelin)) "a thrown melee weapon stays melee"))))
+
 (deftest armor-carries-srd-cost-and-weight
   (let [srd (by-name (map #(update % :name (fn [n] (s/replace n #"(?i) armor$" ""))) (:armor (equipment-file))))
         app (by-name armor/armor)]

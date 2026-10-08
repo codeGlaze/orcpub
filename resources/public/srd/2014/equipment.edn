@@ -20,8 +20,6 @@
   {:key :maul :name "Maul" :category :martial-melee :cost {:num 10 :type :gp} :weight 10 :damage {:dice "2d6" :type :bludgeoning} :properties [{:key :heavy}
   {:key :two-handed}]}
   {:key :morningstar :name "Morningstar" :category :martial-melee :cost {:num 15 :type :gp} :weight 4 :damage {:dice "1d8" :type :piercing} :properties []}
-  {:key :net :name "Net" :category :martial-melee :cost {:num 1 :type :gp} :weight 3 :damage {:dice "0" :type :bludgeoning} :properties [{:key :special}
-  {:key :thrown :detail "range 5/15"}]}
   {:key :pike :name "Pike" :category :martial-melee :cost {:num 5 :type :gp} :weight 18 :damage {:dice "1d10" :type :piercing} :properties [{:key :heavy}
   {:key :reach}
   {:key :two-handed}]}
@@ -48,11 +46,11 @@
   {:key :longbow :name "Longbow" :category :martial-ranged :cost {:num 50 :type :gp} :weight 2 :damage {:dice "1d8" :type :piercing} :properties [{:key :ammunition :detail "range 150/600"}
   {:key :heavy}
   {:key :two-handed}]}
+  {:key :net :name "Net" :category :martial-ranged :cost {:num 1 :type :gp} :weight 3 :damage {:dice "0" :type :bludgeoning} :properties [{:key :special}
+  {:key :thrown :detail "range 5/15"}]}
   {:key :club :name "Club" :category :simple-melee :cost {:num 1 :type :sp} :weight 2 :damage {:dice "1d4" :type :bludgeoning} :properties [{:key :light}]}
   {:key :dagger :name "Dagger" :category :simple-melee :cost {:num 2 :type :gp} :weight 1 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
   {:key :light}
-  {:key :thrown :detail "range 20/60"}]}
-  {:key :dart :name "Dart" :category :simple-melee :cost {:num 5 :type :cp} :weight 0.25 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
   {:key :thrown :detail "range 20/60"}]}
   {:key :greatclub :name "Greatclub" :category :simple-melee :cost {:num 2 :type :sp} :weight 10 :damage {:dice "1d8" :type :bludgeoning} :properties [{:key :two-handed}]}
   {:key :handaxe :name "Handaxe" :category :simple-melee :cost {:num 5 :type :gp} :weight 2 :damage {:dice "1d6" :type :slashing} :properties [{:key :light}
@@ -68,6 +66,8 @@
   {:key :crossbow-light :name "Crossbow, light" :category :simple-ranged :cost {:num 25 :type :gp} :weight 5 :damage {:dice "1d8" :type :piercing} :properties [{:key :ammunition :detail "range 80/320"}
   {:key :loading}
   {:key :two-handed}]}
+  {:key :dart :name "Dart" :category :simple-ranged :cost {:num 5 :type :cp} :weight 0.25 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
+  {:key :thrown :detail "range 20/60"}]}
   {:key :shortbow :name "Shortbow" :category :simple-ranged :cost {:num 25 :type :gp} :weight 2 :damage {:dice "1d6" :type :piercing} :properties [{:key :ammunition :detail "range 80/320"}
   {:key :two-handed}]}
   {:key :sling :name "Sling" :category :simple-ranged :cost {:num 1 :type :sp} :weight 0 :damage {:dice "1d4" :type :bludgeoning} :properties [{:key :ammunition :detail "range 80/320"}]}]
