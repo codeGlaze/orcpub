@@ -255,6 +255,8 @@ def edn(x, ind=0):
         return 'nil'
     if isinstance(x, int):
         return str(x)
+    if isinstance(x, float):
+        return repr(x)
     if isinstance(x, Kw):
         return ':' + x.name
     if isinstance(x, dict):
