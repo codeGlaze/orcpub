@@ -11,7 +11,7 @@
 //   link's hover preview and its click; a link to another section; a phone's first tap showing
 //   a condition's preview and its Open link following it; the Orcacle finding a rule.
 //
-// Needs:     server (`./scripts/e2e/run.sh test/browser/srd_conditions_e2e.js`). No login.
+// Needs:     server (`./scripts/e2e/run.sh test/browser/srd_reference_e2e.js`). No login.
 // Runs in:   ~40s. SHOT_DIR=<dir> also saves screenshots of the pages it visits.
 const { chromium, devices } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');

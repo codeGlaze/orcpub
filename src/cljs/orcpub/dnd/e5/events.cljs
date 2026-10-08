@@ -3573,22 +3573,27 @@
   {:conditions srd-conditions/data-path
    :rules srd-rules/data-path})
 
-(reg-event-db
+(reg-fx
+ ::fetch-srd
+ ;; Fetches the static SRD file `kind` (a key of srd-paths); reports to :set-srd or :set-srd-failed.
+ (fn [kind]
+   (-> (js/fetch (srd-paths kind))
+       (.then (fn [response]
+                (if (.-ok response)
+                  (.text response)
+                  (throw (js/Error. (str "HTTP " (.-status response)))))))
+       (.then #(dispatch [:set-srd kind (reader/read-string %)]))
+       (.catch (fn [e]
+                 (js/console.error "Could not load the SRD" (name kind) "file:" e)
+                 (dispatch [:set-srd-failed kind]))))))
+
+(reg-event-fx
  :load-srd
- ;; Fetches one static SRD file (`kind` in srd-paths) once; later calls are no-ops.
- (fn [db [_ kind]]
-   (if (or (get-in db [:srd kind]) (get-in db [:srd-loading kind]))
-     db
-     (do (-> (js/fetch (srd-paths kind))
-             (.then (fn [response]
-                      (if (.-ok response)
-                        (.text response)
-                        (throw (js/Error. (str "HTTP " (.-status response)))))))
-             (.then #(dispatch [:set-srd kind (reader/read-string %)]))
-             (.catch (fn [e]
-                       (js/console.error "Could not load the SRD" (name kind) "file:" e)
-                       (dispatch [:set-srd-failed kind]))))
-         (assoc-in db [:srd-loading kind] true)))))
+ ;; Loads one SRD file once; later calls, and calls while it is loading, do nothing.
+ (fn [{:keys [db]} [_ kind]]
+   (when-not (or (get-in db [:srd kind]) (get-in db [:srd-loading kind]))
+     {:db (assoc-in db [:srd-loading kind] true)
+      ::fetch-srd kind})))
 
 (reg-event-db
  :set-srd
