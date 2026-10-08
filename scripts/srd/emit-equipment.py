@@ -20,7 +20,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import srd_format as F
 
-EDITIONS = {2014: ('srd-2014', 'srd_', 'SRD 5.1'), 2024: ('srd-2024', 'srd-2024_', 'SRD 5.2.1')}
+EDITIONS = {2014: ('srd-2014', 'srd_', 'SRD 5.1', 'SRD-5.1.readable.txt'),
+            2024: ('srd-2024', 'srd-2024_', 'SRD 5.2.1', 'SRD-5.2.1.readable.txt')}
+SECTIONS = {'Simple Melee Weapons': 'simple-melee', 'Simple Ranged Weapons': 'simple-ranged',
+            'Martial Melee Weapons': 'martial-melee', 'Martial Ranged Weapons': 'martial-ranged'}
+
+
+def weapon_categories(transcript):
+    """Weapon name (letters only, lower case) -> category, from the section of the SRD weapons
+    table its row sits under. open5e has no melee/ranged flag, and properties mislead: the Dart
+    and Net are thrown, yet ranged weapons in the SRD."""
+    cats, current = {}, None
+    for line in transcript.split('\n'):
+        line = line.strip()
+        if line in SECTIONS:
+            current = SECTIONS[line]
+        elif current and re.match(r'^(Weapons|Armor|Name |Martial Weapons|Simple Weapons)$', line):
+            pass
+        elif current:
+            name = re.match(r"^([A-Z][A-Za-z’', ]+?)(?= \d| —)", line)
+            if name:
+                cats.setdefault(re.sub(r'[^a-z]', '', name.group(1).lower()), current)
+        if current and line.startswith(('Armor', 'Weapon Properties', 'Properties')) and line not in SECTIONS:
+            current = None if line in ('Armor', 'Weapon Properties') else current
+    return cats
 
 
 def coin(gp):
@@ -45,7 +68,8 @@ def main(clone, srd52):
     clone, srd52 = Path(clone), Path(srd52)
     rev = subprocess.run(['git', '-C', str(clone), 'rev-parse', '--short', 'HEAD'],
                          capture_output=True, text=True).stdout.strip()
-    for ed, (d, pre, doc) in EDITIONS.items():
+    for ed, (d, pre, doc, tname) in EDITIONS.items():
+        cats = weapon_categories(open(srd52 / 'resources/srd' / tname, encoding='utf-8').read())
         base = clone / 'data/v2/wizards-of-the-coast' / d
         items = json.load(open(base / 'Item.json', encoding='utf-8'))
         weapons = {w['pk']: w['fields'] for w in json.load(open(base / 'Weapon.json', encoding='utf-8'))}
@@ -59,7 +83,8 @@ def main(clone, srd52):
             f = it['fields']
             if f.get('weapon') and f['category'] == 'weapon':
                 w = weapons[f['weapon']]
-                ranged = float(w['range'] or 0) > 0 and not any(p['name'] == 'Thrown' for p, _ in assigned.get(f['weapon'], []))
+                cat = cats.get(re.sub(r'[^a-z]', '', f['name'].lower()))
+                assert cat, f"{ed} {f['name']}: not found under a section of the SRD weapons table"
                 ps, mastery = [], None
                 for p, detail in sorted(assigned.get(f['weapon'], []), key=lambda x: x[0]['name']):
                     if p.get('type') == 'Mastery':
@@ -68,7 +93,7 @@ def main(clone, srd52):
                         k = 'special' if p['name'].startswith('Special') else slug(p['name'])
                         ps.append({'key': F.Kw(k), **({'detail': detail} if detail else {})})
                 rec = {'key': F.Kw(slug(f['name'])), 'name': f['name'],
-                       'category': F.Kw(('simple' if w['is_simple'] else 'martial') + ('-ranged' if ranged else '-melee')),
+                       'category': F.Kw(cat),
                        'cost': coin(f['cost']), 'weight': number(f['weight']),
                        'damage': {'dice': w['damage_dice'], 'type': F.Kw(w['damage_type'].lower())} if w['damage_dice'] else None,
                        'properties': ps}
@@ -90,6 +115,8 @@ def main(clone, srd52):
                               'stealth-disadvantage?': bool(a['grants_stealth_disadvantage'])})
         order = ['light', 'medium', 'heavy', 'shield']
         out_a.sort(key=lambda a: (order.index(a['category'].name), a['cost']['num'] * {'gp': 100, 'sp': 10, 'cp': 1}[a['cost']['type'].name]))
+        for w in out_w:      # the SRD table and open5e's is_simple must agree
+            assert w['category'].name.startswith('simple') == bool(weapons[pre + w['key'].name]['is_simple'] if (pre + w['key'].name) in weapons else w['category'].name.startswith('simple')), w['name']
         out_w.sort(key=lambda w: (w['category'].name, w['name']))
         data = {'srd/document': doc, 'srd/edition': ed, 'srd/license': 'CC BY 4.0', 'weapons': out_w, 'armor': out_a}
         body = F.edn(data).replace(' :weapons [{', '\n :weapons\n [{').replace(' :armor [{', '\n :armor\n [{').replace('} {:key', '}\n  {:key')

@@ -28,6 +28,8 @@ CONDITION_LINK = re.compile(
     r"|isn't|aren't|is not|are not|wasn't)(?: also)? (?P<w2>" + _COND + r')'
     r'|of (?P<w3>exhaustion)|(?P<w4>exhaustion) level)\b', re.I)
 
+FOLLOW_ON = re.compile(r'(,? (?:and|or) |, )(' + _COND + r')\b', re.I)
+
 INLINE = re.compile(r'(\*\*[^*\n]+\*\*'                     # bold
                     r'|(?<![\w*])\*[^*\n]+\*(?![\w*])'      # *italic*
                     r'|(?<![\w_])_[^_\n]+_(?![\w_])'        # _italic_
@@ -56,9 +58,19 @@ def _conditions(s, links, here=None):
         word, a = m.group(g), m.start(g)
         if here == ('condition', word.lower()):
             continue
+        if a < i:          # already linked as a follow-on of the previous match
+            continue
         out.append(s[i:a])
         out.append(['a', {'kind': 'condition', 'key': word.lower()}, word])
         i = a + len(word)
+        # a condition continuing this one: "is blinded and deafened", "charmed, frightened, or poisoned"
+        while True:
+            f = FOLLOW_ON.match(s, i)
+            if not f or here == ('condition', f.group(2).lower()):
+                break
+            out.append(f.group(1))
+            out.append(['a', {'kind': 'condition', 'key': f.group(2).lower()}, f.group(2)])
+            i = f.end()
     out.append(s[i:])
     rest = ''.join(x for x in out if isinstance(x, str))
     for w in re.findall(r'\b(' + _COND + r')\b', rest, re.I):
