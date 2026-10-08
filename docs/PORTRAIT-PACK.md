@@ -60,3 +60,34 @@ can't quietly do nothing.
 
 The art itself is never committed. These files are geometry and settings
 only.
+
+## The licensed art: private branch only
+
+This repository carries only the anonymised silhouettes. The licensed art goes in one commit on
+the private deployment branch (Gitea), which is built and deployed like any other branch; the
+image build makes the strand files, so the art PNGs are all it needs.
+
+**Laying in a pack** (first time, or a new Loom export), on the private branch, with a clean tree:
+
+```bash
+scripts/private-art.sh update portrait-pack-v1.775.zip
+git push        # to the private remote
+```
+
+It copies each PNG over the silhouette of the same layer and name, writes
+`resources/public/image/portraits/PRIVATE-ART`, and commits. It refuses on a branch whose remote
+is GitHub (fetch or push address), or that tracks no remote.
+
+**Taking in new code:** merge the GitHub branch into the private branch, as usual. The art commit
+stays on top. Never merge or push the private branch the other way.
+
+**The guards:**
+
+- `orcpub.portrait-art-guard-test` checks every portrait PNG against the digest of its silhouette
+  (`test/portrait-silhouettes.edn`), so art committed here fails the suite. The marker turns it off
+  on the private branch. A new or redrawn silhouette is recorded with
+  `PORTRAIT_SILHOUETTES=record lein test :only orcpub.portrait-art-guard-test`.
+- `.github/workflows/portrait-art-guard.yml` fails any push or pull request on GitHub that carries
+  the marker, which is the private branch arriving here.
+- The server serves only PNGs from the art directory, so the marker and any manifest are never
+  public, and each piece carries `X-Robots-Tag: noai, noimageai`.
