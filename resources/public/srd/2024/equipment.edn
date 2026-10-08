@@ -56,8 +56,6 @@
   {:key :dagger :name "Dagger" :category :simple-melee :cost {:num 2 :type :gp} :weight 1 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
   {:key :light}
   {:key :thrown :detail "Range 20/60"}] :mastery :nick}
-  {:key :dart :name "Dart" :category :simple-melee :cost {:num 5 :type :cp} :weight 0.25 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
-  {:key :thrown :detail "Range 20/60"}] :mastery :vex}
   {:key :greatclub :name "Greatclub" :category :simple-melee :cost {:num 2 :type :sp} :weight 10 :damage {:dice "1d8" :type :bludgeoning} :properties [{:key :two-handed}] :mastery :push}
   {:key :handaxe :name "Handaxe" :category :simple-melee :cost {:num 5 :type :gp} :weight 2 :damage {:dice "1d6" :type :slashing} :properties [{:key :light}
   {:key :thrown :detail "Range 20/60"}] :mastery :vex}
@@ -69,6 +67,8 @@
   {:key :sickle :name "Sickle" :category :simple-melee :cost {:num 1 :type :gp} :weight 2 :damage {:dice "1d4" :type :slashing} :properties [{:key :light}] :mastery :nick}
   {:key :spear :name "Spear" :category :simple-melee :cost {:num 1 :type :gp} :weight 3 :damage {:dice "1d6" :type :piercing} :properties [{:key :thrown :detail "Range 20/60"}
   {:key :versatile :detail "1d8"}] :mastery :sap}
+  {:key :dart :name "Dart" :category :simple-ranged :cost {:num 5 :type :cp} :weight 0.25 :damage {:dice "1d4" :type :piercing} :properties [{:key :finesse}
+  {:key :thrown :detail "Range 20/60"}] :mastery :vex}
   {:key :light-crossbow :name "Light Crossbow" :category :simple-ranged :cost {:num 25 :type :gp} :weight 5 :damage {:dice "1d8" :type :piercing} :properties [{:key :ammunition :detail "Range 80/320; Bolt"}
   {:key :loading}
   {:key :two-handed}] :mastery :slow}
