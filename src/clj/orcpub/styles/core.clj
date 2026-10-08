@@ -140,6 +140,11 @@
      :padding "4px 12px 10px"
      :border-left "3px solid rgba(240,161,0,0.7)"
      :background-color "rgba(255,255,255,0.06)"}]
+   [:.srd-note
+    {:margin "12px 0"
+     :padding "8px 12px"
+     :border "1px dashed rgba(240,161,0,0.7)"
+     :border-radius "4px"}]
    [:.srd-section-list
     {:display :flex
      :flex-wrap :wrap

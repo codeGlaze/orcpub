@@ -3571,7 +3571,8 @@
 (def srd-paths
   "Where each SRD data file is served from, by kind."
   {:conditions srd-conditions/data-path
-   :rules srd-rules/data-path})
+   :rules srd-rules/data-path
+   :clarifications srd-rules/notes-path})
 
 (reg-fx
  ::fetch-srd
