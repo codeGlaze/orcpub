@@ -3728,6 +3728,8 @@
          (weapon-details-field "Weight" (str weight " lbs.")))
        (when (and (:cost armor) (not (::mi/rarity armor)))
          (weapon-details-field "Cost" (cost-str (:cost armor))))
+       (when (and (:cost shield) (not (::mi/rarity shield)))
+         (weapon-details-field "Shield Cost" (cost-str (:cost shield))))
        (when description
          [:div.m-t-10 (str "Armor: " description)])
        (when (:description shield)

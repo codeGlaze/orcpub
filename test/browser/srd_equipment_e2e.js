@@ -1,10 +1,11 @@
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does the character display show an SRD weapon's and armor's price and weight?
 //
-// Loads a level 1 fighter carrying a longsword and wearing chain mail into the builder, opens the
-// display's Combat tab, and expands each row. Expected, from the SRD 5.1 tables (p. 66, p. 64):
-//   Longsword    Cost 15 gp, Weight 3 lb.
-//   Chain mail   Cost 75 gp, Weight 55 lbs.
+// Loads a level 1 fighter carrying a longsword, wearing chain mail and holding a shield into the
+// builder, opens the display's Combat tab, and expands each row. Expected, from the SRD 5.1
+// tables (p. 66, p. 64):
+//   Longsword             Cost 15 gp, Weight 3 lb.
+//   Chain mail + Shield   Cost 75 gp, Weight 55 lbs., Shield Cost 10 gp
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/srd_equipment_e2e.js`). No login.
 // Runs in:   ~15s. SHOT_DIR=<dir> also saves a screenshot of the expanded rows.
@@ -19,7 +20,7 @@ function check(name, pass, detail) {
   console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
 }
 
-// Puts a level 1 fighter with an equipped longsword and chain mail into the builder.
+// Puts a level 1 fighter with an equipped longsword, chain mail and shield into the builder.
 const load = page => page.evaluate(() => {
   const rd = cljs.reader.read_string;
   const s = 'orcpub.entity.strict', c = 'orcpub.dnd.e5.character';
@@ -30,7 +31,8 @@ const load = page => page.evaluate(() => {
     {:${s}/key :class :${s}/options [{:${s}/key :fighter
       :${s}/selections [{:${s}/key :levels :${s}/options [{:${s}/key :level-1}]}]}]}
     {:${s}/key :weapons :${s}/options [{:${s}/key :longsword :${s}/map-value ${held}}]}
-    {:${s}/key :armor :${s}/options [{:${s}/key :chain-mail :${s}/map-value ${held}}]}]}`;
+    {:${s}/key :armor :${s}/options [{:${s}/key :chain-mail :${s}/map-value ${held}}
+                                    {:${s}/key :shield :${s}/map-value ${held}}]}]}`;
   re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
     [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
 });
@@ -64,13 +66,14 @@ const load = page => page.evaluate(() => {
   } else {
     check('the combat tab lists the longsword', false, 'no row');
   }
-  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain mail' }).first();
+  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain mail + Shield' }).first();
   if (await armor.count()) {
     await armor.click();
     await armor.getByText('Base AC:').waitFor({ timeout: 5000 }).catch(() => {});  // expanded
     const t = await armor.innerText();
     check('the chain mail shows its SRD price', /Cost:\s*75 gp/.test(t), t.replace(/\s+/g, ' ').slice(0, 120));
     check('and its weight', /Weight:\s*55 lbs\./.test(t));
+    check('and the shield\'s price', /Shield Cost:\s*10 gp/.test(t));
   } else {
     check('the combat tab lists the chain mail', false, 'no row');
   }
