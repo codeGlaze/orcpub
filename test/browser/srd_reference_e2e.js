@@ -7,7 +7,8 @@
 //   /srd/2014/conditions.edn; a condition's own page asked for directly, as a refresh or a
 //   bookmark would; the Marilith's stat block showing its Parry reaction, and its "poisoned"
 //   immunity opening the Poisoned page; the Orcacle's top result for "blinded", typed into the
-//   header's search box. The Rules page's groups; a rules section asked for directly; a spell
+//   header's search box. Our clarification note on a rule, and condition links in a spell's and
+//   a monster's text. The Rules page's groups; a rules section asked for directly; a spell
 //   link's hover preview and its click; a link to another section; a phone's first tap showing
 //   a condition's preview and its Open link following it; the Orcacle finding a rule.
 //
@@ -146,6 +147,37 @@ async function textOnceShown(page, text) {
   await box.fill('death saving throws');
   text = await textOnceShown(page, 'Roll a d20');
   check('the Orcacle finds a rule', text.includes('Roll a d20'));
+
+  // --- Our clarification notes, and condition links in spell and monster text ---
+  await page.goto(`${BASE}/pages/dnd/5e/rules/attacking`, { waitUntil: 'domcontentloaded' });
+  text = await textOnceShown(page, 'Clarification');
+  check('a rule shows our clarification note', text.includes('Clarification: Spell attacks can be critical hits')
+        && text.includes('Our note, not SRD text'));
+  check('linked to where Wizards published the ruling',
+        await page.locator('.srd-note a[href*="media.wizards.com"]').count() === 1);
+
+  await page.goto(`${BASE}/pages/dnd/5e/spells/charm-person`, { waitUntil: 'domcontentloaded' });
+  const charmed = page.locator('span.srd-link', { hasText: 'charmed' }).first();
+  await charmed.waitFor({ timeout: 20000 }).catch(() => {});
+  if (await charmed.count()) {
+    await charmed.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+    await charmed.hover();
+    // The conditions file loads when the preview opens, as no spell page needs it before.
+    const pv = page.locator('.srd-preview');
+    await page.locator('.srd-preview', { hasText: 'A charmed creature' }).waitFor({ timeout: 10000 }).catch(() => {});
+    const ptext = (await pv.count()) ? await pv.innerText() : '';
+    check('a spell\'s "is charmed" previews the condition', /A charmed creature/.test(ptext),
+          `previews=${await pv.count()} ${ptext.replace(/\s+/g, ' ').slice(0, 80)}`);
+    await shot(page, 'spell-condition-preview', false);
+  } else {
+    check('Charm Person links "charmed"', false, 'no link found');
+  }
+
+  await page.goto(`${BASE}/pages/dnd/5e/monsters/ghoul`, { waitUntil: 'domcontentloaded' });
+  await textOnceShown(page, 'Claws');
+  check('a monster\'s "be paralyzed" links the condition',
+        await page.locator('span.srd-link', { hasText: 'paralyzed' }).count() > 0);
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 
