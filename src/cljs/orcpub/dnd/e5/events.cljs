@@ -30,6 +30,8 @@
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
+            [orcpub.dnd.e5.srd-rules :as srd-rules]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.weapons :as weapons]
@@ -3506,7 +3508,11 @@
 ;; they store the filter text for the reactive subs.
 (def filter-by-name-xform compute/filter-by-name-xform)
 
-(defn search-results [text]
+(defn search-results
+  "What the Orcacle shows for `text`: a top result (a dice roll, an exact spell, monster, magic
+   item, condition or rule, or a generated name) and lists of partial matches. `srd` is the
+   loaded SRD files, {:conditions data :rules data}, either absent before it has loaded."
+  [text & [{:keys [conditions rules]}]]
   (let [search-text (s/lower-case text)
         dice-result (dice/dice-roll-text search-text)
         kw (when search-text (common/name-to-kw search-text))
@@ -3520,6 +3526,12 @@
                                                 :result (monsters/monster-map kw)}
                      (mi/magic-item-map kw) {:type :magic-item
                                              :result (mi/magic-item-map kw)}
+                     (srd-conditions/find-condition conditions search-text)
+                     {:type :condition
+                      :result (srd-conditions/find-condition conditions search-text)}
+                     (srd-rules/find-rule rules search-text)
+                     {:type :rule
+                      :result (srd-rules/find-rule rules search-text)}
                      (= "tavern name" search-text) {:type :tavern-name
                                                     :result (char-rand5e/random-tavern-name)}
                      name-result name-result
@@ -3532,22 +3544,75 @@
         top-monsters (when (>= (count text) 3)
                        (sequence
                         filter-xform
-                        monsters/monsters))]
+                        monsters/monsters))
+        top-conditions (srd-conditions/matching conditions text)
+        top-rules (srd-rules/matching rules text)]
     (cond-> {}
       top-result (assoc :top-result top-result)
       (seq top-spells) (update :results conj {:type :spell
                                               :results top-spells})
       (seq top-monsters) (update :results conj {:type :monster
-                                                :results top-monsters}))))
+                                                :results top-monsters})
+      (seq top-conditions) (update :results conj {:type :condition
+                                                  :results top-conditions})
+      (seq top-rules) (update :results conj {:type :rule
+                                             :results top-rules}))))
 
+
+(reg-event-fx
+ :set-search-text
+ (fn [{:keys [db]} [_ search-text]]
+   {:db (cond-> db
+          true (assoc :search-text search-text
+                      :search-results (search-results search-text (:srd db)))
+          (s/blank? search-text) (assoc :orcacle-clicked? false))
+    :dispatch-n [[:load-srd :conditions] [:load-srd :rules]]}))
+
+(def srd-paths
+  "Where each SRD data file is served from, by kind."
+  {:conditions srd-conditions/data-path
+   :rules srd-rules/data-path})
+
+(reg-fx
+ ::fetch-srd
+ ;; Fetches the static SRD file `kind` (a key of srd-paths); reports to :set-srd or :set-srd-failed.
+ (fn [kind]
+   (-> (js/fetch (srd-paths kind))
+       (.then (fn [response]
+                (if (.-ok response)
+                  (.text response)
+                  (throw (js/Error. (str "HTTP " (.-status response)))))))
+       (.then #(dispatch [:set-srd kind (reader/read-string %)]))
+       (.catch (fn [e]
+                 (js/console.error "Could not load the SRD" (name kind) "file:" e)
+                 (dispatch [:set-srd-failed kind]))))))
+
+(reg-event-fx
+ :load-srd
+ ;; Loads one SRD file once; later calls, and calls while it is loading, do nothing.
+ (fn [{:keys [db]} [_ kind]]
+   (when-not (or (get-in db [:srd kind]) (get-in db [:srd-loading kind]))
+     {:db (assoc-in db [:srd-loading kind] true)
+      ::fetch-srd kind})))
 
 (reg-event-db
- :set-search-text
- (fn [db [_ search-text]]
-   (cond-> db
-     true (assoc :search-text search-text
-                 :search-results (search-results search-text))
-     (s/blank? search-text) (assoc :orcacle-clicked? false))))
+ :set-srd
+ ;; Re-runs an open search, so typing before the file arrived still finds what it holds.
+ (fn [db [_ kind data]]
+   (let [db (-> db (assoc-in [:srd kind] data) (assoc-in [:srd-loading kind] false))]
+     (cond-> db
+       (:search-text db) (assoc :search-results (search-results (:search-text db) (:srd db)))))))
+
+(reg-event-db
+ :set-srd-failed
+ (fn [db [_ kind]]
+   (-> db (assoc-in [:srd-loading kind] false) (assoc-in [:srd-failed kind] true))))
+
+(reg-event-db
+ :set-srd-scroll-target
+ ;; The rule anchor a rule page scrolls to once it has drawn; cleared once it has.
+ (fn [db [_ anchor]]
+   (assoc db :srd-scroll-target anchor)))
 
 (reg-event-db
  :close-orcacle
@@ -3563,12 +3628,13 @@
      {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
                    [:open-orcacle]]}))
 
-(reg-event-db
+(reg-event-fx
  :open-orcacle
- (fn [db _]
-   (-> db
-       (assoc :orcacle-clicked? true)
-       (dissoc :search-text))))
+ (fn [{:keys [db]} _]
+   {:db (-> db
+            (assoc :orcacle-clicked? true)
+            (dissoc :search-text))
+    :dispatch-n [[:load-srd :conditions] [:load-srd :rules]]}))
 
 (reg-event-db
  ::char5e/set-selected-display-tab

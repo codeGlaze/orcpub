@@ -477,7 +477,7 @@ Curse. This armor is cursed, a fact that is revealed only when an identify spell
                   {:name "Alchemy Jug: Create Liquid"
                    :page 150
                    :source :dmg
-                   :frequncy units5e/days-1
+                   :frequency units5e/days-1
                    :summary "Create acid, poison, beer, honey, or mayonnaise in the jug."})
                  (mod5e/action
                   {:name "Alchemy Jug: Pour Liquid"

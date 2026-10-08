@@ -1674,8 +1674,7 @@ If the target is prone, the triceratops can make one stomp attack against it as 
 
   :saving-throws {:dex 6, :con 10, :wis 7, :cha 8}
 
-  :skills {:deception 8, :insight 7, :perception 12}
-  :persuasion 8, :stealth 6
+  :skills {:deception 8, :insight 7, :perception 12, :persuasion 8, :stealth 6}
   :damage-immunities "poison"
   :condition-immunities "poisoned"
   :senses "blindsight 60 ft., darkvision 120 ft., passive Perception 22"
@@ -2045,8 +2044,7 @@ If the target is prone, the triceratops can make one stomp attack against it as 
 
   :saving-throws {:dex 6, :con 13, :wis 8, :cha 10}
 
-  :skills {:history 9, :perception 14, :persuasion 10}
-  :stealth 6
+  :skills {:history 9, :perception 14, :persuasion 10, :stealth 6}
   :damage-immunities "fire"
   :senses "blindsight 60 ft., darkvision 120 ft., passive Perception 24"
   :languages "Common, Draconic"
@@ -2475,8 +2473,7 @@ In a new form, the dragon retains its alignment, hit points, Hit Dice, ability t
 
   :saving-throws {:dex 9, :con 16, :wis 10, :cha 16}
 
-  :skills {:insight 10, :perception 17, :persuasion 16}
-  :stealth 9
+  :skills {:insight 10, :perception 17, :persuasion 16, :stealth 9}
   :damage-immunities "fire"
   :senses "blindsight 60 ft., darkvision 120 ft., passive Perception 27"
   :languages "Common, Draconic"
@@ -2519,8 +2516,7 @@ In a new form, the dragon retains its alignment, hit points, Hit Dice, ability t
 
   :saving-throws {:dex 8, :con 13, :wis 8, :cha 13}
 
-  :skills {:insight 8, :perception 14, :persuasion 13}
-  :stealth 8
+  :skills {:insight 8, :perception 14, :persuasion 13, :stealth 8}
   :damage-immunities "fire"
   :senses "blindsight 60 ft., darkvision 120 ft., passive Perception 24"
   :languages "Common, Draconic"
@@ -5892,8 +5888,7 @@ The stirge can detach itself by spending 5 feet of its movement. It does so afte
   :wis 12
   :cha 20
 
-  :skills {:deception 9, :insight 5, :perception 5}
-  :persuasion 9, :stealth 7
+  :skills {:deception 9, :insight 5, :perception 5, :persuasion 9, :stealth 7}
   :damage-resistances "cold, fire, lightning, poison; bludgeoning, piercing, and slashing from nonmagical attacks"
   :senses "darkvision 60 ft., passive Perception 15"
   :languages "Abyssal, Common, Infernal, telepathy 60 ft."
@@ -6915,7 +6910,7 @@ A humanoid slain by this attack rises 24 hours later as a zombie under the wight
   :senses "blindsight 10 ft., passive Perception 11"
   :challenge (/ 1 8)
 
-  :trait [{:name "Flyby" :description "The snake doesn't provoke opportunity attacks when it flies out of an enemy's reach."}]
+  :traits [{:name "Flyby" :description "The snake doesn't provoke opportunity attacks when it flies out of an enemy's reach."}]
 
   :actions [{:name "Bite" :description "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 1 piercing damage plus 7 (3d4) poison damage."}]
   :description "A flying snake is a brightly colored, winged serpent found in remote jungles. Tribespeople and cultists sometimes domesticate flying snakes to serve as messengers that deliver scrolls wrapped in their coils."
@@ -9165,8 +9160,7 @@ A priest typically has one or more acolytes to help with religious ceremonies an
   :wis 14
   :cha 16
 
-  :skills {:deception 5, :insight 4, :investigation 5, :perception 6, :persuasion 5, :sleight-of-hand 4}
-  :stealth 4
+  :skills {:deception 5, :insight 4, :investigation 5, :perception 6, :persuasion 5, :sleight-of-hand 4, :stealth 4}
   :senses "passive Perception 16"
   :languages "any two languages"
   :challenge 1
@@ -9271,3 +9265,12 @@ A priest typically has one or more acolytes to help with religious ceremonies an
 (def monster-map (reduce (fn [mp m] (assoc mp (:key m) m))
                          {}
                          monsters))
+
+(defn reactions
+  "A monster's reactions: its `:reactions`, then any of its `:traits` typed `:reaction`, which
+   is how the monster builder records one.
+
+   Args: `monster`, a monster map.
+   Returns: a seq of {:name :description} maps; empty when it has none."
+  [{own :reactions traits :traits}]
+  (concat own (filter #(= :reaction (:type %)) traits)))

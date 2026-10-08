@@ -1033,6 +1033,21 @@
    (:search-text db)))
 
 (reg-sub
+ :srd
+ (fn [db [_ kind]]
+   (get-in db [:srd kind])))
+
+(reg-sub
+ :srd-failed?
+ (fn [db [_ kind]]
+   (get-in db [:srd-failed kind])))
+
+(reg-sub
+ :srd-scroll-target
+ (fn [db _]
+   (:srd-scroll-target db)))
+
+(reg-sub
  :search-results
  (fn [db _]
    (:search-results db)))

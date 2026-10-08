@@ -31,6 +31,8 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.damage-types :as damage-types]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
+            [orcpub.dnd.e5.srd-rules :as srd-rules]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
@@ -591,6 +593,11 @@
 (defn route-to-item-list-page []
   (dispatch [:route routes/dnd-e5-item-list-page-route]))
 
+(defn route-to-rules-page
+  "Opens the Rules page."
+  []
+  (dispatch [:route routes/dnd-e5-rules-page-route]))
+
 (defn route-to-my-content-page []
   (dispatch [:route routes/dnd-e5-my-content-route]))
 
@@ -702,6 +709,17 @@
              :route routes/dnd-e5-item-list-page-route}
             {:name "Item Builder"
              :route routes/dnd-e5-item-builder-page-route}]
+           [header-tab
+            "rules"
+            "bookshelf"
+            route-to-rules-page
+            false
+            (routes/dnd-e5-rules-page-routes (or (:handler active-route) active-route))
+            device-type
+            {:name "Rules"
+             :route routes/dnd-e5-rules-page-route}
+            {:name "Conditions"
+             :route routes/dnd-e5-condition-list-page-route}]
            [header-tab
             "encounters"
             "dungeon-gate"
@@ -1606,6 +1624,211 @@
   {:max-width "300px"})
 
 
+(defn srd-route-handler
+  "Click handler opening what a link in SRD text points at: a condition's page, a spell's page,
+   or a rules section scrolled to the rule. `link` is a link's attributes, e.g.
+   {:kind :rule :section :movement :anchor :jumping}."
+  [{:keys [kind key section anchor]}]
+  (case kind
+    :condition (make-event-handler :route (routes/match-route
+                                           (routes/path-for routes/dnd-e5-condition-page-route :key (name key))))
+    :spell (make-event-handler :route (routes/match-route
+                                       (routes/path-for routes/dnd-e5-spell-page-route :key (name key))))
+    :rule (let [route (routes/match-route
+                       (routes/path-for routes/dnd-e5-rule-section-page-route :key (name section)))]
+            (fn [_]
+              (dispatch [:set-srd-scroll-target anchor])
+              (dispatch [:route route])))))
+
+(defn condition-page-handler
+  "Click handler that opens the page for the condition `key`."
+  [key]
+  (srd-route-handler {:kind :condition :key key}))
+
+;; The one open link preview: {:owner id :link attrs :style {...} :pinned? bool :hovered? bool}.
+;; `owner` is the body whose preview box draws it, so two bodies on a page never both draw it.
+(defonce srd-preview (r/atom nil))
+
+(defonce srd-preview-closers
+  ;; A scroll moves the link away from its fixed-position box, so the box closes; so does a
+  ;; tap outside a pinned one.
+  (do (.addEventListener js/window "scroll" #(reset! srd-preview nil) #js {:passive true})
+      (.addEventListener js/document "pointerdown"
+                         (fn [e]
+                           (when-not (some-> (.-target e) (.closest ".srd-preview, .srd-link"))
+                             (reset! srd-preview nil))))
+      true))
+
+(defn- preview-style
+  "Fixed-position style for a preview box beside `el`: below it, or above when the window has
+   no room below; inside the window either way."
+  [el]
+  (let [rect (.getBoundingClientRect el)
+        w (min 440 (- (.-innerWidth js/window) 32))
+        max-h (js/Math.floor (min 380 (* 0.6 (.-innerHeight js/window))))
+        left (-> (.-left rect) (min (- (.-innerWidth js/window) w 16)) (max 16))
+        below? (< (+ (.-bottom rect) 8 max-h) (.-innerHeight js/window))]
+    (cond-> {:left left :width w :max-height max-h}
+      below? (assoc :top (+ (.-bottom rect) 6))
+      (not below?) (assoc :bottom (+ (- (.-innerHeight js/window) (.-top rect)) 6)))))
+
+(defn- open-preview!
+  "Opens the preview for `link` beside the element `el`, drawn by the body `owner`; `pinned?`
+   (a tap) keeps it open until closed, rather than until the pointer leaves."
+  [owner link el pinned?]
+  (reset! srd-preview {:owner owner :link link :style (preview-style el) :pinned? pinned?}))
+
+(defn- close-preview-soon!
+  "Closes an unpinned preview after a moment, unless the pointer has moved into it."
+  []
+  (let [current @srd-preview]
+    (js/setTimeout #(when (and (identical? current @srd-preview) (not (:hovered? current)))
+                      (reset! srd-preview nil))
+                   250)))
+
+(declare srd-inlines srd-body condition-component spell-component)
+
+(defn srd-text-link
+  "A link in SRD text. A mouse shows its preview on hover and a click opens the page; a first
+   tap shows the preview (with an Open link), a second opens the page. `owner` nil: no preview."
+  [link owner kids]
+  (into [:span.srd-link
+         (cond-> {:role "link"
+                  :tab-index 0
+                  :on-click (fn [e]
+                              (let [touch? (#{"touch" "pen"} (.. e -nativeEvent -pointerType))]
+                                (if (and owner touch? (not= link (:link @srd-preview)))
+                                  (do (.preventDefault e)
+                                      (open-preview! owner link (.-currentTarget e) true))
+                                  (do (reset! srd-preview nil)
+                                      ((srd-route-handler link) e)))))
+                  :on-key-down (fn [e]
+                                 (when (= "Enter" (.-key e))
+                                   (reset! srd-preview nil)
+                                   ((srd-route-handler link) e)))}
+           owner (assoc :on-pointer-enter (fn [e]
+                                            (when (= "mouse" (.-pointerType e))
+                                              (open-preview! owner link (.-currentTarget e) false)))
+                        :on-pointer-leave (fn [e]
+                                            (when (= "mouse" (.-pointerType e))
+                                              (close-preview-soon!)))))]
+        (srd-inlines kids nil)))
+
+(defn srd-inlines
+  "Hiccup for a vector of SRD inlines: strings, [:b ...], [:i ...] and [:a link ...] links."
+  [xs owner]
+  (map (fn [x]
+         (if (string? x)
+           x
+           (let [[tag & more] x]
+             (case tag
+               :b (into [:span.f-w-b] (srd-inlines more owner))
+               :i (into [:i] (srd-inlines more owner))
+               :a [srd-text-link (first more) owner (rest more)]
+               (str x)))))
+       xs))
+
+(defn- srd-block
+  "Hiccup for one SRD block (heading, paragraph, list, table or sidebar); `owner` is the body
+   whose box shows its links' previews, or nil for none."
+  [[tag & args] owner]
+  (case tag
+    :h (let [[level text anchor] args]
+         [(case level 2 :div.f-s-20.f-w-b.m-t-20 3 :div.f-s-18.f-w-b.m-t-15 :div.f-s-16.f-w-b.m-t-10)
+          {:id (when anchor (str "rule-" (name anchor)))}
+          text])
+    :p (into [:p.m-t-10] (srd-inlines args owner))
+    (:ul :ol) [(if (= :ul tag) :ul.srd-list :ol.srd-list)
+               (doall (map-indexed (fn [i item] ^{:key i} (into [:li.m-t-5] (srd-inlines item owner))) args))]
+    :table (let [{:keys [caption columns rows]} (first args)]
+             [:div.m-t-10
+              (when caption [:div.f-w-b caption])
+              [:table.srd-table
+               [:thead (into [:tr] (map (fn [c] [:th c]) columns))]
+               [:tbody
+                (doall (map-indexed (fn [i row]
+                                      ^{:key i} (into [:tr] (map (fn [cell] (into [:td] (srd-inlines cell owner))) row)))
+                                    rows))]]])
+    :aside (into [:div.srd-aside] (map (fn [b] [srd-block b owner]) args))
+    nil))
+
+(defn- srd-preview-content
+  "What a link's preview shows: the condition, the spell, or the rule it points at."
+  [{:keys [kind key section anchor]}]
+  (case kind
+    :condition (if-let [c (get (srd-conditions/by-key @(subscribe [:srd :conditions])) key)]
+                 [condition-component c "SRD 5.1" true]
+                 [:div "Loading..."])
+    :spell (if-let [spell (spells/spell-map key)]
+             [spell-component spell true]
+             [:div "No such spell."])
+    :rule (let [data @(subscribe [:srd :rules])
+                {:keys [name]} (some #(when (and (= section (:section %)) (= anchor (:anchor %))) %)
+                                     (srd-rules/headings data))]
+            (if data
+              [:div
+               [:div.f-s-18.f-w-b name]
+               (into [:div] (map (fn [b] [srd-block b nil]) (srd-rules/rule-blocks data section anchor)))]
+              [:div "Loading..."]))
+    nil))
+
+(defn- srd-preview-box
+  "The open link preview, when it belongs to the body `owner`: its content, Open and Close."
+  [owner]
+  (let [{:keys [link style] :as p} @srd-preview]
+    (when (= owner (:owner p))
+      [:div.srd-preview
+       {:style style
+        :on-pointer-enter #(swap! srd-preview assoc :hovered? true)
+        :on-pointer-leave (fn [e]
+                            (when (= "mouse" (.-pointerType e))
+                              (swap! srd-preview assoc :hovered? false)
+                              (close-preview-soon!)))}
+       [srd-preview-content link]
+       [:div.srd-preview-footer
+        [:span.pointer.underline.f-w-b {:on-click (fn [e] (reset! srd-preview nil) ((srd-route-handler link) e))}
+         "Open"]
+        [:span.pointer.m-l-20 {:on-click #(reset! srd-preview nil)} "Close"]]])))
+
+(defn srd-body
+  "Draws an SRD body (a vector of blocks, see resources/srd/README.md) with its links and their
+   previews. `previews?` false: links still open their page, but show no preview."
+  [blocks & [previews?]]
+  (r/with-let [owner (gensym "srd")]
+    (let [owner (when-not (false? previews?) owner)]
+      [:div
+       (doall (map-indexed (fn [i b] ^{:key i} [srd-block b owner]) blocks))
+       (when owner [srd-preview-box owner])])))
+
+(defn condition-component
+  "One condition: its name, text and the SRD page it is from. `in-preview?`: no nested previews."
+  [{:keys [name page body]} document & [in-preview?]]
+  [:div.m-b-20
+   [:div.f-s-24.f-w-b name]
+   [srd-body body (not in-preview?)]
+   [:div.f-s-12.opacity-5.m-t-5 (str document ", p. " page)]])
+
+(defn srd-attribution
+  "The CC BY 4.0 attribution the SRD licence asks to be shown with its text."
+  [data]
+  [:div.f-s-12.opacity-5.m-t-20 (:srd/attribution data)])
+
+(defn condition-immunities-field
+  "The stat block's Condition Immunities line, each known condition a link to its page."
+  [text]
+  [:div
+   [:span.f-w-b "Condition Immunities:"]
+   [:span.m-l-10
+    (doall
+     (interpose
+      ", "
+      (map-indexed
+       (fn [i {:keys [text key]}]
+         (if key
+           ^{:key i} [:span.underline.pointer {:on-click (condition-page-handler key)} text]
+           ^{:key i} [:span text]))
+       (srd-conditions/immunity-parts text srd-conditions/condition-keys))))]])
+
 (defn monster-component [{:keys [name description size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
   (let [traits-by-type (group-by :type traits)
         traits (traits-by-type nil)
@@ -1650,7 +1873,7 @@
      (when damage-vulnerabilities (spell-field "Damage Vulnerabilities" damage-vulnerabilities))
      (when damage-resistances (spell-field "Damage Resistances" damage-resistances))
      (when damage-immunities (spell-field "Damage Immunities" damage-immunities))
-     (when condition-immunities (spell-field "Condition Immunities" condition-immunities))
+     (when condition-immunities [condition-immunities-field condition-immunities])
      (when senses (spell-field "Senses" senses))
      (when languages (spell-field "Languages" languages))
      (when challenge (spell-field "Challenge" (str
@@ -1680,6 +1903,16 @@
              ^{:key i}
              [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
            actions))]])
+     (when-let [reactions (seq (monsters/reactions monster))]
+       [:div.m-t-20
+        [:div.i.f-w-b.f-s-18 "Reactions"]
+        [:div
+         (doall
+          (map-indexed
+           (fn [i {:keys [name notes description]}]
+             ^{:key i}
+             [:div.m-t-10.wsp-prw (spell-field (str name (when notes (str " " notes))) description)])
+           reactions))]])
      (when legendary-actions
        [:div.m-t-20
         [:div.i.f-w-b.f-s-18 "Legendary Actions"]
@@ -1702,6 +1935,56 @@
     (svg-icon "hydra" 36 "")
     [monster-component monster]]])
 
+(defn condition-result
+  "The Orcacle's top result for an exact condition name."
+  [condition]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 "")
+    [:div.m-l-10 [condition-component condition "SRD 5.1"]]]])
+
+(defn condition-results
+  "The Orcacle's list of conditions whose names match, each opening its page."
+  [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 36)
+    [:div.m-l-10
+     (doall
+      (map
+       (fn [{:keys [key name]}]
+         ^{:key key}
+         [:div.pointer.f-s-18 {:on-click (condition-page-handler key)} name])
+       results))]]])
+
+(defn rule-result
+  "The Orcacle's top result for an exact rule or section name: its text, and a link to it."
+  [{:keys [section anchor name]}]
+  (let [data @(subscribe [:srd :rules])]
+    [:div.white
+     [:div.flex
+      (svg-icon "bookshelf" 36 "")
+      [:div.m-l-10
+       [:div.f-s-24.f-w-b name]
+       [srd-body (srd-rules/rule-blocks data section anchor)]
+       [:div.pointer.underline.m-t-10
+        {:on-click (srd-route-handler {:kind :rule :section section :anchor anchor})}
+        "Open in the rules"]]]]))
+
+(defn rule-results
+  "The Orcacle's list of rules whose names match, each opening its place in the rules."
+  [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "bookshelf" 36 36)
+    [:div.m-l-10
+     (doall
+      (map
+       (fn [{:keys [section anchor name]}]
+         ^{:key (str section anchor)}
+         [:div.pointer.f-s-18 {:on-click (srd-route-handler {:kind :rule :section section :anchor anchor})} name])
+       results))]]])
+
 (defn search-results []
   (when-let [{{:keys [result] :as top-result} :top-result
             results :results
@@ -1716,6 +1999,8 @@
             :spell (spell-result result)
             :monster (monster-result result)
             :magic-item (magic-item-result result)
+            :condition (condition-result result)
+            :rule (rule-result result)
             :name (name-result result)
             :tavern-name (tavern-name-result result)
             nil))])
@@ -1727,7 +2012,9 @@
            [:div.p-20
             (case type
               :spell (spell-results results)
-              :monster (monster-results results))])
+              :monster (monster-results results)
+              :condition (condition-results results)
+              :rule (rule-results results))])
          results)))]))
 
 (def oracle-frame-style
@@ -8149,6 +8436,8 @@
        :types [{:title "Other"}
                {:title "Action"
                 :value :action}
+               {:title "Reaction"
+                :value :reaction}
                {:title "Legendary Action"
                 :value :legendary-action}]]]
      [:div.w-100-p.m-t-30
@@ -10152,6 +10441,111 @@
               username
               summary])
            (sort-by ::char/character-name visible-chars)))])]]))))
+
+(defn- srd-load-failed
+  "The message shown when the SRD file `kind` (:rules or :conditions) could not be loaded."
+  [kind]
+  [:div (str "The " (name kind) " could not be loaded. Try reloading the page.")])
+
+(defn rules-page
+  "The rules reference: every SRD 5.1 rules section, by group, and the conditions."
+  []
+  (r/with-let [_ (dispatch [:load-srd :rules])]
+    (let [data @(subscribe [:srd :rules])
+          by-key (into {} (map (juxt :key identity)) (:sections data))]
+      [content-page
+       "Rules"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          data [:div
+                (doall
+                 (for [{:keys [key name sections]} (:groups data)]
+                   ^{:key key}
+                   [:div.m-b-20
+                    [:div.f-s-20.f-w-b name]
+                    [:div.srd-section-list
+                     (doall
+                      (for [k sections]
+                        ^{:key k}
+                        [:span.pointer.underline {:on-click (srd-route-handler {:kind :rule :section k})}
+                         (:name (by-key k))]))]]))
+                [:div.m-b-20
+                 [:div.f-s-20.f-w-b "Conditions"]
+                 [:div.srd-section-list
+                  [:span.pointer.underline {:on-click (make-event-handler :route routes/dnd-e5-condition-list-page-route)}
+                   "Blinded, charmed, frightened, grappled and the rest"]]]
+                [srd-attribution data]]
+          @(subscribe [:srd-failed? :rules]) [srd-load-failed :rules]
+          :else [:div "Loading..."])]])))
+
+(defn rule-section-page
+  "One SRD 5.1 rules section, from the route's `:key`, scrolled to a rule when a link asked."
+  [{:keys [key]}]
+  (r/with-let [_ (dispatch [:load-srd :rules])
+               _ (dispatch [:load-srd :conditions])]
+    (let [data @(subscribe [:srd :rules])
+          {:keys [name pages body] :as sec} (srd-rules/section data (keyword key))
+          target @(subscribe [:srd-scroll-target])]
+      (when (and sec target)
+        (r/after-render (fn []
+                          (some-> (.getElementById js/document (str "rule-" (cljs.core/name target)))
+                                  (.scrollIntoView))
+                          (dispatch [:set-srd-scroll-target nil]))))
+      [content-page
+       (or name "Rules")
+       []
+       [:div.p-10.main-text-color
+        (cond
+          sec [:div
+               (when-let [[a b] pages]
+                 [:div.f-s-12.opacity-5 (str (:srd/document data) (if (= a b) (str ", p. " a) (str ", pp. " a "-" b)))])
+               [srd-body body]
+               [:div.pointer.underline.m-t-20 {:on-click (make-event-handler :route routes/dnd-e5-rules-page-route)}
+                "All rules"]
+               [srd-attribution data]]
+          data [:div "No rules section by that name."]
+          @(subscribe [:srd-failed? :rules]) [srd-load-failed :rules]
+          :else [:div "Loading..."])]])))
+
+(defn condition-list-page
+  "Every SRD 5.1 condition, with the licence attribution."
+  []
+  (r/with-let [_ (dispatch [:load-srd :conditions])]
+    (let [data @(subscribe [:srd :conditions])]
+      [content-page
+       "Conditions"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          data [:div
+                (doall
+                 (map (fn [c] ^{:key (:key c)} [condition-component c (:srd/document data)])
+                      (:conditions data)))
+                [srd-attribution data]]
+          @(subscribe [:srd-failed? :conditions]) [srd-load-failed :conditions]
+          :else [:div "Loading..."])]])))
+
+(defn condition-page
+  "One SRD 5.1 condition, from the route's `:key`."
+  [{:keys [key]}]
+  (r/with-let [_ (dispatch [:load-srd :conditions])]
+    (let [data @(subscribe [:srd :conditions])
+          condition (get (srd-conditions/by-key data) (keyword key))]
+      [content-page
+       "Condition"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          condition [:div
+                     [condition-component condition (:srd/document data)]
+                     [:div.pointer.underline.m-t-10
+                      {:on-click (make-event-handler :route routes/dnd-e5-condition-list-page-route)}
+                      "All conditions"]
+                     [srd-attribution data]]
+          data [:div "No condition by that name."]
+          @(subscribe [:srd-failed? :conditions]) [srd-load-failed :conditions]
+          :else [:div "Loading..."])]])))
 
 (defn orcacle-page []
   [content-page

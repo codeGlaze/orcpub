@@ -38,6 +38,11 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
 - **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
+- **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
+- **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
+  on hover, or on a first tap on a phone.
+- **Orcacle:** finds rules and conditions by name.
+- **Monsters:** each condition in a monster's condition immunities links to its page.
 
 ### Changed
 
@@ -79,6 +84,14 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** bold text renders bold, and buttons use the site font. (#711)
 - **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed.
 - **Server:** the same content gets the same keys on Turkish and other locales. (#699)
+- **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder
+  can add one.
+- **Monsters:** the Adult and Ancient Gold Dragons, Adult Green Dragon, Ancient Brass Dragon,
+  Succubus/Incubus and Spy show all their skills; Stealth and Persuasion were missing.
+- **Monsters:** the Flying Snake shows its Flyby trait.
+- **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
+  and tools and instruments their weights.
+- **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
 
 ### Security
 

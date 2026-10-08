@@ -39,6 +39,11 @@
 (def dnd-e5-monster-page-routes #{dnd-e5-monster-list-page-route dnd-e5-monster-page-route dnd-e5-monster-builder-page-route})
 
 (def dnd-e5-spell-list-page-route :spell-list-5e-page)
+(def dnd-e5-condition-list-page-route :condition-list-5e-page)
+(def dnd-e5-condition-page-route :condition-5e-page)
+(def dnd-e5-rules-page-route :rules-5e-page)
+(def dnd-e5-rule-section-page-route :rule-section-5e-page)
+(def dnd-e5-rules-page-routes #{dnd-e5-rules-page-route dnd-e5-rule-section-page-route dnd-e5-condition-list-page-route dnd-e5-condition-page-route})
 (def dnd-e5-spell-page-route :spell-5e-page)
 (def dnd-e5-spell-builder-page-route :spell-builder-5e-page)
 (def dnd-e5-background-builder-page-route :background-builder-5e-page)
@@ -210,7 +215,11 @@
                               "magic-items" {"" dnd-e5-item-list-page-route
                                              ["/" :key] dnd-e5-item-page-route}
                               "monsters" {"" dnd-e5-monster-list-page-route
-                                          ["/" :key] dnd-e5-monster-page-route}}}}}])
+                                          ["/" :key] dnd-e5-monster-page-route}
+                              "rules" {"" dnd-e5-rules-page-route
+                                       ["/" :key] dnd-e5-rule-section-page-route}
+                              "conditions" {"" dnd-e5-condition-list-page-route
+                                            ["/" :key] dnd-e5-condition-page-route}}}}}])
 
 (defn path-for [& args]
   (apply bidi/path-for routes args))
