@@ -12,7 +12,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
 
