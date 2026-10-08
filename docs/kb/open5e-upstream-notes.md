@@ -121,20 +121,26 @@ Found by aligning all 268 rule and rule-set texts against the SRD 5.1 text, then
 
 | problem | commit |
 |---|---|
-| **About 2,500 words of SRD rules have no record**: Resting with Short and Long Rest (p. 87); all of Movement and Position (pp. 91-92); Damage and Healing after Damage Resistance — Healing, Dropping to 0 Hit Points (Instant Death, Falling Unconscious, Death Saving Throws, Stabilizing, Monsters and Death), Knocking a Creature Out, Temporary Hit Points (pp. 97-99). open5e's own `srd:movement-and-position` reference pointed at the missing section | `31613c9` |
-| Critical Hits is a word-for-word copy of Damage Rolls; the critical-hit rule itself is missing | `06ca28e` |
+| **About 2,500 words of SRD rules have no record**: Resting with Short and Long Rest (p. 87); all of Movement and Position (pp. 91-92); Damage and Healing after Damage Resistance — Healing, Dropping to 0 Hit Points (Instant Death, Falling Unconscious, Death Saving Throws, Stabilizing, Monsters and Death), Knocking a Creature Out, Temporary Hit Points (pp. 97-99). open5e's own `srd:movement-and-position` reference pointed at the missing section | `6f2164f` |
+| Critical Hits is a word-for-word copy of Damage Rolls; the critical-hit rule itself is missing | `aa51bd8` |
 | 95 places with words run together ("relyingon", "1round"), mostly Movement and Environment | `db392f4` |
-| Four sentences in Player's Handbook wording ("in chapter 1", "this chapter") | `8924e38` |
-| Four wording errors: "The old piece" for gold; a Constitution score of 18 that the example then raises "from 17 to 18"; "movingover"; "later in this chapter" | `79e76e2` |
-| Three misnamed rules: "Rnged Attacks", Darkvision named "Blindsight", Use an Object named "Search" with a duplicate index | `334101b` |
-| "10 b 10 ft." for "by" in the Size table; a U+02BC apostrophe | `21c6da0` |
-| "three--- quarters" for "three-quarters" | `06ca28e` |
-| Two quoted Sage Advice rulings with a link to Wizards' PDF, in Rolling 1 or 20 and Bonus Actions | `3988e76` |
+| Four sentences in Player's Handbook wording ("in chapter 1", "this chapter") | `c80e1d0` |
+| Four wording errors: "The old piece" for gold; a Constitution score of 18 that the example then raises "from 17 to 18"; "movingover"; "later in this chapter" | `665049c` |
+| Three misnamed rules: "Rnged Attacks", Darkvision named "Blindsight", Use an Object named "Search" with a duplicate index | `fe97b1f` |
+| "10 b 10 ft." for "by" in the Size table; a U+02BC apostrophe | `f2f648d` |
+| "three--- quarters" for "three-quarters" | `aa51bd8` |
 
-**The Sage Advice one is a judgement call, not a plain error.** It is official Wizards guidance and
-useful (owner, 2026-10-08), but it is not SRD text and not under the SRD's CC BY licence, which
-is what open5e's `srd-2014` document claims to carry. Raise it as an issue before sending the
-commit. The other rows suit a PR.
+**Sage Advice: left in open5e as they made it (owner, 2026-10-08), checked for accuracy.** Two
+rules (Rolling 1 or 20, Bonus Actions) quote Sage Advice rulings and link the Sage Advice
+Compendium v1.01. Checked against that PDF: both are right in substance, neither is verbatim.
+"Spell attacks can score critical hits, just like any other attack" paraphrases "A spell attack can
+definitely score a critical hit. The rule on critical hits applies to attack rolls of any sort."
+The bonus-action note's first sentence matches ("Actions and bonus actions aren't
+interchangeable"); its second ("If you have two abilities that require bonus actions … you can
+only use one") is not in the Compendium, though it is true by the SRD's own one-bonus-action rule.
+A possible upstream suggestion: quote the Compendium, or label these as paraphrases. Our SRD file
+leaves them out (not SRD text, not under its licence) and `emit-rules.py` reports where; our own
+clarification notes are the wanted alternative (srd-improvements.md).
 
 **Our tooling note:** the word alignment cannot see a duplicate (both copies match real SRD text)
 or missing text (it only checks what a record holds). Both checks now run as well.

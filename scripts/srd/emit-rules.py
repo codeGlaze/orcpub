@@ -62,6 +62,19 @@ def pager(transcript):
     return page_of
 
 
+# open5e quotes Sage Advice rulings inside two SRD rules. They are Wizards' official guidance but not
+# SRD text, and not under the SRD's licence, so the SRD file leaves them out (srd-improvements.md).
+SAGE_ADVICE = re.compile(r'\s*> \*\*Sage Advice\*\*.*?Source: \[Sage Advice > Compendium\]\([^)]*\)', re.S)
+
+
+def srd_text(desc, skipped, where):
+    """`desc` without open5e's quoted Sage Advice rulings; each one left out is noted in `skipped`."""
+    out, n = SAGE_ADVICE.subn('', desc or '')
+    if n:
+        skipped.append(where)
+    return out
+
+
 def anchor_subheadings(body):
     """Gives every heading without an anchor one from its text (Death Saving Throws ->
     :death-saving-throws), unique within the section, so links and searches reach it."""
@@ -94,7 +107,7 @@ def main(clone, srd52, targets):
             links.rules.setdefault(rf['name'].lower(), (sec, anchor))
             links.rule_titles[(sec, anchor)] = rf['name']
     page_of = pager(open(srd52 / 'resources/srd/SRD-5.1.readable.txt', encoding='utf-8').read())
-    sections = []
+    sections, skipped = [], []
     for gkey, _, secs in GROUPS:
         for sec in secs:
             f = sets[sec]
@@ -103,8 +116,9 @@ def main(clone, srd52, targets):
             pages = [page_of(src)] if src else []
             for anchor, rf in sorted(rules.get(sec, []), key=lambda x: x[1]['index']):
                 body.append(['h', rf['initialHeaderLevel'], rf['name'], F.Kw(anchor)])
-                body += F.parse(rf['desc'] or '', links, (sec, anchor))
-                rsrc = [w for line in (rf['desc'] or '').split('\n') for w in F.plain_source(line, links)]
+                desc = srd_text(rf['desc'], skipped, f'{sec}/{anchor}')
+                body += F.parse(desc, links, (sec, anchor))
+                rsrc = [w for line in desc.split('\n') for w in F.plain_source(line, links)]
                 src += F.words(rf['name']) + rsrc
                 pages.append(page_of(rsrc))
             anchor_subheadings(body)
@@ -128,7 +142,8 @@ def main(clone, srd52, targets):
     out.write_text(head + body + '\n', encoding='utf-8')
     n_links = len(re.findall(r'\[:a \{:kind', body))
     print(f'  {out}: {len(sections)} sections, {n_links} links, '
-          f'{len(links.unlinked_conditions)} bare condition words left as text')
+          f'{len(links.unlinked_conditions)} bare condition words left as text; '
+          f'Sage Advice left out of: {", ".join(skipped) or "nothing"}')
 
 
 if __name__ == '__main__':

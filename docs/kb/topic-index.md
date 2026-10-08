@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 2026-10-07, 760, chapter, death, filing, higher-level, hyphen, hyphens, movement, open5e, pdf, spell, srd, suit, text, transcript, upcasting
+**topics:** 100, 2026-10-07, 760, advice, chapter, compendium, death, filing, higher-level, hyphen, hyphens, open5e, pdf, spell, srd, text, transcript, upcasting
 
 - Where the fixes live
 - Before filing anything
@@ -2809,7 +2809,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, modern, navigation, orcpub, polish, responsive, search, sort, splash, transitions, views, visual
+**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, icons, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
