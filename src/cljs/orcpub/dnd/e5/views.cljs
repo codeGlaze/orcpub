@@ -3612,6 +3612,11 @@
 (defn yes-no [v]
   (if v "yes" "no"))
 
+(defn cost-str
+  "An item's price as the SRD writes it, e.g. \"10 gp\", from the {:num :type} cost map."
+  [{:keys [num type]}]
+  (str num " " (common/safe-name type)))
+
 (defn weapon-details [{:keys [::weapon/description
                               ::weapon/type
                               ::weapon/damage-type
@@ -3652,6 +3657,12 @@
                                             (common/mod-str (damage-modifier-fn weapon false))
                                             " damage")
                                        "no"))
+   ;; A magic weapon is built from its base weapon, so it carries the base price: shown for
+   ;; mundane weapons only.
+   (when (and (:cost weapon) (not (::mi/rarity weapon)))
+     (weapon-details-field "Cost" (cost-str (:cost weapon))))
+   (when (:weight weapon)
+     (weapon-details-field "Weight" (:weight weapon)))
    (when description
      [:div.m-t-10 description])])
 
@@ -3664,7 +3675,8 @@
                                      ::mi/magical-ac-bonus
                                      stealth-disadvantage?]
                               :or {magical-ac-bonus 0
-                                   base-ac 10}}
+                                   base-ac 10}
+                              :as armor}
                              {shield-magic-bonus ::magical-ac-bonus :or {shield-magic-bonus 0} :as shield}
                              expanded?]
   [:div
@@ -3689,6 +3701,8 @@
        (weapon-details-field "Stealth Disadvantage?" (yes-no stealth-disadvantage?))
        (when weight
          (weapon-details-field "Weight" (str weight " lbs.")))
+       (when (and (:cost armor) (not (::mi/rarity armor)))
+         (weapon-details-field "Cost" (cost-str (:cost armor))))
        (when description
          [:div.m-t-10 (str "Armor: " description)])
        (when (:description shield)
