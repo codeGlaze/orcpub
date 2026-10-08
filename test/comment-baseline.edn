@@ -61,10 +61,6 @@
    :long-docstring
    "ns orcpub.portrait-pack.import"
    "fe978b474568"]
-  ["src/clj/orcpub/portrait_pack/strands.clj"
-   :long-docstring
-   "ns orcpub.portrait-pack.strands"
-   "ef0081bb6540"]
   ["src/clj/orcpub/portrait_render.clj"
    :long-docstring
    "def load-face"
