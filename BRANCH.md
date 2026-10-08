@@ -10,12 +10,18 @@ a stale branch cites lines that have moved.
 
 *Updated 2026-10-06. Update at every milestone — nothing else here carries live state.*
 
-### Summer Patch: where it stands (2026-10-06)
+### Summer Patch: where it stands (2026-10-08)
 
 - **On `integration`:** everything for the release, plus #50 spellbook, #51 parallel fresh-server
   browser runs, #52 spec docstrings, #53 the changelog rewritten by outcome, #54 What's New,
   #55 the Robe of the Archmagi and tortle AC fix, #56 a browser test that an equipped Ring of
   Protection reaches the shown AC on natural armor (`test/browser/natural_armor_ring_e2e.js`).
+- **#58 merged 2026-10-08** (`0e2cba89`): 2014 SRD data fixes (monster skills and traits, gear prices,
+  the Alchemy Jug), monster reactions on the stat block, and a **Rules tab**: the full SRD 5.1 rules
+  and conditions as static data files (`resources/public/srd/2014/`), with links, hover / tap
+  previews, and rules in the Orcacle. Folded into `[Summer Patch]`; its Highlights paragraph does not
+  mention it yet (owner's call). The data is generated on `srd52/develop` from the open5e clone's
+  `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md).
 - **Tests prove their fail state** before they are committed (AGENTS.md, Testing Guidelines). #56
   and `robe_ac_test.clj` were both checked against the pre-#55 source and a broken item path.
 - **Still in development, not in this release yet:** `fix/hidden-multiclass-skill-pick`, steps 1-4 of
