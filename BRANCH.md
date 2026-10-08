@@ -30,7 +30,8 @@ a stale branch cites lines that have moved.
 - **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
   upstream #674 with "Fixes #N" for the 35 issues the release answers.
 - **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
-  Greptile's trial is out of credits.
+  Greptile's trial is out of credits. CodeRabbit reviews automatically only PRs into the default
+  branch: on a PR into `integration`, comment `@coderabbitai review` after each push.
 
 ### The tree
 
