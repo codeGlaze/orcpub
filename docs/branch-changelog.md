@@ -31,16 +31,28 @@ Defects in the 2014 SRD data the app already ships, found while checking that da
 5.1 PDF for the SRD 2024 work. Every value added here was read from the SRD 5.1: monster skills from
 each stat block (pp. 285-402), prices and weights from the rendered page 70.
 
-Each is a data correction: no display or rules code changes. A misnamed key is not an error
-anywhere; its reader skips it and the value never shows, which is how these went unnoticed. A new
-test pins every monster and gear entry to the keys their readers know, so the next misnamed key
-fails the build instead.
+The data fixes change no code. A misnamed key is not an error anywhere; its reader skips it and
+the value never shows, which is how these went unnoticed. A new test pins every monster and gear
+entry to the keys their readers know, so the next misnamed key fails the build instead.
 
-Found and left out, because they are display work rather than data: monster reactions (12 monsters,
-including the Marilith's Parry) are never shown, as the stat block has no Reactions section; and
-weapons and armor carry no price at all, with nothing that would display one.
+Two display gaps found on the way are fixed here too, rather than on branches of their own: the
+monster stat block never showed reactions, and the app had none of the SRD's conditions. The
+conditions are read from a static data file generated from corrected open5e data
+(`resources/public/srd/2014/conditions.edn`), the first of the SRD files the 2024 work produces.
+Clear typos in the SRD itself are corrected and noted, not preserved: Grappled's "thunder-wave" is
+"thunderwave".
+
+Left out: weapons and armor carry no price at all, with nothing that would display one.
+
+## Added
+
+- **Rules:** pages for the 15 SRD conditions, with links to them from each monster's condition
+  immunities, and the Orcacle finds them by name.
 
 ## Fixed
+
+- **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder
+  can add one.
 
 - **Monsters:** the Adult and Ancient Gold Dragons, Adult Green Dragon, Ancient Brass Dragon,
   Succubus/Incubus and Spy show all their skills; Stealth and Persuasion were missing.
