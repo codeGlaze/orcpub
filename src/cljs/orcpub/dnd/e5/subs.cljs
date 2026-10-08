@@ -1033,14 +1033,19 @@
    (:search-text db)))
 
 (reg-sub
- :srd-conditions
- (fn [db _]
-   (:srd-conditions db)))
+ :srd
+ (fn [db [_ kind]]
+   (get-in db [:srd kind])))
 
 (reg-sub
- :srd-conditions-failed?
+ :srd-failed?
+ (fn [db [_ kind]]
+   (get-in db [:srd-failed kind])))
+
+(reg-sub
+ :srd-scroll-target
  (fn [db _]
-   (:srd-conditions-failed? db)))
+   (:srd-scroll-target db)))
 
 (reg-sub
  :search-results

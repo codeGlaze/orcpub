@@ -125,10 +125,49 @@
     {:list-style-type :disc
      :list-style-position :inside}]
 
-   ;; SRD condition tables (Exhaustion's levels): left-aligned, a little room between columns.
-   [:.condition-table
+   ;; SRD text (Rules and Conditions pages): tables, lists, sidebars, and links with previews.
+   [:.srd-table
+    {:border-collapse :collapse}
     [:th :td {:text-align :left
+              :vertical-align :top
               :padding "2px 16px 2px 0"}]]
+   [:.srd-list
+    {:padding-left "22px"}]
+   [:ul.srd-list {:list-style-type :disc}]
+   [:ol.srd-list {:list-style-type :decimal}]
+   [:.srd-aside
+    {:margin "12px 0"
+     :padding "4px 12px 10px"
+     :border-left "3px solid rgba(240,161,0,0.7)"
+     :background-color "rgba(255,255,255,0.06)"}]
+   [:.srd-section-list
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "6px 20px"
+     :margin-top "6px"}]
+   [:.srd-link
+    {:cursor :pointer
+     :text-decoration "underline dotted"
+     :text-underline-offset "3px"}]
+   [:.srd-preview
+    {:position :fixed
+     :z-index 10001
+     :overflow-y :auto
+     :padding "12px 14px"
+     :border-radius "6px"
+     :box-shadow "0 6px 24px rgba(0,0,0,0.5)"
+     :background-color "#2c3445"
+     :color :white
+     :line-height "19px"}]
+   [:.srd-preview-footer
+    {:margin-top "10px"
+     :padding-top "8px"
+     :border-top "1px solid rgba(255,255,255,0.2)"}]
+   [".app.light-theme .srd-preview"
+    {:background-color :white
+     :color "#222"}]
+   [".app.light-theme .srd-aside"
+    {:background-color "rgba(0,0,0,0.05)"}]
 
    [:.f-w-bold
     {:font-weight :bold}]
