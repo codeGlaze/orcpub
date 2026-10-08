@@ -43,6 +43,11 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   on hover, or on a first tap on a phone.
 - **Orcacle:** finds rules and conditions by name.
 - **Monsters:** each condition in a monster's condition immunities links to its page.
+- **Equipment:** weapons and armor show their SRD price and weight.
+- **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
+  the ruling.
+- **Spells:** conditions named in spell and magic item text link to their page, with a preview.
+- **Monsters:** conditions named in monster traits and actions link to their page, with a preview.
 
 ### Changed
 
