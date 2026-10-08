@@ -171,6 +171,11 @@ Check B; corrections list (each fix with its PDF page, doubling as upstream PRs)
 for both editions, normalising structure only; comparison A where a storage model fits, with the
 60% threshold provisional and every diff round-trip checked; replace the `e55` file.
 
+### Rules (2014), through phase 3
+
+Check B done, corrections committed in the clone (upstream note 7), canonical file generated with
+links and shipped in PR #58 with the Rules reference. 2024 rules: not started.
+
 ### Conditions, partly through phase 3
 
 Check B done (open5e verbatim on all 30, one artifact) and comparison A done (full storage, both

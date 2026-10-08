@@ -806,7 +806,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1262,7 +1262,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, linked, narrative, operator, plan, session, topic
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1915,7 +1915,7 @@ _homebrew-keys-design · homebrew keys design_
 
 _homebrew-override · homebrew override_
 
-**topics:** constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, player, restriction, select, selection, switch, systematically, tortle, waives
+**topics:** armor-wearing, constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -1927,7 +1927,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, strands, subclass, subrace
+**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, matched, membership, race, rename, spell, spells, stranded, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 100, 2026-10-07, 760, documents, filing, higher, higher-level, hyphen, hyphens, open5e, pdf, pks, soft, spell, srd, text, transcript, upcasting
+**topics:** 100, 2026-10-07, 760, chapter, death, filing, higher-level, hyphen, hyphens, movement, open5e, pdf, spell, srd, suit, text, transcript, upcasting
 
 - Where the fixes live
 - Before filing anything
@@ -2254,6 +2254,7 @@ _open5e-upstream-notes · open5e upstream notes_
 - 4. SRD 5.1 encoding artifacts in srd-2014 text — verified, extent not measured
 - 5. srd-2014 spell text that does not match the SRD — candidates, not yet verified
 - 6. A kept line-break hyphen in srd-2024 Prone — verified 2026-10-07
+- 7. srd-2014 rules: missing sections, a duplicate, and text errors — verified 2026-10-08
 - Observations, not yet issues
 - Not open5e's
 
@@ -2513,7 +2514,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, groups, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -2572,7 +2573,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2680,7 +2681,7 @@ _re-frame-subscribe-refactor · re frame subscribe refactor_
 
 _reagent-architecture-tenets · reagent architecture tenets_
 
-**topics:** 200, cache, caching, dom, freeze, hand-rolled, hiccup, instant, keyed, memoize, paint, react, rebuilds, spell, subscription, task, tenets, virtualise
+**topics:** 200, cache, caching, callback, dom, freeze, hand-rolled, hiccup, keyed, memoize, paint, react, rebuilds, spell, subscription, task, tenets, virtualise
 
 - 1. Build view markup in the view, never in the data layer
 - 2. Derive lazily; do not materialise the world and filter afterwards
@@ -3022,7 +3023,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** artificer, caster, factor, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
+**topics:** agreed, artificer, caster, factor, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED
@@ -3047,13 +3048,14 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, started, text
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, started, text, word
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
 - Breadth survey — phase 1 (2026-10-06)
 - Rules and reference (no e5 data namespace)
 - Conditions, check B (2026-10-07)
+- Rules (2014), check B (2026-10-08)
 - App-side work, no SRD counterpart
 - Known gaps in what IS done
 - Counting these files correctly
@@ -3102,7 +3104,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3113,6 +3115,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - Phase 1 — the breadth survey (done 2026-10-06; results in the coverage map)
 - Phase 2 — order the content types (done 2026-10-07)
 - Phase 3 — per content type, in that order
+- Rules (2014), through phase 3
 - Conditions, partly through phase 3
 - Spells, already partly through phase 3
 - Decided
@@ -3125,12 +3128,14 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, 2026-10-07, actions, concentration, conditions, costly, dragon, editions, glossary, gold, jug, monsters, open5e, prices, reactions, spells, srd
+**topics:** 2014, 2024, actions, concentration, conditions, costly, data, dragon, editions, glossary, links, monster, monsters, open5e, reactions, rules, spells, srd
 
 - How this was measured
 - What the app shows today
 - Defects in the shipped 2014 data
 - What is prose that should be data
+- Built (PR #58, 2026-10-08)
+- Wanted, not built
 - Features the data would unlock
 - Where the work would land
 - Open

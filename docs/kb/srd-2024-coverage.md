@@ -97,7 +97,7 @@ list on this line. Not investigated; check whether it is meant to be here.
 | type | 2024 source | status |
 |---|---|---|
 | conditions | `ConditionDescription.json` | **Check B done 2026-10-07** — see *Conditions, check B* below |
-| rules / rulesets | `Rule.json`, `RuleSet.json` | **NOT CHECKED** — likely where grapple/exhaustion/surprise changes live |
+| rules / rulesets | `Rule.json`, `RuleSet.json` | **2014: check B done 2026-10-08**, 2024 not yet — see *Rules (2014), check B* below |
 | spellcasting options | `SpellCastingOption.json` (230KB) | **NOT CHECKED** — may carry the higher-level/upcast structure |
 | damage types, creature types, alignments, abilities | several small `*Description.json` | **NOT CHECKED** |
 | services, cross-references | `Service(s).json`, `CrossReference.json` | **NOT CHECKED** |
@@ -132,6 +132,24 @@ PDF text (5.1 pp. 358-359, 5.2.1 pp. 177-191), page footers removed.
 Method: `cond_check.py` in the session scratchpad; the alignment trims boundary words so only
 interior differences report. A first pass without that flagged 23 of 30 on heading words and
 footers — window noise, not text differences.
+
+### Rules (2014), check B (2026-10-08)
+
+All 268 open5e rule and rule-set texts aligned word for word against SRD 5.1, then the reverse
+pass, then a duplicate check. After the corrections in open5e upstream note 7, every record matches
+the SRD except for differences that are not text: table rows the PDF lists in another order,
+open5e's `srd:` references and "(table)" captions, quote-mark tokenizing. Added from the SRD:
+Resting, Movement and Position, and the end of Damage and Healing (about 2,500 words).
+
+**Canonical file:** `resources/public/srd/2014/rules.edn` (srd52/develop; also shipped in PR #58),
+by `scripts/srd/emit-rules.py`: 43 sections in six groups, each with its pages; 172 links (spells
+79, conditions 83, rules 10), every one checked to resolve by `srd_rules_test`. Every heading has
+an anchor, so subsections are reachable.
+
+**Links left as text, on purpose or as known gaps:** 16 condition words — headings, ordinary uses
+("invisible strands", "poisoned darts", "dead or incapacitated crawler"), and the second condition
+in a pair ("is blinded (25%) or deafened"), which the patterns do not reach. Monster names in
+rules text occur only in two tables (Size, Mounts and Vehicles) and are not linked.
 
 ## App-side work, no SRD counterpart
 

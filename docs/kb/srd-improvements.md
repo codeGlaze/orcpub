@@ -79,6 +79,24 @@ Extends the catalogue in implementation-notes 9a with measured counts from the 2
 | monsters: senses, speed | strings ("darkvision 60 ft., passive Perception 9") | named values, so encounters can search and filter on them |
 | magic items: charges | in the description (55 items mention charges) | a resource with a recharge rule |
 
+## Built (PR #58, 2026-10-08)
+
+- **A Rules tab and reference**: all 43 SRD 5.1 rules sections in six groups, plus the 15 conditions.
+- **Links in SRD text** to the spells, conditions and rules it names, marked when the data file is
+  generated (one pass, a closed list of names), with **previews**: hover on a desktop, first tap
+  on a phone with an Open link. Screenshots and the browser test are with the PR.
+- **The Orcacle finds rules and conditions** by name.
+
+## Wanted, not built
+
+- **Rules clarifications, in our own words.** Sage Advice is official Wizards guidance and the
+  owner finds it useful as a sidebar (2026-10-08), but it is not SRD text and not under the SRD's
+  licence, so it is not copied into the SRD files. A short note in our own words saying what the
+  ruling is, linked to Wizards' published source, kept in its own data and marked as ours, would
+  serve the same purpose.
+- **Links from spell and monster text** (Find Steed, Conjure Animals, monster actions), the next
+  place links pay off; monster previews (a short stat block) earn their place there.
+
 ## Features the data would unlock
 
 In rough order of value against effort. Each serves both editions.

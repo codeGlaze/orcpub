@@ -113,6 +113,32 @@ a pattern — worth a quick search for `\w- \w` across the 2024 fixtures before 
 
 **Fixed on `srd-corrections`** (2026-10-07): `278778f`.
 
+## 7. `srd-2014` rules: missing sections, a duplicate, and text errors — **verified 2026-10-08**
+
+Found by aligning all 268 rule and rule-set texts against the SRD 5.1 text, then the reverse
+(SRD rules text no record covers), then a duplicate check across records. All fixed on
+`srd-corrections`, each commit citing its SRD pages:
+
+| problem | commit |
+|---|---|
+| **About 2,500 words of SRD rules have no record**: Resting with Short and Long Rest (p. 87); all of Movement and Position (pp. 91-92); Damage and Healing after Damage Resistance — Healing, Dropping to 0 Hit Points (Instant Death, Falling Unconscious, Death Saving Throws, Stabilizing, Monsters and Death), Knocking a Creature Out, Temporary Hit Points (pp. 97-99). open5e's own `srd:movement-and-position` reference pointed at the missing section | `31613c9` |
+| Critical Hits is a word-for-word copy of Damage Rolls; the critical-hit rule itself is missing | `06ca28e` |
+| 95 places with words run together ("relyingon", "1round"), mostly Movement and Environment | `db392f4` |
+| Four sentences in Player's Handbook wording ("in chapter 1", "this chapter") | `8924e38` |
+| Four wording errors: "The old piece" for gold; a Constitution score of 18 that the example then raises "from 17 to 18"; "movingover"; "later in this chapter" | `79e76e2` |
+| Three misnamed rules: "Rnged Attacks", Darkvision named "Blindsight", Use an Object named "Search" with a duplicate index | `334101b` |
+| "10 b 10 ft." for "by" in the Size table; a U+02BC apostrophe | `21c6da0` |
+| "three--- quarters" for "three-quarters" | `06ca28e` |
+| Two quoted Sage Advice rulings with a link to Wizards' PDF, in Rolling 1 or 20 and Bonus Actions | `3988e76` |
+
+**The Sage Advice one is a judgement call, not a plain error.** It is official Wizards guidance and
+useful (owner, 2026-10-08), but it is not SRD text and not under the SRD's CC BY licence, which
+is what open5e's `srd-2014` document claims to carry. Raise it as an issue before sending the
+commit. The other rows suit a PR.
+
+**Our tooling note:** the word alignment cannot see a duplicate (both copies match real SRD text)
+or missing text (it only checks what a record holds). Both checks now run as well.
+
 ## Observations, not yet issues
 
 - **Cantrip scaling lives in `higher_level`** (9 spells in `srd-2014`, 15 in `srd-2024`). The SRD

@@ -7,15 +7,11 @@ Reads the corrected open5e data (the open5e-api clone, branch srd-corrections) a
   SRD52_WORKTREE/resources/public/srd/2014/conditions.edn
   SRD52_WORKTREE/resources/public/srd/2024/conditions.edn
 
-Text stays verbatim; only structure changes. Each condition's :body is a vector of blocks:
-  [:p "text"]                      a paragraph
-  [:list [{:name "Label" :text "..."} ...]]   bullets; :name only where the SRD labels them (2024)
-  [:table {:columns [...] :rows [[...] ...]}]
-Markdown emphasis is dropped (presentation, not content). Pages come from the readable SRD
-transcripts in SRD52_WORKTREE/resources/srd/.
+Text stays verbatim; only structure changes. Each condition's :body uses the block format in
+srd_format.py (paragraphs, lists, tables; 2024's bullet labels in bold), with links to the other
+conditions marked. Pages come from the readable SRD transcripts in SRD52_WORKTREE/resources/srd/.
 
-Refuses to write if any word of the source is lost or added: the words of the output, in order,
-must equal the words of the source with only markdown markers removed.
+Refuses to write if the text changes in conversion (spacing and markdown markers aside).
 """
 import json, re, subprocess, sys
 from pathlib import Path
@@ -36,57 +32,9 @@ EDITIONS = {
                            'Commons Attribution 4.0 International License, available at '
                            'https://creativecommons.org/licenses/by/4.0/legalcode.')},
 }
-EMPHASIS = re.compile(r'\*([^*\s][^*]*?)\*')
+sys.path.insert(0, str(Path(__file__).parent))
+import srd_format as F
 
-def clean(s):
-    return EMPHASIS.sub(r'\1', s).strip()
-
-def parse(desc, labelled):
-    """open5e markdown-ish desc -> list of blocks."""
-    blocks, items, table = [], None, None
-    def flush():
-        nonlocal items, table
-        if items is not None: blocks.append(['list', items]); items = None
-        if table is not None: blocks.append(['table', table]); table = None
-    for raw in desc.replace('\r\n', '\n').split('\n'):
-        line = raw.strip()
-        if not line: continue
-        if line.startswith('|'):
-            cells = [c.strip() for c in line.strip('|').split('|')]
-            if all(re.fullmatch(r'-+', c) for c in cells): continue
-            if items is not None: flush()
-            if table is None: table = {'columns': cells, 'rows': []}
-            else: table['rows'].append([int(c) if c.isdigit() else c for c in cells])
-        elif line.startswith('* '):
-            if table is not None: flush()
-            if items is None: items = []
-            text = clean(line[2:])
-            if labelled:
-                name, sep, rest = text.partition('. ')
-                assert sep, f'unlabelled bullet in a labelled edition: {text[:60]}'
-                items.append({'name': name, 'text': rest})
-            else:
-                items.append({'text': text})
-        else:
-            flush(); blocks.append(['p', clean(line)])
-    flush()
-    return blocks
-
-def words(s):
-    return re.findall(r"[^\s|*]+", s.replace('---', ' '))
-
-def block_words(blocks):
-    out = []
-    for kind, v in blocks:
-        if kind == 'p': out += words(v)
-        elif kind == 'list':
-            for it in v:
-                if 'name' in it: out += words(it['name'] + '.')
-                out += words(it['text'])
-        else:
-            out += [str(c) for c in v['columns']]
-            for r in v['rows']: out += words(' '.join(str(c) for c in r))
-    return out
 
 def page_of(transcript, name, edition):
     t = transcript
@@ -98,23 +46,6 @@ def page_of(transcript, name, edition):
     assert m, f'{name}: heading not found in the {edition} transcript'
     return int(re.findall(r'<<<PAGE (\d+)>>>', t[:m.start()])[-1])
 
-def edn_str(s):
-    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-def edn_block(kind, v, ind):
-    if kind == 'p': return f'[:p {edn_str(v)}]'
-    if kind == 'list':
-        rows = []
-        for it in v:
-            name = f':name {edn_str(it["name"])} ' if 'name' in it else ''
-            rows.append(f'{{{name}:text {edn_str(it["text"])}}}')
-        sep = '\n' + ' ' * (ind + 8)
-        return '[:list [' + sep.join(rows) + ']]'
-    cols = ' '.join(edn_str(c) for c in v['columns'])
-    rows = ('\n' + ' ' * (ind + 18)).join(
-        '[' + ' '.join(str(c) if isinstance(c, int) else edn_str(c) for c in r) + ']' for r in v['rows'])
-    return f'[:table {{:columns [{cols}]\n{" " * (ind + 10)}:rows [{rows}]}}]'
-
 def main(clone, srd52):
     clone, srd52 = Path(clone), Path(srd52)
     rev = subprocess.run(['git', '-C', str(clone), 'rev-parse', '--short', 'HEAD'],
@@ -124,28 +55,25 @@ def main(clone, srd52):
                               encoding='utf-8'))
         transcript = open(srd52 / 'resources/srd' / cfg['transcript'], encoding='utf-8').read()
         conds = []
+        links = F.Links()
         for r in sorted(recs, key=lambda r: r['fields']['describes']):
             key, desc = r['fields']['describes'], r['fields']['desc']
             name = key.capitalize()
-            blocks = parse(desc, cfg['labelled'])
-            src = words(EMPHASIS.sub(r'\1', desc))
-            assert block_words(blocks) == src, f'{ed} {key}: words changed in conversion'
-            conds.append((key, name, page_of(transcript, name, ed), blocks))
+            blocks = F.parse(desc, links, ('condition', key), cfg['labelled'])
+            src = ''.join(w for line in desc.split('\n') for w in F.plain_source(line, links))
+            got = ''.join(F.block_words(blocks))
+            assert got == src, f'{ed} {key}: text changed in conversion'
+            conds.append({'key': F.Kw(key), 'name': name, 'page': page_of(transcript, name, ed), 'body': blocks})
+        data = {'srd/document': cfg['document'], 'srd/edition': ed, 'srd/license': 'CC BY 4.0',
+                'srd/attribution': cfg['attribution'], 'conditions': conds}
+        body = F.edn(F.keywordize(data)).replace(' :conditions [{', '\n :conditions\n [{').replace('} {:key', '}\n  {:key')
         lines = [f';; Generated by scripts/srd/emit-conditions.py (agents/develop) from open5e-api',
-                 f';; srd-corrections {rev}. Do not edit: fix the source and regenerate.',
-                 f'{{:srd/document {edn_str(cfg["document"])}',
-                 f' :srd/edition {ed}',
-                 f' :srd/license "CC BY 4.0"',
-                 f' :srd/attribution {edn_str(cfg["attribution"])}',
-                 f' :conditions']
-        for i, (key, name, page, blocks) in enumerate(conds):
-            body = ('\n' + ' ' * 10).join(edn_block(k, v, 2) for k, v in blocks)
-            lines.append(f' {"[" if i == 0 else " "}{{:key :{key}\n   :name {edn_str(name)}\n   :page {page}\n'
-                         f'   :body [{body}]}}{"]}" if i == len(conds) - 1 else ""}')
+                 f';; srd-corrections {rev}. Do not edit: fix the source and regenerate.', body]
         out = srd52 / f'resources/public/srd/{ed}/conditions.edn'
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text('\n'.join(lines) + '\n', encoding='utf-8')
-        print(f'  {out}: {len(conds)} conditions, pages {min(c[2] for c in conds)}-{max(c[2] for c in conds)}')
+        print(f'  {out}: {len(conds)} conditions, pages {min(c["page"] for c in conds)}-{max(c["page"] for c in conds)}, '
+              f'{body.count("[:a {")} links')
 
 if __name__ == '__main__':
     main(sys.argv[1], sys.argv[2])
