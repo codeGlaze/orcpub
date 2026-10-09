@@ -9,6 +9,10 @@
   "URL of the 2014 rules file, served from `resources/public`."
   "/srd/2014/rules.edn")
 
+(def notes-path
+  "URL of our own clarification notes on the rules, served from `resources/public`. Not SRD text."
+  "/notes/rules-clarifications.edn")
+
 (defn section
   "The section keyed `key` in the parsed rules file `data`, or nil."
   [data key]
@@ -62,3 +66,25 @@
   (let [t (common/ascii-lower-case (s/trim (or text "")))]
     (when (>= (count t) 3)
       (take 12 (filter #(s/includes? (common/ascii-lower-case (:name %)) t) (headings data))))))
+
+(defn with-notes
+  "A section's body with each of `notes` placed after the rule it clarifies, as a [:note note]
+   block: after the rule's last block, before the next heading at its level or above.
+
+   Args: `body`, a section's blocks; `notes`, maps with `:anchor` (a rule anchor in this body).
+   Returns: the body with the notes inserted; notes whose anchor is not here are left out."
+  [body notes]
+  (let [by-anchor (group-by :anchor notes)]
+    (loop [[block & more] body
+           open nil          ; [level notes] of the rule whose notes are still to place
+           out []]
+      (let [[tag level _ anchor] block
+            closes? (and open (or (nil? block) (and (= :h tag) (<= level (first open)))))
+            out (cond-> out closes? (into (map (fn [n] [:note n]) (second open))))
+            open (if closes? nil open)]
+        (if (nil? block)
+          out
+          (recur more
+                 (if (and (= :h tag) (seq (by-anchor anchor))) [level (by-anchor anchor)] open)
+                 (conj out block)))))))
+

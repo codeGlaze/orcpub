@@ -1460,13 +1460,15 @@
 (def two-columns-second-empty-style
   {:width "50%"})
 
+(declare srd-linked-text)
+
 (defn paragraphs [str & [single-column?]]
   (let [mobile? @(subscribe [:mobile?])
         ps (s/split str #"\n")
         p-els (doall
                (map-indexed
                 (fn [i p]
-                  ^{:key i} [:p p])
+                  ^{:key i} [:p [srd-linked-text p]])
                 ps))]
     (if (or mobile?
             single-column?)
@@ -1673,9 +1675,14 @@
       (not below?) (assoc :bottom (+ (- (.-innerHeight js/window) (.-top rect)) 6)))))
 
 (defn- open-preview!
-  "Opens the preview for `link` beside the element `el`, drawn by the body `owner`; `pinned?`
-   (a tap) keeps it open until closed, rather than until the pointer leaves."
+  "Opens the preview for `link` beside the element `el`, drawn by the body `owner`, and loads the
+   SRD file it shows if that page had no need of it. `pinned?` (a tap) keeps it open until
+   closed, rather than until the pointer leaves."
   [owner link el pinned?]
+  (case (:kind link)
+    :condition (dispatch [:load-srd :conditions])
+    :rule (dispatch [:load-srd :rules])
+    nil)
   (reset! srd-preview {:owner owner :link link :style (preview-style el) :pinned? pinned?}))
 
 (defn- close-preview-soon!
@@ -1750,6 +1757,14 @@
                                       ^{:key i} (into [:tr] (map (fn [cell] (into [:td] (srd-inlines cell owner))) row)))
                                     rows))]]])
     :aside (into [:div.srd-aside] (map (fn [b] [srd-block b owner]) args))
+    :note (let [{:keys [title text source]} (first args)]
+            [:div.srd-note
+             [:div.f-w-b (str "Clarification: " title)]
+             [:div.m-t-5 text]
+             [:div.f-s-12.opacity-5.m-t-5
+              "Our note, not SRD text. From "
+              [:a {:href (:url source) :target "_blank" :rel "noopener noreferrer"} (:name source)]
+              "."]])
     nil))
 
 (defn- srd-preview-content
@@ -1799,6 +1814,16 @@
       [:div
        (doall (map-indexed (fn [i b] ^{:key i} [srd-block b owner]) blocks))
        (when owner [srd-preview-box owner])])))
+
+(defn srd-linked-text
+  "`text` as it is, with each place it names a condition (\"is charmed\", \"be paralyzed\") a link
+   with a preview. For spell, item and monster text, which is not SRD data with links marked."
+  [text]
+  (r/with-let [owner (gensym "linked")]
+    (let [parts (srd-conditions/link-conditions text)]
+      (if (some vector? parts)
+        (into [:span] (concat (srd-inlines parts owner) [[srd-preview-box owner]]))
+        [:span text]))))
 
 (defn condition-component
   "One condition: its name, text and the SRD page it is from. `in-preview?`: no nested previews."
@@ -1891,7 +1916,7 @@
          (map-indexed
           (fn [i {:keys [name description]}]
             ^{:key i}
-            [:div.m-t-10.wsp-prw (spell-field name description)])
+            [:div.m-t-10.wsp-prw (spell-field name [srd-linked-text description])])
           traits))])
      (when actions
        [:div.m-t-20
@@ -1901,7 +1926,7 @@
           (map-indexed
            (fn [i {:keys [name notes description]}]
              ^{:key i}
-             [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
+             [:div.m-t-10.wsp-prw (spell-field (str name " " notes) [srd-linked-text description])])
            actions))]])
      (when-let [reactions (seq (monsters/reactions monster))]
        [:div.m-t-20
@@ -1911,7 +1936,7 @@
           (map-indexed
            (fn [i {:keys [name notes description]}]
              ^{:key i}
-             [:div.m-t-10.wsp-prw (spell-field (str name (when notes (str " " notes))) description)])
+             [:div.m-t-10.wsp-prw (spell-field (str name (when notes (str " " notes))) [srd-linked-text description])])
            reactions))]])
      (when legendary-actions
        [:div.m-t-20
@@ -1924,7 +1949,7 @@
             (map-indexed
              (fn [i {:keys [name notes description]}]
                ^{:key i}
-               [:div.m-t-10 (spell-field (str name " " notes) description)])
+               [:div.m-t-10 (spell-field (str name " " notes) [srd-linked-text description])])
              (:actions legendary-actions)))])])
      (when description
        [:div.m-t-10 (str description)])]))
@@ -3612,6 +3637,11 @@
 (defn yes-no [v]
   (if v "yes" "no"))
 
+(defn cost-str
+  "An item's price as the SRD writes it, e.g. \"10 gp\", from the {:num :type} cost map."
+  [{:keys [num type]}]
+  (str num " " (common/safe-name type)))
+
 (defn weapon-details [{:keys [::weapon/description
                               ::weapon/type
                               ::weapon/damage-type
@@ -3652,6 +3682,12 @@
                                             (common/mod-str (damage-modifier-fn weapon false))
                                             " damage")
                                        "no"))
+   ;; A magic weapon is built from its base weapon, so it carries the base price: shown for
+   ;; mundane weapons only.
+   (when (and (:cost weapon) (not (::mi/rarity weapon)))
+     (weapon-details-field "Cost" (cost-str (:cost weapon))))
+   (when (:weight weapon)
+     (weapon-details-field "Weight" (:weight weapon)))
    (when description
      [:div.m-t-10 description])])
 
@@ -3664,7 +3700,8 @@
                                      ::mi/magical-ac-bonus
                                      stealth-disadvantage?]
                               :or {magical-ac-bonus 0
-                                   base-ac 10}}
+                                   base-ac 10}
+                              :as armor}
                              {shield-magic-bonus ::magical-ac-bonus :or {shield-magic-bonus 0} :as shield}
                              expanded?]
   [:div
@@ -3689,6 +3726,10 @@
        (weapon-details-field "Stealth Disadvantage?" (yes-no stealth-disadvantage?))
        (when weight
          (weapon-details-field "Weight" (str weight " lbs.")))
+       (when (and (:cost armor) (not (::mi/rarity armor)))
+         (weapon-details-field "Cost" (cost-str (:cost armor))))
+       (when (and (:cost shield) (not (::mi/rarity shield)))
+         (weapon-details-field "Shield Cost" (cost-str (:cost shield))))
        (when description
          [:div.m-t-10 (str "Armor: " description)])
        (when (:description shield)
@@ -10483,9 +10524,12 @@
   "One SRD 5.1 rules section, from the route's `:key`, scrolled to a rule when a link asked."
   [{:keys [key]}]
   (r/with-let [_ (dispatch [:load-srd :rules])
-               _ (dispatch [:load-srd :conditions])]
+               _ (dispatch [:load-srd :conditions])
+               _ (dispatch [:load-srd :clarifications])]
     (let [data @(subscribe [:srd :rules])
-          {:keys [name pages body] :as sec} (srd-rules/section data (keyword key))
+          notes (filter #(= (keyword key) (:section %)) (:notes @(subscribe [:srd :clarifications])))
+          {:keys [name pages body] :as sec} (some-> (srd-rules/section data (keyword key))
+                                                    (update :body srd-rules/with-notes notes))
           target @(subscribe [:srd-scroll-target])]
       (when (and sec target)
         (r/after-render (fn []
