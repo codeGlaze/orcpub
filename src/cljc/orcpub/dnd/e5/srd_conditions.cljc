@@ -118,8 +118,11 @@
     (loop [[[_ at word] & more] (with-follow-ons lower (condition-matches lower))
            pos 0
            out []]
-      (if-not at
-        (cond-> out (< pos (count text)) (conj (subs text pos)))
+      (cond
+        (not at) (cond-> out (< pos (count text)) (conj (subs text pos)))
+        ;; already linked: matched both on its own and as a follow-on ("blinded, poisoned creature")
+        (< at pos) (recur more pos out)
+        :else
         (let [end (+ at (count word))]
           (recur more end
                  (cond-> out

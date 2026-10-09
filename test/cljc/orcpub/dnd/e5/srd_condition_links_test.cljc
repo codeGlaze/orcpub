@@ -23,6 +23,10 @@
           [:a {:kind :condition :key :frightened} "frightened"] ", or "
           [:a {:kind :condition :key :poisoned} "poisoned"]]
          (conditions/link-conditions "it is charmed, frightened, or poisoned")))
+  (is (= ["is " [:a {:kind :condition :key :blinded} "blinded"] ", "
+          [:a {:kind :condition :key :poisoned} "poisoned"] " creature"]
+         (conditions/link-conditions "is blinded, poisoned creature"))
+      "a word matched two ways is linked once")
   (is (= ["is " [:a {:kind :condition :key :blinded} "blinded"] " and the other"]
          (conditions/link-conditions "is blinded and the other"))))
 
