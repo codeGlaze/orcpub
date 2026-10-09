@@ -2248,6 +2248,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
+- Markdown in open5e data: match the document you're editing (owner decision, 2026-10-09)
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs
 - 3. Upcasting is structured unevenly between the two documents — verified

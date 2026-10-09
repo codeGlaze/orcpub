@@ -15,6 +15,11 @@ quicksetup` and their tests before work is called done: run both before any PR.
 
 ## Filed upstream (2026-10-08)
 
+**Status 2026-10-09:** all four PRs approved by eepMoody; calumbell (maintainer) on #995: "these
+fixes are great pickups, very very helpful", aiming for production that weekend, and asked us to
+flag more. Not merged yet. Descriptions and commit messages were rewritten plainer the same day
+(owner's voice; commits reworded and re-signed, content byte-identical).
+
 Fork `codeGlaze/open5e-api`, one branch per topic off their `staging`, each re-checked there:
 their `quicksetup` loads every fixture and `uv run pytest` passes (93) with all three applied.
 
@@ -39,6 +44,20 @@ large contributions; PR #995 is the large one, so watch it for a request to spli
 - Our PRs go out as codeGlaze (owner, 2026-10-07): author, signing key and the account that
   opens the PR all codeGlaze, never mixed with another handle. Check authorship and trailers
   first (`check-authorship-before-publishing`).
+
+## Markdown in open5e data: match the document you're editing (owner decision, 2026-10-09)
+
+open5e's `desc` fields are markdown with no enforced style, and the documents drift: srd-2014
+mostly writes `_italic_` and `* ` bullets, srd-2024 mostly `*italic*` and `- ` bullets. Both write
+SRD run-in labels in bold italic as `**_Label._**`. When we add or edit text:
+
+- **Italics and bullets:** follow the majority of the file being edited (above).
+- **Always:** `**_Label._**` for labels the SRD prints in bold italic; `**bold**` for bolded terms;
+  `###` subheadings; `> ` sidebars; tables with a `**Name (table)**` caption line.
+- **Our own SRD files** stay markdown-free: the generators read every form above.
+
+PR #995 predates the rule (its added text uses `*italic*` and two plain-bold labels) and is left as
+it is; it was approved as sent.
 
 ## 1. `/v2/magicitems/` silently ignores `document__key` — **verified 2026-10-06**
 
