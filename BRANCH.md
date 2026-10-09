@@ -22,6 +22,10 @@ a stale branch cites lines that have moved.
   previews, and rules in the Orcacle. Folded into `[Summer Patch]`; its Highlights paragraph does not
   mention it yet (owner's call). The data is generated on `srd52/develop` from the open5e clone's
   `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md).
+- **#60 and #61 merged 2026-10-08/09:** the Rules reference in the Summer Patch highlights (#60);
+  weapon and armor prices and weights, our own clarification notes on rules (Sage Advice rulings
+  in our words, linked), and condition links with previews in spell, item and monster text (#61).
+  open5e corrections are filed upstream as PRs #995-#997 and #999, issue #998.
 - **Tests prove their fail state** before they are committed (AGENTS.md, Testing Guidelines). #56
   and `robe_ac_test.clj` were both checked against the pre-#55 source and a broken item path.
 - **Still in development, not in this release yet:** `fix/hidden-multiclass-skill-pick`, steps 1-4 of
