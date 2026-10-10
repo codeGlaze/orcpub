@@ -15,7 +15,9 @@ quicksetup` and their tests before work is called done: run both before any PR.
 
 ## Filed upstream (2026-10-08)
 
-**Status 2026-10-09:** all four PRs approved by eepMoody; calumbell (maintainer) on #995: "these
+**Status 2026-10-10: all four merged** (#995-#997 by morning; #999 after the maintainer added
+`8629d961`, see the markdown section). Issue #998 still open.
+**Earlier, 2026-10-09:** all four PRs approved by eepMoody; calumbell (maintainer) on #995: "these
 fixes are great pickups, very very helpful", aiming for production that weekend, and asked us to
 flag more. Not merged yet. Descriptions and commit messages were rewritten plainer the same day
 (owner's voice; commits reworded and re-signed, content byte-identical).
@@ -56,7 +58,16 @@ SRD run-in labels in bold italic as `**_Label._**`. When we add or edit text:
   `###` subheadings; `> ` sidebars; tables with a `**Name (table)**` caption line.
 - **Our own SRD files** stay markdown-free: the generators read every form above.
 
-PR #995 predates the rule (its added text uses `*italic*` and two plain-bold labels) and is left as
+**Learned from the maintainer's own edit to #999 (calumbell, 2026-10-10, commit `8629d961`):**
+- **Names are Title Case,** even where the SRD's table uses sentence case: they retitled all 11
+  srd-2014 poisons ("Drow poison" -> "Drow Poison"), including our "Essence of Ether".
+- **Fixing a pk is fine with them:** they renamed `srd_essense-of-either` to
+  `srd_essense-of-ether`, which we had left alone to avoid breaking references.
+- **Literal `\n` text in a desc is a defect:** they turned 26 item descriptions' backslash-n
+  characters into real line breaks. More remain on `staging`: 54 lines in srd-2014
+  `MagicItem.json`, 6 in `Item.json`, 1 in `Environment.json`. A ready candidate for a catch PR.
+
+ (its added text uses `*italic*` and two plain-bold labels) and is left as
 it is; it was approved as sent.
 
 ## 1. `/v2/magicitems/` silently ignores `document__key` — **verified 2026-10-06**

@@ -2244,7 +2244,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, advice, com, compendium, death, dissonant, documents, higher-level, movement, open5e, open5e-api, pdf, sage, spell, srd, text
+**topics:** 2026-10-07, 760, 995, 997, 998, 999, advice, death, documents, higher-level, issue, markdown, open5e, open5e-api, pdf, srd, srd-2014, text
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
