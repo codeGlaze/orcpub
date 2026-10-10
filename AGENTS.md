@@ -16,7 +16,7 @@ correct this table rather than working around it — see `docs/kb/documentation-
 |--------|-----------|------|
 | `develop` | **OWNER ONLY** | Never merge or push. The upstream trunk; PRs target it. |
 | `integration` | **PR REQUIRED** | The active trunk — hotfixes land here and it is ahead of `develop`. No direct pushes. |
-| `agents/develop` | **DOCS + TOOLING ONLY** | `*.md`, `.claude/*`, `agents/*`, `docs/*`, `scripts/git/*`, `.githooks/*`. **No source, no tests.** It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
+| `agents/develop` | **AGENT HOME** | Everything an agent needs to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`) and tooling (`scripts/*`). **No app source, no app tests.** It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
 | `refactor/*` | **OPEN** | Working parent for the refactor tree and its leaves. |
 | `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` | **OPEN** | Agents may work freely. Typed prefixes; these are what the tree actually uses. |
 | `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home commits onto a typed branch before merging anything. |
