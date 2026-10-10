@@ -665,7 +665,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, characters, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, script, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -913,6 +913,16 @@ _content-extensibility · content extensibility_
 - Suggested next step
 - Related
 
+## content-naming-style.md
+
+_content-naming-style · content naming style_
+
+**topics:** 2024, 2026-10-09, blowgun, capitalise, crossbow, gear, hammer, healing, light, lord, mistletoe, needle, nouns, open5e, open5e-upstream-notes, potion, title, word
+
+- The rule
+- Where it stands (measured 2026-10-09)
+- Why
+
 ## content-tiers-and-key-resolution.md
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
@@ -1026,7 +1036,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
+**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -2244,7 +2254,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, 997, 998, 999, advice, death, documents, higher-level, issue, markdown, open5e, open5e-api, pdf, srd, srd-2014, text
+**topics:** 2026-10-07, 760, 995, 997, 998, 999, advice, com, death, documents, higher-level, issue, markdown, open5e, open5e-api, pdf, srd, text
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2946,7 +2956,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, copy, deletes, homebrew, kaylee, link, opening, owner, page, party, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -3049,7 +3059,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, editions, gear, magic, monsters, open5e, species, srd, text, weapons, word
+**topics:** 2014, 2024, 2026-10-08, 313, 317, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3086,7 +3096,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3130,7 +3140,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2024, actions, conditions, data, dragon, editions, links, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
+**topics:** 2014, actions, concentration, conditions, data, dragon, editions, links, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
 
 - How this was measured
 - What the app shows today
@@ -3163,7 +3173,7 @@ _srd-pdf-as-source-of-record · srd pdf as source of record_
 
 _srd-vs-plugin-content · srd vs plugin content_
 
-**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugins, races, srd
+**topics:** acolyte, base-class-options, battle, college, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugin-races, plugins, races, soldier
 
 - The Distinction
 - What's Hardcoded (SRD)
@@ -3189,7 +3199,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -3224,7 +3234,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** chain, cljc, low, parameter, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** caller, cljc, low, parameter, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
