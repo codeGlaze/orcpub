@@ -1708,7 +1708,7 @@
 (defn- fit-artwork
   "PNG `data` fitted to max-artwork-embedded as {:data bytes :jpg? false}, or nil if it will
    not decode or will not fit in 12 tries. Shrinks the longest edge 15% a try, keeping alpha.
-   GOTCHA: not fit-for-sheet, which re-encodes as JPEG and turns transparency black."
+   Unlike fit-for-sheet, which re-encodes as JPEG, the result stays PNG with its alpha."
   [^bytes data]
   (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
     (if (<= (alength data) max-artwork-embedded)

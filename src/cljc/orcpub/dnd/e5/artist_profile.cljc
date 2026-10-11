@@ -19,7 +19,9 @@
   (or (:artist/slug artist)
       (some-> (:artist/id artist) name)))
 
-(defn- registry-entry [artist-id]
+(defn- registry-entry
+  "The registry entry for `artist-id`, without deployment overrides, or nil."
+  [artist-id]
   (some #(when (= artist-id (:artist/id %)) %) pa/registry))
 
 (defn profile-enabled?
@@ -56,10 +58,14 @@
   []
   (into [] (keep (comp profile :artist/id)) pa/registry))
 
-(defn profile-path [artist]
+(defn profile-path
+  "The address of `artist`'s profile page, /artists/<slug>."
+  [artist]
   (route-map/path-for route-map/artist-page-route :slug (slug artist)))
 
-(defn index-path []
+(defn index-path
+  "The address of the list of artists, /artists."
+  []
   (route-map/path-for route-map/artists-page-route))
 
 (defn example-path
@@ -106,7 +112,9 @@
        (sort-by #(- (get pa/layer-credit-weight (:layer %) 1)))
        vec))
 
-(defn piece-count [artist]
+(defn piece-count
+  "How many pieces `artist` drew, the generated scalp not counted."
+  [artist]
   (reduce + (map (comp count :pieces) (pieces-by-layer artist))))
 
 ;; ---------- links ----------
@@ -141,7 +149,9 @@
 
 (def example-count 3)
 
-(defn- pick [rnd v]
+(defn- pick
+  "An element of `v` chosen by `rnd`, a fn returning numbers in [0,1)."
+  [rnd v]
   (nth v (int (Math/floor (* (rnd) (count v))))))
 
 (defn example-portraits
@@ -186,10 +196,14 @@
 
 ;; ---------- share tags ----------
 
-(defn page-title [artist]
+(defn page-title
+  "The share-card title of `artist`'s profile: \"<name> — portrait artist\"."
+  [artist]
   (str (:artist/name artist) " — portrait artist"))
 
-(defn share-description [artist]
+(defn share-description
+  "The share-card description of `artist`'s profile, naming them and their piece count."
+  [artist]
   (let [n (piece-count artist)]
     (str "Portrait art by " (:artist/name artist) ": "
          n " hand-drawn " (if (= 1 n) "piece" "pieces")

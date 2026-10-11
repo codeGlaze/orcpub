@@ -2,7 +2,7 @@
   "Server-side rendering of a composed portrait to PNG, for the share card (og:image).
    Entry points: `render-png`, `site-mark`. Vector assets are drawn with pdf/svg-path-ops;
    raster assets are read off the classpath and tinted by `multiply!`.
-   GOTCHA: every failure returns nil (no portrait), never throws.
+   Every failure returns nil (no portrait) rather than throwing.
    Why: PORTRAIT-COMPOSITOR.md, \"Rendering on the server\"."
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
@@ -37,7 +37,7 @@
 (defn asset-source
   "{:mime :bytes} for an asset URL: a base64 data URI decoded in place, or a site-absolute
    path read off the classpath under public/. nil for anything else.
-   GOTCHA: never fetches an off-site URL; a share card must not make the server fetch one."
+   An off-site URL is never fetched."
   [uri]
   (or (parse-data-uri uri)
       (when (and (string? uri) (s/starts-with? uri "/") (not (s/includes? uri "..")))
@@ -153,7 +153,7 @@
 
 (def ^:private load-face
   "The java.awt.Font at classpath `path`, parsed once per path; nil if it will not load.
-   GOTCHA: ship the face; a logical family like SANS_SERIF depends on the host's fonts."
+   Faces ship with the app, so rendering does not depend on the host's fonts."
   (memoize
     (fn [path]
       (try
@@ -329,8 +329,15 @@
           (finally (.dispose g)))
         (recur dst)))))
 
-(defn- rgb [[r g b]] (Color. (int r) (int g) (int b)))
-(defn- rgba [[r g b a]] (Color. (int r) (int g) (int b) (int a)))
+(defn- rgb
+  "An [r g b] vector as an opaque java.awt.Color."
+  [[r g b]]
+  (Color. (int r) (int g) (int b)))
+
+(defn- rgba
+  "An [r g b a] vector, a out of 255, as a java.awt.Color."
+  [[r g b a]]
+  (Color. (int r) (int g) (int b) (int a)))
 
 (defn- paint-ground!
   "Fills a `w`x`h` frame with layout/example-ground, the portrait frame's gradient."

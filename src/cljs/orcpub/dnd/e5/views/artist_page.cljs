@@ -21,7 +21,10 @@
             [:style portrait/drawer-styles]]
            body)]))
 
-(defn- link-button [{:link/keys [label url icon color]}]
+(defn- link-button
+  "One of the artist's listed links as a button: its mark, if it has one, and its label.
+   Opens in a new tab."
+  [{:link/keys [label url icon color]}]
   [:a.ap-link {:href url :target "_blank" :rel "noopener"}
    (when icon
      [:span.lk-ico {:aria-hidden true
@@ -30,7 +33,9 @@
                             :maskImage (str "url(/image/social/" icon ".svg)")}}])
    label])
 
-(defn- names [artists]
+(defn- names
+  "The names of `artists` as prose: A / A and B / A, B and C."
+  [artists]
   (let [n (count artists)]
     (for [[i a] (map-indexed vector artists)]
       ^{:key (:artist/id a)}
@@ -43,14 +48,19 @@
   [artist n alt]
   [:img.ap-example-img {:src (ap/example-path artist n) :alt alt :width 240 :height 300}])
 
-(defn- example [artist i p]
+(defn- example
+  "Example `i` (from 0) of `artist`: its server-made image and, when portrait `p` borrows
+   pieces from other artists, a caption naming them."
+  [artist i p]
   (let [others (ap/others-in p (:artist/id artist))]
     [:figure.ap-example
      [:div.ap-frame [example-img artist (inc i) (str "Example portrait " (inc i))]]
      (when (seq others)
        [:figcaption "with pieces by " (names others)])]))
 
-(defn- profile-card [{:keys [:artist/id :artist/name] :as artist}]
+(defn- profile-card
+  "The profile of `artist`: name, piece count, listed links, the examples and the footer."
+  [{:keys [:artist/id :artist/name] :as artist}]
   (let [links (ap/listed-links artist)
         n (ap/piece-count artist)]
     [:article.ap-card

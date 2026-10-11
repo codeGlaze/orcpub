@@ -2136,7 +2136,7 @@
   "The :set-character db fn: put a DIFFERENT character on screen (open, clone, randomize,
    New), reconciled, dropping the portrait draft. Modifying it is :character-updated.
    Re-opening the same saved (non-nil) id keeps the draft, as a courtesy only.
-   GOTCHA: do not infer a switch from ids; the caller's choice of event decides.
+   Whether it is a switch is the caller's choice of event, never inferred from ids.
    See PORTRAIT-COMPOSITOR.md, \"The draft and the character on screen\"."
   [db [_ character]]
   (let [id (:db/id character)
