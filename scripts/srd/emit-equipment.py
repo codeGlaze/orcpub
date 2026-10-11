@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["markdown-it-py>=4"]
+# ///
 """Emit the SRD weapons and armor, both editions, as our EDN data files.
 
 Usage: emit-equipment.py OPEN5E_CLONE SRD52_WORKTREE

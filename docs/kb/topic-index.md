@@ -665,7 +665,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, script, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -2254,11 +2254,12 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, 997, 998, 999, advice, com, death, documents, higher-level, issue, markdown, open5e, open5e-api, pdf, srd, text
+**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 998, 999, commonmark, death, documents, higher-level, issue, open5e, open5e-api, parser, pdf, srd, text
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
 - Markdown in open5e data: match the document you're editing (owner decision, 2026-10-09)
+- How the generators read it (2026-10-10)
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs
 - 3. Upcasting is structured unevenly between the two documents — verified

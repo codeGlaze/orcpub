@@ -22,6 +22,7 @@ Checks:
   zero-cost         an item with no cost and no weight, where the SRD prices it
   duplicate-text    two records sharing a long run of text (Critical Hits once copied Damage Rolls)
   upcast-not-data   a spell with "at higher levels" text but no per-slot options
+  bullet-no-space   a line opening "*Word", a bullet missing its space, read as plain text
   collapsed-md      markdown whose line breaks were lost: a list run onto one line
                     ("following:  - Hold your breath - March..."), a heading or quote mid-line
 """
@@ -92,6 +93,9 @@ def lint(path, records, vocab, findings):
                     if m:
                         findings['double-space'].append((*where, line[max(0, m.start() - 20):m.end() + 20]))
                         break
+            m = re.search(r'(?m)^\*[A-Za-z][^*\n]*$', v)
+            if m:
+                findings['bullet-no-space'].append((*where, m.group(0)[:50]))
             for line in v.split('\n'):
                 m = re.search(r'\S {2,}(- |#{1,6} |> |\* )\S', line)
                 if m and not line.lstrip().startswith('|'):

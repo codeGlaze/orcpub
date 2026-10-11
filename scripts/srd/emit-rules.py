@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["markdown-it-py>=4"]
+# ///
 """Emit the SRD 5.1 rules as our EDN data file.
 
 Usage: emit-rules.py OPEN5E_CLONE SRD52_WORKTREE LINK_TARGETS_JSON

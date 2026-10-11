@@ -67,8 +67,36 @@ SRD run-in labels in bold italic as `**_Label._**`. When we add or edit text:
   characters into real line breaks. More remain on `staging`: 54 lines in srd-2014
   `MagicItem.json`, 6 in `Item.json`, 1 in `Environment.json`. A ready candidate for a catch PR.
 
- (its added text uses `*italic*` and two plain-bold labels) and is left as
-it is; it was approved as sent.
+#995 (its added text uses `*italic*` and two plain-bold labels) is left as it is; it was approved
+as sent.
+
+### How the generators read it (2026-10-10)
+
+`scripts/srd/srd_format.py` is the one parser for every generator (`emit-rules.py`,
+`emit-conditions.py`, `emit-equipment.py`). It parses with markdown-it-py (CommonMark plus
+tables), declared in each script's `# /// script` header, so `uv run scripts/srd/emit-rules.py ...`
+fetches it. Set for open5e's habits, which strict CommonMark reads differently:
+
+| open5e writes | CommonMark alone would | the parser does |
+| --- | --- | --- |
+| one line break between paragraphs | join them | a new paragraph per line |
+| a paragraph on the line after a list item | append it to the item | a new paragraph |
+| `Text` then `---` on the next line | a heading | text; setext headings are off |
+| `> A` blank `> B` | two quotes | one sidebar |
+| `\*` | `*` | `*` (the line parser it replaced shipped the backslash) |
+
+Indented code, rules and HTML are off too; open5e never means them. The word check
+(`plain_source` against `block_words`) stays independent of the parser and fails the run when a
+word is lost or changed.
+
+A source defect the parser cannot recover is fixed in the clone, not worked around: srd-2024
+Invisible writes `*Attacks Affected.` with no space, so it is not a bullet. `lint-open5e.py`
+reports the kind as `bullet-no-space`.
+
+**Legacy, not maintained:** `emit-e55.py`, `emit-magic-items.py`, `magic-items.py`,
+`spell-delta.py` and `validate-names.py` read the SRD PDF transcripts, from before open5e became
+the source. They do not use `srd_format.py`. Retire each one when its output is regenerated from
+open5e; do not add a second parser beside them.
 
 ## 1. `/v2/magicitems/` silently ignores `document__key` — **verified 2026-10-06**
 
