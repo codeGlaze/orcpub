@@ -4,7 +4,9 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as s]
             [orcpub.routes :as routes]
-            [orcpub.dnd.e5.portrait-assets :as pa])
+            [orcpub.dnd.e5.artist-profile :as ap]
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.portrait-render :as render])
   (:import (javax.imageio ImageIO)))
 
 (defn- req [slug]
@@ -42,7 +44,11 @@
       (is (= "noai, noimageai" (get-in resp [:headers "X-Robots-Tag"])) n)
       (is (= [-1 -40] (vec (take 2 bytes))) (str n " is a JPEG"))
       (is (= [240 300] [(.getWidth img) (.getHeight img)])
-          (str n " is about the size the page shows it, not larger")))))
+          (str n " is about the size the page shows it, not larger"))
+      (is (not= (seq bytes)
+                (seq (render/render-example-jpeg
+                      (get (ap/example-portraits :house-pack) (dec (parse-long n))) "")))
+          (str n " carries a watermark: it differs from the same picture without one")))))
 
 (deftest each-example-is-rendered-once
   (testing "the same bytes, not a fresh render, on every request"
