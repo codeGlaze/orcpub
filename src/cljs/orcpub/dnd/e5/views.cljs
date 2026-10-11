@@ -132,7 +132,7 @@
   "Returns an onClick handler that generates and submits the PDF. plugin-data is
    pre-subscribed by the calling component. A composed portrait is first baked with
    portrait/rasterize and posted with its credit as :portrait-png and :portrait-credit, so
-   the submit is async. GOTCHA: a failed bake still submits, without the picture."
+   the submit is async. A failed bake still submits, without the picture."
   [built-char id plugin-data & [options]]
   (fn [_]
     (let [field (.getElementById js/document "fields-input")

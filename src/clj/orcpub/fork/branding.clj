@@ -143,7 +143,7 @@
    :artist/links :artist/license}}, from PORTRAIT_ARTISTS: JSON keyed by artist id, e.g.
    {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}. Which artist drew
    which asset is not overridable. See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\".
-   GOTCHA: a value that does not parse is ignored with a warning, not thrown."
+   A value that does not parse is ignored with a warning."
   (or (when-let [raw (not-empty (or (env :portrait-artists)
                                     (System/getenv "PORTRAIT_ARTISTS")))]
         (try

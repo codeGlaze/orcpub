@@ -3,7 +3,7 @@
    Assets are {:asset/id … :asset/url …}, stacked in `layer-order` and tinted per
    `render-mode`. Attribution resolves each selected asset to its artist through
    `registry`: see `credit-order` and `credit-line`, shared by every surface.
-   GOTCHA: the files in the repo are silhouettes; the real art is never committed.
+   The files in the repo are silhouettes; the real art is never committed.
    Why the code is shaped this way: PORTRAIT-COMPOSITOR.md, PORTRAIT-TINTING.md."
   (:require [clojure.string :as s]))
 
@@ -62,7 +62,7 @@
 (def asset-inventory
   "{layer-key [{:asset/id :asset/label :asset/file}]}: the illustrator's ten layers and
    twenty-eight pieces under their own filenames, plus the generated :scalp.
-   GOTCHA: the files in the repo are silhouettes at the real art's paths;
+   The files in the repo are silhouettes at the real art's paths;
    scripts/build-portrait-assets.py overwrites them from the originals."
   {
    :hair-bits
@@ -330,8 +330,8 @@
 
 (defn drawable-layers
   "The entries of a selection whose asset ids resolve in the registry; nil for a non-map.
-   GOTCHA: a non-empty selection can draw nothing (a removed id, a pack this deployment
-   lacks), so test drawable?, not `seq`."
+   A non-empty selection can draw nothing (a removed id, a pack this deployment lacks);
+   drawable? tells the two apart."
   [layers-selection]
   (when (map? layers-selection)
     (into {}
@@ -445,7 +445,9 @@
   #?(:clj (bit-and 0xffffffff (unchecked-multiply a b))
      :cljs (unsigned-bit-shift-right (js/Math.imul a b) 0)))
 
-(defn- char-code [c]
+(defn- char-code
+  "The UTF-16 code unit of character `c`, the same number on both platforms."
+  [c]
   #?(:clj (int c) :cljs (.charCodeAt c 0)))
 
 (defn seed->int

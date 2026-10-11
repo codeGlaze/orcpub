@@ -1,8 +1,8 @@
 (ns orcpub.dnd.e5.portrait-layout
   "The geometry shared by the three portrait renderers (DOM drawer, browser canvas export,
    Java2D share card): where a layer lands and where the credit and site mark sit, in frame
-   pixels. Nothing here draws. GOTCHA: a renderer must ask here, never derive its own
-   numbers. See PORTRAIT-COMPOSITOR.md, \"Three renderers, one geometry\".")
+   pixels. Nothing here draws; each renderer takes its numbers from here.
+   See PORTRAIT-COMPOSITOR.md, \"Three renderers, one geometry\".")
 
 (defn contain-rect
   "[x y w h] where a `sw`x`sh` asset lands in a `w`x`h` frame: scaled to fit, centred,
