@@ -2468,6 +2468,32 @@
            offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
        (contains? offered (bare tag))))))
 
+(def ^:private portrait-render-slots
+  "Server portrait renders allowed at once. The route needs no login and each render decodes and
+   composites up to ten PNGs, so a crawler burst (or a caller cycling ids) is bounded here."
+  (delay (java.util.concurrent.Semaphore. 2 true)))
+
+(def ^:private rendered-portraits
+  "The last 64 rendered portraits by validator, :none for one with nothing drawable."
+  (java.util.Collections/synchronizedMap
+   (proxy [java.util.LinkedHashMap] [16 0.75 true]
+     (removeEldestEntry [_] (> (.size ^java.util.Map this) 64)))))
+
+(defn- rendered-portrait
+  "[:ok png-or-nil] for `portrait` under validator `tag`, from the cache or a bounded render;
+   [:busy] when no render slot frees up within five seconds."
+  [tag portrait]
+  (if-let [hit (.get ^java.util.Map rendered-portraits tag)]
+    [:ok (when-not (= :none hit) hit)]
+    (let [slots ^java.util.concurrent.Semaphore @portrait-render-slots]
+      (if (.tryAcquire slots 5 java.util.concurrent.TimeUnit/SECONDS)
+        (try
+          (let [png (portrait-render/render-png portrait)]
+            (.put ^java.util.Map rendered-portraits tag (or png :none))
+            [:ok png])
+          (finally (.release slots)))
+        [:busy]))))
+
 (defn character-portrait-png
   "PNG of a character's composed portrait, for og:image.
 
@@ -2510,11 +2536,17 @@
       ;; copy is current when the resource has no current copy at all. So it
       ;; renders first and lets the outcome decide, which costs the saving on a
       ;; wildcard request and keeps it on every request that names a tag.
-      (if-let [png (portrait-render/render-png portrait)]
-        (if (any-representation-requested? (get headers "if-none-match"))
+      (let [[outcome png] (rendered-portrait tag portrait)]
+        (cond
+          (= :busy outcome)
+          {:status 503 :headers {"Retry-After" "10" "Content-Type" "text/plain"} :body "busy"}
+
+          (nil? png) {:status 404 :body "no composed portrait"}
+
+          (any-representation-requested? (get headers "if-none-match"))
           {:status 304 :headers (dissoc png-headers "Content-Type")}
-          {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})
-        {:status 404 :body "no composed portrait"}))))
+
+          :else {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})))))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")

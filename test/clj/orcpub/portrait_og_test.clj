@@ -285,3 +285,22 @@
                          {:db (d/db c) :conn c :headers {"host" "example.test"}
                           :uri "/" :path-params {:id id}}))]
         (is (re-find #"Sharey" html) "the character's name reaches the share card")))))
+
+(deftest server-renders-are-cached-and-bounded
+  (let [render @#'routes/rendered-portrait
+        renders (atom 0)
+        tag (str "\"" (java.util.UUID/randomUUID) "\"")]
+    (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (byte-array [1 2 3]))]
+      (testing "a portrait already rendered is served without rendering again"
+        (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
+        (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
+        (is (= 1 @renders)))
+      (testing "with every render slot taken, a new portrait is refused, not queued forever"
+        (let [slots ^java.util.concurrent.Semaphore @@#'routes/portrait-render-slots
+              n (.drainPermits slots)]
+          (try
+            (is (pos? n))
+            (is (= [:busy] (render (str tag "x") (a-portrait))))
+            (is (= 1 @renders))
+            (is (= :ok (first (render tag (a-portrait)))) "a cached one still answers")
+            (finally (.release slots n))))))))
