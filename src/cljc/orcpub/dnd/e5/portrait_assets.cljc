@@ -582,13 +582,24 @@
 ;; Lives here (cljc) rather than in portrait.cljs so JVM tests can reach it.
 ;; All bit-ops used are cljc-safe.
 
+(defn- mul32
+  "a * b mod 2^32, the same on both platforms (JS doubles lose the low bits of a plain multiply)."
+  [a b]
+  #?(:clj (bit-and 0xffffffff (unchecked-multiply (long a) (long b)))
+     :cljs (unsigned-bit-shift-right (js/Math.imul a b) 0)))
+
+(defn- u32 [x]
+  #?(:clj (bit-and 0xffffffff x) :cljs (unsigned-bit-shift-right x 0)))
+
+(defn- add32 [a b]
+  #?(:clj (bit-and 0xffffffff (unchecked-add (long a) (long b)))
+     :cljs (unsigned-bit-shift-right (+ a b) 0)))
+
 (defn seed->int
-  "FNV-1a-flavored string hash. Same seed always resolves to the same
-   integer, in both Clojure and ClojureScript."
+  "32-bit FNV-1a of the seed's characters: the same integer for the same seed on both platforms."
   [seed]
   (reduce (fn [h c]
-            (bit-and 0xffffffff
-                     (unchecked-multiply (bit-xor h (int c)) 16777619)))
+            (mul32 (bit-xor h #?(:clj (int c) :cljs (.charCodeAt c 0))) 16777619))
           2166136261
           (str seed)))
 
@@ -596,19 +607,14 @@
   "Small stateless PRNG. `(mulberry32 seed-int)` returns a fn that yields
    a fresh number in [0,1) on each call."
   [seed-int]
-  (let [a (atom (bit-and 0xffffffff seed-int))]
+  (let [a (atom (u32 seed-int))]
     (fn []
-      (swap! a #(bit-and 0xffffffff (unchecked-add % 0x6D2B79F5)))
+      (swap! a add32 0x6D2B79F5)
       (let [s @a
-            t1 (bit-and 0xffffffff
-                        (unchecked-multiply (bit-xor s (unsigned-bit-shift-right s 15))
-                                            (bit-or s 1)))
-            t2 (bit-and 0xffffffff
-                        (unchecked-add t1
-                                       (unchecked-multiply (bit-xor t1 (unsigned-bit-shift-right t1 7))
-                                                           (bit-or t1 61))))]
-        (/ (unsigned-bit-shift-right (bit-xor t2 (unsigned-bit-shift-right t2 14)) 0)
-           4294967296.0)))))
+            t1 (mul32 (bit-xor s (unsigned-bit-shift-right s 15)) (bit-or s 1))
+            t2 (add32 t1 (mul32 (bit-xor t1 (unsigned-bit-shift-right t1 7)) (bit-or t1 61)))
+            t2 (u32 (bit-xor t1 t2))]
+        (/ (u32 (bit-xor t2 (unsigned-bit-shift-right t2 14))) 4294967296.0)))))
 
 (defn random-seed
   "Fresh 8-char alphanumeric seed. Uses (rand-int) which is available on

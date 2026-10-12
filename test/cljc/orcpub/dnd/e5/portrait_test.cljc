@@ -78,6 +78,16 @@
   (is (not= (pa/seed->int "abc") (pa/seed->int "abd")))
   (is (integer? (pa/seed->int "abc"))))
 
+(deftest seeds-give-the-same-numbers-on-both-platforms
+  ;; ClojureScript's (int c) on a character is 0 and its plain multiply drops low bits, so the
+  ;; browser hashed only a seed's length: every 8-character Randomize seed gave one portrait.
+  (is (= 440920331 (pa/seed->int "abc")) "32-bit FNV-1a of abc, 0x1A47E90B")
+  (is (= [0.6011037519201636 0.44829055899754167 0.8524657934904099]
+         (let [r (pa/mulberry32 42)] (vec (repeatedly 3 r))))
+      "the reference mulberry32 for seed 42")
+  (is (< 30 (count (set (map pa/compose-for-seed (map #(str "seed" %) (range 40))))))
+      "different seeds give different portraits"))
+
 (deftest mulberry32-yields-numbers-in-range
   (let [rand-fn (pa/mulberry32 42)]
     (dotimes [_ 20]
