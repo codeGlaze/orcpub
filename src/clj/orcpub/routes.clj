@@ -2624,7 +2624,23 @@
   (when (and (contains? @portrait-files uri) (s/ends-with? uri ".strands.png"))
     (strands/worked-out-png (s/replace uri #"\.strands\.png$" ".png"))))
 
-(defn- portrait-art? [uri] (s/starts-with? (str uri) "/image/portraits/"))
+(defn- served-path
+  "`uri` as the static file server will read it: percent-decoded, with `.` and `..` segments
+   resolved. The guard judges this, or an encoded path (/image/%70ortraits/...) walks past it."
+  [uri]
+  (let [decoded (or (codec/url-decode (str uri)) (str uri))]
+    (str "/" (s/join "/" (reduce (fn [acc seg]
+                                   (case seg
+                                     ("" ".") acc
+                                     ".." (if (seq acc) (pop acc) acc)
+                                     (conj acc seg)))
+                                 [] (s/split decoded #"/")))
+         (when (s/ends-with? decoded "/") "/"))))
+
+(defn- portrait-art?
+  "Whether `uri`, as the file server reads it, is in the portrait art directory."
+  [uri]
+  (s/starts-with? (served-path uri) "/image/portraits/"))
 
 (defn get-image [{:keys [uri] :as request}]
   (or (get-file request)
@@ -2642,7 +2658,7 @@
    {:name ::portrait-art-guard
     :enter (fn [ctx]
              (let [uri (get-in ctx [:request :uri])]
-               (if (and (portrait-art? uri) (not (contains? @portrait-files uri)))
+               (if (and (portrait-art? uri) (not (contains? @portrait-files (served-path uri))))
                  (assoc ctx :response {:status 404 :headers {"Content-Type" "text/plain"} :body "Not found"})
                  ctx)))
     :leave (fn [ctx]

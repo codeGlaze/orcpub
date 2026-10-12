@@ -73,3 +73,18 @@
       (is (= 404 (:status (served "/image/portraits/head/l2_head_01.strands.png"))) "a head has no strands")
       (is (= 404 (:status (served "/image/portraits/bangs/../head/l2_head_01.png"))) "no path tricks")
       (finally (io/delete-file stray true)))))
+
+(deftest an-encoded-path-cannot-get-past-the-guard
+  (testing "the static file server decodes the path, so the guard must judge the decoded one"
+    (doseq [uri ["/image/%70ortraits/silhouette-index.json"
+                 "/image/portraits%2Fsilhouette-index.json"
+                 "/image/%2570ortraits/silhouette-index.json"
+                 "/image/./portraits/silhouette-index.json"
+                 "/image/x/../portraits/silhouette-index.json"
+                 "/%69mage/portraits/silhouette-index.json"]]
+      (is (not= 200 (:status (served uri))) uri))
+    (let [r (served "/image/%70ortraits/bangs/l9_bangs_01.png")]
+      (is (contains? #{200 404} (:status r)))
+      (when (= 200 (:status r))
+        (is (= "noai, noimageai" (get-in r [:headers "X-Robots-Tag"]))
+            "a piece reached by an encoded path still asks not to be used for AI")))))
