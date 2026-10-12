@@ -70,6 +70,15 @@ set_env_val() {
   fi
 }
 
+generate_key_b64() {
+  # 32 random bytes, base64 (an AES-256 key for PROFILE_ENCRYPTION_KEYS)
+  if command -v openssl &>/dev/null; then
+    openssl rand -base64 32
+  else
+    head -c 32 /dev/urandom | base64 | tr -d '\n'
+  fi
+}
+
 generate_password() {
   # Generate a URL-safe random password (no special chars that break URLs/YAML)
   local length="${1:-24}"
@@ -359,6 +368,9 @@ ENCRYPT_CHANNEL=true
 # --- Security ---
 # Secret used to sign JWT tokens (20+ characters recommended)
 SIGNATURE=${SIGNATURE}
+# Encrypts preferred names at rest; keep it, or stored names become unreadable.
+# Rotate by putting a new id:key first (see .env.example).
+PROFILE_ENCRYPTION_KEYS=${PROFILE_ENCRYPTION_KEYS}
 
 # --- Email (SMTP) ---
 EMAIL_SERVER_URL=${EMAIL_SERVER_URL}
@@ -477,6 +489,7 @@ generate_env() {
   ADMIN_PASSWORD=$(prompt_value "Admin password" "$DEFAULT_ADMIN_PW")
   DATOMIC_PASSWORD=$(prompt_value "Peer password" "$DEFAULT_DATOMIC_PW")
   SIGNATURE=$(prompt_value "JWT signing secret (20+ chars)" "$DEFAULT_SIGNATURE")
+  PROFILE_ENCRYPTION_KEYS="k1:$(generate_key_b64)"
 
   header "Application"
 

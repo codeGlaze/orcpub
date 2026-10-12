@@ -81,7 +81,7 @@
     "seconds": 21
   },
   "portrait_pdf_export_e2e.js": {
-    "checks": 10,
+    "checks": 11,
     "seconds": 45
   },
   "artist_profile_e2e.js": {

@@ -22,7 +22,6 @@
 
 (def verification-display-name
   "Name for verification and password-reset emails when the account has no
-   preferred name of its own (see the My Account page). nil greets them
-   without one -- 'Hi there,' -- which reads better than a stand-in like
-   'Dear User,'."
+   preferred name of its own (see the My Account page). nil greets them by
+   username."
   nil)

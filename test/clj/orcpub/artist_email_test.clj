@@ -9,8 +9,8 @@
 
 (def created-event
   {:artist-id :house-pack
-   :user {:orcpub.user/username "fusspot" :orcpub.user/email "hello@fusspot.rip"}
-   :spec {:account "hello@fusspot.rip"
+   :user {:orcpub.user/username "fusspot" :orcpub.user/email "artist@example.test"}
+   :spec {:account "artist@example.test"
           :preferred-name "Fuss"
           :welcome-subject "We did it, Fuss! Your art is officially on OrcPub"
           :welcome-note "We did it! Your art is officially on OrcPub! Our inaugural character art! We can't thank you enough for helping get this off the ground. <3"}
@@ -23,7 +23,7 @@
 (deftest the-welcome-reads-like-the-mock-up
   (let [msg (ae/welcome-message "https://site.test" created-event)
         [text html] (parts msg)]
-    (is (= "hello@fusspot.rip" (:to msg)))
+    (is (= "artist@example.test" (:to msg)))
     (is (= "We did it, Fuss! Your art is officially on OrcPub" (:subject msg)) "the artist's own subject")
     (testing "both parts carry the same things"
       (doseq [part [text html]]
@@ -49,7 +49,7 @@
 (deftest the-upgrade-has-no-password-step
   (let [msg (ae/upgrade-message "https://site.test"
                                 (assoc created-event :user {:orcpub.user/username "fusspotart"
-                                                            :orcpub.user/email "hello@fusspot.rip"}))
+                                                            :orcpub.user/email "artist@example.test"}))
         [text html] (parts msg)]
     (is (s/includes? text "upgraded your account (fusspotart)"))
     (is (s/includes? text "https://site.test/pages/my-account#artist-credit") "links to their credit settings")
@@ -61,7 +61,7 @@
           [text _] (parts msg)]
       (is (= "admin@site.test" (:to msg)))
       (is (= "New artist on board: Fusspot" (:subject msg)))
-      (is (s/includes? text "hello@fusspot.rip"))
+      (is (s/includes? text "artist@example.test"))
       (is (s/includes? text "expires 6 October"))
       (is (s/includes? text "\"account\": null") "and how to undo it"))))
 
@@ -71,7 +71,7 @@
     (let [sent (atom [])]
       (with-redefs [ae/base-url (constantly nil)
                     postal.core/send-message (fn [_ m] (swap! sent conj m) {:error :SUCCESS})]
-        ((:created ae/notify) created-event))
+        (is (false? ((:created ae/notify) created-event)) "reported unsent, so the next start retries"))
       (is (empty? @sent)))))
 
 (deftest with-app-url-both-the-artist-and-the-admin-hear
@@ -80,13 +80,23 @@
                   ae/admin-recipient (constantly "admin@site.test")
                   environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
                   postal.core/send-message (fn [_ m] (swap! sent conj m) {:error :SUCCESS})]
-      ((:created ae/notify) created-event))
-    (is (= ["hello@fusspot.rip" "admin@site.test"] (map :to @sent)))))
+      (is (true? ((:created ae/notify) created-event)) "reported sent"))
+    (is (= ["artist@example.test" "admin@site.test"] (map :to @sent)))))
+
+(deftest a-refused-welcome-is-reported-unsent
+  (with-redefs [ae/base-url (constantly "https://site.test")
+                ae/admin-recipient (constantly "admin@site.test")
+                environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
+                postal.core/send-message (fn [_ m] (if (= "admin@site.test" (:to m))
+                                                     {:error :SUCCESS}
+                                                     (throw (Exception. "SMTP down"))))]
+    (is (false? ((:created ae/notify) created-event))
+        "the admin copy going out does not count as the artist's")))
 
 (deftest a-credit-change-tells-the-artist-what-it-now-says
   (with-redefs [ae/admin-recipient (constantly "admin@site.test")]
     (let [event {:artist-id :house-pack
-                 :user {:orcpub.user/username "fusspot" :orcpub.user/email "hello@fusspot.rip"}
+                 :user {:orcpub.user/username "fusspot" :orcpub.user/email "artist@example.test"}
                  :before nil
                  :after {:artist/name "Fuss"
                          :artist/links [{:link/label "Twitch" :link/url "https://twitch.tv/fusspot"}]}}

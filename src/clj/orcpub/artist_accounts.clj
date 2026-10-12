@@ -1,34 +1,8 @@
 (ns orcpub.artist-accounts
-  "Artist accounts, provisioned from deployment config.
-
-   Each portrait artist in PORTRAIT_ARTISTS may name an account:
-
-     {\"house-pack\": {\"name\": \"Fusspot\",
-                     \"account\": \"hello@fusspot.rip\",
-                     \"username\": \"fusspot\",
-                     \"preferred_name\": \"Fuss\",
-                     \"welcome_note\": \"We did it! ...\"}}
-
-   On server start `reconcile!` works through that list:
-
-     no account with that email  -> create one, linked, with a single-use
-                                    set-password link that lasts a week
-     a confirmed account         -> link it
-     already linked              -> nothing, so restarts never resend
-     an unconfirmed account      -> nothing yet; `on-email-confirmed!` links it
-                                    when its owner confirms the address
-
-   Linking to a new account unlinks any other account that spoke for the same
-   artist, so the config is the one record of who that is. \"account\": null
-   revokes. Removing an artist's entry does NOTHING -- grant-only, so a bad
-   edit cannot silently strip an artist of access.
-
-   An artist account can only change how that artist is CREDITED. Which art is
-   whose stays in the registry in code, so a compromised artist account cannot
-   re-attribute anyone's work.
-
-   Nothing here faces the web: no admin page, no invite endpoint. The only
-   inputs are the deployment's own config and an email the owner confirmed."
+  "Artist accounts from PORTRAIT_ARTISTS: on start `reconcile!` creates, links, claims or
+   revokes each configured artist's account (the cases are tabled in ARTISTS.md). Grant-only:
+   removing an entry changes nothing. An artist account changes only how that artist is
+   credited; which art is whose stays in the registry. Nothing here faces the web."
   (:require [orcpub.reset-key :as reset-key]
             [clojure.string :as s]
             [datomic.api :as d]
@@ -42,9 +16,14 @@
             [orcpub.dnd.e5.portrait-assets :as pa])
   (:import [java.util Date UUID]))
 
+(def ^:private user-pull
+  [:db/id :orcpub.user/username :orcpub.user/email :orcpub.user/verified?
+   :orcpub.user/artist :orcpub.user/preferred-name :orcpub.user/password-reset-key
+   :orcpub.user/verification-key :orcpub.user/verification-sent :orcpub.user/artist-welcome-sent])
+
 (def welcome-link-days
   "How long a new artist's set-password link lasts. Longer than a normal
-   reset's 24 hours: a welcome can sit unread for days."
+   reset's two hours: a welcome can sit unread for days."
   7)
 
 (def preferred-name-purpose crypto/preferred-name-purpose)
@@ -86,13 +65,11 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- users-with-email [db email]
-  (d/q '[:find [(pull ?e [:db/id :orcpub.user/username :orcpub.user/email
-                          :orcpub.user/verified? :orcpub.user/artist
-                          :orcpub.user/preferred-name]) ...]
-         :in $ ?email
+  (d/q '[:find [(pull ?e pattern) ...]
+         :in $ pattern ?email
          :where [?e :orcpub.user/email ?e-mail]
                 [(clojure.string/lower-case ?e-mail) ?email]]
-       db email))
+       db user-pull email))
 
 (defn- accounts-for-artist [db artist-id]
   (d/q '[:find [(pull ?e [:db/id :orcpub.user/username :orcpub.user/email
@@ -132,16 +109,19 @@
     [[:db/cas id :orcpub.user/artist from to]]
     [[:orcpub.fn/retract-if-equal id :orcpub.user/artist from]]))
 
+(defn- lost-race?
+  "Whether `e`, or anything that caused it, is a cas or unique-claim refusal."
+  [e]
+  (boolean (some #(#{:db.error/cas-failed :db.error/unique-conflict} (:db/error (ex-data %)))
+                 (take-while some? (iterate #(.getCause ^Throwable %) e)))))
+
 (defn- try-transact
   "Transact; true if it committed, false if a guard (cas or unique claim)
    rejected it because another container did the same work first."
   [conn tx]
   (try @(d/transact conn tx) true
        (catch Exception e
-         (let [msg (str (.getMessage e) (some-> e .getCause .getMessage))]
-           (if (re-find #"(?i)cas|compare|unique" msg)
-             false
-             (throw e))))))
+         (if (lost-race? e) false (throw e)))))
 
 (defn- unlink-others!
   "Unlink every other account that speaks for `artist-id`, telling each."
@@ -166,6 +146,33 @@
         :linked)
     :else :raced))
 
+(defn- new-welcome-link
+  "A fresh welcome key, and the transaction data that stores its digest on `id`."
+  [id]
+  (let [reset-key (str (UUID/randomUUID))
+        now (Date.)
+        expires (Date. (+ (.getTime now) (* welcome-link-days 24 60 60 1000)))]
+    {:reset-key reset-key
+     :expires expires
+     :tx {:db/id id
+          ;; the digest: the reset form looks keys up by it
+          :orcpub.user/password-reset-key (reset-key/digest reset-key)
+          :orcpub.user/password-reset-sent now
+          :orcpub.user/password-reset-expires expires}}))
+
+(defn- locked-password
+  "A password nobody knows; the account is locked until the link sets one."
+  []
+  (hashers/encrypt (str (UUID/randomUUID) (UUID/randomUUID))))
+
+(defn- welcome!
+  "Send the welcome for `user`, recording that it went out only if the notifier says so."
+  [conn artist-id user spec notify {:keys [reset-key expires]}]
+  (when ((:created notify) {:artist-id artist-id
+                            :user (select-keys user [:db/id :orcpub.user/username :orcpub.user/email])
+                            :spec spec :reset-key reset-key :expires expires})
+    @(d/transact conn [[:db/add (:db/id user) :orcpub.user/artist-welcome-sent (Date.)]])))
+
 (defn create!
   "Create a linked account for `artist-id` with a week-long set-password link.
    Returns :created or :raced."
@@ -173,33 +180,67 @@
   (let [db (d/db conn)
         artist-name (:artist/name (pa/artist-info artist-id))
         uname (free-username db (or username artist-name account))
-        reset-key (str (UUID/randomUUID))
-        now (Date.)
-        expires (Date. (+ (.getTime now) (* welcome-link-days 24 60 60 1000)))
+        link (new-welcome-link "artist-user")
         name-enc (when preferred-name (crypto/encrypt preferred-name-purpose preferred-name))
-        user (cond-> {:db/id "artist-user"
-                      :orcpub.user/username uname
-                      :orcpub.user/email account
-                      ;; nobody knows this; the account is locked until the
-                      ;; artist chooses a password through the link
-                      :orcpub.user/password (hashers/encrypt (str (UUID/randomUUID) (UUID/randomUUID)))
-                      ;; confirmed by the act of using the emailed link
-                      :orcpub.user/verified? false
-                      :orcpub.user/created now
-                      :orcpub.user/artist artist-id
-                      ;; the digest: the reset form looks keys up by it
-                      :orcpub.user/password-reset-key (reset-key/digest reset-key)
-                      :orcpub.user/password-reset-sent now
-                      :orcpub.user/password-reset-expires expires}
+        user (cond-> (merge (:tx link)
+                            {:orcpub.user/username uname
+                             :orcpub.user/email account
+                             :orcpub.user/password (locked-password)
+                             ;; confirmed by the act of using the emailed link
+                             :orcpub.user/verified? false
+                             :orcpub.user/created (Date.)
+                             :orcpub.user/artist artist-id})
                name-enc (assoc :orcpub.user/preferred-name name-enc))]
     (if (try-transact conn [{:orcpub.artist-provision/key (str (name artist-id) " " account)}
                             user])
-      (let [id (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] (d/db conn) uname)]
+      (let [id (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] (d/db conn) uname)
+            u {:db/id id :orcpub.user/username uname :orcpub.user/email account}]
         (unlink-others! conn artist-id id notify)
-        ((:created notify) {:artist-id artist-id
-                            :user {:db/id id :orcpub.user/username uname :orcpub.user/email account}
-                            :spec spec :reset-key reset-key :expires expires})
+        (welcome! conn artist-id u spec notify link)
         :created)
+      :raced)))
+
+(defn claim!
+  "Take over an unconfirmed account holding the artist's address: lock it with a new password,
+   cancel its confirmation link, link it, and send the welcome. Returns :claimed, :other-artist
+   or :raced."
+  [conn artist-id {:keys [:db/id :orcpub.user/artist] :as user} {:keys [preferred-name] :as spec} notify]
+  (if (some? artist)
+    (do (println "artist-accounts:" (:orcpub.user/username user) "already speaks for" artist
+                 "- not claimed for" artist-id)
+        :other-artist)
+    (let [link (new-welcome-link id)
+          tx (cond-> [[:db/cas id :orcpub.user/artist nil artist-id]
+                      [:db/cas id :orcpub.user/password-reset-key
+                       (:orcpub.user/password-reset-key user) (get-in link [:tx :orcpub.user/password-reset-key])]
+                      (-> (:tx link)
+                          (dissoc :orcpub.user/password-reset-key)
+                          (assoc :orcpub.user/password (locked-password)))]
+               (:orcpub.user/verification-key user)
+               (conj [:db/retract id :orcpub.user/verification-key (:orcpub.user/verification-key user)])
+               (:orcpub.user/verification-sent user)
+               (conj [:db/retract id :orcpub.user/verification-sent (:orcpub.user/verification-sent user)])
+               preferred-name
+               (conj [:db/add id :orcpub.user/preferred-name (crypto/encrypt preferred-name-purpose preferred-name)])
+               (and (not preferred-name) (:orcpub.user/preferred-name user))
+               (conj [:db/retract id :orcpub.user/preferred-name (:orcpub.user/preferred-name user)]))]
+      (if (try-transact conn tx)
+        (do (unlink-others! conn artist-id id notify)
+            (welcome! conn artist-id user spec notify link)
+            :claimed)
+        :raced))))
+
+(defn resend-welcome!
+  "A fresh welcome link for a linked account whose welcome never went out. The old key is
+   unknowable (only its digest is kept), so it is replaced. Returns :resent or :raced."
+  [conn artist-id user spec notify]
+  (let [id (:db/id user)
+        link (new-welcome-link id)]
+    (if (try-transact conn [[:db/cas id :orcpub.user/password-reset-key
+                             (:orcpub.user/password-reset-key user)
+                             (get-in link [:tx :orcpub.user/password-reset-key])]
+                            (dissoc (:tx link) :orcpub.user/password-reset-key)])
+      (do (welcome! conn artist-id user spec notify link) :resent)
       :raced)))
 
 (defn revoke!
@@ -216,20 +257,26 @@
 
     :else
     (let [users (users-with-email (d/db conn) account)
-          confirmed (filter :orcpub.user/verified? users)]
+          confirmed (filter :orcpub.user/verified? users)
+          linked (some #(when (= artist-id (:orcpub.user/artist %)) %) users)]
       (cond
-        (some #(= artist-id (:orcpub.user/artist %)) users) :already
+        (and linked (not (:orcpub.user/verified? linked)) (not (:orcpub.user/artist-welcome-sent linked)))
+        (resend-welcome! conn artist-id linked spec notify)
+        linked :already
         (= 1 (count confirmed)) (link-existing! conn artist-id (first confirmed) spec notify)
         (> (count confirmed) 1)
         (do (println "artist-accounts: several confirmed accounts share" account "- linking none") :ambiguous)
+        (= 1 (count users)) (claim! conn artist-id (first users) spec notify)
         (seq users)
-        (do (println "artist-accounts:" account "has an unconfirmed account; it links on confirmation") :waiting)
+        (do (println "artist-accounts: several unconfirmed accounts share" account "- claiming none") :ambiguous)
         :else (create! conn artist-id spec notify)))))
 
 (def log-only-notify
-  "What happens on each change when no emailer is supplied: a log line."
+  "What happens on each change when no emailer is supplied: a log line. :created answers
+   true, as there is no welcome to send again."
   {:created  (fn [{:keys [artist-id user]}]
-               (println "artist-accounts: created" (:orcpub.user/username user) "for" artist-id))
+               (println "artist-accounts: welcomed" (:orcpub.user/username user) "to" artist-id)
+               true)
    :upgraded (fn [{:keys [artist-id user]}]
                (println "artist-accounts: linked" (:orcpub.user/username user) "to" artist-id))
    :unlinked (fn [{:keys [artist-id user]}]
@@ -237,7 +284,7 @@
 
 (def notify
   "What the running site does on each change: the emails in
-   orcpub.artist-email, each also logged."
+   orcpub.artist-email, each also logged. Answers what the email answers."
   (into {}
         (for [k [:created :upgraded :unlinked]]
           [k (fn [event]
@@ -257,8 +304,8 @@
                              :error))]))))
 
 (defn on-email-confirmed!
-  "Called when an account confirms an email address: if that address is an
-   artist's configured account, link it now."
+  "Called when a confirmed account confirms a change to its email address: if the new
+   address is an artist's configured account, link it now."
   ([conn user-id] (on-email-confirmed! conn user-id (configured) log-only-notify))
   ([conn user-id config notify]
    (let [user (d/pull (d/db conn) [:db/id :orcpub.user/username :orcpub.user/email

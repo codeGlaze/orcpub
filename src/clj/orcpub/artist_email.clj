@@ -371,34 +371,42 @@
 ;; Sending
 ;; ---------------------------------------------------------------------------
 
-(defn- send! [msg]
+(defn- send!
+  "Send `msg`; true if the mail server took it."
+  [msg]
   (try
     (let [result (postal/send-message (email/email-cfg) msg)]
-      (when (not= :SUCCESS (:error result))
-        (println "artist-email: not sent to" (:to msg) "-" (:error result))))
+      (or (= :SUCCESS (:error result))
+          (do (println "artist-email: not sent to" (:to msg) "-" (:error result)) false)))
     (catch Exception e
-      (println "artist-email: failed to send to" (:to msg) "-" (.getMessage e)))))
+      (println "artist-email: failed to send to" (:to msg) "-" (.getMessage e))
+      false)))
 
-(defn- deliver! [kind artist-msg event]
+(defn- deliver!
+  "Send the artist's message and the admin copy; true if the artist's went out."
+  [kind artist-msg event]
   (let [who (get-in event [:user :orcpub.user/username])]
     (cond
       (not (email-on?))
-      (println "artist-email: email is off; not sending the" (name kind) "email for" who)
+      (do (println "artist-email: email is off; not sending the" (name kind) "email for" who) false)
 
       :else
-      (do (when artist-msg (send! artist-msg))
-          (if (admin-recipient)
-            (send! (admin-message kind event))
-            (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent"))))))
+      (let [sent? (when artist-msg (send! artist-msg))]
+        (if (admin-recipient)
+          (send! (admin-message kind event))
+          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent"))
+        sent?))))
 
 (def notify
-  "The notifier artist accounts use on the live site."
+  "The notifier artist accounts use on the live site. :created answers whether the welcome
+   went out, so a refused one is sent again on the next start."
   {:created (fn [event]
               (if-let [base (base-url)]
                 (deliver! :created (welcome-message base event) event)
-                (println "artist-email: APP_URL is not set, so the welcome email for"
-                         (get-in event [:user :orcpub.user/username])
-                         "was not sent. They can use \"Forgot password\" with their email.")))
+                (do (println "artist-email: APP_URL is not set, so the welcome email for"
+                             (get-in event [:user :orcpub.user/username])
+                             "was not sent; it is sent on the first start with APP_URL set.")
+                    false)))
    :upgraded (fn [event]
                (if-let [base (base-url)]
                  (deliver! :upgraded (upgrade-message base event) event)

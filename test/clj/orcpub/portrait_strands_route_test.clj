@@ -60,3 +60,16 @@
       (let [r (served "/image/card-logo-bw.png")]
         (is (= 200 (:status r)))
         (is (nil? (get-in r [:headers "X-Robots-Tag"])))))))
+
+(deftest only-registered-pieces-are-served
+  (let [stray (io/file "resources/public/image/portraits/bangs/l9_bangs_99.png")]
+    (try
+      (io/copy (io/file "resources/public/image/portraits/bangs/l9_bangs_01.png") stray)
+      (is (some? (io/resource "public/image/portraits/bangs/l9_bangs_99.png")) "the file is there")
+      (is (= 404 (:status (served "/image/portraits/bangs/l9_bangs_99.png")))
+          "a piece no artist registered is not served, whatever its name")
+      (is (= 404 (:status (served "/image/portraits/bangs/l9_bangs_99.strands.png"))) "nor its strands")
+      (is (nil? (get-image "/image/portraits/bangs/l9_bangs_99.strands.png")))
+      (is (= 404 (:status (served "/image/portraits/head/l2_head_01.strands.png"))) "a head has no strands")
+      (is (= 404 (:status (served "/image/portraits/bangs/../head/l2_head_01.png"))) "no path tricks")
+      (finally (io/delete-file stray true)))))

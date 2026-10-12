@@ -317,35 +317,46 @@
                   :show-errors? show-errors?
                   :on-change on-confirm}])])
 
+(defn- portrait-fields
+  "The spec's portrait fields for baked `png-b64`: the pixels and the credit, which travels with
+   them because the server has no layer selection. Fitted to the PDF metadata's 78 characters,
+   so whole names drop rather than one being cut."
+  [portrait png-b64]
+  (when png-b64
+    {:portrait-png png-b64
+     :portrait-credit (portrait-assets5e/fit-credit
+                       (portrait-assets5e/credit-names portrait)
+                       #(<= (count %) 78))}))
+
 (defn export-pdf
-  "Returns an onClick handler that generates and submits the PDF. plugin-data is
-   pre-subscribed by the calling component. A composed portrait is first baked with
-   portrait/rasterize and posted with its credit as :portrait-png and :portrait-credit, so
-   the submit is async. A failed bake still submits, without the picture."
+  "An onClick handler that submits the PDF form, with the portrait `bake-portrait` baked ahead.
+   GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
+   unfinished bake opens the tab now and fills it when the bake resolves."
   [built-char id plugin-data & [options]]
   (fn [_]
     (let [field (.getElementById js/document "fields-input")
+          form (.getElementById js/document "download-form")
           spec (pdf-spec/make-spec built-char id options plugin-data)
-          portrait (char/portrait built-char)]
-      (-> (if (seq (:layers portrait))
-            (portrait/rasterize portrait)
-            (js/Promise.resolve nil))
-          (.then (fn [png-b64]
-                   (aset field "value"
-                         (str (cond-> spec
-                                png-b64
-                                (assoc :portrait-png png-b64
-                                       ;; the server has the baked pixels but
-                                       ;; not the layer selection, so the
-                                       ;; credit has to travel with them
-                                       ;; fitted to the length the PDF's
-                                       ;; metadata keeps, so it drops whole
-                                       ;; names rather than being cut mid-name
-                                       :portrait-credit
-                                       (portrait-assets5e/fit-credit
-                                        (portrait-assets5e/credit-names portrait)
-                                        #(<= (count %) 78))))))
-                   (.submit (.getElementById js/document "download-form"))))))))
+          portrait (char/portrait built-char)
+          submit! (fn [png-b64 target]
+                    (aset field "value" (str (merge spec (portrait-fields portrait png-b64))))
+                    (aset form "target" target)
+                    (.submit form))]
+      (if-let [[png-b64] (if (seq (:layers portrait)) (portrait/baked-png portrait) [nil])]
+        (submit! png-b64 "_blank")
+        (let [tab (str "orcpub-pdf-" (rand-int 1000000))
+              target (if (.open js/window "" tab) tab "_blank")]
+          (.then (portrait/bake-ahead! portrait) #(submit! % target)))))))
+
+(defn bake-portrait
+  "Bakes the character's composed portrait on mount and whenever it changes, so export can
+   submit without waiting. Renders nothing."
+  [_portrait]
+  (let [bake #(portrait/bake-ahead! (second (r/argv %)))]
+    (r/create-class
+     {:component-did-mount bake
+      :component-did-update bake
+      :reagent-render (fn [_] nil)})))
 
 (defn download-form [built-char]
   [:form.download-form
@@ -4653,6 +4664,7 @@
     [:div.flex.justify-cont-end
      [:div.p-20
       [capture-images [image-url faction-image-url]]
+      [bake-portrait (char/portrait built-char)]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
@@ -10222,6 +10234,8 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
+      (when (or (not branding/restrict-print-to-owner?) (= username owner))
+        [bake-portrait (char/portrait built-char)])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
          {:on-click (export-pdf
