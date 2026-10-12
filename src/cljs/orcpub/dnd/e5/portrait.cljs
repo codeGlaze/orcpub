@@ -928,6 +928,29 @@
 
 ;; ---------------- drawer chrome ----------------
 
+;; Portraits baked ahead of export, by value: {:promise p} while baking, then {:png b64-or-nil}.
+(defonce ^:private baked (atom {}))
+
+(defn bake-ahead!
+  "Start baking `portrait` unless it is baked or baking; the promise resolves to `rasterize`'s value.
+   Keeps the last few, since a builder session walks through many portraits."
+  [portrait]
+  (when (seq (:layers portrait))
+    (or (:promise (get @baked portrait))
+        (when-let [png (find (get @baked portrait) :png)] (js/Promise.resolve (val png)))
+        (let [p (-> (rasterize portrait)
+                    (.catch (fn [_] nil))
+                    (.then (fn [png]
+                             (swap! baked #(if (contains? % portrait) (assoc % portrait {:png png}) %))
+                             png)))]
+          (swap! baked (fn [m] (assoc (if (>= (count m) 8) {} m) portrait {:promise p})))
+          p))))
+
+(defn baked-png
+  "[png-b64-or-nil] once `portrait` is baked, else nil."
+  [portrait]
+  (when-let [e (find (get @baked portrait) :png)] [(val e)]))
+
 (def empty-slot-styles
   "The empty portrait slot.
 
