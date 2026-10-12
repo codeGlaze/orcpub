@@ -494,11 +494,12 @@
     user))
 
 (defn preferred-name-of
-  "The account's preferred name for an email greeting, decrypted, else the
-   fork's fallback (nil: 'Hi there')."
+  "The name an email greets the account by: its preferred name, decrypted, else the fork's
+   fallback, else its username."
   [user]
   (or (crypto/decrypt crypto/preferred-name-purpose (:orcpub.user/preferred-name user))
-      auth/verification-display-name))
+      auth/verification-display-name
+      (:orcpub.user/username user)))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -910,7 +911,7 @@
 
 (defn reset-link-expired?
   "Whether a reset link is past its expiry: its own expiry when it has one
-   (the artist welcome link lasts a week), otherwise the usual 24 hours."
+   (the artist welcome link lasts a week), otherwise the usual two hours."
   [{:keys [:orcpub.user/password-reset-sent :orcpub.user/password-reset-expires]}]
   (if password-reset-expires
     (.after (java.util.Date.) password-reset-expires)
