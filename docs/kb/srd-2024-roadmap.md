@@ -59,6 +59,38 @@ more engineering than it saves. So:
   builder, monsters first on monster pages). The text is usually there before anyone clicks.
 - **Revisit only if one file grows past a few hundred KB compressed.**
 
+### One pipeline: the app's SRD data is generated, not hand-kept (planned 2026-10-11)
+
+Rules and conditions already come from the generators (`agents/develop` `scripts/srd/`). Spells,
+monsters, weapons, armor and magic items are still hand-kept Clojure, so a correction made in
+open5e reaches the app only if someone repeats it by hand. The goal: every SRD type generated from
+the corrected open5e data, so one fix lands in open5e and in the app together. Who reads the data
+today, with file:line: [srd-data-consumers.md](srd-data-consumers.md).
+
+**Two stages, so the move does not wait on the loader below.**
+
+1. **Generate the data; compile it in.** Per type, the generator writes the app's own shape to
+   `resources/public/srd/2014/<type>.edn`, and the namespace's data def becomes a read of that file
+   at compile time (a macro: the JVM reads the file, ClojureScript gets the literal). No consumer
+   changes, the builder still has the data synchronously, and the JVM side (PDF, spell cards,
+   tests) reads the same file. This matches "an edition is compiled in, like `e5`". A test holds
+   every existing key, so no saved character or homebrew reference breaks.
+2. **Fetch instead of compile in.** Move full text out of the bundle into the fetched files
+   described above; the builder keeps summaries and mechanical fields. This needs the shared loader
+   below, and the load-time readers in the consumer map are its work list.
+
+**Order follows the plan's type order:** weapons and armor first (`equipment.edn` exists and is
+checked; 55 entries), then spells (keys and aliases), then monsters (no builder use), then magic
+items. Magic items split: their ~220 data-only entries are generated, and the ~63 with mechanics
+keep the mechanics in code, joined by key.
+
+**Each type is checked first** (comparison B above): where `e5` and the corrected SRD text differ,
+the departure is reviewed, per the decision that `e5`'s departures are not dismissed. Stage 1
+replaces the text the app shows, so this is a content change, not a refactor.
+
+**Open:** which trunk carries stage 1 (it is edition-neutral, so by the machinery split it belongs
+to `refactor/`); whether `e5`'s rewritten spell summaries are kept as a separate field.
+
 ### One loader for the SRD and for homebrew
 
 **Why a shared loader, honestly stated.** It is *not* the fix for the freeze users reported.

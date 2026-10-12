@@ -486,7 +486,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -646,7 +646,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, descriptive, dwarf, elf, generator, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -806,7 +806,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1083,7 +1083,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
+**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1272,7 +1272,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, history, ledger, linked, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1688,7 +1688,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray
+**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2031,7 +2031,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, round, save, source, stamps
+**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2387,7 +2387,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pedestal-csp-history · pedestal csp history_
 
-**topics:** agent, blocked, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, load-time, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
+**topics:** agent, blocked, configuration, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
 
 - Timeline
 - Pedestal 0.5.1 (original project version)
@@ -2551,7 +2551,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, companion, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -3047,7 +3047,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, credit, crest, emblems, figures, head, heading, level, packed, pact, prep, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, credit, crest, emblems, figures, flame, head, heading, level, packed, pact, prep, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3097,7 +3097,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3117,10 +3117,11 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, diff, edition, editions, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
+- One pipeline: the app's SRD data is generated, not hand-kept (planned 2026-10-11)
 - One loader for the SRD and for homebrew
 - The ladder
 - The plan: breadth first
@@ -3136,6 +3137,17 @@ _srd-2024-roadmap · srd 2024 roadmap_
 - Open decisions
 - What blocks what
 - Known debt in what exists
+
+## srd-data-consumers.md
+
+_srd-data-consumers · srd data consumers_
+
+**topics:** 2026-10-11, 286, 3083-3150, ammunition, armor, belts, facts, few, generated, items, keys, literal, load-time, magic, monsters, spell, srd-2024-roadmap, sub
+
+- The two facts that shape any move
+- Per type
+- Magic items carry code
+- Keys
 
 ## srd-improvements.md
 
@@ -3200,7 +3212,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
