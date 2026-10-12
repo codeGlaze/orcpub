@@ -32,6 +32,17 @@
       (into [:script attrs] body)
       [:script attrs])))
 
+(defn script-json
+  "JSON for an inline <script>: `<`, `>`, `&` and the line separators become
+   \\u escapes, so a value (an artist's credit) cannot close the tag."
+  [x]
+  (-> (cheshire/generate-string x)
+      (.replace "<" "\\u003c")
+      (.replace ">" "\\u003e")
+      (.replace "&" "\\u0026")
+      (.replace "\u2028" "\\u2028")
+      (.replace "\u2029" "\\u2029")))
+
 (def ^:private rescue-filename "orcpub-homebrew-rescue.orcbrew")
 
 (defn boot-rescue
@@ -239,8 +250,8 @@ html {
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
-     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
-          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
+     (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
+          "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
