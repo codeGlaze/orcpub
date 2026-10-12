@@ -198,7 +198,7 @@ face. Mock-ups must be rendered from the artist's pack as delivered.
 - `test/clj/orcpub/portrait_tint_behaviour_test.clj` -- proves masking flattens
   line art and that multiply is the fix, including the black-silhouette catch.
   Runs with no artwork.
-- `test/clj/orcpub/portrait_real_art_compare_test.clj` -- the rendering harness.
+- `dev/orcpub/portrait_gallery.clj` -- the rendering harness (a REPL tool); `test/clj/orcpub/portrait_scalp_coverage_test.clj` keeps the art coverage check.
   Needs `ORCPUB_PACK=<dir>`; writes to `ORCPUB_PACK_OUT`; skips loudly without
   them. `gamma-separates-legibility-from-modelling` asserts the numbers above,
   **including the trade itself** -- if the floor ever stops flattening the

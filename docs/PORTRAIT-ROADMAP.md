@@ -76,7 +76,7 @@ Each of these works today or is hidden; none blocks shipping.
 
 ### Code
 
-- **Comment debt.** 87 long docstrings and comments from this branch are recorded in
+- **Comment debt.** 84 long docstrings and comments from this branch are recorded in
   `test/comment-baseline.edn` (the house check fails on new ones). Shorten each to spec, move
   its history to `docs/kb/`, then prune the baseline.
 
