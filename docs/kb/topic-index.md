@@ -2254,7 +2254,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 998, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, spell, srd, text, wording
+**topics:** 2026-10-07, 2026-10-10, 760, 995, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, slot, spell, srd, srd-2024, text, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)

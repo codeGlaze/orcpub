@@ -99,11 +99,16 @@ seen to fail on the mistake before it was trusted:
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
 | upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
+| slot-below-base | a slot option at or below the spell's own level | srd-2024 Dispel Magic's slot 3 |
+| desc-math | a `desc` number that disagrees with the `damage_roll` beside it or the step sentence; where the base is not stored, the implied base must be in the spell's text | srd-2024 Conjure Celestial stored 2d12 for 7d12 |
 | lint-ratchet | any lint count above `srd-lint-baseline.json` | a fixed defect coming back |
 | reformat | changed lines in records whose content did not change | a file re-serialised wholesale |
 
 A finding a person has checked and kept goes in `scripts/srd/srd-data-reviewed.json` (rule, file,
 pk, field, reason). `--update-baseline` lowers the lint baseline after a cleanup; it never raises it.
+`--all` audits every casting option in both editions, upstream's included: that is how the srd-2024
+errors were found. It prints how many `desc` records it could verify (130 of 352 on 2026-10-12);
+the rest have no plain step sentence, so a pass there means "nothing contradicts", not "proven".
 
 **OrcPub's own wording is never SRD text.** Editorial summaries (the app's rewritten spell
 summaries) live in their own field, never in the SRD text field.
