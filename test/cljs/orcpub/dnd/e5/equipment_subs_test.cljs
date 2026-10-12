@@ -168,3 +168,31 @@
             "Filtered result should be a subset of unfiltered")
         (is (pos? (count filtered))
             "Fire Bolt is a known SRD spell and should match")))))
+
+;; ---------------------------------------------------------------------------
+;; Custom items a character read brought from another account
+;; ---------------------------------------------------------------------------
+
+(def ^:private cloak {::mi/name "Cloak of Mist" ::mi/type :wondrous-item ::mi/rarity :rare})
+
+(defn- on-character-page [db id]
+  (assoc db :route {:handler :char-5e-page :route-params {:id (str id)}}))
+
+(deftest another-accounts-items-apply-on-that-characters-page-only
+  (reset! app-db (on-character-page {:user-data {:token "t" :user-data {:username "zoe"}}} 42))
+  (rf/dispatch-sync [::mi/set-character-custom-items 42 [cloak] "kaylee"])
+  (is (= ["Cloak of Mist"] (map ::mi/name @(rf/subscribe [::mi/shared-custom-items]))))
+  (swap! app-db on-character-page 43)
+  (is (empty? @(rf/subscribe [::mi/shared-custom-items])) "on another character's page")
+  (swap! app-db assoc :route :char-builder-5e)
+  (is (empty? @(rf/subscribe [::mi/shared-custom-items])) "in the builder"))
+
+(deftest your-own-characters-items-come-from-your-own-list
+  (reset! app-db (on-character-page {:user-data {:token "t" :user-data {:username "kaylee"}}} 42))
+  (rf/dispatch-sync [::mi/set-character-custom-items 42 [cloak] "kaylee"])
+  (is (empty? @(rf/subscribe [::mi/shared-custom-items]))))
+
+(deftest the-servers-copy-comes-after-a-links-copy-so-it-wins
+  (reset! app-db (on-character-page {:shared-custom-items [(assoc cloak ::mi/rarity :common)]} 42))
+  (rf/dispatch-sync [::mi/set-character-custom-items 42 [cloak] "kaylee"])
+  (is (= [:common :rare] (map ::mi/rarity @(rf/subscribe [::mi/shared-custom-items])))))

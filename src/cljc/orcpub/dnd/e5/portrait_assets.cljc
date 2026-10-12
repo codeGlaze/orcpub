@@ -1,22 +1,29 @@
 (ns orcpub.dnd.e5.portrait-assets
   "Registry of portrait layer art per contributing artist, the colour model, and the credit.
    Assets are {:asset/id … :asset/url …}, stacked in `layer-order` and tinted per
-   `render-mode`. Attribution resolves each selected asset to its artist through
-   `registry`: see `credit-order` and `credit-line`, shared by every surface.
-   The files in the repo are silhouettes; the real art is never committed.
+   `render-mode`; per-piece data (iris regions, lids, whites, shadows) is merged in from
+   resources/portrait-pack at build time (portrait-calibration). Attribution goes through
+   `registry`: `credit-order`, `credit-line`. The repo's art files are silhouettes.
    Why the code is shaped this way: PORTRAIT-COMPOSITOR.md, PORTRAIT-TINTING.md."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            #?(:clj [orcpub.dnd.e5.portrait-calibration :refer [calibration]]))
+  #?(:cljs (:require-macros [orcpub.dnd.e5.portrait-calibration :refer [calibration]])))
+
+(defn- ascii-lower
+  "Lower case for ASCII names and hosts. On the JVM the default locale decides the folding, and
+   Turkish turns I into a dotless i; these strings are compared with fixed ASCII."
+  [x]
+  #?(:clj (.toLowerCase (str x) java.util.Locale/ROOT) :cljs (s/lower-case x)))
 
 (def layer-order
   "Layer keys in z-order, bottom (0) → top (9). Mirrors the illustrator's
    real folder convention (`layer 0 - hair bits`, `layer 9 - bangs`, …)."
-  [:hair-bits :hair-back :head :scalp :shirt :hair-front :ears :eyes :nose :mouth :bangs])
+  [:hair-bits :hair-back :head :shirt :hair-front :ears :eyes :nose :mouth :bangs])
 
 (def hidden-layers
-  "Layers that render but are not offered in the picker. :scalp is one hair-coloured blob
-   between head and hair that fills the skin gap where some hair-front and bangs pairs do
-   not meet; with one option there is nothing to pick."
-  #{:scalp})
+  "Layers that render but are not offered in the picker. None today; a saved portrait that
+   still names the retired :scalp is read without it (`current-layers`)."
+  #{})
 
 (def pickable-layers
   "The layers a person actually picks from, in z-order."
@@ -26,7 +33,6 @@
   {:hair-bits  "Hair bits"
    :hair-back  "Hair back"
    :head       "Head"
-   :scalp      "Scalp"
    :shirt      "Shirt"
    :hair-front "Hair front"
    :ears       "Ears"
@@ -43,7 +49,6 @@
   {:hair-bits  "#e0a24d"
    :hair-back  "#c88a4a"
    :head       "#f2e6d0"
-   :scalp      "#c88a4a"
    :shirt      "#7a94b8"
    :hair-front "#e6a040"
    :ears       "#eab098"
@@ -61,9 +66,8 @@
 
 (def asset-inventory
   "{layer-key [{:asset/id :asset/label :asset/file}]}: the illustrator's ten layers and
-   twenty-eight pieces under their own filenames, plus the generated :scalp.
-   The files in the repo are silhouettes at the real art's paths;
-   scripts/build-portrait-assets.py overwrites them from the originals."
+   twenty-eight pieces under their own filenames. The files in the repo are silhouettes at
+   the real art's paths; the art pack is unpacked over them at deploy."
   {
    :hair-bits
    [{:asset/id :l0-hair-bits-pony-long
@@ -139,26 +143,19 @@
     {:asset/id :l7-nose-03
      :asset/label "Nose 03"
      :asset/file  "l7_nose_03.png"}]
-   :scalp
-   [{:asset/id :l2b-scalp-01
-     :asset/label "Scalp"
-     :asset/file  "l2b_scalp_01.png"}]
 
    :mouth
-   ;; The three mouths want three different treatments, which is why
-   ;; :asset/slot is on the ASSET and not on the layer. All three are drawn in
-   ;; greys -- max saturation 1 out of 255 -- so "carries its own colour"
-   ;; cannot tell them apart; what differs is what the shape IS.
+   ;; three mouths wanting three treatments (a line, lips, teeth); which is
+   ;; which is set in pieces.edn
    [{:asset/id :l8-mouth-01
      :asset/label "Mouth 01"
-     :asset/file  "l8_mouth_01.png"}          ; a closed line, nothing to colour
+     :asset/file  "l8_mouth_01.png"}
     {:asset/id :l8-mouth-02
      :asset/label "Lips"
-     :asset/file  "l8_mouth_02.png"
-     :asset/slot  :lips}                      ; drawn shaded and hueless
+     :asset/file  "l8_mouth_02.png"}
     {:asset/id :l8-mouth-03
      :asset/label "Smile"
-     :asset/file  "l8_mouth_03.png"}]         ; teeth: they stay white
+     :asset/file  "l8_mouth_03.png"}]
    :bangs
    [{:asset/id :l9-bangs-01
      :asset/label "Bangs 01"
@@ -191,15 +188,35 @@
   []
   (boolean (some (comp seq val) gap-inventory)))
 
+(def piece-calibration
+  "{layer {\"file.png\" {field value}}} from resources/portrait-pack, read at
+   build time (loom.edn under pieces.edn)."
+  (calibration))
+
+(def calibration-fields
+  "What a piece can carry from its calibration, and the asset key it becomes.
+
+   :slot          the colour slot, when it differs from its layer's (lips)
+   :gamma         iris or lip shading
+   :iris :pupil   the placed iris regions and pupil size (from the Loom)
+   :whites        drawn without whites; each iris carries a :lower lid and
+                  the whites are filled between the lids
+   :casts-shadow  hangs over the face, so throws a soft shadow onto the skin
+   :tips-from     hair only: stays in the root colour until this far along
+                  the piece (0..1; 1 = never takes the tip colour)"
+  {:slot :asset/slot :gamma :asset/gamma :iris :asset/iris :pupil :asset/pupil
+   :whites :asset/whites :casts-shadow :asset/casts-shadow :tips-from :asset/tips-from})
+
 (defn- assets-for
   [layer-key entries]
-  (mapv (fn [{:asset/keys [id label file slot gamma]}]
-          (cond-> {:asset/id    id
+  (mapv (fn [{:asset/keys [id label file]}]
+          (let [cal (get-in piece-calibration [layer-key (ascii-lower file)])]
+            (into {:asset/id    id
                    :asset/label label
                    :asset/url   (str asset-root (name layer-key) "/" file)
                    :asset/tags  #{layer-key}}
-            slot  (assoc :asset/slot slot)
-            gamma (assoc :asset/gamma gamma)))
+                  (keep (fn [[k v]] (when-let [ak (calibration-fields k)] (when (some? v) [ak v]))))
+                  cal)))
         entries))
 
 (def house-pack
@@ -299,12 +316,24 @@
                       :when (seq keep-fields)]
                   [id keep-fields]))))
 
+(defn current-overrides
+  "The overrides in force, as set by `set-artist-overrides!`."
+  []
+  @artist-overrides)
+
 (defn artist-info
   "Full `{:artist/id … :artist/name … :artist/link …}` map for an id, with any
    deployment override applied."
   [artist-id]
   (when-let [base (some #(when (= artist-id (:artist/id %)) %) registry)]
     (merge base (get @artist-overrides artist-id))))
+
+(defn- current-layers
+  "A saved selection with only the layers the app still draws. A portrait
+   saved before a layer was retired (the old :scalp) keeps the key, and it
+   must not go on crediting whoever drew it."
+  [layers-selection]
+  (select-keys layers-selection layer-order))
 
 (defn all-artists-for-layers
   "Given the current portrait-layers selection (`{layer-key {:artist/id …
@@ -323,7 +352,7 @@
                       (keep (fn [[layer-key sel]]
                               (or (artist-for-asset layer-key (:asset/id sel))
                                   (:artist/id sel))))
-                        layers-selection)]
+                        (current-layers layers-selection))]
       (into []
             (comp (map :artist/id) (filter in-use?))
             registry))))
@@ -346,8 +375,8 @@
 
 (def layer-credit-weight
   "How much of a portrait each layer is, for credit-order: roughly area and how much the
-   piece defines the character. :scalp is 0 (generated, not drawn); a layer missing from
-   the map counts 1. Why fixed numbers: PORTRAIT-COMPOSITOR.md, \"Who the credit names\"."
+   piece defines the character. A layer missing from the map counts 1.
+   Why fixed numbers: PORTRAIT-COMPOSITOR.md, \"Who the credit names\"."
   {:head 10
    :hair-front 6
    :hair-back 6
@@ -357,8 +386,7 @@
    :hair-bits 3
    :mouth 2
    :nose 1
-   :ears 1
-   :scalp 0})
+   :ears 1})
 
 (defn credit-order
   "Artist maps (artist-info) for the artists on canvas, most of the picture first: by total
@@ -378,7 +406,7 @@
                                              (get layer-credit-weight layer-key 1))
                                   (update-in [id :pieces] (fnil inc 0)))
                               acc)))
-                        {} layers-selection)
+                        {} (current-layers layers-selection))
           registry-rank (into {} (map-indexed (fn [i a] [(:artist/id a) i])) registry)]
       (->> tally
            (keep (fn [[id {:keys [weight pieces]}]]
@@ -415,18 +443,67 @@
        :below []}
       {:left [] :right [] :below links})))
 
-(defn format-credit
-  "The credit string for a list of artist names, or nil for none."
+(defn- and-list
+  "Names as prose: A / A and B / A, B and C."
   [names]
-  (when (seq names)
-    (str "Art: " (s/join ", " names))))
+  (let [names (vec names)
+        n (count names)]
+    (case n
+      0 ""
+      1 (first names)
+      (str (s/join ", " (pop names)) " and " (peek names)))))
+
+(defn- others [n] (str n (if (= 1 n) " other" " others")))
+
+(defn credit-variants
+  "Every way to write the credit for `names` (in credit order), longest first.
+   The same shape as the builder's lockup: whoever drew most of the picture
+   leads, everyone else follows 'with', and when there isn't room the tail
+   collapses into a count rather than being cut off mid-name:
+
+     Art: Fusspot with Bex, Cy and Dee
+     Art: Fusspot with Bex, Cy and 1 other
+     Art: Fusspot with Bex and 2 others
+     Art: Fusspot and 3 others
+
+   Every surface that has to fit the credit somewhere takes the first variant
+   that fits (`fit-credit`), so a share card, a PDF and a page all drop the
+   same people in the same order -- the smallest contributors, last."
+  [names]
+  (let [[lead & more] names
+        n (count more)]
+    (cond
+      (nil? lead) []
+      (zero? n) [(str "Art: " lead)]
+      :else (concat [(str "Art: " lead " with " (and-list more))]
+                    (for [k (range (dec n) 0 -1)]
+                      (str "Art: " lead " with " (s/join ", " (take k more)) " and " (others (- n k))))
+                    [(str "Art: " lead " and " (others n))]))))
+
+(defn fit-credit
+  "The longest variant of the credit that `fits?`, else the shortest."
+  [names fits?]
+  (let [vs (credit-variants names)]
+    (or (first (filter fits? vs)) (last vs))))
+
+(defn format-credit
+  "The credit string for a list of artist names, or nil for none: the full
+   variant, for surfaces with room for it."
+  [names]
+  (first (credit-variants names)))
+
+(defn credit-names
+  "The named artists on canvas, in credit order."
+  [portrait]
+  (into [] (keep :artist/name) (artists-for-layers (:layers portrait))))
 
 (defn credit-line
   "\"Art: A, B\" for a composed portrait's named artists in credit order, or nil when none
    is named. Artists without :artist/name are skipped, never given a byline. Shared by the
-   PDF export, the share card and the character summary."
+   PDF export, the share card and the character summary; surfaces with a width to fit use
+   `credit-names` and layout/fit-credit."
   [portrait]
-  (format-credit (into [] (keep :artist/name) (artists-for-layers (:layers portrait)))))
+  (format-credit (credit-names portrait)))
 
 ;; ---------- pure helpers for seeded randomization ----------
 ;;
@@ -513,8 +590,6 @@
    :hair-front :hair
    :bangs      :hair
    :head       :skin
-   ;; the scalp is hair, not skin -- that is the entire point of it
-   :scalp      :hair
    :ears       :skin
    :nose       :skin
    :eyes       :eyes
@@ -522,18 +597,18 @@
    :mouth      nil})
 
 (def color-slot-order
-  "Slot order in the picker. `:lips` is last because it only applies to some
-   mouth assets; `slot-in-use?` decides whether to show it."
-  [:hair :skin :eyes :shirt :lips])
+  "Slot order in the picker. `:whites` and `:lips` only apply to some assets;
+   `slot-in-use?` decides whether to show them."
+  [:hair :skin :eyes :whites :shirt :lips])
 
 (def color-slot-labels
-  {:hair "Hair" :skin "Skin" :eyes "Eyes" :shirt "Shirt" :lips "Lips"})
+  {:hair "Hair" :skin "Skin" :eyes "Eyes" :whites "Whites" :shirt "Shirt" :lips "Lips"})
 
 (def conditional-slots
   "Slots that only apply when an asset asks for them, rather than to a whole
    layer. Showing a Lips swatch against a closed-mouth asset would be a control
    that does nothing."
-  #{:lips})
+  #{:lips :whites})
 
 (def color-presets
   "One-tap starting points per slot; a native picker covers the rest."
@@ -544,13 +619,35 @@
    ;; bare through berry, then plum and coral. These read as lips rather than
    ;; as a stripe of paint because the art supplies the shading and only the
    ;; hue comes from here.
-   :lips  ["#c98d82" "#c46a6a" "#b04a5a" "#9b3c55" "#6e334e" "#d87a5c" "#a85c4a" "#7a4442"]})
+   :lips  ["#c98d82" "#c46a6a" "#b04a5a" "#9b3c55" "#6e334e" "#d87a5c" "#a85c4a" "#7a4442"]
+   ;; white, then the everyday off-whites, then the fantastic ones: the
+   ;; all-black and red of a fiend or an undead
+   :whites ["#ffffff" "#f4efe4" "#e6e2d8" "#dfe6ee" "#efe3c2" "#f0d4cf" "#2a2a2e" "#a8322c"]})
 
 (def default-slot-colors
-  "What a slot renders as before anyone picks. Only :lips has one: the other
-   slots fall back to their layer's category tint, but a lipped mouth with no
-   lip colour would render in greys, which is the bug this slot exists to fix."
-  {:lips "#c98d82"})
+  "What a slot renders as before anyone picks. Without one, each layer fell
+   back to its own category tint, so a slot's pieces disagreed: a pale head
+   with a pink ear and a clay-red nose, and five hair pieces in five ambers.
+   Every slot whose pieces must match has a default. A lipped mouth with no
+   lip colour would render in greys."
+  {:skin "#f2ddc4"
+   :hair "#a06430"
+   :lips "#c98d82"
+   ;; only for an eye style drawn without painted whites (:asset/whites), where
+   ;; the whites are filled in underneath it; white unless someone picks
+   :whites "#ffffff"})
+
+(def no-whites
+  "Stored as the Whites colour to leave an eye style's whites unfilled: the
+   art as drawn, with the skin showing through."
+  "none")
+
+(defn whites-colour
+  "What an eye style's filled-in whites are drawn in, or nil when the
+   portrait leaves them unfilled."
+  [portrait]
+  (let [c (or (get-in portrait [:colors :whites]) (default-slot-colors :whites))]
+    (when-not (= c no-whites) c)))
 
 (defn selected-asset
   "The asset a portrait has chosen for `layer-key`, or nil."
@@ -580,7 +677,10 @@
     (boolean
      (some (fn [layer-key]
              (when-let [asset-id (:asset/id (get-in portrait [:layers layer-key]))]
-               (= slot (:asset/slot (asset-by-id layer-key asset-id)))))
+               (let [asset (asset-by-id layer-key asset-id)]
+                 (or (= slot (:asset/slot asset))
+                     ;; an eye style whose whites are filled in, not painted
+                     (and (= slot :whites) (:asset/whites asset))))))
            layer-order))))
 
 (defn active-color-slots
@@ -658,6 +758,36 @@
   (or (:asset/gamma asset)
       (if (= :lips (slot-for-asset layer-key asset)) 2.2 0.5)))
 
+(def eyes-01-far-iris-alternative
+  "A second placement for the far (right-hand) iris of Eyes 01, to live with
+   before deciding. The registry above carries the illustrator's own; this is
+   an edit that sits a little further left. Developer mode can switch the
+   builder and the PDF to it (orcpub.dnd.e5.portrait); the share card and
+   every other visitor always get the registry's."
+  {:asset-id :l6-eyes-01 :iris-index 1 :cx 0.72 :cy 0.36102})
+
+(defn with-iris-alternative
+  "`asset` with the alternative far iris swapped in, if it is Eyes 01."
+  [asset]
+  (let [{:keys [asset-id iris-index cx cy]} eyes-01-far-iris-alternative]
+    (if (and (= asset-id (:asset/id asset)) (< iris-index (count (:asset/iris asset))))
+      (update-in asset [:asset/iris iris-index] assoc :cx cx :cy cy)
+      asset)))
+
+(def depth-steps
+  "How far the Brightness slider on a colorized piece goes each way."
+  3)
+
+(defn effective-gamma
+  "The gamma a :colorize piece is actually drawn with: the settled value from
+   `tint-gamma`, moved by the piece's Brightness tweak. Each step up lifts the
+   colour (a lower gamma raises the midtones), each step down deepens it; 0 is
+   exactly the settled look. Junk in a stored tweak reads as 0."
+  [portrait layer-key asset]
+  (let [depth (get-in portrait [:tweaks layer-key :depth])
+        depth (if (number? depth) (max (- depth-steps) (min depth-steps depth)) 0)]
+    (* (tint-gamma layer-key asset) (Math/pow 1.25 (- depth)))))
+
 (defn tint-for
   "Effective render color for a layer: per-piece override → shaded base →
    base."
@@ -674,6 +804,8 @@
    slot chip."
   [portrait slot]
   (filterv (fn [k]
-             (let [{:keys [override shade]} (get-in portrait [:tweaks k])]
-               (boolean (or override (and shade (not (zero? shade)))))))
+             (let [{:keys [override shade depth]} (get-in portrait [:tweaks k])]
+               (boolean (or override
+                            (and (number? shade) (not (zero? shade)))
+                            (and (number? depth) (not (zero? depth)))))))
            (layers-in-slot slot)))

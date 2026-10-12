@@ -31,22 +31,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'whats-new-'));
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -75,7 +63,6 @@ async function newPage(browser, errors, { cookieBanner = false } = {}) {
 }
 
 const visible = page => page.locator('.whats-new-panel').isVisible().catch(() => false);
-
 
 (async () => {
   if (!RELEASE_ID || !RELEASE_TITLE || HEADLINES.length === 0) {

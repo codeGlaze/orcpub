@@ -1,3 +1,4 @@
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // Screenshot the builder for review. A UI change reviewed only through timing numbers is
 // half-reviewed -- take these before asking anyone to look at a visual change.
 //
@@ -11,14 +12,8 @@
 // search box) and 3-truncation.png (if a list is capped).
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-  return path.join(b, d, 'chrome-linux', 'chrome');
-}
 
 (async () => {
   const PACK = process.argv[2];

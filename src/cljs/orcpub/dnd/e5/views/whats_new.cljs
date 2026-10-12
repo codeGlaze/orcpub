@@ -24,9 +24,11 @@
      [:div
       [:div.whats-new-eyebrow "What's New"]
       [:div.whats-new-title title]]
-     [:i.fa.fa-times.whats-new-close
+     [:button.fa.fa-times.whats-new-close
       {:on-click close
-       :title "Close"}]]
+       :type "button"
+       :title "Close"
+       :aria-label "Close"}]]
     (when subtitle
       [:div.whats-new-subtitle subtitle])]
 

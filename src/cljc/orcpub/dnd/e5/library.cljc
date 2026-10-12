@@ -45,12 +45,12 @@
           {} (content-groups plugins)))
 
 (defn broken-links
-  "Links in `new` that name an item `old` held and `new` does not, as
+  "Links in `after` that name an item `before` held and `after` does not, as
    [{:source :type :key :name :target :target-type}]. Links to a [type key] in `retargeting` are
    being moved elsewhere and are not counted."
-  [old new retargeting]
-  (let [was (held old) now (held new)]
-    (for [[src ct items] (content-groups new)
+  [before after retargeting]
+  (let [was (held before) now (held after)]
+    (for [[src ct items] (content-groups after)
           [k item] items
           :when (map? item)
           link links/links
@@ -63,13 +63,13 @@
       {:source src :type ct :key k :name (:name item) :target target :target-type to})))
 
 (defn- invalid-keys
-  "[source type key] of every item `new` stores under a key the loader would set aside, that
-   `old` did not already hold there."
-  [old new]
-  (for [[src ct items] (content-groups new)
+  "[source type key] of every item `after` stores under a key the loader would set aside, that
+   `before` did not already hold there."
+  [before after]
+  (for [[src ct items] (content-groups after)
         k (keys items)
         :when (and (not (common/keyword-starts-with-letter? k))
-                   (not (contains? (get-in old [src ct]) k)))]
+                   (not (contains? (get-in before [src ct]) k)))]
     [src ct k]))
 
 (def ^:private built-in-names
@@ -77,15 +77,15 @@
   {:orcpub.dnd.e5/languages (into #{} (map :name) langs/languages)})
 
 (defn- follow-renamed-names
-  "`new` with each `:by :name` link naming an item `old` knew by another name renamed to match,
-   when nothing in `new` or built-in content still answers to the old name."
-  [old new]
+  "`after` with each `:by :name` link naming an item `before` knew by another name renamed to match,
+   when nothing in `after` or built-in content still answers to the old name."
+  [before after]
   (let [names (reduce (fn [acc [_ ct items]]
                         (update acc ct (fnil into #{}) (keep :name) (filter map? (vals items))))
-                      built-in-names (content-groups new))
-        renames (for [[src ct items] (content-groups new)
+                      built-in-names (content-groups after))
+        renames (for [[src ct items] (content-groups after)
                       [k item] items
-                      :let [was (get-in old [src ct k :name])]
+                      :let [was (get-in before [src ct k :name])]
                       :when (and (string? was) (string? (:name item)) (not= was (:name item))
                                  (not (contains? (get names ct) was)))]
                   [ct was (:name item)])
@@ -100,27 +100,27 @@
                                                                   item name-links)))
                                              {} items)))
                       p (content-groups p)))
-            new renames)))
+            after renames)))
 
 (defn commit
-  "What storing `new` in place of `old` does: {:plugins (normalize new) :broken [...]}, or
+  "What storing `after` in place of `before` does: {:plugins (normalize after) :broken [...]}, or
    {:refused {:broken [...] :invalid [...]}} when it would add a key the loader sets aside or
    leave a link pointing at nothing. `deleting?` lets a deliberate removal through and reports
    the links it broke; `retargeting` is a collection of [type key] whose links are being moved;
    `restoring?` lets keys the loader sets aside through (it sets them aside again)."
-  [old new {:keys [deleting? retargeting restoring?]}]
-  (let [stored (follow-renamed-names old (normalize new))
-        broken (vec (broken-links old stored (set retargeting)))
-        invalid (if restoring? [] (vec (invalid-keys old stored)))]
+  [before after {:keys [deleting? retargeting restoring?]}]
+  (let [stored (follow-renamed-names before (normalize after))
+        broken (vec (broken-links before stored (set retargeting)))
+        invalid (if restoring? [] (vec (invalid-keys before stored)))]
     (if (or (seq invalid) (and (seq broken) (not deleting?)))
       {:refused {:broken broken :invalid invalid}}
       {:plugins stored :broken broken})))
 
 (defn overwritten
-  "Items `old` and `new` both hold at the same source, type and key, whose content differs, as
-   [{:source :type :key :name}]. The name is the one `new` gives it."
-  [old new]
-  (let [o (normalize old) n (normalize new)]
+  "Items `before` and `after` both hold at the same source, type and key, whose content differs, as
+   [{:source :type :key :name}]. The name is the one `after` gives it."
+  [before after]
+  (let [o (normalize before) n (normalize after)]
     (for [[src ct items] (content-groups n)
           [k item] items
           :let [was (get-in o [src ct k])]
@@ -354,13 +354,13 @@
   "Picks in `character`'s options, under a choice tagged with one of `tags` (per `choice-tags`),
    that `offered` lacks, as [{:key :selection :tag}]. Skips entries carrying their own
    `::entity/value`."
-  [character offered choice-tags tags]
+  [character offered tags-by-selection tags]
   (letfn [(walk [opts]
             (for [[sel v] opts
                   e (if (sequential? v) v [v])
                   :when (map? e)
                   x (cons (let [k (::entity/key e)
-                                tag (some tags (get choice-tags sel))]
+                                tag (some tags (get tags-by-selection sel))]
                             (when (and tag (keyword? k)
                                        (not (contains? e ::entity/value))
                                        (not (offers? offered k)))

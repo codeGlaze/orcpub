@@ -49,10 +49,20 @@ Two things were tried and rejected:
 - **Runtime iris detection.** Fragile on stylised art, and it has to run on
   every render for a fact that never changes.
 
-What ships instead: the iris region is **authored once per asset** and stored in
-the registry -- an ellipse, a pupil radius, a pupil offset, and a lid curve per
-eye -- and the renderer maps the drawing's own luminance through the chosen
-colour inside it. Dark stays dark, mid becomes the colour, the highlight stays a
+What ships instead: the iris region is **authored once per asset** in the Loom
+and stored in the registry as `:asset/iris` / `:asset/pupil` on each eye style
+(`portrait_assets.cljc`) -- an ellipse, a pupil radius, a pupil offset, and a lid
+curve per eye -- and the renderer maps the drawing's own luminance through the
+chosen colour inside it.
+
+All three renderers do this, from one module, `portrait_colorize.cljc`: the maths
+and the region geometry live there, and only the pixel loop and the drawing of
+the region are per renderer. The share card fills the region with Java2D; the
+builder's drawer and the PDF bake fill it on a canvas, and the drawer shows those
+layers as `<canvas>` elements with `object-fit: contain`, since CSS can't map
+luminance through a colour. The lips use the same function over the whole asset.
+An eye style with no placed region is multiplied instead, because colouring the
+whole asset would paint the whites and the lashes too. Dark stays dark, mid becomes the colour, the highlight stays a
 highlight. It is opaque where the drawing is opaque.
 
 The region is rasterised **antialiased** (`Graphics2D.fill` with
@@ -113,6 +123,82 @@ iris is a few dozen pixels and a muted hue does not read as a colour at all.
 Per-slot boosts over the first presets were eyes x1.45 saturation / x1.22 value,
 shirt x1.22 / x1.08, hair x1.18 / x1.06, skin x1.06 / x1.02 -- skin barely
 moves, because skin is the slot where a boost reads as sunburn.
+
+## Hair streaks follow the drawn strands
+
+The ombré's Streaks setting moves where the tip colour starts, strand by
+strand. It was first a wave of horizontal position only, so every streak was
+a vertical stripe. On long straight hair that passed, but on the short cut,
+which is swept and curled all over, it read as paint on glass.
+
+**Reversal:** streaks are no longer a function of x alone. `strand-field` in
+`portrait_effects.cljc` reads the strand direction from the linework (the
+smoothed structure tensor of the ink; the lines run along the strands). It
+points that direction away from the crown and falls back to "outward from the
+crown" where nothing is drawn. It then averages noise along that direction
+(line integral convolution).
+
+- **Cost:** about 200ms per piece on the JVM at 1200x1500, on a 4px grid.
+  Nearly all of the first 400ms was a box blur whose local helper fns boxed
+  every value; plain index arithmetic halved it.
+- **Worked out once, ahead of time:** the field depends only on the art, not
+  on the head or the colours. It is computed in the art's own pixels, with
+  the crown taken from the piece itself, and written beside the art by
+  `orcpub.portrait-pack.strands` (see PORTRAIT-PACK.md). The share card maps
+  its frame pixels back through the art's placement, so all three renderers
+  read the same field. Without the file, a renderer computes the field once
+  and keeps it.
+- **Identical renderers:** the noise hash is 32-bit integer maths
+  (`Math.imul` in JS, `unchecked-multiply-int` on the JVM). A test pins its
+  values, so every renderer streaks the same way.
+- **Bug to avoid:** a direction field has no sign, so each step of the walk
+  keeps the heading of the last *field* direction, not the last *motion*.
+  Comparing against motion flipped the backward walk at every step, and the
+  smear went back and forth on the spot. That produced blotches, not streaks.
+
+## Eye and skin effects, hair shine and split
+
+All in shared cljc (`portrait_face.cljc` for eyes and skin, `portrait_effects.cljc`
+for hair), so the share card, the builder and the PDF draw them identically.
+
+- **Light from below (always on):** the lower part of each iris is lifted in
+  its own colour, the way light comes through a real iris. No catchlight is
+  added: the art already draws one beside the pupil, and a second highlight
+  read as salt on the real art, however it was shaped.
+- **Second eye colour** goes to the eye on the right of the picture.
+- **Snake and goat pupils** are painted over the drawn round pupil, in the
+  iris's own middle tone, then the slit or bar on top. They are placed in
+  SCREEN space: several eyes were placed in the Loom with the oval turned
+  90 degrees, and a slit that followed the oval's rotation came out sideways.
+- **Blush and freckles** are multiplied onto skin that shows, the same mask as
+  the cast shadows, and placed from the eye placements, so no piece needs a
+  cheek or a nose marked. They share the skin overlay with the shadows.
+- **Shine:** one clean ring across each crown piece (front hair, bangs),
+  measured along that piece's own crown line, crisp edged, in the hair's own
+  hue lifted toward white, on the fill only with the paper grain flattened.
+  Two attempts were rejected on the real art: a band broken along the strand
+  field read as salt drying on cloth, and one ellipse across the whole head
+  arched over every piece like a halo. Each piece takes its own ring.
+  The ring sits the same depth below every piece's top, set by the Shine at
+  slider (default 0.3, chosen on the purple short cut). It used to sit 22% of
+  each piece's own length down, which put a long piece's ring by the ear and
+  well below the fringe's.
+- **Split:** the tips colour on one side of a line down through the crown.
+  The line and its wobble are measured on the frame, the same for every
+  piece. Each piece's own measure put the line somewhere different on each
+  piece, and the hair behind the bangs showed a wedge of the other colour.
+  Angle mode had the same fault and is now measured from the crown too. A
+  split or an angle ignores the bangs' hold-the-root-colour choice.
+
+**Cost bug:** blush and freckles first took 105s per share card. The skin masks
+were untyped locals, so every pixel read in the overlay loop went through
+reflection. With type hints the effects cost nothing measurable (3.4s, the
+same as without them).
+
+**Art bug, ours:** a scratch copy of the art had every enclosed gap in the hair
+filled white, from a test during the scalp work. Bangs 03 has two arcs that
+touch at the tip; filling the gap between them drew a jagged sliver over the
+face. Mock-ups must be rendered from the artist's pack as delivered.
 
 ## The tests
 

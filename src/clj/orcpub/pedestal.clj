@@ -11,7 +11,8 @@
             [orcpub.config :as config]
             [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           [java.util Locale]))
 
 (defn test?
   [service-map]
@@ -37,7 +38,9 @@
   nil)
 
 (def rfc822-formatter
-  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z"))
+  ;; Locale/ENGLISH: HTTP dates are English (RFC 7231), and without it a non-English JVM
+  ;; cannot parse "Mon" and parse-date throws. docs/kb/locale-safety.md.
+  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z" Locale/ENGLISH))
 
 (defn parse-date [date content-length]
   (when date
@@ -49,10 +52,10 @@
 
 (defn make-nonce-interceptor
   "Creates an interceptor that sets per-request CSP nonces when CSP_POLICY=strict and
-   `dev-mode?` is false: :enter stores a nonce at [:request :csp-nonce], and :leave adds an
-   enforcing Content-Security-Policy header built with it.
-   In dev mode it is a no-op and Pedestal 0.7's default CSP stays active, so Figwheel's inline
-   scripts do not flood the console with Report-Only violations."
+   `dev-mode?` is false (the default): :enter stores a nonce at [:request :csp-nonce], :leave
+   adds an enforcing Content-Security-Policy header. In dev mode it does nothing, and strict
+   disables Pedestal's own CSP, so dev sends no CSP at all (what Figwheel needs). There is no
+   Report-Only mode."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor
@@ -64,6 +67,9 @@
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
                          (csp/build-csp-header nonce
+                           ;; Always false here, and not a mistake: :enter only
+                           ;; makes a nonce when dev-mode? is false, so this
+                           ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
                            :extra-frame-src (:frame-src integrations/csp-domains)))
@@ -95,7 +101,13 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+              ;; Return the context. Without it the catch yields log/error's
+              ;; value, discarding the response: the client gets 200 with an
+              ;; empty body and no headers, and nothing reports a problem.
+              (catch Throwable t
+                (log/error :msg "ETag interceptor error" :exception t)
+                context)))}))
+
 (defn- arm-boot-report!
   "Print the boot banner when Jetty reports itself started.
 

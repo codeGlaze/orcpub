@@ -33,9 +33,47 @@
 
 (deftest formats-one-credit-for-the-artists-named
   (is (= "Art: A Person" (pa/format-credit ["A Person"])))
-  (is (= "Art: A Person, B Person" (pa/format-credit ["A Person" "B Person"])))
+  (is (= "Art: A Person with B Person" (pa/format-credit ["A Person" "B Person"])))
+  (is (= "Art: A with B, C and D" (pa/format-credit ["A" "B" "C" "D"]))
+      "whoever drew most leads and the rest follow, like the builder's lockup")
   (testing "one artist across many layers is one credit, not many"
     (is (= 1 (count (re-seq #"Art:" (pa/format-credit ["A Person"])))))))
+
+(deftest the-tail-collapses-into-a-count-not-a-cut
+  (is (= ["Art: Fusspot with Bex, Cy and Dee"
+          "Art: Fusspot with Bex, Cy and 1 other"
+          "Art: Fusspot with Bex and 2 others"
+          "Art: Fusspot and 3 others"]
+         (pa/credit-variants ["Fusspot" "Bex" "Cy" "Dee"])))
+  (is (= ["Art: Fusspot with Bex" "Art: Fusspot and 1 other"] (pa/credit-variants ["Fusspot" "Bex"])))
+  (is (= ["Art: Fusspot"] (pa/credit-variants ["Fusspot"])))
+  (is (= [] (pa/credit-variants [])))
+  (testing "fit-credit takes the longest that fits, else the shortest"
+    (is (= "Art: Fusspot with Bex and 2 others"
+           (pa/fit-credit ["Fusspot" "Bex" "Cyrano" "Dee"] #(<= (count %) 35))))
+    (is (= "Art: Fusspot and 3 others" (pa/fit-credit ["Fusspot" "Bex" "Cy" "Dee"] (constantly false))))))
+
+(def five-long-names
+  ["Fusspot the Magnificent" "Bexley Wintergreen" "Cyrano Delacroix" "Dee Ashworth-Valentine" "Esme Nightingale"])
+
+(deftest five-artists-fit-the-share-card
+  (testing "measured with the real face, the burned credit stays inside the frame
+            and clear of the site mark -- it used to run 609px in a 600px image"
+    (let [img (java.awt.image.BufferedImage. 600 600 java.awt.image.BufferedImage/TYPE_INT_ARGB)
+          g (.createGraphics img)
+          face @#'pr/face
+          measure (fn [text size] (.stringWidth (.getFontMetrics g (face pr/credit-face size)) ^String text))
+          {:keys [text size]} (orcpub.dnd.e5.portrait-layout/fit-credit
+                               (pa/credit-variants five-long-names) 600 600 measure)]
+      (is (<= (measure text size) (orcpub.dnd.e5.portrait-layout/credit-max-width 600 600)))
+      (is (clojure.string/starts-with? text "Art: Fusspot the Magnificent") "the lead is never dropped")
+      (is (re-find #"other" text) "the rest are counted, not silently cut")
+      (.dispose g))))
+
+(deftest the-pdf-metadata-drops-whole-names
+  (let [fitted (pa/fit-credit five-long-names #(<= (count %) 78))]
+    (is (<= (count fitted) 78))
+    (is (= fitted (routes/pdf-safe-text fitted)) "short enough that the server never has to cut it with ...")))
 
 (deftest the-illustrator-is-credited
   (testing "Fusspot drew this art and every surface says so"
@@ -316,3 +354,70 @@
     (testing "and the decode is what decides: undecodable bytes yield nothing"
       (is (nil? (pdf/decode-artwork-bytes "!!!not base64!!!")))
       (is (nil? (pdf/decode-artwork-bytes nil))))))
+
+;; ---------- irises and lips ----------
+
+(deftest an-eye-style-without-a-placed-region-is-not-colorized
+  (let [eyes (first (pa/assets-for-layer :eyes))]
+    (is (pr/colorizes? :eyes eyes))
+    (is (not (pr/colorizes? :eyes (dissoc eyes :asset/iris)))
+        "colouring the whole asset would paint the whites and the lashes too")))
+
+(defn- grey-png-uri
+  "A data: URI for a flat grey square -- a stand-in iris drawn near-black,
+   which is how the real art draws them."
+  [n grey]
+  (let [img (java.awt.image.BufferedImage. n n java.awt.image.BufferedImage/TYPE_INT_ARGB)
+        g (.createGraphics img)
+        out (java.io.ByteArrayOutputStream.)]
+    (.setColor g (java.awt.Color. (int grey) (int grey) (int grey)))
+    (.fillRect g 0 0 n n)
+    (.dispose g)
+    (ImageIO/write img "png" out)
+    (str "data:image/png;base64," (.encodeToString (java.util.Base64/getEncoder) (.toByteArray out)))))
+
+(deftest the-share-card-paints-the-iris-inside-its-region
+  (let [eyes (assoc (first (pa/assets-for-layer :eyes))
+                    :asset/url (grey-png-uri 200 40)
+                    :asset/pupil 0.2
+                    :asset/iris [{:cx 0.5 :cy 0.5 :rx 0.2 :ry 0.2 :rot 0.0}])
+        p {:layers {:eyes {:asset/id (:asset/id eyes)}} :colors {:eyes "#1e90ff"}}
+        img (with-redefs [pa/asset-by-id (fn [_ _] eyes)]
+              (ImageIO/read (ByteArrayInputStream. (pr/render-png p 400 400))))
+        rgb (fn [x y] (let [argb (.getRGB img x y)]
+                        [(bit-and (unsigned-bit-shift-right argb 16) 0xff)
+                         (bit-and (unsigned-bit-shift-right argb 8) 0xff)
+                         (bit-and argb 0xff)]))
+        [r _ b] (rgb 245 200)       ; inside the iris, clear of the pupil
+        [cr cg cb] (rgb 110 110)]   ; the square's corner, outside the region
+    (testing "inside the region the dark ink is lifted into the colour --
+              multiply would have left it near-black"
+      (is (> b 100) (str "blue " b))
+      (is (> (- b r) 60)))
+    (testing "outside it the drawing is untouched -- multiply would have tinted it"
+      (is (= [40 40 40] [cr cg cb])))))
+
+(deftest the-share-card-fills-the-whites-under-the-eye
+  (let [;; a see-through square with a dark iris dot in the middle: an eye
+        ;; style drawn without its whites
+        n 200
+        img (java.awt.image.BufferedImage. n n java.awt.image.BufferedImage/TYPE_INT_ARGB)
+        _ (doto (.createGraphics img) (.setColor (java.awt.Color. 20 20 20)) (.fillOval 90 90 20 20) (.dispose))
+        out (java.io.ByteArrayOutputStream.)
+        _ (ImageIO/write img "png" out)
+        eyes (assoc (first (pa/assets-for-layer :eyes))
+                    :asset/url (str "data:image/png;base64," (.encodeToString (java.util.Base64/getEncoder) (.toByteArray out)))
+                    :asset/whites true
+                    :asset/iris [{:cx 0.5 :cy 0.5 :rx 0.05 :ry 0.05 :rot 0.0
+                                  :lid {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.3 :x1 0.7 :y1 0.5}
+                                  :lower {:x0 0.3 :y0 0.5 :mx 0.5 :my 0.7 :x1 0.7 :y1 0.5}}])
+        render (fn [colors]
+                 (with-redefs [pa/asset-by-id (fn [_ _] eyes)]
+                   (ImageIO/read (ByteArrayInputStream. (pr/render-png {:layers {:eyes {:asset/id (:asset/id eyes)}} :colors colors} 400 400)))))
+        rgb (fn [^java.awt.image.BufferedImage i x y] (let [v (.getRGB i x y)] [(bit-and (bit-shift-right v 16) 0xff) (bit-and (bit-shift-right v 8) 0xff) (bit-and v 0xff) (bit-and (unsigned-bit-shift-right v 24) 0xff)]))
+        white (render {:eyes "#3a7bd5"})
+        fiend (render {:eyes "#3a7bd5" :whites "#a8322c"})]
+    (is (= [255 255 255 255] (rgb white 160 200)) "between the lids, beside the iris: white by default")
+    (is (= [168 50 44 255] (rgb fiend 160 200)) "or the colour picked")
+    (is (zero? (nth (rgb white 200 60) 3)) "outside the lids nothing is filled")
+    (is (> 60 (first (rgb white 200 200))) "and the iris is drawn over the whites, not under them")))

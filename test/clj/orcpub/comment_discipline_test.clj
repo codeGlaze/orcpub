@@ -110,7 +110,7 @@
     0))
 
 (defn- history [text]
-  (some-> (re-find history-phrase (str/replace text benign-phrase "")) first str/lower-case))
+  (some-> (re-find history-phrase (str/replace text benign-phrase "")) first (.toLowerCase java.util.Locale/ROOT)))
 
 (defn hits-in
   "Hits in source text `src` of file `file`, each {:file :signal :text :hash :line}. `:signal` is

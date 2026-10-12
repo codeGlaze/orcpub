@@ -1,5 +1,6 @@
 (ns orcpub.db.schema
-  (:require [orcpub.modifiers :as mod]
+  (:require [datomic.api :as d]
+            [orcpub.modifiers :as mod]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.units :as units5e]
@@ -147,6 +148,12 @@
    {:db/ident :orcpub.user/password-reset
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
+   ;; When the account holder last signed every session out. Separate from
+   ;; password-reset because signing out everywhere must not require changing
+   ;; the password, and the withdrawal register takes the LATER of the two.
+   {:db/ident :orcpub.user/sessions-withdrawn
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -164,7 +171,41 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/last-login
     :db/valueType :db.type/instant
-    :db/cardinality :db.cardinality/one}])
+    :db/cardinality :db.cardinality/one}
+   ;; When set, a password-reset link stays valid until this moment instead
+   ;; of the usual 24 hours. Used by the artist welcome email, which may sit
+   ;; unread for days; ordinary resets never set it.
+   {:db/ident :orcpub.user/password-reset-expires
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; What the person would like to be called in emails. Stored ENCRYPTED
+   ;; (orcpub.crypto): a stolen database or backup shows ciphertext. Encrypted
+   ;; from the first write because Datomic keeps every past value in its
+   ;; history, so a name written in plain text even once would stay readable.
+   {:db/ident :orcpub.user/preferred-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; The portrait artist this account speaks for, as the registry's
+   ;; :artist/id. Set only by the server from deployment config
+   ;; (orcpub.artist-accounts), never by the account holder.
+   {:db/ident :orcpub.user/artist
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The artist's own edits to how they are credited -- name, primary link,
+   ;; link icons -- as an EDN map. Public by nature, so not encrypted.
+   {:db/ident :orcpub.user/artist-credit
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; One per artist account the SERVER created, keyed "artist-id email".
+   ;; Unique, so when several app containers start at once and all see no
+   ;; account yet, only the first one's creation commits; the rest fail on
+   ;; this and skip, and the artist gets one account and one email.
+   ;; (Account emails themselves are not unique in this schema.)
+   {:db/ident :orcpub.artist-provision/key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/value}])
 
 (def entity-schema
   [{:db/ident ::se/key
@@ -329,7 +370,19 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::party5e/character-ids
     :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many}])
+    :db/cardinality :db.cardinality/many}
+   ;; The share token a character was added with, when it came from a share link, so the party page
+   ;; can load that character's homebrew.
+   {:db/ident ::party5e/shared-tokens
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
+   {:db/ident :orcpub.party-share/character
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.party-share/token
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
 
 (def folder-schema
   [{:db/ident ::folder5e/owner
@@ -410,8 +463,55 @@
      ::weapon5e/reach?
      ::weapon5e/ammunition?])))
 
+(def db-functions
+  "Transaction functions installed with the schema.
+
+   retract-if-equal retracts [e a v] only if the attribute still holds v, and
+   otherwise fails the transaction. Datomic's built-in :db/cas cannot set a
+   value to nothing, so this is the guarded REMOVAL to go with it: when two
+   app containers race to unlink an artist account, one commits and the other
+   fails, instead of both succeeding and both emailing."
+  [{:db/ident :orcpub.fn/retract-if-equal
+    :db/fn (d/function
+            '{:lang :clojure
+              :params [db e a v]
+              :code (if (= v (get (datomic.api/entity db e) a))
+                      [[:db/retract e a v]]
+                      (throw (ex-info "cas failed: value changed" {:e e :a a})))})}])
+(def share-schema
+  "Shared homebrew, see orcpub.routes.share: one record per character, holding the homebrew its owner
+   last shared, compressed, and the token a share link must carry to load it."
+  [{:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share/token :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/digest :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.share/bundle :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   ;; A share that expired unused, kept as its character and the date so the owner's page can say so; see
+   ;; orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share-expiry/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share-expiry/on :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
+(def heartbeat-schema
+  "When the server was running, see orcpub.heartbeat: the last beat, on the entity :orcpub.heartbeat/clock,
+   and each gap between beats long enough to mean the server was off."
+  [{:db/ident :orcpub.heartbeat/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
 (def all-schemas
   (concat
+   db-functions
    user-schema
    entity-schema
    entity-type-schema
@@ -421,4 +521,6 @@
    party-schema
    folder-schema
    magic-item-schema
-   weapon-schema))
+   weapon-schema
+   share-schema
+   heartbeat-schema))
