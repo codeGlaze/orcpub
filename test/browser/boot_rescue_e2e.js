@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Does the boot-shell rescue survive a broken view? Drives the REAL server on
 // :8890 and breaks the app in the ways it actually breaks — bundle missing,
 // bundle throwing on init, a component throwing after a clean mount — checking
@@ -8,6 +9,7 @@
 // and a visitor with no homebrew must never see it. Without those, a control
 // that is simply always on would pass everything above.
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
@@ -29,7 +31,6 @@ async function seeded(browser, { breakage } = {}) {
     try {
       localStorage.setItem('plugins', v);
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
     } catch (e) {}
   }, PLUGINS);
   const page = await ctx.newPage();
@@ -47,7 +48,7 @@ const visible = page => page.evaluate(() => {
 });
 
 // The whole point: not just "a button is there" but "the bytes come back out".
-async function rescues(page, label) {
+async function rescues(page, label, expected = PLUGINS) {
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 15000 }),
     page.click('#boot-rescue-btn'),
@@ -55,11 +56,11 @@ async function rescues(page, label) {
   const f = path.join(OUT, label + '.orcbrew');
   await dl.saveAs(f);
   const got = fs.readFileSync(f, 'utf8');
-  return { name: dl.suggestedFilename(), intact: got === PLUGINS, bytes: got.length };
+  return { name: dl.suggestedFilename(), intact: got === expected, bytes: got.length };
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ executablePath: findChrome() });
 
   // ---- 1. bundle never arrives (bad deploy / CDN failure) -----------------
   {
@@ -120,6 +121,10 @@ async function rescues(page, label) {
     const cleared = await visible(page);
     check('clean render -> control cleared', cleared.display === 'none', JSON.stringify(cleared));
 
+    // The app has loaded the library by now and may have tidied it (a missing :key filled in),
+    // so the rescue must hand back what is stored at the crash, not the seed.
+    const storedBeforeCrash = await page.evaluate(() => localStorage.getItem('plugins'));
+
     // Poison the function My Content calls while rendering each source row, so
     // the next render is a genuine throw through React's own error path.
     const poisoned = await page.evaluate(() => {
@@ -143,7 +148,7 @@ async function rescues(page, label) {
     const v = await visible(page);
     check('view errored -> control comes back', v.display === 'flex' && v.h > 0, JSON.stringify(v));
     if (v.display === 'flex') {
-      const r = await rescues(page, 'view-error');
+      const r = await rescues(page, 'view-error', storedBeforeCrash);
       check('view errored -> homebrew comes out intact', r.intact, r.name + ' ' + r.bytes + 'B');
     }
     await page.screenshot({ path: path.join(OUT, '3-view-error.png'), fullPage: true });
@@ -161,7 +166,6 @@ async function rescues(page, label) {
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('orcpub:no-cookie-banner', '1');
-        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
       } catch (e) {}
     });
     const page = await ctx.newPage();
@@ -222,6 +226,29 @@ async function rescues(page, label) {
     check('unreadable blob -> app still boots, control stays hidden',
           v.display === 'none', JSON.stringify(v));
     await page.screenshot({ path: path.join(OUT, '4-unreadable-blob.png') });
+    await ctx.close();
+  }
+
+  // ---- 4b. stored homebrew the app cannot sort: the app must still start -------
+  //  A race whose :key is text threw in a startup step, outside every error
+  //  boundary, so every page stayed on the loading spinner with only this control.
+  {
+    const ctx = await browser.newContext();
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('plugins', '{"Bad Key Pak" {:orcpub.dnd.e5/races {:x {:key "text" :option-pack "Bad Key Pak" :name "X" :speed 30}}}}');
+        localStorage.setItem('orcpub:no-cookie-banner', '1');
+        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      } catch (e) {}
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE + '/pages/dnd/5e/character-builder', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(14000);
+    const v = await visible(page);
+    const drawn = await page.evaluate(() => !!document.querySelector('.app-header-bar'));
+    check('race with a text key stored -> the app still starts, control stays hidden',
+          drawn && v.display === 'none', JSON.stringify({ drawn, control: v.display }));
+    await page.screenshot({ path: path.join(OUT, '4b-bad-key.png') });
     await ctx.close();
   }
 

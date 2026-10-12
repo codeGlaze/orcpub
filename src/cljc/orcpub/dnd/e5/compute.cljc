@@ -54,7 +54,7 @@
                          (assoc spell :edit-event [::spells/edit-spell spell]))
                        (mapcat (comp vals ::e5/spells) plugin-vals))
         all-spells (into
-                    (sorted-set-by (fn [x y] (compare (:key x) (:key y))))
+                    (sorted-set-by (fn [x y] (common/safe-compare (:key x) (:key y))))
                     (concat
                      (reverse plugin-spells)
                      spells/spells))]
@@ -75,7 +75,9 @@
 (defn filter-by-name-xform
   "Returns a transducer that filters items by name matching filter-text."
   [filter-text name-key]
-  (let [pattern (re-pattern (str ".*" (s/lower-case filter-text) ".*"))]
+  ;; ascii-lower-case: on a Turkish JVM "FIRE" folds to "fıre" and matches
+  ;; neither Fireball nor Fire Bolt.
+  (let [pattern (re-pattern (str ".*" (common/ascii-lower-case filter-text) ".*"))]
     (filter
      (fn [x]
        ;; common/lower-case: an item with no name folds to "" (no match), not a crash

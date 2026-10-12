@@ -48,6 +48,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { suppressCookieBanner, importPack } = require('./lib/orcbrew-import');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
@@ -58,19 +59,6 @@ const PACK = process.env.ORCBREW_PACK || path.join(__dirname, '..', 'fixtures', 
 const VIEWPORT = { width: 1366, height: 720 };
 const started = Date.now();
 const left = () => BUDGET_MS - (Date.now() - started);
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -169,9 +157,6 @@ const click = async (page, locator, ms = 4000) => {
 async function openLane(browser) {
   const ctx = await browser.newContext({ viewport: VIEWPORT });
   await suppressCookieBanner(ctx);
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
-  });
 
   // SELFTEST=1 drops a sheet of glass over the page. Every audited state must then
   // FAIL: a probe nobody has ever seen fail is a probe nobody should trust.

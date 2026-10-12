@@ -1,3 +1,6 @@
+// Needs: pack argument (imports the homebrew pack named by its first argument).
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // What do class BODIES cost — at builder open, and per class switch?
 //
 // plugin-classes runs make-levels for every homebrew class, and ::classes5e/classes runs
@@ -12,17 +15,8 @@
 //   node test/browser/class_body_cost_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
-
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const d = fs.readdirSync(b).filter(x => x.startsWith('chromium-') && !x.includes('headless')).sort().pop();
-    if (d) { const p = path.join(b, d, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined;
-}
 
 // Armed before the builder renders: the template is built once and cached, so instrumenting
 // late measures nothing.

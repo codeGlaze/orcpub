@@ -11,7 +11,7 @@
 (def releases
   [{:id "summer-patch-2026"
     :title "Summer Patch"
-    :subtitle "Homebrew you can manage, characters that recover, sheets that print everything."
+    :subtitle "Homebrew you can manage, characters that recover and share, safer accounts, and sheets that print everything."
     :items
     [{:group "Your homebrew library"
       :icon "fa-folder-open"
@@ -29,6 +29,10 @@
       :icon "fa-shield-alt"
       :headline "Starting equipment for homebrew classes"
       :detail "The full SRD form — fixed gear, choice groups, bundles, and nested weapon choices — and you can start from an SRD class and change only what you want."}
+     {:group "Your homebrew library"
+      :icon "fa-clone"
+      :headline "Homebrew is safe in two tabs"
+      :detail "Saving homebrew in one tab no longer erases homebrew you saved in another: the older tab's change is merged in, and a real clash is shown to you. When you rename an item, links to it in the same source follow, and you are asked about links in other sources."}
 
      {:group "Characters"
       :icon "fa-bolt"
@@ -46,11 +50,30 @@
       :icon "fa-search"
       :headline "Find equipment by typing"
       :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
-     {:group "Characters"
+
+
+     {:group "Sharing"
       :icon "fa-share-alt"
       :headline "Share a character with its homebrew"
-      :detail "A view-only link carries the custom content the sheet needs, magic items included, and the recipient can keep it in their library."}
+      :detail "A short view-only link opens the character with the custom content its sheet needs, magic items included, and the recipient can keep that content in their library. A party keeps a shared character's homebrew too."}
+     {:group "Sharing"
+      :icon "fa-link"
+      :headline "Links you control"
+      :detail "Make a new link or stop sharing at any time. A link nobody opens can expire, and the character page tells you when one has."}
 
+     {:group "Accounts"
+      :icon "fa-user-shield"
+      :headline "New sign-in pages and stronger passwords"
+      :detail "Signing up, signing in and recovering an account have new pages. Passwords are judged on length, a meter shows what to fix as you type, and passwords that turn up again and again in data breaches are turned away."}
+     {:group "Accounts"
+      :icon "fa-key"
+      :headline "You stay in charge of your account"
+      :detail "Sign out everywhere from your account page. You get an email when your password or email address changes, and changing your email needs your password."}
+
+     {:group "Printing"
+      :icon "fa-book-open"
+      :headline "Print a spellbook"
+      :detail "Add spellbook pages after your sheet: every spell you print, by class, with your save DC and attack on each page, as a full-text book, a one-line ledger or a prep sheet to tick off. Pick an emblem for each class."}
      {:group "Printing"
       :icon "fa-list-ol"
       :headline "Every spell you know prints"
@@ -66,7 +89,16 @@
      {:group "Printing"
       :icon "fa-print"
       :headline "Cards print in black and white"
-      :detail "Casting time, range, components and duration come out solid black on a home printer, with an optional logo for the card backs."}]}])
+      :detail "Casting time, range, components and duration come out solid black on a home printer, with an optional logo for the card backs. Cards are in spell-list order: by level, then name."}
+
+     {:group "Site"
+      :icon "fa-mobile-alt"
+      :headline "Fits your phone"
+      :detail "On a phone the header, menus and ability buttons fit the screen, and a desktop window narrowed to phone width gets the same layout."}
+     {:group "Site"
+      :icon "fa-adjust"
+      :headline "Easier-to-read buttons"
+      :detail "Turn on Dark Button Text beside Light Theme for dark lettering on the yellow buttons."}]}])
 
 (def current-release
   (first releases))

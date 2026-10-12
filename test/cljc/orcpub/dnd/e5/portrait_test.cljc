@@ -10,25 +10,13 @@
 ;; ---------- registry ----------
 
 (deftest layer-order-matches-taxonomy
-  (testing "the illustrator's real z-order, plus :scalp -- a blob between the
-            head and the hair that takes the hair colour, because some
-            hair-front and bangs pairs do not meet and leave an island of skin
-            on the crown. It is not one of her pieces, so it is not in the
-            taxonomy; it is in the stack."
-    (is (= [:hair-bits :hair-back :head :scalp :shirt :hair-front
-            :ears :eyes :nose :mouth :bangs]
-           pa/layer-order))
+  (testing "the illustrator's real z-order. The generated :scalp that sat
+            between the head and the hair is retired: the art now meets."
     (is (= [:hair-bits :hair-back :head :shirt :hair-front
             :ears :eyes :nose :mouth :bangs]
-           pa/pickable-layers)
-        "and it is not offered in the picker: one option that changes nothing")
-    (is (= #{:scalp} pa/hidden-layers))
-    (testing "it sits ABOVE the head and BELOW every hair layer, or it cannot
-              do its job"
-      (let [idx #(.indexOf ^java.util.List pa/layer-order %)]
-        (is (< (idx :head) (idx :scalp)))
-        (doseq [hair [:hair-front :bangs]]
-          (is (< (idx :scalp) (idx hair)) (str "scalp must be under " hair)))))
+           pa/layer-order))
+    (is (= pa/layer-order pa/pickable-layers) "every layer is offered in the picker")
+    (is (= #{} pa/hidden-layers))
     (is (= (count pa/layer-order) (count pa/layer-labels)))
     (is (= (count pa/layer-order) (count pa/layer-colors)))
     (is (= (set pa/layer-order) (set (keys pa/color-slots)))
@@ -138,9 +126,7 @@
   (is (re-matches #"#[0-9a-f]{6}" (pa/shade-hex "#5c3a1e" 15)) "output stays #rrggbb"))
 
 (deftest layers-in-slot-groups-by-slot
-  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair))
-      "the scalp draws from the hair slot but is not LISTED as a hair piece --
-       the list drives a per-piece tweak panel, and there is nothing to tweak")
+  (is (= [:hair-bits :hair-back :hair-front :bangs] (pa/layers-in-slot :hair)))
   (is (= [:head :ears :nose] (pa/layers-in-slot :skin)))
   (is (= [:eyes] (pa/layers-in-slot :eyes)))
   (is (= [:shirt] (pa/layers-in-slot :shirt)))
@@ -148,21 +134,24 @@
 
 (deftest tint-for-precedence
   (let [base pa/empty-portrait]
-    (testing "nothing set → category tint"
-      (is (= (pa/layer-colors :bangs) (pa/tint-for base :bangs)))
-      (is (= (pa/layer-colors :bangs) (pa/tint-for nil :bangs)) "nil portrait tolerated"))
+    (testing "nothing set → the slot's default, the same for every piece in it"
+      (is (= (pa/default-slot-colors :hair) (pa/tint-for base :bangs)))
+      (is (= (pa/default-slot-colors :hair) (pa/tint-for nil :bangs)) "nil portrait tolerated")
+      (is (apply = (map #(pa/tint-for base %) (pa/layers-in-slot :hair))) "every hair piece alike")
+      (is (= (pa/tint-for base :head) (pa/tint-for base :nose) (pa/tint-for base :ears))
+          "the nose and ears match the face"))
     (testing "slot color paints every layer in the slot, nothing else"
       (let [p (assoc-in base [:colors :hair] "#112233")]
         (doseq [k (pa/layers-in-slot :hair)]
           (is (= "#112233" (pa/tint-for p k)) (str k)))
-        (is (= (pa/layer-colors :head) (pa/tint-for p :head)))))
+        (is (= (pa/default-slot-colors :skin) (pa/tint-for p :head)))))
     (testing "shade applies to one piece against the slot base"
       (let [p (-> base
                   (assoc-in [:colors :hair] "#000000")
                   (assoc-in [:tweaks :bangs :shade] 100))]
         (is (= "#ffffff" (pa/tint-for p :bangs)))
         (is (= "#000000" (pa/tint-for p :hair-back)) "sibling piece keeps base")))
-    (testing "shade with no slot color shades the category tint"
+    (testing "shade with no slot color shades the slot's default"
       (let [p (assoc-in base [:tweaks :bangs :shade] -100)]
         (is (= "#000000" (pa/tint-for p :bangs)))))
     (testing "override beats shade and base"
@@ -419,7 +408,7 @@
             pieces names both -- which is what lets more illustrators join"
     (let [layers (pa/compose-for-seed "credit-check")]
       (is (= [:house-pack] (pa/all-artists-for-layers layers)))
-      (is (= "Art: A, B" (pa/format-credit ["A" "B"]))
+      (is (= "Art: A with B" (pa/format-credit ["A" "B"]))
           "several names join into one line"))))
 
 (deftest the-artist-links-are-drawer-only-and-overridable
@@ -439,9 +428,10 @@
               nothing errors, so only a check like this notices."
       (doseq [{:link/keys [icon label]} (:artist/links a)]
         (is (some? icon) (str label " has no icon"))
-        (is (.exists (java.io.File.
-                      (str "resources/public/image/social/" icon ".svg")))
-            (str "/image/social/" icon ".svg is missing"))))
+        ;; the file check needs a filesystem: the JVM run makes it
+        #?(:clj (is (.exists (java.io.File.
+                              (str "resources/public/image/social/" icon ".svg")))
+                    (str "/image/social/" icon ".svg is missing")))))
     (testing "and every link keeps its label, which is the accessible name --
               an icon with no text is unreadable to a screen reader"
       (is (every? (comp seq :link/label) (:artist/links a)))))
@@ -515,13 +505,17 @@
   (is (= [:a :b] (map first (order-of [[:a "A" [:eyes]] [:b "B" [:bangs]]] [:eyes :bangs]))))
   (is (= [:b :a] (map first (order-of [[:b "B" [:bangs]] [:a "A" [:eyes]]] [:eyes :bangs])))))
 
-(deftest the-generated-scalp-carries-no-weight
-  (is (= [[:a 10 1] [:b 0 1]]
-         (order-of [[:b "B" [:scalp]] [:a "A" [:head]]] [:head :scalp]))))
+(deftest a-retired-layer-in-a-saved-portrait-credits-no-one
+  ;; a portrait saved while the scalp existed still names it; whoever drew it
+  ;; must not appear in the credit for it, nor gain weight
+  (with-redefs [pa/registry (split-registry [[:b "B" []] [:a "A" [:head]]])]
+    (let [saved (assoc (pick-first [:head]) :scalp {:artist/id :b :asset/id :l2b-scalp-01})]
+      (is (= [[:a 10 1]] (mapv (juxt :artist/id :credit/weight :credit/pieces) (pa/credit-order saved))))
+      (is (= [:a] (pa/all-artists-for-layers saved))))))
 
 (deftest every-surface-names-artists-in-credit-order
   (with-redefs [pa/registry (split-registry [[:b "Bee" [:ears]] [:a "Ay" [:head]]])]
-    (is (= "Art: Ay, Bee" (pa/credit-line {:layers (pick-first [:head :ears])}))
+    (is (= "Art: Ay with Bee" (pa/credit-line {:layers (pick-first [:head :ears])}))
         "the text burned into share cards and PDFs follows the same order")))
 
 (deftest one-artist-gets-all-the-weight
@@ -532,3 +526,8 @@
     (is (= (reduce + (for [k pa/layer-order :when (seq (get-in pa/house-pack [:artist/layers k]))]
                        (get pa/layer-credit-weight k 1)))
            weight))))
+
+(deftest whites-can-be-left-unfilled
+  (is (= "#ffffff" (pa/whites-colour {})) "white unless someone picks")
+  (is (= "#e6e2d8" (pa/whites-colour {:colors {:whites "#e6e2d8"}})))
+  (is (nil? (pa/whites-colour {:colors {:whites pa/no-whites}})) "none: the eye as drawn"))

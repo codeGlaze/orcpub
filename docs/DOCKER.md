@@ -208,9 +208,10 @@ These are the variables you'll actually touch. Full reference in
 | `DATOMIC_URL` | Yes | `datomic:dev://datomic:4334/orcpub` | Database connection URI. No `?password=` — the app adds it from `DATOMIC_PASSWORD`. |
 | `PORT` | No | `8890` | App server port. Nginx and healthcheck adapt automatically. |
 | `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Change to `datomic` for Swarm. |
-| `EMAIL_SERVER_URL` | No | *(empty)* | SMTP server. Leave empty to disable email (registration still works, just no verification emails). |
+| `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
+| `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
-| `DEV_MODE` | No | *(empty)* | Set to `true` for CSP Report-Only mode (allows Figwheel hot-reload). |
+| `DEV_MODE` | No | *(empty)* | Set to `true` to send no CSP header at all, which is what allows Figwheel hot-reload. Not a Report-Only mode — that does not exist. |
 | `LOAD_HOMEBREW_URL` | No | *(empty)* | URL to fetch `.orcbrew` plugins on first page load. |
 
 `run` generates `DATOMIC_PASSWORD`, `ADMIN_PASSWORD`, and

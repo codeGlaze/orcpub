@@ -10,23 +10,11 @@
 // cljs.test prints to the console.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { findChrome } = require('../../test/browser/lib/find-chrome');
 
 const ROOT = path.resolve(process.argv[2] || 'target/test');
 const MIME = { '.js': 'application/javascript', '.html': 'text/html',
                '.map': 'application/json', '.json': 'application/json' };
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
-}
 
 // cljs-test-display, which the auto-testing main reports through, renders into
 // this element and asserts it exists.

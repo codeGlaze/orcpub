@@ -113,10 +113,10 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
 // release, and its backdrop swallows clicks -- it broke spell_help_laziness the moment the
 // panel landed. Stamp it as seen before the app boots.
 //
-// The id must match the newest `:id` in src/cljc/orcpub/whats_new.cljc. A new release id
-// makes the panel open again by design, which will break probes again; the probe runner is
-// what catches that, and the fix is this one line.
-const WHATS_NEW_RELEASE = 'summer-patch-2026';
+// scripts/e2e/run.sh reads the newest `:id` from src/cljc/orcpub/whats_new.cljc into
+// PROBE_WHATS_NEW_RELEASE; the literal is only for a suite run with bare `node`. A stamp of an
+// older id would undo the runner's own and bring the panel back over every click.
+const WHATS_NEW_RELEASE = process.env.PROBE_WHATS_NEW_RELEASE || 'summer-patch-2026';
 
 async function suppressWhatsNew(context) {
   return context.addInitScript(id => {
