@@ -6,6 +6,7 @@
    `registry`: `credit-order`, `credit-line`. The repo's art files are silhouettes.
    Why the code is shaped this way: PORTRAIT-COMPOSITOR.md, PORTRAIT-TINTING.md."
   (:require [clojure.string :as s]
+            [orcpub.dnd.e5.portrait-random :as rnd]
             #?(:clj [orcpub.dnd.e5.portrait-calibration :refer [calibration]]))
   #?(:cljs (:require-macros [orcpub.dnd.e5.portrait-calibration :refer [calibration]])))
 
@@ -510,44 +511,6 @@
 ;; Lives here (cljc) rather than in portrait.cljs so JVM tests can reach it.
 ;; All bit-ops used are cljc-safe.
 
-(defn- u32
-  "`x` wrapped to an unsigned 32-bit integer."
-  [x]
-  #?(:clj (bit-and 0xffffffff x) :cljs (unsigned-bit-shift-right x 0)))
-
-(defn- mul32
-  "`a` times `b` modulo 2^32, unsigned.
-   GOTCHA: in cljs a plain multiply loses the low bits past 2^53; Math/imul does not."
-  [a b]
-  #?(:clj (bit-and 0xffffffff (unchecked-multiply a b))
-     :cljs (unsigned-bit-shift-right (js/Math.imul a b) 0)))
-
-(defn- char-code
-  "The UTF-16 code unit of character `c`, the same number on both platforms."
-  [c]
-  #?(:clj (int c) :cljs (.charCodeAt c 0)))
-
-(defn seed->int
-  "32-bit FNV-1a hash of `(str seed)`, the same integer in Clojure and ClojureScript."
-  [seed]
-  (reduce (fn [h c] (mul32 (u32 (bit-xor h (char-code c))) 16777619))
-          2166136261
-          (str seed)))
-
-(defn mulberry32
-  "Small stateless PRNG. `(mulberry32 seed-int)` returns a fn that yields
-   a fresh number in [0,1) on each call, the same sequence on both platforms."
-  [seed-int]
-  (let [a (atom (u32 seed-int))]
-    (fn []
-      (swap! a #(u32 (+ % 0x6D2B79F5)))
-      (let [s @a
-            t1 (mul32 (u32 (bit-xor s (unsigned-bit-shift-right s 15))) (u32 (bit-or s 1)))
-            t2 (u32 (bit-xor t1 (u32 (+ t1 (mul32 (u32 (bit-xor t1 (unsigned-bit-shift-right t1 7)))
-                                                   (u32 (bit-or t1 61)))))))]
-        (/ (u32 (bit-xor t2 (unsigned-bit-shift-right t2 14)))
-           4294967296.0)))))
-
 (defn random-seed
   "Fresh 8-char alphanumeric seed. Uses (rand-int) which is available on
    both platforms."
@@ -561,7 +524,7 @@
    map covering every layer whose registry has at least one asset. Layers
    with an empty registry are skipped."
   [seed]
-  (let [rand-fn (mulberry32 (seed->int seed))]
+  (let [rand-fn (rnd/mulberry32 (rnd/seed->int seed))]
     (reduce
       (fn [acc layer-key]
         (let [assets (assets-for-layer layer-key)]

@@ -177,6 +177,19 @@
   []
   (positive-int-env ["ORCPUB_PDF_QUEUE_TIMEOUT_MS"] 30000))
 
+(defn get-portrait-concurrency
+  "How many shared-link portrait images may be drawn at once, from ORCPUB_PORTRAIT_CONCURRENCY.
+   Defaults to half the cores, minimum two: each draw is about half a second of one core, and
+   the rest are left for pages and exports. docs/PORTRAIT-SERVING.md."
+  []
+  (positive-int-env ["ORCPUB_PORTRAIT_CONCURRENCY"] (max 2 (quot @available-processors 2))))
+
+(defn get-portrait-queue-timeout-ms
+  "How long a portrait image waits to be drawn before the server says it is busy, from
+   ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS. Short, because link-preview fetchers give up quickly."
+  []
+  (positive-int-env ["ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS"] 5000))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
@@ -312,6 +325,10 @@
      :note "sheets generated at once"}
     {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :get #(get-pdf-queue-timeout-ms)
      :note "how long an export waits for a slot"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :get #(get-portrait-concurrency)
+     :note "shared-link portraits drawn at once"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
+     :note "how long a portrait waits to be drawn"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)

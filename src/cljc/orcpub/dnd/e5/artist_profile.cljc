@@ -7,7 +7,8 @@
    Plan and decisions: docs/design/artist-profiles/PLAN.md."
   (:require [clojure.string :as s]
             [orcpub.route-map :as route-map]
-            [orcpub.dnd.e5.portrait-assets :as pa]))
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as random]))
 
 ;; ---------- addresses ----------
 
@@ -164,10 +165,10 @@
    (when-let [artist (profile artist-id)]
      (let [base (str "artist-" (slug artist))
            own (:artist/layers artist)
-           offset (fn [k] (pa/seed->int (str base "/" (name k))))]
+           offset (fn [k] (random/seed->int (str base "/" (name k))))]
        (vec
         (for [i (range n)]
-          (let [rnd (pa/mulberry32 (pa/seed->int (str base "/" i)))
+          (let [rnd (random/mulberry32 (random/seed->int (str base "/" i)))
                 layers (reduce
                         (fn [acc k]
                           (let [mine (get own k)

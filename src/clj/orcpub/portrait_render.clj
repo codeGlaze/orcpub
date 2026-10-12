@@ -13,6 +13,8 @@
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-face :as face]
             [orcpub.dnd.e5.portrait-light :as light])
   (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RadialGradientPaint RenderingHints]
@@ -322,33 +324,23 @@
     (when-let [img (placed-of head)]
       (fx/crown (alpha-fn img) w h))))
 
-(defonce ^:private strand-cache (atom {}))
-
-(defn- read-strands
-  "The piece's precomputed field, from the .strands.png beside its art."
-  [url w h]
-  (when-let [{:keys [bytes]} (some-> (fx/strands-url url) asset-source)]
-    (when-let [^BufferedImage img (ImageIO/read (ByteArrayInputStream. bytes))]
-      (let [gw (.getWidth img) gh (.getHeight img)
-            r (.getRaster img)]
-        (fx/bytes->field (fn [g] (.getSample r (int (mod g gw)) (int (quot g gw)) 0)) gw gh w h)))))
+(def ^:private strand-fields
+  "Parsed strand fields by art URL."
+  (bounded-cache/cache {:max-entries 64}))
 
 (defn- strand-field-of
-  "The piece's strand field (portrait-effects/strand-field) in art pixels:
-   read from beside the art, or -- when nobody has generated it yet --
-   worked out from the art once and kept."
-  [url ^BufferedImage src layer-key]
-  (or (get @strand-cache url)
-      (let [w (.getWidth src) h (.getHeight src)
-            f (or (try (read-strands url w h) (catch Exception _ nil))
-                  (let [argb (BufferedImage. w h BufferedImage/TYPE_INT_ARGB)
-                        g (.createGraphics argb)
-                        _ (do (.drawImage g src 0 0 nil) (.dispose g))
-                        ^ints d (.. argb getRaster getDataBuffer getData)]
-                    (fx/strand-field (fn [i] (bit-and (aget d (int i)) 0xffffff)) (alpha-fn argb) w h
-                                     (fx/piece-seed layer-key))))]
-        (swap! strand-cache #(assoc (if (> (count %) 48) {} %) url f))
-        f)))
+  "The piece's strand field (portrait-effects/strand-field) in art pixels, from the .strands.png
+   beside the art or, when none was deployed, the one worked out from the art
+   (orcpub.portrait-pack.strands/worked-out-png): the same bytes either way, so a deploy without
+   the build step draws the same picture."
+  [url ^BufferedImage src _layer-key]
+  (bounded-cache/fetch! strand-fields url
+                        #(when-let [bytes (or (some-> (fx/strands-url url) asset-source :bytes)
+                                              (strands/worked-out-png url))]
+                           (when-let [^BufferedImage img (ImageIO/read (ByteArrayInputStream. bytes))]
+                             (let [gw (.getWidth img) gh (.getHeight img) r (.getRaster img)]
+                               (fx/bytes->field (fn [g] (.getSample r (int (mod g gw)) (int (quot g gw)) 0))
+                                                gw gh (.getWidth src) (.getHeight src)))))))
 
 (defn- draw-ombre-layer!
   "A hair piece: coloured root to tip (portrait-effects/ombre-rgb) instead of

@@ -86,28 +86,32 @@
       [:a {:href (ap/index-path)} "All portrait artists"]]]))
 
 (defn artist-page
-  "/artists/<slug>"
+  "/artists/<slug>. Redraws when the artist credits arrive, which can rename the artist,
+   change their links or turn the page off."
   [{:keys [slug]}]
-  (if-let [artist (ap/artist-by-slug slug)]
-    [shell "Portrait Artist" [profile-card artist]]
-    [shell "Portrait Artist"
-     [:article.ap-card
-      [:p.ap-missing "There is no portrait artist at this address. "
-       [:a {:href (ap/index-path)} "See all portrait artists"]]]]))
+  (let [_ @(subscribe [:portrait/artist-overrides])]
+    (if-let [artist (ap/artist-by-slug slug)]
+      [shell "Portrait Artist" [profile-card artist]]
+      [shell "Portrait Artist"
+       [:article.ap-card
+        [:p.ap-missing "There is no portrait artist at this address. "
+         [:a {:href (ap/index-path)} "See all portrait artists"]]]])))
 
 (defn artists-page
-  "/artists: everyone with a profile, in registry order."
+  "/artists: everyone with a profile, in registry order. Redraws when the artist credits
+   arrive."
   [_]
-  [shell "Portrait Artists"
-   [:article.ap-card
-    [:header.ap-head
-     [:div.lk-cap "Art by"]
-     [:p.ap-lede "The people who drew the pieces in the portrait maker."]]
-    [:div.ap-index
-     (for [{:keys [:artist/id :artist/name] :as a} (ap/all-profiles)
-           :let [n (ap/piece-count a)]]
-       ^{:key id}
-       [:a.ap-index-card {:href (ap/profile-path a)}
-        [:div.ap-frame [example-img a 1 (str "A portrait from " name "'s pieces")]]
-        [:span.lk-name name]
-        [:span.ap-index-count n (if (= 1 n) " piece" " pieces")]])]]])
+  (let [_ @(subscribe [:portrait/artist-overrides])]
+    [shell "Portrait Artists"
+     [:article.ap-card
+      [:header.ap-head
+       [:div.lk-cap "Art by"]
+       [:p.ap-lede "The people who drew the pieces in the portrait maker."]]
+      [:div.ap-index
+       (for [{:keys [:artist/id :artist/name] :as a} (ap/all-profiles)
+             :let [n (ap/piece-count a)]]
+         ^{:key id}
+         [:a.ap-index-card {:href (ap/profile-path a)}
+          [:div.ap-frame [example-img a 1 (str "A portrait from " name "'s pieces")]]
+          [:span.lk-name name]
+          [:span.ap-index-count n (if (= 1 n) " piece" " pieces")]])]]]))

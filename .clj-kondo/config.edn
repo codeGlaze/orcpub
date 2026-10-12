@@ -101,6 +101,7 @@
              ;; see through them, so each use reads as an unresolved symbol
              (orcpub.portrait-credit-test/with-conn)
              (orcpub.portrait-og-test/with-conn)
+             (orcpub.portrait-artists-endpoint-test/with-conn)
              (clojure.test.check.clojure-test/defspec)
              (clojure.core.match/match)
              (cljs.core.match/match)
@@ -120,6 +121,7 @@
              (orcpub.dnd.e5.modifiers/skill-expertise)
              (orcpub.dnd.e5.modifiers/tool-expertise)
              (orcpub.dnd.e5.modifiers/ac-bonus-fn)
+             (orcpub.dnd.e5.modifiers/ac-formula)
              (orcpub.dnd.e5.modifiers/attack)
              (orcpub.dnd.e5.modifiers/action)
              (orcpub.dnd.e5.modifiers/bonus-action)

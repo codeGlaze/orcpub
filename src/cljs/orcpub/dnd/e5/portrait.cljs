@@ -903,23 +903,25 @@
 
 (defn bake-ahead!
   "Start baking `portrait` unless it is baked or baking; the promise resolves to `rasterize`'s value.
+   Keyed by the credits too, which are drawn into the picture and may arrive after a first bake.
    Keeps the last few, since a builder session walks through many portraits."
   [portrait]
   (when (seq (:layers portrait))
-    (or (:promise (get @baked portrait))
-        (when-let [png (find (get @baked portrait) :png)] (js/Promise.resolve (val png)))
-        (let [p (-> (rasterize portrait)
-                    (.catch (fn [_] nil))
-                    (.then (fn [png]
-                             (swap! baked #(if (contains? % portrait) (assoc % portrait {:png png}) %))
-                             png)))]
-          (swap! baked (fn [m] (assoc (if (>= (count m) 8) {} m) portrait {:promise p})))
-          p))))
+    (let [k [portrait (pa/current-overrides)]]
+      (or (:promise (get @baked k))
+          (when-let [png (find (get @baked k) :png)] (js/Promise.resolve (val png)))
+          (let [p (-> (rasterize portrait)
+                      (.catch (fn [_] nil))
+                      (.then (fn [png]
+                               (swap! baked #(if (contains? % k) (assoc % k {:png png}) %))
+                               png)))]
+            (swap! baked (fn [m] (assoc (if (>= (count m) 8) {} m) k {:promise p})))
+            p)))))
 
 (defn baked-png
   "[png-b64-or-nil] once `portrait` is baked, else nil."
   [portrait]
-  (when-let [e (find (get @baked portrait) :png)] [(val e)]))
+  (when-let [e (find (get @baked [portrait (pa/current-overrides)]) :png)] [(val e)]))
 
 (def empty-slot-styles
   "CSS for the empty portrait slot: a top-down gradient ground with the site logo
@@ -2055,7 +2057,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    collapse into a '+N' that opens the full list, every name still a link."
   [portrait]
   (r/with-let [open? (r/atom false)]
-    (let [[lead & more :as named] (filter :artist/name (pa/artists-for-layers (:layers portrait)))
+    (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
+          [lead & more :as named] (filter :artist/name (pa/artists-for-layers (:layers portrait)))
           full (pa/format-credit (map :artist/name named))]
       (cond
         (nil? lead) nil
@@ -2170,7 +2173,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    rendering fault, and inventing something to put there is worse, so the
    whole strip says so plainly instead."
   [layers]
-  (let [infos (pa/artists-for-layers layers)
+  (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
+        infos (pa/artists-for-layers layers)
         named (filter :artist/name infos)]
     [:div.pl-attribution
      (cond
@@ -2311,7 +2315,8 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    A composed portrait carries its artists' names under it. This is the one
    surface a reader lands on, so it is where the credit does the most good."
   [portrait-data image-url editable?]
-  (let [box {:position "relative" :width "100px" :height "125px" :flex-shrink 0}]
+  (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
+        box {:position "relative" :width "100px" :height "125px" :flex-shrink 0}]
     (cond
       (seq (:layers portrait-data))
       [:div.m-r-20.m-t-10.m-b-10

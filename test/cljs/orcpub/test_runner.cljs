@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.portrait-layout-test]
             ;; the artist pages' examples are drawn on the server and captioned here
             [orcpub.dnd.e5.artist-profile-test]
+            [orcpub.dnd.e5.artist-page-credits-test]
             [orcpub.dnd.e5.portrait-colorize-test]
             [orcpub.dnd.e5.portrait-effects-test]
             [orcpub.dnd.e5.portrait-face-test]
@@ -38,6 +39,7 @@
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
+            [orcpub.dnd.e5.portrait-artists-arrive-test]
             [orcpub.dnd.e5.portrait-whites-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
@@ -61,6 +63,7 @@
              'orcpub.dnd.e5.hunter-evasion-test
              'orcpub.dnd.e5.portrait-layout-test
              'orcpub.dnd.e5.artist-profile-test
+             'orcpub.dnd.e5.artist-page-credits-test
              'orcpub.dnd.e5.portrait-colorize-test
              'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test 'orcpub.dnd.e5.portrait-light-test
              'orcpub.artist-links-test
@@ -81,6 +84,7 @@
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.portrait-credit-thumb-test
+             'orcpub.dnd.e5.portrait-artists-arrive-test
              'orcpub.dnd.e5.portrait-whites-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
