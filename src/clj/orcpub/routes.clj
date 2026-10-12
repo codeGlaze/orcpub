@@ -2597,6 +2597,16 @@
 
 (def get-js get-file)
 
+(def ^:private portrait-files
+  "Every URL the art directory answers: each registered piece, and a strand file beside each
+   hair piece. Anything else there (an unregistered piece, a manifest) is a 404."
+  (delay (set (for [{:artist/keys [layers]} portrait-assets5e/registry
+                    [layer assets] layers
+                    {:asset/keys [url]} assets
+                    u (cond-> [url]
+                        (portrait-fx/hair-layer? layer) (conj (s/replace url #"\.png$" ".strands.png")))]
+                u))))
+
 (defonce ^:private worked-out-strands (atom {}))
 
 (defn- strands-on-the-fly
@@ -2604,7 +2614,8 @@
    worked out from the art once and kept, so the builder's request does not 404 and no
    visitor's browser works it out. nil for anything else. The deploy step stays the fast path."
   [uri]
-  (when-let [[_ layer art] (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" (str uri))]
+  (when-let [[_ layer art] (and (contains? @portrait-files uri)
+                                (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" uri))]
     (or (get @worked-out-strands uri)
         (when-let [res (and (portrait-fx/hair-layer? (keyword layer))
                             (io/resource (str "public/image/portraits/" layer "/" art ".png")))]
@@ -2626,13 +2637,14 @@
 
 (def portrait-art-guard
   "First in the chain, ahead of Pedestal's static files, which answer before any route: the
-   portrait art directory serves its PNGs and nothing else (a manifest unpacked beside the art
-   would otherwise be public), and every piece it serves asks not to be used for AI."
+   portrait art directory serves the registered pieces and their strand files, nothing else (a
+   manifest or stray file unpacked beside the art would otherwise be public), and every piece it
+   serves asks not to be used for AI."
   (interceptor/interceptor
    {:name ::portrait-art-guard
     :enter (fn [ctx]
              (let [uri (get-in ctx [:request :uri])]
-               (if (and (portrait-art? uri) (not (re-find #"(?i)\.png$" uri)))
+               (if (and (portrait-art? uri) (not (contains? @portrait-files uri)))
                  (assoc ctx :response {:status 404 :headers {"Content-Type" "text/plain"} :body "Not found"})
                  ctx)))
     :leave (fn [ctx]
