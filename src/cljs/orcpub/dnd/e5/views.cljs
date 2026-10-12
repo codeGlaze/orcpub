@@ -329,13 +329,9 @@
                        #(<= (count %) 78))}))
 
 (defn export-pdf
-  "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component.
-
-   A composed portrait is baked to a PNG ahead of the click (`bake-portrait`) and posted with
-   the spec, so the submit into a new tab stays synchronous and is not blocked as a popup.
-   GOTCHA: if the bake has not finished, the tab is opened during the click and the form is
-   submitted into it when the bake resolves; a failed bake prints without the picture."
+  "An onClick handler that submits the PDF form, with the portrait `bake-portrait` baked ahead.
+   GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
+   unfinished bake opens the tab now and fills it when the bake resolves."
   [built-char id plugin-data & [options]]
   (fn [_]
     (let [field (.getElementById js/document "fields-input")

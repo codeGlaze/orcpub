@@ -97,18 +97,60 @@
       (is (= [[:upgraded :house-pack "fusspotart"]] @calls))
       (is (= ["fusspotart"] (users conn)) "no second account is made"))))
 
-(deftest an-unconfirmed-account-links-when-confirmed
+(deftest an-unconfirmed-account-is-claimed-by-the-welcome
   (with-conn conn
-    (let [[calls notify] (recorder)
+    (let [sent (atom [])
+          notify {:created (fn [m] (swap! sent conj m)) :upgraded (fn [_]) :unlinked (fn [_])}
           id (add-user! conn "fusspotart" "hello@fusspot.rip" false)]
-      (testing "someone signing up with her address cannot inherit her credit
-                until they prove the inbox is theirs"
-        (is (= {:house-pack :waiting} (aa/reconcile! conn fuss notify)))
-        (is (nil? (artist-of conn "fusspotart"))))
-      @(d/transact conn [{:db/id id :orcpub.user/verified? true}])
-      (is (= :linked (aa/on-email-confirmed! conn id fuss notify)))
-      (is (= :house-pack (artist-of conn "fusspotart")))
-      (is (= [[:upgraded :house-pack "fusspotart"]] @calls)))))
+      @(d/transact conn [{:db/id id :orcpub.user/verification-key "pending-confirm"
+                          :orcpub.user/verification-sent (Date.)}])
+      (testing "whoever registered her address chose its password, and anyone can resend its
+                confirmation, so confirming cannot be what hands over her credit"
+        (is (= {:house-pack :claimed} (aa/reconcile! conn fuss notify)))
+        (let [u (pull-user conn "fusspotart")]
+          (is (= :house-pack (:orcpub.user/artist u)))
+          (is (not (hashers/check "pw123456" (:orcpub.user/password u))) "the registrant's password is gone")
+          (is (nil? (:orcpub.user/verification-key u)) "and so is their confirmation link")
+          (is (false? (:orcpub.user/verified? u)))
+          (is (= (:db/id u) (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
+                                                          (routes/hash-reset-key (:reset-key (first @sent))))))
+              "the welcome sent to the address is what opens it")
+          (is (some? (:orcpub.user/artist-welcome-sent u)))))
+      (is (= {:house-pack :already} (aa/reconcile! conn fuss notify)))
+      (is (= 1 (count @sent))))))
+
+(deftest a-welcome-that-did-not-go-out-is-sent-again
+  (with-conn conn
+    (let [tries (atom [])
+          deliver? (atom false)
+          notify {:created (fn [m] (swap! tries conj (:reset-key m)) @deliver?)
+                  :upgraded (fn [_]) :unlinked (fn [_])}]
+      (is (= {:house-pack :created} (aa/reconcile! conn fuss notify)))
+      (is (nil? (:orcpub.user/artist-welcome-sent (pull-user conn "fusspot"))) "the mail server refused it")
+      (reset! deliver? true)
+      (is (= {:house-pack :resent} (aa/reconcile! conn fuss notify)) "the next start tries again")
+      (is (not= (first @tries) (second @tries)) "with a new key, since the first is not kept")
+      (is (= (:db/id (pull-user conn "fusspot"))
+             (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
+                                           (routes/hash-reset-key (second @tries)))))
+          "and the new key is the one that works")
+      (is (= {:house-pack :already} (aa/reconcile! conn fuss notify)) "once sent, never again")
+      (is (= 2 (count @tries)))
+      (is (= ["fusspot"] (users conn))))))
+
+(deftest only-a-lost-race-is-taken-for-one
+  (let [lost-race? @#'aa/lost-race?]
+    (is (not (lost-race? (ex-info "because the case was wrong" {}))) "words that merely contain cas")
+    (is (not (lost-race? (Exception. "unique words" (ex-info "compare" {})))))
+    (with-conn conn
+      (let [id (add-user! conn "a" "a@example.test" true)
+            caught (try @(d/transact conn [[:db/cas id :orcpub.user/artist :x :y]]) nil
+                        (catch Exception e e))]
+        (is (lost-race? caught) "a real cas refusal")
+        (is (false? (@#'aa/try-transact conn [[:orcpub.fn/retract-if-equal id :orcpub.user/artist :x]]))
+            "and the guarded removal's")
+        (is (thrown? Exception (@#'aa/try-transact conn [{:db/id id :orcpub.user/email 42}]))
+            "anything else is thrown, not swallowed as a race")))))
 
 (deftest changing-the-configured-account-moves-the-link
   (with-conn conn
@@ -190,14 +232,27 @@
     (is (routes/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 8)
                                       :orcpub.user/password-reset-expires (days-ago 1)}))))
 
-(deftest confirming-the-configured-address-links-the-account
+(deftest a-first-confirmation-does-not-link-the-account
+  (testing "the registrant chose the password; confirming proves only the address"
+    (with-conn conn
+      (let [id (add-user! conn "fusspotart" "hello@fusspot.rip" false)]
+        @(d/transact conn [{:db/id id
+                            :orcpub.user/verification-key "k-123"
+                            :orcpub.user/verification-sent (Date.)}])
+        (with-redefs [aa/configured (constantly fuss)]
+          (routes/verify {:query-params {:key "k-123"} :db (d/db conn) :conn conn}))
+        (is (true? (:orcpub.user/verified? (pull-user conn "fusspotart"))))
+        (is (nil? (artist-of conn "fusspotart")))))))
+
+(deftest confirming-a-change-to-the-configured-address-links-the-account
   (with-conn conn
-    (let [id (add-user! conn "fusspotart" "hello@fusspot.rip" false)]
+    (let [id (add-user! conn "fusspotart" "old@example.test" true)]
       @(d/transact conn [{:db/id id
-                          :orcpub.user/verification-key "k-123"
+                          :orcpub.user/pending-email "hello@fusspot.rip"
+                          :orcpub.user/verification-key "k-456"
                           :orcpub.user/verification-sent (Date.)}])
       (with-redefs [aa/configured (constantly fuss)]
-        (routes/verify {:query-params {:key "k-123"} :db (d/db conn) :conn conn}))
+        (routes/verify {:query-params {:key "k-456"} :db (d/db conn) :conn conn}))
       (is (= :house-pack (artist-of conn "fusspotart"))))))
 
 (deftest a-welcome-link-works-with-hashed-reset-keys

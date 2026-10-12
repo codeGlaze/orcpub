@@ -48,8 +48,8 @@ each carrying the artist's credit with it.
 - **Characters:** the artist is credited under the portrait, on the sheet, in the shared card and
   in the composed image itself, with the links the artist chose.
 - **Accounts:** artists named in the deployment's portrait-artist settings get an account, with a
-  welcome email and a week-long link to set a password; existing accounts are linked, and the
-  site admin hears about each.
+  welcome email and a week-long link to set a password (sent again on the next start if the mail
+  server refused it); existing confirmed accounts are linked, and the site admin hears about each.
 - **Accounts:** a preferred name, encrypted at rest, used to greet you in site emails; artists can
   change how they are credited, and their links, on My Account.
 - **Site:** pages and portrait images ask AI crawlers not to train on or reuse them.
@@ -70,3 +70,9 @@ each carrying the artist's credit with it.
   one for uploaded images, so the portrait prints at full resolution.
 
 ## Security
+
+- **Accounts:** an unconfirmed account registered with an artist's address can no longer become
+  the artist's account by being confirmed; the welcome email claims it with a new password.
+- **Site:** an artist's credit can no longer break out of the page script it is written into.
+- **Server:** the portrait art directory serves only registered pieces, and shared-link portrait
+  images are rendered at most two at a time and cached.

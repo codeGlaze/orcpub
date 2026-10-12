@@ -707,8 +707,8 @@
    username))
 
 (defn- link-artist-on-confirm!
-  "An address was just confirmed. If it is an artist's configured account,
-   link it. Never lets a failure here fail the confirmation itself."
+  "A confirmed account just confirmed a new address. If it is an artist's configured
+   account, link it. Never lets a failure here fail the confirmation itself."
   [conn id]
   (try (artist-accounts/on-email-confirmed! conn id (artist-accounts/configured) artist-accounts/notify)
        (catch Exception e
@@ -753,10 +753,11 @@
                 (link-artist-on-confirm! conn id)
                 (redirect route-map/verify-success-route)))
 
+          ;; No artist link here: whoever registered chose the password, and confirming
+          ;; proves only the address (artist-accounts claims such accounts instead).
           :else
           (do @(d/transact conn [{:db/id id
                                   :orcpub.user/verified? true}])
-              (link-artist-on-confirm! conn id)
               (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
