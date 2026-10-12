@@ -48,8 +48,9 @@ const extra = process.argv.slice(3).filter(a => a !== '--');
 // described a run that does not happen. A tool that quietly measures the wrong configuration
 // is worse than no tool.
 const preload = path.join(ROOT, 'test/browser/lib/suppress-overlays-preload.js');
-const runnerSrc = fs.readFileSync(path.join(__dirname, 'run-browser-probes.js'), 'utf8');
-const optedOut = new RegExp(`file:\\s*'${path.basename(rel).replace('.', '\\.')}'[^}]*suppress:\\s*false`).test(runnerSrc);
+const { PROBES } = require('./run-browser-probes');
+const entry = PROBES.find(p => p.file === path.basename(rel));
+const optedOut = Boolean(entry && entry.suppress === false);
 const env = { ...process.env, DEBUG: 'pw:api',
               NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${preload}`.trim() };
 if (optedOut || process.env.PROBE_SUPPRESS === '0') {
