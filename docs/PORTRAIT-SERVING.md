@@ -61,6 +61,15 @@ which once made every browser Randomize return the same portrait. One-off UI ran
 (`rand-int`, `shuffle` in the character randomizer) and secrets (`SecureRandom`, UUIDs) are
 different jobs and stay where they are.
 
+## Artist credits in the browser
+
+Artists can edit their credit, so it never goes into the page's HTML or a script. The browser
+fetches `/dnd/5e/portrait-artists` (JSON, cached a minute) at start, keeps it in app-db under
+`:portrait/artist-overrides`, and every view that shows a credit subscribes to it, so a credit
+drawn before the fetch updates when it lands. Until then the views, and a PDF exported in that
+moment, show the registry's public default. Server-side pictures and share cards read the same
+merge (`artist-credit/refresh!`) directly.
+
 ## What the browser does instead
 
 The builder draws on a canvas; the PDF export posts the portrait the browser baked (it goes back

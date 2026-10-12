@@ -65,6 +65,10 @@
 ;; Startup builds nothing from homebrew, except the character template on a page that shows a
 ;; character (build-template, below). See homebrew-safety-net.md.
 
+;; Artist credits, fetched rather than written into the page; the views show the registry's
+;; defaults until they arrive.
+(boot-step "load-portrait-artists" #(dispatch [:portrait/load-artists]))
+
 ;; Another tab's library write reloads this tab's copy.
 (events/start-library-watch!)
 

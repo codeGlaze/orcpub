@@ -351,14 +351,14 @@
           (.then (portrait/bake-ahead! portrait) #(submit! % target)))))))
 
 (defn bake-portrait
-  "Bakes the character's composed portrait on mount and whenever it changes, so export can
-   submit without waiting. Renders nothing."
+  "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
+   so export can submit without waiting. Renders nothing."
   [_portrait]
   (let [bake #(portrait/bake-ahead! (second (r/argv %)))]
     (r/create-class
      {:component-did-mount bake
       :component-did-update bake
-      :reagent-render (fn [_] nil)})))
+      :reagent-render (fn [_] @(subscribe [:portrait/artist-overrides]) nil)})))
 
 (defn download-form [built-char]
   [:form.download-form
