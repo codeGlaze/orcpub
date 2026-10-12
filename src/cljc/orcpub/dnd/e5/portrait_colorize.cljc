@@ -9,7 +9,7 @@
    THROUGH the colour: dark stays dark, the middle becomes the colour, the
    highlight stays a highlight. Opaque wherever the drawing is.
 
-   Worked out against the real art in portrait_real_art_compare_test and
+   Worked out against the real art in dev/orcpub/portrait_gallery.clj and
    written down in docs/PORTRAIT-TINTING.md; this is that code, moved to where
    the app runs it. Only the pixel loop and the drawing of the region are per
    renderer -- the numbers and the geometry are here, once.")
