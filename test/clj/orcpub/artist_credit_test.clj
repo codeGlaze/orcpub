@@ -179,7 +179,7 @@
       (with-redefs [orcpub.crypto/configured-keys (constantly test-keys)
                     orcpub.email/send-reset-email (fn [_ user _] (reset! sent user))]
         (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
-        (is (nil? (:first-and-last-name @sent)) "no name yet: the email says 'Hi there'")
+        (is (= "someone" (:first-and-last-name @sent)) "no preferred name yet: greeted by username")
         (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "Kaylee"}))
         (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "Kaylee" (:first-and-last-name @sent)))))))

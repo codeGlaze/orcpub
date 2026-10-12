@@ -58,6 +58,12 @@ services:
       # accept unverified accounts; this is how you opt into the weaker mode.
       ALLOW_UNVERIFIED_REGISTRATION: ${ALLOW_UNVERIFIED_REGISTRATION:-}
       LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
+      # Portrait artists' credits and accounts, the key that encrypts preferred names, and the
+      # site address artist emails link to. See .env.example.
+      PORTRAIT_ARTISTS: ${PORTRAIT_ARTISTS:-}
+      PROFILE_ENCRYPTION_KEYS: ${PROFILE_ENCRYPTION_KEYS:-}
+      APP_URL: ${APP_URL:-}
+      EMAIL_ADMIN_TO: ${EMAIL_ADMIN_TO:-}
     depends_on:
       datomic:
         condition: service_healthy

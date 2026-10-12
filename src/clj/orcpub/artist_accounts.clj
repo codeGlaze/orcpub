@@ -23,7 +23,7 @@
 
 (def welcome-link-days
   "How long a new artist's set-password link lasts. Longer than a normal
-   reset's 24 hours: a welcome can sit unread for days."
+   reset's two hours: a welcome can sit unread for days."
   7)
 
 (def preferred-name-purpose crypto/preferred-name-purpose)

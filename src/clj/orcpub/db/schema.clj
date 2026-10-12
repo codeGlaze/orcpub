@@ -173,7 +173,7 @@
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
    ;; When set, a password-reset link stays valid until this moment instead
-   ;; of the usual 24 hours. Used by the artist welcome email, which may sit
+   ;; of the usual two hours. Used by the artist welcome email, which may sit
    ;; unread for days; ordinary resets never set it.
    {:db/ident :orcpub.user/password-reset-expires
     :db/valueType :db.type/instant
