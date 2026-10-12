@@ -6,7 +6,11 @@
   (:require [clojure.test :refer [deftest testing is are]]
             [orcpub.fork.branding :as branding]
             [orcpub.portrait-render :as pr]
-            [orcpub.dnd.e5.portrait-assets :as pa])
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.portrait-pack.strands :as strands]
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import [java.io ByteArrayInputStream]
            [javax.imageio ImageIO]))
 
@@ -162,3 +166,21 @@
     (is (= (vec (pr/render-png p))
            (vec (with-redefs [branding/app-url ""] (pr/render-png p))))
         "an unconfigured deployment stamps nothing")))
+
+(deftest hair-draws-the-same-with-or-without-deployed-strand-files
+  (testing "a deploy that skipped the strand step draws what one with the files draws"
+    (let [p (assoc (portrait-with [:head :hair-back :hair-front :bangs])
+                   :colors {:hair "#7a3b1f" :skin "#c68642"}
+                   :ombre {:tip "#ffd27a"})
+          pixels (fn [] (bounded-cache/clear! @#'pr/strand-fields)
+                   (let [img (pr/render p)]
+                     (vec (.getDataElements (.getRaster img) 0 0 (.getWidth img) (.getHeight img) nil))))
+          dir "resources/public/image/portraits"
+          worked-out (pixels)
+          written (strands/write-missing! dir false)]
+      (try
+        (is (some #{:written} (vals written)) "the strand files were written for this check")
+        (is (= worked-out (pixels)))
+        (finally
+          (doseq [[[layer file] outcome] written :when (= :written outcome)]
+            (io/delete-file (io/file dir (name layer) (str/replace file #"(?i)\.png$" ".strands.png")) true)))))))

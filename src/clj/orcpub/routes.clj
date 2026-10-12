@@ -1,6 +1,8 @@
 (ns orcpub.routes
   (:require [io.pedestal.http :as http]
             [orcpub.artist-accounts :as artist-accounts]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.work-pool :as work-pool]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -74,8 +76,7 @@
   ;; InputStream.
   (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
-           (java.io ByteArrayOutputStream ByteArrayInputStream)
-           (javax.imageio ImageIO))
+           (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
 
 (deftype FixedBuffer [^long len])
@@ -1335,29 +1336,19 @@
   64)
 
 (def ^:private probed-images
-  "url -> {:at ms :image {:data :jpg?} or nil}.
+  "url -> {:image {:data :jpg?} or nil, :reason ..}.
 
    A nil :image is an answer too, and worth keeping: a host that would not serve
    this server a moment ago will not serve the export either, and remembering it
    is what stops the export repeating the fetch."
-  (atom {}))
-
-(defn- prune-probes [m now]
-  (let [fresh (into {} (remove (fn [[_ v]] (> (- now (:at v)) probe-ttl-ms)) m))]
-    (if (<= (count fresh) probe-max-entries)
-      fresh
-      (into {} (take-last probe-max-entries (sort-by (comp :at val) fresh))))))
+  (bounded-cache/cache {:max-entries probe-max-entries :max-age-ms probe-ttl-ms}))
 
 (defn- probed-outcome
   "Fetches `url` once and remembers the outcome -- the picture, or why not -- so a
-   probe and the export that follows it cost the host one request rather than two."
+   probe and the export that follows it cost the host one request rather than two,
+   even when they ask at the same moment."
   [url]
-  (let [now (System/currentTimeMillis)]
-    (if-let [hit (get @probed-images url)]
-      (:outcome hit)
-      (let [outcome (pdf/fetch-image-outcome url)]
-        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
-        outcome))))
+  (bounded-cache/fetch! probed-images url #(pdf/fetch-image-outcome url)))
 
 (def ^:private probe-max-concurrency
   "Outbound fetches the probe endpoint may have running at once. This endpoint
@@ -1367,8 +1358,9 @@
    request's worth of curiosity about one picture, not sheet generation."
   8)
 
-(def ^:private probe-slots
-  (delay (java.util.concurrent.Semaphore. probe-max-concurrency true)))
+(def ^:private probe-pool
+  "Never waits: a probe that finds every fetch slot taken is answered rate-limited at once."
+  (work-pool/pool {:size (constantly probe-max-concurrency) :timeout-ms (constantly 0) :seed-ms 500}))
 
 (defn image-probe
   "Whether this server can fetch the picture at the posted `:url`, asked by the builder before it exports one the browser couldn't read.
@@ -1378,26 +1370,23 @@
    GOTCHA: no login is required, so this must never return the picture itself; that would make it an open proxy."
   [{:keys [transit-params remote-addr]}]
   (let [url (:url transit-params)
-        cached (get @probed-images url)
+        cached (some-> (bounded-cache/lookup probed-images url) first)
         reason (cond
                  (not (well-formed-image-url? url))
                  :blocked-address
 
                  cached
-                 (let [{:keys [image reason]} (:outcome cached)]
+                 (let [{:keys [image reason]} cached]
                    (if image :ok (or reason :unknown)))
 
                  (not (security/image-probe-allowed? remote-addr))
                  :rate-limited
 
-                 (not (.tryAcquire ^java.util.concurrent.Semaphore @probe-slots))
-                 :rate-limited
-
                  :else
-                 (try
-                   (let [{:keys [image reason]} (probed-outcome url)]
-                     (if image :ok (or reason :unknown)))
-                   (finally (.release ^java.util.concurrent.Semaphore @probe-slots))))]
+                 (let [{:keys [busy result]} (work-pool/run probe-pool #(probed-outcome url))]
+                   (cond busy :rate-limited
+                         (:image result) :ok
+                         :else (or (:reason result) :unknown))))]
     ;; The HOST only, never the URL: an image address can carry a signed query
     ;; string. This is how the genuinely unreachable set gets measured rather than
     ;; guessed at.
@@ -1406,45 +1395,19 @@
                "-" (name reason)))
     {:status 200 :body (name reason)}))
 
-(def ^:private export-slots
-  "Permits for sheet generation, one per concurrent export.
-
-   Held for the PDF work only, not for the whole request, so parsing and the
-   response write stay outside it. Fair ordering: without it a thread can be
-   starved indefinitely under sustained load, which is exactly the traffic this
-   exists for. Sized by ORCPUB_PDF_CONCURRENCY; see orcpub.config."
-  (delay (java.util.concurrent.Semaphore. (config/get-pdf-concurrency) true)))
-
-(def ^:private exports-waiting
-  "Requests currently queued for a slot, for the Retry-After estimate and for
-   anything that wants to report load."
-  (java.util.concurrent.atomic.AtomicInteger. 0))
-
-(def ^:private export-millis
-  "Exponentially weighted mean duration of a completed export, for the
-   Retry-After estimate. Seeded at a plausible 250 ms and converges on the real
-   figure within a few exports, so the estimate tracks the host and the shape of
-   sheet people are actually asking for rather than a number guessed here."
-  (java.util.concurrent.atomic.AtomicLong. 250))
+(def ^:private export-pool
+  "Permits for sheet generation, one per concurrent export, sized by ORCPUB_PDF_CONCURRENCY and
+   waited on for ORCPUB_PDF_QUEUE_TIMEOUT_MS (orcpub.config). Held for the PDF work only, not
+   the whole request, so parsing and the response write stay outside it. Seeded at a plausible
+   250 ms per export; the mean converges on the real figure within a few."
+  (work-pool/pool {:size #(config/get-pdf-concurrency)
+                   :timeout-ms #(config/get-pdf-queue-timeout-ms)
+                   :seed-ms 250}))
 
 (defn export-queue-depth
   "How many export requests are waiting for a slot right now."
   []
-  (.get exports-waiting))
-
-(defn- record-export-millis!
-  [ms]
-  (.set export-millis (long (+ (* 0.8 (.get export-millis)) (* 0.2 ms)))))
-
-(defn- retry-after-seconds
-  "Whole seconds to tell a turned-away client to wait: the queue ahead of it
-   divided by how fast the slots are draining it. Never zero -- Retry-After takes
-   no fraction and a zero sends the client straight back into the same queue --
-   and capped so a spike cannot tell someone to come back in an hour."
-  [waiting]
-  (-> (/ (* waiting (.get export-millis))
-         (* 1000.0 (config/get-pdf-concurrency)))
-      Math/ceil int (max 1) (min 30)))
+  (work-pool/queue-depth export-pool))
 
 (def ^:private busy-page-js
   "(function(){
@@ -1518,31 +1481,21 @@
    none frees up within the configured wait. Bounding the work rather than the request keeps
    memory predictable; sizing is in docs/PDF-EXPORT-CAPACITY.md."
   [req f]
-  (let [waiting (.incrementAndGet exports-waiting)]
-    (try
-      (if (.tryAcquire ^java.util.concurrent.Semaphore @export-slots
-                       (config/get-pdf-queue-timeout-ms)
-                       java.util.concurrent.TimeUnit/MILLISECONDS)
-        (let [start (System/nanoTime)]
-          (try
-            (f)
-            (finally
-              (record-export-millis! (/ (- (System/nanoTime) start) 1e6))
-              (.release ^java.util.concurrent.Semaphore @export-slots))))
-        (let [retry (retry-after-seconds waiting)
-              attempt (attempt-count req)]
-          (println (format "pdf: no export slot within %d ms, %d waiting, attempt %d"
-                           (config/get-pdf-queue-timeout-ms) waiting attempt))
-          {:status 503
-           :headers {"Retry-After" (str retry)
-                     "Content-Type" "text/html; charset=utf-8"}
-           :body (busy-page {:body (get-in req [:form-params :body])
-                             :attempt attempt
-                             :max-retries (config/get-pdf-max-retries)
-                             :retry-seconds retry
-                             :nonce (:csp-nonce req)
-                             :action (or (:uri req) "/character.pdf")})}))
-      (finally (.decrementAndGet exports-waiting)))))
+  (let [{:keys [result busy waiting]} (work-pool/run export-pool f)]
+    (if-not busy
+      result
+      (let [attempt (attempt-count req)]
+        (println (format "pdf: no export slot within %d ms, %d waiting, attempt %d"
+                         (config/get-pdf-queue-timeout-ms) waiting attempt))
+        {:status 503
+         :headers {"Retry-After" (str busy)
+                   "Content-Type" "text/html; charset=utf-8"}
+         :body (busy-page {:body (get-in req [:form-params :body])
+                           :attempt attempt
+                           :max-retries (config/get-pdf-max-retries)
+                           :retry-seconds busy
+                           :nonce (:csp-nonce req)
+                           :action (or (:uri req) "/character.pdf")})}))))
 
 (defn- spell-annotation
   "The marks for the spell printed under `nm`, or nil.
@@ -2444,6 +2397,17 @@
   [stored credit mark]
   (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
 
+(defn- portrait-tag
+  "The validator for a stored portrait EDN and its parse, or nil when there is none."
+  [stored portrait]
+  (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
+                                (portrait-render/site-mark))))
+
+(defn- tag-version
+  "The short form of a validator the share page puts in the image address (?v=)."
+  [tag]
+  (subs tag 1 13))
+
 (defn- any-representation-requested?
   "Whether If-None-Match is the wildcard.
 
@@ -2474,31 +2438,29 @@
            offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
        (contains? offered (bare tag))))))
 
-(def ^:private portrait-render-slots
-  "Server portrait renders allowed at once. The route needs no login and each render decodes and
-   composites up to ten PNGs, so a crawler burst (or a caller cycling ids) is bounded here."
-  (delay (java.util.concurrent.Semaphore. 2 true)))
+(def ^:private portrait-pool
+  "Shared-link portraits drawn at once, sized by ORCPUB_PORTRAIT_CONCURRENCY. The route needs no
+   login and each draw is about half a second of one core, so new pictures are bounded here;
+   repeats come from `rendered-portraits`. Seeded at that half second."
+  (work-pool/pool {:size #(config/get-portrait-concurrency)
+                   :timeout-ms #(config/get-portrait-queue-timeout-ms)
+                   :seed-ms 500}))
 
 (def ^:private rendered-portraits
-  "The last 64 rendered portraits by validator, :none for one with nothing drawable."
-  (java.util.Collections/synchronizedMap
-   (proxy [java.util.LinkedHashMap] [16 0.75 true]
-     (removeEldestEntry [_] (> (.size ^java.util.Map this) 64)))))
+  "The last 64 drawn portraits by validator (nil for one with nothing drawable). Single-flight,
+   so the crawlers a newly shared link sends all at once share one draw."
+  (bounded-cache/cache {:max-entries 64}))
 
 (defn- rendered-portrait
-  "[:ok png-or-nil] for `portrait` under validator `tag`, from the cache or a bounded render;
-   [:busy] when no render slot frees up within five seconds."
+  "[:ok png-or-nil] for `portrait` under validator `tag`, from the cache or a bounded draw;
+   [:busy retry-seconds] when no draw slot frees up in time."
   [tag portrait]
-  (if-let [hit (.get ^java.util.Map rendered-portraits tag)]
-    [:ok (when-not (= :none hit) hit)]
-    (let [slots ^java.util.concurrent.Semaphore @portrait-render-slots]
-      (if (.tryAcquire slots 5 java.util.concurrent.TimeUnit/SECONDS)
-        (try
-          (let [png (portrait-render/render-png portrait)]
-            (.put ^java.util.Map rendered-portraits tag (or png :none))
-            [:ok png])
-          (finally (.release slots)))
-        [:busy]))))
+  (try
+    [:ok (bounded-cache/fetch! rendered-portraits tag
+                               #(let [{:keys [result busy]} (work-pool/run portrait-pool (fn [] (portrait-render/render-png portrait)))]
+                                  (if busy (throw (ex-info "portrait draw busy" {::busy busy})) result)))]
+    (catch clojure.lang.ExceptionInfo e
+      (if-let [retry (::busy (ex-data e))] [:busy retry] (throw e)))))
 
 (defn character-portrait-png
   "PNG of a character's composed portrait, for og:image.
@@ -2510,17 +2472,20 @@
 
    404 when the character has no composed portrait, so a crawler falls back to
    whatever og:image the page did declare."
-  [{:keys [db headers] {:keys [id]} :path-params}]
+  [{:keys [db headers query-params] {:keys [id]} :path-params}]
   (artist-credit/refresh! db)
   (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
                        ::se/values
                        ::char5e/portrait)
         portrait (some-> stored char5e/parse-portrait)
-        tag (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
-                                          (portrait-render/site-mark)))
+        tag (portrait-tag stored portrait)
         png-headers {"Content-Type" "image/png"
-                     ;; Portraits change rarely and a crawler may refetch often.
-                     "Cache-Control" "public, max-age=300"
+                     ;; The share page names the picture by version (?v=), so that address
+                     ;; never changes content and can be kept for good; a bare or stale one
+                     ;; is revalidated after five minutes.
+                     "Cache-Control" (if (and tag (= (:v query-params) (tag-version tag)))
+                                       "public, max-age=31536000, immutable"
+                                       "public, max-age=300")
                      ;; This is contributed artwork. The header is the per-response
                      ;; twin of the page's `noai` meta -- a crawler that fetches the
                      ;; PNG directly never parses the HTML that carries the meta.
@@ -2542,10 +2507,11 @@
       ;; copy is current when the resource has no current copy at all. So it
       ;; renders first and lets the outcome decide, which costs the saving on a
       ;; wildcard request and keeps it on every request that names a tag.
-      (let [[outcome png] (rendered-portrait tag portrait)]
+      (let [[outcome x] (rendered-portrait tag portrait)
+            png (when (= :ok outcome) x)]
         (cond
           (= :busy outcome)
-          {:status 503 :headers {"Retry-After" "10" "Content-Type" "text/plain"} :body "busy"}
+          {:status 503 :headers {"Retry-After" (str x) "Content-Type" "text/plain"} :body "busy"}
 
           (nil? png) {:status 404 :body "no composed portrait"}
 
@@ -2555,6 +2521,8 @@
           :else {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})))))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
+  ;; before the credit line and the image version below are worked out from it
+  (when db (artist-credit/refresh! db))
   (let [host (headers "host")
         {:keys [::se/summary ::se/values]} (character-summary-for-id db id)
         {:keys [::char5e/character-name]} summary
@@ -2571,9 +2539,12 @@
         ;; previewed broken -- even when the character had a usable image-url
         ;; to fall back on.
         composed? (portrait-assets5e/drawable? parsed-portrait)
+        ;; Versioned, so a link preview made after the portrait changes fetches the new
+        ;; picture instead of the copy every chat app kept under the old address.
         share-image (if composed?
                       (str "https://" host
-                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
+                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id)
+                           "?v=" (tag-version (portrait-tag portrait parsed-portrait)))
                       image-url)
         ;; A shared link is where the art actually travels, so the card names
         ;; the artists too -- the same line the sheet prints.
@@ -2645,24 +2616,13 @@
                         (portrait-fx/hair-layer? layer) (conj (s/replace url #"\.png$" ".strands.png")))]
                 u))))
 
-(defonce ^:private worked-out-strands (atom {}))
-
 (defn- strands-on-the-fly
-  "PNG bytes of a hair piece's strand field when no .strands.png was deployed beside its art:
-   worked out from the art once and kept, so the builder's request does not 404 and no
-   visitor's browser works it out. nil for anything else. The deploy step stays the fast path."
+  "PNG bytes of a registered hair piece's strand field when no .strands.png was deployed beside
+   its art (orcpub.portrait-pack.strands/worked-out-png), so the builder's request does not 404.
+   nil for anything else. The build step stays the fast path."
   [uri]
-  (when-let [[_ layer art] (and (contains? @portrait-files uri)
-                                (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" uri))]
-    (or (get @worked-out-strands uri)
-        (when-let [res (and (portrait-fx/hair-layer? (keyword layer))
-                            (io/resource (str "public/image/portraits/" layer "/" art ".png")))]
-          (let [img (with-open [in (io/input-stream res)] (ImageIO/read in))
-                out (ByteArrayOutputStream.)]
-            (ImageIO/write (strands/field->image (strands/field-of img (keyword layer))) "png" out)
-            (let [bytes (.toByteArray out)]
-              (swap! worked-out-strands assoc uri bytes)
-              bytes))))))
+  (when (and (contains? @portrait-files uri) (s/ends-with? uri ".strands.png"))
+    (strands/worked-out-png (s/replace uri #"\.strands\.png$" ".png"))))
 
 (defn- portrait-art? [uri] (s/starts-with? (str uri) "/image/portraits/"))
 
