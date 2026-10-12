@@ -89,6 +89,13 @@ Indented code, rules and HTML are off too; open5e never means them. The word che
 (`plain_source` against `block_words`) stays independent of the parser and fails the run when a
 word is lost or changed.
 
+**The parser reports what it reads past.** `emit-rules.py` and `emit-conditions.py` end with
+"source spots read past": each place the source needed one of the readings above
+(`paragraph-after-list`, `split-sidebar`, `dash-underline`) or could not be read as meant
+(`bullet-no-space`). Each is a candidate for an open5e fix, not a confirmed defect; check it
+against the SRD PDF first. `lint-open5e.py` covers the whole dataset, the report only the records
+we generate from.
+
 A source defect the parser cannot recover is fixed in the clone, not worked around: srd-2024
 Invisible writes `*Attacks Affected.` with no space, so it is not a bullet. `lint-open5e.py`
 reports the kind as `bullet-no-space`.

@@ -152,3 +152,4 @@ def main(clone, srd52, targets):
 
 if __name__ == '__main__':
     main(*sys.argv[1:4])
+    F.report()

@@ -23,6 +23,8 @@ Checks:
   duplicate-text    two records sharing a long run of text (Critical Hits once copied Damage Rolls)
   upcast-not-data   a spell with "at higher levels" text but no per-slot options
   bullet-no-space   a line opening "*Word", a bullet missing its space, read as plain text
+  split-sidebar     a "> " sidebar whose paragraphs are split by a blank line, which renders as
+                    two quotes (open5e mostly joins them with a ">" line)
   collapsed-md      markdown whose line breaks were lost: a list run onto one line
                     ("following:  - Hold your breath - March..."), a heading or quote mid-line
 """
@@ -93,6 +95,9 @@ def lint(path, records, vocab, findings):
                     if m:
                         findings['double-space'].append((*where, line[max(0, m.start() - 20):m.end() + 20]))
                         break
+            m = re.search(r'(?m)^ *>.*\n\s*\n *> ?(.*)', v)
+            if m:
+                findings['split-sidebar'].append((*where, m.group(1)[:50]))
             m = re.search(r'(?m)^\*[A-Za-z][^*\n]*$', v)
             if m:
                 findings['bullet-no-space'].append((*where, m.group(0)[:50]))

@@ -248,6 +248,7 @@ def _blocks(tokens, i, stop, links, here, labelled):
         elif t.type == 'blockquote_open':
             inner, i = _blocks(tokens, i + 1, 'blockquote_close', links, here, labelled)
             if out and out[-1][0] == 'aside':        # quoted paragraphs split by a blank line: one sidebar
+                _note('split-sidebar', here, _plain_text(inner[0][1:]) if inner and inner[0][0] == 'p' else '')
                 out[-1] += inner
             else:
                 out.append(['aside'] + inner)
@@ -293,16 +294,41 @@ def _drop_table_markers(blocks):
     return blocks
 
 
+REPAIRS = []    # (kind, where, snippet) for each spot the parser read past; see report()
+
+
+def _note(kind, here, snippet):
+    """Records a spot in the source the parser had to read past, for report()."""
+    REPAIRS.append((kind, here, snippet.strip()[:70]))
+
+
+def report():
+    """Prints the spots parse() read past, grouped by kind: candidates for an open5e fix, or
+    open5e's own style. Returns nothing; clears the list."""
+    kinds = {}
+    for kind, here, snippet in REPAIRS:
+        kinds.setdefault(kind, []).append((here, snippet))
+    if kinds:
+        print('  source spots read past (check before an open5e PR; open5e-upstream-notes.md):')
+    for kind, hits in sorted(kinds.items()):
+        print(f'    {kind:22} {len(hits)}')
+        for here, snippet in hits:
+            print(f'      {here}  {snippet!r}')
+    REPAIRS.clear()
+
+
 CONTAINER_LINE = re.compile(r'\s*(?:[*-]\s|\d+\.\s|>|\|)')
 
 
-def _paragraph_breaks(text):
+def _paragraph_breaks(text, here=None):
     """open5e source with a blank line wherever a list, quote or table line runs straight into
     plain text. open5e means a new paragraph there; CommonMark would continue the item."""
     out, prev = [], ''
     for line in text.split('\n'):
         if line.strip() and prev.strip() and CONTAINER_LINE.match(prev) and not CONTAINER_LINE.match(line) \
                 and not line.startswith((' ', '\t')):
+            if not re.match(r'#|\*[A-Za-z]', line):     # a heading ends a list; bullet-no-space reports the other
+                _note('paragraph-after-list', here, line)
             out.append('')
         out.append(line)
         prev = line
@@ -311,7 +337,12 @@ def _paragraph_breaks(text):
 
 def parse(desc, links, here=None, labelled=False):
     """open5e markdown -> blocks. `labelled`: bullets open with a label ("Can’t See. ...")."""
-    tokens = _MD.parse(_paragraph_breaks((desc or '').replace('\r\n', '\n').replace('\r', '\n')))
+    text = (desc or '').replace('\r\n', '\n').replace('\r', '\n')
+    for kind, pattern in (('dash-underline', r'(?m)^(?<=\S\n)-{3,}\s*$'),
+                          ('bullet-no-space', r'(?m)^\*[A-Za-z][^*\n]*$')):
+        for m in re.finditer(pattern, text):
+            _note(kind, here, text[max(0, m.start() - 30):m.end() + 30])
+    tokens = _MD.parse(_paragraph_breaks(text, here))
     blocks, _ = _blocks(tokens, 0, None, links, here, labelled)
     return _drop_table_markers(blocks)
 
