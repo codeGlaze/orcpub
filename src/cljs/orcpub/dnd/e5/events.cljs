@@ -2596,6 +2596,27 @@
                          {:artist/id (portrait-assets5e/artist-for-asset layer-key asset-id)
                           :asset/id  asset-id}))))))
 
+;; Artist credits arrive from the server as data (/dnd/5e/portrait-artists), never in the page:
+;; app-db holds them for the views, and portrait-assets for the shared credit functions.
+(reg-fx
+ :portrait/apply-artist-overrides
+ (fn [m] (portrait-assets5e/set-artist-overrides! m)))
+
+(reg-event-fx
+ :portrait/artists-loaded
+ (fn [{:keys [db]} [_ artists]]
+   (let [m (into {} (for [[id fields] artists] [(keyword (name id)) fields]))]
+     {:db (assoc db :portrait/artist-overrides m)
+      :portrait/apply-artist-overrides m})))
+
+(reg-event-fx
+ :portrait/load-artists
+ (fn [_ _]
+   (go (let [{:keys [status body]} (<! (http/get (url-for-route routes/dnd-e5-portrait-artists-route)))]
+         (when (and (= 200 status) (map? body))
+           (dispatch [:portrait/artists-loaded body]))))
+   {}))
+
 ;; Randomize and Reset touch :layers only — the character's colors persist
 ;; across rerolls, which is what "my character's colors" should mean.
 (reg-event-db

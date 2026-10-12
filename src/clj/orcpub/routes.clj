@@ -2,6 +2,7 @@
   (:require [io.pedestal.http :as http]
             [orcpub.artist-accounts :as artist-accounts]
             [orcpub.bounded-cache :as bounded-cache]
+            [cheshire.core :as cheshire]
             [orcpub.work-pool :as work-pool]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
@@ -2520,6 +2521,18 @@
 
           :else {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})))))
 
+(defn portrait-artists
+  "The artists' credits in force, as JSON for the browser: their own edits under the deployment's
+   settings (orcpub.artist-credit/refresh!). Public, as the credits are; cached for a minute so an
+   artist's edit shows within one. Served as data rather than written into the page, so text an
+   artist typed never becomes page source."
+  [{:keys [db]}]
+  (when db (artist-credit/refresh! db))
+  {:status 200
+   :headers {"Content-Type" "application/json; charset=utf-8"
+             "Cache-Control" "public, max-age=60"}
+   :body (cheshire/generate-string (portrait-assets5e/current-overrides))})
+
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   ;; before the credit line and the image version below are worked out from it
   (when db (artist-credit/refresh! db))
@@ -2739,6 +2752,8 @@
         {:get `character-page}]
        [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
         {:get `character-portrait-png}]
+       [(route-map/path-for route-map/dnd-e5-portrait-artists-route)
+        {:get `portrait-artists}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

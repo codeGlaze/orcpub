@@ -133,6 +133,10 @@
  (fn [db _] (get db :portrait/draft {})))
 
 (reg-sub
+ :portrait/artist-overrides
+ (fn [db _] (get db :portrait/artist-overrides)))
+
+(reg-sub
  :portrait/draft-seed
  (fn [db _] (get db :portrait/draft-seed)))
 
