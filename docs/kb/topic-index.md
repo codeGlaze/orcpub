@@ -616,7 +616,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -710,7 +710,7 @@ _class-builder-extraction-plan · class builder extraction plan_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, divinity, inspiration, lay, level, monk, multi-part, scaling, sorcery, summaries, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, divinity, inspiration, jack, lay, level, monk, multi-part, scaling, sorcery, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -1298,7 +1298,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, person, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -2254,11 +2254,12 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 998, 999, commonmark, death, documents, higher-level, issue, open5e, open5e-api, parser, pdf, srd, text
+**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, spell, srd, text, transcript, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
 - Markdown in open5e data: match the document you're editing (owner decision, 2026-10-09)
+- SRD fidelity: no wording the SRD does not use (owner, 2026-10-12)
 - How the generators read it (2026-10-10)
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs

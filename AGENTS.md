@@ -322,6 +322,15 @@ leaves the edit in place. Measure before adding anything to an edit's path.
   `test/comment-baseline.edn` `:allowed` with a written reason. Never approve unread.
 - Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
 
+### SRD text is verbatim — MUST FOLLOW
+
+- **Never write wording the SRD does not use into SRD data** (open5e fixtures, generated SRD
+  files). A fix touches only what is broken; text with no SRD sentence (a casting option `desc`) is
+  the SRD's own sentence with the slot's number put in. No paraphrase, no "clearer" rewording.
+- Run `scripts/srd/check-srd-fidelity.py` before any open5e push or PR; the clone's `pre-push`
+  hook runs it. Our own summaries go in a separate field, never in SRD text.
+- Rule and why: `docs/kb/open5e-upstream-notes.md`, "SRD fidelity".
+
 ### Changelogs — MUST FOLLOW
 
 - **A changelog says what the branch DID, not the commits it took.** One line per outcome a user or

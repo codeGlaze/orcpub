@@ -70,6 +70,30 @@ SRD run-in labels in bold italic as `**_Label._**`. When we add or edit text:
 #995 (its added text uses `*italic*` and two plain-bold labels) is left as it is; it was approved
 as sent.
 
+### SRD fidelity: no wording the SRD does not use (owner, 2026-10-12)
+
+**SRD text is the SRD's words.** Every text we add to or change in open5e's SRD data, and every
+SRD file we generate, uses the SRD's own wording. A fix changes what is broken (a typo, a hyphen,
+a line break) and nothing around it. Text with no SRD sentence to copy, such as a casting option's
+`desc`, is built from the SRD's own sentence for that effect with the number for that slot put in:
+SRD "increase by an additional 5 for each slot level above 2nd" gives slot 9
+"Each target's hit points increase by an additional 35."
+
+**Why it is enforced, not trusted:** on 2026-10-12, 82 of the new upcast `desc` lines turned out to
+be agent phrasing ("Roll 22d10 to find the total hit points affected" for the SRD's "the total is
+how many hit points of creatures this spell can affect"). Nobody had asked for paraphrase; it is
+what an agent writes by default. srd-2024's own `desc` mixes SRD wording and paraphrase, so copying
+its style is not a safe guide either.
+
+**The check:** `scripts/srd/check-srd-fidelity.py OPEN5E_CLONE SRD52_WORKTREE` compares HEAD with
+`origin/staging` and flags any three-word run in new or changed text that is in neither the SRD
+transcript nor the old value (numbers, dice, case and markup normalised). It runs from the open5e
+clone's `pre-push` hook, so a flagged batch cannot reach the fork. A flag a person has checked and
+kept, such as a corrected SRD typo, goes in `scripts/srd/srd-fidelity-reviewed.json` with its reason.
+
+**OrcPub's own wording is never SRD text.** Editorial summaries (the app's rewritten spell
+summaries) live in their own field, never in the SRD text field.
+
 ### How the generators read it (2026-10-10)
 
 `scripts/srd/srd_format.py` is the one parser for every generator (`emit-rules.py`,
