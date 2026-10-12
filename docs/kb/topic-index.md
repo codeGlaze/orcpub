@@ -2254,12 +2254,12 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, spell, srd, text, transcript, wording
+**topics:** 2026-10-07, 2026-10-10, 760, 995, 997, 998, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, spell, srd, text, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
 - Markdown in open5e data: match the document you're editing (owner decision, 2026-10-09)
-- SRD fidelity: no wording the SRD does not use (owner, 2026-10-12)
+- SRD data checks: no wording the SRD does not use (owner, 2026-10-12)
 - How the generators read it (2026-10-10)
 - 1. /v2/magicitems/ silently ignores documentkey — verified 2026-10-06
 - 2. Missing upcast data on three spells — verified against the PDFs
@@ -2552,7 +2552,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, companion, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals

@@ -327,9 +327,9 @@ leaves the edit in place. Measure before adding anything to an edit's path.
 - **Never write wording the SRD does not use into SRD data** (open5e fixtures, generated SRD
   files). A fix touches only what is broken; text with no SRD sentence (a casting option `desc`) is
   the SRD's own sentence with the slot's number put in. No paraphrase, no "clearer" rewording.
-- Run `scripts/srd/check-srd-fidelity.py` before any open5e push or PR; the clone's `pre-push`
-  hook runs it. Our own summaries go in a separate field, never in SRD text.
-- Rule and why: `docs/kb/open5e-upstream-notes.md`, "SRD fidelity".
+- `scripts/srd/check-srd-data.py` checks the whole branch against these rules in about a second;
+  the open5e clone's `pre-push` hook runs it. Our own summaries go in a separate field.
+- Rules and why: `docs/kb/open5e-upstream-notes.md`, "SRD data checks".
 
 ### Changelogs — MUST FOLLOW
 

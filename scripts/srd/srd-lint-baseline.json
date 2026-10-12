@@ -1,0 +1,13 @@
+{
+ "srd-2014": {
+  "carriage-return": 214,
+  "double-space": 15,
+  "duplicate-text": 32,
+  "run-together": 10
+ },
+ "srd-2024": {
+  "double-space": 4,
+  "duplicate-text": 26,
+  "run-together": 2
+ }
+}

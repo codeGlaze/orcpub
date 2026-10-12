@@ -70,7 +70,7 @@ SRD run-in labels in bold italic as `**_Label._**`. When we add or edit text:
 #995 (its added text uses `*italic*` and two plain-bold labels) is left as it is; it was approved
 as sent.
 
-### SRD fidelity: no wording the SRD does not use (owner, 2026-10-12)
+### SRD data checks: no wording the SRD does not use (owner, 2026-10-12)
 
 **SRD text is the SRD's words.** Every text we add to or change in open5e's SRD data, and every
 SRD file we generate, uses the SRD's own wording. A fix changes what is broken (a typo, a hyphen,
@@ -85,11 +85,25 @@ how many hit points of creatures this spell can affect"). Nobody had asked for p
 what an agent writes by default. srd-2024's own `desc` mixes SRD wording and paraphrase, so copying
 its style is not a safe guide either.
 
-**The check:** `scripts/srd/check-srd-fidelity.py OPEN5E_CLONE SRD52_WORKTREE` compares HEAD with
-`origin/staging` and flags any three-word run in new or changed text that is in neither the SRD
-transcript nor the old value (numbers, dice, case and markup normalised). It runs from the open5e
-clone's `pre-push` hook, so a flagged batch cannot reach the fork. A flag a person has checked and
-kept, such as a corrected SRD typo, goes in `scripts/srd/srd-fidelity-reviewed.json` with its reason.
+**The check:** `scripts/srd/check-srd-data.py OPEN5E_CLONE SRD52_WORKTREE` runs over the whole
+branch (HEAD against `origin/staging`) in about a second, so an earlier careless commit fails
+today's run and nobody has to recheck old work by hand. It runs from the open5e clone's `pre-push`
+hook, so a failing branch cannot reach the fork. Each rule came from a real mistake, and each was
+seen to fail on the mistake before it was trusted:
+
+| rule | catches | the mistake behind it |
+| --- | --- | --- |
+| fidelity | text with a three-word run in neither the SRD nor the old value | 82 paraphrased upcast `desc` lines |
+| name-case | a name change that is more than letter case | retitling that "improves" a name |
+| empty-option | a casting option that sets nothing | the kind open5e deleted (#749) |
+| slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
+| dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
+| upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
+| lint-ratchet | any lint count above `srd-lint-baseline.json` | a fixed defect coming back |
+| reformat | changed lines in records whose content did not change | a file re-serialised wholesale |
+
+A finding a person has checked and kept goes in `scripts/srd/srd-data-reviewed.json` (rule, file,
+pk, field, reason). `--update-baseline` lowers the lint baseline after a cleanup; it never raises it.
 
 **OrcPub's own wording is never SRD text.** Editorial summaries (the app's rewritten spell
 summaries) live in their own field, never in the SRD text field.
