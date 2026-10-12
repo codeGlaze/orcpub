@@ -12,7 +12,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
 
@@ -48,29 +48,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
   the ruling.
 - **Spells:** conditions named in spell and magic item text link to their page, with a preview.
-- **Characters:** a portrait builder. Pick or randomize hair (back, front, bangs, bits), head,
-  ears, eyes, nose, mouth and shirt from layered art, from the summary thumbnail, beside the
-  Image URL field, or in a Portrait tab in the builder.
-- **Characters:** portrait colours per character for hair, skin, eyes, eye whites, lips and
-  shirt, with a lighter, darker or different colour for any single piece.
-- **Characters:** hair ombré with streaks that follow the drawn strands, a shine you can place,
-  dyed or root-coloured bangs, and soft shadows where hair falls over the face.
-- **Characters:** eyes with slit or goat pupils, a different colour for each eye, brightness,
-  and glowing eyes in five presets or any colour.
-- **Characters:** blush, freckles (amount, placement and how strong) and shading under the hair.
-- **Characters:** mood light: torch, moonlight or arcane, as a lit edge, a cast or a rim, from
-  any side.
-- **Printing:** the composed portrait prints on the exported character sheet.
-- **Sharing:** a shared character link unfurls with the character's own portrait.
-- **Characters:** the artist is credited under the portrait, on the sheet, in the shared card and
-  in the composed image itself, with the links the artist chose.
-- **Accounts:** artists named in the deployment's portrait-artist settings get an account, with a
-  welcome email and a week-long link to set a password (sent again on the next start if the mail
-  server refused it); existing confirmed accounts are linked, and the site admin hears about each.
-- **Accounts:** a preferred name, encrypted at rest, used to greet you in site emails; artists can
-  change how they are credited, and their links, on My Account.
-- **Site:** pages and portrait images ask AI crawlers not to train on or reuse them.
-- **Server:** a startup log line when hair art is deployed without its strand files.
 
 ### Changed
 
@@ -82,9 +59,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
-- **Characters:** the builder's tab bar wraps on narrow screens.
-- **Printing:** artwork the app generates for the sheet has its own size limit, separate from the
-  one for uploaded images, so the portrait prints at full resolution.
 
 ### Fixed
 
@@ -123,11 +97,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
-- **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram
-  and X, because `robots.txt` blocked every crawler that honours it.
-- **Sharing:** every shared character link had an empty title and image in its preview.
-- **Printing:** exported sheets reported "Adobe InDesign CS6" as their creator and had no title or
-  author.
 
 ### Security
 

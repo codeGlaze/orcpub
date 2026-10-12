@@ -50,10 +50,6 @@
       :icon "fa-search"
       :headline "Find equipment by typing"
       :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
-     {:group "Characters"
-      :icon "fa-user-circle"
-      :headline "Build a portrait for your character"
-      :detail "Pick or randomize layered art by a real illustrator, colour hair, skin, eyes and clothing, and add an ombré, freckles, glowing eyes or a torch-lit edge. The portrait shows on the sheet, the summary and shared links, credited to the artist."}
 
 
      {:group "Sharing"
