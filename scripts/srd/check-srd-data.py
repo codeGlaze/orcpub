@@ -20,7 +20,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   reformat        a diff changes lines only inside records whose content changed
 
 A finding a person has checked and kept goes in srd-data-reviewed.json (rule, file, pk, field,
-reason) and is then reported as reviewed. Exit status 1 while anything is unreviewed.
+reason; pk may be a list) and is then reported as reviewed. Exit status 1 while anything is unreviewed.
 --update-baseline lowers the lint baseline to today's counts (never raises it).
 """
 import collections, importlib.util, json, re, subprocess, sys
@@ -41,6 +41,7 @@ def tokens(text):
     t = re.sub(r'\d+d\d+', '#d#', t)
     t = re.sub(r'\d+(st|nd|rd|th)\b', '#th', t)
     t = re.sub(r'\d+', '#', t)
+    t = re.sub(r'\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b', '#', t)
     t = re.sub(r"[^a-z#' ]+", ' ', t)
     return [w.strip("'") for w in t.split() if w.strip("'")]
 
@@ -74,8 +75,9 @@ class Report:
     """Collects findings, splitting reviewed ones out by srd-data-reviewed.json."""
 
     def __init__(self):
-        self.reviewed = {(r['rule'], r['file'], str(r['pk']), r.get('field', '')): r['reason']
-                         for r in json.load(open(HERE / 'srd-data-reviewed.json'))}
+        self.reviewed = {(r['rule'], r['file'], str(pk), r.get('field', '')): r['reason']
+                         for r in json.load(open(HERE / 'srd-data-reviewed.json'))
+                         for pk in (r['pk'] if isinstance(r['pk'], list) else [r['pk']])}
         self.found = {}
 
     def add(self, rule, file, pk, field, detail):
