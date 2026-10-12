@@ -2254,7 +2254,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 2026-10-10, 760, 995, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, slot, spell, srd, srd-2024, text, wording
+**topics:** 2026-10-07, 760, 995, 999, documents, higher-level, issue, open5e, open5e-api, parser, pdf, slot, spell, srd, srd-2014, srd-2024, text, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2842,7 +2842,7 @@ _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
 _rescued/ui-ux-plan · rescued/ui ux plan_
 
-**topics:** ------, -------, char, clj, color-themes, core, css, descriptions, focus, polish, priority, splash, theme, themes, tier, veterans, views, visual
+**topics:** ------, -------, char, clj, color-themes, core, css, descriptions, focus, hints, polish, priority, theme, themes, tier, veterans, views, visual
 
 - Context
 - In-Flight Branches (Critical Context)

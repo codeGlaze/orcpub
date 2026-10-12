@@ -16,6 +16,8 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   upcast-math     where the higher_level text is a plain step ("increases by 1d6 for each slot level
                   above 3rd", "one additional creature for each slot level above 1st"), every
                   option's value is the spell's base plus the step per slot
+  base-missing    a spell whose casting options set damage_roll or target_count has that field
+                  set itself (the base the options scale from)
   slot-below-base no slot option at or below the spell's own level
   desc-math       numbers in a desc agree with the damage_roll beside it and with the step sentence
                   (an absolute "deals 7d8" equals damage_roll; a delta "increases by 3d4" equals the
@@ -147,6 +149,12 @@ def check_options(rep, ed, old, new, spells, audit=False):
             if old.get(pk) != r and lvl <= (spells.get(o['parent'], {}).get('level') or 0):
                 rep.add('slot-below-base', f, pk, o['type'], f'{o["parent"]} is a level {spells[o["parent"]]["level"]} spell')
             check_desc_math(rep, f, pk, lvl, o, spells.get(o['parent'], {}))
+    for parent in touched:
+        sp = spells.get(parent, {})
+        for field in ('damage_roll', 'target_count'):
+            if any(r['fields']['parent'] == parent and r['fields'].get(field) not in (None, '') for r in new.values()) \
+                    and sp.get(field) in (None, '', 0):
+                rep.add('base-missing', f, parent, field, f'casting options set {field}, the spell itself has {sp.get(field)!r}')
     for parent, slots in by.items():
         missing = [s for s in range(min(slots), 10) if s not in slots]
         if missing:
@@ -299,7 +307,7 @@ def main(argv):
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', p + 'Spell.json').items()}
             check_options(rep, ed, {}, records(clone, 'HEAD', p + 'SpellCastingOption.json'), spells, audit=True)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
-    bad = rep.print(['fidelity', 'name-case', 'empty-option', 'slot-gap', 'dice-only', 'slot-below-base',
+    bad = rep.print(['fidelity', 'name-case', 'empty-option', 'base-missing', 'slot-gap', 'dice-only', 'slot-below-base',
                      'upcast-math', 'desc-math', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')

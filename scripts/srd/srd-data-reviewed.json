@@ -19,5 +19,12 @@
   ],
   "field": "desc",
   "reason": "Conjure Animals / Minor Elementals / Woodland Beings: 'More creatures appear: three times as many.' joins two parts of one SRD sentence ('more creatures appear: twice as many with a 5th-level slot, three times as many with a 7th-level slot'); no words added. Reviewed 2026-10-12."
+ },
+ {
+  "rule": "base-missing",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_true-strike",
+  "field": "damage_roll",
+  "reason": "True Strike has no base damage of its own (the weapon's damage); its options hold only the extra Radiant dice from level 5 (SRD 5.2.1). Empty base is correct. Reviewed 2026-10-12."
  }
 ]

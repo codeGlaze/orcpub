@@ -96,6 +96,7 @@ seen to fail on the mistake before it was trusted:
 | fidelity | text with a three-word run in neither the SRD nor the old value | 82 paraphrased upcast `desc` lines |
 | name-case | a name change that is more than letter case | retitling that "improves" a name |
 | empty-option | a casting option that sets nothing | the kind open5e deleted (#749) |
+| base-missing | casting options that set dice or targets on a spell whose own base is empty | 13 srd-2014 and 3 srd-2024 spells (Acid Splash, Cure Wounds, Conjure Celestial) scaled from nothing |
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
 | upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
