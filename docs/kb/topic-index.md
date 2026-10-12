@@ -984,7 +984,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, minute, postgres, seconds, speculation, threshold, transactor, unvalidated, write
+**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, minute, observed, postgres, seconds, speculation, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -1036,7 +1036,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -3153,7 +3153,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, actions, concentration, conditions, data, dragon, editions, links, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
+**topics:** 2014, actions, concentration, conditions, dragon, editions, links, magic, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
 
 - How this was measured
 - What the app shows today
