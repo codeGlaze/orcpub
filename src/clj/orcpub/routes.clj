@@ -495,11 +495,12 @@
     user))
 
 (defn preferred-name-of
-  "The account's preferred name for an email greeting, decrypted, else the
-   fork's fallback (nil: 'Hi there')."
+  "The name an email greets the account by: its preferred name, decrypted, else the fork's
+   fallback, else its username."
   [user]
   (or (crypto/decrypt crypto/preferred-name-purpose (:orcpub.user/preferred-name user))
-      auth/verification-display-name))
+      auth/verification-display-name
+      (:orcpub.user/username user)))
 
 (defn send-verification-email [request params verification-key]
   (email/send-verification-email
@@ -708,8 +709,8 @@
    username))
 
 (defn- link-artist-on-confirm!
-  "An address was just confirmed. If it is an artist's configured account,
-   link it. Never lets a failure here fail the confirmation itself."
+  "A confirmed account just confirmed a new address. If it is an artist's configured
+   account, link it. Never lets a failure here fail the confirmation itself."
   [conn id]
   (try (artist-accounts/on-email-confirmed! conn id (artist-accounts/configured) artist-accounts/notify)
        (catch Exception e
@@ -754,10 +755,11 @@
                 (link-artist-on-confirm! conn id)
                 (redirect route-map/verify-success-route)))
 
+          ;; No artist link here: whoever registered chose the password, and confirming
+          ;; proves only the address (artist-accounts claims such accounts instead).
           :else
           (do @(d/transact conn [{:db/id id
                                   :orcpub.user/verified? true}])
-              (link-artist-on-confirm! conn id)
               (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
@@ -910,7 +912,7 @@
 
 (defn reset-link-expired?
   "Whether a reset link is past its expiry: its own expiry when it has one
-   (the artist welcome link lasts a week), otherwise the usual 24 hours."
+   (the artist welcome link lasts a week), otherwise the usual two hours."
   [{:keys [:orcpub.user/password-reset-sent :orcpub.user/password-reset-expires]}]
   (if password-reset-expires
     (.after (java.util.Date.) password-reset-expires)
@@ -2429,6 +2431,32 @@
            offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
        (contains? offered (bare tag))))))
 
+(def ^:private portrait-render-slots
+  "Server portrait renders allowed at once. The route needs no login and each render decodes and
+   composites up to ten PNGs, so a crawler burst (or a caller cycling ids) is bounded here."
+  (delay (java.util.concurrent.Semaphore. 2 true)))
+
+(def ^:private rendered-portraits
+  "The last 64 rendered portraits by validator, :none for one with nothing drawable."
+  (java.util.Collections/synchronizedMap
+   (proxy [java.util.LinkedHashMap] [16 0.75 true]
+     (removeEldestEntry [_] (> (.size ^java.util.Map this) 64)))))
+
+(defn- rendered-portrait
+  "[:ok png-or-nil] for `portrait` under validator `tag`, from the cache or a bounded render;
+   [:busy] when no render slot frees up within five seconds."
+  [tag portrait]
+  (if-let [hit (.get ^java.util.Map rendered-portraits tag)]
+    [:ok (when-not (= :none hit) hit)]
+    (let [slots ^java.util.concurrent.Semaphore @portrait-render-slots]
+      (if (.tryAcquire slots 5 java.util.concurrent.TimeUnit/SECONDS)
+        (try
+          (let [png (portrait-render/render-png portrait)]
+            (.put ^java.util.Map rendered-portraits tag (or png :none))
+            [:ok png])
+          (finally (.release slots)))
+        [:busy]))))
+
 (defn character-portrait-png
   "Ring handler: PNG of character :id's composed portrait, for og:image. Unauthenticated,
    like the character page, whose meta tags already expose the character. 304 when
@@ -2461,11 +2489,17 @@
       :else
       ;; The wildcard is answered only after rendering: a portrait that draws nothing
       ;; has no representation and must 404, not 304.
-      (if-let [png (portrait-render/render-png portrait)]
-        (if (any-representation-requested? (get headers "if-none-match"))
+      (let [[outcome png] (rendered-portrait tag portrait)]
+        (cond
+          (= :busy outcome)
+          {:status 503 :headers {"Retry-After" "10" "Content-Type" "text/plain"} :body "busy"}
+
+          (nil? png) {:status 404 :body "no composed portrait"}
+
+          (any-representation-requested? (get headers "if-none-match"))
           {:status 304 :headers (dissoc png-headers "Content-Type")}
-          {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})
-        {:status 404 :body "no composed portrait"}))))
+
+          :else {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})))))
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")
@@ -2596,6 +2630,16 @@
 
 (def get-js get-file)
 
+(def ^:private portrait-files
+  "Every URL the art directory answers: each registered piece, and a strand file beside each
+   hair piece. Anything else there (an unregistered piece, a manifest) is a 404."
+  (delay (set (for [{:artist/keys [layers]} portrait-assets5e/registry
+                    [layer assets] layers
+                    {:asset/keys [url]} assets
+                    u (cond-> [url]
+                        (portrait-fx/hair-layer? layer) (conj (s/replace url #"\.png$" ".strands.png")))]
+                u))))
+
 (defonce ^:private worked-out-strands (atom {}))
 
 (defn- strands-on-the-fly
@@ -2603,7 +2647,8 @@
    worked out from the art once and kept, so the builder's request does not 404 and no
    visitor's browser works it out. nil for anything else. The deploy step stays the fast path."
   [uri]
-  (when-let [[_ layer art] (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" (str uri))]
+  (when-let [[_ layer art] (and (contains? @portrait-files uri)
+                                (re-find #"^/image/portraits/([^/]+)/([^/]+)\.strands\.png$" uri))]
     (or (get @worked-out-strands uri)
         (when-let [res (and (portrait-fx/hair-layer? (keyword layer))
                             (io/resource (str "public/image/portraits/" layer "/" art ".png")))]
@@ -2625,13 +2670,14 @@
 
 (def portrait-art-guard
   "First in the chain, ahead of Pedestal's static files, which answer before any route: the
-   portrait art directory serves its PNGs and nothing else (a manifest unpacked beside the art
-   would otherwise be public), and every piece it serves asks not to be used for AI."
+   portrait art directory serves the registered pieces and their strand files, nothing else (a
+   manifest or stray file unpacked beside the art would otherwise be public), and every piece it
+   serves asks not to be used for AI."
   (interceptor/interceptor
    {:name ::portrait-art-guard
     :enter (fn [ctx]
              (let [uri (get-in ctx [:request :uri])]
-               (if (and (portrait-art? uri) (not (re-find #"(?i)\.png$" uri)))
+               (if (and (portrait-art? uri) (not (contains? @portrait-files uri)))
                  (assoc ctx :response {:status 404 :headers {"Content-Type" "text/plain"} :body "Not found"})
                  ctx)))
     :leave (fn [ctx]

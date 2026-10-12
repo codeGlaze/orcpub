@@ -359,7 +359,7 @@
 (deftest the-gamma-runs-opposite-ways-for-lips-and-eyes
   (testing "not a preference: the irises are drawn near-black and the lips
             light, so a gamma that lifts one pushes the other past white.
-            Measured on the real art in portrait-real-art-compare-test."
+            Measured on the real art in dev/orcpub/portrait_gallery.clj."
     (let [lips-g (pa/tint-gamma :mouth (pa/asset-by-id :mouth :l8-mouth-02))
           eye-g (pa/tint-gamma :eyes (first (pa/assets-for-layer :eyes)))]
       (is (> lips-g 1.0) "lips are pulled DOWN into the colour")

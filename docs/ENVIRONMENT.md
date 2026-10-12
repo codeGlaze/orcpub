@@ -149,6 +149,14 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 |----------|---------|-------------|
 | `LOAD_HOMEBREW_URL` | — | URL to fetch server-hosted `.orcbrew` plugins on first load (e.g. `/homebrew.orcbrew`). Unset = no fetch. |
 
+### Portrait artists
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORTRAIT_ARTISTS` | — | JSON of artist credits and accounts (see `ARTISTS.md`). An `account` email gets an artist account and a welcome email at startup. |
+| `APP_URL` | — | The site's address, used for links in artist emails (sent at startup, with no request to read it from). |
+| `EMAIL_ADMIN_TO` | `EMAIL_ERRORS_TO` | Who hears about artist account and credit changes. |
+
 ### Security
 
 | Variable | Default | Description |
@@ -156,6 +164,7 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
 | `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
 | `ORCPUB_PWNED_CHECK` | `on` | Screen new passwords against the Have I Been Pwned corpus. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
+| `PROFILE_ENCRYPTION_KEYS` | — | Encrypts preferred names at rest: comma-separated `id:base64` keys of 32 bytes; the first encrypts, all decrypt. Also read from the Docker secret `profile_encryption_keys`. Unset = preferred names cannot be saved. Losing it makes stored names unreadable. `./run` generates one. |
 
 **About the breach check.** Signup and password reset send the first five characters of
 the password's SHA-1 to `api.pwnedpasswords.com` and score the reply locally, so the

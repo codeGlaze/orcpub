@@ -89,5 +89,6 @@ stays on top. Never merge or push the private branch the other way.
   `PORTRAIT_SILHOUETTES=record lein test :only orcpub.portrait-art-guard-test`.
 - `.github/workflows/portrait-art-guard.yml` fails any push or pull request on GitHub that carries
   the marker, which is the private branch arriving here.
-- The server serves only PNGs from the art directory, so the marker and any manifest are never
-  public, and each piece carries `X-Robots-Tag: noai, noimageai`.
+- The server answers only the pieces registered in `portrait_assets.cljc` (and a strand file
+  beside each hair piece), so the marker, any manifest and any piece a pack adds before it is
+  registered are never public. Each piece carries `X-Robots-Tag: noai, noimageai`.

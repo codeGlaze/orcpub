@@ -109,12 +109,30 @@ function check(label, ok, detail) {
   (await visible(page.locator('select'))).selectOption('1');
   await page.waitForTimeout(600);
 
+  // A popup blocker allows a new tab only from inside the click itself, and headless
+  // Chromium blocks nothing, so record whether the submit ran during the click's dispatch:
+  // true from the first window listener to the last, false after any await.
+  await page.evaluate(() => {
+    window.__inClick = false; window.__submitInClick = null;
+    window.addEventListener('click', () => { window.__inClick = true; }, true);
+    window.addEventListener('click', () => { window.__inClick = false; });
+    const submit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+      if (this.id === 'download-form') window.__submitInClick = window.__inClick;
+      return submit.call(this);
+    };
+  });
+
   // The form targets _blank, so the PDF lands in a new tab.
   const pdfPagePromise = ctx.waitForEvent('page', { timeout: 30000 });
   (await visible(page.locator('button:has-text("Create PDF")'))).click();
 
   const pdfPage = await pdfPagePromise.catch(() => null);
   await page.waitForTimeout(2500);
+
+  check('the PDF tab is opened inside the click, so no popup blocker stops it',
+        (await page.evaluate(() => window.__submitInClick)) === true,
+        `submitted during the click: ${await page.evaluate(() => window.__submitInClick)}`);
 
   // --- the request carried the baked portrait --------------------------
   check('export POSTed to /character.pdf', posted !== null);
