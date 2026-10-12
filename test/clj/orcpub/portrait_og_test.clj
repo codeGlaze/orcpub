@@ -13,7 +13,9 @@
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.portrait-render :as portrait-render])
+            [orcpub.portrait-render :as portrait-render]
+            [orcpub.config :as config]
+            [orcpub.work-pool :as work-pool])
   (:import [java.util UUID]))
 
 (defmacro with-conn [conn-binding & body]
@@ -290,17 +292,47 @@
   (let [render @#'routes/rendered-portrait
         renders (atom 0)
         tag (str "\"" (java.util.UUID/randomUUID) "\"")]
-    (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (byte-array [1 2 3]))]
+    (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (byte-array [1 2 3]))
+                  config/get-portrait-queue-timeout-ms (constantly 50)]
       (testing "a portrait already rendered is served without rendering again"
         (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
         (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
         (is (= 1 @renders)))
       (testing "with every render slot taken, a new portrait is refused, not queued forever"
-        (let [slots ^java.util.concurrent.Semaphore @@#'routes/portrait-render-slots
+        (let [slots (work-pool/permits @#'routes/portrait-pool)
               n (.drainPermits slots)]
           (try
             (is (pos? n))
-            (is (= [:busy] (render (str tag "x") (a-portrait))))
+            (let [[outcome retry] (render (str tag "x") (a-portrait))]
+              (is (= :busy outcome))
+              (is (pos-int? retry) "with a Retry-After"))
             (is (= 1 @renders))
             (is (= :ok (first (render tag (a-portrait)))) "a cached one still answers")
             (finally (.release slots n))))))))
+
+(deftest a-burst-of-crawlers-shares-one-render
+  (testing "a newly shared link is fetched by several preview bots at once; one draw serves them"
+    (let [render @#'routes/rendered-portrait
+          renders (atom 0)
+          tag (str "\"" (java.util.UUID/randomUUID) "\"")]
+      (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (Thread/sleep 200) (byte-array [7]))]
+        (let [answers (mapv deref (doall (repeatedly 8 #(future (render tag (a-portrait))))))]
+          (is (every? #(= :ok (first %)) answers))
+          (is (= 1 @renders)))))))
+
+(deftest the-share-image-address-is-versioned
+  (with-conn conn
+    (let [c (setup conn)
+          id (:db/id (save! c (character-with {::char5e/portrait (pr-str (a-portrait))})))
+          og (og-image-of c id)
+          v (second (re-find #"\?v=([0-9a-f]+)$" og))
+          get-png (fn [q] (routes/character-portrait-png {:db (d/db c) :path-params {:id id} :query-params q}))]
+      (is (some? v) (str "og:image carries a version, got " og))
+      (is (re-find #"immutable" (get-in (get-png {:v v}) [:headers "Cache-Control"]))
+          "the versioned address never changes content, so it is kept for good")
+      (is (= "public, max-age=300" (get-in (get-png {:v "stale"}) [:headers "Cache-Control"])))
+      (is (= "public, max-age=300" (get-in (get-png {}) [:headers "Cache-Control"])))
+      (testing "a changed portrait gets a new address, so previews show the new picture"
+        (let [changed (assoc-in (a-portrait) [:colors :hair] "#123456")
+              id2 (:db/id (save! c (character-with {::char5e/portrait (pr-str changed)})))]
+          (is (not= v (second (re-find #"\?v=([0-9a-f]+)$" (og-image-of c id2))))))))))

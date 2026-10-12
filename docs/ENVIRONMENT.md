@@ -48,6 +48,8 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game, which no character can exceed. |
 | `ORCPUB_PDF_MAX_CARDS` | `198` | Most **cards** — not pages — of each kind a single export prints. Nine to a sheet, so 198 is exactly 22 sheets. Counted per kind, so spells, items and features are bounded separately. A level 20 wizard's spellbook is about 44. |
+| `ORCPUB_PORTRAIT_CONCURRENCY` | `max(2, cores / 2)` | How many shared-link portrait images are drawn at once. Each draw is about half a second of one core; repeat requests come from a cache, so this only bounds new pictures. See [PORTRAIT-SERVING.md](PORTRAIT-SERVING.md). |
+| `ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS` | `5000` | How long a portrait image waits to be drawn before the server answers 503 with a `Retry-After`. Short, because link-preview fetchers give up quickly. |
 
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.

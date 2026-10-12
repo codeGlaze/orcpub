@@ -3,17 +3,18 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.config :as config]
-            [orcpub.routes :as routes])
+            [orcpub.routes :as routes]
+            [orcpub.work-pool :as work-pool])
   (:import (java.util.concurrent Semaphore)))
 
 (def ^:private with-export-slot #'routes/with-export-slot)
 (def ^:private busy-page #'routes/busy-page)
 (def ^:private attempt-count #'routes/attempt-count)
-(def ^:private retry-after-seconds #'routes/retry-after-seconds)
+(defn- retry-after-seconds [waiting] (work-pool/retry-after-seconds @#'routes/export-pool waiting))
 (defn- slots
-  "The live permit pool. The var holds a delay, so this derefs twice."
+  "The live export permits."
   ^Semaphore []
-  @@#'routes/export-slots)
+  (work-pool/permits @#'routes/export-pool))
 
 (deftest defaults-are-usable
   (testing "concurrency defaults to something a host can actually serve"
