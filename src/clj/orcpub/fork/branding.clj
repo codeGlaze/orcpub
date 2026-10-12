@@ -175,7 +175,8 @@
 (portrait-assets/set-artist-overrides! portrait-artists)
 
 (defn client-config
-  "Map of branding values for CLJS injection. Serialized to JSON by index.clj."
+  "Map of branding values for CLJS injection. Serialized to JSON by index.clj. Operator settings
+   only: artist credits, which artists can edit, reach the browser from /dnd/5e/portrait-artists."
   []
   {:app-name                  app-name
    :logo-path                 logo-path
@@ -187,8 +188,4 @@
    :social-links              social-links
    :field-limits              field-limits
    :registration-logo-class   registration-logo-class
-   :restrict-print-to-owner?  restrict-print-to-owner?
-   ;; What is in force, not just the config: on the server that also carries
-   ;; each artist's own edits (orcpub.artist-credit), which are layered in on
-   ;; every page render before this is called.
-   :portrait-artists          (portrait-assets/current-overrides)})
+   :restrict-print-to-owner?  restrict-print-to-owner?})

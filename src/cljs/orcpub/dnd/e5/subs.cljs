@@ -133,6 +133,10 @@
  (fn [db _] (get db :portrait/draft {})))
 
 (reg-sub
+ :portrait/artist-overrides
+ (fn [db _] (get db :portrait/artist-overrides)))
+
+(reg-sub
  :portrait/draft-seed
  (fn [db _] (get db :portrait/draft-seed)))
 
@@ -1085,6 +1089,21 @@
  :search-text
  (fn [db _]
    (:search-text db)))
+
+(reg-sub
+ :srd
+ (fn [db [_ kind]]
+   (get-in db [:srd kind])))
+
+(reg-sub
+ :srd-failed?
+ (fn [db [_ kind]]
+   (get-in db [:srd-failed kind])))
+
+(reg-sub
+ :srd-scroll-target
+ (fn [db _]
+   (:srd-scroll-target db)))
 
 (reg-sub
  :search-results

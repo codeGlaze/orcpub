@@ -21,7 +21,8 @@
    All of it is per-pixel maths, so the three renderers agree exactly; they
    only supply the pixels and the masks."
   (:require [orcpub.dnd.e5.portrait-colorize :as colorize]
-            [orcpub.dnd.e5.portrait-effects :as fx]))
+            [orcpub.dnd.e5.portrait-effects :as fx]
+            [orcpub.dnd.e5.portrait-random :as rnd]))
 
 ;; ---------------------------------------------------------------------------
 ;; Settings
@@ -310,7 +311,7 @@
                   scale (* (/ h 1500.0) (+ 0.75 (* 0.5 strength)))
                   darkness (* 0.6 (+ 0.4 (* 1.2 strength)))]
               (dotimes [j n]
-                (let [h0 (fx/hash01 j 7 5) h1 (fx/hash01 j 11 5) h2 (fx/hash01 j 23 5) h3 (fx/hash01 j 37 5)
+                (let [h0 (rnd/hash01 j 7 5) h1 (rnd/hash01 j 11 5) h2 (rnd/hash01 j 23 5) h3 (rnd/hash01 j 37 5)
                       [gx gy grx gry] (cond (< h0 (nth (nth groups 0) 4)) (nth groups 0)
                                             (< h0 (+ (nth (nth groups 0) 4) (nth (nth groups 1) 4))) (nth groups 1)
                                             :else (nth groups 2))

@@ -6,7 +6,8 @@
             [clojure.string :as s]
             [orcpub.route-map :as route-map]
             [orcpub.dnd.e5.artist-profile :as ap]
-            [orcpub.dnd.e5.portrait-assets :as pa]))
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as random]))
 
 (defn- stand-ins
   "Fusspot's layers split across placeholder artists: [[id name layer-keys & more]]."
@@ -150,9 +151,9 @@
 (deftest the-seeded-randomness-is-the-same-on-both-platforms
   (testing "the examples are drawn on the server and captioned in the browser, so the
             hash and the generator must agree; values from the reference JavaScript"
-    (is (= 440920331 (pa/seed->int "abc")))
-    (is (= 993024918 (pa/seed->int "artist-fusspot/0")))
-    (let [r (pa/mulberry32 12345)]
+    (is (= 440920331 (random/seed->int "abc")))
+    (is (= 993024918 (random/seed->int "artist-fusspot/0")))
+    (let [r (random/mulberry32 12345)]
       (is (= [0.9797282677609473 0.3067522644996643 0.484205421525985] [(r) (r) (r)])))))
 
 (deftest examples-are-stable

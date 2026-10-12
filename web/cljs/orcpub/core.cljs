@@ -66,6 +66,10 @@
 ;; Startup builds nothing from homebrew, except the character template on a page that shows a
 ;; character (build-template, below). See homebrew-safety-net.md.
 
+;; Artist credits, fetched rather than written into the page; the views show the registry's
+;; defaults until they arrive.
+(boot-step "load-portrait-artists" #(dispatch [:portrait/load-artists]))
+
 ;; Another tab's library write reloads this tab's copy.
 (events/start-library-watch!)
 
@@ -99,6 +103,10 @@
    routes/dnd-e5-char-page-route views/character-page
    routes/dnd-e5-monster-page-route views/monster-page
    routes/dnd-e5-spell-page-route views/spell-page
+   routes/dnd-e5-rules-page-route views/rules-page
+   routes/dnd-e5-rule-section-page-route views/rule-section-page
+   routes/dnd-e5-condition-list-page-route views/condition-list-page
+   routes/dnd-e5-condition-page-route views/condition-page
    routes/dnd-e5-item-page-route views/item-page
    routes/dnd-e5-item-builder-page-route views/item-builder-page
    routes/dnd-e5-char-parties-page-route views/parties

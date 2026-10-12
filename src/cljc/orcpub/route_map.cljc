@@ -42,6 +42,11 @@
 (def dnd-e5-monster-page-routes #{dnd-e5-monster-list-page-route dnd-e5-monster-page-route dnd-e5-monster-builder-page-route})
 
 (def dnd-e5-spell-list-page-route :spell-list-5e-page)
+(def dnd-e5-condition-list-page-route :condition-list-5e-page)
+(def dnd-e5-condition-page-route :condition-5e-page)
+(def dnd-e5-rules-page-route :rules-5e-page)
+(def dnd-e5-rule-section-page-route :rule-section-5e-page)
+(def dnd-e5-rules-page-routes #{dnd-e5-rules-page-route dnd-e5-rule-section-page-route dnd-e5-condition-list-page-route dnd-e5-condition-page-route})
 (def dnd-e5-spell-page-route :spell-5e-page)
 (def dnd-e5-spell-builder-page-route :spell-builder-5e-page)
 (def dnd-e5-background-builder-page-route :background-builder-5e-page)
@@ -63,6 +68,7 @@
 
 (def dnd-e5-items-route :items-5e)
 (def dnd-e5-item-summaries-route :item-summaries-5e)
+(def dnd-e5-portrait-artists-route :portrait-artists-5e)
 (def dnd-e5-item-route :item-5e)
 (def dnd-e5-item-list-page-route :item-list-5e-page)
 (def dnd-e5-item-page-route :item-5e-page)
@@ -183,6 +189,7 @@
                           "items" {"" dnd-e5-items-route
                                    ["/" :id] dnd-e5-item-route}
                           "item-summaries" dnd-e5-item-summaries-route
+                          "portrait-artists" dnd-e5-portrait-artists-route
                           "parties" {"" dnd-e5-char-parties-route
                                      ["/" :id] {"" dnd-e5-char-party-route
                                                 "/name" dnd-e5-char-party-name-route
@@ -228,7 +235,11 @@
                               "magic-items" {"" dnd-e5-item-list-page-route
                                              ["/" :key] dnd-e5-item-page-route}
                               "monsters" {"" dnd-e5-monster-list-page-route
-                                          ["/" :key] dnd-e5-monster-page-route}}}}}])
+                                          ["/" :key] dnd-e5-monster-page-route}
+                              "rules" {"" dnd-e5-rules-page-route
+                                       ["/" :key] dnd-e5-rule-section-page-route}
+                              "conditions" {"" dnd-e5-condition-list-page-route
+                                            ["/" :key] dnd-e5-condition-page-route}}}}}])
 
 (defn path-for [& args]
   (apply bidi/path-for routes args))

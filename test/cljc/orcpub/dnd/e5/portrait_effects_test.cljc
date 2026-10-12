@@ -2,7 +2,8 @@
   (:require #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])
             [orcpub.dnd.e5.portrait-effects :as fx]
-            [orcpub.dnd.e5.portrait-assets :as pa]))
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]))
 
 (deftest settings-default-and-clamp
   (is (= {:tip nil :start 0.2 :falloff 0.6 :depth 0.3 :clumps 0.45 :light 0.0 :under 0.0 :angle nil :bangs nil
@@ -201,7 +202,7 @@
   ;; whole 16-bit steps, so the JVM and JS cannot round them differently
   (is (= [0.2340886549172198 0.43485160601205464 0.5107194628824292
           9.613183794918746E-4 0.1523460746166171 0.4545815213244831]
-         (mapv #(#'fx/hash01 % (* 3 %) 7) [0 1 2 50 399 -3]))))
+         (mapv #(rnd/hash01 % (* 3 %) 7) [0 1 2 50 399 -3]))))
 
 (deftest streaks-follow-a-field-when-given-one
   (let [s (assoc (fx/ombre-settings {:ombre {:tip "#ffffff"}}) :depth 0.0 :start 0.3 :falloff 0.4)

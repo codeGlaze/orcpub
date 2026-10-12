@@ -6,10 +6,11 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
             [com.stuartsierra.component :as component]
+            [orcpub.bounded-cache :as bounded-cache]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-effects :as fx])
   (:import [java.awt.image BufferedImage]
-           [java.io File]
+           [java.io ByteArrayOutputStream File]
            [javax.imageio ImageIO]))
 
 (def default-dir "resources/public/image/portraits")
@@ -39,6 +40,24 @@
   (let [img (BufferedImage. gw gh BufferedImage/TYPE_BYTE_GRAY)]
     (.setDataElements (.getRaster img) 0 0 gw gh (fx/field->bytes field))
     img))
+
+(def ^:private worked-out
+  "Strand PNGs worked out at runtime for art deployed without its file, by art URL."
+  (bounded-cache/cache {:max-entries 64}))
+
+(defn worked-out-png
+  "PNG bytes of the strand field for the hair art at `url` (/image/portraits/<layer>/<file>.png),
+   exactly what the build step would have written: worked out once and kept. nil for anything that
+   is not hair art on the classpath. The renderer and the strand route both fall back to this."
+  [url]
+  (when-let [[_ layer] (re-find #"^/image/portraits/([^/]+)/[^/]+\.png$" (str url))]
+    (when (and (fx/hair-layer? (keyword layer)) (not (s/includes? url "..")))
+      (bounded-cache/fetch! worked-out url
+                            #(when-let [res (io/resource (str "public" url))]
+                               (let [img (with-open [in (io/input-stream res)] (ImageIO/read in))
+                                     out (ByteArrayOutputStream.)]
+                                 (ImageIO/write (field->image (field-of img (keyword layer))) "png" out)
+                                 (.toByteArray out)))))))
 
 (defn missing
   "The hair pieces the server can serve whose strand field it cannot: art on
