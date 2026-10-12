@@ -5,7 +5,8 @@
             #?(:clj [clojure.java.io :as cio])
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
-            [orcpub.dnd.e5.portrait-assets :as pa]))
+            [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]))
 
 ;; ---------- registry ----------
 
@@ -74,31 +75,31 @@
 ;; ---------- seeded randomize ----------
 
 (deftest seed->int-is-deterministic
-  (is (= (pa/seed->int "abc") (pa/seed->int "abc")))
-  (is (not= (pa/seed->int "abc") (pa/seed->int "abd")))
-  (is (integer? (pa/seed->int "abc"))))
+  (is (= (rnd/seed->int "abc") (rnd/seed->int "abc")))
+  (is (not= (rnd/seed->int "abc") (rnd/seed->int "abd")))
+  (is (integer? (rnd/seed->int "abc"))))
 
 (deftest seeds-give-the-same-numbers-on-both-platforms
   ;; ClojureScript's (int c) on a character is 0 and its plain multiply drops low bits, so the
   ;; browser hashed only a seed's length: every 8-character Randomize seed gave one portrait.
-  (is (= 440920331 (pa/seed->int "abc")) "32-bit FNV-1a of abc, 0x1A47E90B")
+  (is (= 440920331 (rnd/seed->int "abc")) "32-bit FNV-1a of abc, 0x1A47E90B")
   (is (= [0.6011037519201636 0.44829055899754167 0.8524657934904099]
-         (let [r (pa/mulberry32 42)] (vec (repeatedly 3 r))))
+         (let [r (rnd/mulberry32 42)] (vec (repeatedly 3 r))))
       "the reference mulberry32 for seed 42")
   (is (< 30 (count (set (map pa/compose-for-seed (map #(str "seed" %) (range 40))))))
       "different seeds give different portraits"))
 
 (deftest mulberry32-yields-numbers-in-range
-  (let [rand-fn (pa/mulberry32 42)]
+  (let [rand-fn (rnd/mulberry32 42)]
     (dotimes [_ 20]
       (let [x (rand-fn)]
         (is (<= 0 x))
         (is (< x 1))))))
 
 (deftest mulberry32-is-deterministic
-  (let [seq1 (let [r (pa/mulberry32 12345)] (vec (repeatedly 8 r)))
-        seq2 (let [r (pa/mulberry32 12345)] (vec (repeatedly 8 r)))
-        seq3 (let [r (pa/mulberry32 12346)] (vec (repeatedly 8 r)))]
+  (let [seq1 (let [r (rnd/mulberry32 12345)] (vec (repeatedly 8 r)))
+        seq2 (let [r (rnd/mulberry32 12345)] (vec (repeatedly 8 r)))
+        seq3 (let [r (rnd/mulberry32 12346)] (vec (repeatedly 8 r)))]
     (is (= seq1 seq2))
     (is (not= seq1 seq3))))
 
