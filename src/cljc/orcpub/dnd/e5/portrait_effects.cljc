@@ -20,6 +20,7 @@
    Worked out on the real art in the mock-ups; renderers do only the pixel
    plumbing and call these."
   (:require [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]
             [orcpub.dnd.e5.portrait-colorize :as colorize]))
 
 ;; ---------------------------------------------------------------------------
@@ -310,27 +311,13 @@
 ;; softer than that; it depends only on the art, so renderers keep one per
 ;; piece and a colour change costs nothing more.
 
-;; 32-bit integer maths that gives the same bits on the JVM and in JS
-#?(:clj  (defn- mul32 ^long [^long a ^long b] (long (unchecked-multiply-int (unchecked-int a) (unchecked-int b))))
-   :cljs (defn- mul32 [a b] (.imul js/Math a b)))
-#?(:clj  (defn- ushr32 ^long [^long h ^long n] (unsigned-bit-shift-right (bit-and h 0xffffffff) n))
-   :cljs (defn- ushr32 [h n] (unsigned-bit-shift-right h n)))
-
-(defn hash01
-  "An integer hash of a grid point to 0..1, identical in every renderer."
-  ^double [^long a ^long b ^long seed]
-  (let [h (bit-xor (mul32 a 374761393) (mul32 b 668265263) (mul32 seed 1103515245))
-        h (mul32 (bit-xor h (ushr32 h 13)) 1274126177)
-        h (bit-xor h (ushr32 h 16))]
-    (/ (double (bit-and h 0xffff)) 65535.0)))
-
 (defn- value-noise ^double [^double x ^double y ^long seed]
   (let [xi (Math/floor x) yi (Math/floor y)
         u (- x xi) v (- y yi)
         u (* u u (- 3.0 (* 2.0 u))) v (* v v (- 3.0 (* 2.0 v)))
         a (long xi) b (long yi)
-        n00 (hash01 a b seed) n10 (hash01 (inc a) b seed)
-        n01 (hash01 a (inc b) seed) n11 (hash01 (inc a) (inc b) seed)]
+        n00 (rnd/hash01 a b seed) n10 (rnd/hash01 (inc a) b seed)
+        n01 (rnd/hash01 a (inc b) seed) n11 (rnd/hash01 (inc a) (inc b) seed)]
     (+ (* (- 1.0 v) (+ n00 (* u (- n10 n00))))
        (* v (+ n01 (* u (- n11 n01)))))))
 

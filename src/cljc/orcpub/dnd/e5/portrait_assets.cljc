@@ -21,6 +21,7 @@
    lives in resources/portrait-pack (loom.edn from the Loom, pieces.edn by
    hand) and is merged in at build time; see orcpub.dnd.e5.portrait-calibration."
   (:require [clojure.string :as s]
+            [orcpub.dnd.e5.portrait-random :as rnd]
             #?(:clj [orcpub.dnd.e5.portrait-calibration :refer [calibration]]))
   #?(:cljs (:require-macros [orcpub.dnd.e5.portrait-calibration :refer [calibration]])))
 
@@ -582,40 +583,6 @@
 ;; Lives here (cljc) rather than in portrait.cljs so JVM tests can reach it.
 ;; All bit-ops used are cljc-safe.
 
-(defn- mul32
-  "a * b mod 2^32, the same on both platforms (JS doubles lose the low bits of a plain multiply)."
-  [a b]
-  #?(:clj (bit-and 0xffffffff (unchecked-multiply (long a) (long b)))
-     :cljs (unsigned-bit-shift-right (js/Math.imul a b) 0)))
-
-(defn- u32 [x]
-  #?(:clj (bit-and 0xffffffff x) :cljs (unsigned-bit-shift-right x 0)))
-
-(defn- add32 [a b]
-  #?(:clj (bit-and 0xffffffff (unchecked-add (long a) (long b)))
-     :cljs (unsigned-bit-shift-right (+ a b) 0)))
-
-(defn seed->int
-  "32-bit FNV-1a of the seed's characters: the same integer for the same seed on both platforms."
-  [seed]
-  (reduce (fn [h c]
-            (mul32 (bit-xor h #?(:clj (int c) :cljs (.charCodeAt c 0))) 16777619))
-          2166136261
-          (str seed)))
-
-(defn mulberry32
-  "Small stateless PRNG. `(mulberry32 seed-int)` returns a fn that yields
-   a fresh number in [0,1) on each call."
-  [seed-int]
-  (let [a (atom (u32 seed-int))]
-    (fn []
-      (swap! a add32 0x6D2B79F5)
-      (let [s @a
-            t1 (mul32 (bit-xor s (unsigned-bit-shift-right s 15)) (bit-or s 1))
-            t2 (add32 t1 (mul32 (bit-xor t1 (unsigned-bit-shift-right t1 7)) (bit-or t1 61)))
-            t2 (u32 (bit-xor t1 t2))]
-        (/ (u32 (bit-xor t2 (unsigned-bit-shift-right t2 14))) 4294967296.0)))))
-
 (defn random-seed
   "Fresh 8-char alphanumeric seed. Uses (rand-int) which is available on
    both platforms."
@@ -629,7 +596,7 @@
    map covering every layer whose registry has at least one asset. Layers
    with an empty registry are skipped."
   [seed]
-  (let [rand-fn (mulberry32 (seed->int seed))]
+  (let [rand-fn (rnd/mulberry32 (rnd/seed->int seed))]
     (reduce
       (fn [acc layer-key]
         (let [assets (assets-for-layer layer-key)]
