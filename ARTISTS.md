@@ -88,8 +88,8 @@ On each start:
 |-----------------------------------|-------------------------------------------------------------------------|
 | no account                        | one is made and linked, and a welcome email with a set-password link that lasts a week is sent |
 | a confirmed account               | it's linked, and an upgrade email is sent                               |
-| an unconfirmed account            | nothing yet; it links when its owner confirms the address              |
-| an account that's already linked  | nothing, so restarts never resend                                       |
+| an unconfirmed account            | it is claimed: given a new random password and linked, and the welcome email is sent to the address, so only the address's owner can get in |
+| an account that's already linked  | nothing, so restarts never resend (a welcome the mail server refused is sent again) |
 
 Only `account` is needed; the rest just make the welcome warmer. Changing
 `account` moves the link to the new address and tells the old account.

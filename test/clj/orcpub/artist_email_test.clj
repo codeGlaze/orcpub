@@ -71,7 +71,7 @@
     (let [sent (atom [])]
       (with-redefs [ae/base-url (constantly nil)
                     postal.core/send-message (fn [_ m] (swap! sent conj m) {:error :SUCCESS})]
-        ((:created ae/notify) created-event))
+        (is (false? ((:created ae/notify) created-event)) "reported unsent, so the next start retries"))
       (is (empty? @sent)))))
 
 (deftest with-app-url-both-the-artist-and-the-admin-hear
@@ -80,8 +80,18 @@
                   ae/admin-recipient (constantly "admin@site.test")
                   environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
                   postal.core/send-message (fn [_ m] (swap! sent conj m) {:error :SUCCESS})]
-      ((:created ae/notify) created-event))
+      (is (true? ((:created ae/notify) created-event)) "reported sent"))
     (is (= ["hello@fusspot.rip" "admin@site.test"] (map :to @sent)))))
+
+(deftest a-refused-welcome-is-reported-unsent
+  (with-redefs [ae/base-url (constantly "https://site.test")
+                ae/admin-recipient (constantly "admin@site.test")
+                environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
+                postal.core/send-message (fn [_ m] (if (= "admin@site.test" (:to m))
+                                                     {:error :SUCCESS}
+                                                     (throw (Exception. "SMTP down"))))]
+    (is (false? ((:created ae/notify) created-event))
+        "the admin copy going out does not count as the artist's")))
 
 (deftest a-credit-change-tells-the-artist-what-it-now-says
   (with-redefs [ae/admin-recipient (constantly "admin@site.test")]

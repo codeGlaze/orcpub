@@ -197,6 +197,11 @@
    {:db/ident :orcpub.user/artist-credit
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
+   ;; When the artist welcome email for this account was handed to the mail
+   ;; server. Unset means it never went out, so the next start sends it again.
+   {:db/ident :orcpub.user/artist-welcome-sent
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
    ;; One per artist account the SERVER created, keyed "artist-id email".
    ;; Unique, so when several app containers start at once and all see no
    ;; account yet, only the first one's creation commits; the rest fail on
@@ -477,7 +482,7 @@
               :params [db e a v]
               :code (if (= v (get (datomic.api/entity db e) a))
                       [[:db/retract e a v]]
-                      (throw (ex-info "cas failed: value changed" {:e e :a a})))})}])
+                      (throw (ex-info "cas failed: value changed" {:e e :a a :db/error :db.error/cas-failed})))})}])
 (def share-schema
   "Shared homebrew, see orcpub.routes.share: one record per character, holding the homebrew its owner
    last shared, compressed, and the token a share link must carry to load it."

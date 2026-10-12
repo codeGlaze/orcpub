@@ -9,11 +9,7 @@
    "89e2979c2962"]
   "A field table: one line per field of a link entry, each defining it. Nothing in it is history."},
  :baseline
- [["src/clj/orcpub/artist_accounts.clj"
-   :long-docstring
-   "ns orcpub.artist-accounts"
-   "1fef820e5171"]
-  ["src/clj/orcpub/artist_credit.clj"
+ [["src/clj/orcpub/artist_credit.clj"
    :long-docstring
    "ns orcpub.artist-credit"
    "02b412026348"]
@@ -344,15 +340,7 @@
   ["src/cljs/orcpub/dnd/e5/portrait.cljs"
    :long-docstring
    "ns orcpub.dnd.e5.portrait"
-   "73118ff3edc9"]
-  ["src/cljs/orcpub/dnd/e5/views.cljs"
-   :long-comment
-   "the server has the baked pixels but"
-   "9005f8d6415b"]
-  ["src/cljs/orcpub/dnd/e5/views.cljs"
-   :long-docstring
-   "defn export-pdf"
-   "b931df008a5f"]],
+   "73118ff3edc9"]],
  :field-notes
  {["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
   "e8e6f28a2ab7",
