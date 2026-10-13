@@ -1268,6 +1268,18 @@
    ;; Callout accents, coloured by identity rather than severity, so a notice says whose it
    ;; is without the warning palette. Named options only -- a caller picks one rather than
    ;; passing a colour.
+   ;; A one-line notice: the action right after its text, the close mark on the same line.
+   [:.callout-compact
+    {:padding "4px 6px 4px 12px !important"
+     :gap "12px !important"}
+    [:.flex-grow-1 {:flex-grow 0}]
+    [:.link-button {:padding "8px 4px"}]
+    [:.message-close {:min-width :auto
+                      :min-height :auto
+                      :margin "0 0 0 2px"
+                      :padding "8px 6px"
+                      :align-self :center}]]
+
    [:.callout-accent-brand
     ;; A balanced gradient ring (amber at both sides, faint through top and bottom), drawn by
     ;; a pseudo-element masked to its own edge: border-image squares off rounded corners.

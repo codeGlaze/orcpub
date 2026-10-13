@@ -1846,7 +1846,7 @@
   []
   (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
         dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
-        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss}
+        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss :compact? true}
         ;; The header row has no side padding and no text colour of its own.
         framed (fn [cfg]
                  [:div.m-l-10.m-r-10

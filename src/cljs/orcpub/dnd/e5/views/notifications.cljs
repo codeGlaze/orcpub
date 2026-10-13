@@ -79,13 +79,14 @@
    :note (neutral); :accent :brand draws the balanced amber ring. Each action is {:label} plus
    :on-click (a button; :link? true makes it a text link) or :href and optional :target (a link
    styled as a button), and an optional :icon that is a COMPLETE icon class string. :on-close
-   adds the banner's close mark."
-  [{:keys [icon text actions tone accent on-close]}]
+   adds the banner's close mark; :compact? fits a one-line notice."
+  [{:keys [icon text actions tone accent on-close compact?]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
              ;; A ring, so a callout can carry an identity without a severity colour filling
              ;; the box. Named, not a colour: the shades live in styles/core.clj.
-             (= accent :brand) (conj "callout-accent-brand"))
+             (= accent :brand) (conj "callout-accent-brand")
+             compact? (conj "callout-compact"))
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
