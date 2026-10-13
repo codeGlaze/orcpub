@@ -1238,10 +1238,8 @@
          :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
        [:div.m-t-20.t-a-l.m-l-15
-        [:i.fa.fa-check.f-s-14.pointer.checkbox-border
-         {:class (if send-updates? "orange" "white")
-          :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
+        [comps/labeled-checkbox (str "Yes! Send me updates about " branding/app-name) send-updates? false
+         #(dispatch [:registration-send-updates? (not send-updates?)])]]
        ]
       :tail
       [:div

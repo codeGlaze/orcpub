@@ -28,6 +28,7 @@
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 (def light-text "#363636")     ; body text in the light theme
 (def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def button-ink "#15202e")     ; dark text on amber: buttons with dark text on, a checked box
 (def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
 
 ;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
@@ -1794,7 +1795,7 @@
     ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
-      {:color "#15202e"
+      {:color button-ink
        :text-shadow text-lift-light}]
      ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
      ;; hold them up. paint-order draws the rim behind the letters, not over them.
@@ -2398,20 +2399,41 @@
       :padding "11px 0"
       :align-items :center}]
 
+    ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
+    ;; when checked (amber in the dark theme, slate blue in the light one).
     [:.checkbox
-     {:width "16px"
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :box-sizing :border-box
+      :width "16px"
       :height "16px"
-      :box-shadow "0 1px 0 0 #f0a100"
-      :background-color :white
-      :cursor :pointer}
-
-     [:.fa-check
-      {:font-size "14px"
-       :margin "1px"}]]
-
-    [:.checkbox.checked.disabled
-     {:background-color "rgba(255, 255, 255, 0.37)"
-      :cursor :not-allowed}]
+      :flex-shrink 0
+      :border "1.5px solid rgba(255,255,255,0.55)"
+      :border-radius "4px"
+      :background-color "rgba(0,0,0,0.25)"
+      :color :transparent
+      :font-size "10px"
+      :line-height 1
+      :vertical-align :middle
+      :cursor :pointer
+      :transition "background-color 0.12s, border-color 0.12s"}
+     [:&:hover {:border-color orange}]
+     [:&.checked
+      {:background-color orange
+       :border-color orange
+       :color button-ink}]
+     [:&.disabled
+      {:opacity 0.5
+       :cursor :not-allowed}]]
+    [".app.light-theme .checkbox"
+     {:border-color "rgba(0,0,0,0.35)"
+      :background-color :white}
+     [:&:hover {:border-color slate-blue}]
+     [:&.checked
+      {:background-color slate-blue
+       :border-color slate-blue
+       :color :white}]]
 
     [:.checkbox-text
      {:margin-left "5px"}]
@@ -2441,10 +2463,7 @@
      [:.checkbox
       {:width "14px"
        :height "14px"
-       :min-width "14px"
-       :flex-shrink 0}
-      [:.fa-check
-       {:font-size "12px"}]]
+       :font-size "9px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
@@ -3453,13 +3472,6 @@
     [:.character-display
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
-
-    [:.checkbox-border
-     {:margin-top "-3px"
-      :border-color "#f0a100"
-      :border-style :solid
-      :border-width "1px"
-      :border-bottom-width "3px"}]
 
     [:.close-btn-posn
      {:right "8px"
