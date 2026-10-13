@@ -290,6 +290,8 @@ def check_desc_math(rep, f, pk, lvl, o, sp):
             rep.verified |= {(pk, 'desc'), (pk, 'damage_roll')}
         if roll and DICE.match(roll) and not roll.startswith(f'{m.group(1)}d{m.group(2)}'):
             rep.add('desc-math', f, pk, o['type'], f'{o["parent"]} desc says {m.group(1)}d{m.group(2)}, damage_roll {roll}')
+    if len(re.findall(r'increases? by \d+d\d+', h)) > 1:
+        return                                   # two damages scale: which one desc or damage_roll means is not ours to guess
     steps = {m.group(2): (int(m.group(1)), int(m.group(3))) for m in STEP_DICE.finditer(h)}
     for m in re.finditer(r'(?:increases? by|additional) (\d+)d(\d+)', d):
         x, die = int(m.group(1)), m.group(2)

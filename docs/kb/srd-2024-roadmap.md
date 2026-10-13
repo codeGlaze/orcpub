@@ -88,6 +88,11 @@ keep the mechanics in code, joined by key.
 the departure is reviewed, per the decision that `e5`'s departures are not dismissed. Stage 1
 replaces the text the app shows, so this is a content change, not a refactor.
 
+**Spells get a richer shape than open5e's, not a copy of it** (owner, 2026-10-12): typed upcast
+fields (a flat amount, a level threshold, a summon count) and a list of damage parts in place of one
+damage roll. Both are in [srd-improvements.md](srd-improvements.md), "What is prose that should be
+data", and both serve the homebrew spell builder too.
+
 **Open:** which trunk carries stage 1 (it is edition-neutral, so by the machinery split it belongs
 to `refactor/`); whether `e5`'s rewritten spell summaries are kept as a separate field.
 

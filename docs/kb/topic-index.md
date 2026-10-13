@@ -1165,7 +1165,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-infrastructure · docker infrastructure_
 
-**topics:** 128m, 1gb, 512m, alpine, busybox, chown, datomic, docker, envsubst, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
+**topics:** 128m, 1gb, 512m, alpine, busybox, chown, datomic, docker, envsubst, gnu, hangs, healthcheck, peers, sed, subprocess, transactor, uberjar, wget
 
 - Key Decisions
 - host=datomic (not 0.0.0.0)
@@ -2407,7 +2407,7 @@ _pedestal-csp-history · pedestal csp history_
 
 _perf-entity-build · perf entity build_
 
-**topics:** 500, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired, wall
+**topics:** 500, browser, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
 
 - 1. Is it actually slow in the browser? Yes.
 - 2. Where the time goes (JVM phase split of apply-options)
@@ -3154,7 +3154,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, actions, concentration, conditions, dragon, editions, links, magic, monster, monsters, open5e, previews, prices, reactions, rules, spells, srd, weights
+**topics:** 2014, 2026-10-12, actions, concentration, conditions, dragon, links, magic, monster, open5e, previews, prices, rolls, rules, spell, spells, srd, weights
 
 - How this was measured
 - What the app shows today
@@ -3402,7 +3402,7 @@ _views-builders-split · views builders split_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, deals, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, thrown, two-handed, versatile, weapon, weapons
+**topics:** authored-tag, boolean, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps

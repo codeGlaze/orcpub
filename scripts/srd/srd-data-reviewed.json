@@ -523,5 +523,59 @@
   "pk": "srd-2024_modify-memory",
   "field": "desc",
   "reason": "The SRD changes the span per slot (days, a year, any time in the past), not only the number. Reviewed 2026-10-12."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_arcane-hand",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "The damage from the grasping hand increases by 2d6.",
+   "slot_level_7": "The damage from the grasping hand increases by 4d6.",
+   "slot_level_8": "The damage from the grasping hand increases by 6d6.",
+   "slot_level_9": "The damage from the grasping hand increases by 8d6."
+  },
+  "reason": "Checked against SRD 5.1, 2026-10-12: grasping hand +2d6 per slot above 5th."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_ice-knife",
+  "field": "desc",
+  "values": {
+   "slot_level_2": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 3d6 Cold damage.",
+   "slot_level_3": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 4d6 Cold damage.",
+   "slot_level_4": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 5d6 Cold damage.",
+   "slot_level_5": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 6d6 Cold damage.",
+   "slot_level_6": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 7d6 Cold damage.",
+   "slot_level_7": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 8d6 Cold damage.",
+   "slot_level_8": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 9d6 Cold damage.",
+   "slot_level_9": "The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take 10d6 Cold damage."
+  },
+  "reason": "Checked against SRD 5.2.1, 2026-10-12: Cold damage 2d6 +1d6 per slot above 1; the SRD sentence with that slot's Cold dice (owner chose desc over damage_roll)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_wall-of-ice",
+  "field": "damage_roll",
+  "values": {
+   "slot_level_7": "12d6",
+   "slot_level_8": "14d6",
+   "slot_level_9": "16d6"
+  },
+  "reason": "Checked against SRD 5.2.1, 2026-10-12: wall 10d6 +2d6 per slot above 6; frigid air +1d6 per slot."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_wall-of-ice",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "The damage from passing through the sheet of frigid air increases by 1d6.",
+   "slot_level_8": "The damage from passing through the sheet of frigid air increases by 2d6.",
+   "slot_level_9": "The damage from passing through the sheet of frigid air increases by 3d6."
+  },
+  "reason": "Checked against SRD 5.2.1, 2026-10-12: wall 10d6 +2d6 per slot above 6; frigid air +1d6 per slot."
  }
 ]

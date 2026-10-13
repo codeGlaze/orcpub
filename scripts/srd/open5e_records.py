@@ -32,8 +32,17 @@ def set_field(path, pk, field, value):
     """
     text = open(path, encoding='utf-8').read()
     s, e = _span(text, pk)
-    block, n = re.subn(r'("%s": )(null|true|false|"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?)' % re.escape(field),
-                       lambda m: m.group(1) + json.dumps(value, ensure_ascii=False), text[s:e], count=1)
+
+    def render(m):
+        """The new value in the file's style: lists one item per line, empty lists inline."""
+        if not isinstance(value, list) or not value:
+            return m.group(1) + json.dumps(value, ensure_ascii=False)
+        line = text[s:e][text[s:e].rfind('\n', 0, m.start()) + 1:]
+        indent = re.match(r' *', line).group(0)
+        items = ',\n'.join(indent + '  ' + json.dumps(v, ensure_ascii=False) for v in value)
+        return m.group(1) + '[\n' + items + '\n' + indent + ']'
+    block, n = re.subn(r'("%s": )(null|true|false|"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|\[[^\[\]]*\])' % re.escape(field),
+                       render, text[s:e], count=1)
     if not n:
         raise KeyError(f'record {pk!r} has no field {field!r}')
     open(path, 'w', encoding='utf-8').write(text[:s] + block + text[e:])
