@@ -223,14 +223,14 @@
   "pk": "srd_dispel-magic",
   "field": "desc",
   "values": {
-   "slot_level_4": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
-   "slot_level_5": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
-   "slot_level_6": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
-   "slot_level_7": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
-   "slot_level_8": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
-   "slot_level_9": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used."
+   "slot_level_4": "Any spell of 4th level or lower on the target ends.",
+   "slot_level_5": "Any spell of 5th level or lower on the target ends.",
+   "slot_level_6": "Any spell of 6th level or lower on the target ends.",
+   "slot_level_7": "Any spell of 7th level or lower on the target ends.",
+   "slot_level_8": "Any spell of 8th level or lower on the target ends.",
+   "slot_level_9": "Any spell of 9th level or lower on the target ends."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: ends spells of a level at most the slot used."
+  "reason": "Checked against SRD 5.1, 2026-10-12: base: any spell of 3rd level or lower on the target ends; at higher levels, any spell up to the slot's level. Each desc is the spell's own sentence with the slot's level (owner chose this style)."
  },
  {
   "rule": "hand-verified",
@@ -266,11 +266,11 @@
   "pk": "srd_globe-of-invulnerability",
   "field": "desc",
   "values": {
-   "slot_level_7": "The barrier blocks spells of one level higher.",
-   "slot_level_8": "The barrier blocks spells of one level higher for each slot level above 6th.",
-   "slot_level_9": "The barrier blocks spells of one level higher for each slot level above 6th."
+   "slot_level_7": "Any spell of 6th level or lower cast from outside the barrier can't affect creatures or objects within it.",
+   "slot_level_8": "Any spell of 7th level or lower cast from outside the barrier can't affect creatures or objects within it.",
+   "slot_level_9": "Any spell of 8th level or lower cast from outside the barrier can't affect creatures or objects within it."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: one level higher per slot above 6th."
+  "reason": "Checked against SRD 5.1, 2026-10-12: base: spells of 5th level or lower; one level higher per slot above 6th. Each desc is the spell's own sentence with the slot's level (owner chose this style)."
  },
  {
   "rule": "hand-verified",
@@ -278,14 +278,14 @@
   "pk": "srd_glyph-of-warding",
   "field": "desc",
   "values": {
-   "slot_level_4": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
-   "slot_level_5": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
-   "slot_level_6": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
-   "slot_level_7": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
-   "slot_level_8": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
-   "slot_level_9": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding."
+   "slot_level_4": "You can store a prepared spell of 4th level or lower in the glyph.",
+   "slot_level_5": "You can store a prepared spell of 5th level or lower in the glyph.",
+   "slot_level_6": "You can store a prepared spell of 6th level or lower in the glyph.",
+   "slot_level_7": "You can store a prepared spell of 7th level or lower in the glyph.",
+   "slot_level_8": "You can store a prepared spell of 8th level or lower in the glyph.",
+   "slot_level_9": "You can store a prepared spell of 9th level or lower in the glyph."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: spell glyph stores a spell up to the slot level."
+  "reason": "Checked against SRD 5.1, 2026-10-12: base: store a prepared spell of 3rd level or lower; at higher levels, up to the slot's level. Each desc is the spell's own sentence with the slot's level (owner chose this style)."
  },
  {
   "rule": "hand-verified",
@@ -477,5 +477,12 @@
    "slot_level_9": "The bonus increases to +3."
   },
   "reason": "Checked against SRD 5.2.1 Using a Higher-Level Spell Slot, 2026-10-12: +2 with a level 3-5 slot, +3 with a level 6+ slot (SRD sentences)."
+ },
+ {
+  "rule": "value-in-srd",
+  "file": "srd-2014/Spell.json",
+  "pk": "srd_chain-lightning",
+  "field": "target_count",
+  "reason": "SRD p. 124: one target, then three bolts leap to as many as three other targets, so 4; the SRD never writes the digit. Owner approved 2026-10-12."
  }
 ]
