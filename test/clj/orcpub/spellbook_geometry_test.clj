@@ -15,6 +15,7 @@
             [orcpub.pdf-ops :as ops]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.canvas :as canvas]
             [orcpub.spellbook :as sb]
             [orcpub.dnd.e5.spells :as spells])
   (:import (java.io ByteArrayOutputStream)
@@ -83,7 +84,8 @@
     (let [levels (set (map (comp :level spell-of) (mapcat val book-spells)))]
       (is (contains? levels 0))
       (is (contains? levels 9))))
-  (testing "bezier-k is not declared twice again"
-    (is (nil? (get (ns-interns 'orcpub.spellbook) 'bezier-k))
-        "spellbook re-declared bezier-k; it shares pdf/bezier-k")
-    (is (= 0.5522847 pdf/bezier-k))))
+  (testing "bezier-k lives in one place"
+    (is (= 0.5522847 canvas/bezier-k))
+    (doseq [ns- ['orcpub.spellbook 'orcpub.pdf]]
+      (is (nil? (get (ns-interns ns-) 'bezier-k))
+          (str ns- " re-declared bezier-k; it shares orcpub.pdf.canvas/bezier-k")))))

@@ -7,6 +7,7 @@
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.spell-print :as sp]
+            [orcpub.pdf.canvas :as canvas]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dnd.e5.spell-annotations :as ann])
   (:import (java.awt.geom PathIterator)
@@ -164,16 +165,16 @@
 
 ;; ─── Line art ────────────────────────────────────────────────────────────────
 
+(defn- pt
+  "`canvas`'s point mapper for this file: x in points, y in points DOWN from the page top."
+  [x ty]
+  [(float x) (py ty)])
+
 (defn- circle-path!
   "Adds a circle of radius `r` about (cx, cy) to the current path, as four cubic curves."
   [cs cx cy r]
-  (let [k (* r pdf/bezier-k) x (float cx) y (py cy)]
-    (.moveTo cs (float (+ cx r)) y)
-    (.curveTo cs (float (+ cx r)) (py (- cy k)) (float (+ cx k)) (py (- cy r)) x (py (- cy r)))
-    (.curveTo cs (float (- cx k)) (py (- cy r)) (float (- cx r)) (py (- cy k)) (float (- cx r)) y)
-    (.curveTo cs (float (- cx r)) (py (+ cy k)) (float (- cx k)) (py (+ cy r)) x (py (+ cy r)))
-    (.curveTo cs (float (+ cx k)) (py (+ cy r)) (float (+ cx r)) (py (+ cy k)) (float (+ cx r)) y)
-    (.closePath cs)))
+  (canvas/circle-path! cs pt cx cy r)
+  (.closePath cs))
 
 (defn- circle!
   "Strokes a circle of radius `r` about (cx, cy) at line width `lw`, or fills it when `fill?`."
@@ -186,13 +187,11 @@
   "Strokes the path through `pts`, each [x ty], at line width `lw`; closes it with `:close?`,
    fills it with `:fill?`."
   [cs pts lw & [{:keys [close? fill?]}]]
-  (let [[[x y] & more] pts]
-    (.setLineWidth cs (float lw))
-    (.moveTo cs (float x) (py y))
-    (doseq [[a b] more] (.lineTo cs (float a) (py b)))
-    (cond fill? (do (.closePath cs) (.fill cs))
-          close? (.closeAndStroke cs)
-          :else (.stroke cs))))
+  (.setLineWidth cs (float lw))
+  (canvas/path! cs pt pts)
+  (cond fill? (do (.closePath cs) (.fill cs))
+        close? (.closeAndStroke cs)
+        :else (.stroke cs)))
 
 (defn- line!
   "Strokes a straight line from (x1, y1) to (x2, y2) at line width `lw`."
