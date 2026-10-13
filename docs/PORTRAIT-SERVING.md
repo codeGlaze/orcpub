@@ -59,7 +59,7 @@ image someone uploads, and the shared picture carries the artist's name.
 
 ## A shared link, end to end
 
-1. The character page names the picture by version: `/character/:id/portrait.png?v=<16 hex>`, the
+1. The character page names the picture by version: `/pages/dnd/5e/characters/:id/portrait.png?v=<16 hex>`, the
    start of the portrait's fingerprint. It refreshes the artist credits first, so the version and
    the credit agree with what the image route will compute.
 2. The image route pulls the stored portrait and computes the same fingerprint. No drawing yet:
