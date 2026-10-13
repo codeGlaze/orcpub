@@ -1195,748 +1195,748 @@
   :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
  "docs/design/style-guide/bold/dark-after-builder.png"
  {:sha256 "de0f77e4eb4e172e176e48e7e8998ab958305e5bce8bae893308f6401a1d188a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/dark-after-button.png"
  {:sha256 "46ac76c6431a9fad830ff75fc19705edf136870d0113157a58bb47bae96e2f61"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/dark-before-builder.png"
  {:sha256 "37979b43879694ed303491ca3318dfd00f0f2ae3d2b356efa892446ed5c03dc4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/dark-before-button.png"
  {:sha256 "46ac76c6431a9fad830ff75fc19705edf136870d0113157a58bb47bae96e2f61"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/light-after-builder.png"
  {:sha256 "98f1908796a930761d6b6f31156c4845d3fac734ec56515a54159c527c79147a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/light-after-button.png"
  {:sha256 "6fac77aefb9cdc62e3e89cd61d17a1543b37dca533a090f9666c2f73c0f8d4e7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/light-before-builder.png"
  {:sha256 "be558b5001a2e4c8d719c0fd2af8f5990ed7575eddeaa6c81f15db557e1e56d4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/bold/light-before-button.png"
  {:sha256 "6fac77aefb9cdc62e3e89cd61d17a1543b37dca533a090f9666c2f73c0f8d4e7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-i-white-2.png"
  {:sha256 "5be9f1137dfb4b60f8d6cc9ef690ec61ecf09015e32dc8bc239fca1f7af7776a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-j-yellow-1.png"
  {:sha256 "08b94d3806d3756c4154d03a0c69d781534effcc4c42653adbbb4ecb6c24dc7f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-k-yellow-2.png"
  {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-l-paleyellow-2.png"
  {:sha256 "c7d36ba5ea4e2cea87acb0472fb051ddb86bf12b1d0c6966d896d07b2199d8ca"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-m-orange-2.png"
  {:sha256 "7a651a83a79a44df7b80063d44cf54bff48d0d6fcdd3f40ac3707fcc0ef9747b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-n-amber-2.png"
  {:sha256 "82c0ac0ce2e75054bdaed66444209ca8fcf659434b523deffce63b01f0649994"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round10/roll-w-white.png"
  {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-k-built@1.png"
  {:sha256 "c7646581d90a9791c1795045412cf469d66412ab368541e8c932b836984d1e05"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-k-built@2.png"
  {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-o-reverse@1.png"
  {:sha256 "0796b7ee362346d79dae26de957b812876e721ee286d81d8da61de5668f2a863"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-o-reverse@2.png"
  {:sha256 "4a9b8afda0aecd5a2d98df222eb2e9660a72a7565a2b1b5ec6f08e4ddb725a67"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-p-bottom-solid@1.png"
  {:sha256 "3aef6b118fa67ced340c4c0c7126f096292197fa3a60e3714509c38bdaed7b58"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-p-bottom-solid@2.png"
  {:sha256 "71f9b5c4a335ad24a037a6d1e599624558154787d42930907877369c07b30b1b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-q-yellow-reverse@1.png"
  {:sha256 "4599315add23bb6eeba571ad402efeb1b2bdf6cb7252b2bc11acf5fad250cbcf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-q-yellow-reverse@2.png"
  {:sha256 "c505cd51edc907958c53faf6f0b53f4e017be60c47356df4e4f0271e812f769f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-r-bevel@1.png"
  {:sha256 "5306058589376d2bcfd8a84c7e6292daf08ba3ffab1ec033f28f1be9c84c93d2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-r-bevel@2.png"
  {:sha256 "1c10c06b6b6b822f53192c3c355c7c41c6a767105b6c3ac4d3f9fa819dd3eee0"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-w-white@1.png"
  {:sha256 "1db680a30bc118e0f9fe5bcc9f50f76db838d114ed6f21831e3f1b6e095ec017"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round11/roll-w-white@2.png"
  {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-glow@1.png"
  {:sha256 "230103e0e39ed5c552cb9d1cc9847ca113f898ca1f20c972b5538f1379ce39c6"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-glow@2.png"
  {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-lit@1.png"
  {:sha256 "4599315add23bb6eeba571ad402efeb1b2bdf6cb7252b2bc11acf5fad250cbcf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-lit@2.png"
  {:sha256 "c505cd51edc907958c53faf6f0b53f4e017be60c47356df4e4f0271e812f769f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-rim@1.png"
  {:sha256 "c7646581d90a9791c1795045412cf469d66412ab368541e8c932b836984d1e05"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-rim@2.png"
  {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-white@1.png"
  {:sha256 "1db680a30bc118e0f9fe5bcc9f50f76db838d114ed6f21831e3f1b6e095ec017"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/14-white@2.png"
  {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-glow@1.png"
  {:sha256 "2c1e5c330f1cb15efb51fee6f6b113f6464859d97624b178004e35500cfa2085"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-glow@2.png"
  {:sha256 "4d6bcefba5a2d7efd4410fa0e1797ce67614ee370f4f1168b28b3a39d81f5872"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-lit@1.png"
  {:sha256 "837f261e9d32f4cd01187bc054476bee9c5517202f1671deb8da1fc7060c37fb"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-lit@2.png"
  {:sha256 "2c2dc54a03d89d83e694c900a86d589d6cec4d7257c816ca1686a506b97c9d8a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-rim@1.png"
  {:sha256 "60440bbbdf8719c2ddd421be3adff02945a0b7111ec80170c98aac56595b1341"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-rim@2.png"
  {:sha256 "ba862973ca399dc32ecfeaaf7c40b5d332c4b13d4c92d94247a80391e9e405a7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-white@1.png"
  {:sha256 "af36e8b0fe95e815ab06f67e77f592a3f9d90afaa0a1abce80ad2361bf1e3530"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/15-white@2.png"
  {:sha256 "45ed0ebcc0cd2c6e638e697c0c1c17918d238f2766e8140922d58d0079022914"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-glow@1.png"
  {:sha256 "5b7ddf0bedd4d98c2da5e357a0be1a8b92196774b9577843f045b1957229b673"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-glow@2.png"
  {:sha256 "249b81e7507d119fa70edff8a01f3e0713bc8be7a2c7b633f755ce69c5389415"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-lit@1.png"
  {:sha256 "f7dbb0f3254e9f6c0c333ed1e7929d0e703a8914e15dd26a929c4b7a9ab7d538"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-lit@2.png"
  {:sha256 "d6744d48fee7027044455543d163fa780a677afbbef8e69b2b02d65122730008"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-rim@1.png"
  {:sha256 "73c49c0cdb0af314d95e25252baa7df7f024eae964fafc0f704bb8eaad5568e7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-rim@2.png"
  {:sha256 "fd32fb16e87b7c11c6cb4f122fd835be7e4b494543875a51852111b279004c29"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-white@1.png"
  {:sha256 "4b22b7da0e15253981da33d26d3370e76bd6d7b2a672055a1a6ea44328de9797"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round12/16-white@2.png"
  {:sha256 "eda8ef7a556f46ad428125cfc01c4af4bc71441313f5f67a521aad783b00392d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/14-rim-320.png"
  {:sha256 "e2ef434f98c6c8703bc47e10ed12bdbeeb050811895fb10972ba53874053e778"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/14-rim-390.png"
  {:sha256 "41a2500d0a43fd657e374a3d38277c99905bb5baed4434324eb1f5547a60e5d4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/14-white-320.png"
  {:sha256 "8af766b17d67c96547d5dbba3cf63159f16dff15563015a8edb86015c888104e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/14-white-390.png"
  {:sha256 "21cc50a7071feaaf1d856182c6e68c02bceef8a194055f8cec4dec8477b41bdc"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/15-rim-320.png"
  {:sha256 "d2e26262f9a8d298e859fd003361ed3156ce7e98cbee7133fbd2ca4bd6977086"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/15-rim-390.png"
  {:sha256 "d1143c0725ca522619c570572f7f009045ae3a1e809fddd3af144e5a832fff4d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/15-white-320.png"
  {:sha256 "48990873edba43380653dbb6e876a1756abbb48f65d09b19a997a8c5728465f1"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/15-white-390.png"
  {:sha256 "c279d1ebb4d7efcee46c2300371aa11c5bf0586be288d99100ef8c70ce2e00ab"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/16-rim-320.png"
  {:sha256 "4831c088a4d840856b0b0f58581be1952db05b3a233eaee9368f55163796014f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/16-rim-390.png"
  {:sha256 "49d7cd0785c0503c581f73442809f289bdddec3264a7316c3a9c4d8a767fb369"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/16-white-320.png"
  {:sha256 "ea907c50e38993ca7fb147ffa63fe99b5d1d57168dcc51edbd8ecaafe0b222dd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/16-white-390.png"
  {:sha256 "30587842bfe68cf4b980c1c32c0936232dc24610460bea24268c04d9b1d59c53"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/toggles-320.png"
  {:sha256 "39fd0fd4fff0e1c120752b6f8ea8d3ed40ba232c5343ddb3ae3ed29070cb4fe0"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round13/toggles-390.png"
  {:sha256 "282a703aec2edb17f94209d59dcdaf02e4391437643043563826681d81c8b14d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round14/desktop-1280.png"
  {:sha256 "19da08bd4c7842c9ff24e587146902a730e542d63cf378072846337331b4ba1d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round14/desktop-narrowed-details.png"
  {:sha256 "36528d83f2df44a9211a220c1ea19a0f266fe2e34eb5f0d844f3282114137148"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round14/desktop-narrowed-options.png"
  {:sha256 "061d1982ca5eeab4a184f3bc615dcc6c669758510398106e408e497a22835b69"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round14/phone-options.png"
  {:sha256 "c8121c2c6637e7a2511ee0a56d826f0a63054a32dda16c2738b3f217ab6c9a6a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round15/desktop-1280.png"
  {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round15/phone-320.png"
  {:sha256 "13487adedda621ec46e4c7281dc2de5a9728e92d94c6b7e8dbec5ec00ba7b011"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round15/phone-390.png"
  {:sha256 "fab77f673f30f0a3af32acc8c2c54298df9a4f905b17997f4e0bf47f91b601bb"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round16/bar.png"
  {:sha256 "2fe942021102a81ba044bab84fe8aec26036f3575d480751fd67b216af9749e7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round16/edges-aligned.png"
  {:sha256 "6cb921265360187666171aded48196f3441427f5d80a471555ffce9390b5b279"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round16/edges-now.png"
  {:sha256 "664cd6083a3d58a5dc8b5355b44866219c4fa981a818361515fc0fc4a932f404"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round16/strip-aligned.png"
  {:sha256 "8c3588cd5a80cb98ced416f57eb53e85072ddf88536990a968c988afdc44f42d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round16/strip-now.png"
  {:sha256 "033da9068729108f0455235c197bfb0432316883d99b45bc1dfbf78b642b3ee9"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round17/built.png"
  {:sha256 "15c1cf422d7debd6991935c3edf51f8f697823d7d8dd5dff5babc1e678d29362"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round17/g10.png"
  {:sha256 "f38a8a5f17717a1ee65fc107921fb9aa5eb7b48356f12c4e90e8803bd5968044"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round17/g16.png"
  {:sha256 "47ca02f9f649dbeb2e300f733cb96d8d8c67950e11ae465f53349cff49f8209f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round18/desktop-1280.png"
  {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round18/phone-320.png"
  {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round18/phone-390.png"
  {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/desktop.png"
  {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/phone-320-dark.png"
  {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/phone-320-white.png"
  {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/phone-390-dark.png"
  {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/phone-390-skills.png"
  {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round19/phone-390-white.png"
  {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/desktop-1280.png"
  {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/desktop.png"
  {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-320-dark.png"
  {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-320-white.png"
  {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-320.png"
  {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-390-dark.png"
  {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-390-skills.png"
  {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-390-white.png"
  {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/after/phone-390.png"
  {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/desktop-1280.png"
  {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/desktop.png"
  {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-320-dark.png"
  {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-320-white.png"
  {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-320.png"
  {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-390-dark.png"
  {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-390-skills.png"
  {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-390-white.png"
  {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round20/before/phone-390.png"
  {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/after/desktop-flyout.png"
  {:sha256 "efb802d9a70eebafa5476fdb8ae31779a931c42f2bd20feca60b269bf5b6312b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/after/phone-flyout.png"
  {:sha256 "340e72d1210e435f128ca4c399cdb56f730857d1e60fa0ce7b2ed69ff041cd23"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/after/user-menu.png"
  {:sha256 "2e6de9a6b31de8024e06dc01ff1c7a7d73f650bc739d58a271e370dac3a84633"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/before/desktop-flyout.png"
  {:sha256 "efb802d9a70eebafa5476fdb8ae31779a931c42f2bd20feca60b269bf5b6312b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/before/phone-flyout.png"
  {:sha256 "6186335d44cf48be49ccadfe6f8998564d45bd9b550a09c1a723d59e93a354d2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/before/user-menu.png"
  {:sha256 "2e6de9a6b31de8024e06dc01ff1c7a7d73f650bc739d58a271e370dac3a84633"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab1.png"
  {:sha256 "669559a578e7b2d0e39d105a6df12af39d37b1f69371c72d56a2dd8147191707"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab2.png"
  {:sha256 "8c06398d342bd794cff03d10536fd25c981b8f5f2aaa01a9d1f1e51e21b9cc87"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab3.png"
  {:sha256 "7bd282ac9c99ccf3500974efc8ad6bbdfd5d53f52f8328986b670e8332db51d0"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab4.png"
  {:sha256 "fe263deb46fcfe48bce346f5a4475a4c90a6d0bf764d1cffa203557878ab5c71"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab5.png"
  {:sha256 "643bfdaa87fad27fc6523bee0c24ff2363f79a0394d89237bfcce19613e75272"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/320-tab6.png"
  {:sha256 "6104fa7f2e75374f9af442f32c731dbed33435faa8aaa123f699e7c0dc9ff78e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab1.png"
  {:sha256 "b3acd6b112c25e0f5cbf5627e2311786c755bda88778077821d09cb32519e56e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab2.png"
  {:sha256 "9e32f8056eb14464664bf8c8c34cfb18ef5748e858ee437985f02d14d65ffd7f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab3.png"
  {:sha256 "09792904ed48c873ca00a34de261af3ceb12519b13d0a73579312734e63309d1"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab4.png"
  {:sha256 "0c7d6953f1e3d71dc5c97a2df7c16bcd49a3beeb02f8e65ea90e66edb2abafa6"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab5.png"
  {:sha256 "a01b6959a6310cc25c4376a42d19d13509b059c465330e338638af0013ef6f7b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus-before/390-tab6.png"
  {:sha256 "ab588299f28e59955e6af1c0d79a53a45b674f361c0abd776adff2e22075db20"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab1.png"
  {:sha256 "5d2f4e6729738d634bfc85208fc8805587526986f1133fadff6f5b7184255d8f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab2.png"
  {:sha256 "5f17b4cae5cb64bb6d7421dd6e7df4357cb5ea9670cf54ae1e0b43beee0eafe4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab3.png"
  {:sha256 "a5c9c2119460f7c7bf2a8d866229fb8d89c31fbad04f98068ed637fb70e7cff1"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab4.png"
  {:sha256 "315ad3aa7e2a23b3a9c98c61c9b40a81b27d2788fad039b7e401588e59d71dc6"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab5.png"
  {:sha256 "d1bdc069b899c613a538c413311017c40d21d06b530a10f3b7dbbd09f0c0e7ac"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/320-tab6.png"
  {:sha256 "b141e1e02f3f421ca42aabaf5b72baac1595e9e78a8236bc1c9c2866070e802c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab1.png"
  {:sha256 "58b46737ca7ae69c9000ec11fc15d1fc3199b93c988f22aed9cdbfefbaca3971"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab2.png"
  {:sha256 "6a4921443e2820aaf90deef4283b084d3e24023a5873b40b6b4c34d63b1ac61d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab3.png"
  {:sha256 "18177fb40283cedae55968b5301867bc5db7b9dc16d8c3c18a44a3a81be82674"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab4.png"
  {:sha256 "6794b80d7168bae1cfb67ac9966dab96fe2e680d30664401d36bb3da28acbcee"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab5.png"
  {:sha256 "c62f9096ab965f15d1bef0e51cb6d7b5a377e4883ce88ce4fb5d144c6ea424aa"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round21/menus/390-tab6.png"
  {:sha256 "85249509fa0cd45448da657a3e95a302b9363daaa95cb22c2b091d4471b1cd54"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-btn-arial.png"
  {:sha256 "54962fcdc2e9bfe4dbc40f5c54de1647571fa01fbb14bccf44f54b8ced2eab30"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-btn-dark.png"
  {:sha256 "70450b173c5fb011be9d06dba9cce628ce6a10ebd044ddcbf466df4041e3ce20"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-btn-os600.png"
  {:sha256 "e5b15847bcfdc1533abf65d1b68d3012f99c4947eaae0c056f7a5fde3f8d3b54"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-btn-os700.png"
  {:sha256 "5d00fae8a84ab96d94be8195009e8488b6c7a6a070131013061fb49ddde460fd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-v2-builder.png"
  {:sha256 "eb59d124cf7e926b7c9659f19bfd679f57f1d9dc595baae77731a1da5f65cdee"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-v2-monsters.png"
  {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-v2-mycontent.png"
  {:sha256 "8d866f643d18bd247360164c05909e9468191c39aebf4a05c673a29edb7e7698"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-v2-spells.png"
  {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-wrap-asis.png"
  {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-wrap-ls02.png"
  {:sha256 "4e97d2a100331d46770be7a14f7097e0b72ca0c834908ec45e1f05e44a30de4b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-wrap-ls04.png"
  {:sha256 "68c3d46839a9187f748c69a12ad0afe8d3ccf200f7f8ed16e7f3b2506ec8d563"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-wrap-s13.png"
  {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/dark-wrap-w600.png"
  {:sha256 "f416cf3a968defebc4149f0f2c6a1f0c369ab44c7e32a8ac9e2cd36a6d6ae9cf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-btn-arial.png"
  {:sha256 "957f7701a0d2a717095a4531ebd3343afd70932df2477e939afe097711beebfa"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-btn-dark.png"
  {:sha256 "26b411c5bc5c046a2cbe6080f7c08066250b3f93f6ef8fd180ca35f1c4fa42bd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-btn-os600.png"
  {:sha256 "3d652d57e9401f6d20ffbb9318f905cb142959f997819ec6381cc40eb3a1e08c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-btn-os700.png"
  {:sha256 "26b411c5bc5c046a2cbe6080f7c08066250b3f93f6ef8fd180ca35f1c4fa42bd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-v2-builder.png"
  {:sha256 "d8e7577d09922ea6c73d15ad165b1fde7a9c3e9ccfdfc5448cd6c69ad7336766"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-v2-monsters.png"
  {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-v2-mycontent.png"
  {:sha256 "2f9cd672064c9f7fdd41e3f857acf3ed5b3b065af0eccde1c17a53732e9cec9c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-v2-spells.png"
  {:sha256 "131c5e3949c25e8ba54a197596a5ce059db22f1bcdda4ed70b10c9eaea9603ce"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-wrap-asis.png"
  {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-wrap-ls02.png"
  {:sha256 "4e97d2a100331d46770be7a14f7097e0b72ca0c834908ec45e1f05e44a30de4b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-wrap-ls04.png"
  {:sha256 "68c3d46839a9187f748c69a12ad0afe8d3ccf200f7f8ed16e7f3b2506ec8d563"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-wrap-s13.png"
  {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round3/light-wrap-w600.png"
  {:sha256 "f416cf3a968defebc4149f0f2c6a1f0c369ab44c7e32a8ac9e2cd36a6d6ae9cf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-dark-builder.png"
  {:sha256 "659a00f01ac53b9e881076bf6287cc9de698023e2f39fab899ff9c7fcbc01d28"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-dark-monsters.png"
  {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-dark-mycontent.png"
  {:sha256 "53a656687d15dc6bbd3cb8aa81a8ce064119a895fbf295b4c3a972c62ea6721d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-dark-spells.png"
  {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-white-builder.png"
  {:sha256 "eb59d124cf7e926b7c9659f19bfd679f57f1d9dc595baae77731a1da5f65cdee"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-white-monsters.png"
  {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-white-mycontent.png"
  {:sha256 "8d866f643d18bd247360164c05909e9468191c39aebf4a05c673a29edb7e7698"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round4/dark-white-spells.png"
  {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round5/1-today.png"
  {:sha256 "63234e4b5c2b96de968176b9265cc49b97c097987b8b5569a187b259b9b055ab"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round5/2-shadow.png"
  {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round5/3-deeper.png"
  {:sha256 "4baa474dca0f27e198ea830990f8aaccd6ecd1cdd72ce5e6e27db7cf09c5786c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round5/4-deeper-shadow.png"
  {:sha256 "2348b2c22b8df8522ddbd04a67d4799af3e5c5c7c1504fcc87f3fa99d22d8c0d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round5/5-dark.png"
  {:sha256 "dae94bebf2c6418ab31ed3d6fabae3724362294e28809568d38d4e393fb813f4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round6/10-dark-emboss-strong.png"
  {:sha256 "5afc7f629340ae8ae6829e29ab9be23e19520a84a27fb8deb36ed8a8ebb78c47"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round6/6-white-shadow.png"
  {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round6/7-dark.png"
  {:sha256 "dae94bebf2c6418ab31ed3d6fabae3724362294e28809568d38d4e393fb813f4"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round6/8-dark-emboss.png"
  {:sha256 "6638bf5596541dde6cf8db45317a5c1ecd7080d4c9ca1d0238e0ca7a055bd4b5"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round6/9-dark-glow.png"
  {:sha256 "d4244f1cbfb6c600f9808b7bc56a6b7312e1b1791cd13ef1c6f043404eb4ef61"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-buttons.png"
  {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-darktext-buttons.png"
  {:sha256 "d4244f1cbfb6c600f9808b7bc56a6b7312e1b1791cd13ef1c6f043404eb4ef61"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-darktext-roll.png"
  {:sha256 "2c3960fd090716bed7149f399139113219e2ab83be00e627e2c18d6223348e2c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-roll.png"
  {:sha256 "90abaa97721559e12814ed281f69f6ca3667319bc73e512435abc557ec5a3eb1"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-tab-lift.png"
  {:sha256 "9f74a4f0b62aa40f479dc1d4ce6740be5c8325c174cc560e8a20aa70ba59c9a8"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/dark-tab-now.png"
  {:sha256 "f93950b65a25131b28308a09abfaaf9b836f58b17b0d77df0561e1876d80bd4c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/light-buttons.png"
  {:sha256 "178e4682ad30fd6568d02fdf5e12b12f6216f04fc1b1cb9e01adeab2cf1984cd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/light-roll.png"
  {:sha256 "fb37515425dc17adc5f8393d174a5b40c61b15bbf7fc4bc2aa8e6e9e579ae3c8"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/light-tab-lift.png"
  {:sha256 "9f74a4f0b62aa40f479dc1d4ce6740be5c8325c174cc560e8a20aa70ba59c9a8"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round7/light-tab-now.png"
  {:sha256 "f93950b65a25131b28308a09abfaaf9b836f58b17b0d77df0561e1876d80bd4c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/header-built.png"
  {:sha256 "78a5efb8a8a40d13d186c116271a013e6348560ea379c6ce13d2cd181df4d624"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-a-before.png"
  {:sha256 "2c3960fd090716bed7149f399139113219e2ab83be00e627e2c18d6223348e2c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-b-700.png"
  {:sha256 "1f0c29ee8b18a4820966696ca902861e2e40bdfdee5a940fcb8b46bfed5ce1fd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-built.png"
  {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-c-glow.png"
  {:sha256 "3e669a5614954291f8868fb472d27f2ccde9686d770d23c1c7edc516fa8a2714"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-d-700-glow.png"
  {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round8/roll-w-white.png"
  {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-d-built.png"
  {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-e-shadow-ring.png"
  {:sha256 "e87995488c563408d38eb64c55e4ed18329b7b885e0da6293425cad2b721fd30"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-f-stroke-hair.png"
  {:sha256 "ab8e0926f1dc74a6cb1d868775b0e92d0d2956d6af5427e3e5289911cafb4109"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-g-stroke-hair-glow.png"
  {:sha256 "78323baa58deb5087768c97846369880056ccab880b875842b48a58593da9325"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-h-stroke-full.png"
  {:sha256 "7851f962a1f6eb40ad5ca2eab39121849c3131b9739103c98f154d4f06ecca17"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-i-stroke-full-glow.png"
  {:sha256 "5be9f1137dfb4b60f8d6cc9ef690ec61ecf09015e32dc8bc239fca1f7af7776a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/round9/roll-w-white.png"
  {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-after-builder.png"
  {:sha256 "e78d209816bdf54893f3d5a9297cc53f4015159fe9e313c26f6b96d6ca1f1ec2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-after-monsters.png"
  {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-after-mycontent.png"
  {:sha256 "56ef087f7e42392787925a0122070c5ff26c756c2f71323f2f367c58fa64da4a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-after-spells.png"
  {:sha256 "d4e1c851290e8a53afdeef8b8f15b0259c713d2c3cf003c2fc42abed8682f970"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-before-builder.png"
  {:sha256 "0adc3532bab7f6f0fa12d3f93b76a356e95001ad22f60e899f9156f713cceed3"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-before-monsters.png"
  {:sha256 "05a53fdf04486f08c97bbb160bc5edb4f5edaf5fe89a2ac6719eb4bfee555865"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-before-mycontent.png"
  {:sha256 "f400e196ee1f1a3793fadf64bcdef33c0c499f10039e870b64f1fe0aeaf83bd9"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-before-spells.png"
  {:sha256 "002febee16487914747ec2e2fb3c1404a0fa2fad7e9e0547514b9076b52d4bf0"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-rule-builder.png"
  {:sha256 "c398fd986babcd570b44bb4efc6dca22f7b568c1b7e3e8a2582fcad1fd4def05"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-rule-monsters.png"
  {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-rule-mycontent.png"
  {:sha256 "9635e95f2ac5679d9978d261230ee439e5edec473cdb8d6a5b31530959bc6058"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/dark-rule-spells.png"
  {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-after-builder.png"
  {:sha256 "3413eca2cdcd4375b4176e84c02cabe95859c1761b9048db5e9d39a2206fe7d0"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-after-monsters.png"
  {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-after-mycontent.png"
  {:sha256 "b4b697ab4871657ac3e17dae778ad34b82a12332ed8040fd05dc54f26e7bd55d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-after-spells.png"
  {:sha256 "696f637efd328155a60ec63b0223674db31ff62d29ca01cc4f24687b0b63c26a"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-before-builder.png"
  {:sha256 "c6f627b103fa72eefb5f03743144de2f284e643d42cdf0b9de931456df3e9566"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-before-monsters.png"
  {:sha256 "301b7c289b369956efe4f98febff8919741d0bedbde9e5083aab1c1286dc2138"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-before-mycontent.png"
  {:sha256 "0c2ba28175684a3647ba2333fb72f9d8bb0a7605a475db870f317d068a5a075e"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-before-spells.png"
  {:sha256 "774bd95b085eedbd667f29572ce6df4ad931a0357512d0489c7129d43de7f9d5"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-rule-builder.png"
  {:sha256 "00b373460eea7e59b0efa0861d2e94c271d1b521847031a7bf3bb5fbb8c0622f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-rule-monsters.png"
  {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-rule-mycontent.png"
  {:sha256 "220916999702580235c9926401e515d23dd774bfbb70c43a5a05b854733a1db7"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/sitewide/light-rule-spells.png"
  {:sha256 "131c5e3949c25e8ba54a197596a5ce059db22f1bcdda4ed70b10c9eaea9603ce"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-pair-400-400.png"
  {:sha256 "1c95f2e6b12b811259a75147111f52414c96833a31e127362ee05333dfccc160"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-pair-500-600.png"
  {:sha256 "c06ea2abd9c998c788b5927dd21711069c7c80a60b9a75c5cc903bd1c791dadd"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-pair-700-600.png"
  {:sha256 "0c0114a53dc18e4b9745c5b727090e165a3808fcb565f6310085e427421a3a9b"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-tabs-400.png"
  {:sha256 "1c7daaacd0aa822098fa071c9ad3e629a834700af15e97dae10a2339fddc7a5d"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-tabs-500.png"
  {:sha256 "c4904977c323ff7264251a9c3282a7c7bc37f3917f803d4a4a34d7e3d8417972"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-tabs-600.png"
  {:sha256 "e8607924fc459588ceb492d1e80c2eb61e5421742eed7e1feca690541d7bbd25"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-tabs-700.png"
  {:sha256 "b0e1ca23463c0819324389e654691824461bf9156cc40064d3e8245a99492305"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-title-400.png"
  {:sha256 "04ab9c464774f0f16cda29c07931b4fb9305f536f0e7ecb1edb30c65e67eb001"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-title-600.png"
  {:sha256 "ea9a2ed8f90757f97011769af504f048d5efc5946cae1e8c0acd05db565d2510"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/dark-title-700.png"
  {:sha256 "f457ec2fb555360de9412493c6a7349a0e6c068684f44a2d57ee293264c4d697"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-pair-400-400.png"
  {:sha256 "d17439d7e320810a3aa70bf30e2f7d1fa01e951503611c9c5e82ece79b874c3c"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-pair-500-600.png"
  {:sha256 "1573364f3b7d2dd2d7dc0836ff096ae86786129bafd5e3c548d35b9475b8eea2"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-pair-700-600.png"
  {:sha256 "cc0550e44e24072aa3426f4d888ce5d838799f58269d298bcbda2ac87e711aa3"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-tabs-400.png"
  {:sha256 "1232d90c86e7d30fd9ee9814b5cf5c80e64c4ec8644547cc99ad83ab7fb57072"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-tabs-500.png"
  {:sha256 "ba9704a99616ca296e271eda5fcb3364fab1061b1bfcdc8da19a549aba86f612"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-tabs-600.png"
  {:sha256 "c29869b307cd80a8adb94480535ec4222b7dcf3597bdfc81353f7692c42a44f3"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-tabs-700.png"
  {:sha256 "149da8c7441a6c23d8167f5bbc6062a585205c9a8d43f19e41a4ac1f761a294f"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-title-400.png"
  {:sha256 "e04feb68eba1dde905fc147f275709d99bb22c4102355c7a8c12ae78bb152fd3"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-title-600.png"
  {:sha256 "9e4f40d663fd95ff1042c437147b737bcede32e29c7baab938c5563872487b08"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}
  "docs/design/style-guide/weights/light-title-700.png"
  {:sha256 "56cdb204d3f1a44d43f399f7825d3f0f4113b961abd7736925aa916a68398cd1"
-  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}}
+  :what "agent-reviewed: site UI screenshot; dropped at the rebuild"}}

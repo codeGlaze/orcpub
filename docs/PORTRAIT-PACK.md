@@ -89,6 +89,15 @@ stays on top. Never merge or push the private branch the other way.
   `PORTRAIT_SILHOUETTES=record lein test :only orcpub.portrait-art-guard-test`.
 - `.github/workflows/portrait-art-guard.yml` fails any push or pull request on GitHub that carries
   the marker, which is the private branch arriving here.
+- The licensed-art mark: the Loom (v2.41 on) writes a PNG text chunk, keyword `orcpub-art`, value
+  `licensed; pack <version>; artist <id>`, into every piece of the real art it exports, pixels
+  untouched; `scripts/private-art.sh` stamps any piece laid in without one (older packs, such as
+  v1.775). Everything drawn from marked pieces carries it too: the server's drawings and their
+  stored files, strand files, the browser's bake, the exported PDF (in its metadata) and the dev
+  gallery. Silhouettes have none. The guard (`portrait-art-guard-test`, `scripts/check-images.sh`)
+  refuses any marked file anywhere in the repository before its other checks.
+  Limits: the mark is lost by a screenshot or by any tool outside this code, so the reviewed list
+  below and the owner's contact-sheet review stay as the other layers.
 - Every image in the repository, docs/ included, must be a recorded silhouette or listed in
   `test/reviewed-images.edn` by its SHA-256, with what it is (`scripts/check-images.sh` in the
   same workflow, and `orcpub.portrait-art-guard-test`). A new or changed image fails until someone

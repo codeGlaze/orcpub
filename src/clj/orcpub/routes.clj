@@ -4,6 +4,8 @@
             [orcpub.bounded-cache :as bounded-cache]
             [cheshire.core :as cheshire]
             [orcpub.work-pool :as work-pool]
+            [orcpub.portrait-store :as portrait-store]
+            [orcpub.art-mark :as art-mark]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -23,7 +25,6 @@
             [clojure.java.io :as io]
             [orcpub.time :as time :refer [hours ago from-now instant before?]]
             [clojure.string :as s]
-            [pandect.algo.sha1 :refer [sha1]]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
@@ -1119,13 +1120,20 @@
           (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
 
 (defn stamp-document-info!
-  "Overwrites `doc`'s info dictionary: title from `character-name` (or the default page
-   title), creator and producer the app name, and `credit` as subject and keywords when it
-   is set. Replaces the InDesign template's own metadata. Logs and continues on failure.
-   See PORTRAIT-COMPOSITOR.md, \"The baked credit and the site mark\"."
-  [doc {:keys [character-name credit]}]
+  "Set the exported sheet's own metadata.
+
+   The templates are third-party InDesign files, so a fresh export inherits
+   their info dictionary and claims to have been made by 'Adobe InDesign CS6
+   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
+   digital-asset tool or a search index reads. Overwriting it costs nothing
+   and puts the art credit somewhere besides the picture.
+
+   This is provenance, not protection: metadata strips in seconds."
+  [doc {:keys [character-name credit art-mark]}]
   (try
     (let [info (.getDocumentInformation doc)]
+      ;; drawn from the licensed art: the sheet says so where the repository's guard looks
+      (when art-mark (.setCustomMetadataValue info art-mark/key-word art-mark))
       (.setTitle info (or (some-> character-name s/trim not-empty)
                           branding/default-page-title))
       (.setCreator info branding/app-name)
@@ -1662,7 +1670,11 @@
         ;; Credit only when the composed portrait DECODED: one that did not fell back to
         ;; the pasted image-url, and that picture is not the illustrator's.
         (stamp-document-info! doc {:character-name character-name
-                                   :credit (when composed portrait-credit)}))
+                                   :credit (when composed portrait-credit)
+                                   :art-mark (when composed
+                                               (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
+                                                            (catch Exception _ nil))
+                                                       art-mark/mark-of))}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -1927,6 +1939,16 @@
                   (catch NumberFormatException e 0)))
     character))
 
+(defn- note-saved-portrait!
+  "Tell the portrait store a character was saved, so its shared-link picture is drawn if the
+   portrait changed (orcpub.portrait-store/saved!). Never fails the save."
+  [conn id]
+  (try
+    (when id
+      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait]}] id)
+                                        ::se/values ::char5e/portrait)))
+    (catch Exception e (println "portrait-store: not told about" id "-" (.getMessage e)))))
+
 (defn do-save-character [db conn transit-params identity]
   (let [character (entity/remove-empty-fields transit-params)
         username (:user identity)
@@ -1938,6 +1960,7 @@
               updated-character (if (:db/id clean-character)
                                   (update-character db conn clean-character username)
                                   (create-new-character conn clean-character username))]
+          (note-saved-portrait! conn (:db/id updated-character))
           {:status 200 :body updated-character}))
       (catch clojure.lang.ExceptionInfo e
         (let [data (ex-data e)]
@@ -2358,30 +2381,6 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
-(def ^:private artwork-epoch
-  "This process's start time, mixed into portrait-etag so a restart, which is when the
-   classpath art can change, invalidates every portrait validator. See
-   PORTRAIT-COMPOSITOR.md, \"Caching the share-card PNG\"."
-  (str (System/currentTimeMillis)))
-
-(defn portrait-etag
-  "A quoted strong ETag over everything a composed portrait's pixels depend on: the
-   artwork epoch, the `stored` EDN, the `credit` and the site `mark`. Computable before
-   rendering. Route-local; see PORTRAIT-COMPOSITOR.md, \"Caching the share-card PNG\"."
-  [stored credit mark]
-  (str "\"" (sha1 (str artwork-epoch "|" stored "|" credit "|" mark)) "\""))
-
-(defn- portrait-tag
-  "The validator for a stored portrait EDN and its parse, or nil when there is none."
-  [stored portrait]
-  (some-> stored (portrait-etag (some-> portrait portrait-assets5e/credit-line)
-                                (portrait-render/site-mark))))
-
-(defn- tag-version
-  "The short form of a validator the share page puts in the image address (?v=)."
-  [tag]
-  (subs tag 1 13))
-
 (defn- any-representation-requested?
   "Whether the If-None-Match `header` is the wildcard.
    GOTCHA: `*` is the whole header value, never a list member (RFC 7232 s3.2); splitting a
@@ -2400,30 +2399,6 @@
            offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
        (contains? offered (bare tag))))))
 
-(def ^:private portrait-pool
-  "Shared-link portraits drawn at once, sized by ORCPUB_PORTRAIT_CONCURRENCY. The route needs no
-   login and each draw is about half a second of one core, so new pictures are bounded here;
-   repeats come from `rendered-portraits`. Seeded at that half second."
-  (work-pool/pool {:size #(config/get-portrait-concurrency)
-                   :timeout-ms #(config/get-portrait-queue-timeout-ms)
-                   :seed-ms 500}))
-
-(def ^:private rendered-portraits
-  "The last 64 drawn portraits by validator (nil for one with nothing drawable). Single-flight,
-   so the crawlers a newly shared link sends all at once share one draw."
-  (bounded-cache/cache {:max-entries 64}))
-
-(defn- rendered-portrait
-  "[:ok png-or-nil] for `portrait` under validator `tag`, from the cache or a bounded draw;
-   [:busy retry-seconds] when no draw slot frees up in time."
-  [tag portrait]
-  (try
-    [:ok (bounded-cache/fetch! rendered-portraits tag
-                               #(let [{:keys [result busy]} (work-pool/run portrait-pool (fn [] (portrait-render/render-png portrait)))]
-                                  (if busy (throw (ex-info "portrait draw busy" {::busy busy})) result)))]
-    (catch clojure.lang.ExceptionInfo e
-      (if-let [retry (::busy (ex-data e))] [:busy retry] (throw e)))))
-
 (defn character-portrait-png
   "Ring handler: PNG of character :id's composed portrait, for og:image. Unauthenticated,
    like the character page, whose meta tags already expose the character. 304 when
@@ -2435,12 +2410,12 @@
                        ::se/values
                        ::char5e/portrait)
         portrait (some-> stored char5e/parse-portrait)
-        tag (portrait-tag stored portrait)
+        tag (portrait-store/tag stored)
         png-headers {"Content-Type" "image/png"
                      ;; The share page names the picture by version (?v=), so that address
                      ;; never changes content and can be kept for good; a bare or stale one
                      ;; is revalidated after five minutes.
-                     "Cache-Control" (if (and tag (= (:v query-params) (tag-version tag)))
+                     "Cache-Control" (if (and tag (= (:v query-params) (portrait-store/version tag)))
                                        "public, max-age=31536000, immutable"
                                        "public, max-age=300")
                      ;; This is contributed artwork. The header is the per-response
@@ -2458,9 +2433,13 @@
       {:status 304 :headers (dissoc png-headers "Content-Type")}
 
       :else
-      ;; The wildcard is answered only after rendering: a portrait that draws nothing
-      ;; has no representation and must 404, not 304.
-      (let [[outcome x] (rendered-portrait tag portrait)
+      ;; The wildcard cannot take the path above. `*` asks whether a
+      ;; representation EXISTS, and a stored portrait selecting nothing drawable
+      ;; has none -- it 404s. Answering 304 there would tell a client its cached
+      ;; copy is current when the resource has no current copy at all. So it
+      ;; renders first and lets the outcome decide, which costs the saving on a
+      ;; wildcard request and keeps it on every request that names a tag.
+      (let [[outcome x] (portrait-store/png id tag stored)
             png (when (= :ok outcome) x)]
         (cond
           (= :busy outcome)
@@ -2507,7 +2486,7 @@
         share-image (if composed?
                       (str "https://" host
                            (route-map/path-for route-map/dnd-e5-char-portrait-route :id id)
-                           "?v=" (tag-version (portrait-tag portrait parsed-portrait)))
+                           "?v=" (portrait-store/version (portrait-store/tag portrait)))
                       image-url)
         ;; A shared link is where the art actually travels, so the card names
         ;; the artists too -- the same line the sheet prints.

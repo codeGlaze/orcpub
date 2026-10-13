@@ -37,6 +37,14 @@
    :long-docstring
    "ns orcpub.portrait-pack.import"
    "fe978b474568"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "The wildcard cannot take the path above. `*` asks whether a"
+   "8a2d62b299e0"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn stamp-document-info!"
+   "fc84684cb0b7"]
   ["src/cljc/orcpub/artist_links.cljc"
    :long-docstring
    "ns orcpub.artist-links"

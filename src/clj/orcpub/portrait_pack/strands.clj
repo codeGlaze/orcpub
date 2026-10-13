@@ -7,6 +7,7 @@
             [clojure.string :as s]
             [com.stuartsierra.component :as component]
             [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.art-mark :as art-mark]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-effects :as fx])
   (:import [java.awt.image BufferedImage]
@@ -41,6 +42,15 @@
     (.setDataElements (.getRaster img) 0 0 gw gh (fx/field->bytes field))
     img))
 
+(defn- field-png
+  "PNG bytes of the strand field worked out from art bytes `art` for `layer-key`, carrying the
+   art's licensed-art mark when it has one (the field is derived from the art)."
+  ^bytes [^bytes art layer-key]
+  (let [out (ByteArrayOutputStream.)]
+    (ImageIO/write (field->image (field-of (ImageIO/read (java.io.ByteArrayInputStream. art)) layer-key)) "png" out)
+    (cond-> (.toByteArray out)
+      (art-mark/marked? art) (art-mark/with-mark (art-mark/composed [(art-mark/mark-of art)])))))
+
 (def ^:private worked-out
   "Strand PNGs worked out at runtime for art deployed without its file, by art URL."
   (bounded-cache/cache {:max-entries 64}))
@@ -54,10 +64,8 @@
     (when (and (fx/hair-layer? (keyword layer)) (not (s/includes? url "..")))
       (bounded-cache/fetch! worked-out url
                             #(when-let [res (io/resource (str "public" url))]
-                               (let [img (with-open [in (io/input-stream res)] (ImageIO/read in))
-                                     out (ByteArrayOutputStream.)]
-                                 (ImageIO/write (field->image (field-of img (keyword layer))) "png" out)
-                                 (.toByteArray out)))))))
+                               (field-png (with-open [in (io/input-stream res)] (.readAllBytes in))
+                                          (keyword layer)))))))
 
 (defn missing
   "The hair pieces the server can serve whose strand field it cannot: art on
@@ -106,10 +114,9 @@
              (let [out (io/file (.getParentFile f) (s/replace (.getName f) #"(?i)\.png$" ".strands.png"))]
                (if (and (not all?) (current? f out))
                  (do (println (format "  %-12s %-24s up to date" (name k) (.getName out))) :kept)
-                 (let [t (System/nanoTime)
-                       field (field-of (ImageIO/read f) k)]
-                   (ImageIO/write (field->image field) "png" out)
-                   (println (format "  %-12s %-24s %dx%d  %4dms" (name k) (.getName out) (:gw field) (:gh field)
+                 (let [t (System/nanoTime)]
+                   (io/copy (field-png (java.nio.file.Files/readAllBytes (.toPath f)) k) out)
+                   (println (format "  %-12s %-24s %4dms" (name k) (.getName out)
                                     (long (/ (- (System/nanoTime) t) 1e6))))
                    :written)))
              (do (println (format "  %-12s %-24s no art -- skipped" (name k) file-name)) :no-art))])))
