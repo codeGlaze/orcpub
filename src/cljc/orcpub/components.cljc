@@ -2,12 +2,11 @@
   (:require [clojure.string :as s]
             #?(:cljs [reagent.core :refer [atom]])))
 
-(defn checkbox [selected? disable?]
-  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
-   {:class (str (if selected? "black slight-text-shadow" "white transparent")
-                     " "
-                     (when disable?
-                       "opacity-5"))}])
+(defn checkbox
+  "A tick box, checked when `selected?` and dimmed when `disable?` (.checkbox in core.clj)."
+  [selected? disable?]
+  [:i.fa.fa-check.checkbox
+   {:class (str (when selected? "checked") (when disable? " disabled"))}])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
   [:div.flex.pointer

@@ -54,6 +54,8 @@ Scope notes for review:
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
+- **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
+  theme, blue in the light), and the sign-up page's updates box matches the rest.
 
 ## Fixed
 

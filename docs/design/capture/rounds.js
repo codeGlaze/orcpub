@@ -649,6 +649,24 @@ module.exports = {
     }
   },
 
+  checkboxes: {
+    out: 'style-guide/checkboxes', what: "the builder's setting boxes and the spell builder's components, checked and not, both themes",
+    async run(cap) {
+      for (const [theme, darkText] of [['dark', false], ['dark', true], ['light', false]]) {
+        const tag = `${theme}${darkText ? '-darktext' : ''}`;
+        const v = await cap.open(BUILDER, { theme, darkText, dpr: 3 });
+        await v.shoot(`${tag}-settings`, await v.clipAround(v.page.locator('.setting-toggle').first().locator('..'), 8));
+        await v.go('/pages/dnd/5e/spell-builder');
+        // tick the first of each row, so both states show side by side
+        for (const t of ['verbal', 'bard']) await v.page.getByText(t, { exact: true }).first().click();
+        await v.page.mouse.move(1, 1); await v.page.waitForTimeout(150);
+        for (const [name, t] of [['components', 'verbal'], ['classes', 'bard']])
+          await v.shoot(`${tag}-${name}`, await v.clipAround(v.page.getByText(t, { exact: true }).first().locator('xpath=ancestor::div[contains(@class,"flex-wrap")][1]'), 8));
+        await v.close();
+      }
+    }
+  },
+
   // --- artist pages ---
 
   'artist-pages': {
