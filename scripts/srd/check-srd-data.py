@@ -32,6 +32,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
                   a changed value is unverified again)
   cantrip-math    a cantrip's damage_roll at each character level is the SRD's total for that level
   desc-consistency within one spell, every slot's desc has the same wording, numbers aside
+  duplicate-pk    no two records of one model share a pk anywhere (loaddata silently keeps the last)
   lint-ratchet    no lint-open5e.py count rises above srd-lint-baseline.json
   reformat        a diff changes lines only inside records whose content changed
 
@@ -470,6 +471,24 @@ def check_reformat(rep, clone, base, path, old, new):
         rep.add('reformat', path.split('/')[-1], '-', '', f'{stray} changed line(s) in records whose content did not change')
 
 
+def check_duplicate_pks(rep, clone, changed, audit=False):
+    """duplicate-pk: no two records of one model share a pk anywhere in the clone. Django's loaddata
+    keeps whichever loads last and raises nothing, so a duplicate silently erases a record. Reports
+    duplicates that involve a file the branch changed, or every one with `audit`."""
+    seen = {}
+    for p in sorted(Path(clone).glob('data/v2/**/*.json')):
+        try:
+            recs = json.load(open(p, encoding='utf-8'))
+        except ValueError:
+            continue
+        for r in recs if isinstance(recs, list) else []:
+            if isinstance(r, dict) and 'model' in r and 'pk' in r:
+                seen.setdefault((r['model'], r['pk']), []).append(str(p.relative_to(clone)))
+    for (model, pk), files in sorted(seen.items(), key=lambda kv: str(kv[0])):
+        if len(files) > 1 and (audit or any(f in changed for f in files)):
+            rep.add('duplicate-pk', model.split('.')[-1], pk, '', 'also in ' + ', '.join(files))
+
+
 def lint_counts(clone, srd52):
     """{doc: {kind: count}} from lint-open5e.py's checks."""
     spec = importlib.util.spec_from_file_location('lint', HERE / 'lint-open5e.py')
@@ -554,9 +573,10 @@ def main(argv):
                                 if rep.hand.get((f'{ed}/SpellCastingOption.json', parent, k)) != vals})
             print(f'audit {ed}: {len(unchecked)} spells have upcast values no rule or hand check covers '
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
+    check_duplicate_pks(rep, clone, set(names.split()), '--all' in argv)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
     bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'slot-gap',
-                     'dice-only', 'no-op-option', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
+                     'dice-only', 'no-op-option', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'duplicate-pk', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
     return 1 if bad else 0

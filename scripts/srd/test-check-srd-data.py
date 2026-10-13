@@ -83,6 +83,8 @@ PLANTS = {
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,
+    'duplicate-pk': lambda wt: R.append(wt / OPT14, {'model': 'api_v2.spellcastingoption', 'pk': 10669,
+                                                     'fields': {'parent': 'srd_fireball', 'type': 'slot_level_9', 'damage_roll': '14d6'}}),
     'no-op-option': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_heroism', 'slot_level_2'), 'target_count', 1),
     'upcast-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '8d4'),
     # Wall of Ice scales two damages: a wrong value there must surface as unverified, never pass as checked

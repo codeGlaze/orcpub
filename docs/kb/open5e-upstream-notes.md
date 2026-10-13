@@ -109,6 +109,7 @@ seen to fail on the mistake before it was trusted:
 | unverified | a value we set on a casting option that no rule checked and no hand check covers | 33 area, duration and threshold values were trusted from an agent's report |
 | cantrip-math | a cantrip's damage at a character level that is not the SRD's total for that level ("5th level (2d10)") | about 350 cantrip values were checked by nothing |
 | desc-consistency | a slot whose `desc` is worded differently from the other slots of its spell | Globe of Invulnerability's slot 7; the Conjure fragments |
+| duplicate-pk | two records of one model with the same pk anywhere in the clone; loaddata keeps the last one and says nothing | srd-2024 Freezing Sphere's upcasts erased by kobold-press Anchoring Rope; srd-2024 `Service.json` and `Services.json` define the same 30 services, 7 differently |
 | lint-ratchet | any lint count above `srd-lint-baseline.json` | a fixed defect coming back |
 | reformat | changed lines in records whose content did not change | a file re-serialised wholesale |
 

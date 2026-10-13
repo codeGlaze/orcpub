@@ -3121,7 +3121,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, define, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions, wild
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
