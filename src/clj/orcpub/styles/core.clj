@@ -2400,7 +2400,9 @@
       :align-items :center}]
 
     ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
-    ;; when checked (amber in the dark theme, slate blue in the light one).
+    ;; when checked (amber in the dark theme, slate blue in the light one). The tick is
+    ;; drawn (an L of two borders, turned 45deg), not a font glyph, so it sits dead
+    ;; centre: a glyph centres its text box, not its ink.
     [:.checkbox
      {:display :inline-flex
       :align-items :center
@@ -2412,17 +2414,22 @@
       :border "1.5px solid rgba(255,255,255,0.55)"
       :border-radius "4px"
       :background-color "rgba(0,0,0,0.25)"
-      :color :transparent
-      :font-size "10px"
-      :line-height 1
+      :color button-ink
       :vertical-align :middle
       :cursor :pointer
       :transition "background-color 0.12s, border-color 0.12s"}
      [:&:hover {:border-color orange}]
      [:&.checked
       {:background-color orange
-       :border-color orange
-       :color button-ink}]
+       :border-color orange}
+      [:&:after
+       {:content "\"\""
+        :width "28%"
+        :height "55%"
+        :border-style :solid
+        :border-color :currentColor
+        :border-width "0 2px 2px 0"
+        :transform "translateY(-15%) rotate(45deg)"}]]
      [:&.disabled
       {:opacity 0.5
        :cursor :not-allowed}]]
@@ -2462,8 +2469,7 @@
       {:background-color "rgba(255,255,255,0.08)"}]
      [:.checkbox
       {:width "14px"
-       :height "14px"
-       :font-size "9px"}]
+       :height "14px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
