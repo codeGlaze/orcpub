@@ -6,6 +6,7 @@
   (:require [clojure.string :as s]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
+            [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dnd.e5.spell-annotations :as ann])
   (:import (java.awt.geom PathIterator)
@@ -402,15 +403,15 @@
   "The cards' abbreviation, first clause only: \"1 reaction, which you take when...\"
    is a sentence, not a casting time."
   [t]
-  (pdf/abbreviate-casting-time (first (s/split (str t) #","))))
+  (sp/abbreviate-casting-time (first (s/split (str t) #","))))
 
 (defn- short-duration
   "The cards' abbreviation of a duration: \"Conc, 1 min\", \"Inst\"."
-  [d] (pdf/abbreviate-duration (str d)))
+  [d] (sp/abbreviate-duration (str d)))
 
 (defn- short-range
   "The cards' abbreviation of a range: \"60 ft\", \"Self\"."
-  [r] (pdf/abbreviate-range (str r)))
+  [r] (sp/abbreviate-range (str r)))
 
 (defn marks
   "The small italic notes after a spell's name: concentration, ritual, a costly material."
