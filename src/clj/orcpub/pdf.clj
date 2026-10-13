@@ -11,6 +11,7 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
+            [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -42,10 +43,12 @@
            (java.awt.image BufferedImage)
            (java.net URL)))
 
-;; THE ACTUAL API: 82 public fns, 45 public defs; 31 called from outside this file -- 21 by
-;; routes.clj (export entry points, spell-page and image helpers), 9 by spellbook.clj
-;; (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops, site-stamp, the
-;; three abbreviators), and report-image-egress! by system.clj.
+;; THE ACTUAL API: 76 public fns and 16 public defs, against 59 private fns and 29 private
+;; defs. Only 29 names are called from outside this file.
+
+;; 21 by routes.clj (export entry points, spell-page and image helpers), 7 by spellbook.clj
+;; (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops, site-stamp and
+;; bezier-k), and report-image-egress! by system.clj. The abbreviators left for spell-print.
 
 ;; safe-image-url? and safe-image-bytes are named in routes.clj comments only; their real
 ;; external consumers are the tests.
@@ -2115,17 +2118,6 @@
                       y)))
     (.setStrokingColor cs (float 0) (float 0) (float 0))))
 
-(defn spell-school-level
-  "The subtitle line of a spell card: \"Wizard Cantrip Evocation\" at level 0,
-   \"Wizard Level 3 Evocation\" otherwise. A missing school reads \"Unknown\" and a
-   missing level \"?\" rather than throwing, since homebrew spells reach here
-   unvalidated."
-  [{:keys [level school]} class-nm]
-  (let [school-str (if school (s/capitalize school) "Unknown")]
-    (if (and level (zero? level))
-      (str class-nm " Cantrip " school-str)
-      (str class-nm " Level " (or level "?") " " school-str))))
-
 (defn draw-spell-field
   "One icon-and-value field on a spell card (casting time, range, duration,
    components): the `title` icon at [`x` `y`] with `value` printed over it.
@@ -2145,57 +2137,6 @@
       (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
           (draw-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
           (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
-
-(defn abbreviate-times
-  "\"minute\" -> \"min\", \"hour\" -> \"hr\", anywhere in the string. Case-sensitive, so
-   a capitalized \"Hour\" passes through untouched. Throws on nil."
-  [time]
-  (-> time
-      (s/replace #"minute" "min")
-      (s/replace #"hour" "hr")))
-
-(defn max-len
-  "`s` truncated to at most `len` characters, with no ellipsis. nil returns nil."
-  [s len]
-  (if (<= (count s) len)
-    s
-    (subs s 0 len)))
-
-(defn abbreviate-duration
-  "Spell duration shortened to fit a card field: \"Concentration, up to 1 hour\"
-   -> \"Conc, 1 hr\", \"Instantaneous\" -> \"Inst\", \"round\" -> \"Rnd\", then hard
-   truncated at 16 characters. nil passes through.
-
-   Shared with spellbook.clj."
-  [duration]
-  (when duration
-    (-> duration
-        (s/replace #"Concentration,? up to " "Conc, ")
-        abbreviate-times
-        (s/replace #"Instantaneous.*" "Inst")
-        (s/replace #"round" "Rnd")
-        (max-len 16))))
-
-(defn abbreviate-casting-time
-  "\"1 bonus action\" -> \"1 B.A.\", \"1 reaction\" -> \"1 React.\". Reaction goes before
-   action, which it contains."
-  [casting-time]
-  (-> casting-time
-      abbreviate-times
-      (s/replace #"bonus action" "B.A.")
-      (s/replace #"reaction" "React.")
-      (s/replace #"\baction" "Act.")))
-
-(defn abbreviate-range
-  "Spell range shortened to fit a card field: anything starting \"Self\" collapses
-   to \"Self\" (dropping the shape, so \"Self (15-foot cone)\" loses the cone), and
-   \"feet\" -> \"ft\". Throws on nil.
-
-   Shared with spellbook.clj."
-  [range]
-  (-> range
-      (s/replace #"Self.*" "Self")
-      (s/replace #"feet" "ft")))
 
 (def site-stamp
   "The site line printed on card backs."
@@ -2805,8 +2746,8 @@
                                  0.2)
                (draw-text-to-box cs
                                  (if (not= class-nm "Homebrew")
-                                   (str (spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
-                                   (spell-school-level spell class-nm))
+                                   (str (sp/spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
+                                   (sp/spell-school-level spell class-nm))
                                  (:italic fonts)
                                  8
                                  (+ x 0.12)
@@ -2817,7 +2758,7 @@
                  (draw-spell-field cs
                                    img
                                    "magic-swirl"
-                                   (str (abbreviate-casting-time
+                                   (str (sp/abbreviate-casting-time
                                          (first
                                           (s/split
                                            casting-time
@@ -2829,7 +2770,7 @@
                  (draw-spell-field cs
                                    img
                                    "arrow-dunk"
-                                   (abbreviate-range range)
+                                   (sp/abbreviate-range range)
                                    (+ x 0.62)
                                    (- 11.0 y 0.45)
                                    bw? bw-faded?))
@@ -2854,7 +2795,7 @@
                  (draw-spell-field cs
                                    img
                                    "sands-of-time"
-                                   (abbreviate-duration duration)
+                                   (sp/abbreviate-duration duration)
                                    (+ x 1.62)
                                    (- 11.0 y 0.45)
                                    bw? bw-faded?))

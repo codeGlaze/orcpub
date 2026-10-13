@@ -6,6 +6,7 @@
             [clojure.java.io :as io]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
+            [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.routes :as routes]
             [orcpub.spellbook :as sb]
             [orcpub.dnd.e5.emblems :as emblems]
@@ -109,9 +110,9 @@
 
 (deftest abbreviations-and-summaries
   (testing "reaction is not read as re- plus action, on the cards or here"
-    (is (= "1 React." (pdf/abbreviate-casting-time "1 reaction")))
-    (is (= "1 B.A." (pdf/abbreviate-casting-time "1 bonus action")))
-    (is (= "1 Act." (pdf/abbreviate-casting-time "1 action"))))
+    (is (= "1 React." (sp/abbreviate-casting-time "1 reaction")))
+    (is (= "1 B.A." (sp/abbreviate-casting-time "1 bonus action")))
+    (is (= "1 Act." (sp/abbreviate-casting-time "1 action"))))
   (testing "a summary never opens on a list bullet"
     (is (not (str/starts-with? (sb/summary (spell "Wish")) "\u00B7")))))
 
