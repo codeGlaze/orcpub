@@ -141,7 +141,12 @@
                (let [{:keys [result busy]}
                      (work-pool/run pool (fn [] (portrait-render/render-png (char5e/parse-portrait stored))))]
                  (cond busy (throw (ex-info "portrait draw busy" {::busy busy}))
-                       result (do (write-stored! id fp result) result)
+                       result (do (try (write-stored! id fp result)
+                                       (catch Exception e
+                                         ;; served all the same; it is drawn again next time
+                                         (println "portrait-store: could not keep" id "in"
+                                                  (str (store-dir)) "-" (.getMessage e))))
+                                     result)
                        :else nil))))]
     (catch clojure.lang.ExceptionInfo e
       (if-let [retry (::busy (ex-data e))] [:busy retry] (throw e)))))
