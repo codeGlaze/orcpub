@@ -42,6 +42,18 @@
            (java.awt.image BufferedImage)
            (java.net URL)))
 
+;; THE ACTUAL API: 82 public fns, 45 public defs; 33 names referenced from outside this
+;; file -- 23 by routes.clj (export entry points, spell-page and image helpers), 9 by
+;; spellbook.clj (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops,
+;; site-stamp, the three abbreviators), and report-image-egress! by system.clj.
+
+;; The rest are public by `defn` default, not by design. dev/ scripts reach deeper, but
+;; that is tooling, not a contract to preserve.
+
+;; UNITS: this file is INCHES and converts at the drawing call; spellbook.clj is POINTS.
+;; Images take y from the page TOP (via in-to-coord-y), text from the BOTTOM -- card
+;; code flips by hand, `(- 11.0 y 0.08)`, at every text call.
+
 ;; Pageless widgets came with the templates; dev/prepare_templates.clj has removed them
 ;; from resources/. Only add-missing-spell-pages! prunes at export time, before it
 ;; generates pages, in case it gets an unbaked template. widget-box ignores them.
@@ -1091,16 +1103,34 @@
   [doc page]
   (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
 
-(defn in-to-sz [inches]
+(defn in-to-sz
+  "Inches to PDF points (72 per inch). Use for SIZES -- widths, heights, font
+   offsets -- where no page origin is involved. `inches-to-units` is the same
+   function under a second name; prefer this one."
+  [inches]
   (float (* 72 inches)))
 
-(defn in-to-coord-x [inches]
+(defn in-to-coord-x
+  "Inches from the page LEFT edge to a PDF x coordinate. Just `in-to-sz`: x needs no
+   flip because both spaces run left to right. It exists so that call sites can name
+   both axes the same way."
+  [inches]
   (in-to-sz inches))
 
-(defn in-to-coord-y [inches]
+(defn in-to-coord-y
+  "Inches from the page TOP to a PDF y coordinate, which measures from the bottom.
+   Hardcodes an 11-inch page: wrong for any other size, and the only reason the
+   point-based spellbook code can reuse `draw-svg-icon!` is that 792pt is exactly
+   11in. Images go through here and so take `y` from the top; the text functions
+   multiply by 72 directly and take it from the bottom."
+  [inches]
   (in-to-sz (- 11 inches)))
 
-(defn scale [[r-h r-w] [i-h i-w]]
+(defn scale
+  "Largest [height width] with the image's aspect ratio that fits the rectangle
+   [r-h r-w]. One dimension always matches the rectangle exactly; the other is
+   smaller. Units are whatever the caller used, so long as both pairs agree."
+  [[r-h r-w] [i-h i-w]]
   (let [height-to-width (/ i-h i-w)
         rect-height-to-width (/ r-h r-w)
         height-ratio (/ r-h i-h)]
@@ -1108,7 +1138,12 @@
       [r-h (* r-h (/ i-w i-h))]
       [(* r-w (/ i-h i-w)) r-w])))
 
-(defn draw-imagex [c-stream img x y width height]
+(defn draw-imagex
+  "Draws an already-embedded PDImageXObject into the box at [`x` `y`] sized
+   `width` x `height`, all in INCHES, with `y` measured from the page TOP. The
+   image keeps its aspect ratio (see `scale`) and is centred in whichever
+   dimension it falls short of."
+  [c-stream img x y width height]
   (let [[scaled-height scaled-width] (scale [height width] [(.getHeight img) (.getWidth img)])]
     (.drawImage
      c-stream
@@ -1442,7 +1477,13 @@
                       {:error :image-too-large-dimensions :url url})))
     data))
 
-(defn draw-non-jpg [doc page url x y width height]
+(defn draw-non-jpg
+  "Fetches a non-JPEG image from `url` and draws it, re-encoded losslessly (PNG and
+   anything else ImageIO reads). Box arguments are `draw-imagex`'s. Opens its own
+   content stream, so it cannot interleave with other drawing on the page. THROWS
+   ex-info on failure -- `:image-load-timeout`, `:unknown-host`,
+   `:invalid-image-format`, `:image-load-failed`; `draw-image!` is the quiet path."
+  [doc page url x y width height]
   (try
     (with-open [c-stream (content-stream doc page)]
       (let [buff-image (ImageIO/read (java.io.ByteArrayInputStream.
@@ -1469,7 +1510,11 @@
                        :url url}
                       e)))))
 
-(defn draw-jpg [doc page url x y width height]
+(defn draw-jpg
+  "`draw-non-jpg` for JPEGs: embeds the fetched bytes directly rather than
+   re-encoding, so the file stays small and the image lossless-to-source.
+   Same box arguments, same throwing contract (`:jpeg-load-failed`)."
+  [doc page url x y width height]
   (try
     (with-open [c-stream (content-stream doc page)
                 image-stream (java.io.ByteArrayInputStream. (safe-image-bytes url))]
@@ -1673,7 +1718,12 @@
       (println "pdf: supplied image bytes rejected -" (.getMessage e))
       nil)))
 
-(defn draw-image! [doc page url x y width height]
+(defn draw-image!
+  "Draws the image at `url` into the box at [`x` `y`] sized `width` x `height` in
+   inches, `y` from the page TOP. Picks `draw-jpg` or `draw-non-jpg` by extension.
+   SWALLOWS every failure: logs and returns nil, so one unreachable portrait URL
+   cannot fail an export. Callers get no signal that nothing was drawn."
+  [doc page url x y width height]
   (let [lower-case-url (s/lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")
                  (s/ends-with? lower-case-url "jpeg"))
@@ -1691,10 +1741,20 @@
         (clojure.stacktrace/print-stack-trace e)
         nil))))
 
-(defn get-page [doc index]
+(defn get-page
+  "The document's `index`th page, zero-based. Thin wrapper over
+   PDDocument.getPage so callers need not import PDFBox classes."
+  [doc index]
   (.getPage doc index))
 
-(defn split-lines [text ^PDFont font font-size width]
+(defn split-lines
+  "Greedy word wrap of `text` to `width` INCHES at `font-size` (see
+   `string-width`, which also works in inches). Splits on whitespace, so
+   existing newlines are not honoured. A word wider than the box gets its own
+   over-long line rather than being hyphenated or dropped.
+
+   Shared with spellbook.clj."
+  [text ^PDFont font font-size width]
   (let [words (s/split text #"\s")]
     (loop [lines []
            current-line nil
@@ -1936,7 +1996,13 @@
               (recur (or tail "") (inc n)))))))
     trimmed))
 
-(defn draw-lines-to-box [cs lines font font-size x y height]
+(defn draw-lines-to-box
+  "Draws pre-wrapped `lines` into a box `height` inches tall topped at [`x` `y`],
+   inches with `y` from the page BOTTOM (see `in-to-coord-y`). Leading is 1.1x the
+   font size. RETURNS the lines that did not fit, which is how card overflow reaches
+   the backs; empty means all fit. Nothing is truncated horizontally -- that is
+   `split-lines`' job."
+  [cs lines font font-size x y height]
   (let [leading (* font-size 1.1)
         max-lines (dec (/ (* 72 height) leading))
         units-x (* 72 x)
@@ -1952,7 +2018,11 @@
     (.endText cs)
     (vec (drop max-lines lines))))
 
-(defn draw-text-to-box [cs text font font-size x y width height]
+(defn draw-text-to-box
+  "`split-lines` then `draw-lines-to-box`: wraps `text` to `width` and fills the
+   box, returning the lines that did not fit. Inches throughout, `y` from the
+   page BOTTOM."
+  [cs text font font-size x y width height]
   (let [lines (split-lines text font font-size width)]
     (draw-lines-to-box cs lines font font-size x y height)))
 
@@ -1961,7 +2031,12 @@
   [cs r g b]
   (.setNonStrokingColor cs (float r) (float g) (float b)))
 
-(defn draw-text [cs text font font-size x y & [color]]
+(defn draw-text
+  "One line of text with its baseline at [`x` `y`], in inches with `y` from the
+   page BOTTOM. No wrapping and no box -- it runs off the page if too long.
+   `color` is an [r g b] of 0.0-1.0 floats and, when given, is reset to black
+   afterwards. Keywords are rendered via `common/safe-name`; nil `text` is a no-op."
+  [cs text font font-size x y & [color]]
   (when text
     (let [units-x (* 72 x)
           units-y (* 72 y)]
@@ -1994,10 +2069,16 @@
   (.lineTo cs (float end-x) (float end-y))
   (.stroke cs))
 
-(defn inches-to-units [inches]
+(defn inches-to-units
+  "DUPLICATE of `in-to-sz`, declared 900 lines later and identical. Kept because
+   `draw-line-in` and the grid code call it; new code should use `in-to-sz`."
+  [inches]
   (float (* inches 72)))
 
-(defn draw-line-in [cs & coords]
+(defn draw-line-in
+  "`draw-line` with every coordinate given in inches instead of points. Both
+   axes measure from the page BOTTOM-left; there is no flip here."
+  [cs & coords]
   (apply draw-line cs (map inches-to-units coords)))
 
 (defn draw-grid
@@ -2031,13 +2112,23 @@
                       y)))
     (.setStrokingColor cs (float 0) (float 0) (float 0))))
 
-(defn spell-school-level [{:keys [level school]} class-nm]
+(defn spell-school-level
+  "The subtitle line of a spell card: \"Wizard Cantrip Evocation\" at level 0,
+   \"Wizard Level 3 Evocation\" otherwise. A missing school reads \"Unknown\" and a
+   missing level \"?\" rather than throwing, since homebrew spells reach here
+   unvalidated."
+  [{:keys [level school]} class-nm]
   (let [school-str (if school (s/capitalize school) "Unknown")]
     (if (and level (zero? level))
       (str class-nm " Cantrip " school-str)
       (str class-nm " Level " (or level "?") " " school-str))))
 
-(defn draw-spell-field [cs img title value x y bw? bw-faded?]
+(defn draw-spell-field
+  "One icon-and-value field on a spell card (casting time, range, duration,
+   components): the `title` icon at [`x` `y`] with `value` printed over it.
+   Inches, `y` from the page TOP. `img` is the document's memoized image loader, and
+   both printer-friendly modes are handled here (see the note below)."
+  [cs img title value x y bw? bw-faded?]
   ;; The label overprints the icon; this is the one choke point for all four
   ;; per-spell icons. Colour: icon-red icon, black text. B&W solid: black icon,
   ;; WHITE-HALO text. B&W faded: black icon at 40%, black text. One SVG serves all.
@@ -2052,17 +2143,28 @@
           (draw-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
           (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
 
-(defn abbreviate-times [time]
+(defn abbreviate-times
+  "\"minute\" -> \"min\", \"hour\" -> \"hr\", anywhere in the string. Case-sensitive, so
+   a capitalized \"Hour\" passes through untouched. Throws on nil."
+  [time]
   (-> time
       (s/replace #"minute" "min")
       (s/replace #"hour" "hr")))
 
-(defn max-len [s len]
+(defn max-len
+  "`s` truncated to at most `len` characters, with no ellipsis. nil returns nil."
+  [s len]
   (if (<= (count s) len)
     s
     (subs s 0 len)))
 
-(defn abbreviate-duration [duration]
+(defn abbreviate-duration
+  "Spell duration shortened to fit a card field: \"Concentration, up to 1 hour\"
+   -> \"Conc, 1 hr\", \"Instantaneous\" -> \"Inst\", \"round\" -> \"Rnd\", then hard
+   truncated at 16 characters. nil passes through.
+
+   Shared with spellbook.clj."
+  [duration]
   (when duration
     (-> duration
         (s/replace #"Concentration,? up to " "Conc, ")
@@ -2081,7 +2183,13 @@
       (s/replace #"reaction" "React.")
       (s/replace #"\baction" "Act.")))
 
-(defn abbreviate-range [range]
+(defn abbreviate-range
+  "Spell range shortened to fit a card field: anything starting \"Self\" collapses
+   to \"Self\" (dropping the shape, so \"Self (15-foot cone)\" loses the cone), and
+   \"feet\" -> \"ft\". Throws on nil.
+
+   Shared with spellbook.clj."
+  [range]
   (-> range
       (s/replace #"Self.*" "Self")
       (s/replace #"feet" "ft")))
@@ -2521,7 +2629,13 @@
                                          true true)]
       (draw-text cs site-stamp HELVETICA site-stamp-size x y [0.45 0.45 0.45]))))
 
-(defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
+(defn print-backs
+  "Draws one page of spell card BACKS, mirroring the fronts for duplex printing.
+   `remaining-lines-vec` is indexed by the card position `print-spells` used, each
+   entry `{:remaining-lines :spell-name}` from that call; a card with no overflow
+   gets only its name and the site stamp. `logo-img` opts a card into the logo.
+   Inches. See the `draw-grid` call below for a latent sizing bug."
+  [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
   ;; into showing the card logo (matching the fronts) for double-sided printing.
   ;; When logo? is false NO images are loaded here — the old code decoded+embedded
@@ -2533,6 +2647,10 @@
         margin-x (/ remaining-width 2)
         remaining-height (- 11.0 total-height)
         margin-y (/ remaining-height 2)]
+    ;; BUG: box-width/box-height size the cells and the text boxes, but the gridlines
+    ;; come from these literals. Latent -- every caller passes 2.5/3.5 -- but any other
+    ;; box size draws the lines in the wrong places. Same in print-spells; print-items
+    ;; threads its arguments through correctly.
     (draw-grid cs 2.5 3.5)
     (draw-text cs
                (str "Page " (inc page-number) " (reverse)")
@@ -2591,7 +2709,13 @@
          ;; the same strip above.
          (draw-site-stamp! cs fonts x y box-width box-height))))))
 
-(defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
+(defn print-spells
+  "Draws one page of spell card FRONTS and returns what did not fit, for
+   `print-backs`. `spells` is a seq of `{:class-nm :dc :attack-bonus :spell}`; cards
+   fill right to left within a row so a duplex flip lines the backs up.
+   `print-spell-card-dc-mod?` prints save DC and attack bonus; `bw?`/`bw-faded?`
+   select the printer-friendly renderings. Inches."
+  [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         total-width (* num-boxes-x box-width)
@@ -2600,6 +2724,7 @@
         margin-x (/ remaining-width 2)
         remaining-height (- 11.0 total-height)
         margin-y (/ remaining-height 2)]
+    ;; BUG: as in print-backs -- the gridlines ignore box-width/box-height.
     (draw-grid cs 2.5 3.5)
         (draw-text cs
                    (str "Page " (inc page-number))
