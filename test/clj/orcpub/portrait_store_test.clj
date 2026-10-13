@@ -141,3 +141,17 @@
         (is (= kept body) "what is served is the kept file")
         (is (= (vec (portrait-render/render-png (char5e/parse-portrait stored))) body)
             "and that is the server's drawing of the saved selection")))))
+
+(deftest a-crafted-portrait-cannot-break-the-character
+  (let [nested (apply str (repeat 20000 "["))]
+    (testing "deeply nested data overflowed the reader's stack with an Error, not an Exception"
+      (is (nil? (char5e/parse-portrait nested)))
+      (is (nil? (char5e/parse-portrait (apply str (repeat 5000 "[")))) "nested but short enough to read"))
+    (with-conn conn
+      (let [c (setup conn)
+            id (save! c {::char5e/portrait nested ::char5e/notes "still saved"})]
+        (is (some? id) "the save goes through")
+        (is (= "still saved" (get-in (d/pull (d/db c) '[{::se/values [::char5e/notes]}] id) [::se/values ::char5e/notes])))
+        (is (nil? (get-in (d/pull (d/db c) '[{::se/values [::char5e/portrait]}] id) [::se/values ::char5e/portrait]))
+            "and the junk is not stored")
+        (is (= 404 (:status (served c id))) "the image route answers, with no picture")))))
