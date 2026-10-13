@@ -68,11 +68,18 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- git-files
-  "Paths git tracks or would commit (untracked and not ignored), from the repository root."
-  []
-  (let [run #(let [p (.start (ProcessBuilder. ^java.util.List (into ["git"] %)))]
-               (str/split-lines (slurp (.getInputStream p))))]
-    (into (run ["ls-files"]) (run ["ls-files" "--others" "--exclude-standard"]))))
+  "Paths git tracks or would commit (untracked and not ignored), from the repository root, or
+   from `dir`."
+  ([] (git-files nil))
+  ([dir]
+   (let [run #(let [p (.start (doto (ProcessBuilder. ^java.util.List (into ["git"] %))
+                                (.directory dir)))
+                    out (slurp (.getInputStream p))]
+                ;; a guard that sees no files passes, so git failing has to fail it
+                (when-not (zero? (.waitFor p))
+                  (throw (ex-info "git failed; the image guard cannot list files" {:args %})))
+                (remove str/blank? (str/split-lines out)))]
+     (into (run ["ls-files"]) (run ["ls-files" "--others" "--exclude-standard"])))))
 
 (defn repo-images
   "{path -> digest} for every image outside the portrait art directory that git tracks or would
@@ -159,3 +166,8 @@
                    " on the private deployment branch). A silhouette composite, screenshot, logo or"
                    " photo: REVIEWED_IMAGES=record lein test :only orcpub.portrait-art-guard-test,"
                    " then say what it is in " reviewed-file)))))))
+
+(deftest the-guard-fails-when-it-cannot-list-files
+  ;; a guard that sees no files passes; git failing must fail it instead
+  (is (thrown? Exception (#'git-files (io/file "/"))) "outside a repository git fails, and so does the guard")
+  (is (seq (remove str/blank? (#'git-files))) "inside one it lists files"))
